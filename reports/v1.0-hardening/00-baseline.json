@@ -1,0 +1,93 @@
+{
+  "status": "blocked",
+  "capturedAt": "2026-07-10T17:22:01+08:00",
+  "branch": "release/v1.0-hardening",
+  "baselineCommit": "7c2fea66687624743f286d9c8cb23b54e5a36036",
+  "environment": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "docker": {
+      "available": false,
+      "error": "docker: command not found",
+      "alternativeRuntimeAvailable": false,
+      "nonInteractiveSudoAvailable": false,
+      "aptCandidates": [
+        "docker.io",
+        "docker-compose-v2"
+      ]
+    },
+    "postgresql": "unverified",
+    "redis": "unverified"
+  },
+  "repository": {
+    "packageVersion": "0.0.0",
+    "latestForwardMigration": "0053_mcp_tool_enhancement_stage.up.sql",
+    "managementOpenApiOperationCount": 102,
+    "workflowDslSchema": "schemas/workflow-dsl.schema.json",
+    "workflowNodeKinds": [
+      "llm",
+      "mcp_tool",
+      "result",
+      "condition",
+      "parallel",
+      "loop",
+      "subworkflow",
+      "human_confirmation",
+      "error_handler",
+      "skill_call"
+    ]
+  },
+  "testInventory": {
+    "sourceTestFiles": 57,
+    "lexicalTestDeclarations": 301,
+    "executedTestCount": 0,
+    "historicalCheckedInEvidence": {
+      "commit": "663bd1929932c0749d9ce56f22a96a186a2b47a3",
+      "files": 54,
+      "tests": 242,
+      "classification": "historical-not-current-baseline"
+    }
+  },
+  "commands": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 1,
+      "stage": "supply-chain-policy",
+      "testsExecuted": false
+    },
+    {
+      "command": "pnpm verify",
+      "exitCode": 1,
+      "stage": "dependency-status-install",
+      "testsExecuted": false
+    }
+  ],
+  "failures": [
+    {
+      "code": "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION",
+      "package": "langsmith@0.8.1",
+      "publishedAt": "2026-07-09T17:24:56.000Z",
+      "observedCutoff": "2026-07-09T09:20:02.908Z"
+    },
+    {
+      "code": "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION",
+      "package": "prettier@3.9.5",
+      "publishedAt": "2026-07-09T16:17:00.997Z",
+      "observedCutoff": "2026-07-09T09:20:02.908Z"
+    },
+    {
+      "code": "DOCKER_EXECUTABLE_UNAVAILABLE",
+      "message": "docker: command not found",
+      "observedBy": "docker --version"
+    }
+  ],
+  "policyChangesMade": false,
+  "lockfileChangesMade": false,
+  "implementationStarted": false,
+  "resumeConditions": [
+    "Both pinned packages satisfy the configured minimum release age",
+    "Docker Engine and Docker Compose CLI are available",
+    "pnpm install --frozen-lockfile passes",
+    "pnpm verify passes"
+  ]
+}
