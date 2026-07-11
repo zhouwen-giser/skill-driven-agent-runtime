@@ -9,4 +9,5 @@ export * from './temporary-skill.js';
 export * from './mcp-registry.js';
 export * from './model-runtime.js';
 export * from './plan-preparation-processor.js';
+export * from './prompt-service.js';
 export * from './task-service.js';

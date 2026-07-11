@@ -32,6 +32,8 @@ export interface ModelInvocationRecord {
   readonly providerId: string;
   readonly model: string;
   readonly operation: 'structured_generation' | 'embedding';
+  readonly promptId?: string;
+  readonly promptVersion?: number;
   readonly request: unknown;
   readonly context: unknown;
   readonly rawResponse?: unknown;

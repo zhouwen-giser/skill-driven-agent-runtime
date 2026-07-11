@@ -2,6 +2,7 @@ import type {
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
+  PromptVersion,
 } from '../../domain/src/index.js';
 
 import type {
@@ -90,9 +91,17 @@ export class ModelRuntimeService {
     }>,
   ): Promise<unknown> {
     const provider = await this.#requiredProvider(input.stage);
+    const prompt = await this.#repository.findActivePromptForStage(input.stage);
+    if (prompt?.status !== 'enabled') {
+      throw new ModelRuntimeError(
+        'MODEL_PROMPT_NOT_CONFIGURED',
+        `No enabled Prompt is configured for stage ${input.stage}.`,
+      );
+    }
     const started = Date.now();
+    const renderedInstruction = prompt.content.replaceAll('{{instruction}}', input.instruction);
     const request = {
-      instruction: input.instruction,
+      instruction: renderedInstruction,
       responseSchema: input.responseSchema,
       correctionErrors: input.correctionErrors,
     };
@@ -100,7 +109,7 @@ export class ModelRuntimeService {
       const result = await this.#transport.generateStructured({
         configuration: provider.configuration,
         credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
-        instruction: input.instruction,
+        instruction: renderedInstruction,
         responseSchema: input.responseSchema,
         correctionErrors: input.correctionErrors,
         signal: AbortSignal.timeout(provider.configuration.timeoutMs),
@@ -114,6 +123,7 @@ export class ModelRuntimeService {
         started,
         'succeeded',
         result,
+        prompt,
       );
       return result.structuredResult;
     } catch (error: unknown) {
@@ -125,6 +135,7 @@ export class ModelRuntimeService {
         input.context,
         started,
         error,
+        prompt,
       );
       throw new ModelRuntimeError(
         'MODEL_INVOCATION_FAILED',
@@ -200,6 +211,7 @@ export class ModelRuntimeService {
       inputTokens?: number;
       outputTokens?: number;
     }>,
+    prompt?: PromptVersion,
   ): Promise<void> {
     await this.#repository.saveInvocation({
       invocationId: this.#ids.nextInvocationId(),
@@ -207,6 +219,7 @@ export class ModelRuntimeService {
       providerId: configuration.providerId,
       model: configuration.model,
       operation,
+      ...(prompt === undefined ? {} : { promptId: prompt.promptId, promptVersion: prompt.version }),
       request,
       context: context ?? {},
       rawResponse: result.rawResponse,
@@ -227,6 +240,7 @@ export class ModelRuntimeService {
     context: unknown,
     started: number,
     error: unknown,
+    prompt?: PromptVersion,
   ): Promise<void> {
     await this.#repository.saveInvocation({
       invocationId: this.#ids.nextInvocationId(),
@@ -234,6 +248,7 @@ export class ModelRuntimeService {
       providerId: configuration.providerId,
       model: configuration.model,
       operation,
+      ...(prompt === undefined ? {} : { promptId: prompt.promptId, promptVersion: prompt.version }),
       request,
       context: context ?? {},
       durationMs: Math.max(0, Date.now() - started),
@@ -272,6 +287,7 @@ function errorCode(error: unknown): string {
 
 export type ModelRuntimeErrorCode =
   | 'MODEL_INVOCATION_FAILED'
+  | 'MODEL_PROMPT_NOT_CONFIGURED'
   | 'MODEL_PROVIDER_CONFIGURATION_INVALID'
   | 'MODEL_PROVIDER_NOT_AVAILABLE'
   | 'MODEL_STAGE_NOT_CONFIGURED';

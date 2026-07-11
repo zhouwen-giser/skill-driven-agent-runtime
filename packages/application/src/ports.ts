@@ -10,6 +10,8 @@ import type {
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
+  PromptEffectSummary,
+  PromptVersion,
   McpToolDependencyChange,
   Skill,
   SkillRelation,
@@ -270,6 +272,15 @@ export interface ModelRuntimeRepository {
   saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void>;
   saveInvocation(invocation: ModelInvocationRecord): Promise<void>;
   listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]>;
+  findActivePromptForStage(stage: ModelStage): Promise<PromptVersion | undefined>;
+}
+
+export interface PromptRepository {
+  findCurrent(stage: ModelStage): Promise<PromptVersion | undefined>;
+  findVersion(promptId: string, version: number): Promise<PromptVersion | undefined>;
+  listVersions(promptId: string): Promise<readonly PromptVersion[]>;
+  saveVersion(version: PromptVersion, setCurrent: boolean): Promise<void>;
+  effect(promptId: string, version: number): Promise<PromptEffectSummary>;
 }
 
 export interface ModelTransportAdapter {

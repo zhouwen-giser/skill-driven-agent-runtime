@@ -66,6 +66,17 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Outcomes and Retrospective
 
+## Prompt Lifecycle Progress Update - 2026-07-12
+
+- [x] Add stage-scoped PostgreSQL Prompt and immutable PromptVersion authority.
+- [x] Add create, publish, disable, rollback and effect management operations.
+- [x] Prevent `auto_candidate` from publishing or changing the current version.
+- [x] Require current enabled PromptVersion before structured model calls and audit the actual version.
+- [x] Verify AC-15 candidate/publish behavior through same-process e2e.
+- [ ] Generate candidates automatically from failure/evaluation evidence in EP-05.
+
+Decision: ADR-019 defines immutable Prompt publication and runtime linkage.
+
 ## Model Runtime Progress Update - 2026-07-12
 
 - [x] Add domain-owned Provider configuration, fixed stage route, and invocation audit records.

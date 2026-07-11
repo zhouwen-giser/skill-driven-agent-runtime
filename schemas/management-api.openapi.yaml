@@ -6,6 +6,30 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/prompts:
+    post:
+      operationId: createPromptVersion
+      responses: { '201': { description: Candidate or enabled immutable PromptVersion }, '400': { $ref: '#/components/responses/Error' } }
+  /api/v1/prompts/{promptId}/versions:
+    get:
+      operationId: listPromptVersions
+      responses: { '200': { description: Immutable Prompt version chain } }
+  /api/v1/prompts/{promptId}/publish/{version}:
+    post:
+      operationId: publishPromptCandidate
+      responses: { '200': { description: New enabled PromptVersion } }
+  /api/v1/prompts/{promptId}/disable:
+    post:
+      operationId: disablePrompt
+      responses: { '200': { description: New disabled PromptVersion } }
+  /api/v1/prompts/{promptId}/rollback/{version}:
+    post:
+      operationId: rollbackPrompt
+      responses: { '200': { description: New enabled rollback PromptVersion } }
+  /api/v1/prompts/{promptId}/effects/{version}:
+    get:
+      operationId: getPromptEffect
+      responses: { '200': { description: Invocation success/failure/duration/Token summary } }
   /api/v1/models/providers/{providerId}:
     parameters: [{ name: providerId, in: path, required: true, schema: { type: string } }]
     put:

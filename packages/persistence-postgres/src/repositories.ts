@@ -9,6 +9,7 @@ import type {
   McpServerRecord,
   ModelProviderRecord,
   ModelRuntimeRepository,
+  PromptRepository,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
@@ -29,6 +30,8 @@ import type {
   McpToolEnhancement,
   ModelInvocationRecord,
   ModelStage,
+  PromptEffectSummary,
+  PromptVersion,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -747,6 +750,8 @@ interface ModelInvocationRow extends QueryResultRow {
   provider_id: string;
   model: string;
   operation: ModelInvocationRecord['operation'];
+  prompt_id: string | null;
+  prompt_version: number | null;
   request_json: unknown;
   context_json: unknown;
   raw_response_json: unknown;
@@ -820,15 +825,17 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
   async saveInvocation(invocation: ModelInvocationRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO model_invocation
-       (invocation_id,stage,provider_id,model,operation,request_json,context_json,raw_response_json,
+       (invocation_id,stage,provider_id,model,operation,prompt_id,prompt_version,request_json,context_json,raw_response_json,
         structured_result_json,input_tokens,output_tokens,duration_ms,status,error_code,error_message,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18)`,
       [
         invocation.invocationId,
         invocation.stage,
         invocation.providerId,
         invocation.model,
         invocation.operation,
+        invocation.promptId ?? null,
+        invocation.promptVersion ?? null,
         JSON.stringify(invocation.request),
         JSON.stringify(invocation.context),
         invocation.rawResponse === undefined ? null : JSON.stringify(invocation.rawResponse),
@@ -853,6 +860,118 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
     );
     return result.rows.map(mapModelInvocationRow);
   }
+
+  async findActivePromptForStage(stage: ModelStage): Promise<PromptVersion | undefined> {
+    return findActivePrompt(this.#pool, stage);
+  }
+}
+
+interface PromptVersionRow extends QueryResultRow {
+  prompt_id: string;
+  stage: ModelStage;
+  version: number;
+  previous_version: number | null;
+  content: string;
+  status: PromptVersion['status'];
+  source: PromptVersion['source'];
+  created_at: Date | string;
+}
+
+export class PostgresPromptRepository implements PromptRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  findCurrent(stage: ModelStage): Promise<PromptVersion | undefined> {
+    return findActivePrompt(this.#pool, stage);
+  }
+  async findVersion(promptId: string, version: number): Promise<PromptVersion | undefined> {
+    const result = await this.#pool.query<PromptVersionRow>(
+      'SELECT * FROM prompt_version WHERE prompt_id=$1 AND version=$2',
+      [promptId, version],
+    );
+    return result.rows[0] === undefined ? undefined : mapPromptVersionRow(result.rows[0]);
+  }
+  async listVersions(promptId: string): Promise<readonly PromptVersion[]> {
+    const result = await this.#pool.query<PromptVersionRow>(
+      'SELECT * FROM prompt_version WHERE prompt_id=$1 ORDER BY version',
+      [promptId],
+    );
+    return result.rows.map(mapPromptVersionRow);
+  }
+  async saveVersion(version: PromptVersion, setCurrent: boolean): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO prompt(prompt_id,stage,current_version,created_at,updated_at) VALUES($1,$2,NULL,$3,$3)
+         ON CONFLICT(prompt_id) DO UPDATE SET updated_at=EXCLUDED.updated_at`,
+        [version.promptId, version.stage, version.createdAt],
+      );
+      await client.query(
+        `INSERT INTO prompt_version(prompt_id,stage,version,previous_version,content,status,source,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          version.promptId,
+          version.stage,
+          version.version,
+          version.previousVersion ?? null,
+          version.content,
+          version.status,
+          version.source,
+          version.createdAt,
+        ],
+      );
+      if (setCurrent)
+        await client.query(
+          'UPDATE prompt SET current_version=$2,updated_at=$3 WHERE prompt_id=$1',
+          [version.promptId, version.version, version.createdAt],
+        );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async effect(promptId: string, version: number): Promise<PromptEffectSummary> {
+    const result = await this.#pool.query<{
+      invocation_count: number;
+      success_count: number;
+      failure_count: number;
+      average_duration_ms: number;
+      total_input_tokens: number;
+      total_output_tokens: number;
+    }>(
+      `SELECT COUNT(*)::int invocation_count, COUNT(*) FILTER(WHERE status='succeeded')::int success_count,
+       COUNT(*) FILTER(WHERE status='failed')::int failure_count, COALESCE(AVG(duration_ms),0)::double precision average_duration_ms,
+       COALESCE(SUM(input_tokens),0)::int total_input_tokens, COALESCE(SUM(output_tokens),0)::int total_output_tokens
+       FROM model_invocation WHERE prompt_id=$1 AND prompt_version=$2`,
+      [promptId, version],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('PROMPT_EFFECT_QUERY_FAILED');
+    return {
+      promptId,
+      version,
+      invocationCount: row.invocation_count,
+      successCount: row.success_count,
+      failureCount: row.failure_count,
+      averageDurationMs: row.average_duration_ms,
+      totalInputTokens: row.total_input_tokens,
+      totalOutputTokens: row.total_output_tokens,
+    };
+  }
+}
+
+async function findActivePrompt(pool: Pool, stage: ModelStage): Promise<PromptVersion | undefined> {
+  const result = await pool.query<PromptVersionRow>(
+    `SELECT v.* FROM prompt p JOIN prompt_version v ON v.prompt_id=p.prompt_id AND v.version=p.current_version
+     WHERE p.stage=$1 AND v.status='enabled'`,
+    [stage],
+  );
+  return result.rows[0] === undefined ? undefined : mapPromptVersionRow(result.rows[0]);
 }
 
 interface SkillEmbeddingScoreRow extends QueryResultRow {
@@ -1461,6 +1580,8 @@ function mapModelInvocationRow(row: ModelInvocationRow): ModelInvocationRecord {
     providerId: row.provider_id,
     model: row.model,
     operation: row.operation,
+    ...(row.prompt_id === null ? {} : { promptId: row.prompt_id }),
+    ...(row.prompt_version === null ? {} : { promptVersion: row.prompt_version }),
     request: row.request_json,
     context: row.context_json,
     ...(row.raw_response_json === null ? {} : { rawResponse: row.raw_response_json }),
@@ -1473,6 +1594,19 @@ function mapModelInvocationRow(row: ModelInvocationRow): ModelInvocationRecord {
     status: row.status,
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
     ...(row.error_message === null ? {} : { errorMessage: row.error_message }),
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapPromptVersionRow(row: PromptVersionRow): PromptVersion {
+  return {
+    promptId: row.prompt_id,
+    stage: row.stage,
+    version: row.version,
+    ...(row.previous_version === null ? {} : { previousVersion: row.previous_version }),
+    content: row.content,
+    status: row.status,
+    source: row.source,
     createdAt: toIsoString(row.created_at),
   };
 }

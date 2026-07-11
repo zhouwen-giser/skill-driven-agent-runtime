@@ -10,6 +10,7 @@ import {
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
+  PostgresPromptRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
@@ -96,11 +97,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(modelRuntimeMigration);
+  const promptRuntimeMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0015_prompt_runtime.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(promptRuntimeMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE model_invocation, stage_model_route, model_provider, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -109,6 +115,49 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
+    const prompts = new PostgresPromptRepository(pool);
+    await prompts.saveVersion(
+      {
+        promptId: 'prompt.db',
+        stage: 'skill_authoring',
+        version: 1,
+        content: 'Candidate {{instruction}}',
+        status: 'candidate',
+        source: 'auto_candidate',
+        createdAt: '2026-07-12T00:00:00.000Z',
+      },
+      false,
+    );
+    await expect(prompts.findCurrent('skill_authoring')).resolves.toBeUndefined();
+    await prompts.saveVersion(
+      {
+        promptId: 'prompt.db',
+        stage: 'skill_authoring',
+        version: 2,
+        previousVersion: 1,
+        content: 'Published {{instruction}}',
+        status: 'enabled',
+        source: 'admin',
+        createdAt: '2026-07-12T00:01:00.000Z',
+      },
+      true,
+    );
+    await expect(prompts.findCurrent('skill_authoring')).resolves.toMatchObject({
+      version: 2,
+      status: 'enabled',
+    });
+    await expect(prompts.effect('prompt.db', 2)).resolves.toEqual({
+      promptId: 'prompt.db',
+      version: 2,
+      invocationCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      averageDurationMs: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+    });
+  });
   it('persists encrypted Model Providers, fixed stage routes, and displayable invocation audits', async () => {
     const repository = new PostgresModelRuntimeRepository(pool);
     const configuration = {

@@ -15,6 +15,7 @@ import {
   ResultProcessor,
   McpRegistryService,
   ModelRuntimeService,
+  PromptService,
   SkillGraphService,
   SkillAuthoringService,
   SkillSelectionService,
@@ -42,6 +43,7 @@ import {
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
+  PostgresPromptRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillEmbeddingRepository,
@@ -134,6 +136,7 @@ export async function startServerRuntime(
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
+  const prompts = new PromptService({ repository: new PostgresPromptRepository(pool), clock });
   const service = new TaskService({ contexts, tasks, events, skillDrafts, queue, clock, ids });
   const schemaValidator = new AjvJsonSchemaValidator();
   const resultProcessor = new ResultProcessor(schemaValidator);
@@ -203,6 +206,7 @@ export async function startServerRuntime(
         skills: skillRegistry,
         skillAuthoring,
         models: modelRuntime,
+        prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills,
       },
@@ -306,6 +310,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0012_temporary_skill.up.sql',
     '0013_skill_embedding.up.sql',
     '0014_model_runtime.up.sql',
+    '0015_prompt_runtime.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

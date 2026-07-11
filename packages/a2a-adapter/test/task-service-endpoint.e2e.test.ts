@@ -74,6 +74,18 @@ beforeAll(async () => {
     },
   );
   if (routeResponse.status !== 204) throw new Error('MODEL_ROUTE_SETUP_FAILED');
+  const promptResponse = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      promptId: 'prompt.skill-authoring.e2e',
+      stage: 'skill_authoring',
+      content: 'Author a validated Skill. {{instruction}}',
+      source: 'admin',
+      publish: true,
+    }),
+  });
+  if (promptResponse.status !== 201) throw new Error('MODEL_PROMPT_SETUP_FAILED');
 });
 
 afterAll(async () => {
@@ -296,6 +308,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             providerId: z.string(),
             model: z.string(),
             status: z.string(),
+            promptId: z.string().optional(),
+            promptVersion: z.number().optional(),
             rawResponse: z.unknown(),
             inputTokens: z.number(),
             outputTokens: z.number(),
@@ -308,11 +322,73 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         providerId: 'provider.e2e',
         model: 'model-e2e',
         status: 'succeeded',
+        promptId: 'prompt.skill-authoring.e2e',
+        promptVersion: 1,
         inputTokens: 9,
         outputTokens: 4,
       }),
     );
     expect(JSON.stringify(audits)).not.toContain('e2e-only');
+  });
+
+  it('keeps automatic Prompt candidates inactive until publish and links new calls to the published version', async () => {
+    const candidateResponse = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        promptId: 'prompt.skill-authoring.e2e',
+        stage: 'skill_authoring',
+        content: 'Candidate policy. {{instruction}}',
+        source: 'auto_candidate',
+        publish: false,
+      }),
+    });
+    expect(candidateResponse.status).toBe(201);
+    const candidate = z
+      .object({ version: z.literal(2), status: z.literal('candidate') })
+      .parse(await candidateResponse.json());
+    const author = (label: string) =>
+      fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          skillId: `skill.prompt.${label}.${randomUUID()}`,
+          naturalLanguageDescription:
+            'Create a detailed device inspection Skill with explicit input and output fields.',
+          toolPolicy: { required: [], optional: [], forbidden: [] },
+          runtimePolicy: { autoConfirmPlan: false },
+          status: 'enabled',
+          sourceKind: 'admin',
+        }),
+      });
+    expect((await author('before')).status).toBe(201);
+    const readVersions = async () =>
+      z
+        .object({ items: z.array(z.object({ promptVersion: z.number().optional() })) })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_authoring`,
+            )
+          ).json(),
+        ).items;
+    expect((await readVersions()).at(-1)?.promptVersion).toBe(1);
+    const publish = await fetch(
+      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/publish/${String(candidate.version)}`,
+      { method: 'POST' },
+    );
+    expect(publish.status).toBe(200);
+    await expect(publish.json()).resolves.toMatchObject({
+      version: 3,
+      previousVersion: 2,
+      status: 'enabled',
+    });
+    expect((await author('after')).status).toBe(201);
+    expect((await readVersions()).at(-1)?.promptVersion).toBe(3);
+    const effects = await fetch(
+      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/effects/3`,
+    );
+    await expect(effects.json()).resolves.toMatchObject({ invocationCount: 1, successCount: 1 });
   });
 
   it('fails the stage without fallback and audits the configured upstream failure', async () => {

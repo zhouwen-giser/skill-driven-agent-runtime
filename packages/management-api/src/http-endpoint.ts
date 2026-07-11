@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type {
   McpRegistryService,
   ModelRuntimeService,
+  PromptService,
   SkillAuthoringService,
   SkillSelectionService,
   RegisterSkillVersionInput,
@@ -123,6 +124,13 @@ const ConfigureModelProviderSchema = z.object({
   credentialHeaders: z.record(z.string(), z.string()),
 });
 const RouteModelStageSchema = z.object({ providerId: z.string().min(1) });
+const CreatePromptSchema = z.object({
+  promptId: z.string().min(1),
+  stage: ModelStageSchema,
+  content: z.string().min(1),
+  source: z.enum(['admin', 'auto_candidate', 'manual_correction']),
+  publish: z.boolean(),
+});
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -147,6 +155,10 @@ export interface ManagementOperations {
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
+  readonly prompts: Pick<
+    PromptService,
+    'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
+  >;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -212,6 +224,61 @@ export async function startManagementHttpEndpoint(
           ? undefined
           : ModelStageSchema.parse(request.query['stage']);
       response.json({ items: await options.operations.models.listInvocations(stage) });
+    }),
+  );
+  app.post(
+    '/api/v1/prompts',
+    asyncRoute(async (request, response) => {
+      response
+        .status(201)
+        .json(await options.operations.prompts.create(CreatePromptSchema.parse(request.body)));
+    }),
+  );
+  app.get(
+    '/api/v1/prompts/:promptId/versions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.prompts.listVersions(pathValue(request, 'promptId')),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/prompts/:promptId/publish/:version',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.prompts.publish(
+          pathValue(request, 'promptId'),
+          z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+        ),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/prompts/:promptId/rollback/:version',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.prompts.rollback(
+          pathValue(request, 'promptId'),
+          z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+        ),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/prompts/:promptId/disable',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.prompts.disable(pathValue(request, 'promptId')));
+    }),
+  );
+  app.get(
+    '/api/v1/prompts/:promptId/effects/:version',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.prompts.effect(
+          pathValue(request, 'promptId'),
+          z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+        ),
+      );
     }),
   );
   app.get('/api/v1/mcp/servers', async (_request, response) => {

@@ -117,6 +117,14 @@ function operations(failServerList = false): ManagementOperations {
       listInvocations: () => Promise.resolve([]),
       route: unused,
     },
+    prompts: {
+      create: unused,
+      disable: unused,
+      effect: unused,
+      listVersions: () => Promise.resolve([]),
+      publish: unused,
+      rollback: unused,
+    },
     skills: {
       diff: unused,
       listCurrentVersions: () => Promise.resolve([]),

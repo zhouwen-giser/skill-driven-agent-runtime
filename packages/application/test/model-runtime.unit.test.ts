@@ -159,4 +159,15 @@ class MemoryModelRepository implements ModelRuntimeRepository {
         : this.invocations.filter((item) => item.stage === stage),
     );
   }
+  findActivePromptForStage(stage: ModelStage) {
+    return Promise.resolve({
+      promptId: `prompt-${stage}`,
+      stage,
+      version: 1,
+      content: 'System policy. {{instruction}}',
+      status: 'enabled' as const,
+      source: 'admin' as const,
+      createdAt: '2026-07-11T10:00:00.000Z',
+    });
+  }
 }
