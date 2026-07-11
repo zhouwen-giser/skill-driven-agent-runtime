@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+  - infra/*
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - eslint@10.7.0

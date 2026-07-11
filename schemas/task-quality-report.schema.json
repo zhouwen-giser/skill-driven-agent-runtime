@@ -2,12 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TaskQualityReport",
   "type": "object",
-  "required": [
-    "task_id",
-    "dimensions",
-    "overall_score",
-    "generated_at"
-  ],
+  "required": ["task_id", "dimensions", "overall_score", "generated_at"],
   "properties": {
     "task_id": {
       "type": "string"
@@ -22,21 +17,10 @@
       "minItems": 5,
       "items": {
         "type": "object",
-        "required": [
-          "name",
-          "score",
-          "summary",
-          "evidence"
-        ],
+        "required": ["name", "score", "summary", "evidence"],
         "properties": {
           "name": {
-            "enum": [
-              "goal",
-              "workflow",
-              "skill",
-              "result",
-              "tool"
-            ]
+            "enum": ["goal", "workflow", "skill", "result", "tool"]
           },
           "score": {
             "type": "number",

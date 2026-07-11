@@ -5,7 +5,11 @@
 - Supersedes:
 
 ## Context
+
 ## Decision
+
 ## Alternatives
+
 ## Consequences
+
 ## Validation

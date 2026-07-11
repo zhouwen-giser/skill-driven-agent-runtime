@@ -6,9 +6,7 @@
       "description": "查询设备状态",
       "inputSchema": {
         "type": "object",
-        "required": [
-          "scope"
-        ],
+        "required": ["scope"],
         "properties": {
           "scope": {
             "type": "string"
@@ -39,10 +37,7 @@
       "description": "发送设备控制命令",
       "inputSchema": {
         "type": "object",
-        "required": [
-          "device_id",
-          "command"
-        ],
+        "required": ["device_id", "command"],
         "properties": {
           "device_id": {
             "type": "string"

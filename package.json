@@ -1,0 +1,46 @@
+{
+  "name": "skill-driven-agent-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --no-error-on-unmatched-pattern --write package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
+    "format:check": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
+    "lint": "eslint .",
+    "smoke:infra": "node scripts/smoke-infra.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:contract": "vitest run --project contract",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "evidence:licenses": "node scripts/generate-sbom.mjs",
+    "verify:licenses": "node scripts/generate-sbom.mjs --check",
+    "verify:infra": "node scripts/verify-compose.mjs && docker compose -f compose.yaml config --quiet",
+    "verify:sources": "node scripts/check-sources-lock.mjs",
+    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && vitest run && node scripts/check-sources-lock.mjs && node scripts/verify-compose.mjs && node scripts/generate-sbom.mjs --check && docker compose -f compose.yaml config --quiet && tsc -p tsconfig.build.json",
+    "verify": "pnpm verify:bootstrap"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "1.0.0-beta.0",
+    "@langchain/core": "1.2.2",
+    "@langchain/langgraph": "1.4.7",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "express": "5.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.1",
+    "@types/express": "5.0.6",
+    "eslint": "10.7.0",
+    "prettier": "3.9.5",
+    "tsx": "4.23.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.63.0",
+    "vitest": "4.1.10"
+  }
+}

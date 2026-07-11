@@ -32,19 +32,19 @@ flowchart TB
 
 ## 模块边界
 
-| 模块 | 权威职责 | 禁止承担 |
-|---|---|---|
-| A2A Adapter | 协议对象、状态映射、流式事件、Agent Card | Goal/Skill/Workflow 业务逻辑 |
-| Task Runtime | 任务队列、会话串行、生命周期编排 | 直接理解 MCP Schema |
-| Goal Runtime | Goal 识别、版本、Patch、达成闭环 | 图节点调度 |
-| Skill Runtime | Skill 注册、版本、检索、组合、工具边界 | MCP 网络调用 |
-| Workflow Planner | 根据 Goal/Skill/记忆生成 DSL | 执行任意代码 |
-| DSL Validator | 结构、引用、Schema、预算、循环安全 | 业务推理 |
-| LangGraph Compiler | 把合法 DSL 编译为 StateGraph | 决定 Goal 是否达成 |
-| MCP Adapter | Tool 发现、Schema、调用、结果封装 | Skill 选择 |
-| Result Processor | 标准化、摘要、事实提取、记忆候选 | 直接发布 Skill |
-| Evaluation/Evolution | 多评估器、经验聚类、Skill 模拟验证 | 绕过发布/版本规则 |
-| Console | 管理和可视化真实运行数据 | 自建另一套执行状态 |
+| 模块                 | 权威职责                                 | 禁止承担                     |
+| -------------------- | ---------------------------------------- | ---------------------------- |
+| A2A Adapter          | 协议对象、状态映射、流式事件、Agent Card | Goal/Skill/Workflow 业务逻辑 |
+| Task Runtime         | 任务队列、会话串行、生命周期编排         | 直接理解 MCP Schema          |
+| Goal Runtime         | Goal 识别、版本、Patch、达成闭环         | 图节点调度                   |
+| Skill Runtime        | Skill 注册、版本、检索、组合、工具边界   | MCP 网络调用                 |
+| Workflow Planner     | 根据 Goal/Skill/记忆生成 DSL             | 执行任意代码                 |
+| DSL Validator        | 结构、引用、Schema、预算、循环安全       | 业务推理                     |
+| LangGraph Compiler   | 把合法 DSL 编译为 StateGraph             | 决定 Goal 是否达成           |
+| MCP Adapter          | Tool 发现、Schema、调用、结果封装        | Skill 选择                   |
+| Result Processor     | 标准化、摘要、事实提取、记忆候选         | 直接发布 Skill               |
+| Evaluation/Evolution | 多评估器、经验聚类、Skill 模拟验证       | 绕过发布/版本规则            |
+| Console              | 管理和可视化真实运行数据                 | 自建另一套执行状态           |
 
 ## 运行时主循环
 

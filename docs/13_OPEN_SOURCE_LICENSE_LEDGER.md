@@ -2,18 +2,18 @@
 
 本文件不是法律意见。Codex 必须在引入具体版本时重新读取该 commit 的 LICENSE/NOTICE。
 
-| 项目 | 基线许可证 | 允许用途 | 特别注意 |
-|---|---|---|---|
-| LangGraph.js | MIT | 直接依赖、修改、分发 | 保留许可证和版权声明 |
-| Mastra | 核心 Apache-2.0；`ee/` 企业许可 | 参考；核心独立包经 ADR 后可依赖 | 禁止使用 `ee/` 代码；检查 NOTICE |
-| VoltAgent | MIT | 参考；独立包经 ADR 后可依赖 | 云/Console 服务条款可能与核心不同 |
-| OpenHands | 主开源代码 MIT | Skill/Plugin 设计参考 | OpenHands Cloud 等独立仓库可能非 OSS，必须逐仓库核查 |
-| Dify | 修改版 Apache-2.0 / Dify Open Source License | 只做 UX 和信息架构参考 | 不复制代码；商用/平台条件需法务审查 |
-| Google ADK JS | Apache-2.0 | 架构和测试参考 | 保留 NOTICE/修改声明；不引入第二 Runtime |
-| BeeAI Framework | Apache-2.0 | 架构参考 | 核查 TypeScript 子包和 NOTICE |
-| Microsoft Agent Framework | MIT | 架构参考 | .NET/Python，不跨语言嵌入 |
-| A2A JS SDK | Apache-2.0 | 直接依赖 | v1.0 beta 版本必须锁定并验证 |
-| MCP TypeScript SDK | MIT（以锁定版本为准） | 直接依赖 | 核查协议和 SDK 版本兼容性 |
+| 项目                      | 基线许可证                                   | 允许用途                        | 特别注意                                             |
+| ------------------------- | -------------------------------------------- | ------------------------------- | ---------------------------------------------------- |
+| LangGraph.js              | MIT                                          | 直接依赖、修改、分发            | 保留许可证和版权声明                                 |
+| Mastra                    | 核心 Apache-2.0；`ee/` 企业许可              | 参考；核心独立包经 ADR 后可依赖 | 禁止使用 `ee/` 代码；检查 NOTICE                     |
+| VoltAgent                 | MIT                                          | 参考；独立包经 ADR 后可依赖     | 云/Console 服务条款可能与核心不同                    |
+| OpenHands                 | 主开源代码 MIT                               | Skill/Plugin 设计参考           | OpenHands Cloud 等独立仓库可能非 OSS，必须逐仓库核查 |
+| Dify                      | 修改版 Apache-2.0 / Dify Open Source License | 只做 UX 和信息架构参考          | 不复制代码；商用/平台条件需法务审查                  |
+| Google ADK JS             | Apache-2.0                                   | 架构和测试参考                  | 保留 NOTICE/修改声明；不引入第二 Runtime             |
+| BeeAI Framework           | Apache-2.0                                   | 架构参考                        | 核查 TypeScript 子包和 NOTICE                        |
+| Microsoft Agent Framework | MIT                                          | 架构参考                        | .NET/Python，不跨语言嵌入                            |
+| A2A JS SDK                | Apache-2.0                                   | 直接依赖                        | v1.0 beta 版本必须锁定并验证                         |
+| MCP TypeScript SDK        | MIT（以锁定版本为准）                        | 直接依赖                        | 核查协议和 SDK 版本兼容性                            |
 
 ## 发布前要求
 

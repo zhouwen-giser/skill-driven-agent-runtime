@@ -42,14 +42,7 @@
       "minLength": 20
     },
     "status": {
-      "enum": [
-        "draft",
-        "validating",
-        "enabled",
-        "disabled",
-        "deprecated",
-        "validation_failed"
-      ]
+      "enum": ["draft", "validating", "enabled", "disabled", "deprecated", "validation_failed"]
     },
     "capabilities": {
       "type": "array",
@@ -61,11 +54,7 @@
     "tool_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "required",
-        "optional",
-        "forbidden"
-      ],
+      "required": ["required", "optional", "forbidden"],
       "properties": {
         "required": {
           "type": "array",
@@ -107,9 +96,7 @@
     "confirmation": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "auto_confirm_plan"
-      ],
+      "required": ["auto_confirm_plan"],
       "properties": {
         "auto_confirm_plan": {
           "type": "boolean"
@@ -151,11 +138,7 @@
           "minimum": 0
         },
         "cancel_strategy": {
-          "enum": [
-            "wait_current",
-            "try_interrupt",
-            "cleanup_workflow"
-          ]
+          "enum": ["wait_current", "try_interrupt", "cleanup_workflow"]
         },
         "compensation_guidance": {
           "type": "string"
@@ -166,19 +149,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "type",
-          "skill_id"
-        ],
+        "required": ["type", "skill_id"],
         "properties": {
           "type": {
-            "enum": [
-              "depends_on",
-              "composes",
-              "alternative_to",
-              "parent_of",
-              "child_of"
-            ]
+            "enum": ["depends_on", "composes", "alternative_to", "parent_of", "child_of"]
           },
           "skill_id": {
             "type": "string"
@@ -197,12 +171,7 @@
       "type": "object",
       "properties": {
         "kind": {
-          "enum": [
-            "admin",
-            "a2a_draft",
-            "experience_evolution",
-            "manual_correction"
-          ]
+          "enum": ["admin", "a2a_draft", "experience_evolution", "manual_correction"]
         },
         "reference_ids": {
           "type": "array",
@@ -211,9 +180,7 @@
           }
         }
       },
-      "required": [
-        "kind"
-      ],
+      "required": ["kind"],
       "additionalProperties": false
     }
   },
@@ -229,10 +196,7 @@
         }
       },
       "then": {
-        "required": [
-          "input_schema",
-          "output_schema"
-        ]
+        "required": ["input_schema", "output_schema"]
       }
     }
   ],
@@ -240,10 +204,7 @@
     "toolRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "server_id",
-        "tool_name"
-      ],
+      "required": ["server_id", "tool_name"],
       "properties": {
         "server_id": {
           "type": "string"

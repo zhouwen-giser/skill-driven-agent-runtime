@@ -28,7 +28,13 @@
 条件和映射使用 JSON AST，例如：
 
 ```json
-{"op":"and","args":[{"op":"exists","value":{"var":"state.device"}},{"op":"eq","left":{"var":"state.device.online"},"right":{"const":true}}]}
+{
+  "op": "and",
+  "args": [
+    { "op": "exists", "value": { "var": "state.device" } },
+    { "op": "eq", "left": { "var": "state.device.online" }, "right": { "const": true } }
+  ]
+}
 ```
 
 禁止 JavaScript 字符串表达式、模板执行、`eval`、`Function`、动态 import 和脚本节点。

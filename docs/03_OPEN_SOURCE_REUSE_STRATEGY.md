@@ -6,16 +6,16 @@
 
 ## 复用矩阵
 
-| 项目 | 定位 | 使用方式 | 重点提取 | 明确不使用 |
-|---|---|---|---|---|
-| LangGraph.js | 唯一工作流执行内核 | 直接生产依赖 | StateGraph、条件边、子图、流式、节点状态；按本项目策略封装运行态 | 不让其定义 Skill/Goal 领域模型；不依赖第二个 Runtime |
-| Mastra | TypeScript Agent 工程参考 | 源码研究；独立模块需 ADR | Server 组织、Storage 接口、Workflow suspend/resume、Eval、Observability | 不引入 Mastra Agent/Workflow Runtime；排除所有 `ee/` 代码 |
-| VoltAgent | AgentOps 和 TS 接口参考 | 源码研究；可能复用纯工具包需 ADR | ModelProvider、Tool hooks、Trace/Event、Prompt/Eval 控制台指标 | 不引入其 Agent/Workflow 状态机替代 LangGraph |
-| OpenHands | Skill/Plugin 打包参考 | 设计移植，TypeScript 自研 | Skill 文件、触发/上下文注入、Plugin 打包 Skill+MCP+Hook | 不嵌入 Python Agent Runtime；不使用非 MIT Cloud 代码 |
-| Dify | 产品交互参考 | 仅 UX/信息架构参考 | DAG 编辑、节点配置、运行高亮、版本对比、调试输入 | 不复制源码、样式或组件；不作为后端 Runtime |
-| Google ADK | Workflow/Session/Eval 对照 | 架构和测试参考 | Sequential/Parallel/Loop/Custom workflow、MCP、Session、Eval | 不引入 ADK Runtime；TypeScript A2A 不作为首版依赖 |
-| BeeAI | 约束 Agent、Event、Serialization 参考 | 架构参考 | Requirement constraints、事件系统、缓存、序列化、声明式 Workflow | 不引入 BeeAI Workflow；其 A2A TS 支持不是首版基础 |
-| Microsoft Agent Framework | 企业运行时设计参考 | 架构参考 | Middleware、Telemetry、Checkpoint/HITL、类型安全路由、DevUI | 不跨语言嵌入 .NET/Python Runtime |
+| 项目                      | 定位                                  | 使用方式                         | 重点提取                                                                | 明确不使用                                                |
+| ------------------------- | ------------------------------------- | -------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
+| LangGraph.js              | 唯一工作流执行内核                    | 直接生产依赖                     | StateGraph、条件边、子图、流式、节点状态；按本项目策略封装运行态        | 不让其定义 Skill/Goal 领域模型；不依赖第二个 Runtime      |
+| Mastra                    | TypeScript Agent 工程参考             | 源码研究；独立模块需 ADR         | Server 组织、Storage 接口、Workflow suspend/resume、Eval、Observability | 不引入 Mastra Agent/Workflow Runtime；排除所有 `ee/` 代码 |
+| VoltAgent                 | AgentOps 和 TS 接口参考               | 源码研究；可能复用纯工具包需 ADR | ModelProvider、Tool hooks、Trace/Event、Prompt/Eval 控制台指标          | 不引入其 Agent/Workflow 状态机替代 LangGraph              |
+| OpenHands                 | Skill/Plugin 打包参考                 | 设计移植，TypeScript 自研        | Skill 文件、触发/上下文注入、Plugin 打包 Skill+MCP+Hook                 | 不嵌入 Python Agent Runtime；不使用非 MIT Cloud 代码      |
+| Dify                      | 产品交互参考                          | 仅 UX/信息架构参考               | DAG 编辑、节点配置、运行高亮、版本对比、调试输入                        | 不复制源码、样式或组件；不作为后端 Runtime                |
+| Google ADK                | Workflow/Session/Eval 对照            | 架构和测试参考                   | Sequential/Parallel/Loop/Custom workflow、MCP、Session、Eval            | 不引入 ADK Runtime；TypeScript A2A 不作为首版依赖         |
+| BeeAI                     | 约束 Agent、Event、Serialization 参考 | 架构参考                         | Requirement constraints、事件系统、缓存、序列化、声明式 Workflow        | 不引入 BeeAI Workflow；其 A2A TS 支持不是首版基础         |
+| Microsoft Agent Framework | 企业运行时设计参考                    | 架构参考                         | Middleware、Telemetry、Checkpoint/HITL、类型安全路由、DevUI             | 不跨语言嵌入 .NET/Python Runtime                          |
 
 ## 直接依赖基线
 

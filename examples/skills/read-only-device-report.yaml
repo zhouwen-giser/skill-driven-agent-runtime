@@ -27,15 +27,15 @@ input_schema:
   type: object
   required: [scope]
   properties:
-    scope: {type: string}
-    include_tasks: {type: boolean, default: false}
+    scope: { type: string }
+    include_tasks: { type: boolean, default: false }
 output_schema:
   type: object
   required: [summary, devices, anomalies]
   properties:
-    summary: {type: string}
-    devices: {type: array, items: {type: object}}
-    anomalies: {type: array, items: {type: object}}
+    summary: { type: string }
+    devices: { type: array, items: { type: object } }
+    anomalies: { type: array, items: { type: object } }
 confirmation:
   auto_confirm_plan: false
 budgets:

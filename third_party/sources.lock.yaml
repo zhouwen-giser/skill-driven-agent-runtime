@@ -3,71 +3,71 @@ updated_at: 2026-07-11
 sources:
   - name: LangGraph.js
     repository: https://github.com/langchain-ai/langgraphjs
-    license: "MIT"
+    license: 'MIT'
     use: direct_dependency
-    pin: UNPINNED
-    allowed: "published @langchain/langgraph APIs"
-    forbidden: "none; avoid hosted proprietary assumptions"
+    pin: "npm:@langchain/langgraph@1.4.7#sha512-2tcyf3QGC7v89kqSxMCtRvzg/3L/4yHtOaWC49A8KieCciWJs7LGaxHoPB6QRxXyUgyR+Zg9Q1ss/XJIE+JuSQ=="
+    allowed: 'published @langchain/langgraph APIs'
+    forbidden: 'none; avoid hosted proprietary assumptions'
   - name: Mastra
     repository: https://github.com/mastra-ai/mastra
-    license: "Apache-2.0 core / enterprise ee"
+    license: 'Apache-2.0 core / enterprise ee'
     use: reference_only
-    pin: UNPINNED
-    allowed: "core server/storage/eval/observability design"
-    forbidden: "all ee/ paths and runtime integration"
+    pin: "commit:1b2f2cca30f04f2cb8e20df661733a1367d779a0"
+    allowed: 'core server/storage/eval/observability design'
+    forbidden: 'all ee/ paths and runtime integration'
   - name: VoltAgent
     repository: https://github.com/VoltAgent/voltagent
-    license: "MIT"
+    license: 'MIT'
     use: reference_only
-    pin: UNPINNED
-    allowed: "model/tool/event/trace/eval patterns"
-    forbidden: "second agent/workflow runtime"
+    pin: "commit:0d8c7f98a1086eddd09da07d55cf0b29320ddee7"
+    allowed: 'model/tool/event/trace/eval patterns'
+    forbidden: 'second agent/workflow runtime'
   - name: OpenHands
     repository: https://github.com/OpenHands/OpenHands
-    license: "MIT main repo"
+    license: 'MIT main repo'
     use: reference_only
-    pin: UNPINNED
-    allowed: "skill/plugin packaging concepts"
-    forbidden: "commercial/non-MIT repos and Python runtime integration"
+    pin: "commit:e3185990ddece1a8ffd31fcc5ece38789436d4c6"
+    allowed: 'skill/plugin packaging concepts'
+    forbidden: 'commercial/non-MIT repos and Python runtime integration'
   - name: Dify
     repository: https://github.com/langgenius/dify
-    license: "Dify Open Source License (modified Apache-2.0)"
+    license: 'Dify Open Source License (modified Apache-2.0)'
     use: design_reference_only
-    pin: UNPINNED
-    allowed: "UX and information architecture observation"
-    forbidden: "source code copying or vendoring"
+    pin: "commit:6e5ba18d65e78f7ab04f46c5ba4e4b5011df07f8"
+    allowed: 'UX and information architecture observation'
+    forbidden: 'source code copying or vendoring'
   - name: Google ADK JS
     repository: https://github.com/google/adk-js
-    license: "Apache-2.0"
+    license: 'Apache-2.0'
     use: reference_only
-    pin: UNPINNED
-    allowed: "workflow/session/eval/MCP tests"
-    forbidden: "runtime integration"
+    pin: "commit:2ff0643133455ed748f3b4085ece32cb0027c12c"
+    allowed: 'workflow/session/eval/MCP tests'
+    forbidden: 'runtime integration'
   - name: BeeAI Framework
     repository: https://github.com/i-am-bee/beeai-framework
-    license: "Apache-2.0"
+    license: 'Apache-2.0'
     use: reference_only
-    pin: UNPINNED
-    allowed: "constraints/events/serialization patterns"
-    forbidden: "workflow/A2A runtime integration"
+    pin: "commit:0689b10f87b3bba82049e49984996646c05bdb2a"
+    allowed: 'constraints/events/serialization patterns'
+    forbidden: 'workflow/A2A runtime integration'
   - name: Microsoft Agent Framework
     repository: https://github.com/microsoft/agent-framework
-    license: "MIT"
+    license: 'MIT'
     use: reference_only
-    pin: UNPINNED
-    allowed: "middleware/telemetry/HITL/dev UI patterns"
-    forbidden: ".NET/Python runtime integration"
+    pin: "commit:68136ee081dbbee6983e6bb92a834f9ad30d20dc"
+    allowed: 'middleware/telemetry/HITL/dev UI patterns'
+    forbidden: '.NET/Python runtime integration'
   - name: A2A JavaScript SDK
     repository: https://github.com/a2aproject/a2a-js
-    license: "Apache-2.0"
+    license: 'Apache-2.0'
     use: direct_dependency
-    pin: UNPINNED
-    allowed: "official protocol SDK behind adapter"
-    forbidden: "SDK models in domain"
+    pin: "npm:@a2a-js/sdk@1.0.0-beta.0#commit:a005d2a118d3c1552ce6ea86b2917f2a9f56fea9"
+    allowed: 'official protocol SDK behind adapter'
+    forbidden: 'SDK models in domain'
   - name: MCP TypeScript SDK
     repository: https://github.com/modelcontextprotocol/typescript-sdk
-    license: "VERIFY_AT_PIN"
+    license: 'VERIFY_AT_PIN'
     use: direct_dependency
-    pin: UNPINNED
-    allowed: "client and Streamable HTTP behind adapter"
-    forbidden: "SDK models in domain"
+    pin: "npm:@modelcontextprotocol/sdk@1.29.0#commit:e12cbd7078db388152f6e839abdbe09ba01f3f32"
+    allowed: 'client and Streamable HTTP behind adapter'
+    forbidden: 'SDK models in domain'

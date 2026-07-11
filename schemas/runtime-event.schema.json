@@ -3,14 +3,7 @@
   "title": "RuntimeEvent",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "event_id",
-    "event_type",
-    "task_id",
-    "context_id",
-    "occurred_at",
-    "payload"
-  ],
+  "required": ["event_id", "event_type", "task_id", "context_id", "occurred_at", "payload"],
   "properties": {
     "event_id": {
       "type": "string"

@@ -1,0 +1,56 @@
+name: sdar
+
+services:
+  postgres:
+    image: pgvector/pgvector@sha256:da864cc9983d6a346c39c55c8c5250d752a9b573bbac06b1c3ad5d72f20f5be6
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${SDAR_POSTGRES_DB:-sdar}
+      POSTGRES_USER: ${SDAR_POSTGRES_USER:-sdar}
+      POSTGRES_PASSWORD: ${SDAR_POSTGRES_PASSWORD:-sdar_local_only}
+    ports:
+      - '${SDAR_POSTGRES_PORT:-54329}:5432'
+    volumes:
+      - sdar-postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: 'no'
+    networks: [sdar-local]
+
+  redis:
+    image: redis@sha256:e762b8716f68d0de494b9fecc5a598db03e24206d3266725dd5521ca2c8b18a3
+    platform: linux/amd64
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --appendfsync
+      - everysec
+      - --save
+      - '60'
+      - '1'
+    ports:
+      - '${SDAR_REDIS_PORT:-56379}:6379'
+    volumes:
+      - sdar-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    restart: 'no'
+    networks: [sdar-local]
+
+networks:
+  sdar-local:
+    driver: bridge
+
+volumes:
+  sdar-postgres-data:
+  sdar-redis-data:

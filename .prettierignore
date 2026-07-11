@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+source
+reports
+pnpm-lock.yaml
+*.docx
+*.png

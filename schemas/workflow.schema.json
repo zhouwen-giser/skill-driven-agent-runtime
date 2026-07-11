@@ -26,10 +26,7 @@
     },
     "goal_ref": {
       "type": "object",
-      "required": [
-        "goal_id",
-        "goal_version"
-      ],
+      "required": ["goal_id", "goal_version"],
       "properties": {
         "goal_id": {
           "type": "string"
@@ -45,18 +42,13 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "skill_id"
-        ],
+        "required": ["skill_id"],
         "properties": {
           "skill_id": {
             "type": "string"
           },
           "planned_version": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 1
           }
         },
@@ -87,11 +79,7 @@
     },
     "budgets": {
       "type": "object",
-      "required": [
-        "max_duration_seconds",
-        "max_llm_calls",
-        "max_mcp_calls"
-      ],
+      "required": ["max_duration_seconds", "max_llm_calls", "max_mcp_calls"],
       "properties": {
         "max_duration_seconds": {
           "type": "integer",
@@ -120,12 +108,7 @@
     },
     "node": {
       "type": "object",
-      "required": [
-        "id",
-        "type",
-        "name",
-        "config"
-      ],
+      "required": ["id", "type", "name", "config"],
       "properties": {
         "id": {
           "type": "string",
@@ -165,10 +148,7 @@
     },
     "edge": {
       "type": "object",
-      "required": [
-        "from",
-        "to"
-      ],
+      "required": ["from", "to"],
       "properties": {
         "from": {
           "type": "string"
@@ -180,9 +160,7 @@
           "oneOf": [
             {
               "type": "object",
-              "required": [
-                "var"
-              ],
+              "required": ["var"],
               "properties": {
                 "var": {
                   "type": "string",
@@ -193,9 +171,7 @@
             },
             {
               "type": "object",
-              "required": [
-                "const"
-              ],
+              "required": ["const"],
               "properties": {
                 "const": {}
               },
@@ -203,24 +179,10 @@
             },
             {
               "type": "object",
-              "required": [
-                "op"
-              ],
+              "required": ["op"],
               "properties": {
                 "op": {
-                  "enum": [
-                    "eq",
-                    "ne",
-                    "gt",
-                    "gte",
-                    "lt",
-                    "lte",
-                    "and",
-                    "or",
-                    "not",
-                    "exists",
-                    "in"
-                  ]
+                  "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "and", "or", "not", "exists", "in"]
                 },
                 "left": {},
                 "right": {},

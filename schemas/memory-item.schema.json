@@ -2,14 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "MemoryItem",
   "type": "object",
-  "required": [
-    "memory_id",
-    "type",
-    "content",
-    "status",
-    "source_refs",
-    "created_at"
-  ],
+  "required": ["memory_id", "type", "content", "status", "source_refs", "created_at"],
   "properties": {
     "memory_id": {
       "type": "string"
@@ -31,11 +24,7 @@
       "type": "string"
     },
     "status": {
-      "enum": [
-        "active",
-        "superseded",
-        "invalid"
-      ]
+      "enum": ["active", "superseded", "invalid"]
     },
     "source_refs": {
       "type": "array",

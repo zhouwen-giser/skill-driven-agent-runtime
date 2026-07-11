@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-11T18:44:00+08:00",
+  "classification": {
+    "a2a": "real_loopback",
+    "mcp_streamable_http": "real_loopback",
+    "langgraph": "real_in_process",
+    "postgresql": "real_container",
+    "redis": "real_container"
+  },
+  "commands": [
+    {
+      "command": "pnpm peers check",
+      "status": "passed",
+      "summary": "No peer dependency issues found"
+    },
+    {
+      "command": "pnpm verify:bootstrap",
+      "status": "passed",
+      "summary": "format, lint, strict typecheck, 16 tests, source pins, Compose contract, SBOM/license freshness, and build passed"
+    },
+    {
+      "command": "pnpm smoke:infra",
+      "status": "passed",
+      "summary": "Digest-pinned containers passed pgvector 0.8.4, migration marker, vector distance, Redis PING and Redis write/read checks"
+    }
+  ],
+  "tests": {
+    "files": 4,
+    "passed": 16,
+    "failed": 0
+  },
+  "known_limits": [
+    "A2A SDK 1.0.0-beta.0 targets protocol major/minor 1.0; stream disconnection continuation is verified locally, while full external 1.0.1 TCK remains an EP-01 gate.",
+    "External A2A 1.0.1 TCK remains an EP-01 gate after the complete task lifecycle SUT is implemented.",
+    "SBOM covers the actual pnpm installation and selected service manifests; full container layer package SBOM remains a release-hardening item."
+  ],
+  "resolved_environment_blocker": {
+    "root_cause": "The earlier Windows session could not access or start the Docker engine named pipe.",
+    "attempts": [
+      "Start-Service com.docker.service: access denied",
+      "Start-Process Docker Desktop plus 30 second readiness poll: daemon did not become available",
+      "isolated host PostgreSQL alternative: PostgreSQL 17 binaries exist but pgvector extension is absent",
+      "Redis/WSL alternative: no Redis service/binary and no WSL distribution",
+      "pnpm smoke:infra: docker_engine named pipe Access is denied"
+    ],
+    "resolution": "Docker Desktop 4.81.0 / Engine 29.6.1 became available to the current user; pnpm smoke:infra passed."
+  }
+}
