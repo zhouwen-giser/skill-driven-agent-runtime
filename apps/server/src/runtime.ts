@@ -15,10 +15,12 @@ import {
   ResultProcessor,
   McpRegistryService,
   SkillGraphService,
+  SkillAuthoringService,
   SkillRegistryService,
   TemporarySkillService,
   TaskService,
   type RegisterSkillVersionInput,
+  type StructuredModelProvider,
 } from '../../../packages/application/src/index.js';
 import type { SkillVersion } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
@@ -55,6 +57,7 @@ export interface ServerRuntimeOptions {
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
+  readonly skillAuthoringModel?: StructuredModelProvider;
 }
 
 export interface ServerRuntimeHandle {
@@ -114,6 +117,15 @@ export async function startServerRuntime(
   const schemaValidator = new AjvJsonSchemaValidator();
   const resultProcessor = new ResultProcessor(schemaValidator);
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const skillAuthoring =
+    options.skillAuthoringModel === undefined
+      ? undefined
+      : new SkillAuthoringService({
+          model: options.skillAuthoringModel,
+          schemas: schemaValidator,
+          registry: skillRegistry,
+          maxAttempts: 2,
+        });
   const skillGraph = new SkillGraphService({
     graph: skillGraphRepository,
     skills,
@@ -152,6 +164,7 @@ export async function startServerRuntime(
         graph: skillGraph,
         mcp: mcpRegistry,
         skills: skillRegistry,
+        ...(skillAuthoring === undefined ? {} : { skillAuthoring }),
         temporarySkills,
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),

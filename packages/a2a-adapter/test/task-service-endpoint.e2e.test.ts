@@ -21,6 +21,9 @@ beforeAll(async () => {
     mcpMasterKeyBase64: randomBytes(32).toString('base64'),
     queueName,
     applyMigrations: true,
+    skillAuthoringModel: {
+      generateStructured: () => Promise.resolve(generatedSkillMetadata()),
+    },
   });
 });
 
@@ -204,6 +207,32 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       version: 3,
       previousVersion: 2,
       status: 'enabled',
+    });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+  });
+
+  it('registers model-authored valid Schemas through the management boundary', async () => {
+    const skillId = `skill.authored.${randomUUID()}`;
+    const response = await fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        skillId,
+        naturalLanguageDescription:
+          'Inspect one device by identifier and return its current status plus a concise observation.',
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        status: 'enabled',
+        sourceKind: 'admin',
+      }),
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      skillId,
+      version: 1,
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      validationPassed: true,
     });
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
   });
@@ -538,6 +567,29 @@ function skillInput(skillId: string, name: string): RegisterSkillVersionInput {
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,
+  };
+}
+
+function generatedSkillMetadata() {
+  return {
+    name: 'Model-authored device inspection',
+    summary: 'Inspect a device.',
+    description: 'Inspect one device and report current state.',
+    capabilities: ['device-inspection'],
+    workflowGuidance: 'Read the device and report the response.',
+    outputInstruction: 'Return status and observation.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['deviceId'],
+      properties: { deviceId: { type: 'string', minLength: 1 } },
+    },
+    outputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string' }, observation: { type: 'string' } },
+    },
   };
 }
 

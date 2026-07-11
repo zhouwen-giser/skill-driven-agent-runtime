@@ -104,6 +104,18 @@ paths:
             schema: { type: object, additionalProperties: true }
       responses:
         '201': { description: New current Skill version }
+  /api/v1/skills/author:
+    post:
+      operationId: authorAndRegisterSkill
+      description: Uses the configured structured ModelProvider; never falls back to a placeholder Schema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: Model-authored, validated, persisted SkillVersion }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/skill-graph:
     get:
       operationId: listSkillGraph

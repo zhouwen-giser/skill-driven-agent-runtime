@@ -65,6 +65,17 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Outcomes and Retrospective
 
+## Structured Skill Authoring Progress Update - 2026-07-11
+
+- [x] Add a vendor-neutral structured ModelProvider application port.
+- [x] Validate generated metadata shape and explicit input/output JSON Schemas before registration.
+- [x] Bound correction to two attempts and fail closed with a request for more description.
+- [x] Persist only through the existing Skill registry and verify PostgreSQL plus Agent Card e2e.
+- [x] Return an explicit error when no production model is configured; never use a static fallback.
+- [ ] Implement and verify production Provider adapters, fixed stage routing, Prompt versions, and model-call audit in EP-03.
+
+Decision: ADR-016 treats model output as untrusted data and keeps vendor objects outside core layers.
+
 ## Temporary Skill Progress Update - 2026-07-11
 
 - [x] Add task/context-scoped Temporary Skill domain models outside the formal Skill registry.

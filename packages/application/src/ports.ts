@@ -220,6 +220,17 @@ export interface JsonSchemaValidator {
   validate(schema: unknown, value: unknown): JsonSchemaValidationResult;
 }
 
+export interface StructuredModelProvider {
+  generateStructured(
+    input: Readonly<{
+      stage: 'skill_authoring';
+      instruction: string;
+      responseSchema: unknown;
+      correctionErrors: readonly string[];
+    }>,
+  ): Promise<unknown>;
+}
+
 export interface ContextTaskQueue {
   enqueue(input: Readonly<{ taskId: string; contextId: string }>): Promise<void>;
 }

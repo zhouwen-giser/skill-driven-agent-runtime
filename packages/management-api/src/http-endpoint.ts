@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import type {
   McpRegistryService,
+  SkillAuthoringService,
   RegisterSkillVersionInput,
   SkillRegistryService,
   SkillGraphService,
@@ -86,6 +87,18 @@ const CompleteTemporarySkillSchema = z.object({
   successful: z.boolean(),
   outcomeSummary: z.string().min(1),
 });
+const AuthorSkillSchema = z.object({
+  skillId: z.string().min(1),
+  naturalLanguageDescription: z.string().min(1),
+  toolPolicy: z.object({
+    required: z.array(ToolReferenceSchema),
+    optional: z.array(ToolReferenceSchema),
+    forbidden: z.array(ToolReferenceSchema),
+  }),
+  runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
+  status: z.enum(['draft', 'enabled', 'disabled']),
+  sourceKind: z.enum(['admin', 'a2a_draft']),
+});
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -107,6 +120,7 @@ export interface ManagementOperations {
     'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
+  readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -268,6 +282,24 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.post(
+    '/api/v1/skills/author',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillAuthoring === undefined) {
+        throw new HttpInputError(
+          'SKILL_AUTHORING_MODEL_NOT_CONFIGURED',
+          'A production Skill authoring ModelProvider is not configured.',
+        );
+      }
+      const parsed = AuthorSkillSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.skillAuthoring.authorAndRegister({
+          ...parsed,
+          runtimePolicy: compactRuntimePolicy(parsed.runtimePolicy),
+        }),
+      );
+    }),
+  );
+  app.post(
     '/api/v1/skills/:skillId/enable',
     asyncRoute(async (request, response) => {
       response.json(
@@ -341,23 +373,27 @@ function skillRegistrationInput(
   const policy = parsed.runtimePolicy;
   return {
     ...parsed,
-    runtimePolicy: {
-      autoConfirmPlan: policy.autoConfirmPlan,
-      ...(policy.maxReplans === undefined ? {} : { maxReplans: policy.maxReplans }),
-      ...(policy.maxDurationSeconds === undefined
-        ? {}
-        : { maxDurationSeconds: policy.maxDurationSeconds }),
-      ...(policy.maxLlmCalls === undefined ? {} : { maxLlmCalls: policy.maxLlmCalls }),
-      ...(policy.maxMcpCalls === undefined ? {} : { maxMcpCalls: policy.maxMcpCalls }),
-      ...(policy.maxCost === undefined ? {} : { maxCost: policy.maxCost }),
-      ...(policy.pauseReplanThresholdSeconds === undefined
-        ? {}
-        : { pauseReplanThresholdSeconds: policy.pauseReplanThresholdSeconds }),
-      ...(policy.cancelStrategy === undefined ? {} : { cancelStrategy: policy.cancelStrategy }),
-      ...(policy.compensationGuidance === undefined
-        ? {}
-        : { compensationGuidance: policy.compensationGuidance }),
-    },
+    runtimePolicy: compactRuntimePolicy(policy),
+  };
+}
+
+function compactRuntimePolicy(policy: z.infer<typeof RegisterSkillSchema>['runtimePolicy']) {
+  return {
+    autoConfirmPlan: policy.autoConfirmPlan,
+    ...(policy.maxReplans === undefined ? {} : { maxReplans: policy.maxReplans }),
+    ...(policy.maxDurationSeconds === undefined
+      ? {}
+      : { maxDurationSeconds: policy.maxDurationSeconds }),
+    ...(policy.maxLlmCalls === undefined ? {} : { maxLlmCalls: policy.maxLlmCalls }),
+    ...(policy.maxMcpCalls === undefined ? {} : { maxMcpCalls: policy.maxMcpCalls }),
+    ...(policy.maxCost === undefined ? {} : { maxCost: policy.maxCost }),
+    ...(policy.pauseReplanThresholdSeconds === undefined
+      ? {}
+      : { pauseReplanThresholdSeconds: policy.pauseReplanThresholdSeconds }),
+    ...(policy.cancelStrategy === undefined ? {} : { cancelStrategy: policy.cancelStrategy }),
+    ...(policy.compensationGuidance === undefined
+      ? {}
+      : { compensationGuidance: policy.compensationGuidance }),
   };
 }
 
@@ -414,8 +450,8 @@ function errorCode(error: unknown): string | undefined {
 
 class HttpInputError extends Error {
   readonly code: string;
-  constructor(code: string) {
-    super('A required path parameter is invalid.');
+  constructor(code: string, message = 'A required path parameter is invalid.') {
+    super(message);
     this.code = code;
   }
 }

@@ -50,6 +50,19 @@ describe('management HTTP API contract', () => {
     expect(body).toContain('MANAGEMENT_INTERNAL_ERROR');
     expect(body).not.toContain('database-password');
   });
+
+  it('fails explicitly instead of using a fallback when no authoring model is configured', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/skills/author`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_AUTHORING_MODEL_NOT_CONFIGURED' },
+    });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {

@@ -3,6 +3,7 @@ export * from './result-processor.js';
 export * from './skill-registry.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
+export * from './skill-authoring.js';
 export * from './temporary-skill.js';
 export * from './mcp-registry.js';
 export * from './plan-preparation-processor.js';
