@@ -73,6 +73,30 @@ export interface SkillSemanticRetriever {
   ): Promise<Readonly<Record<string, number>>>;
 }
 
+export interface TextEmbeddingProvider {
+  embed(text: string): Promise<Readonly<{ providerId: string; vector: readonly number[] }>>;
+}
+
+export interface SkillEmbeddingRepository {
+  upsert(
+    input: Readonly<{
+      skillId: string;
+      skillVersion: number;
+      providerId: string;
+      searchableText: string;
+      vector: readonly number[];
+      updatedAt: string;
+    }>,
+  ): Promise<void>;
+  cosineScores(
+    input: Readonly<{
+      skillIds: readonly string[];
+      providerId: string;
+      vector: readonly number[];
+    }>,
+  ): Promise<Readonly<Record<string, number>>>;
+}
+
 export interface SkillSelectionDecider {
   decide(
     input: Readonly<{

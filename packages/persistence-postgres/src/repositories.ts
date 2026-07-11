@@ -11,6 +11,7 @@ import type {
   RuntimeTaskEvent,
   SkillDraftRepository,
   SkillGraphRepository,
+  SkillEmbeddingRepository,
   SkillSelectionRepository,
   TemporarySkillRepository,
   SkillRepository,
@@ -723,6 +724,59 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   }
 }
 
+interface SkillEmbeddingScoreRow extends QueryResultRow {
+  skill_id: string;
+  semantic_score: number;
+}
+
+export class PostgresSkillEmbeddingRepository implements SkillEmbeddingRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async upsert(input: Parameters<SkillEmbeddingRepository['upsert']>[0]): Promise<void> {
+    const vector = vectorLiteral(input.vector);
+    await this.#pool.query(
+      `INSERT INTO skill_embedding
+        (skill_id, skill_version, provider_id, dimensions, searchable_text, embedding, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6::vector, $7)
+       ON CONFLICT (skill_id) DO UPDATE SET
+         skill_version = EXCLUDED.skill_version,
+         provider_id = EXCLUDED.provider_id,
+         dimensions = EXCLUDED.dimensions,
+         searchable_text = EXCLUDED.searchable_text,
+         embedding = EXCLUDED.embedding,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        input.skillId,
+        input.skillVersion,
+        input.providerId,
+        input.vector.length,
+        input.searchableText,
+        vector,
+        input.updatedAt,
+      ],
+    );
+  }
+
+  async cosineScores(
+    input: Parameters<SkillEmbeddingRepository['cosineScores']>[0],
+  ): Promise<Readonly<Record<string, number>>> {
+    if (input.skillIds.length === 0) return {};
+    const result = await this.#pool.query<SkillEmbeddingScoreRow>(
+      `SELECT skill_id,
+              GREATEST(0, LEAST(1, (2 - (embedding <=> $1::vector)) / 2))::double precision AS semantic_score
+         FROM skill_embedding
+        WHERE provider_id = $2
+          AND dimensions = $3
+          AND skill_id = ANY($4::text[])`,
+      [vectorLiteral(input.vector), input.providerId, input.vector.length, [...input.skillIds]],
+    );
+    return Object.fromEntries(result.rows.map((row) => [row.skill_id, row.semantic_score]));
+  }
+}
+
 export class PostgresTemporarySkillRepository implements TemporarySkillRepository {
   readonly #pool: Pool;
 
@@ -1188,6 +1242,13 @@ function temporarySkillParameters(skill: TemporarySkill): unknown[] {
     skill.createdAt,
     skill.expiredAt ?? null,
   ];
+}
+
+function vectorLiteral(vector: readonly number[]): string {
+  if (vector.length === 0 || vector.some((value) => !Number.isFinite(value))) {
+    throw new Error('SKILL_EMBEDDING_VECTOR_INVALID');
+  }
+  return `[${vector.join(',')}]`;
 }
 
 function mapTemporarySkillRow(row: TemporarySkillRow): TemporarySkill {

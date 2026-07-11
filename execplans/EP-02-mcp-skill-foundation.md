@@ -65,6 +65,17 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Outcomes and Retrospective
 
+## pgvector Skill Retrieval Progress Update - 2026-07-11
+
+- [x] Add provider-neutral embedding and persistence ports.
+- [x] Store current SkillVersion search projections in PostgreSQL pgvector with provider/dimension guards.
+- [x] Use real cosine scores only as candidate context beside operational metrics.
+- [x] Preserve the independent final-decider boundary and persist its selected version and summary.
+- [x] Verify real PostgreSQL vector behavior and same-process selection e2e.
+- [ ] Implement production embedding/model adapters and model-call audit in EP-03.
+
+Decision: ADR-017 makes vector state rebuildable and prevents retrieval rank from becoming final selection.
+
 ## Structured Skill Authoring Progress Update - 2026-07-11
 
 - [x] Add a vendor-neutral structured ModelProvider application port.

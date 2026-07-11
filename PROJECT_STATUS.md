@@ -1,5 +1,7 @@
 # Project Status
 
+EP-02 pgvector selection update (2026-07-11): approximately 84%. Current enabled SkillVersion content is projected into PostgreSQL pgvector, provider/dimension drift fails closed, real cosine scores join persisted operational metrics, and only a separately injected decider can make the final selection. Unit, real PostgreSQL integration, and same-process e2e pass. Production embedding/model adapters and invocation audit remain EP-03 gaps.
+
 EP-02 Skill authoring update (2026-07-11): approximately 79%. Structured model output is shape-checked, both generated Schemas are Ajv-validated and explicit, invalid output receives one bounded correction attempt, and failure persists no fallback Skill. PostgreSQL/Agent Card e2e uses an injected simulated provider; a production ModelProvider adapter, stage routing, Prompt versions, and invocation audit remain EP-03 gaps.
 
 EP-02 Temporary Skill update (2026-07-11): approximately 74%. Task-scoped Temporary Skills are isolated from the formal registry, validate live MCP Tool references, expire into PostgreSQL Experience records, and produce only an `awaiting_simulation` candidate after two equivalent successes. Unit, integration, contract, and real same-process e2e pass. Automatic capability-gap generation/execution and EP-05 simulation/publication remain open.

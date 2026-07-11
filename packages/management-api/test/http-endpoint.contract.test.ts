@@ -63,6 +63,19 @@ describe('management HTTP API contract', () => {
       error: { code: 'SKILL_AUTHORING_MODEL_NOT_CONFIGURED' },
     });
   });
+
+  it('fails explicitly when semantic and final selection providers are not configured', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goalDescription: 'Inspect a device.' }),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_SELECTION_MODEL_NOT_CONFIGURED' },
+    });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {

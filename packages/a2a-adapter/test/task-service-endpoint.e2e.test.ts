@@ -24,6 +24,27 @@ beforeAll(async () => {
     skillAuthoringModel: {
       generateStructured: () => Promise.resolve(generatedSkillMetadata()),
     },
+    skillSelection: {
+      embeddings: {
+        embed: (text) =>
+          Promise.resolve({
+            providerId: 'embedding.e2e.v1',
+            vector: text.toLowerCase().includes('zebra') ? [1, 0, 0] : [0, 1, 0],
+          }),
+      },
+      decider: {
+        decide: (input) => {
+          const selected = [...input.candidates].sort(
+            (left, right) => right.semanticScore - left.semanticScore,
+          )[0];
+          if (selected === undefined) throw new Error('NO_SELECTION_CANDIDATE');
+          return Promise.resolve({
+            selectedSkillId: selected.skillId,
+            decisionSummary: 'Selected from semantic relevance and the persisted metric snapshot.',
+          });
+        },
+      },
+    },
   });
 });
 
@@ -235,6 +256,47 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       validationPassed: true,
     });
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+  });
+
+  it('uses real pgvector scores as candidate context while the decider makes the final selection', async () => {
+    const deviceSkillId = `skill.selection.device.${randomUUID()}`;
+    const invoiceSkillId = `skill.selection.invoice.${randomUUID()}`;
+    for (const [skillId, name] of [
+      [deviceSkillId, 'Zebra diagnostics'],
+      [invoiceSkillId, 'Invoice reconciliation'],
+    ] as const) {
+      const response = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(skillInput(skillId, name)),
+      });
+      expect(response.status).toBe(201);
+    }
+    const response = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goalDescription: 'Run the zebra diagnostic capability.' }),
+    });
+    expect(response.status).toBe(201);
+    const selection = z
+      .object({
+        selectedSkillId: z.string(),
+        selectedSkillVersion: z.number(),
+        decisionSummary: z.string(),
+        candidates: z.array(
+          z.object({
+            skillId: z.string(),
+            semanticScore: z.number(),
+            metrics: z.object({ successRate: z.number(), stabilityScore: z.number() }),
+          }),
+        ),
+      })
+      .parse(await response.json());
+    expect(selection.selectedSkillId).toBe(deviceSkillId);
+    expect(selection.candidates.find((item) => item.skillId === deviceSkillId)?.semanticScore).toBe(
+      1,
+    );
+    expect(selection.decisionSummary).toContain('metric snapshot');
   });
 
   it('creates, lists, and deletes persisted Skill Graph relations through management HTTP', async () => {

@@ -116,6 +116,23 @@ paths:
       responses:
         '201': { description: Model-authored, validated, persisted SkillVersion }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-selections:
+    post:
+      operationId: selectSkill
+      description: Builds pgvector and operational-metric candidates, then requires a configured final decider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [goalDescription]
+              properties:
+                goalDescription: { type: string, minLength: 1 }
+      responses:
+        '201': { description: Persisted selection, candidate metric snapshots, and displayable decision summary }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/skill-graph:
     get:
       operationId: listSkillGraph

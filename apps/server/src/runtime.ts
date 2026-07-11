@@ -16,11 +16,15 @@ import {
   McpRegistryService,
   SkillGraphService,
   SkillAuthoringService,
+  SkillSelectionService,
+  PersistedSkillSemanticRetriever,
   SkillRegistryService,
   TemporarySkillService,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
+  type SkillSelectionDecider,
+  type TextEmbeddingProvider,
 } from '../../../packages/application/src/index.js';
 import type { SkillVersion } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
@@ -37,8 +41,10 @@ import {
   PostgresMcpRegistryRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
+  PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresSkillSelectionRepository,
   PostgresTemporarySkillRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -58,6 +64,10 @@ export interface ServerRuntimeOptions {
   readonly managementHost?: string;
   readonly managementPort?: number;
   readonly skillAuthoringModel?: StructuredModelProvider;
+  readonly skillSelection?: Readonly<{
+    embeddings: TextEmbeddingProvider;
+    decider: SkillSelectionDecider;
+  }>;
 }
 
 export interface ServerRuntimeHandle {
@@ -107,6 +117,7 @@ export async function startServerRuntime(
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
+  const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const mcpRepository = new PostgresMcpRegistryRepository(pool);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
@@ -132,6 +143,25 @@ export async function startServerRuntime(
     clock,
     ids: { nextRelationId: () => `skill-relation-${randomUUID()}` },
   });
+  const skillSelection =
+    options.skillSelection === undefined
+      ? undefined
+      : new SkillSelectionService({
+          skills,
+          graph: skillGraphRepository,
+          records: skillSelectionRepository,
+          retriever: new PersistedSkillSemanticRetriever({
+            embeddings: options.skillSelection.embeddings,
+            repository: new PostgresSkillEmbeddingRepository(pool),
+            clock,
+          }),
+          decider: options.skillSelection.decider,
+          clock,
+          ids: {
+            nextSelectionId: () => `skill-selection-${randomUUID()}`,
+            nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
+          },
+        });
   const mcpTransport = new StreamableHttpMcpAdapter();
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
@@ -165,6 +195,7 @@ export async function startServerRuntime(
         mcp: mcpRegistry,
         skills: skillRegistry,
         ...(skillAuthoring === undefined ? {} : { skillAuthoring }),
+        ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills,
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
@@ -265,6 +296,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0010_skill_graph.up.sql',
     '0011_skill_selection.up.sql',
     '0012_temporary_skill.up.sql',
+    '0013_skill_embedding.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

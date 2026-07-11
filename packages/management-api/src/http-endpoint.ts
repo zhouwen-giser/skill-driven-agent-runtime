@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type {
   McpRegistryService,
   SkillAuthoringService,
+  SkillSelectionService,
   RegisterSkillVersionInput,
   SkillRegistryService,
   SkillGraphService,
@@ -99,6 +100,7 @@ const AuthorSkillSchema = z.object({
   status: z.enum(['draft', 'enabled', 'disabled']),
   sourceKind: z.enum(['admin', 'a2a_draft']),
 });
+const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -121,6 +123,7 @@ export interface ManagementOperations {
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
+  readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -297,6 +300,21 @@ export async function startManagementHttpEndpoint(
           runtimePolicy: compactRuntimePolicy(parsed.runtimePolicy),
         }),
       );
+    }),
+  );
+  app.post(
+    '/api/v1/skill-selections',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillSelection === undefined) {
+        throw new HttpInputError(
+          'SKILL_SELECTION_MODEL_NOT_CONFIGURED',
+          'Embedding and selection model providers are not configured.',
+        );
+      }
+      const input = SelectSkillSchema.parse(request.body);
+      response
+        .status(201)
+        .json(await options.operations.skillSelection.select(input.goalDescription));
     }),
   );
   app.post(

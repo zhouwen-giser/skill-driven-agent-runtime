@@ -12,6 +12,7 @@ import {
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
+  PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
   PostgresTemporarySkillRepository,
   PostgresSkillRepository,
@@ -84,11 +85,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(temporarySkillMigration);
+  const skillEmbeddingMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0013_skill_embedding.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(skillEmbeddingMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -97,6 +103,67 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('stores rebuildable Skill vectors and scores only matching provider dimensions with pgvector', async () => {
+    const skills = new PostgresSkillRepository(pool);
+    for (const [skillId, name] of [
+      ['skill.vector.device', 'Device inspection'],
+      ['skill.vector.invoice', 'Invoice review'],
+    ] as const) {
+      await skills.saveVersionAndSetCurrent(
+        createSkillVersion({
+          skillId,
+          version: 1,
+          name,
+          summary: name,
+          description: `${name} capability.`,
+          capabilities: [name],
+          workflowGuidance: 'Perform the capability.',
+          outputInstruction: 'Return a result.',
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'object' },
+          toolPolicy: { required: [], optional: [], forbidden: [] },
+          runtimePolicy: { autoConfirmPlan: false },
+          status: 'enabled',
+          sourceKind: 'admin',
+          validationPassed: true,
+          createdAt: '2026-07-11T10:00:00.000Z',
+        }),
+        '2026-07-11T10:00:00.000Z',
+      );
+    }
+    const repository = new PostgresSkillEmbeddingRepository(pool);
+    await repository.upsert({
+      skillId: 'skill.vector.device',
+      skillVersion: 1,
+      providerId: 'embedding.test.v1',
+      searchableText: 'device inspection',
+      vector: [1, 0, 0],
+      updatedAt: '2026-07-11T10:00:00.000Z',
+    });
+    await repository.upsert({
+      skillId: 'skill.vector.invoice',
+      skillVersion: 1,
+      providerId: 'embedding.test.v1',
+      searchableText: 'invoice review',
+      vector: [0, 1, 0],
+      updatedAt: '2026-07-11T10:00:00.000Z',
+    });
+
+    const scores = await repository.cosineScores({
+      skillIds: ['skill.vector.device', 'skill.vector.invoice'],
+      providerId: 'embedding.test.v1',
+      vector: [1, 0, 0],
+    });
+    expect(scores['skill.vector.device']).toBeCloseTo(1);
+    expect(scores['skill.vector.invoice']).toBeCloseTo(0.5);
+    await expect(
+      repository.cosineScores({
+        skillIds: ['skill.vector.device'],
+        providerId: 'other-provider',
+        vector: [1, 0, 0],
+      }),
+    ).resolves.toEqual({});
+  });
   it('expires Temporary Skills atomically into experience without inserting a formal Skill', async () => {
     const repository = new PostgresTemporarySkillRepository(pool);
     const active = {
