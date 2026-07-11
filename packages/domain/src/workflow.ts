@@ -77,3 +77,28 @@ export interface WorkflowPlanRecord {
   readonly attemptCount: number;
   readonly createdAt: string;
 }
+
+export interface WorkflowInstance {
+  readonly instanceId: string;
+  readonly planId: string;
+  readonly workflowDefinitionId: string;
+  readonly workflowVersion: number;
+  readonly goalId: string;
+  readonly goalVersion: number;
+  readonly status: 'running' | 'succeeded' | 'failed';
+  readonly input: unknown;
+  readonly result?: unknown;
+  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly startedAt: string;
+  readonly completedAt?: string;
+}
+
+export interface WorkflowNodeEvent {
+  readonly eventId: string;
+  readonly instanceId: string;
+  readonly sequence: number;
+  readonly nodeId: string;
+  readonly eventType: 'node_started' | 'node_succeeded' | 'node_failed';
+  readonly timestamp: string;
+  readonly summary: string;
+}

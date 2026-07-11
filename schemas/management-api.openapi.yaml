@@ -18,6 +18,20 @@ paths:
       responses:
         '201': { description: Immutable validated Workflow plan and confirmation status }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/confirm:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: confirmWorkflowPlan
+      responses:
+        '200': { description: Confirmed immutable Workflow plan }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/execute:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: executeConfirmedWorkflowPlan
+      responses:
+        '201': { description: Persisted terminal Workflow instance }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/prompts:
     post:
       operationId: createPromptVersion

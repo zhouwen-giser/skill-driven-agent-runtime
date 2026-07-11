@@ -144,6 +144,21 @@ class MemoryPlanRepository implements WorkflowPlanRepository {
   findPlan(id: string) {
     return Promise.resolve(this.plans.get(id));
   }
+  findConfirmedDefinition(workflowDefinitionId: string, workflowVersion: number) {
+    return Promise.resolve(
+      [...this.plans.values()].find(
+        (plan) =>
+          plan.confirmationStatus === 'confirmed' &&
+          plan.definition?.workflowDefinitionId === workflowDefinitionId &&
+          plan.definition.version === workflowVersion,
+      ),
+    );
+  }
+  confirmPlan(id: string) {
+    const plan = this.plans.get(id);
+    if (plan !== undefined) this.plans.set(id, { ...plan, confirmationStatus: 'confirmed' });
+    return Promise.resolve();
+  }
   saveAttempt(value: WorkflowPlanAttempt) {
     this.attempts.push(value);
     return Promise.resolve();

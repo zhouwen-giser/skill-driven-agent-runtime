@@ -26,6 +26,9 @@ import type {
   ToolReference,
   WorkflowPlanAttempt,
   WorkflowPlanRecord,
+  WorkflowDefinition,
+  WorkflowInstance,
+  WorkflowNodeEvent,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -265,8 +268,39 @@ export interface StructuredModelProvider {
 
 export interface WorkflowPlanRepository {
   findPlan(planId: string): Promise<WorkflowPlanRecord | undefined>;
+  findConfirmedDefinition(
+    workflowDefinitionId: string,
+    workflowVersion: number,
+  ): Promise<WorkflowPlanRecord | undefined>;
+  confirmPlan(planId: string): Promise<void>;
   saveAttempt(attempt: WorkflowPlanAttempt): Promise<void>;
   savePlan(plan: WorkflowPlanRecord): Promise<void>;
+}
+
+export interface WorkflowExecutionRepository {
+  findInstance(instanceId: string): Promise<WorkflowInstance | undefined>;
+  saveInstance(instance: WorkflowInstance): Promise<void>;
+  saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
+}
+
+export interface WorkflowExecutor {
+  execute(
+    definition: WorkflowDefinition,
+    input: unknown,
+    signal?: AbortSignal,
+  ): Promise<
+    Readonly<{
+      status: 'succeeded' | 'failed';
+      result?: unknown;
+      errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+      events: readonly Readonly<{
+        nodeId: string;
+        type: 'node_started' | 'node_succeeded' | 'node_failed';
+        timestamp: string;
+        summary: string;
+      }>[];
+    }>
+  >;
 }
 
 export interface ModelProviderRecord {

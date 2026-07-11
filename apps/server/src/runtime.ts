@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -24,6 +25,7 @@ import {
   TemporarySkillService,
   WorkflowValidator,
   WorkflowPlannerService,
+  WorkflowExecutionService,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -35,6 +37,11 @@ import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/inde
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
 import { OpenAiCompatibleModelAdapter } from '../../../packages/model-provider-adapter/src/index.js';
+import {
+  LangGraphWorkflowExecutor,
+  WorkflowCompilerError,
+  type WorkflowRuntimePorts,
+} from '../../../packages/langgraph-runtime/src/index.js';
 import {
   startManagementHttpEndpoint,
   type ManagementHttpEndpointHandle,
@@ -54,6 +61,7 @@ import {
   PostgresSkillSelectionRepository,
   PostgresTemporarySkillRepository,
   PostgresWorkflowPlanRepository,
+  PostgresWorkflowExecutionRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -200,6 +208,71 @@ export async function startServerRuntime(
     clock,
     ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
   });
+  const workflowPlans = new PostgresWorkflowPlanRepository(pool);
+  const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
+  const workflowPorts: WorkflowRuntimePorts = {
+    executeLlm: ({ instruction, responseSchema }) =>
+      modelRuntime.generateStructured({
+        stage: 'execution_decision',
+        instruction,
+        responseSchema,
+        correctionErrors: [],
+      }),
+    async callMcpTool({ tool, arguments: arguments_, signal }) {
+      if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
+      return mcpRegistry.call(tool.serverId, tool.toolName, arguments_, signal);
+    },
+    async executeSkill({ skillId, input }) {
+      const skill = await skills.findCurrentVersion(skillId);
+      if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
+      const result = await modelRuntime.generateStructured({
+        stage: 'execution_decision',
+        instruction: `${skill.workflowGuidance}\nInput: ${JSON.stringify(input)}`,
+        responseSchema: skill.outputSchema,
+        correctionErrors: [],
+      });
+      const validation = schemaValidator.validate(skill.outputSchema, result);
+      if (!validation.valid) throw new Error('WORKFLOW_SKILL_OUTPUT_INVALID');
+      return result;
+    },
+    async executeSubworkflow({ workflowDefinitionId, workflowVersion, parentInput, signal }) {
+      const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
+      const ancestry = workflowAncestry.getStore() ?? [];
+      if (ancestry.includes(key) || ancestry.length >= 16)
+        throw new WorkflowCompilerError(
+          'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID',
+          'Subworkflow recursion or depth limit was reached.',
+        );
+      const plan = await workflowPlans.findConfirmedDefinition(
+        workflowDefinitionId,
+        workflowVersion,
+      );
+      if (plan?.definition === undefined) throw new Error('WORKFLOW_SUBWORKFLOW_NOT_CONFIRMED');
+      const definition = plan.definition;
+      return workflowAncestry.run([...ancestry, key], async () => {
+        const outcome = await new LangGraphWorkflowExecutor(workflowPorts).execute(
+          definition,
+          parentInput,
+          signal,
+        );
+        if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
+        return outcome.result;
+      });
+    },
+    requestHumanConfirmation: () => {
+      throw new Error('WORKFLOW_HUMAN_CONFIRMATION_REQUIRED');
+    },
+    now: clock.now,
+  };
+  const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts);
+  const workflowExecution = new WorkflowExecutionService({
+    plans: workflowPlans,
+    instances: new PostgresWorkflowExecutionRepository(pool),
+    validator: workflowValidator,
+    executor: langGraphExecutor,
+    clock,
+    ids: { nextEventId: () => `workflow-event-${randomUUID()}` },
+  });
   const temporarySkills = new TemporarySkillService({
     repository: temporarySkillRepository,
     tools: mcpRepository,
@@ -231,6 +304,8 @@ export async function startServerRuntime(
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
           plan: (input) => workflowPlanner.plan(input),
+          confirm: (planId) => workflowExecution.confirm(planId),
+          execute: (input) => workflowExecution.execute(input),
         },
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
@@ -318,6 +393,10 @@ export async function startServerRuntime(
   }
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 async function applyRuntimeMigrations(pool: Pool): Promise<void> {
   for (const name of [
     '0002_protocol_domain.up.sql',
@@ -335,6 +414,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0014_model_runtime.up.sql',
     '0015_prompt_runtime.up.sql',
     '0016_workflow_planning.up.sql',
+    '0017_workflow_execution.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

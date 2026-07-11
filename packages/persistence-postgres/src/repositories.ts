@@ -11,6 +11,7 @@ import type {
   ModelRuntimeRepository,
   PromptRepository,
   WorkflowPlanRepository,
+  WorkflowExecutionRepository,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
@@ -36,6 +37,8 @@ import type {
   WorkflowDefinition,
   WorkflowPlanAttempt,
   WorkflowPlanRecord,
+  WorkflowInstance,
+  WorkflowNodeEvent,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -1024,6 +1027,29 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       createdAt: toIsoString(row.created_at),
     };
   }
+  async findConfirmedDefinition(
+    workflowDefinitionId: string,
+    workflowVersion: number,
+  ): Promise<WorkflowPlanRecord | undefined> {
+    const result = await this.#pool.query<WorkflowPlanRow>(
+      `SELECT * FROM workflow_plan
+       WHERE confirmation_status='confirmed'
+         AND definition_json->>'workflowDefinitionId'=$1
+         AND (definition_json->>'version')::integer=$2
+       ORDER BY created_at DESC LIMIT 1`,
+      [workflowDefinitionId, workflowVersion],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapWorkflowPlanRow(row);
+  }
+  async confirmPlan(planId: string): Promise<void> {
+    const result = await this.#pool.query(
+      `UPDATE workflow_plan SET confirmation_status='confirmed'
+       WHERE plan_id=$1 AND definition_json IS NOT NULL AND confirmation_status='awaiting_confirmation'`,
+      [planId],
+    );
+    if (result.rowCount !== 1) throw new Error('WORKFLOW_PLAN_CONFIRMATION_FAILED');
+  }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_plan_attempt(plan_id,attempt,candidate_json,validation_errors_json,valid,created_at)
@@ -1054,6 +1080,134 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       ],
     );
   }
+}
+
+interface WorkflowInstanceRow extends QueryResultRow {
+  instance_id: string;
+  plan_id: string;
+  workflow_definition_id: string;
+  workflow_version: number;
+  goal_id: string;
+  goal_version: number;
+  status: WorkflowInstance['status'];
+  input_json: unknown;
+  result_json: unknown;
+  errors_json: unknown;
+  started_at: Date | string;
+  completed_at: Date | string | null;
+}
+
+const WorkflowErrorsSchema = z.record(
+  z.string(),
+  z.object({ code: z.string(), message: z.string() }).strict(),
+);
+
+export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async findInstance(instanceId: string): Promise<WorkflowInstance | undefined> {
+    const result = await this.#pool.query<WorkflowInstanceRow>(
+      'SELECT * FROM workflow_instance WHERE instance_id=$1',
+      [instanceId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      instanceId: row.instance_id,
+      planId: row.plan_id,
+      workflowDefinitionId: row.workflow_definition_id,
+      workflowVersion: row.workflow_version,
+      goalId: row.goal_id,
+      goalVersion: row.goal_version,
+      status: row.status,
+      input: row.input_json,
+      ...(row.result_json === null ? {} : { result: row.result_json }),
+      errors: WorkflowErrorsSchema.parse(row.errors_json),
+      startedAt: toIsoString(row.started_at),
+      ...(row.completed_at === null ? {} : { completedAt: toIsoString(row.completed_at) }),
+    };
+  }
+
+  async saveInstance(instance: WorkflowInstance): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_instance(
+         instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
+         status,input_json,result_json,errors_json,started_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12)
+       ON CONFLICT(instance_id) DO UPDATE SET
+         status=EXCLUDED.status,
+         result_json=EXCLUDED.result_json,
+         errors_json=EXCLUDED.errors_json,
+         completed_at=EXCLUDED.completed_at`,
+      [
+        instance.instanceId,
+        instance.planId,
+        instance.workflowDefinitionId,
+        instance.workflowVersion,
+        instance.goalId,
+        instance.goalVersion,
+        instance.status,
+        JSON.stringify(instance.input),
+        instance.result === undefined ? null : JSON.stringify(instance.result),
+        JSON.stringify(instance.errors),
+        instance.startedAt,
+        instance.completedAt ?? null,
+      ],
+    );
+  }
+
+  async saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void> {
+    if (events.length === 0) return;
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const event of events)
+        await client.query(
+          `INSERT INTO workflow_node_event(
+             event_id,instance_id,sequence,node_id,event_type,event_timestamp,summary)
+           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            event.eventId,
+            event.instanceId,
+            event.sequence,
+            event.nodeId,
+            event.eventType,
+            event.timestamp,
+            event.summary,
+          ],
+        );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
+  return {
+    planId: row.plan_id,
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    ...(row.definition_json === null
+      ? {}
+      : {
+          definition: StoredWorkflowDefinitionSchema.parse(
+            row.definition_json,
+          ) as unknown as WorkflowDefinition,
+        }),
+    ...(row.source_confirmed_plan_id === null
+      ? {}
+      : { sourceConfirmedPlanId: row.source_confirmed_plan_id }),
+    confirmationStatus: row.confirmation_status,
+    attemptCount: row.attempt_count,
+    createdAt: toIsoString(row.created_at),
+  };
 }
 
 async function findActivePrompt(pool: Pool, stage: ModelStage): Promise<PromptVersion | undefined> {

@@ -76,6 +76,55 @@ describe('management HTTP API contract', () => {
       error: { code: 'SKILL_SELECTION_MODEL_NOT_CONFIGURED' },
     });
   });
+
+  it('exposes the same confirmed-plan state through confirmation and execution endpoints', async () => {
+    const configured = operations();
+    const confirm = (planId: string) =>
+      Promise.resolve({
+        planId,
+        goalId: 'goal-1',
+        goalVersion: 1,
+        confirmationStatus: 'confirmed' as const,
+        attemptCount: 1,
+        createdAt: '2026-07-12T00:00:00.000Z',
+      });
+    const execute = (input: { instanceId: string; planId: string; input: unknown }) =>
+      Promise.resolve({
+        instanceId: input.instanceId,
+        planId: input.planId,
+        workflowDefinitionId: 'workflow-1',
+        workflowVersion: 1,
+        goalId: 'goal-1',
+        goalVersion: 1,
+        status: 'succeeded' as const,
+        input: input.input,
+        errors: {},
+        startedAt: '2026-07-12T00:00:00.000Z',
+        completedAt: '2026-07-12T00:00:01.000Z',
+      });
+    endpoint = await startManagementHttpEndpoint({
+      operations: { ...configured, workflows: { ...configured.workflows, confirm, execute } },
+    });
+    const confirmation = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/confirm`, {
+      method: 'POST',
+    });
+    expect(confirmation.status).toBe(200);
+    await expect(confirmation.json()).resolves.toMatchObject({
+      planId: 'plan-1',
+      confirmationStatus: 'confirmed',
+    });
+    const execution = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ instanceId: 'instance-1', input: { request: 'run' } }),
+    });
+    expect(execution.status).toBe(201);
+    await expect(execution.json()).resolves.toMatchObject({
+      instanceId: 'instance-1',
+      planId: 'plan-1',
+      status: 'succeeded',
+    });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {
@@ -139,6 +188,8 @@ function operations(failServerList = false): ManagementOperations {
       listByTask: () => Promise.resolve([]),
     },
     workflows: {
+      confirm: unused,
+      execute: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
     },

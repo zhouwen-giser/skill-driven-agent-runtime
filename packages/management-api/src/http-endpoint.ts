@@ -16,6 +16,7 @@ import type {
   TemporarySkillService,
   WorkflowValidator,
   WorkflowPlannerService,
+  WorkflowExecutionService,
 } from '../../application/src/index.js';
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -142,6 +143,10 @@ const PlanWorkflowSchema = z.object({
   planningInstruction: z.string().min(1),
   sourceConfirmedPlanId: z.string().min(1).optional(),
 });
+const ExecuteWorkflowSchema = z.object({
+  instanceId: z.string().min(1),
+  input: z.unknown(),
+});
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -170,7 +175,9 @@ export interface ManagementOperations {
     PromptService,
     'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
   >;
-  readonly workflows: Pick<WorkflowValidator, 'validate'> & Pick<WorkflowPlannerService, 'plan'>;
+  readonly workflows: Pick<WorkflowValidator, 'validate'> &
+    Pick<WorkflowPlannerService, 'plan'> &
+    Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -216,6 +223,25 @@ export async function startManagementHttpEndpoint(
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
             : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/confirm',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflows.confirm(pathValue(request, 'planId')));
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/execute',
+    asyncRoute(async (request, response) => {
+      const input = ExecuteWorkflowSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.workflows.execute({
+          instanceId: input.instanceId,
+          planId: pathValue(request, 'planId'),
+          input: input.input,
         }),
       );
     }),

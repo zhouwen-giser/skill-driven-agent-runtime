@@ -8,6 +8,7 @@ export * from './skill-authoring.js';
 export * from './temporary-skill.js';
 export * from './workflow-validator.js';
 export * from './workflow-planner.js';
+export * from './workflow-execution.js';
 export * from './mcp-registry.js';
 export * from './model-runtime.js';
 export * from './plan-preparation-processor.js';

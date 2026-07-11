@@ -12,6 +12,7 @@ import {
   PostgresModelRuntimeRepository,
   PostgresPromptRepository,
   PostgresWorkflowPlanRepository,
+  PostgresWorkflowExecutionRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
@@ -108,11 +109,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowPlanningMigration);
+  const workflowExecutionMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0017_workflow_execution.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowExecutionMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -177,6 +183,93 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ['plan.db'],
     );
     expect(attempts.rows[0]?.count).toBe(2);
+    await repository.confirmPlan('plan.db');
+    await expect(repository.findConfirmedDefinition('workflow.db', 1)).resolves.toMatchObject({
+      planId: 'plan.db',
+      confirmationStatus: 'confirmed',
+    });
+  });
+  it('persists Workflow instance transitions and ordered node events', async () => {
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    await plans.savePlan({
+      planId: 'plan.execution.db',
+      goalId: 'goal.execution.db',
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.execution.db',
+        version: 1,
+        goalId: 'goal.execution.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: 'ok' },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    const running = {
+      instanceId: 'instance.db',
+      planId: 'plan.execution.db',
+      workflowDefinitionId: 'workflow.execution.db',
+      workflowVersion: 1,
+      goalId: 'goal.execution.db',
+      goalVersion: 1,
+      status: 'running' as const,
+      input: { request: 'run' },
+      errors: {},
+      startedAt: '2026-07-12T00:01:00.000Z',
+    };
+    await executions.saveInstance(running);
+    await executions.saveNodeEvents([
+      {
+        eventId: 'workflow-event-1',
+        instanceId: 'instance.db',
+        sequence: 1,
+        nodeId: 'result',
+        eventType: 'node_started',
+        timestamp: '2026-07-12T00:01:01.000Z',
+        summary: 'result node started.',
+      },
+      {
+        eventId: 'workflow-event-2',
+        instanceId: 'instance.db',
+        sequence: 2,
+        nodeId: 'result',
+        eventType: 'node_succeeded',
+        timestamp: '2026-07-12T00:01:02.000Z',
+        summary: 'result node succeeded.',
+      },
+    ]);
+    await executions.saveInstance({
+      ...running,
+      status: 'succeeded',
+      result: 'ok',
+      completedAt: '2026-07-12T00:01:03.000Z',
+    });
+
+    await expect(executions.findInstance('instance.db')).resolves.toMatchObject({
+      status: 'succeeded',
+      result: 'ok',
+      errors: {},
+    });
+    const events = await pool.query<{ sequence: number; event_type: string }>(
+      'SELECT sequence,event_type FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence',
+      ['instance.db'],
+    );
+    expect(events.rows).toEqual([
+      { sequence: 1, event_type: 'node_started' },
+      { sequence: 2, event_type: 'node_succeeded' },
+    ]);
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
     const prompts = new PostgresPromptRepository(pool);

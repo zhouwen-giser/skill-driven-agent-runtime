@@ -14,12 +14,12 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Deliverables
 
-- [ ] ModelProvider and stage configuration
-- [ ] Prompt version management
-- [ ] Workflow JSON Schema and restricted expression engine
-- [ ] validator and auto-fix loop
-- [ ] LangGraph compiler for all node types
-- [ ] immutable workflow instances and events
+- [x] ModelProvider and stage configuration
+- [x] Prompt version management
+- [x] Workflow JSON Schema and restricted expression engine
+- [x] validator and auto-fix loop
+- [x] LangGraph compiler for all node types
+- [x] immutable workflow instances and events
 
 ## Progress
 
@@ -49,10 +49,10 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Validation
 
-- [ ] `positive/negative DSL corpus`
-- [ ] `all node compiler tests`
-- [ ] `no dynamic code security tests`
-- [ ] `MCP workflow e2e`
+- [x] `positive/negative DSL corpus`
+- [x] `all node compiler tests`
+- [x] `no dynamic code security tests`
+- [x] `MCP workflow e2e`
 
 ## Idempotence and Recovery
 
@@ -74,7 +74,7 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 - [x] Persist failed plans after exhaustion and immutable validated definitions on success.
 - [x] Enforce exact Workflow identity and Goal version.
 - [x] Keep initial corrected plans awaiting confirmation and require confirmed repository evidence for repair inheritance.
-- [ ] Compile and execute confirmed repaired plans without a redundant second confirmation.
+- [x] Compile and execute confirmed repaired plans without a redundant second confirmation.
 
 Decision: ADR-021 separates initial confirmation from safe correction inheritance.
 
@@ -86,9 +86,23 @@ Decision: ADR-021 separates initial confirmation from safe correction inheritanc
 - [x] Enforce loop bounds and condition branch edges.
 - [x] Validate current MCP Tool arguments and enabled Skill inputs against authoritative Schemas.
 - [x] Add negative security corpus and real catalog e2e.
-- [ ] Add model correction, persistence, LangGraph compiler, and node execution.
+- [x] Add model correction, persistence, LangGraph compiler, and node execution.
 
 Decision: ADR-020 separates validation from compilation/execution and forbids arbitrary source expressions.
+
+## LangGraph Compiler and Immutable Execution Progress Update - 2026-07-12
+
+- [x] Revalidate current Tool/Skill catalogs and reject unconfirmed plans before compilation.
+- [x] Interpret only the restricted expression AST with strict references and operand types.
+- [x] Compile all ten node types into the sole LangGraph.js StateGraph runtime.
+- [x] Freeze each definition, preserve fixed identity/version, and persist instance transitions/node events.
+- [x] Verify condition routing, bounded loops, parallel convergence and all three error strategies; implement the production subworkflow recursion/depth guard.
+- [x] Execute a real local MCP plan only after confirmation.
+- [x] Execute a corrected version inherited from a confirmed source without a second confirmation.
+- [ ] Connect human_confirmation to persisted EP-04 pause/resume instead of the current explicit runtime stop.
+- [ ] Add the outer replan controller, Skill/system budgets and natural-language/admin editing.
+
+Decision: ADR-022 confines LangGraph types to the runtime adapter and defines immutable execution/audit semantics.
 
 ## Prompt Lifecycle Progress Update - 2026-07-12
 

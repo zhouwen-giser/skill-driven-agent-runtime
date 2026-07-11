@@ -18,6 +18,9 @@ let modelServer: Server;
 let initialPromptVersion = 0;
 const failingProviderId = `provider.fail.${randomUUID()}`;
 let workflowPlanningCalls = 0;
+let mcpWorkflowTarget:
+  | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
+  | undefined;
 
 beforeAll(async () => {
   modelServer = await startModelLoopback();
@@ -688,6 +691,126 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(workflowPlanningCalls).toBe(2);
   });
 
+  it('blocks an unconfirmed plan then executes its compiled LangGraph against a real MCP server', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.execution.${randomUUID()}`;
+    const planId = `plan.execution.${randomUUID()}`;
+    const workflowId = `workflow.execution.${randomUUID()}`;
+    const goalId = `goal.execution.${randomUUID()}`;
+    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Workflow Execution MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          workflowDefinitionId: workflowId,
+          workflowVersion: 1,
+          goalId,
+          goalVersion: 1,
+          planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+        }),
+      });
+      expect(planned.status).toBe(201);
+      await expect(planned.json()).resolves.toMatchObject({
+        confirmationStatus: 'awaiting_confirmation',
+        definition: { workflowDefinitionId: workflowId },
+      });
+
+      const blocked = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `blocked-${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(blocked.status).toBe(400);
+      await expect(blocked.json()).resolves.toMatchObject({
+        error: { code: 'WORKFLOW_PLAN_NOT_CONFIRMED' },
+      });
+      const confirmed = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+        { method: 'POST' },
+      );
+      expect(confirmed.status).toBe(200);
+      const executed = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `instance-${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(executed.status).toBe(201);
+      await expect(executed.json()).resolves.toMatchObject({
+        status: 'succeeded',
+        result: {
+          structuredContent: { deviceId: 'device-runtime', status: 'online' },
+        },
+        errors: {},
+      });
+      const repairedPlanId = `plan.execution.repaired.${randomUUID()}`;
+      mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 2, goalId };
+      const repaired = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId: repairedPlanId,
+          workflowDefinitionId: workflowId,
+          workflowVersion: 2,
+          goalId,
+          goalVersion: 1,
+          planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+          sourceConfirmedPlanId: planId,
+        }),
+      });
+      expect(repaired.status).toBe(201);
+      await expect(repaired.json()).resolves.toMatchObject({
+        confirmationStatus: 'confirmed',
+        sourceConfirmedPlanId: planId,
+        definition: { version: 2 },
+      });
+      const repairedExecution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(repairedPlanId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `instance-repaired-${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(repairedExecution.status).toBe(201);
+      await expect(repairedExecution.json()).resolves.toMatchObject({ status: 'succeeded' });
+      const invocations = await runtime.listMcpInvocations(serverId);
+      expect(invocations).toEqual([
+        expect.objectContaining({
+          toolName: 'device_status',
+          arguments: { deviceId: 'device-runtime' },
+          status: 'succeeded',
+        }),
+        expect.objectContaining({
+          toolName: 'device_status',
+          arguments: { deviceId: 'device-runtime' },
+          status: 'succeeded',
+        }),
+      ]);
+    } finally {
+      mcpWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
@@ -1004,6 +1127,10 @@ async function startModelLoopback(): Promise<Server> {
         const workflowRequest =
           body.messages?.some((message) => message.content?.includes('PLAN_WORKFLOW') === true) ===
           true;
+        const mcpExecutionRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('EXECUTE_MCP_WORKFLOW') === true,
+          ) === true;
         if (workflowRequest) {
           workflowPlanningCalls += 1;
           const content =
@@ -1032,6 +1159,43 @@ async function startModelLoopback(): Promise<Server> {
               model: 'model-e2e',
               choices: [{ message: { content: JSON.stringify(content) } }],
               usage: { prompt_tokens: 10, completion_tokens: 5 },
+            }),
+          );
+          return;
+        }
+        if (mcpExecutionRequest) {
+          const target = mcpWorkflowTarget;
+          if (target === undefined) throw new Error('MCP_WORKFLOW_TARGET_MISSING');
+          const content = {
+            workflowDefinitionId: target.workflowId,
+            version: target.workflowVersion,
+            goalId: target.goalId,
+            goalVersion: 1,
+            entryNodeId: 'tool',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'tool',
+                name: 'Read device',
+                type: 'mcp_tool',
+                tool: { serverId: target.serverId, toolName: 'device_status' },
+                arguments: { deviceId: 'device-runtime' },
+              },
+              {
+                nodeId: 'result',
+                name: 'Return MCP result',
+                type: 'result',
+                value: { op: 'ref', path: ['nodes', 'tool'] },
+              },
+            ],
+            edges: [{ sourceNodeId: 'tool', targetNodeId: 'result' }],
+          };
+          response.end(
+            JSON.stringify({
+              id: 'workflow-mcp-e2e',
+              model: 'model-e2e',
+              choices: [{ message: { content: JSON.stringify(content) } }],
+              usage: { prompt_tokens: 10, completion_tokens: 10 },
             }),
           );
           return;

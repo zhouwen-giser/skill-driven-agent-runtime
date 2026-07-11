@@ -1,8 +1,10 @@
 # Project Status
 
-EP-03 Workflow planning update (2026-07-12): approximately 50%. Fixed-stage Model Runtime now generates Schema-constrained DSL, persists every candidate/error, auto-corrects within a bound, and saves immutable validated/failed plans. Initial plans remain awaiting confirmation; only repository-confirmed repair sources can inherit confirmation. Compiler/execution consumption remains open.
+EP-03 LangGraph execution update (2026-07-12): approximately 65%. Confirmed plans are revalidated, cloned/frozen, compiled by the sole LangGraph.js runtime, and persisted as immutable Workflow instances with ordered node events. All ten DSL node kinds have compiler execution tests; a same-process e2e proves unconfirmed MCP blocking, real MCP execution after confirmation, and corrected-plan confirmation inheritance without a second prompt. Live human pause/resume, outer replanning, budgets, A2A task orchestration, and plan editing remain open.
 
-EP-03 Workflow DSL validation update (2026-07-12): approximately 40%. Ten whitelisted node kinds and restricted expressions are domain-owned and serializable; validation covers structure, references, reachability, bounded loops, current MCP Tool arguments, and current Skill inputs. Planner correction, persistence, compiler, and execution remain open.
+EP-03 Workflow planning update (2026-07-12): approximately 58%. Fixed-stage Model Runtime now generates Schema-constrained DSL, persists every candidate/error, auto-corrects within a bound, and saves immutable validated/failed plans. Initial plans remain awaiting confirmation; repository-confirmed repaired plans now execute directly through the LangGraph compiler without redundant confirmation.
+
+EP-03 Workflow DSL validation update (2026-07-12): approximately 55%. Ten whitelisted node kinds and restricted expressions are domain-owned and serializable; validation covers structure, references, reachability, bounded loops, current MCP Tool arguments, and current Skill inputs. Planner correction, persistence, LangGraph compilation, immutable execution, and real MCP execution are now connected; wider control-loop behavior remains open.
 
 EP-03 Prompt lifecycle update (2026-07-12): approximately 28%. Prompt versions are PostgreSQL-authoritative, immutable, stage-scoped, publishable/disableable/rollbackable, linked to real model invocations, and expose success/failure/latency/Token effects. AC-15 candidate-before-publish behavior passes e2e. Automatic candidate generation from failures/evaluations remains EP-05 work.
 
