@@ -1,0 +1,4 @@
+BEGIN;
+DROP TABLE IF EXISTS mcp_tool;
+DROP TABLE IF EXISTS mcp_server;
+COMMIT;

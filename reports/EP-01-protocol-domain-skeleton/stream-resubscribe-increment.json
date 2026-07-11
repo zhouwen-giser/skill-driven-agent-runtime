@@ -1,0 +1,13 @@
+{
+  "requirements": ["FR-A2A-001", "FR-A2A-004", "FR-A2A-005"],
+  "status": "passed",
+  "verificationType": "real production composition",
+  "verified": [
+    "official client streaming submit",
+    "client disconnect does not stop BullMQ/TaskService processing",
+    "polling observes INPUT_REQUIRED after disconnect",
+    "standard resubscribe returns persisted Task snapshot",
+    "active stream connections do not block server shutdown"
+  ],
+  "e2e": { "passed": 5, "failed": 0 }
+}

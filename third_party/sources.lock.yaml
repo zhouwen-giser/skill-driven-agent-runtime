@@ -1,6 +1,13 @@
 schema_version: 1
 updated_at: 2026-07-11
 sources:
+  - name: Ajv
+    repository: https://github.com/ajv-validator/ajv
+    license: 'MIT'
+    use: direct_dependency
+    pin: "npm:ajv@8.20.0#sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="
+    allowed: 'JSON Schema validation behind json-schema adapter'
+    forbidden: 'remote schema loading, custom executable keywords, domain type leakage'
   - name: LangGraph.js
     repository: https://github.com/langchain-ai/langgraphjs
     license: 'MIT'

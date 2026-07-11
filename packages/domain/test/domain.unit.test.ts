@@ -62,6 +62,8 @@ describe('AgentTask state machine', () => {
       taskId: 'task-1',
       contextId: 'context-1',
       userId: ANONYMOUS_USER_ID,
+      requestText: 'Inspect status.',
+      requestMetadata: {},
       timestamp,
     });
     const loading = transitionTask(queued, 'context_loading', 'Loading context.', timestamp);
@@ -92,6 +94,8 @@ describe('AgentTask state machine', () => {
       taskId: 'task-1',
       contextId: 'context-1',
       userId: ANONYMOUS_USER_ID,
+      requestText: 'Inspect status.',
+      requestMetadata: {},
       timestamp,
     });
 

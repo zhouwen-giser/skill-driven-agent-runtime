@@ -5,6 +5,8 @@ packages:
 
 allowBuilds:
   esbuild: true
+  msgpackr-extract: true
 
 minimumReleaseAgeExclude:
   - eslint@10.7.0
+  - bullmq@5.80.1

@@ -1,0 +1,17 @@
+{
+  "requirement": "FR-A2A-012",
+  "status": "partial",
+  "realVerification": [
+    "A2A metadata maps only explicit create/update Skill actions",
+    "domain SkillDraft status is always draft",
+    "PostgreSQL persistence occurs before BullMQ enqueue",
+    "draft is absent from dynamic Agent Card"
+  ],
+  "results": {
+    "unit": { "passed": 18, "failed": 0 },
+    "integration": { "passed": 7, "failed": 0 },
+    "contract": { "passed": 13, "failed": 0 },
+    "e2e": { "passed": 3, "failed": 0 }
+  },
+  "unverified": ["management API/console draft visibility"]
+}

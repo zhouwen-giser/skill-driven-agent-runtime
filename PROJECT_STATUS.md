@@ -1,12 +1,16 @@
 # Project Status
 
-更新时间：2026-07-11 18:44 +08:00
+EP-02 audit update (2026-07-11): approximately 38%. MCP invocation traces, persistent Skill dependency warnings, and editable refresh-stable Tool enhancement metadata are implemented. Management API/console and LLM-driven enhancement/failure decisions remain open.
+
+EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remote MCP register/refresh/delete/call with AES-256-GCM credentials pass real integration, official SDK contract, and single-process e2e tests. Remaining: LLM Schema/metadata generation, Skill graph/search/temporary Skills, persisted warnings/audits, and management API/console.
+
+更新时间：2026-07-11 19:04 +08:00
 
 | 阶段                           | 状态   | 完成度 | 最近证据                                                                             | 阻塞                                                     |
 | ------------------------------ | ------ | -----: | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | EP-00 仓库与兼容性基线         | 已完成 |   100% | `pnpm verify:bootstrap` 16/16；`pnpm smoke:infra`：pgvector 0.8.4、migration、Redis PONG/写读通过 | 当前目录缺少 Git 元数据，无法提供 Conventional Commit 证据 |
-| EP-01 协议与领域骨架           | 未开始 |     0% | -                                                                                    | -                                                        |
-| EP-02 MCP 与 Skill 基础        | 未开始 |     0% | -                                                                                    | -                                                        |
+| EP-01 协议与领域骨架           | 进行中 |    94% | 生产断流继续/轮询/resubscribe 已验证；FR-A2A-001/004/005 已关闭；e2e 5/5 | 精确 1.0.1 标签、持久化 SkillVersion schema/Card provider、管理端草案查看为跨 EP 缺口 |
+| EP-02 MCP 与 Skill 基础        | 进行中 |    15% | Skill/SkillVersion、原子版本仓储、发布门禁、动态 Agent Card 与权威结果 Schema 已接通 | MCP Registry、LLM Schema 生成、Skill 图谱/检索与管理 API |
 | EP-03 Workflow 规划与运行时    | 未开始 |     0% | -                                                                                    | -                                                        |
 | EP-04 任务生命周期与 Goal 闭环 | 未开始 |     0% | -                                                                                    | -                                                        |
 | EP-05 记忆、评估与演化         | 未开始 |     0% | -                                                                                    | -                                                        |
@@ -15,7 +19,7 @@
 
 ## 当前目标
 
-启动 EP-01 协议与领域骨架：完整 Task/Context/Goal 内部模型、A2A Adapter 和 PostgreSQL/Redis Repository 边界。
+将 A2A official SDK endpoint 接入 TaskService/PostgreSQL/BullMQ，覆盖 submit/query/list/cancel/stream/default metadata。
 
 ## 最近完成
 
@@ -34,3 +38,5 @@
 - 首版范围很大，必须坚持垂直增量和证据门禁，避免先搭空平台。
 - 当前目录不是 Git 工作树，暂时无法提供 Conventional Commit 证据。
 - Docker 阻塞已在恢复环境中解除，真实基础设施 smoke 通过；外部 A2A TCK 移交 EP-01。
+- EP-01 已建立领域权威 Task/Context/Goal、application ports/TaskService 和自动 architecture boundary gate。
+- EP-01 已完成真实 PostgreSQL Repository/migration、Redis/BullMQ context 串行队列和可重建 A2A 协议投影；专用 integration runner 6/6 通过。

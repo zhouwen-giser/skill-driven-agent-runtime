@@ -1,4 +1,4 @@
-import { AgentCard, TaskState, TaskStatusUpdateEvent } from '@a2a-js/sdk';
+import { AgentCard, Message, TaskState, TaskStatusUpdateEvent } from '@a2a-js/sdk';
 import { validateVersion } from '@a2a-js/sdk/server';
 import { describe, expect, it } from 'vitest';
 
@@ -7,6 +7,7 @@ import {
   buildStatusUpdate,
   inspectA2aCompatibility,
 } from '../src/compatibility.js';
+import { taskPhaseToA2AState, toA2ATask, toSubmitTaskCommand } from '../src/task-mapping.js';
 
 describe('A2A 1.0.1 compatibility baseline', () => {
   it('uses the v1 protobuf namespace and standard task states', () => {
@@ -74,5 +75,57 @@ describe('A2A 1.0.1 compatibility baseline', () => {
       status: { state: 'TASK_STATE_WORKING' },
     });
     expect(wire).not.toHaveProperty('final');
+  });
+
+  it('maps A2A text and optional user metadata to an application-owned command', () => {
+    const message = Message.fromJSON({
+      messageId: 'message-1',
+      role: 'ROLE_USER',
+      parts: [{ text: 'Inspect device.', mediaType: 'text/plain' }],
+      metadata: { user_id: 'user-1', trace_hint: 'visible' },
+    });
+
+    expect(toSubmitTaskCommand(message, 'task-1', 'context-1')).toEqual({
+      taskId: 'task-1',
+      contextId: 'context-1',
+      userId: 'user-1',
+      messageText: 'Inspect device.',
+      metadata: { user_id: 'user-1', trace_hint: 'visible' },
+    });
+  });
+
+  it('maps explicit Skill creation requests to draft-only application intent', () => {
+    const message = Message.fromJSON({
+      messageId: 'message-draft',
+      role: 'ROLE_USER',
+      parts: [{ text: 'Create a device Skill.', mediaType: 'text/plain' }],
+      metadata: { sdar_action: 'create_skill_draft' },
+    });
+
+    expect(toSubmitTaskCommand(message, 'task-draft', 'context-draft')).toMatchObject({
+      skillDraftIntent: 'create',
+    });
+  });
+
+  it('projects internal phases and dual-form output to official A2A types', () => {
+    const projected = toA2ATask({
+      taskId: 'task-1',
+      contextId: 'context-1',
+      userId: 'anonymous',
+      requestText: 'Inspect status.',
+      requestMetadata: {},
+      phase: 'completed',
+      phaseMessage: 'Task completed.',
+      output: { text: 'Online.', structured: { status: 'online' } },
+      createdAt: '2026-07-11T10:00:00.000Z',
+      updatedAt: '2026-07-11T10:01:00.000Z',
+    });
+
+    expect(projected.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+    expect(projected.artifacts[0]?.parts).toHaveLength(2);
+    expect(projected.metadata).toMatchObject({ internalPhase: 'completed', userId: 'anonymous' });
+    expect(taskPhaseToA2AState('awaiting_plan_confirmation')).toBe(
+      TaskState.TASK_STATE_INPUT_REQUIRED,
+    );
   });
 });

@@ -56,11 +56,26 @@ export function buildStatusUpdate(
   contextId: string,
   state: TaskState,
   timestamp: string,
+  messageText?: string,
 ): TaskStatusUpdateEvent {
   return TaskStatusUpdateEvent.fromJSON({
     taskId,
     contextId,
-    status: { state: taskStateToJSON(state), timestamp },
+    status: {
+      state: taskStateToJSON(state),
+      timestamp,
+      ...(messageText === undefined
+        ? {}
+        : {
+            message: {
+              messageId: `${taskId}:status:${timestamp}`,
+              taskId,
+              contextId,
+              role: 'ROLE_AGENT',
+              parts: [{ text: messageText, mediaType: 'text/plain' }],
+            },
+          }),
+    },
   });
 }
 

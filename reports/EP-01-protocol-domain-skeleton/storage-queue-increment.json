@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-11T19:04:00+08:00",
+  "classification": {
+    "domain_application": "real_in_process",
+    "postgres_repositories": "real_container",
+    "redis_bullmq": "real_container",
+    "a2a_runtime_integration": "unverified"
+  },
+  "commands": [
+    {
+      "command": "pnpm verify:bootstrap",
+      "status": "passed",
+      "summary": "7 unit/contract files, 26 tests, strict typecheck, architecture, supply-chain and build gates"
+    },
+    {
+      "command": "pnpm test:integration",
+      "status": "passed",
+      "summary": "2 files, 5 tests against real PostgreSQL/pgvector and Redis containers"
+    }
+  ],
+  "verified_behaviors": [
+    "PostgreSQL migration is idempotent and Context/Task/Event round-trip domain values",
+    "Task updates retain a single system-of-record row",
+    "Same context operations are strictly serialized while different contexts overlap",
+    "BullMQ jobs use attempts=1 and queued jobs remain after queue-client restart"
+  ],
+  "remaining": [
+    "A2A adapter to TaskService wiring",
+    "Full cancel/list/resubscribe lifecycle",
+    "Official A2A TCK and EP-01 e2e"
+  ]
+}

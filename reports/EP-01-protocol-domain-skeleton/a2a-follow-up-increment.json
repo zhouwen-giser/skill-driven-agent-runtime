@@ -1,0 +1,13 @@
+{
+  "increment": "a2a-follow-up-actions",
+  "status": "passed",
+  "actions": ["revise_plan", "confirm_plan", "provide_input", "pause", "resume", "cancel"],
+  "transport": "official A2A client over loopback HTTP",
+  "persistence": "PostgreSQL",
+  "queue": "Redis/BullMQ",
+  "verification": {
+    "pnpm verify:bootstrap": { "passed": 29, "failed": 0 },
+    "pnpm test:integration": { "passed": 7, "failed": 0 }
+  },
+  "remainingForFR-A2A-004": ["final result retrieval through Result Processor"]
+}

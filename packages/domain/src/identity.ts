@@ -13,7 +13,13 @@ export function normalizeUserId(userId: string | undefined): string {
 
 export function requireIdentifier(
   value: string,
-  code: 'CONTEXT_ID_REQUIRED' | 'GOAL_ID_REQUIRED' | 'TASK_ID_REQUIRED',
+  code:
+    | 'CONTEXT_ID_REQUIRED'
+    | 'GOAL_ID_REQUIRED'
+    | 'MCP_SERVER_ID_REQUIRED'
+    | 'SKILL_DRAFT_ID_REQUIRED'
+    | 'SKILL_ID_REQUIRED'
+    | 'TASK_ID_REQUIRED',
 ): string {
   const normalized = value.trim();
   if (normalized === '')

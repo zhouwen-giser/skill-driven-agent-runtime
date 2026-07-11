@@ -21,4 +21,5 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
 - 2026-07-11：当前目录不包含 Git 元数据，无法生成 Conventional Commit 证据，也无法基于 Git 恢复文件字节版本。首次建立格式门禁时，宽范围 Prettier 对部分 Markdown/JSON 基线执行了内容等价的排版重写；未改变需求文本或状态。格式脚本现已限制为代码与配置文件，后续不得格式化 `docs/`、`schemas/`、`examples/`、`source/`。如获得仓库原始 Git 历史，应恢复这些基线文件的原始排版后再重放明确的状态/缺口编辑。
 - 2026-07-11：官方 `a2aproject/a2a-tck` commit `5996b79f9cefa6fc390980e383e358a66fb9e49e` 的顶层 `LICENSE` 和 README 声明 Apache-2.0，但 `pyproject.toml` metadata 声明 MIT。仓库提供精确 `uv.lock`，所以依赖可复现；许可证元数据冲突必须在正式纳入分发或 vendoring 前由上游修正或通过 ADR 明确解释。EP-01 可将其作为临时外部测试工具运行，但不得复制或作为生产依赖。
+- 2026-07-11：上述 TCK commit 内嵌 specification branch 为 `v1.0.0`。规范声明 patch 版本不参与 wire negotiation，故可验证 `1.0` wire contract，但它不是字面标注为 1.0.1 的上游 TCK。协议 harness 的 HTTP+JSON MUST pytest 结果为 67 passed/0 failed；生产 composition 因尚未接入 Workflow/Result Processor，artifact/message fixture 仍有 5 failures。两类证据必须保持区分。
 - 2026-07-11：Docker CLI/Compose 存在，但 `com.docker.service` 无启动权限；后台启动 Docker Desktop 后 engine 和进程仍未就绪。本机 PostgreSQL 17 binaries 存在但没有 pgvector extension，Redis/WSL 不存在。故真实 PostgreSQL/pgvector/Redis smoke 当前未验证，不能以宿主已有数据库或静态 Compose 替代。

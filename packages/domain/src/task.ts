@@ -28,6 +28,8 @@ export interface AgentTask {
   readonly taskId: string;
   readonly contextId: string;
   readonly userId: string;
+  readonly requestText: string;
+  readonly requestMetadata: Readonly<Record<string, unknown>>;
   readonly phase: TaskPhase;
   readonly phaseMessage: string;
   readonly goalId?: string;
@@ -42,6 +44,8 @@ export interface CreateAgentTaskInput {
   readonly taskId: string;
   readonly contextId: string;
   readonly userId: string;
+  readonly requestText: string;
+  readonly requestMetadata: Readonly<Record<string, unknown>>;
   readonly timestamp: string;
 }
 
@@ -67,6 +71,8 @@ export function createAgentTask(input: CreateAgentTaskInput): AgentTask {
     taskId: requireIdentifier(input.taskId, 'TASK_ID_REQUIRED'),
     contextId: requireIdentifier(input.contextId, 'CONTEXT_ID_REQUIRED'),
     userId: input.userId,
+    requestText: input.requestText,
+    requestMetadata: input.requestMetadata,
     phase: 'queued',
     phaseMessage: 'Task queued.',
     createdAt: input.timestamp,

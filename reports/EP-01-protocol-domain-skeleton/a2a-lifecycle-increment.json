@@ -1,0 +1,23 @@
+{
+  "increment": "a2a-lifecycle-to-plan-confirmation",
+  "status": "passed",
+  "verifiedBehavior": [
+    "official-client HTTP discovery and streaming submit",
+    "PostgreSQL authoritative task persistence and A2A projection",
+    "BullMQ dispatch to mandatory plan-confirmation boundary",
+    "standard INPUT_REQUIRED state with readable phase message",
+    "get, filtered list, and cancel without authentication"
+  ],
+  "commands": {
+    "pnpm verify:bootstrap": { "passed": 28, "failed": 0 },
+    "pnpm test:integration": { "passed": 7, "failed": 0 }
+  },
+  "infrastructure": ["real PostgreSQL container", "real Redis container", "loopback HTTP"],
+  "notYetVerified": [
+    "plan confirmation and supplementary-input commands",
+    "pause and resume",
+    "schema-validated final dual-format result",
+    "Skill draft behavior",
+    "official A2A TCK"
+  ]
+}

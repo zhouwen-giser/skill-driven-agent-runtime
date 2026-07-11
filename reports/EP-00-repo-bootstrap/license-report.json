@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 266,
+  "package_count": 299,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -152,6 +152,15 @@
       "repository": "git+https://github.com/humanwhocodes/retry.git"
     },
     {
+      "name": "@ioredis/commands",
+      "version": "1.5.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\@ioredis+commands@1.5.1\\node_modules\\@ioredis\\commands\\LICENSE"
+      ],
+      "repository": "https://github.com/ioredis/commands.git"
+    },
+    {
       "name": "@jridgewell/sourcemap-codec",
       "version": "1.5.5",
       "license": "MIT",
@@ -221,6 +230,13 @@
         "node_modules\\.pnpm\\@modelcontextprotocol+sdk@1_3cf70fbeadbfbb2473ba5521c79339f1\\node_modules\\@modelcontextprotocol\\sdk\\LICENSE"
       ],
       "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+    },
+    {
+      "name": "@msgpackr-extract/msgpackr-extract-win32-x64",
+      "version": "3.0.4",
+      "license": "MIT",
+      "licenseFiles": [],
+      "repository": "http://github.com/kriszyp/msgpackr-extract"
     },
     {
       "name": "@oxc-project/types",
@@ -352,6 +368,15 @@
       "license": "MIT",
       "licenseFiles": [
         "node_modules\\.pnpm\\@types+node@26.1.1\\node_modules\\@types\\node\\LICENSE"
+      ],
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    {
+      "name": "@types/pg",
+      "version": "8.20.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\@types+pg@8.20.0\\node_modules\\@types\\pg\\LICENSE"
       ],
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
     },
@@ -680,6 +705,15 @@
       "repository": "git+https://github.com/juliangruber/brace-expansion.git"
     },
     {
+      "name": "bullmq",
+      "version": "5.80.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\bullmq@5.80.1\\node_modules\\bullmq\\LICENSE"
+      ],
+      "repository": "https://github.com/taskforcesh/bullmq.git"
+    },
+    {
       "name": "bytes",
       "version": "3.1.2",
       "license": "MIT",
@@ -732,6 +766,15 @@
         "node_modules\\.pnpm\\chalk@4.1.2\\node_modules\\chalk\\license"
       ],
       "repository": "chalk/chalk"
+    },
+    {
+      "name": "cluster-key-slot",
+      "version": "1.1.2",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\cluster-key-slot@1.1.2\\node_modules\\cluster-key-slot\\LICENSE"
+      ],
+      "repository": "git+https://github.com/Salakar/cluster-key-slot.git"
     },
     {
       "name": "color-convert",
@@ -824,6 +867,15 @@
       "repository": "expressjs/cors"
     },
     {
+      "name": "cron-parser",
+      "version": "4.9.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\cron-parser@4.9.0\\node_modules\\cron-parser\\LICENSE"
+      ],
+      "repository": "https://github.com/harrisiirak/cron-parser.git"
+    },
+    {
       "name": "cross-spawn",
       "version": "7.0.6",
       "license": "MIT",
@@ -858,6 +910,15 @@
         "node_modules\\.pnpm\\deep-is@0.1.4\\node_modules\\deep-is\\LICENSE"
       ],
       "repository": "http://github.com/thlorenz/deep-is.git"
+    },
+    {
+      "name": "denque",
+      "version": "2.1.0",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\denque@2.1.0\\node_modules\\denque\\LICENSE"
+      ],
+      "repository": "git+https://github.com/invertase/denque.git"
     },
     {
       "name": "depd",
@@ -1369,6 +1430,15 @@
       "repository": "git://github.com/isaacs/inherits"
     },
     {
+      "name": "ioredis",
+      "version": "5.10.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\ioredis@5.10.1\\node_modules\\ioredis\\LICENSE"
+      ],
+      "repository": "git://github.com/luin/ioredis.git"
+    },
+    {
       "name": "ip-address",
       "version": "10.2.0",
       "license": "MIT",
@@ -1550,6 +1620,33 @@
       "repository": "sindresorhus/locate-path"
     },
     {
+      "name": "lodash.defaults",
+      "version": "4.2.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\lodash.defaults@4.2.0\\node_modules\\lodash.defaults\\LICENSE"
+      ],
+      "repository": "lodash/lodash"
+    },
+    {
+      "name": "lodash.isarguments",
+      "version": "3.1.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\lodash.isarguments@3.1.0\\node_modules\\lodash.isarguments\\LICENSE"
+      ],
+      "repository": "lodash/lodash"
+    },
+    {
+      "name": "luxon",
+      "version": "3.7.2",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\luxon@3.7.2\\node_modules\\luxon\\LICENSE.md"
+      ],
+      "repository": "https://github.com/moment/luxon"
+    },
+    {
       "name": "magic-string",
       "version": "0.30.21",
       "license": "MIT",
@@ -1622,6 +1719,24 @@
       "repository": "vercel/ms"
     },
     {
+      "name": "msgpackr-extract",
+      "version": "3.0.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\msgpackr-extract@3.0.4\\node_modules\\msgpackr-extract\\LICENSE"
+      ],
+      "repository": "http://github.com/kriszyp/msgpackr-extract"
+    },
+    {
+      "name": "msgpackr",
+      "version": "2.0.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\msgpackr@2.0.4\\node_modules\\msgpackr\\LICENSE"
+      ],
+      "repository": "http://github.com/kriszyp/msgpackr"
+    },
+    {
       "name": "mustache",
       "version": "4.2.0",
       "license": "MIT",
@@ -1654,6 +1769,24 @@
         "node_modules\\.pnpm\\negotiator@1.0.0\\node_modules\\negotiator\\LICENSE"
       ],
       "repository": "jshttp/negotiator"
+    },
+    {
+      "name": "node-abort-controller",
+      "version": "3.1.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\node-abort-controller@3.1.1\\node_modules\\node-abort-controller\\LICENSE"
+      ],
+      "repository": "git+https://github.com/southpolesteve/node-abort-controller.git"
+    },
+    {
+      "name": "node-gyp-build-optional-packages",
+      "version": "5.2.2",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\node-gyp-build-optional-packages@5.2.2\\node_modules\\node-gyp-build-optional-packages\\LICENSE"
+      ],
+      "repository": "https://github.com/prebuild/node-gyp-build.git"
     },
     {
       "name": "object-assign",
@@ -1836,6 +1969,74 @@
       "repository": "unjs/pathe"
     },
     {
+      "name": "pg-cloudflare",
+      "version": "1.4.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg-cloudflare@1.4.0\\node_modules\\pg-cloudflare\\LICENSE"
+      ],
+      "repository": "git://github.com/brianc/node-postgres.git"
+    },
+    {
+      "name": "pg-connection-string",
+      "version": "2.14.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg-connection-string@2.14.0\\node_modules\\pg-connection-string\\LICENSE"
+      ],
+      "repository": "git://github.com/brianc/node-postgres.git"
+    },
+    {
+      "name": "pg-int8",
+      "version": "1.0.1",
+      "license": "ISC",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg-int8@1.0.1\\node_modules\\pg-int8\\LICENSE"
+      ],
+      "repository": "https://github.com/charmander/pg-int8"
+    },
+    {
+      "name": "pg-pool",
+      "version": "3.14.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg-pool@3.14.0_pg@8.22.0\\node_modules\\pg-pool\\LICENSE"
+      ],
+      "repository": "git://github.com/brianc/node-postgres.git"
+    },
+    {
+      "name": "pg-protocol",
+      "version": "1.15.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg-protocol@1.15.0\\node_modules\\pg-protocol\\LICENSE"
+      ],
+      "repository": "git://github.com/brianc/node-postgres.git"
+    },
+    {
+      "name": "pg-types",
+      "version": "2.2.0",
+      "license": "MIT",
+      "licenseFiles": [],
+      "repository": "git://github.com/brianc/node-pg-types.git"
+    },
+    {
+      "name": "pg",
+      "version": "8.22.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\pg@8.22.0\\node_modules\\pg\\LICENSE"
+      ],
+      "repository": "git://github.com/brianc/node-postgres.git"
+    },
+    {
+      "name": "pgpass",
+      "version": "1.0.5",
+      "license": "MIT",
+      "licenseFiles": [],
+      "repository": "https://github.com/hoegaarden/pgpass.git"
+    },
+    {
       "name": "picocolors",
       "version": "1.1.1",
       "license": "ISC",
@@ -1870,6 +2071,42 @@
         "node_modules\\.pnpm\\postcss@8.5.16\\node_modules\\postcss\\LICENSE"
       ],
       "repository": "postcss/postcss"
+    },
+    {
+      "name": "postgres-array",
+      "version": "2.0.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\postgres-array@2.0.0\\node_modules\\postgres-array\\license"
+      ],
+      "repository": "bendrucker/postgres-array"
+    },
+    {
+      "name": "postgres-bytea",
+      "version": "1.0.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\postgres-bytea@1.0.1\\node_modules\\postgres-bytea\\license"
+      ],
+      "repository": "bendrucker/postgres-bytea"
+    },
+    {
+      "name": "postgres-date",
+      "version": "1.0.7",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\postgres-date@1.0.7\\node_modules\\postgres-date\\license"
+      ],
+      "repository": "bendrucker/postgres-date"
+    },
+    {
+      "name": "postgres-interval",
+      "version": "1.2.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\postgres-interval@1.2.0\\node_modules\\postgres-interval\\license"
+      ],
+      "repository": "bendrucker/postgres-interval"
     },
     {
       "name": "prelude-ls",
@@ -1933,6 +2170,24 @@
         "node_modules\\.pnpm\\raw-body@3.0.2\\node_modules\\raw-body\\LICENSE"
       ],
       "repository": "stream-utils/raw-body"
+    },
+    {
+      "name": "redis-errors",
+      "version": "1.2.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\redis-errors@1.2.0\\node_modules\\redis-errors\\LICENSE"
+      ],
+      "repository": "git+https://github.com/NodeRedis/redis-errors.git"
+    },
+    {
+      "name": "redis-parser",
+      "version": "3.0.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\redis-parser@3.0.0\\node_modules\\redis-parser\\LICENSE"
+      ],
+      "repository": "git+https://github.com/NodeRedis/node-redis-parser.git"
     },
     {
       "name": "require-from-string",
@@ -2097,11 +2352,29 @@
       "repository": "7rulnik/source-map-js"
     },
     {
+      "name": "split2",
+      "version": "4.2.0",
+      "license": "ISC",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\split2@4.2.0\\node_modules\\split2\\LICENSE"
+      ],
+      "repository": "https://github.com/mcollina/split2.git"
+    },
+    {
       "name": "stackback",
       "version": "0.0.2",
       "license": "MIT",
       "licenseFiles": [],
       "repository": "git://github.com/shtylman/node-stackback.git"
+    },
+    {
+      "name": "standard-as-callback",
+      "version": "2.1.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\standard-as-callback@2.1.0\\node_modules\\standard-as-callback\\LICENSE"
+      ],
+      "repository": "git+https://github.com/luin/asCallback.git"
     },
     {
       "name": "statuses",
@@ -2183,6 +2456,15 @@
         "node_modules\\.pnpm\\ts-api-utils@2.5.0_typescript@6.0.3\\node_modules\\ts-api-utils\\LICENSE.md"
       ],
       "repository": "https://github.com/JoshuaKGoldberg/ts-api-utils"
+    },
+    {
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\tslib@2.8.1\\node_modules\\tslib\\LICENSE.txt"
+      ],
+      "repository": "https://github.com/Microsoft/tslib.git"
     },
     {
       "name": "tsx",
@@ -2336,6 +2618,15 @@
         "node_modules\\.pnpm\\wrappy@1.0.2\\node_modules\\wrappy\\LICENSE"
       ],
       "repository": "https://github.com/npm/wrappy"
+    },
+    {
+      "name": "xtend",
+      "version": "4.0.2",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\xtend@4.0.2\\node_modules\\xtend\\LICENSE"
+      ],
+      "repository": "git://github.com/Raynos/xtend.git"
     },
     {
       "name": "yocto-queue",

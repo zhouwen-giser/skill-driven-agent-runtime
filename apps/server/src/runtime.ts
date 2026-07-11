@@ -1,0 +1,212 @@
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+import { Pool } from 'pg';
+
+import {
+  startA2AHttpEndpoint,
+  type A2AHttpEndpointHandle,
+} from '../../../packages/a2a-adapter/src/http-endpoint.js';
+import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
+import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
+import {
+  PlanPreparationProcessor,
+  ResultProcessor,
+  McpRegistryService,
+  SkillRegistryService,
+  TaskService,
+  type RegisterSkillVersionInput,
+} from '../../../packages/application/src/index.js';
+import type { SkillVersion } from '../../../packages/domain/src/index.js';
+import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
+import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
+import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
+import {
+  PostgresAgentTaskRepository,
+  PostgresConversationContextRepository,
+  PostgresExternalTaskProjectionRepository,
+  PostgresMcpRegistryRepository,
+  PostgresRuntimeEventPublisher,
+  PostgresSkillDraftRepository,
+  PostgresSkillRepository,
+} from '../../../packages/persistence-postgres/src/index.js';
+import {
+  BullMqContextTaskQueue,
+  BullMqContextWorker,
+  type RedisConnectionConfig,
+} from '../../../packages/runtime-redis/src/index.js';
+
+export interface ServerRuntimeOptions {
+  readonly postgresUrl: string;
+  readonly redis: RedisConnectionConfig;
+  readonly mcpMasterKeyBase64: string;
+  readonly queueName?: string;
+  readonly applyMigrations?: boolean;
+  readonly a2aHost?: string;
+  readonly a2aPort?: number;
+}
+
+export interface ServerRuntimeHandle {
+  readonly a2a: A2AHttpEndpointHandle;
+  requestInput(taskId: string, reason: string): Promise<void>;
+  listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
+  registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
+  setSkillEnabled(skillId: string, enabled: boolean): Promise<SkillVersion>;
+  recordResultForSkill(
+    taskId: string,
+    skillId: string,
+    candidate: Readonly<{ text: string; structured: unknown }>,
+  ): Promise<void>;
+  registerMcpServer(
+    input: Parameters<McpRegistryService['register']>[0],
+  ): ReturnType<McpRegistryService['register']>;
+  refreshMcpServer(serverId: string): ReturnType<McpRegistryService['refresh']>;
+  callMcpTool(
+    serverId: string,
+    toolName: string,
+    arguments_: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+    context?: Parameters<McpRegistryService['call']>[4],
+  ): Promise<unknown>;
+  deleteMcpServer(serverId: string): Promise<void>;
+  listMcpInvocations(serverId: string): ReturnType<McpRegistryService['listInvocations']>;
+  listMcpDependencyWarnings(
+    serverId: string,
+  ): ReturnType<McpRegistryService['listDependencyWarnings']>;
+  updateMcpToolEnhancement(
+    serverId: string,
+    toolName: string,
+    enhancement: Parameters<McpRegistryService['updateToolEnhancement']>[2],
+  ): Promise<void>;
+  close(): Promise<void>;
+}
+
+export async function startServerRuntime(
+  options: ServerRuntimeOptions,
+): Promise<ServerRuntimeHandle> {
+  const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
+  if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
+  const contexts = new PostgresConversationContextRepository(pool);
+  const tasks = new PostgresAgentTaskRepository(pool);
+  const events = new PostgresRuntimeEventPublisher(pool);
+  const skillDrafts = new PostgresSkillDraftRepository(pool);
+  const skills = new PostgresSkillRepository(pool);
+  const mcpRepository = new PostgresMcpRegistryRepository(pool);
+  const queueName = options.queueName ?? 'sdar-context-tasks';
+  const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
+  const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
+  const clock = { now: () => new Date().toISOString() };
+  const service = new TaskService({ contexts, tasks, events, skillDrafts, queue, clock, ids });
+  const schemaValidator = new AjvJsonSchemaValidator();
+  const resultProcessor = new ResultProcessor(schemaValidator);
+  const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const mcpTransport = new StreamableHttpMcpAdapter();
+  const mcpRegistry = new McpRegistryService({
+    repository: mcpRepository,
+    transport: mcpTransport,
+    cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
+    schemas: schemaValidator,
+    clock,
+    ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
+  });
+  const processor = new PlanPreparationProcessor({ tasks, events, clock, ids });
+  const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
+  worker.start();
+  try {
+    const a2a = await startA2AHttpEndpoint({
+      executor: new TaskServiceAgentExecutor({ tasks: service }),
+      taskStore: new A2AProjectionTaskStore(
+        new PostgresExternalTaskProjectionRepository(pool),
+        tasks,
+        async (taskId) => {
+          if ((await service.get(taskId)).phase !== 'canceled') await service.cancel(taskId);
+        },
+      ),
+      skillProvider: {
+        async listEnabled() {
+          return (await skills.listEnabledVersions()).map((skill) => ({
+            id: skill.skillId,
+            name: skill.name,
+            description: skill.summary,
+            tags: [...skill.capabilities],
+          }));
+        },
+      },
+      ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
+      ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
+    });
+    return {
+      a2a,
+      async requestInput(taskId: string, reason: string): Promise<void> {
+        await service.requestInput(taskId, reason);
+      },
+      listSkillDrafts(contextId: string) {
+        return skillDrafts.listByContextId(contextId);
+      },
+      registerSkill(input: RegisterSkillVersionInput) {
+        return skillRegistry.register(input);
+      },
+      setSkillEnabled(skillId: string, enabled: boolean) {
+        return skillRegistry.setEnabled(skillId, enabled);
+      },
+      async recordResultForSkill(taskId, skillId, candidate): Promise<void> {
+        const outputSchema = await skillRegistry.getOutputSchema(skillId);
+        await service.recordResult(taskId, { ...candidate, outputSchema }, resultProcessor);
+      },
+      registerMcpServer(input) {
+        return mcpRegistry.register(input);
+      },
+      refreshMcpServer(serverId) {
+        return mcpRegistry.refresh(serverId);
+      },
+      callMcpTool(serverId, toolName, arguments_, signal, context) {
+        return mcpRegistry.call(serverId, toolName, arguments_, signal, context);
+      },
+      deleteMcpServer(serverId) {
+        return mcpRegistry.delete(serverId);
+      },
+      listMcpInvocations(serverId) {
+        return mcpRegistry.listInvocations(serverId);
+      },
+      listMcpDependencyWarnings(serverId) {
+        return mcpRegistry.listDependencyWarnings(serverId);
+      },
+      updateMcpToolEnhancement(serverId, toolName, enhancement) {
+        return mcpRegistry.updateToolEnhancement(serverId, toolName, enhancement);
+      },
+      async close(): Promise<void> {
+        await a2a.close();
+        await mcpTransport.close();
+        await worker.close();
+        await queue.close();
+        await pool.end();
+      },
+    };
+  } catch (error: unknown) {
+    await mcpTransport.close();
+    await worker.close();
+    await queue.close();
+    await pool.end();
+    throw error;
+  }
+}
+
+async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+  for (const name of [
+    '0002_protocol_domain.up.sql',
+    '0003_external_task_projection.up.sql',
+    '0004_task_request.up.sql',
+    '0005_projection_decoupling.up.sql',
+    '0006_skill_draft.up.sql',
+    '0007_skill_registry.up.sql',
+    '0008_mcp_registry.up.sql',
+    '0009_mcp_audit.up.sql',
+  ]) {
+    const migration = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
+      'utf8',
+    );
+    await pool.query(migration);
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "tck": {
+    "repository": "https://github.com/a2aproject/a2a-tck",
+    "commit": "5996b79f9cefa6fc390980e383e358a66fb9e49e",
+    "embeddedSpecBranch": "v1.0.0",
+    "runner": "uv 0.11.28 -- frozen lock"
+  },
+  "protocolHarness": {
+    "verificationType": "simulated protocol validation",
+    "command": "pnpm test:a2a-tck",
+    "collected": 235,
+    "passed": 67,
+    "skipped": 168,
+    "failed": 0,
+    "errors": 0
+  },
+  "productionComposition": {
+    "verificationType": "real PostgreSQL/Redis/HTTP diagnostic",
+    "collected": 235,
+    "passed": 63,
+    "skipped": 167,
+    "failed": 5,
+    "errors": 0,
+    "remainingFailures": ["DM-ART-001", "DM-MSG-001"]
+  },
+  "exact101LabelVerified": false
+}

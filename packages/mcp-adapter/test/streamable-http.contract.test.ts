@@ -1,13 +1,25 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { startMcpStreamableHttpSpike, type McpSpikeHandle } from '../src/streamable-http-spike.js';
+import {
+  startMcpLoopbackServer,
+  startMcpStreamableHttpSpike,
+  type McpLoopbackServerHandle,
+  type McpSpikeHandle,
+} from '../src/streamable-http-spike.js';
+import { StreamableHttpMcpAdapter } from '../src/streamable-http-adapter.js';
 
 describe('official MCP Streamable HTTP transport', () => {
   let handle: McpSpikeHandle | undefined;
+  let server: McpLoopbackServerHandle | undefined;
+  let adapter: StreamableHttpMcpAdapter | undefined;
 
   afterEach(async () => {
     await handle?.close();
+    await adapter?.close();
+    await server?.close();
     handle = undefined;
+    server = undefined;
+    adapter = undefined;
   });
 
   it('discovers and calls a Tool over a real loopback HTTP server', async () => {
@@ -22,6 +34,22 @@ describe('official MCP Streamable HTTP transport', () => {
       arguments: { deviceId: 'device-42' },
     });
     expect(result.structuredContent).toEqual({ deviceId: 'device-42', status: 'online' });
+  });
+
+  it('keeps official SDK types behind the production transport adapter', async () => {
+    server = await startMcpLoopbackServer();
+    adapter = new StreamableHttpMcpAdapter();
+    const tools = await adapter.discover({ endpoint: server.endpoint.toString(), headers: {} });
+    expect(tools.map((tool) => tool.name)).toEqual(['device_status', 'slow_probe']);
+    const result = await adapter.call({
+      endpoint: server.endpoint.toString(),
+      headers: {},
+      toolName: 'device_status',
+      arguments: { deviceId: 'device-42' },
+    });
+    expect(result).toEqual(
+      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
   });
 
   it('rejects arguments that violate the original Tool input schema', async () => {

@@ -16,7 +16,29 @@ export interface McpSpikeHandle {
   close(): Promise<void>;
 }
 
+export interface McpLoopbackServerHandle {
+  readonly endpoint: URL;
+  readonly cancellationObserved: Promise<boolean>;
+  close(): Promise<void>;
+}
+
 export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
+  const server = await startMcpLoopbackServer();
+  const clientTransport = new StreamableHTTPClientTransport(server.endpoint);
+  const client = new Client({ name: 'sdar-mcp-spike-client', version: '0.0.0' });
+  await client.connect(asSdkTransport(clientTransport));
+  return {
+    client,
+    endpoint: server.endpoint,
+    cancellationObserved: server.cancellationObserved,
+    async close(): Promise<void> {
+      await client.close();
+      await server.close();
+    },
+  };
+}
+
+export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle> {
   let reportCancellation: (observed: boolean) => void = () => undefined;
   const cancellationObserved = new Promise<boolean>((resolve) => {
     reportCancellation = resolve;
@@ -78,16 +100,10 @@ export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
   }
 
   const endpoint = new URL(`http://127.0.0.1:${String(address.port)}/mcp`);
-  const clientTransport = new StreamableHTTPClientTransport(endpoint);
-  const client = new Client({ name: 'sdar-mcp-spike-client', version: '0.0.0' });
-  await client.connect(asSdkTransport(clientTransport));
-
   return {
-    client,
     endpoint,
     cancellationObserved,
     async close(): Promise<void> {
-      await client.close();
       await mcpServer.close();
       await closeHttpServer(httpServer);
     },

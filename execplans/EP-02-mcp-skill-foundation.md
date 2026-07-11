@@ -65,4 +65,44 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Outcomes and Retrospective
 
+## MCP Audit Progress Update — 2026-07-11
+
+- [x] Persist successful/failed/canceled invocation inputs, displayable outputs/errors, correlation IDs and duration.
+- [x] Atomically persist dependency warnings for current enabled SkillVersions on Tool removal/schema change without changing Skill status.
+- [x] Validate/edit Tool enhancement metadata and preserve it across refresh by Tool name.
+- [x] Verify V1 repeated calls are not deduplicated or protected by idempotency keys.
+- [ ] Expose these records through management API/console and add LLM generation/decision ports.
+
+Discovery: PostgreSQL inferred a reused polymorphic warning parameter as text; explicit parameter casts are required in the INSERT-SELECT. The failing transaction rolled back cleanly and the regression is covered by the real repository test.
+
+## MCP Registry Progress Update — 2026-07-11
+
+- [x] Added remote-only MCP Server/Tool domain models and application ports.
+- [x] Added runtime register/delete/manual refresh and atomic PostgreSQL Tool replacement.
+- [x] Added official SDK Streamable HTTP adapter with persistent sessions, calls, and cancellation.
+- [x] Added AES-256-GCM credential encryption using an environment-only master key.
+- [x] Enforced current original Tool input schema, including MCP draft-07 support.
+- [x] Verified unit 28, integration 9, contract 14, e2e 6, architecture, typecheck, lint, and build.
+- [ ] Persist/display dependency warnings and invocation audits; add metadata enhancement and management surfaces.
+
+Discovery: official MCP SDK Tool schemas use draft-07. The validator supports draft-07 and 2020-12 while rejecting unknown dialects. The adapter reuses a client per endpoint/credential tuple and disconnects it on deletion.
+
+Decision: ADR-011 defines MCP transport, current-schema, and AES-GCM secret boundaries.
+
+## Progress Update — 2026-07-11
+
+- [x] Added domain-owned Skill and immutable SkillVersion models with tool/runtime policies.
+- [x] Added JSON Schema publication validation, enable/disable versioning, and rollback-as-new-version.
+- [x] Added PostgreSQL migration and atomic repository for stable Skill pointers and immutable versions.
+- [x] Replaced the in-memory Agent Card capability list with enabled current PostgreSQL SkillVersions.
+- [x] Made current enabled SkillVersion.output_schema authoritative for result validation.
+- [x] Verified unit (23), real PostgreSQL/Redis integration (8), and A2A end-to-end (5) tests.
+- [ ] Complete MCP Registry, encrypted credentials, discovery refresh, and invocation envelope.
+- [ ] Complete LLM-driven Schema generation and missing-description correction loop.
+- [ ] Complete Skill graph, selection/search, temporary Skill lifecycle, management APIs, and console.
+
+Discovery: node-postgres encodes JavaScript arrays as PostgreSQL arrays by default. JSONB repository parameters are now explicitly serialized with JSON.stringify; the regression is covered by the real PostgreSQL integration test.
+
+Decision: ADR-010 makes persistent current SkillVersion the single authority for publication and result schemas. Concurrent writer locking remains required before management write APIs are exposed.
+
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。

@@ -10,8 +10,11 @@ if (unpinned.length > 0) {
 }
 
 const pinCount = sourceLock.match(/^\s+pin:\s+/gm)?.length ?? 0;
-if (pinCount !== 10) {
-  throw new Error(`OSS_SOURCE_COUNT_INVALID: expected 10 pins, found ${String(pinCount)}`);
+const sourceCount = sourceLock.match(/^\s+- name:\s+/gm)?.length ?? 0;
+if (sourceCount < 10 || pinCount !== sourceCount) {
+  throw new Error(
+    `OSS_SOURCE_COUNT_INVALID: ${String(sourceCount)} sources and ${String(pinCount)} pins`,
+  );
 }
 
 process.stdout.write(`Verified ${String(pinCount)} OSS source pins; no UNPINNED entries.\n`);
