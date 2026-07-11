@@ -6,6 +6,12 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/workflows/validate:
+    post:
+      operationId: validateWorkflowDsl
+      responses:
+        '200': { description: Validated WorkflowDefinition }
+        '422': { description: Structured errors; workflow is not executable }
   /api/v1/prompts:
     post:
       operationId: createPromptVersion

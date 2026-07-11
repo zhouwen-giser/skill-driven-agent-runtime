@@ -138,5 +138,8 @@ function operations(failServerList = false): ManagementOperations {
       create: unused,
       listByTask: () => Promise.resolve([]),
     },
+    workflows: {
+      validate: () => Promise.resolve({ valid: false, errors: [] }),
+    },
   };
 }

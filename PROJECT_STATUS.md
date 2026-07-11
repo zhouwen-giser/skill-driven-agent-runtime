@@ -1,5 +1,7 @@
 # Project Status
 
+EP-03 Workflow DSL validation update (2026-07-12): approximately 40%. Ten whitelisted node kinds and restricted expressions are domain-owned and serializable; validation covers structure, references, reachability, bounded loops, current MCP Tool arguments, and current Skill inputs. Planner correction, persistence, compiler, and execution remain open.
+
 EP-03 Prompt lifecycle update (2026-07-12): approximately 28%. Prompt versions are PostgreSQL-authoritative, immutable, stage-scoped, publishable/disableable/rollbackable, linked to real model invocations, and expose success/failure/latency/Token effects. AC-15 candidate-before-publish behavior passes e2e. Automatic candidate generation from failures/evaluations remains EP-05 work.
 
 EP-03 Model Runtime update (2026-07-12): approximately 18%. PostgreSQL Provider configurations and fixed stage routes, AES-GCM credentials, OpenAI-compatible/local structured and embedding HTTP calls, sanitized invocation audit, token/duration capture, timeouts, and no-fallback failure semantics are implemented. Real local HTTP, PostgreSQL, and same-process e2e pass; Prompt versions and remaining decision stages/Workflow DSL remain open.

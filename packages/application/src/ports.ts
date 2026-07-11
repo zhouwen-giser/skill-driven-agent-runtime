@@ -132,6 +132,7 @@ export interface TemporarySkillRepository {
 
 export interface McpToolCatalog {
   exists(reference: ToolReference): Promise<boolean>;
+  getInputSchema(reference: ToolReference): Promise<unknown>;
 }
 
 export interface McpServerRecord {

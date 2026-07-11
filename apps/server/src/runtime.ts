@@ -22,6 +22,7 @@ import {
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
   TemporarySkillService,
+  WorkflowValidator,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -139,6 +140,11 @@ export async function startServerRuntime(
   const prompts = new PromptService({ repository: new PostgresPromptRepository(pool), clock });
   const service = new TaskService({ contexts, tasks, events, skillDrafts, queue, clock, ids });
   const schemaValidator = new AjvJsonSchemaValidator();
+  const workflowValidator = new WorkflowValidator({
+    tools: mcpRepository,
+    skills,
+    schemas: schemaValidator,
+  });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
   const skillAuthoring = new SkillAuthoringService({
@@ -209,6 +215,7 @@ export async function startServerRuntime(
         prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills,
+        workflows: workflowValidator,
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),

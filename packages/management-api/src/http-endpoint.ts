@@ -14,6 +14,7 @@ import type {
   SkillRegistryService,
   SkillGraphService,
   TemporarySkillService,
+  WorkflowValidator,
 } from '../../application/src/index.js';
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -159,6 +160,7 @@ export interface ManagementOperations {
     PromptService,
     'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
   >;
+  readonly workflows: Pick<WorkflowValidator, 'validate'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -182,6 +184,13 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/health', (_request, response) => {
     response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
   });
+  app.post(
+    '/api/v1/workflows/validate',
+    asyncRoute(async (request, response) => {
+      const result = await options.operations.workflows.validate(request.body);
+      response.status(result.valid ? 200 : 422).json(result);
+    }),
+  );
   app.put(
     '/api/v1/models/providers/:providerId',
     asyncRoute(async (request, response) => {

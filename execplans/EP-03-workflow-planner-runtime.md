@@ -66,6 +66,18 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Outcomes and Retrospective
 
+## Workflow DSL Validator Progress Update - 2026-07-12
+
+- [x] Define all ten required node kinds and restricted expression AST.
+- [x] Publish a draft-2020-12 Workflow DSL JSON Schema.
+- [x] Reject unknown nodes/properties, invalid references, unreachable nodes and invalid entry/exits.
+- [x] Enforce loop bounds and condition branch edges.
+- [x] Validate current MCP Tool arguments and enabled Skill inputs against authoritative Schemas.
+- [x] Add negative security corpus and real catalog e2e.
+- [ ] Add model correction, persistence, LangGraph compiler, and node execution.
+
+Decision: ADR-020 separates validation from compilation/execution and forbids arbitrary source expressions.
+
 ## Prompt Lifecycle Progress Update - 2026-07-12
 
 - [x] Add stage-scoped PostgreSQL Prompt and immutable PromptVersion authority.

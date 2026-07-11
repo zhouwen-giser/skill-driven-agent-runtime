@@ -15,6 +15,8 @@ const redis = { host: '127.0.0.1', port: 56379 };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
 let modelServer: Server;
+let initialPromptVersion = 0;
+const failingProviderId = `provider.fail.${randomUUID()}`;
 
 beforeAll(async () => {
   modelServer = await startModelLoopback();
@@ -86,6 +88,9 @@ beforeAll(async () => {
     }),
   });
   if (promptResponse.status !== 201) throw new Error('MODEL_PROMPT_SETUP_FAILED');
+  initialPromptVersion = z
+    .object({ version: z.number().int().positive() })
+    .parse(await promptResponse.json()).version;
 });
 
 afterAll(async () => {
@@ -310,9 +315,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             status: z.string(),
             promptId: z.string().optional(),
             promptVersion: z.number().optional(),
-            rawResponse: z.unknown(),
-            inputTokens: z.number(),
-            outputTokens: z.number(),
+            rawResponse: z.unknown().optional(),
+            inputTokens: z.number().optional(),
+            outputTokens: z.number().optional(),
           }),
         ),
       })
@@ -323,7 +328,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         model: 'model-e2e',
         status: 'succeeded',
         promptId: 'prompt.skill-authoring.e2e',
-        promptVersion: 1,
+        promptVersion: initialPromptVersion,
         inputTokens: 9,
         outputTokens: 4,
       }),
@@ -345,8 +350,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     expect(candidateResponse.status).toBe(201);
     const candidate = z
-      .object({ version: z.literal(2), status: z.literal('candidate') })
+      .object({ version: z.number().int().positive(), status: z.literal('candidate') })
       .parse(await candidateResponse.json());
+    expect(candidate.version).toBe(initialPromptVersion + 1);
     const author = (label: string) =>
       fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {
         method: 'POST',
@@ -372,21 +378,21 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             )
           ).json(),
         ).items;
-    expect((await readVersions()).at(-1)?.promptVersion).toBe(1);
+    expect((await readVersions()).at(-1)?.promptVersion).toBe(initialPromptVersion);
     const publish = await fetch(
       `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/publish/${String(candidate.version)}`,
       { method: 'POST' },
     );
     expect(publish.status).toBe(200);
     await expect(publish.json()).resolves.toMatchObject({
-      version: 3,
-      previousVersion: 2,
+      version: initialPromptVersion + 2,
+      previousVersion: initialPromptVersion + 1,
       status: 'enabled',
     });
     expect((await author('after')).status).toBe(201);
-    expect((await readVersions()).at(-1)?.promptVersion).toBe(3);
+    expect((await readVersions()).at(-1)?.promptVersion).toBe(initialPromptVersion + 2);
     const effects = await fetch(
-      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/effects/3`,
+      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/effects/${String(initialPromptVersion + 2)}`,
     );
     await expect(effects.json()).resolves.toMatchObject({ invocationCount: 1, successCount: 1 });
   });
@@ -396,26 +402,29 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const modelAddress = modelServer.address();
     if (modelAddress === null || typeof modelAddress === 'string')
       throw new Error('MODEL_ADDRESS_UNAVAILABLE');
-    const configure = await fetch(`${baseUrl}/api/v1/models/providers/provider.fail`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Failing model',
-        kind: 'openai_compatible',
-        baseUrl: `http://127.0.0.1:${String(modelAddress.port)}/v1`,
-        model: 'fail-model',
-        enabled: true,
-        timeoutMs: 2000,
-        credentialHeaders: {},
-      }),
-    });
+    const configure = await fetch(
+      `${baseUrl}/api/v1/models/providers/${encodeURIComponent(failingProviderId)}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Failing model',
+          kind: 'openai_compatible',
+          baseUrl: `http://127.0.0.1:${String(modelAddress.port)}/v1`,
+          model: 'fail-model',
+          enabled: true,
+          timeoutMs: 2000,
+          credentialHeaders: {},
+        }),
+      },
+    );
     expect(configure.status).toBe(204);
     expect(
       (
         await fetch(`${baseUrl}/api/v1/models/routes/skill_authoring`, {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ providerId: 'provider.fail' }),
+          body: JSON.stringify({ providerId: failingProviderId }),
         })
       ).status,
     ).toBe(204);
@@ -449,7 +458,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       .parse(
         await (await fetch(`${baseUrl}/api/v1/models/invocations?stage=skill_authoring`)).json(),
       );
-    expect(audits.items.filter((item) => item.providerId === 'provider.fail')).toEqual([
+    expect(audits.items.filter((item) => item.providerId === failingProviderId)).toEqual([
       expect.objectContaining({ status: 'failed', errorCode: 'MODEL_UPSTREAM_ERROR' }),
     ]);
     expect(
@@ -561,6 +570,73 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       { method: 'DELETE' },
     );
     expect(deleteResponse.status).toBe(204);
+  });
+
+  it('validates Workflow DSL against current PostgreSQL Skill and MCP Tool definitions', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.workflow.${randomUUID()}`;
+    const skillId = `skill.workflow.${randomUUID()}`;
+    try {
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              serverId,
+              name: 'Workflow MCP',
+              endpoint: mockMcp.endpoint.toString(),
+              credentialHeaders: {},
+            }),
+          })
+        ).status,
+      ).toBe(201);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(skillInput(skillId, 'Workflow child')),
+          })
+        ).status,
+      ).toBe(201);
+      const response = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/validate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          workflowDefinitionId: `workflow.${randomUUID()}`,
+          version: 1,
+          goalId: 'goal.workflow',
+          goalVersion: 1,
+          entryNodeId: 'tool',
+          exitNodeIds: ['result'],
+          nodes: [
+            {
+              nodeId: 'tool',
+              name: 'Read',
+              type: 'mcp_tool',
+              tool: { serverId, toolName: 'device_status' },
+              arguments: { deviceId: 'device-1' },
+            },
+            { nodeId: 'skill', name: 'Child', type: 'skill_call', skillId, input: {} },
+            {
+              nodeId: 'result',
+              name: 'Result',
+              type: 'result',
+              value: { op: 'ref', path: ['nodes', 'tool'] },
+            },
+          ],
+          edges: [
+            { sourceNodeId: 'tool', targetNodeId: 'skill' },
+            { sourceNodeId: 'skill', targetNodeId: 'result' },
+          ],
+        }),
+      });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ valid: true, errors: [] });
+    } finally {
+      await mockMcp.close();
+    }
   });
 
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {

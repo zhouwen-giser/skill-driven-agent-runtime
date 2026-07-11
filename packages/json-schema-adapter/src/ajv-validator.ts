@@ -51,7 +51,11 @@ export class AjvJsonSchemaValidator implements JsonSchemaValidator {
     try {
       const dialect = schemaDialect(parsedSchema.data);
       if (dialect === 'unsupported') throw new Error('Unsupported JSON Schema dialect.');
-      return (dialect === 'draft7' ? this.#ajvDraft7 : this.#ajv2020).compile(parsedSchema.data);
+      const ajv = dialect === 'draft7' ? this.#ajvDraft7 : this.#ajv2020;
+      const identifier =
+        typeof parsedSchema.data === 'boolean' ? undefined : parsedSchema.data['$id'];
+      const cached = typeof identifier === 'string' ? ajv.getSchema(identifier) : undefined;
+      return cached ?? ajv.compile(parsedSchema.data);
     } catch (error: unknown) {
       throw new ResultProcessingError('RESULT_SCHEMA_INVALID', 'Skill output schema is invalid.', [
         error instanceof Error ? error.message : 'Unknown schema compilation error.',

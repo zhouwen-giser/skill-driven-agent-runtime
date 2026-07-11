@@ -1199,6 +1199,16 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     return result.rows[0]?.exists === true;
   }
 
+  async getInputSchema(reference: ToolReference): Promise<unknown> {
+    const result = await this.#pool.query<{ input_schema_json: unknown }>(
+      `SELECT t.input_schema_json FROM mcp_tool t
+       JOIN mcp_server s ON s.server_id=t.server_id
+       WHERE t.server_id=$1 AND t.tool_name=$2 AND s.status='enabled'`,
+      [reference.serverId, reference.toolName],
+    );
+    return result.rows[0]?.input_schema_json;
+  }
+
   async saveServerAndReplaceTools(
     record: McpServerRecord,
     tools: readonly McpTool[],

@@ -6,6 +6,7 @@ export * from './skill-selection.js';
 export * from './skill-semantic-retriever.js';
 export * from './skill-authoring.js';
 export * from './temporary-skill.js';
+export * from './workflow-validator.js';
 export * from './mcp-registry.js';
 export * from './model-runtime.js';
 export * from './plan-preparation-processor.js';

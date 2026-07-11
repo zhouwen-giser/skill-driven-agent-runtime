@@ -90,6 +90,8 @@ function createService(
     repository,
     tools: {
       exists: (reference) => Promise.resolve(reference.toolName === 'device_status'),
+      getInputSchema: (reference) =>
+        Promise.resolve(reference.toolName === 'device_status' ? { type: 'object' } : undefined),
     },
     schemas: new AjvJsonSchemaValidator(),
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
