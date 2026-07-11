@@ -759,6 +759,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         result: {
           structuredContent: { deviceId: 'device-runtime', status: 'online' },
         },
+        budgetUsage: { mcpCalls: 1, llmCalls: 0, cost: 1 },
         errors: {},
       });
       const repairedPlanId = `plan.execution.repaired.${randomUUID()}`;
@@ -792,6 +793,53 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       );
       expect(repairedExecution.status).toBe(201);
       await expect(repairedExecution.json()).resolves.toMatchObject({ status: 'succeeded' });
+      const tightSkillId = `skill.budget.${randomUUID()}`;
+      const tightSkillRegistration = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...skillInput(tightSkillId, 'Zero MCP budget'),
+          runtimePolicy: { autoConfirmPlan: false, maxMcpCalls: 0 },
+        }),
+      });
+      expect(tightSkillRegistration.status).toBe(201);
+      const budgetPlanId = `plan.execution.budget.${randomUUID()}`;
+      mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 3, goalId };
+      const budgetPlan = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId: budgetPlanId,
+          workflowDefinitionId: workflowId,
+          workflowVersion: 3,
+          goalId,
+          goalVersion: 1,
+          planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+          sourceConfirmedPlanId: repairedPlanId,
+        }),
+      });
+      expect(budgetPlan.status).toBe(201);
+      const budgetExecution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(budgetPlanId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            instanceId: `instance-budget-${randomUUID()}`,
+            input: {},
+            skillIds: [tightSkillId],
+          }),
+        },
+      );
+      expect(budgetExecution.status).toBe(201);
+      await expect(budgetExecution.json()).resolves.toMatchObject({
+        status: 'failed',
+        skillVersions: [{ skillId: tightSkillId, version: 1 }],
+        budgetLimits: { maxMcpCalls: 0 },
+        budgetUsage: { mcpCalls: 0, cost: 0 },
+        terminationReason: 'mcp_calls_exhausted',
+        errors: { budget: { code: 'WORKFLOW_MCP_CALL_BUDGET_EXHAUSTED' } },
+      });
       const invocations = await runtime.listMcpInvocations(serverId);
       expect(invocations).toEqual([
         expect.objectContaining({

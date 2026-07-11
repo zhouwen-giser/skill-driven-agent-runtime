@@ -9,6 +9,7 @@ import type {
   WorkflowExecutionRepository,
   WorkflowExecutor,
   WorkflowPlanRepository,
+  SkillRepository,
 } from '../src/ports.js';
 import { WorkflowExecutionService } from '../src/workflow-execution.js';
 import { WorkflowValidator } from '../src/workflow-validator.js';
@@ -48,6 +49,7 @@ describe('Workflow execution application service', () => {
       status: 'succeeded',
       result: 'done',
       errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 0, cost: 0 },
       events: [
         {
           nodeId: 'result',
@@ -111,12 +113,68 @@ describe('Workflow execution application service', () => {
       errors: { runtime: { code: 'NODE_EXPLODED', message: 'node exploded' } },
     });
   });
+
+  it('resolves and persists the current Skill budget override before execution', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      status: 'failed',
+      errors: { budget: { code: 'WORKFLOW_MCP_CALL_BUDGET_EXHAUSTED', message: 'exhausted' } },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      terminationReason: 'mcp_calls_exhausted',
+      events: [],
+    });
+    const tightSkill = {
+      skillId: 'skill-tight',
+      version: 4,
+      name: 'Tight',
+      summary: 'Tight',
+      description: 'Tight budget Skill.',
+      capabilities: [],
+      workflowGuidance: '',
+      outputInstruction: '',
+      inputSchema: true,
+      outputSchema: true,
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false, maxMcpCalls: 0, maxCost: 5 },
+      status: 'enabled' as const,
+      sourceKind: 'admin' as const,
+      validationPassed: true,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    const skills = {
+      ...disabledSkills,
+      findCurrentVersion: (id: string) =>
+        Promise.resolve(id === tightSkill.skillId ? tightSkill : undefined),
+    };
+    const instances = new MemoryExecutions();
+    const service = createService(new MemoryPlans([validPlan]), instances, { execute }, skills);
+
+    await expect(
+      service.execute({
+        instanceId: 'instance-budget',
+        planId: 'plan-1',
+        input: {},
+        skillIds: ['skill-tight'],
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      skillVersions: [{ skillId: 'skill-tight', version: 4 }],
+      budgetLimits: { maxMcpCalls: 0, maxCost: 5 },
+      terminationReason: 'mcp_calls_exhausted',
+    });
+    expect(execute).toHaveBeenCalledWith(
+      validPlan.definition,
+      {},
+      expect.objectContaining({ maxMcpCalls: 0, maxCost: 5 }),
+      undefined,
+    );
+  });
 });
 
 function createService(
   plans: WorkflowPlanRepository,
   instances: WorkflowExecutionRepository,
   executor: WorkflowExecutor,
+  skills: SkillRepository = disabledSkills,
 ) {
   let time = 0;
   let event = 0;
@@ -137,10 +195,18 @@ function createService(
     }),
     clock: { now: () => `2026-07-12T00:00:0${String(time++)}.000Z` },
     ids: { nextEventId: () => `event-${String(++event)}` },
+    skills,
+    systemBudgetDefaults: {
+      maxReplans: 3,
+      maxDurationSeconds: 60,
+      maxLlmCalls: 10,
+      maxMcpCalls: 10,
+      maxCost: 100,
+    },
   });
 }
 
-const disabledSkills = {
+const disabledSkills: SkillRepository = {
   find: () => Promise.resolve(undefined),
   findCurrentVersion: () => Promise.resolve(undefined),
   findVersion: () => Promise.resolve(undefined),

@@ -61,6 +61,7 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
     );
   }
   assertToolPolicy(input.toolPolicy);
+  assertRuntimePolicy(input.runtimePolicy);
   if (input.status === 'enabled' && !input.validationPassed) {
     throw new DomainError(
       'SKILL_ENABLE_REQUIRES_VALIDATION',
@@ -74,6 +75,28 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
     summary: input.summary.trim(),
     description: input.description.trim(),
   };
+}
+
+function assertRuntimePolicy(policy: SkillRuntimePolicy): void {
+  for (const value of [policy.maxReplans, policy.maxLlmCalls, policy.maxMcpCalls])
+    if (value !== undefined && (!Number.isInteger(value) || value < 0))
+      throw new DomainError(
+        'SKILL_RUNTIME_POLICY_INVALID',
+        'Skill count budgets must be nonnegative integers.',
+      );
+  if (
+    policy.maxDurationSeconds !== undefined &&
+    (!Number.isInteger(policy.maxDurationSeconds) || policy.maxDurationSeconds < 1)
+  )
+    throw new DomainError(
+      'SKILL_RUNTIME_POLICY_INVALID',
+      'Skill duration budget must be a positive integer.',
+    );
+  if (policy.maxCost !== undefined && (!Number.isFinite(policy.maxCost) || policy.maxCost < 0))
+    throw new DomainError(
+      'SKILL_RUNTIME_POLICY_INVALID',
+      'Skill cost budget must be finite and nonnegative.',
+    );
 }
 
 function assertToolPolicy(policy: SkillToolPolicy): void {

@@ -1095,12 +1095,37 @@ interface WorkflowInstanceRow extends QueryResultRow {
   errors_json: unknown;
   started_at: Date | string;
   completed_at: Date | string | null;
+  skill_versions_json: unknown;
+  budget_limits_json: unknown;
+  budget_usage_json: unknown;
+  termination_reason: NonNullable<WorkflowInstance['terminationReason']> | null;
 }
 
 const WorkflowErrorsSchema = z.record(
   z.string(),
   z.object({ code: z.string(), message: z.string() }).strict(),
 );
+const WorkflowSkillVersionsSchema = z.array(
+  z.object({ skillId: z.string(), version: z.number().int().positive() }).strict(),
+);
+const WorkflowBudgetLimitsSchema = z
+  .object({
+    maxReplans: z.number().int().nonnegative(),
+    maxDurationSeconds: z.number().int().positive(),
+    maxLlmCalls: z.number().int().nonnegative(),
+    maxMcpCalls: z.number().int().nonnegative(),
+    maxCost: z.number().nonnegative(),
+  })
+  .strict();
+const WorkflowBudgetUsageSchema = z
+  .object({
+    replanCount: z.number().int().nonnegative(),
+    durationMs: z.number().nonnegative(),
+    llmCalls: z.number().int().nonnegative(),
+    mcpCalls: z.number().int().nonnegative(),
+    cost: z.number().nonnegative(),
+  })
+  .strict();
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
   readonly #pool: Pool;
@@ -1122,12 +1147,16 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       workflowVersion: row.workflow_version,
       goalId: row.goal_id,
       goalVersion: row.goal_version,
+      skillVersions: WorkflowSkillVersionsSchema.parse(row.skill_versions_json),
+      budgetLimits: WorkflowBudgetLimitsSchema.parse(row.budget_limits_json),
+      budgetUsage: WorkflowBudgetUsageSchema.parse(row.budget_usage_json),
       status: row.status,
       input: row.input_json,
       ...(row.result_json === null ? {} : { result: row.result_json }),
       errors: WorkflowErrorsSchema.parse(row.errors_json),
       startedAt: toIsoString(row.started_at),
       ...(row.completed_at === null ? {} : { completedAt: toIsoString(row.completed_at) }),
+      ...(row.termination_reason === null ? {} : { terminationReason: row.termination_reason }),
     };
   }
 
@@ -1135,13 +1164,16 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
     await this.#pool.query(
       `INSERT INTO workflow_instance(
          instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
-         status,input_json,result_json,errors_json,started_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12)
+         status,input_json,result_json,errors_json,started_at,completed_at,
+         skill_versions_json,budget_limits_json,budget_usage_json,termination_reason)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16)
        ON CONFLICT(instance_id) DO UPDATE SET
          status=EXCLUDED.status,
          result_json=EXCLUDED.result_json,
          errors_json=EXCLUDED.errors_json,
-         completed_at=EXCLUDED.completed_at`,
+         completed_at=EXCLUDED.completed_at,
+         budget_usage_json=EXCLUDED.budget_usage_json,
+         termination_reason=EXCLUDED.termination_reason`,
       [
         instance.instanceId,
         instance.planId,
@@ -1155,6 +1187,10 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
         JSON.stringify(instance.errors),
         instance.startedAt,
         instance.completedAt ?? null,
+        JSON.stringify(instance.skillVersions),
+        JSON.stringify(instance.budgetLimits),
+        JSON.stringify(instance.budgetUsage),
+        instance.terminationReason ?? null,
       ],
     );
   }

@@ -27,6 +27,9 @@ import type {
   WorkflowPlanAttempt,
   WorkflowPlanRecord,
   WorkflowDefinition,
+  WorkflowBudgetLimits,
+  WorkflowBudgetTerminationReason,
+  WorkflowBudgetUsage,
   WorkflowInstance,
   WorkflowNodeEvent,
 } from '../../domain/src/index.js';
@@ -287,12 +290,15 @@ export interface WorkflowExecutor {
   execute(
     definition: WorkflowDefinition,
     input: unknown,
+    budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
   ): Promise<
     Readonly<{
       status: 'succeeded' | 'failed';
       result?: unknown;
       errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+      budgetUsage: WorkflowBudgetUsage;
+      terminationReason?: WorkflowBudgetTerminationReason;
       events: readonly Readonly<{
         nodeId: string;
         type: 'node_started' | 'node_succeeded' | 'node_failed';
@@ -379,6 +385,7 @@ export interface RuntimeTaskEvent {
 
 export interface Clock {
   now(): string;
+  nowMilliseconds?(): number;
 }
 
 export interface IdentifierGenerator {

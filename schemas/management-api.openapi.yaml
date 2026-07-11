@@ -29,6 +29,7 @@ paths:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: executeConfirmedWorkflowPlan
+      description: Optional skillIds resolve current enabled Skill budget overrides; the immutable resolved limits and usage are returned on the Workflow instance.
       responses:
         '201': { description: Persisted terminal Workflow instance }
         '400': { $ref: '#/components/responses/Error' }

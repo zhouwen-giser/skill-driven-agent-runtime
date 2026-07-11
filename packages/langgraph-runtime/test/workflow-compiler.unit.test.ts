@@ -12,9 +12,19 @@ function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePo
     executeSubworkflow: vi.fn().mockResolvedValue({ child: 'done' }),
     requestHumanConfirmation: vi.fn().mockResolvedValue(true),
     now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z`,
+    nowMilliseconds: () => tick * 100,
     ...overrides,
   };
 }
+
+const budget = {
+  maxReplans: 3,
+  maxDurationSeconds: 60,
+  maxLlmCalls: 20,
+  maxMcpCalls: 20,
+  maxCost: 100,
+};
+const costs = { llm: 1, mcp: 1, skill: 1, subworkflow: 1 };
 
 function definition(
   nodes: WorkflowDefinition['nodes'],
@@ -111,7 +121,7 @@ describe('LangGraph Workflow compiler', () => {
       ['result'],
     );
     const compiled = compileWorkflow(source, 'confirmed', runtime);
-    const result = await compiled.invoke({ request: 'weather' });
+    const result = await compiled.invoke({ request: 'weather' }, budget, costs);
 
     expect(result.status).toBe('succeeded');
     expect(result.result).toBe(21);
@@ -125,10 +135,13 @@ describe('LangGraph Workflow compiler', () => {
     expect(result.events.filter((event) => event.type === 'node_succeeded')).toHaveLength(6);
     expect(compiled.definition).not.toBe(source);
     expect(Object.isFrozen(compiled.definition)).toBe(true);
-    expect(runtime.callMcpTool).toHaveBeenCalledWith({
-      tool: { serverId: 'weather', toolName: 'current' },
-      arguments: { city: 'Shanghai' },
-    });
+    expect(runtime.callMcpTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool: { serverId: 'weather', toolName: 'current' },
+        arguments: { city: 'Shanghai' },
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it('routes conditions and enforces an explicit loop bound in the immutable graph', async () => {
@@ -177,13 +190,15 @@ describe('LangGraph Workflow compiler', () => {
       runtime,
     );
 
-    await expect(compiled.invoke({ run: true })).resolves.toMatchObject({
+    await expect(compiled.invoke({ run: true }, budget, costs)).resolves.toMatchObject({
       status: 'succeeded',
       result: 3,
       loopCounts: { loop: 3 },
     });
     expect(runtime.executeLlm).toHaveBeenCalledTimes(3);
-    await expect(compiled.invoke({ run: false })).resolves.toMatchObject({ result: 'skipped' });
+    await expect(compiled.invoke({ run: false }, budget, costs)).resolves.toMatchObject({
+      result: 'skipped',
+    });
   });
 
   it('fans out parallel branches, joins once, and merges their state updates', async () => {
@@ -215,7 +230,7 @@ describe('LangGraph Workflow compiler', () => {
       ),
       'confirmed',
       runtime,
-    ).invoke({});
+    ).invoke({}, budget, costs);
 
     expect(result.outputs).toMatchObject({ left: { answer: 42 }, right: { skill: 'done' } });
     expect(result.result).toBe(42);
@@ -266,7 +281,7 @@ describe('LangGraph Workflow compiler', () => {
         ),
         'confirmed',
         runtime,
-      ).invoke({});
+      ).invoke({}, budget, costs);
 
       expect(result.errors).toEqual({ mcp: { code: 'MCP_OFFLINE', message: 'offline' } });
       if (strategy === 'terminate') expect(result.status).toBe('failed');
@@ -294,5 +309,90 @@ describe('LangGraph Workflow compiler', () => {
         ports(),
       ),
     ).toThrow('ambiguous outgoing routes');
+  });
+
+  it('atomically enforces the LLM call budget across parallel branches', async () => {
+    const executeLlm = vi.fn().mockResolvedValue({ answer: 1 });
+    const runtime = ports({ executeLlm });
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['left', 'right'],
+          },
+          { nodeId: 'left', name: 'Left', type: 'llm', instruction: 'left', responseSchema: true },
+          {
+            nodeId: 'right',
+            name: 'Right',
+            type: 'llm',
+            instruction: 'right',
+            responseSchema: true,
+          },
+        ],
+        [],
+        'parallel',
+        ['left', 'right'],
+      ),
+      'confirmed',
+      runtime,
+    ).invoke({}, { ...budget, maxLlmCalls: 1 }, costs);
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      terminationReason: 'llm_calls_exhausted',
+      budgetUsage: { llmCalls: 1, mcpCalls: 0, cost: 1 },
+      errors: { budget: { code: 'WORKFLOW_LLM_CALL_BUDGET_EXHAUSTED' } },
+    });
+    expect(executeLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call an external Tool when the cost reservation would exceed the budget', async () => {
+    const callMcpTool = vi.fn().mockResolvedValue({ status: 'online' });
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'tool',
+            name: 'Tool',
+            type: 'mcp_tool',
+            tool: { serverId: 'server', toolName: 'read' },
+            arguments: {},
+          },
+        ],
+        [],
+        'tool',
+        ['tool'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    ).invoke({}, { ...budget, maxCost: 0 }, costs);
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      terminationReason: 'cost_exhausted',
+      budgetUsage: { mcpCalls: 0, cost: 0 },
+    });
+    expect(callMcpTool).not.toHaveBeenCalled();
+  });
+
+  it('terminates before a node begins after the duration deadline', async () => {
+    const executeLlm = vi.fn().mockResolvedValue({ answer: 1 });
+    let nowCall = 0;
+    const result = await compileWorkflow(
+      definition(
+        [{ nodeId: 'llm', name: 'LLM', type: 'llm', instruction: 'x', responseSchema: true }],
+        [],
+        'llm',
+        ['llm'],
+      ),
+      'confirmed',
+      ports({ executeLlm, nowMilliseconds: () => (nowCall++ === 0 ? 0 : 1000) }),
+    ).invoke({}, { ...budget, maxDurationSeconds: 1 }, costs);
+
+    expect(result.terminationReason).toBe('duration_exhausted');
+    expect(executeLlm).not.toHaveBeenCalled();
   });
 });

@@ -146,6 +146,7 @@ const PlanWorkflowSchema = z.object({
 const ExecuteWorkflowSchema = z.object({
   instanceId: z.string().min(1),
   input: z.unknown(),
+  skillIds: z.array(z.string().min(1)).optional(),
 });
 
 export interface ManagementOperations {
@@ -242,6 +243,7 @@ export async function startManagementHttpEndpoint(
           instanceId: input.instanceId,
           planId: pathValue(request, 'planId'),
           input: input.input,
+          ...(input.skillIds === undefined ? {} : { skillIds: input.skillIds }),
         }),
       );
     }),

@@ -100,7 +100,20 @@ Decision: ADR-020 separates validation from compilation/execution and forbids ar
 - [x] Execute a real local MCP plan only after confirmation.
 - [x] Execute a corrected version inherited from a confirmed source without a second confirmation.
 - [ ] Connect human_confirmation to persisted EP-04 pause/resume instead of the current explicit runtime stop.
-- [ ] Add the outer replan controller, Skill/system budgets and natural-language/admin editing.
+- [ ] Add the outer replan controller with max-replan enforcement and natural-language/admin editing.
+
+## Workflow Budget Enforcement Progress Update - 2026-07-12
+
+- [x] Define and validate domain-owned limit, usage and termination records.
+- [x] Resolve missing Skill fields from system defaults and conservatively merge composed Skills.
+- [x] Pin current enabled Skill versions and the resolved limits before execution.
+- [x] Atomically enforce LLM/MCP counts and configured accounted cost before parallel external calls.
+- [x] Enforce duration before/after nodes and propagate the remaining deadline as AbortSignal.
+- [x] Persist limits, usage, Skill versions and termination reason in PostgreSQL.
+- [x] Prove a real enabled Skill with zero MCP budget produces zero real MCP invocations.
+- [ ] Enforce `maxReplans` in the FR-WF-008 outer controller.
+
+Decision: ADR-023 defines conservative Skill override resolution, fail-closed exhaustion and configured cost accounting.
 
 Decision: ADR-022 confines LangGraph types to the runtime adapter and defines immutable execution/audit semantics.
 

@@ -32,7 +32,7 @@ import {
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
 } from '../../../packages/application/src/index.js';
-import type { SkillVersion } from '../../../packages/domain/src/index.js';
+import type { SkillVersion, WorkflowBudgetLimits } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
@@ -40,6 +40,7 @@ import { OpenAiCompatibleModelAdapter } from '../../../packages/model-provider-a
 import {
   LangGraphWorkflowExecutor,
   WorkflowCompilerError,
+  type WorkflowCallCosts,
   type WorkflowRuntimePorts,
 } from '../../../packages/langgraph-runtime/src/index.js';
 import {
@@ -84,6 +85,8 @@ export interface ServerRuntimeOptions {
     embeddings: TextEmbeddingProvider;
     decider: SkillSelectionDecider;
   }>;
+  readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
+  readonly workflowCallCosts?: WorkflowCallCosts;
 }
 
 export interface ServerRuntimeHandle {
@@ -140,6 +143,19 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const workflowBudgetDefaults = options.workflowBudgetDefaults ?? {
+    maxReplans: 3,
+    maxDurationSeconds: 300,
+    maxLlmCalls: 20,
+    maxMcpCalls: 20,
+    maxCost: 100,
+  };
+  const workflowCallCosts = options.workflowCallCosts ?? {
+    llm: 1,
+    mcp: 1,
+    skill: 1,
+    subworkflow: 1,
+  };
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new OpenAiCompatibleModelAdapter(),
@@ -250,11 +266,10 @@ export async function startServerRuntime(
       if (plan?.definition === undefined) throw new Error('WORKFLOW_SUBWORKFLOW_NOT_CONFIRMED');
       const definition = plan.definition;
       return workflowAncestry.run([...ancestry, key], async () => {
-        const outcome = await new LangGraphWorkflowExecutor(workflowPorts).execute(
-          definition,
-          parentInput,
-          signal,
-        );
+        const outcome = await new LangGraphWorkflowExecutor(
+          workflowPorts,
+          workflowCallCosts,
+        ).execute(definition, parentInput, workflowBudgetDefaults, signal);
         if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
         return outcome.result;
       });
@@ -263,8 +278,9 @@ export async function startServerRuntime(
       throw new Error('WORKFLOW_HUMAN_CONFIRMATION_REQUIRED');
     },
     now: clock.now,
+    nowMilliseconds: () => Date.now(),
   };
-  const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts);
+  const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts, workflowCallCosts);
   const workflowExecution = new WorkflowExecutionService({
     plans: workflowPlans,
     instances: new PostgresWorkflowExecutionRepository(pool),
@@ -272,6 +288,8 @@ export async function startServerRuntime(
     executor: langGraphExecutor,
     clock,
     ids: { nextEventId: () => `workflow-event-${randomUUID()}` },
+    skills,
+    systemBudgetDefaults: workflowBudgetDefaults,
   });
   const temporarySkills = new TemporarySkillService({
     repository: temporarySkillRepository,
@@ -415,6 +433,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0015_prompt_runtime.up.sql',
     '0016_workflow_planning.up.sql',
     '0017_workflow_execution.up.sql',
+    '0018_workflow_budget.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

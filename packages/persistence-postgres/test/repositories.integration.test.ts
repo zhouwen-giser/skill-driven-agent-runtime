@@ -114,6 +114,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowExecutionMigration);
+  const workflowBudgetMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0018_workflow_budget.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowBudgetMigration);
 });
 
 beforeEach(async () => {
@@ -224,6 +229,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
       workflowVersion: 1,
       goalId: 'goal.execution.db',
       goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 0, llmCalls: 0, mcpCalls: 0, cost: 0 },
       status: 'running' as const,
       input: { request: 'run' },
       errors: {},
@@ -261,6 +275,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       status: 'succeeded',
       result: 'ok',
       errors: {},
+      skillVersions: [],
+      budgetLimits: { maxDurationSeconds: 60, maxLlmCalls: 10, maxMcpCalls: 10 },
+      budgetUsage: { replanCount: 0, llmCalls: 0, mcpCalls: 0, cost: 0 },
     });
     const events = await pool.query<{ sequence: number; event_type: string }>(
       'SELECT sequence,event_type FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence',

@@ -2,6 +2,9 @@ import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 
 import type {
   ToolReference,
+  WorkflowBudgetLimits,
+  WorkflowBudgetTerminationReason,
+  WorkflowBudgetUsage,
   WorkflowDefinition,
   WorkflowEdge,
   WorkflowNode,
@@ -52,6 +55,14 @@ export interface WorkflowRuntimePorts {
     }>,
   ) => Promise<boolean>;
   readonly now: () => string;
+  readonly nowMilliseconds: () => number;
+}
+
+export interface WorkflowCallCosts {
+  readonly llm: number;
+  readonly mcp: number;
+  readonly skill: number;
+  readonly subworkflow: number;
 }
 
 export interface WorkflowExecutionResult {
@@ -61,6 +72,8 @@ export interface WorkflowExecutionResult {
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
   readonly loopCounts: Readonly<Record<string, number>>;
   readonly events: readonly WorkflowExecutionEvent[];
+  readonly budgetUsage: WorkflowBudgetUsage;
+  readonly terminationReason?: WorkflowBudgetTerminationReason;
 }
 
 interface WorkflowExecutionState {
@@ -73,6 +86,7 @@ interface WorkflowExecutionState {
   readonly result?: unknown;
   readonly failed: boolean;
   readonly signal: AbortSignal | undefined;
+  readonly budgetMeter: WorkflowBudgetMeter;
 }
 
 const ExecutionState = Annotation.Root({
@@ -100,6 +114,7 @@ const ExecutionState = Annotation.Root({
   result: Annotation<unknown>,
   failed: Annotation<boolean>,
   signal: Annotation<AbortSignal | undefined>,
+  budgetMeter: Annotation<WorkflowBudgetMeter>,
 });
 
 type StateUpdate = Partial<WorkflowExecutionState>;
@@ -107,7 +122,12 @@ type NodeAction = (state: WorkflowExecutionState) => Promise<StateUpdate>;
 
 export interface CompiledWorkflow {
   readonly definition: WorkflowDefinition;
-  invoke(input: unknown, signal?: AbortSignal): Promise<WorkflowExecutionResult>;
+  invoke(
+    input: unknown,
+    budgetLimits: WorkflowBudgetLimits,
+    callCosts: WorkflowCallCosts,
+    signal?: AbortSignal,
+  ): Promise<WorkflowExecutionResult>;
 }
 
 export function compileWorkflow(
@@ -185,28 +205,44 @@ export function compileWorkflow(
   const executable = graph.compile({ name: immutableDefinition.workflowDefinitionId });
   return {
     definition: immutableDefinition,
-    async invoke(input: unknown, signal?: AbortSignal) {
-      const state = await executable.invoke(
-        {
-          input,
+    async invoke(input, budgetLimits, callCosts, signal) {
+      const budgetMeter = new WorkflowBudgetMeter(budgetLimits, callCosts, ports.nowMilliseconds);
+      try {
+        const state = await executable.invoke(
+          {
+            input,
+            outputs: {},
+            errors: {},
+            routes: {},
+            loopCounts: {},
+            events: [],
+            failed: false,
+            signal,
+            budgetMeter,
+          },
+          signal === undefined ? undefined : { signal },
+        );
+        return {
+          status: state.failed ? 'failed' : 'succeeded',
+          ...(state.result === undefined ? {} : { result: state.result }),
+          outputs: state.outputs,
+          errors: state.errors,
+          loopCounts: state.loopCounts,
+          events: state.events,
+          budgetUsage: budgetMeter.snapshot(),
+        };
+      } catch (error: unknown) {
+        if (!(error instanceof WorkflowBudgetExceededError)) throw error;
+        return {
+          status: 'failed',
           outputs: {},
-          errors: {},
-          routes: {},
+          errors: { budget: { code: error.code, message: error.message } },
           loopCounts: {},
           events: [],
-          failed: false,
-          signal,
-        },
-        signal === undefined ? undefined : { signal },
-      );
-      return {
-        status: state.failed ? 'failed' : 'succeeded',
-        ...(state.result === undefined ? {} : { result: state.result }),
-        outputs: state.outputs,
-        errors: state.errors,
-        loopCounts: state.loopCounts,
-        events: state.events,
-      };
+          budgetUsage: budgetMeter.snapshot(),
+          terminationReason: error.reason,
+        };
+      }
     },
   };
 }
@@ -294,6 +330,7 @@ function createNodeAction(
   ports: WorkflowRuntimePorts,
 ): NodeAction {
   return async (state) => {
+    state.budgetMeter.assertDuration();
     const started: WorkflowExecutionEvent = {
       nodeId: node.nodeId,
       type: 'node_started',
@@ -321,6 +358,7 @@ function createNodeAction(
         ],
       };
     } catch (error: unknown) {
+      if (error instanceof WorkflowBudgetExceededError) throw error;
       const handler = handlers.get(node.nodeId);
       if (handler === undefined) throw error;
       return {
@@ -348,48 +386,58 @@ async function executeNode(
 ): Promise<StateUpdate> {
   const signal = state.signal;
   switch (node.type) {
-    case 'llm':
-      return output(
-        node.nodeId,
-        await ports.executeLlm({
-          instruction: node.instruction,
-          responseSchema: node.responseSchema,
-          ...(signal === undefined ? {} : { signal }),
-        }),
-      );
-    case 'mcp_tool':
-      return output(
-        node.nodeId,
-        await ports.callMcpTool({
-          tool: node.tool,
-          arguments: node.arguments,
-          ...(signal === undefined ? {} : { signal }),
-        }),
-      );
-    case 'skill_call':
-      return output(
-        node.nodeId,
-        await ports.executeSkill({
-          skillId: node.skillId,
-          input: node.input,
-          ...(signal === undefined ? {} : { signal }),
-        }),
-      );
-    case 'subworkflow':
-      return output(
-        node.nodeId,
-        await ports.executeSubworkflow({
-          workflowDefinitionId: node.workflowDefinitionId,
-          workflowVersion: node.workflowVersion,
-          parentInput: state.input,
-          ...(signal === undefined ? {} : { signal }),
-        }),
-      );
+    case 'llm': {
+      state.budgetMeter.reserve('llm');
+      const callSignal = state.budgetMeter.signal(signal);
+      const value = await ports.executeLlm({
+        instruction: node.instruction,
+        responseSchema: node.responseSchema,
+        signal: callSignal,
+      });
+      state.budgetMeter.assertDuration();
+      return output(node.nodeId, value);
+    }
+    case 'mcp_tool': {
+      state.budgetMeter.reserve('mcp');
+      const callSignal = state.budgetMeter.signal(signal);
+      const value = await ports.callMcpTool({
+        tool: node.tool,
+        arguments: node.arguments,
+        signal: callSignal,
+      });
+      state.budgetMeter.assertDuration();
+      return output(node.nodeId, value);
+    }
+    case 'skill_call': {
+      state.budgetMeter.reserve('skill');
+      const callSignal = state.budgetMeter.signal(signal);
+      const value = await ports.executeSkill({
+        skillId: node.skillId,
+        input: node.input,
+        signal: callSignal,
+      });
+      state.budgetMeter.assertDuration();
+      return output(node.nodeId, value);
+    }
+    case 'subworkflow': {
+      state.budgetMeter.reserve('subworkflow');
+      const callSignal = state.budgetMeter.signal(signal);
+      const value = await ports.executeSubworkflow({
+        workflowDefinitionId: node.workflowDefinitionId,
+        workflowVersion: node.workflowVersion,
+        parentInput: state.input,
+        signal: callSignal,
+      });
+      state.budgetMeter.assertDuration();
+      return output(node.nodeId, value);
+    }
     case 'human_confirmation': {
+      const callSignal = state.budgetMeter.signal(signal);
       const confirmed = await ports.requestHumanConfirmation({
         prompt: node.prompt,
-        ...(signal === undefined ? {} : { signal }),
+        signal: callSignal,
       });
+      state.budgetMeter.assertDuration();
       return {
         outputs: { [node.nodeId]: confirmed },
         routes: {
@@ -566,7 +614,8 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_PLAN_NOT_CONFIRMED'
   | 'WORKFLOW_ROUTE_AMBIGUOUS'
   | 'WORKFLOW_ROUTE_MISSING'
-  | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID';
+  | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
+  | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID';
 
 export class WorkflowCompilerError extends Error {
   readonly code: WorkflowCompilerErrorCode;
@@ -574,5 +623,116 @@ export class WorkflowCompilerError extends Error {
     super(message);
     this.name = 'WorkflowCompilerError';
     this.code = code;
+  }
+}
+
+type MeteredCallKind = keyof WorkflowCallCosts;
+
+class WorkflowBudgetMeter {
+  readonly #limits: WorkflowBudgetLimits;
+  readonly #costs: WorkflowCallCosts;
+  readonly #now: () => number;
+  readonly #startedAt: number;
+  #llmCalls = 0;
+  #mcpCalls = 0;
+  #cost = 0;
+
+  constructor(limits: WorkflowBudgetLimits, costs: WorkflowCallCosts, now: () => number) {
+    validateMeterInputs(limits, costs);
+    this.#limits = limits;
+    this.#costs = costs;
+    this.#now = now;
+    this.#startedAt = now();
+  }
+
+  assertDuration(): void {
+    if (this.#durationMs() >= this.#limits.maxDurationSeconds * 1000)
+      throw new WorkflowBudgetExceededError(
+        'WORKFLOW_DURATION_BUDGET_EXHAUSTED',
+        'duration_exhausted',
+      );
+  }
+
+  reserve(kind: MeteredCallKind): void {
+    this.assertDuration();
+    const llmIncrement = kind === 'llm' || kind === 'skill' ? 1 : 0;
+    const mcpIncrement = kind === 'mcp' ? 1 : 0;
+    if (this.#llmCalls + llmIncrement > this.#limits.maxLlmCalls)
+      throw new WorkflowBudgetExceededError(
+        'WORKFLOW_LLM_CALL_BUDGET_EXHAUSTED',
+        'llm_calls_exhausted',
+      );
+    if (this.#mcpCalls + mcpIncrement > this.#limits.maxMcpCalls)
+      throw new WorkflowBudgetExceededError(
+        'WORKFLOW_MCP_CALL_BUDGET_EXHAUSTED',
+        'mcp_calls_exhausted',
+      );
+    const nextCost = this.#cost + this.#costs[kind];
+    if (nextCost > this.#limits.maxCost)
+      throw new WorkflowBudgetExceededError('WORKFLOW_COST_BUDGET_EXHAUSTED', 'cost_exhausted');
+    this.#llmCalls += llmIncrement;
+    this.#mcpCalls += mcpIncrement;
+    this.#cost = nextCost;
+  }
+
+  signal(parent: AbortSignal | undefined): AbortSignal {
+    this.assertDuration();
+    const remaining = Math.max(1, this.#limits.maxDurationSeconds * 1000 - this.#durationMs());
+    const deadline = AbortSignal.timeout(remaining);
+    return parent === undefined ? deadline : AbortSignal.any([parent, deadline]);
+  }
+
+  snapshot(): WorkflowBudgetUsage {
+    return {
+      replanCount: 0,
+      durationMs: this.#durationMs(),
+      llmCalls: this.#llmCalls,
+      mcpCalls: this.#mcpCalls,
+      cost: this.#cost,
+    };
+  }
+
+  #durationMs(): number {
+    return Math.max(0, this.#now() - this.#startedAt);
+  }
+}
+
+function validateMeterInputs(limits: WorkflowBudgetLimits, costs: WorkflowCallCosts): void {
+  if (
+    !Number.isInteger(limits.maxReplans) ||
+    limits.maxReplans < 0 ||
+    !Number.isInteger(limits.maxDurationSeconds) ||
+    limits.maxDurationSeconds < 1 ||
+    !Number.isInteger(limits.maxLlmCalls) ||
+    limits.maxLlmCalls < 0 ||
+    !Number.isInteger(limits.maxMcpCalls) ||
+    limits.maxMcpCalls < 0 ||
+    !Number.isFinite(limits.maxCost) ||
+    limits.maxCost < 0 ||
+    Object.values(costs).some((cost) => !Number.isFinite(cost) || cost < 0)
+  )
+    throw new WorkflowCompilerError(
+      'WORKFLOW_BUDGET_CONFIGURATION_INVALID',
+      'Workflow budget limits and call costs must be finite and nonnegative.',
+    );
+}
+
+export type WorkflowBudgetErrorCode =
+  | 'WORKFLOW_COST_BUDGET_EXHAUSTED'
+  | 'WORKFLOW_DURATION_BUDGET_EXHAUSTED'
+  | 'WORKFLOW_LLM_CALL_BUDGET_EXHAUSTED'
+  | 'WORKFLOW_MCP_CALL_BUDGET_EXHAUSTED';
+
+export class WorkflowBudgetExceededError extends Error {
+  readonly code: WorkflowBudgetErrorCode;
+  readonly reason: Exclude<WorkflowBudgetTerminationReason, 'replans_exhausted'>;
+  constructor(
+    code: WorkflowBudgetErrorCode,
+    reason: Exclude<WorkflowBudgetTerminationReason, 'replans_exhausted'>,
+  ) {
+    super(`Workflow terminated because ${reason.replaceAll('_', ' ')}.`);
+    this.name = 'WorkflowBudgetExceededError';
+    this.code = code;
+    this.reason = reason;
   }
 }
