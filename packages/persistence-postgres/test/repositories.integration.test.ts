@@ -16,6 +16,7 @@ import {
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
   PostgresRuntimeEventPublisher,
+  PostgresRuntimeRecoveryRepository,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
   PostgresSkillEmbeddingRepository,
@@ -23,7 +24,7 @@ import {
   PostgresTemporarySkillRepository,
   PostgresSkillRepository,
 } from '../src/index.js';
-import { createSkillVersion } from '../../domain/src/index.js';
+import { createAgentTask, createSkillVersion, transitionTask } from '../../domain/src/index.js';
 
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
@@ -388,6 +389,96 @@ describe('PostgreSQL protocol-domain repositories', () => {
       { sequence: 1, event_type: 'node_started' },
       { sequence: 2, event_type: 'node_succeeded' },
     ]);
+  });
+  it('atomically fails interrupted Tasks and Workflow instances without reconstructing execution', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    await contexts.save({
+      contextId: 'context.interrupted.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    let task = createAgentTask({
+      taskId: 'task.interrupted.db',
+      contextId: 'context.interrupted.db',
+      userId: 'operator',
+      requestText: 'Run once.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+      'executing',
+    ] as const)
+      task = transitionTask(task, phase, phase, '2026-07-12T00:00:01.000Z');
+    const tasks = new PostgresAgentTaskRepository(pool);
+    await tasks.save(task);
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    await plans.savePlan({
+      planId: 'plan.interrupted.db',
+      goalId: 'goal.interrupted.db',
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.interrupted.db',
+        version: 1,
+        goalId: 'goal.interrupted.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    await executions.saveInstance({
+      instanceId: 'instance.interrupted.db',
+      planId: 'plan.interrupted.db',
+      workflowDefinitionId: 'workflow.interrupted.db',
+      workflowVersion: 1,
+      goalId: 'goal.interrupted.db',
+      goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 4, llmCalls: 0, mcpCalls: 1, cost: 1 },
+      status: 'paused',
+      input: {},
+      errors: {},
+      startedAt: '2026-07-12T00:00:01.000Z',
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+    });
+
+    await expect(
+      new PostgresRuntimeRecoveryRepository(pool).failInterrupted('2026-07-12T00:01:00.000Z'),
+    ).resolves.toEqual({ tasks: 1, workflowInstances: 1 });
+    await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
+      phase: 'failed',
+      errorCode: 'PROCESS_EXECUTION_LOST',
+    });
+    await expect(executions.findInstance('instance.interrupted.db')).resolves.toMatchObject({
+      status: 'failed',
+      errors: { runtime: { code: 'PROCESS_EXECUTION_LOST' } },
+      completedAt: '2026-07-12T00:01:00.000Z',
+    });
   });
   it('persists Goal authority and replayable outer-control rounds', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

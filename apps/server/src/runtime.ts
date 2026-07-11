@@ -14,6 +14,7 @@ import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task
 import {
   PlanPreparationProcessor,
   ResultProcessor,
+  RuntimeRecoveryService,
   McpRegistryService,
   ModelRuntimeService,
   PromptService,
@@ -62,6 +63,7 @@ import {
   PostgresModelRuntimeRepository,
   PostgresPromptRepository,
   PostgresRuntimeEventPublisher,
+  PostgresRuntimeRecoveryRepository,
   PostgresSkillDraftRepository,
   PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
@@ -153,6 +155,10 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  await new RuntimeRecoveryService({
+    repository: new PostgresRuntimeRecoveryRepository(pool),
+    clock,
+  }).failInterruptedExecutions();
   const workflowBudgetDefaults = options.workflowBudgetDefaults ?? {
     maxReplans: 3,
     maxDurationSeconds: 300,

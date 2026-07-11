@@ -23,6 +23,11 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 
 ## Progress
 
+- [x] 2026-07-12: fail interrupted Task/Workflow state atomically on process start.
+- [x] 2026-07-12: verify BullMQ attempts=1/no stalled retry and queued-job retention across Redis client restart.
+- [ ] Implement Goal Patch invalidation and forced reconfirmation.
+- [ ] Implement general pause/resume/cancel policy and unified wait timeout.
+
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。
 - [ ] 完成实现增量。

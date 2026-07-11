@@ -1,5 +1,6 @@
 export * from './ports.js';
 export * from './result-processor.js';
+export * from './runtime-recovery.js';
 export * from './skill-registry.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';

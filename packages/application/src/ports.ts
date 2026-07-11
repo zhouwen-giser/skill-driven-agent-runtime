@@ -48,6 +48,12 @@ export interface GoalRepository {
   save(goal: Goal): Promise<void>;
 }
 
+export interface RuntimeRecoveryRepository {
+  failInterrupted(
+    timestamp: string,
+  ): Promise<Readonly<{ tasks: number; workflowInstances: number }>>;
+}
+
 export interface WorkflowControlRepository {
   find(controlId: string): Promise<WorkflowControlRecord | undefined>;
   save(control: WorkflowControlRecord): Promise<void>;

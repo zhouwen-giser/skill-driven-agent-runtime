@@ -87,9 +87,9 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | FR-EXE-005   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
 | FR-EXE-006   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
 | FR-EXE-007   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
-| FR-EXE-008   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
-| FR-EXE-009   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
-| FR-EXE-010   | EP-04 | unit+integration+e2e | 未实现 | 待填写   | 待填写   | 待填写   |
+| FR-EXE-008   | EP-04 | integration+e2e | 已验证 | `packages/application/src/runtime-recovery.ts`; `packages/application/src/ports.ts`; `packages/persistence-postgres/src/repositories.ts`; `apps/server/src/runtime.ts`; `packages/langgraph-runtime/src/workflow-executor-adapter.ts`; `adr/ADR-029-fail-interrupted-executions-on-process-start.md` | `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/application/test/workflow-execution.unit.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts` | 启动 Worker 前一个 PostgreSQL 事务将 executing/paused/evaluating Task 与 running/paused instance 标记 `PROCESS_EXECUTION_LOST`，清除 checkpoint 提示且保留轨迹；checkpoint 丢失不重建/不重放，真实 MCP 前置调用计数保持一次 |
+| FR-EXE-009   | EP-04 | integration | 已验证 | `packages/runtime-redis/src/bullmq-context-queue.ts`; `adr/ADR-029-fail-interrupted-executions-on-process-start.md` | `packages/runtime-redis/test/bullmq-context-queue.integration.test.ts` | Queue default 与单 Job 均固定 `attempts:1`，Worker `maxStalledCount:0`，失败 Job 保留；真实 Redis/BullMQ 检查 opts 且无自动重试配置 |
+| FR-EXE-010   | EP-04 | integration | 已验证 | `packages/runtime-redis/src/bullmq-context-queue.ts`; `compose.yaml` | `packages/runtime-redis/test/bullmq-context-queue.integration.test.ts` | `pnpm test:integration`：Job 入 Redis 后关闭首个 Queue client，再创建 Worker，原 queued Job 仍被调度并完成；同 context 严格串行也在同套件实测 |
 | FR-RST-001   | EP-04 | unit+integration     | 未实现 | 待填写   | 待填写   | 待填写   |
 | FR-RST-002   | EP-04 | unit+integration     | 未实现 | 待填写   | 待填写   | 待填写   |
 | FR-RST-003   | EP-04 | unit+integration     | 未实现 | 待填写   | 待填写   | 待填写   |

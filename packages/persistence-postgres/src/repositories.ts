@@ -15,6 +15,7 @@ import type {
   WorkflowControlRepository,
   GoalRepository,
   RuntimeEventPublisher,
+  RuntimeRecoveryRepository,
   RuntimeTaskEvent,
   SkillDraftRepository,
   SkillGraphRepository,
@@ -343,6 +344,43 @@ export class PostgresConversationContextRepository implements ConversationContex
        SET user_id = EXCLUDED.user_id, updated_at = EXCLUDED.updated_at`,
       [context.contextId, context.userId, context.createdAt, context.updatedAt],
     );
+  }
+}
+
+export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async failInterrupted(timestamp: string) {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tasks = await client.query(
+        `UPDATE agent_task
+         SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
+             error_code='PROCESS_EXECUTION_LOST', updated_at=$1
+         WHERE phase IN ('executing','paused','evaluating')`,
+        [timestamp],
+      );
+      const instances = await client.query(
+        `UPDATE workflow_instance
+         SET status='failed',
+             errors_json=jsonb_set(errors_json,'{runtime}',
+               '{"code":"PROCESS_EXECUTION_LOST","message":"Process stopped during execution; V1 does not recover or retry."}'::jsonb,true),
+             pending_confirmation_json=NULL, completed_at=$1
+         WHERE status IN ('running','paused')`,
+        [timestamp],
+      );
+      await client.query('COMMIT');
+      return { tasks: tasks.rowCount ?? 0, workflowInstances: instances.rowCount ?? 0 };
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
