@@ -167,4 +167,11 @@ class MemoryPlanRepository implements WorkflowPlanRepository {
     this.plans.set(value.planId, value);
     return Promise.resolve();
   }
+  savePlanAndSupersede(value: WorkflowPlanRecord, sourcePlanId: string) {
+    const source = this.plans.get(sourcePlanId);
+    if (source !== undefined)
+      this.plans.set(sourcePlanId, { ...source, confirmationStatus: 'superseded' });
+    this.plans.set(value.planId, value);
+    return Promise.resolve();
+  }
 }

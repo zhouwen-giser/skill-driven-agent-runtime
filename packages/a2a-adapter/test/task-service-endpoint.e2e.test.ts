@@ -713,6 +713,88 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(workflowPlanningCalls).toBe(2);
   });
 
+  it('validates an admin DAG edit, revokes the old confirmation, then confirms and executes the revision', async () => {
+    const sourcePlanId = `plan.admin.source.${randomUUID()}`;
+    const revisedPlanId = `plan.admin.revised.${randomUUID()}`;
+    const source = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId: sourcePlanId,
+        workflowDefinitionId: 'workflow.planned.e2e',
+        workflowVersion: 1,
+        goalId: 'goal.planned.e2e',
+        goalVersion: 1,
+        planningInstruction: 'PLAN_WORKFLOW',
+      }),
+    });
+    expect(source.status).toBe(201);
+    expect(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/confirm`,
+        { method: 'POST' },
+      ),
+    ).toMatchObject({ status: 200 });
+    const revised = await fetch(
+      `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/revisions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          newPlanId: revisedPlanId,
+          format: 'dag',
+          definition: {
+            workflowDefinitionId: 'workflow.planned.e2e',
+            version: 2,
+            goalId: 'goal.planned.e2e',
+            goalVersion: 1,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Admin edited result',
+                type: 'result',
+                value: { op: 'literal', value: 'admin-dag-ok' },
+              },
+            ],
+            edges: [],
+          },
+        }),
+      },
+    );
+    expect(revised.status).toBe(201);
+    await expect(revised.json()).resolves.toMatchObject({
+      sourcePlanId,
+      revisionKind: 'admin_dag',
+      confirmationStatus: 'awaiting_confirmation',
+    });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ confirmationStatus: 'superseded' });
+    expect(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(revisedPlanId)}/confirm`,
+        { method: 'POST' },
+      ),
+    ).toMatchObject({ status: 200 });
+    const executed = await fetch(
+      `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(revisedPlanId)}/execute`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ instanceId: `instance.admin.${randomUUID()}`, input: {} }),
+      },
+    );
+    expect(executed.status).toBe(201);
+    await expect(executed.json()).resolves.toMatchObject({
+      status: 'succeeded',
+      result: 'admin-dag-ok',
+    });
+  });
+
   it('blocks an unconfirmed plan then executes its compiled LangGraph against a real MCP server', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.execution.${randomUUID()}`;
@@ -1119,8 +1201,28 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     expect(listed.tasks.map((task) => task.id)).toContain(taskId);
 
+    const sourcePlanId = await attachPlannedTask(taskId);
     const revised = await sendFollowUp(taskId, contextId, 'revise_plan', 'Add a safety check.');
     expectTaskState(revised, TaskState.TASK_STATE_INPUT_REQUIRED);
+    const taskAfterRevision = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
+    ).then((response) => response.json() as Promise<{ planId: string }>);
+    expect(taskAfterRevision.planId).not.toBe(sourcePlanId);
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ confirmationStatus: 'superseded' });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(taskAfterRevision.planId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      sourcePlanId,
+      revisionKind: 'natural_language',
+      confirmationStatus: 'awaiting_confirmation',
+      definition: { version: 2 },
+    });
     const confirmed = await sendFollowUp(taskId, contextId, 'confirm_plan', 'Confirm the plan.');
     expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
     const paused = await sendFollowUp(taskId, contextId, 'pause', 'Pause execution.');
@@ -1189,6 +1291,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       }),
     );
     if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await attachPlannedTask(submitted.id);
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
     await runtime.recordResultForSkill(submitted.id, skillId, {
       text: 'Device is online.',
@@ -1320,6 +1423,10 @@ async function startModelLoopback(): Promise<Server> {
         const workflowRequest =
           body.messages?.some((message) => message.content?.includes('PLAN_WORKFLOW') === true) ===
           true;
+        const naturalRevisionRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('natural_language_plan_revision') === true,
+          ) === true;
         const mcpExecutionRequest =
           body.messages?.some(
             (message) => message.content?.includes('EXECUTE_MCP_WORKFLOW') === true,
@@ -1346,6 +1453,34 @@ async function startModelLoopback(): Promise<Server> {
               model: 'model-e2e',
               choices: [{ message: { content: JSON.stringify(content) } }],
               usage: { prompt_tokens: 12, completion_tokens: 6 },
+            }),
+          );
+          return;
+        }
+        if (naturalRevisionRequest) {
+          const content = {
+            workflowDefinitionId: 'workflow.planned.e2e',
+            version: 2,
+            goalId: 'goal.planned.e2e',
+            goalVersion: 1,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Revised result',
+                type: 'result',
+                value: { op: 'literal', value: 'safety-check-added' },
+              },
+            ],
+            edges: [],
+          };
+          response.end(
+            JSON.stringify({
+              id: 'workflow-revision-e2e',
+              model: 'model-e2e',
+              choices: [{ message: { content: JSON.stringify(content) } }],
+              usage: { prompt_tokens: 10, completion_tokens: 5 },
             }),
           );
           return;
@@ -1465,6 +1600,49 @@ async function sendFollowUp(taskId: string, contextId: string, action: string, t
       configuration: { returnImmediately: false },
     }),
   );
+}
+
+async function attachPlannedTask(taskId: string): Promise<string> {
+  const task = await fetch(
+    `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
+  ).then((response) => response.json() as Promise<{ contextId: string }>);
+  const goal = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      goalId: 'goal.planned.e2e',
+      contextId: task.contextId,
+      title: 'Task plan E2E Goal',
+      description: 'Provide a real persisted Goal for the attached Workflow plan.',
+    }),
+  });
+  if (goal.status !== 201 && goal.status !== 409)
+    throw new Error(`TASK_GOAL_CREATE_FAILED:${String(goal.status)}:${await goal.text()}`);
+  const planId = `plan.task.${randomUUID()}`;
+  const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      planId,
+      workflowDefinitionId: 'workflow.planned.e2e',
+      workflowVersion: 1,
+      goalId: 'goal.planned.e2e',
+      goalVersion: 1,
+      planningInstruction: 'PLAN_WORKFLOW',
+    }),
+  });
+  if (planned.status !== 201) throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}`);
+  const attached = await fetch(
+    `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/plan`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ planId, goalId: 'goal.planned.e2e', goalVersion: 1 }),
+    },
+  );
+  if (!attached.ok)
+    throw new Error(`TASK_PLAN_ATTACH_FAILED:${String(attached.status)}:${await attached.text()}`);
+  return planId;
 }
 
 function expectTaskState(

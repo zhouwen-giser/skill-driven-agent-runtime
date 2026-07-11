@@ -34,10 +34,29 @@ export interface AgentTask {
   readonly phaseMessage: string;
   readonly goalId?: string;
   readonly goalVersion?: number;
+  readonly planId?: string;
   readonly output?: TaskOutput;
   readonly errorCode?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export function bindTaskPlan(
+  task: AgentTask,
+  input: Readonly<{ goalId: string; goalVersion: number; planId: string; timestamp: string }>,
+): AgentTask {
+  if (task.phase !== 'awaiting_plan_confirmation' && task.phase !== 'planning')
+    throw new DomainError(
+      'TASK_PHASE_TRANSITION_INVALID',
+      'A plan can be attached only while planning or awaiting confirmation.',
+    );
+  return {
+    ...task,
+    goalId: requireIdentifier(input.goalId, 'GOAL_ID_REQUIRED'),
+    goalVersion: input.goalVersion,
+    planId: requireIdentifier(input.planId, 'WORKFLOW_PLAN_ID_REQUIRED'),
+    updatedAt: input.timestamp,
+  };
 }
 
 export interface CreateAgentTaskInput {

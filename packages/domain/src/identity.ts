@@ -21,6 +21,7 @@ export function requireIdentifier(
     | 'SKILL_ID_REQUIRED'
     | 'SKILL_RELATION_ID_REQUIRED'
     | 'TASK_ID_REQUIRED'
+    | 'WORKFLOW_PLAN_ID_REQUIRED'
     | 'TEMPORARY_SKILL_ID_REQUIRED',
 ): string {
   const normalized = value.trim();

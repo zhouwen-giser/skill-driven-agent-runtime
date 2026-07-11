@@ -126,6 +126,18 @@ Decision: ADR-020 separates validation from compilation/execution and forbids ar
 
 Decision: ADR-024 defines the outer-loop, confirmation and replan-exhaustion semantics.
 
+## Immutable Plan Revision Progress Update - 2026-07-12
+
+- [x] Persist source-plan lineage and explicit natural/admin/replan revision kinds.
+- [x] Atomically supersede the active source and insert the immutable revision.
+- [x] Force every user/admin edit back to `awaiting_confirmation`.
+- [x] Route A2A natural-language edits through the fixed schema-bound planner and rebind the real Task plan.
+- [x] Validate administrator canonical DSL/DAG serialization through the same strict validator.
+- [x] Verify invalid-edit isolation, transaction rollback, HTTP contracts, A2A revision, and confirmed administrator LangGraph execution.
+- [ ] Build the browser visual DAG editor in EP-06 against the verified server contract.
+
+Decision: ADR-025 defines immutable revision, source-confirmation invalidation, and Task binding semantics.
+
 Decision: ADR-023 defines conservative Skill override resolution, fail-closed exhaustion and configured cost accounting.
 
 Decision: ADR-022 confines LangGraph types to the runtime adapter and defines immutable execution/audit semantics.

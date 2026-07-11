@@ -1,5 +1,6 @@
 import {
   ANONYMOUS_USER_ID,
+  bindTaskPlan,
   createAgentTask,
   createConversationContext,
   createSkillDraft,
@@ -53,6 +54,13 @@ export interface TaskServiceDependencies {
   readonly skillDrafts: SkillDraftRepository;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
+  readonly planActions?: Readonly<{
+    confirm(planId: string): Promise<void>;
+    reviseNaturalLanguage(
+      task: AgentTask,
+      instruction: string,
+    ): Promise<Readonly<{ planId: string; goalId: string; goalVersion: number }>>;
+  }>;
 }
 
 export class TaskService {
@@ -146,6 +154,37 @@ export class TaskService {
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
+    if (command.action === 'revise_plan') {
+      if (task.planId === undefined || this.#dependencies.planActions === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_NOT_ATTACHED',
+          'Task has no revisable Workflow plan.',
+        );
+      const revised = await this.#dependencies.planActions.reviseNaturalLanguage(
+        task,
+        command.messageText,
+      );
+      task = bindTaskPlan(task, {
+        planId: revised.planId,
+        goalId: revised.goalId,
+        goalVersion: revised.goalVersion,
+        timestamp: this.#dependencies.clock.now(),
+      });
+      await this.#dependencies.tasks.save(task);
+    }
+    if (command.action === 'confirm_plan') {
+      if (task.planId === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_NOT_ATTACHED',
+          'Task has no confirmable Workflow plan.',
+        );
+      if (this.#dependencies.planActions === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_ACTIONS_UNAVAILABLE',
+          'Task plan confirmation is unavailable.',
+        );
+      await this.#dependencies.planActions.confirm(task.planId);
+    }
     const transitions = followUpTransitions(command.action);
     for (const transition of transitions) {
       const timestamp = this.#dependencies.clock.now();
@@ -160,6 +199,18 @@ export class TaskService {
         summary: `${transition.message} ${summarizeMessage(command.messageText)}`,
       });
     }
+    return task;
+  }
+
+  async attachPlan(
+    taskId: string,
+    input: Readonly<{ planId: string; goalId: string; goalVersion: number }>,
+  ): Promise<AgentTask> {
+    const task = bindTaskPlan(await this.get(taskId), {
+      ...input,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
     return task;
   }
 
@@ -223,7 +274,8 @@ export class TaskService {
   }
 }
 
-export type TaskApplicationErrorCode = 'TASK_NOT_FOUND';
+export type TaskApplicationErrorCode =
+  'TASK_NOT_FOUND' | 'TASK_PLAN_ACTIONS_UNAVAILABLE' | 'TASK_PLAN_NOT_ATTACHED';
 
 export class TaskApplicationError extends Error {
   readonly code: TaskApplicationErrorCode;

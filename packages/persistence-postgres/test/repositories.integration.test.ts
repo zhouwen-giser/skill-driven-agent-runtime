@@ -126,6 +126,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowControlMigration);
+  const planRevisionMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0020_plan_revision.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(planRevisionMigration);
 });
 
 beforeEach(async () => {
@@ -200,6 +205,75 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.db',
       confirmationStatus: 'confirmed',
     });
+  });
+  it('atomically supersedes a plan when persisting its immutable revision', async () => {
+    const repository = new PostgresWorkflowPlanRepository(pool);
+    const sourceDefinition = {
+      workflowDefinitionId: 'workflow.revision.db',
+      version: 1,
+      goalId: 'goal.revision.db',
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: true },
+        },
+      ],
+      edges: [],
+    };
+    await repository.savePlan({
+      planId: 'plan.revision.source',
+      goalId: 'goal.revision.db',
+      goalVersion: 1,
+      definition: sourceDefinition,
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    await repository.savePlanAndSupersede(
+      {
+        planId: 'plan.revision.next',
+        goalId: 'goal.revision.db',
+        goalVersion: 1,
+        definition: { ...sourceDefinition, version: 2 },
+        sourcePlanId: 'plan.revision.source',
+        revisionKind: 'admin_dsl',
+        confirmationStatus: 'awaiting_confirmation',
+        attemptCount: 1,
+        createdAt: '2026-07-12T00:01:00.000Z',
+      },
+      'plan.revision.source',
+    );
+
+    await expect(repository.findPlan('plan.revision.source')).resolves.toMatchObject({
+      confirmationStatus: 'superseded',
+    });
+    await expect(repository.findPlan('plan.revision.next')).resolves.toMatchObject({
+      sourcePlanId: 'plan.revision.source',
+      revisionKind: 'admin_dsl',
+      confirmationStatus: 'awaiting_confirmation',
+    });
+    await expect(
+      repository.savePlanAndSupersede(
+        {
+          planId: 'plan.revision.invalid',
+          goalId: 'goal.revision.db',
+          goalVersion: 1,
+          definition: { ...sourceDefinition, version: 3 },
+          sourcePlanId: 'plan.revision.source',
+          revisionKind: 'admin_dsl',
+          confirmationStatus: 'awaiting_confirmation',
+          attemptCount: 1,
+          createdAt: '2026-07-12T00:02:00.000Z',
+        },
+        'plan.revision.source',
+      ),
+    ).rejects.toThrow('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
+    await expect(repository.findPlan('plan.revision.invalid')).resolves.toBeUndefined();
   });
   it('persists Workflow instance transitions and ordered node events', async () => {
     const plans = new PostgresWorkflowPlanRepository(pool);

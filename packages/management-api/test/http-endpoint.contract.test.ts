@@ -201,12 +201,75 @@ describe('management HTTP API contract', () => {
       replanCount: 1,
     });
   });
+
+  it('exposes task-plan binding and validated admin plan revision contracts', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: {
+          ...configured.tasks,
+          attachPlan: (taskId, input) =>
+            Promise.resolve({
+              taskId,
+              contextId: 'context-1',
+              userId: 'anonymous',
+              requestText: 'Inspect.',
+              requestMetadata: {},
+              phase: 'awaiting_plan_confirmation' as const,
+              phaseMessage: 'Plan confirmation required.',
+              goalId: input.goalId,
+              goalVersion: input.goalVersion,
+              planId: input.planId,
+              createdAt: '2026-07-12T00:00:00.000Z',
+              updatedAt: '2026-07-12T00:00:00.000Z',
+            }),
+        },
+        workflowRevisions: {
+          ...configured.workflowRevisions,
+          reviseAdmin: (input) =>
+            Promise.resolve({
+              planId: input.newPlanId,
+              goalId: 'goal-1',
+              goalVersion: 1,
+              sourcePlanId: input.sourcePlanId,
+              revisionKind:
+                input.format === 'dsl' ? ('admin_dsl' as const) : ('admin_dag' as const),
+              confirmationStatus: 'awaiting_confirmation' as const,
+              attemptCount: 1,
+              createdAt: '2026-07-12T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+    const attached = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/plan`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ planId: 'plan-1', goalId: 'goal-1', goalVersion: 1 }),
+    });
+    expect(attached.status).toBe(200);
+    await expect(attached.json()).resolves.toMatchObject({ taskId: 'task-1', planId: 'plan-1' });
+
+    const revised = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/revisions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ newPlanId: 'plan-2', format: 'dag', definition: { nodes: [] } }),
+    });
+    expect(revised.status).toBe(201);
+    await expect(revised.json()).resolves.toMatchObject({
+      planId: 'plan-2',
+      sourcePlanId: 'plan-1',
+      revisionKind: 'admin_dag',
+      confirmationStatus: 'awaiting_confirmation',
+    });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
     goals: { create: unused, get: unused },
+    tasks: { attachPlan: unused, get: unused },
     graph: {
       create: unused,
       delete: unused,
@@ -276,5 +339,6 @@ function operations(failServerList = false): ManagementOperations {
       listRounds: () => Promise.resolve([]),
       start: unused,
     },
+    workflowRevisions: { get: unused, reviseAdmin: unused },
   };
 }

@@ -10,6 +10,9 @@ export interface PlanWorkflowInput {
   readonly goalVersion: number;
   readonly planningInstruction: string;
   readonly sourceConfirmedPlanId?: string;
+  readonly sourcePlanId?: string;
+  readonly revisionKind?: NonNullable<WorkflowPlanRecord['revisionKind']>;
+  readonly supersedeSourcePlan?: boolean;
 }
 
 export class WorkflowPlannerService {
@@ -75,12 +78,21 @@ export class WorkflowPlannerService {
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
             : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
+          ...(input.sourcePlanId === undefined ? {} : { sourcePlanId: input.sourcePlanId }),
+          ...(input.revisionKind === undefined ? {} : { revisionKind: input.revisionKind }),
           confirmationStatus:
             source?.confirmationStatus === 'confirmed' ? 'confirmed' : 'awaiting_confirmation',
           attemptCount: attempt,
           createdAt: this.#clock.now(),
         };
-        await this.#repository.savePlan(plan);
+        if (input.supersedeSourcePlan === true) {
+          if (input.sourcePlanId === undefined)
+            throw new WorkflowPlannerError(
+              'WORKFLOW_REVISION_SOURCE_REQUIRED',
+              'Superseding revision requires a source plan.',
+            );
+          await this.#repository.savePlanAndSupersede(plan, input.sourcePlanId);
+        } else await this.#repository.savePlan(plan);
         return plan;
       }
       correctionErrors = validation.errors.map(
@@ -153,6 +165,7 @@ function toAttempt(
 export type WorkflowPlannerErrorCode =
   | 'WORKFLOW_PLANNER_ATTEMPTS_INVALID'
   | 'WORKFLOW_PLANNING_FAILED'
+  | 'WORKFLOW_REVISION_SOURCE_REQUIRED'
   | 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED';
 export class WorkflowPlannerError extends Error {
   readonly code: WorkflowPlannerErrorCode;

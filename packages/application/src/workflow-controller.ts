@@ -203,6 +203,9 @@ export class WorkflowControllerService {
         workflowVersion: plan.definition.version + 1,
         goalId: control.goalId,
         goalVersion: control.goalVersion,
+        sourcePlanId: plan.planId,
+        revisionKind: 'replan',
+        supersedeSourcePlan: true,
         planningInstruction: JSON.stringify({
           instruction: control.planningInstruction,
           previousInstanceId: instanceId,

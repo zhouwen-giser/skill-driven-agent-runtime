@@ -19,6 +19,8 @@ import type {
   WorkflowExecutionService,
   WorkflowControllerService,
   GoalService,
+  WorkflowRevisionService,
+  TaskService,
 } from '../../application/src/index.js';
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -168,9 +170,20 @@ const StartWorkflowControlSchema = z.object({
   skillIds: z.array(z.string().min(1)),
   planningInstruction: z.string().min(1),
 });
+const AttachTaskPlanSchema = z.object({
+  planId: z.string().min(1),
+  goalId: z.string().min(1),
+  goalVersion: z.number().int().positive(),
+});
+const AdminWorkflowRevisionSchema = z.object({
+  newPlanId: z.string().min(1),
+  format: z.enum(['dsl', 'dag']),
+  definition: z.unknown(),
+});
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get'>;
+  readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -204,6 +217,7 @@ export interface ManagementOperations {
     WorkflowControllerService,
     'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
   >;
+  readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -284,6 +298,19 @@ export async function startManagementHttpEndpoint(
       );
     }),
   );
+  app.get(
+    '/api/v1/tasks/:taskId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.tasks.get(pathValue(request, 'taskId')));
+    }),
+  );
+  app.put(
+    '/api/v1/tasks/:taskId/plan',
+    asyncRoute(async (request, response) => {
+      const input = AttachTaskPlanSchema.parse(request.body);
+      response.json(await options.operations.tasks.attachPlan(pathValue(request, 'taskId'), input));
+    }),
+  );
   app.post(
     '/api/v1/workflows/validate',
     asyncRoute(async (request, response) => {
@@ -326,6 +353,26 @@ export async function startManagementHttpEndpoint(
           planId: pathValue(request, 'planId'),
           input: input.input,
           ...(input.skillIds === undefined ? {} : { skillIds: input.skillIds }),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/workflows/plans/:planId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflowRevisions.get(pathValue(request, 'planId')));
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/revisions',
+    asyncRoute(async (request, response) => {
+      const input = AdminWorkflowRevisionSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.workflowRevisions.reviseAdmin({
+          sourcePlanId: pathValue(request, 'planId'),
+          newPlanId: input.newPlanId,
+          format: input.format,
+          definition: input.definition,
         }),
       );
     }),

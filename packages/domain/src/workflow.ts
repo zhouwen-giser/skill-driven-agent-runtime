@@ -78,7 +78,10 @@ export interface WorkflowPlanRecord {
   readonly goalVersion: number;
   readonly definition?: WorkflowDefinition;
   readonly sourceConfirmedPlanId?: string;
-  readonly confirmationStatus: 'awaiting_confirmation' | 'confirmed' | 'failed';
+  readonly sourcePlanId?: string;
+  readonly revisionKind?:
+    'auto_correction' | 'natural_language' | 'admin_dsl' | 'admin_dag' | 'replan';
+  readonly confirmationStatus: 'awaiting_confirmation' | 'confirmed' | 'failed' | 'superseded';
   readonly attemptCount: number;
   readonly createdAt: string;
 }

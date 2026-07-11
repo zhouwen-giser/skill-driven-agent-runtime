@@ -19,6 +19,21 @@ paths:
       responses:
         '200': { description: Current Goal record }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTask
+      responses:
+        '200': { description: PostgreSQL-authoritative Task including its current plan binding }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/plan:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    put:
+      operationId: attachTaskPlan
+      description: Binds a real persisted plan to a Task at the planning/confirmation boundary.
+      responses:
+        '200': { description: Task with Goal and plan identity }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflow-controls:
     post:
       operationId: startWorkflowControl
@@ -72,6 +87,21 @@ paths:
       description: Optional skillIds resolve current enabled Skill budget overrides; the immutable resolved limits and usage are returned on the Workflow instance.
       responses:
         '201': { description: Persisted terminal Workflow instance }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getWorkflowPlan
+      responses:
+        '200': { description: Immutable plan, revision lineage and confirmation status }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/revisions:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: reviseWorkflowPlanAsAdministrator
+      description: Validates canonical DSL or DAG-editor serialization, atomically supersedes the source plan, and always returns the revision to awaiting confirmation.
+      responses:
+        '201': { description: Validated immutable revision with source lineage }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/prompts:
     post:

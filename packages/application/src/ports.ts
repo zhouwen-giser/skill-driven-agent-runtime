@@ -295,6 +295,7 @@ export interface WorkflowPlanRepository {
   confirmPlan(planId: string): Promise<void>;
   saveAttempt(attempt: WorkflowPlanAttempt): Promise<void>;
   savePlan(plan: WorkflowPlanRecord): Promise<void>;
+  savePlanAndSupersede(plan: WorkflowPlanRecord, sourcePlanId: string): Promise<void>;
 }
 
 export interface WorkflowExecutionRepository {

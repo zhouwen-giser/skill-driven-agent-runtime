@@ -29,6 +29,7 @@ import {
   WorkflowControllerService,
   StructuredGoalEvaluator,
   GoalService,
+  WorkflowRevisionService,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -170,7 +171,6 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const prompts = new PromptService({ repository: new PostgresPromptRepository(pool), clock });
-  const service = new TaskService({ contexts, tasks, events, skillDrafts, queue, clock, ids });
   const schemaValidator = new AjvJsonSchemaValidator();
   const workflowValidator = new WorkflowValidator({
     tools: mcpRepository,
@@ -297,6 +297,35 @@ export async function startServerRuntime(
     skills,
     systemBudgetDefaults: workflowBudgetDefaults,
   });
+  const workflowRevision = new WorkflowRevisionService({
+    plans: workflowPlans,
+    planner: workflowPlanner,
+    validator: workflowValidator,
+    clock,
+  });
+  const service = new TaskService({
+    contexts,
+    tasks,
+    events,
+    skillDrafts,
+    queue,
+    clock,
+    ids,
+    planActions: {
+      async confirm(planId) {
+        await workflowExecution.confirm(planId);
+      },
+      async reviseNaturalLanguage(task, instruction) {
+        if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        const revised = await workflowRevision.reviseNaturalLanguage({
+          sourcePlanId: task.planId,
+          newPlanId: `plan-task-${task.taskId}-${randomUUID()}`,
+          instruction,
+        });
+        return { planId: revised.planId, goalId: revised.goalId, goalVersion: revised.goalVersion };
+      },
+    },
+  });
   const goalService = new GoalService({ goals, contexts, clock });
   const workflowController = new WorkflowControllerService({
     controls: new PostgresWorkflowControlRepository(pool),
@@ -336,6 +365,7 @@ export async function startServerRuntime(
       operations: {
         graph: skillGraph,
         goals: goalService,
+        tasks: service,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -350,6 +380,7 @@ export async function startServerRuntime(
           execute: (input) => workflowExecution.execute(input),
         },
         workflowControls: workflowController,
+        workflowRevisions: workflowRevision,
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -460,6 +491,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0017_workflow_execution.up.sql',
     '0018_workflow_budget.up.sql',
     '0019_workflow_control.up.sql',
+    '0020_plan_revision.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

@@ -26,7 +26,8 @@ export type DomainErrorCode =
   | 'TEMPORARY_SKILL_TOOL_REQUIRED'
   | 'TASK_PHASE_TRANSITION_INVALID'
   | 'TASK_TERMINAL_MUTATION_FORBIDDEN'
-  | 'USER_ID_INVALID';
+  | 'USER_ID_INVALID'
+  | 'WORKFLOW_PLAN_ID_REQUIRED';
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode;

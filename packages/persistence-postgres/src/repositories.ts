@@ -135,6 +135,7 @@ interface TaskRow extends QueryResultRow {
   phase_message: string;
   goal_id: string | null;
   goal_version: number | null;
+  plan_id: string | null;
   output_text: string | null;
   output_structured: unknown;
   error_code: string | null;
@@ -396,7 +397,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version,
+              phase, phase_message, goal_id, goal_version, plan_id,
               output_text, output_structured, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -410,9 +411,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version,
+         phase, phase_message, goal_id, goal_version, plan_id,
          output_text, output_structured, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -420,6 +421,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          phase_message = EXCLUDED.phase_message,
          goal_id = EXCLUDED.goal_id,
          goal_version = EXCLUDED.goal_version,
+         plan_id = EXCLUDED.plan_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          error_code = EXCLUDED.error_code,
@@ -434,6 +436,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.phaseMessage,
         task.goalId ?? null,
         task.goalVersion ?? null,
+        task.planId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
         task.errorCode ?? null,
@@ -1043,6 +1046,8 @@ interface WorkflowPlanRow extends QueryResultRow {
   goal_version: number;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
+  source_plan_id: string | null;
+  revision_kind: NonNullable<WorkflowPlanRecord['revisionKind']> | null;
   confirmation_status: WorkflowPlanRecord['confirmationStatus'];
   attempt_count: number;
   created_at: Date | string;
@@ -1087,6 +1092,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       ...(row.source_confirmed_plan_id === null
         ? {}
         : { sourceConfirmedPlanId: row.source_confirmed_plan_id }),
+      ...(row.source_plan_id === null ? {} : { sourcePlanId: row.source_plan_id }),
+      ...(row.revision_kind === null ? {} : { revisionKind: row.revision_kind }),
       confirmationStatus: row.confirmation_status,
       attemptCount: row.attempt_count,
       createdAt: toIsoString(row.created_at),
@@ -1131,19 +1138,55 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8)`,
+      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
       [
         plan.planId,
         plan.goalId,
         plan.goalVersion,
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
+        plan.sourcePlanId ?? null,
+        plan.revisionKind ?? null,
         plan.confirmationStatus,
         plan.attemptCount,
         plan.createdAt,
       ],
     );
+  }
+  async savePlanAndSupersede(plan: WorkflowPlanRecord, sourcePlanId: string): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const source = await client.query(
+        `UPDATE workflow_plan SET confirmation_status='superseded'
+         WHERE plan_id=$1 AND confirmation_status IN ('awaiting_confirmation','confirmed')`,
+        [sourcePlanId],
+      );
+      if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
+      await client.query(
+        `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
+        [
+          plan.planId,
+          plan.goalId,
+          plan.goalVersion,
+          plan.definition === undefined ? null : JSON.stringify(plan.definition),
+          plan.sourceConfirmedPlanId ?? null,
+          plan.sourcePlanId ?? null,
+          plan.revisionKind ?? null,
+          plan.confirmationStatus,
+          plan.attemptCount,
+          plan.createdAt,
+        ],
+      );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -1442,6 +1485,8 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.source_confirmed_plan_id === null
       ? {}
       : { sourceConfirmedPlanId: row.source_confirmed_plan_id }),
+    ...(row.source_plan_id === null ? {} : { sourcePlanId: row.source_plan_id }),
+    ...(row.revision_kind === null ? {} : { revisionKind: row.revision_kind }),
     confirmationStatus: row.confirmation_status,
     attemptCount: row.attempt_count,
     createdAt: toIsoString(row.created_at),
@@ -2178,6 +2223,7 @@ function mapTaskRow(row: TaskRow): AgentTask {
     phaseMessage: row.phase_message,
     ...(row.goal_id === null ? {} : { goalId: row.goal_id }),
     ...(row.goal_version === null ? {} : { goalVersion: row.goal_version }),
+    ...(row.plan_id === null ? {} : { planId: row.plan_id }),
     ...output,
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
     createdAt: toIsoString(row.created_at),

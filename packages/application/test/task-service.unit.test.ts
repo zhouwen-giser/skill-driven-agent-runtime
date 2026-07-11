@@ -117,6 +117,11 @@ describe('TaskService', () => {
       task = transitionTask(task, phase, phase, timestamp);
     }
     harness.tasks.set(task.taskId, task);
+    await harness.service.attachPlan(task.taskId, {
+      planId: 'plan-1',
+      goalId: 'goal-1',
+      goalVersion: 1,
+    });
 
     expect(
       await harness.service.followUp({
@@ -220,6 +225,20 @@ function createHarness(): Readonly<{
       skillDrafts,
       clock: { now: () => timestamp },
       ids,
+      planActions: {
+        confirm: (planId) => {
+          operations.push(`plan.confirm:${planId}`);
+          return Promise.resolve();
+        },
+        reviseNaturalLanguage: (task) => {
+          operations.push(`plan.revise:${task.planId ?? 'missing'}`);
+          return Promise.resolve({
+            planId: 'plan-2',
+            goalId: task.goalId ?? 'goal-1',
+            goalVersion: task.goalVersion ?? 1,
+          });
+        },
+      },
     }),
     contexts,
     tasks,
