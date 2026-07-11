@@ -66,6 +66,18 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Outcomes and Retrospective
 
+## Workflow Planning Correction Progress Update - 2026-07-12
+
+- [x] Send the authoritative Workflow JSON Schema to the fixed planning model stage.
+- [x] Persist every raw candidate and structured validation error.
+- [x] Feed errors back to the same model within a bounded correction loop.
+- [x] Persist failed plans after exhaustion and immutable validated definitions on success.
+- [x] Enforce exact Workflow identity and Goal version.
+- [x] Keep initial corrected plans awaiting confirmation and require confirmed repository evidence for repair inheritance.
+- [ ] Compile and execute confirmed repaired plans without a redundant second confirmation.
+
+Decision: ADR-021 separates initial confirmation from safe correction inheritance.
+
 ## Workflow DSL Validator Progress Update - 2026-07-12
 
 - [x] Define all ten required node kinds and restricted expression AST.

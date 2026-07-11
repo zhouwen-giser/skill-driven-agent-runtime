@@ -57,3 +57,23 @@ export interface WorkflowDefinition {
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
 }
+
+export interface WorkflowPlanAttempt {
+  readonly planId: string;
+  readonly attempt: number;
+  readonly candidate: unknown;
+  readonly validationErrors: readonly Readonly<{ code: string; path: string; message: string }>[];
+  readonly valid: boolean;
+  readonly createdAt: string;
+}
+
+export interface WorkflowPlanRecord {
+  readonly planId: string;
+  readonly goalId: string;
+  readonly goalVersion: number;
+  readonly definition?: WorkflowDefinition;
+  readonly sourceConfirmedPlanId?: string;
+  readonly confirmationStatus: 'awaiting_confirmation' | 'confirmed' | 'failed';
+  readonly attemptCount: number;
+  readonly createdAt: string;
+}

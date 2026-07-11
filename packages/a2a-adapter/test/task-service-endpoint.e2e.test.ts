@@ -17,6 +17,7 @@ let runtime: ServerRuntimeHandle;
 let modelServer: Server;
 let initialPromptVersion = 0;
 const failingProviderId = `provider.fail.${randomUUID()}`;
+let workflowPlanningCalls = 0;
 
 beforeAll(async () => {
   modelServer = await startModelLoopback();
@@ -91,6 +92,27 @@ beforeAll(async () => {
   initialPromptVersion = z
     .object({ version: z.number().int().positive() })
     .parse(await promptResponse.json()).version;
+  const workflowRoute = await fetch(
+    `${runtime.management.baseUrl}/api/v1/models/routes/workflow_planning`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.e2e' }),
+    },
+  );
+  if (workflowRoute.status !== 204) throw new Error('WORKFLOW_MODEL_ROUTE_SETUP_FAILED');
+  const workflowPrompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      promptId: 'prompt.workflow-planning.e2e',
+      stage: 'workflow_planning',
+      content: 'Workflow planning policy. {{instruction}}',
+      source: 'admin',
+      publish: true,
+    }),
+  });
+  if (workflowPrompt.status !== 201) throw new Error('WORKFLOW_PROMPT_SETUP_FAILED');
 });
 
 afterAll(async () => {
@@ -639,6 +661,33 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('feeds invalid Workflow DSL back to the same model and persists the corrected plan', async () => {
+    workflowPlanningCalls = 0;
+    const response = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId: `plan.e2e.${randomUUID()}`,
+        workflowDefinitionId: 'workflow.planned.e2e',
+        workflowVersion: 1,
+        goalId: 'goal.planned.e2e',
+        goalVersion: 1,
+        planningInstruction: 'PLAN_WORKFLOW',
+      }),
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      confirmationStatus: 'awaiting_confirmation',
+      attemptCount: 2,
+      definition: {
+        workflowDefinitionId: 'workflow.planned.e2e',
+        goalId: 'goal.planned.e2e',
+        nodes: [expect.objectContaining({ type: 'result' })],
+      },
+    });
+    expect(workflowPlanningCalls).toBe(2);
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
@@ -941,7 +990,10 @@ async function startModelLoopback(): Promise<Server> {
     const chunks: Buffer[] = [];
     request.on('data', (chunk: Buffer) => chunks.push(chunk));
     request.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { model?: string };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        model?: string;
+        messages?: { content?: string }[];
+      };
       response.setHeader('content-type', 'application/json');
       if (body.model === 'fail-model') {
         response.statusCode = 503;
@@ -949,6 +1001,41 @@ async function startModelLoopback(): Promise<Server> {
         return;
       }
       if (request.url?.endsWith('/chat/completions') === true) {
+        const workflowRequest =
+          body.messages?.some((message) => message.content?.includes('PLAN_WORKFLOW') === true) ===
+          true;
+        if (workflowRequest) {
+          workflowPlanningCalls += 1;
+          const content =
+            workflowPlanningCalls === 1
+              ? { invalid: true }
+              : {
+                  workflowDefinitionId: 'workflow.planned.e2e',
+                  version: 1,
+                  goalId: 'goal.planned.e2e',
+                  goalVersion: 1,
+                  entryNodeId: 'result',
+                  exitNodeIds: ['result'],
+                  nodes: [
+                    {
+                      nodeId: 'result',
+                      name: 'Result',
+                      type: 'result',
+                      value: { op: 'literal', value: true },
+                    },
+                  ],
+                  edges: [],
+                };
+          response.end(
+            JSON.stringify({
+              id: 'workflow-chat-e2e',
+              model: 'model-e2e',
+              choices: [{ message: { content: JSON.stringify(content) } }],
+              usage: { prompt_tokens: 10, completion_tokens: 5 },
+            }),
+          );
+          return;
+        }
         response.end(
           JSON.stringify({
             id: 'chat-e2e',

@@ -11,6 +11,7 @@ import {
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
   PostgresPromptRepository,
+  PostgresWorkflowPlanRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
@@ -102,11 +103,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(promptRuntimeMigration);
+  const workflowPlanningMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0016_workflow_planning.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowPlanningMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -115,6 +121,63 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists every Workflow planning attempt and immutable validated plan', async () => {
+    const repository = new PostgresWorkflowPlanRepository(pool);
+    const definition = {
+      workflowDefinitionId: 'workflow.db',
+      version: 1,
+      goalId: 'goal.db',
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: true },
+        },
+      ],
+      edges: [],
+    };
+    await repository.saveAttempt({
+      planId: 'plan.db',
+      attempt: 1,
+      candidate: { invalid: true },
+      validationErrors: [{ code: 'INVALID', path: 'nodes', message: 'Invalid.' }],
+      valid: false,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    await repository.saveAttempt({
+      planId: 'plan.db',
+      attempt: 2,
+      candidate: definition,
+      validationErrors: [],
+      valid: true,
+      createdAt: '2026-07-12T00:01:00.000Z',
+    });
+    await repository.savePlan({
+      planId: 'plan.db',
+      goalId: 'goal.db',
+      goalVersion: 1,
+      definition,
+      confirmationStatus: 'awaiting_confirmation',
+      attemptCount: 2,
+      createdAt: '2026-07-12T00:01:00.000Z',
+    });
+    await expect(repository.findPlan('plan.db')).resolves.toEqual(
+      expect.objectContaining({
+        definition,
+        attemptCount: 2,
+        confirmationStatus: 'awaiting_confirmation',
+      }),
+    );
+    const attempts = await pool.query<{ count: number }>(
+      'SELECT COUNT(*)::int count FROM workflow_plan_attempt WHERE plan_id=$1',
+      ['plan.db'],
+    );
+    expect(attempts.rows[0]?.count).toBe(2);
+  });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
     const prompts = new PostgresPromptRepository(pool);
     await prompts.saveVersion(

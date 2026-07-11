@@ -10,6 +10,7 @@ import type {
   ModelProviderRecord,
   ModelRuntimeRepository,
   PromptRepository,
+  WorkflowPlanRepository,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
@@ -32,6 +33,9 @@ import type {
   ModelStage,
   PromptEffectSummary,
   PromptVersion,
+  WorkflowDefinition,
+  WorkflowPlanAttempt,
+  WorkflowPlanRecord,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -962,6 +966,93 @@ export class PostgresPromptRepository implements PromptRepository {
       totalInputTokens: row.total_input_tokens,
       totalOutputTokens: row.total_output_tokens,
     };
+  }
+}
+
+interface WorkflowPlanRow extends QueryResultRow {
+  plan_id: string;
+  goal_id: string;
+  goal_version: number;
+  definition_json: unknown;
+  source_confirmed_plan_id: string | null;
+  confirmation_status: WorkflowPlanRecord['confirmationStatus'];
+  attempt_count: number;
+  created_at: Date | string;
+}
+
+const StoredWorkflowDefinitionSchema = z
+  .object({
+    workflowDefinitionId: z.string(),
+    version: z.number().int().positive(),
+    goalId: z.string(),
+    goalVersion: z.number().int().positive(),
+    entryNodeId: z.string(),
+    exitNodeIds: z.array(z.string()),
+    nodes: z.array(z.unknown()),
+    edges: z.array(z.unknown()),
+  })
+  .strict();
+
+export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async findPlan(planId: string): Promise<WorkflowPlanRecord | undefined> {
+    const result = await this.#pool.query<WorkflowPlanRow>(
+      'SELECT * FROM workflow_plan WHERE plan_id=$1',
+      [planId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      planId: row.plan_id,
+      goalId: row.goal_id,
+      goalVersion: row.goal_version,
+      ...(row.definition_json === null
+        ? {}
+        : {
+            definition: StoredWorkflowDefinitionSchema.parse(
+              row.definition_json,
+            ) as unknown as WorkflowDefinition,
+          }),
+      ...(row.source_confirmed_plan_id === null
+        ? {}
+        : { sourceConfirmedPlanId: row.source_confirmed_plan_id }),
+      confirmationStatus: row.confirmation_status,
+      attemptCount: row.attempt_count,
+      createdAt: toIsoString(row.created_at),
+    };
+  }
+  async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_plan_attempt(plan_id,attempt,candidate_json,validation_errors_json,valid,created_at)
+       VALUES($1,$2,$3::jsonb,$4::jsonb,$5,$6)`,
+      [
+        attempt.planId,
+        attempt.attempt,
+        JSON.stringify(attempt.candidate),
+        JSON.stringify(attempt.validationErrors),
+        attempt.valid,
+        attempt.createdAt,
+      ],
+    );
+  }
+  async savePlan(plan: WorkflowPlanRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8)`,
+      [
+        plan.planId,
+        plan.goalId,
+        plan.goalVersion,
+        plan.definition === undefined ? null : JSON.stringify(plan.definition),
+        plan.sourceConfirmedPlanId ?? null,
+        plan.confirmationStatus,
+        plan.attemptCount,
+        plan.createdAt,
+      ],
+    );
   }
 }
 

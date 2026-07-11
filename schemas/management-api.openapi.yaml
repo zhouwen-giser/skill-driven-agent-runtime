@@ -12,6 +12,12 @@ paths:
       responses:
         '200': { description: Validated WorkflowDefinition }
         '422': { description: Structured errors; workflow is not executable }
+  /api/v1/workflows/plan:
+    post:
+      operationId: planWorkflow
+      responses:
+        '201': { description: Immutable validated Workflow plan and confirmation status }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/prompts:
     post:
       operationId: createPromptVersion

@@ -15,6 +15,7 @@ import type {
   SkillGraphService,
   TemporarySkillService,
   WorkflowValidator,
+  WorkflowPlannerService,
 } from '../../application/src/index.js';
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -132,6 +133,15 @@ const CreatePromptSchema = z.object({
   source: z.enum(['admin', 'auto_candidate', 'manual_correction']),
   publish: z.boolean(),
 });
+const PlanWorkflowSchema = z.object({
+  planId: z.string().min(1),
+  workflowDefinitionId: z.string().min(1),
+  workflowVersion: z.number().int().positive(),
+  goalId: z.string().min(1),
+  goalVersion: z.number().int().positive(),
+  planningInstruction: z.string().min(1),
+  sourceConfirmedPlanId: z.string().min(1).optional(),
+});
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -160,7 +170,7 @@ export interface ManagementOperations {
     PromptService,
     'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
   >;
-  readonly workflows: Pick<WorkflowValidator, 'validate'>;
+  readonly workflows: Pick<WorkflowValidator, 'validate'> & Pick<WorkflowPlannerService, 'plan'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -189,6 +199,25 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const result = await options.operations.workflows.validate(request.body);
       response.status(result.valid ? 200 : 422).json(result);
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plan',
+    asyncRoute(async (request, response) => {
+      const input = PlanWorkflowSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.workflows.plan({
+          planId: input.planId,
+          workflowDefinitionId: input.workflowDefinitionId,
+          workflowVersion: input.workflowVersion,
+          goalId: input.goalId,
+          goalVersion: input.goalVersion,
+          planningInstruction: input.planningInstruction,
+          ...(input.sourceConfirmedPlanId === undefined
+            ? {}
+            : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
+        }),
+      );
     }),
   );
   app.put(

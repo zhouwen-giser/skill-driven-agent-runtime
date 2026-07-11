@@ -24,6 +24,8 @@ import type {
   TemporarySkill,
   TemporarySkillExperience,
   ToolReference,
+  WorkflowPlanAttempt,
+  WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -253,12 +255,18 @@ export interface JsonSchemaValidator {
 export interface StructuredModelProvider {
   generateStructured(
     input: Readonly<{
-      stage: 'skill_authoring';
+      stage: ModelStage;
       instruction: string;
       responseSchema: unknown;
       correctionErrors: readonly string[];
     }>,
   ): Promise<unknown>;
+}
+
+export interface WorkflowPlanRepository {
+  findPlan(planId: string): Promise<WorkflowPlanRecord | undefined>;
+  saveAttempt(attempt: WorkflowPlanAttempt): Promise<void>;
+  savePlan(plan: WorkflowPlanRecord): Promise<void>;
 }
 
 export interface ModelProviderRecord {

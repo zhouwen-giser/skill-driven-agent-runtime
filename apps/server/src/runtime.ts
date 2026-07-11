@@ -23,6 +23,7 @@ import {
   SkillRegistryService,
   TemporarySkillService,
   WorkflowValidator,
+  WorkflowPlannerService,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -52,6 +53,7 @@ import {
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
   PostgresTemporarySkillRepository,
+  PostgresWorkflowPlanRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -145,6 +147,17 @@ export async function startServerRuntime(
     skills,
     schemas: schemaValidator,
   });
+  const workflowSchema = JSON.parse(
+    await readFile(resolve(process.cwd(), 'schemas', 'workflow-dsl.schema.json'), 'utf8'),
+  ) as unknown;
+  const workflowPlanner = new WorkflowPlannerService({
+    model: modelRuntime,
+    validator: workflowValidator,
+    repository: new PostgresWorkflowPlanRepository(pool),
+    workflowSchema,
+    clock,
+    maxAttempts: 3,
+  });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
   const skillAuthoring = new SkillAuthoringService({
@@ -215,7 +228,10 @@ export async function startServerRuntime(
         prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills,
-        workflows: workflowValidator,
+        workflows: {
+          validate: (raw) => workflowValidator.validate(raw),
+          plan: (input) => workflowPlanner.plan(input),
+        },
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -318,6 +334,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0013_skill_embedding.up.sql',
     '0014_model_runtime.up.sql',
     '0015_prompt_runtime.up.sql',
+    '0016_workflow_planning.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
