@@ -95,6 +95,7 @@ function configuration(providerId: string): ModelProviderConfiguration {
     providerId,
     name: providerId,
     kind: 'openai_compatible',
+    apiStyle: 'openai_chat_completions',
     baseUrl: 'http://127.0.0.1:1234/v1',
     model: 'model-a',
     enabled: true,

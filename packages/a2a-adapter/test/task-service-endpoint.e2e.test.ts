@@ -53,6 +53,7 @@ beforeAll(async () => {
       body: JSON.stringify({
         name: 'E2E model',
         kind: 'openai_compatible',
+        apiStyle: 'openai_chat_completions',
         baseUrl: `http://127.0.0.1:${String(address.port)}/v1`,
         model: 'model-e2e',
         enabled: true,
@@ -393,6 +394,85 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(JSON.stringify(audits)).not.toContain('e2e-only');
   });
 
+  it('routes an other-vendor Provider through the non-OpenAI Messages adapter', async () => {
+    const address = modelServer.address();
+    if (address === null || typeof address === 'string')
+      throw new Error('MODEL_ADDRESS_UNAVAILABLE');
+    const providerId = `provider.vendor.${randomUUID()}`;
+    expect(
+      await fetch(`${runtime.management.baseUrl}/api/v1/models/providers/${providerId}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Messages vendor',
+          kind: 'other_vendor',
+          apiStyle: 'anthropic_messages',
+          baseUrl: `http://127.0.0.1:${String(address.port)}/v1`,
+          model: 'vendor-model-e2e',
+          enabled: true,
+          timeoutMs: 2000,
+          credentialHeaders: { 'x-api-key': 'vendor-e2e-only' },
+        }),
+      }),
+    ).toMatchObject({ status: 204 });
+    expect(
+      await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/skill_authoring`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ providerId }),
+      }),
+    ).toMatchObject({ status: 204 });
+    try {
+      const authored = await fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          skillId: `skill.vendor.${randomUUID()}`,
+          naturalLanguageDescription: 'Create a detailed read-only device inspection Skill.',
+          toolPolicy: { required: [], optional: [], forbidden: [] },
+          runtimePolicy: { autoConfirmPlan: false },
+          status: 'enabled',
+          sourceKind: 'admin',
+        }),
+      });
+      expect(authored.status).toBe(201);
+      const audits = z
+        .object({
+          items: z.array(
+            z.object({
+              providerId: z.string(),
+              status: z.string(),
+              inputTokens: z.number().optional(),
+              outputTokens: z.number().optional(),
+            }),
+          ),
+        })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_authoring`,
+            )
+          ).json(),
+        );
+      expect(audits.items).toContainEqual(
+        expect.objectContaining({
+          providerId,
+          status: 'succeeded',
+          inputTokens: 7,
+          outputTokens: 3,
+        }),
+      );
+    } finally {
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/skill_authoring`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ providerId: 'provider.e2e' }),
+        }),
+      ).toMatchObject({ status: 204 });
+    }
+  });
+
   it('keeps automatic Prompt candidates inactive until publish and links new calls to the published version', async () => {
     const candidateResponse = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
       method: 'POST',
@@ -467,6 +547,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         body: JSON.stringify({
           name: 'Failing model',
           kind: 'openai_compatible',
+          apiStyle: 'openai_chat_completions',
           baseUrl: `http://127.0.0.1:${String(modelAddress.port)}/v1`,
           model: 'fail-model',
           enabled: true,
@@ -1709,6 +1790,17 @@ async function startModelLoopback(): Promise<Server> {
       if (body.model === 'fail-model') {
         response.statusCode = 503;
         response.end(JSON.stringify({ error: 'unavailable' }));
+        return;
+      }
+      if (request.url?.endsWith('/messages') === true) {
+        response.end(
+          JSON.stringify({
+            id: 'vendor-message-e2e',
+            model: 'vendor-model-e2e',
+            content: [{ type: 'text', text: JSON.stringify(generatedSkillMetadata()) }],
+            usage: { input_tokens: 7, output_tokens: 3 },
+          }),
+        );
         return;
       }
       if (request.url?.endsWith('/chat/completions') === true) {

@@ -183,9 +183,14 @@ Decision: ADR-019 defines immutable Prompt publication and runtime linkage.
 - [x] Fail the configured stage on timeout/upstream/shape errors without fallback.
 - [x] Sanitize raw response audit to exclude provider reasoning/private fields.
 - [x] Verify local HTTP contract, PostgreSQL integration, and same-process success/failure e2e.
+- [x] Separate Provider kind from API wire style and persist the explicit selection.
+- [x] Add and verify a non-OpenAI Messages adapter alongside OpenAI-compatible/local endpoints.
+- [x] Normalize cross-provider structured output/Token audit and reject unsupported embeddings without fallback.
 - [ ] Add Prompt version lifecycle and associate active PromptVersion with every invocation.
 - [ ] Route all final decision stages and implement Workflow DSL planning.
 
 Decision: ADR-018 fixes stage routing and audit/credential boundaries.
+
+Decision: ADR-028 defines explicit API-style selection and vendor adapter isolation.
 
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。

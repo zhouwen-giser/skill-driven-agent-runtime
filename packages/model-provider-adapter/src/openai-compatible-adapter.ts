@@ -153,7 +153,11 @@ function endpoint(baseUrl: string, path: string): URL {
 }
 
 export type ModelAdapterErrorCode =
-  'MODEL_RESPONSE_INVALID' | 'MODEL_TRANSPORT_FAILED' | 'MODEL_UPSTREAM_ERROR';
+  | 'MODEL_API_STYLE_UNSUPPORTED'
+  | 'MODEL_OPERATION_UNSUPPORTED'
+  | 'MODEL_RESPONSE_INVALID'
+  | 'MODEL_TRANSPORT_FAILED'
+  | 'MODEL_UPSTREAM_ERROR';
 export class ModelAdapterError extends Error {
   readonly code: ModelAdapterErrorCode;
   constructor(code: ModelAdapterErrorCode, message: string) {

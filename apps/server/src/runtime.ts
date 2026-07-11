@@ -43,7 +43,7 @@ import type { SkillVersion, WorkflowBudgetLimits } from '../../../packages/domai
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
-import { OpenAiCompatibleModelAdapter } from '../../../packages/model-provider-adapter/src/index.js';
+import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
 import {
   LangGraphWorkflowExecutor,
   WorkflowCompilerError,
@@ -168,7 +168,7 @@ export async function startServerRuntime(
   };
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
-    transport: new OpenAiCompatibleModelAdapter(),
+    transport: new CompositeModelTransportAdapter(),
     cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
@@ -511,6 +511,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0019_workflow_control.up.sql',
     '0020_plan_revision.up.sql',
     '0021_workflow_interrupt.up.sql',
+    '0022_model_api_style.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

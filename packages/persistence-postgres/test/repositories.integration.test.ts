@@ -136,6 +136,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowInterruptMigration);
+  const modelApiStyleMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0022_model_api_style.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(modelApiStyleMigration);
 });
 
 beforeEach(async () => {
@@ -553,6 +558,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       providerId: 'provider.db',
       name: 'DB Provider',
       kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
       baseUrl: 'http://127.0.0.1:1234/v1',
       model: 'model-db',
       enabled: true,

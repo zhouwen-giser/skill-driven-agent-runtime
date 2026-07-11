@@ -65,6 +65,7 @@ function configuration(baseUrl: string) {
     providerId: 'provider.local',
     name: 'Local',
     kind: 'local' as const,
+    apiStyle: 'openai_chat_completions' as const,
     baseUrl,
     model: 'local-model',
     enabled: true,

@@ -143,11 +143,36 @@ paths:
     parameters: [{ name: providerId, in: path, required: true, schema: { type: string } }]
     put:
       operationId: configureModelProvider
-      description: Stores an AES-GCM encrypted credential and protocol-neutral Provider configuration.
+      description: Stores an AES-GCM encrypted credential and protocol-neutral Provider configuration. Provider kind is independent from the explicit HTTP API style.
       requestBody:
         {
           required: true,
-          content: { application/json: { schema: { type: object, additionalProperties: true } } },
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required:
+                        [name, kind, apiStyle, baseUrl, model, enabled, timeoutMs, credentialHeaders],
+                      properties:
+                        {
+                          name: { type: string },
+                          kind: { enum: [openai_compatible, local, other_vendor] },
+                          apiStyle:
+                            { enum: [openai_chat_completions, anthropic_messages] },
+                          baseUrl: { type: string, format: uri },
+                          model: { type: string },
+                          enabled: { type: boolean },
+                          timeoutMs: { type: integer, minimum: 1 },
+                          credentialHeaders:
+                            { type: object, additionalProperties: { type: string } },
+                        },
+                    },
+                },
+            },
         }
       responses:
         { '204': { description: Configured }, '400': { $ref: '#/components/responses/Error' } }

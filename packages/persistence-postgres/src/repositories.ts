@@ -33,6 +33,7 @@ import type {
   McpToolDependencyChange,
   McpToolEnhancement,
   ModelInvocationRecord,
+  ModelProviderConfiguration,
   ModelStage,
   PromptEffectSummary,
   PromptVersion,
@@ -814,6 +815,7 @@ interface ModelProviderRow extends QueryResultRow {
   provider_id: string;
   name: string;
   kind: 'openai_compatible' | 'local' | 'other_vendor';
+  api_style: ModelProviderConfiguration['apiStyle'];
   base_url: string;
   model: string;
   enabled: boolean;
@@ -872,16 +874,17 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
     const value = record.configuration;
     await this.#pool.query(
       `INSERT INTO model_provider
-       (provider_id,name,kind,base_url,model,enabled,timeout_ms,encrypted_credential,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       (provider_id,name,kind,api_style,base_url,model,enabled,timeout_ms,encrypted_credential,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (provider_id) DO UPDATE SET
-         name=EXCLUDED.name, kind=EXCLUDED.kind, base_url=EXCLUDED.base_url,
+         name=EXCLUDED.name, kind=EXCLUDED.kind, api_style=EXCLUDED.api_style, base_url=EXCLUDED.base_url,
          model=EXCLUDED.model, enabled=EXCLUDED.enabled, timeout_ms=EXCLUDED.timeout_ms,
          encrypted_credential=EXCLUDED.encrypted_credential, updated_at=EXCLUDED.updated_at`,
       [
         value.providerId,
         value.name,
         value.kind,
+        value.apiStyle,
         value.baseUrl,
         value.model,
         value.enabled,
@@ -2122,6 +2125,7 @@ function mapModelProviderRow(row: ModelProviderRow): ModelProviderRecord {
       providerId: row.provider_id,
       name: row.name,
       kind: row.kind,
+      apiStyle: row.api_style,
       baseUrl: row.base_url,
       model: row.model,
       enabled: row.enabled,

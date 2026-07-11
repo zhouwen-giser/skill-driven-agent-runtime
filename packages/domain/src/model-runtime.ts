@@ -12,6 +12,7 @@ export interface ModelProviderConfiguration {
   readonly providerId: string;
   readonly name: string;
   readonly kind: 'openai_compatible' | 'local' | 'other_vendor';
+  readonly apiStyle: 'openai_chat_completions' | 'anthropic_messages';
   readonly baseUrl: string;
   readonly model: string;
   readonly enabled: boolean;
