@@ -88,6 +88,14 @@ paths:
       responses:
         '201': { description: Persisted terminal Workflow instance }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/instances/{instanceId}/human-confirmation:
+    parameters: [{ name: instanceId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: resumeWorkflowHumanConfirmation
+      description: Resumes the same in-process LangGraph checkpoint. A missing checkpoint fails explicitly and is never replayed.
+      responses:
+        '200': { description: Resumed, paused-at-next-gate, or terminal Workflow instance }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/plans/{planId}:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
     get:
@@ -106,7 +114,11 @@ paths:
   /api/v1/prompts:
     post:
       operationId: createPromptVersion
-      responses: { '201': { description: Candidate or enabled immutable PromptVersion }, '400': { $ref: '#/components/responses/Error' } }
+      responses:
+        {
+          '201': { description: Candidate or enabled immutable PromptVersion },
+          '400': { $ref: '#/components/responses/Error' },
+        }
   /api/v1/prompts/{promptId}/versions:
     get:
       operationId: listPromptVersions
@@ -132,14 +144,38 @@ paths:
     put:
       operationId: configureModelProvider
       description: Stores an AES-GCM encrypted credential and protocol-neutral Provider configuration.
-      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
-      responses: { '204': { description: Configured }, '400': { $ref: '#/components/responses/Error' } }
+      requestBody:
+        {
+          required: true,
+          content: { application/json: { schema: { type: object, additionalProperties: true } } },
+        }
+      responses:
+        { '204': { description: Configured }, '400': { $ref: '#/components/responses/Error' } }
   /api/v1/models/routes/{stage}:
     parameters: [{ name: stage, in: path, required: true, schema: { type: string } }]
     put:
       operationId: routeModelStage
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [providerId], properties: { providerId: { type: string } } } } } }
-      responses: { '204': { description: Fixed route configured }, '400': { $ref: '#/components/responses/Error' } }
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      required: [providerId],
+                      properties: { providerId: { type: string } },
+                    },
+                },
+            },
+        }
+      responses:
+        {
+          '204': { description: Fixed route configured },
+          '400': { $ref: '#/components/responses/Error' },
+        }
   /api/v1/models/invocations:
     get:
       operationId: listModelInvocations
@@ -270,7 +306,12 @@ paths:
               properties:
                 goalDescription: { type: string, minLength: 1 }
       responses:
-        '201': { description: Persisted selection, candidate metric snapshots, and displayable decision summary }
+        '201':
+          {
+            description: Persisted selection,
+            candidate metric snapshots,
+            and displayable decision summary,
+          }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/skill-graph:
     get:
@@ -291,7 +332,15 @@ paths:
                 sourceSkillId: { type: string }
                 targetSkillId: { type: string }
                 relationType:
-                  enum: [parent_child, depends_on, input_output_match, alternative, composition, capability_coverage]
+                  enum:
+                    [
+                      parent_child,
+                      depends_on,
+                      input_output_match,
+                      alternative,
+                      composition,
+                      capability_coverage,
+                    ]
                 metadata: { type: object, additionalProperties: true }
       responses:
         '201': { description: Created graph edge }
@@ -371,7 +420,8 @@ paths:
                 successful: { type: boolean }
                 outcomeSummary: { type: string, minLength: 1 }
       responses:
-        '200': { description: Expired Skill, Experience, and optional awaiting-simulation candidate }
+        '200':
+          { description: Expired Skill, Experience, and optional awaiting-simulation candidate }
         '400': { $ref: '#/components/responses/Error' }
 components:
   parameters:

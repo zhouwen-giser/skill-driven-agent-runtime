@@ -378,6 +378,7 @@ export async function startServerRuntime(
           plan: (input) => workflowPlanner.plan(input),
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
+          resumeHumanConfirmation: (input) => workflowExecution.resumeHumanConfirmation(input),
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,
@@ -492,6 +493,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0018_workflow_budget.up.sql',
     '0019_workflow_control.up.sql',
     '0020_plan_revision.up.sql',
+    '0021_workflow_interrupt.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

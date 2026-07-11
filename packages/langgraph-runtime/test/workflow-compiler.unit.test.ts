@@ -121,7 +121,12 @@ describe('LangGraph Workflow compiler', () => {
       ['result'],
     );
     const compiled = compileWorkflow(source, 'confirmed', runtime);
-    const result = await compiled.invoke({ request: 'weather' }, budget, costs);
+    const interrupted = await compiled.invoke({ request: 'weather' }, budget, costs);
+    expect(interrupted).toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+    });
+    const result = await compiled.resume('workflow.compiler', true);
 
     expect(result.status).toBe('succeeded');
     expect(result.result).toBe(21);
@@ -132,7 +137,9 @@ describe('LangGraph Workflow compiler', () => {
       child: { child: 'done' },
       confirm: true,
     });
-    expect(result.events.filter((event) => event.type === 'node_succeeded')).toHaveLength(6);
+    expect(
+      [...interrupted.events, ...result.events].filter((event) => event.type === 'node_succeeded'),
+    ).toHaveLength(6);
     expect(compiled.definition).not.toBe(source);
     expect(Object.isFrozen(compiled.definition)).toBe(true);
     expect(runtime.callMcpTool).toHaveBeenCalledWith(
@@ -142,6 +149,8 @@ describe('LangGraph Workflow compiler', () => {
         signal: expect.any(AbortSignal),
       }),
     );
+    expect(runtime.callMcpTool).toHaveBeenCalledTimes(1);
+    expect(runtime.requestHumanConfirmation).not.toHaveBeenCalled();
   });
 
   it('routes conditions and enforces an explicit loop bound in the immutable graph', async () => {

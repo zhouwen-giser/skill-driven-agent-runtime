@@ -114,6 +114,54 @@ describe('Workflow execution application service', () => {
     });
   });
 
+  it('persists an interrupt and resumes the same instance without replaying earlier events', async () => {
+    const instances = new MemoryExecutions();
+    const execute = vi.fn().mockResolvedValue({
+      status: 'paused',
+      errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 4, llmCalls: 0, mcpCalls: 1, cost: 1 },
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+      events: [
+        {
+          nodeId: 'tool',
+          type: 'node_succeeded',
+          timestamp: '2026-07-12T00:00:01.000Z',
+          summary: 'mcp_tool node succeeded.',
+        },
+      ],
+    });
+    const resumeHumanConfirmation = vi.fn().mockResolvedValue({
+      status: 'succeeded',
+      result: 'done',
+      errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 8, llmCalls: 0, mcpCalls: 1, cost: 1 },
+      events: [
+        {
+          nodeId: 'confirm',
+          type: 'node_succeeded',
+          timestamp: '2026-07-12T00:00:02.000Z',
+          summary: 'human_confirmation node succeeded.',
+        },
+      ],
+    });
+    const service = createService(new MemoryPlans([validPlan]), instances, {
+      execute,
+      resumeHumanConfirmation,
+    });
+
+    await expect(
+      service.execute({ instanceId: 'instance-paused', planId: 'plan-1', input: {} }),
+    ).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+    });
+    await expect(
+      service.resumeHumanConfirmation({ instanceId: 'instance-paused', confirmed: true }),
+    ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
+    expect(resumeHumanConfirmation).toHaveBeenCalledWith('instance-paused', true, undefined);
+    expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
+  });
+
   it('resolves and persists the current Skill budget override before execution', async () => {
     const execute = vi.fn().mockResolvedValue({
       status: 'failed',
@@ -166,6 +214,7 @@ describe('Workflow execution application service', () => {
       {},
       expect.objectContaining({ maxMcpCalls: 0, maxCost: 5 }),
       undefined,
+      'instance-budget',
     );
   });
 });
@@ -259,7 +308,12 @@ class MemoryExecutions implements WorkflowExecutionRepository {
   readonly instances: WorkflowInstance[] = [];
   readonly events: WorkflowNodeEvent[] = [];
   findInstance(id: string) {
-    return Promise.resolve(this.instances.find((instance) => instance.instanceId === id));
+    return Promise.resolve(
+      [...this.instances].reverse().find((instance) => instance.instanceId === id),
+    );
+  }
+  countNodeEvents(instanceId: string) {
+    return Promise.resolve(this.events.filter((event) => event.instanceId === instanceId).length);
   }
   saveInstance(instance: WorkflowInstance) {
     this.instances.push(instance);

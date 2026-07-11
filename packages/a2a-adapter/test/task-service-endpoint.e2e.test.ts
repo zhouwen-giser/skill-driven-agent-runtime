@@ -963,6 +963,134 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('persists a LangGraph human interrupt and resumes without replaying the preceding MCP call', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.interrupt.${randomUUID()}`;
+    const sourcePlanId = `plan.interrupt.source.${randomUUID()}`;
+    const planId = `plan.interrupt.${randomUUID()}`;
+    const workflowId = `workflow.interrupt.${randomUUID()}`;
+    const goalId = `goal.interrupt.${randomUUID()}`;
+    const instanceId = `instance.interrupt.${randomUUID()}`;
+    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    try {
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Human interrupt MCP',
+            endpoint: mockMcp.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            planId: sourcePlanId,
+            workflowDefinitionId: workflowId,
+            workflowVersion: 1,
+            goalId,
+            goalVersion: 1,
+            planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      const revision = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/revisions`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            newPlanId: planId,
+            format: 'dsl',
+            definition: {
+              workflowDefinitionId: workflowId,
+              version: 2,
+              goalId,
+              goalVersion: 1,
+              entryNodeId: 'tool',
+              exitNodeIds: ['result'],
+              nodes: [
+                {
+                  nodeId: 'tool',
+                  name: 'Read once',
+                  type: 'mcp_tool',
+                  tool: { serverId, toolName: 'device_status' },
+                  arguments: { deviceId: 'device-human-interrupt' },
+                },
+                {
+                  nodeId: 'confirm',
+                  name: 'Human gate',
+                  type: 'human_confirmation',
+                  prompt: 'Return the observed device status?',
+                },
+                {
+                  nodeId: 'result',
+                  name: 'Result',
+                  type: 'result',
+                  value: { op: 'ref', path: ['nodes', 'tool'] },
+                },
+              ],
+              edges: [
+                { sourceNodeId: 'tool', targetNodeId: 'confirm' },
+                { sourceNodeId: 'confirm', targetNodeId: 'result', outcome: 'success' },
+                { sourceNodeId: 'confirm', targetNodeId: 'result', outcome: 'failure' },
+              ],
+            },
+          }),
+        },
+      );
+      expect(revision.status).toBe(201);
+      expect(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+          { method: 'POST' },
+        ),
+      ).toMatchObject({ status: 200 });
+      const interrupted = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId, input: {} }),
+        },
+      );
+      expect(interrupted.status).toBe(201);
+      await expect(interrupted.json()).resolves.toMatchObject({
+        status: 'paused',
+        pendingConfirmation: {
+          nodeId: 'confirm',
+          prompt: 'Return the observed device status?',
+        },
+      });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+
+      const resumed = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/instances/${encodeURIComponent(instanceId)}/human-confirmation`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ confirmed: true }),
+        },
+      );
+      expect(resumed.status).toBe(200);
+      await expect(resumed.json()).resolves.toMatchObject({
+        status: 'succeeded',
+        result: {
+          structuredContent: { deviceId: 'device-human-interrupt', status: 'online' },
+        },
+      });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+    } finally {
+      mcpWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
   it('evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds', async () => {
     const submitted = await runtime.a2a.client.sendMessage(
       SendMessageRequest.fromJSON({

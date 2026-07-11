@@ -1,5 +1,7 @@
 # Project Status
 
+EP-03 human-confirmation update (2026-07-12): approximately 93%. The DSL node now uses native LangGraph interrupt/Command resume, persists paused instance and displayable prompt state in PostgreSQL, preserves budgets/events, and fails rather than replaying when its ephemeral checkpoint is lost. A real MCP-before-confirmation e2e proves exactly one Tool call across resume. FR-WF-002 is verified; general user pause/cancel and long-pause replanning continue in EP-04.
+
 EP-03 plan revision update (2026-07-12): approximately 88%. Natural-language A2A and administrator DSL/DAG edits now share strict validation, create immutable next versions, atomically supersede the source and always require fresh confirmation. Real Task-to-plan binding, PostgreSQL lineage, management contracts, and same-process A2A/admin execution e2e pass. FR-WF-010 is verified; the remaining principal EP-03 gap is persisted in-graph human confirmation/pause-resume.
 
 EP-03 outer Goal loop update (2026-07-12): approximately 80%. A PostgreSQL-authoritative controller now executes one immutable plan per round, validates fixed-stage structured Goal evaluations, creates the next Workflow version only outside LangGraph, pauses ordinary replans for confirmation, auto-confirms only when every named Skill opts in, tracks all rounds, updates terminal Goal status, and fail-closes at `maxReplans`. Real model + real MCP e2e completes two versions and reaches achieved. FR-WF-008/009 are verified; remaining EP-03 gaps are live human interrupts and plan editing.

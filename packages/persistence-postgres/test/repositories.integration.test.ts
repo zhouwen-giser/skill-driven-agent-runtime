@@ -131,6 +131,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(planRevisionMigration);
+  const workflowInterruptMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0021_workflow_interrupt.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowInterruptMigration);
 });
 
 beforeEach(async () => {
@@ -345,6 +350,16 @@ describe('PostgreSQL protocol-domain repositories', () => {
         summary: 'result node succeeded.',
       },
     ]);
+    await executions.saveInstance({
+      ...running,
+      status: 'paused',
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+    });
+    await expect(executions.findInstance('instance.db')).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+    });
+    await expect(executions.countNodeEvents('instance.db')).resolves.toBe(2);
     await executions.saveInstance({
       ...running,
       status: 'succeeded',

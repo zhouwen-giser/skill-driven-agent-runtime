@@ -96,13 +96,14 @@ export interface WorkflowInstance {
   readonly skillVersions: readonly Readonly<{ skillId: string; version: number }>[];
   readonly budgetLimits: WorkflowBudgetLimits;
   readonly budgetUsage: WorkflowBudgetUsage;
-  readonly status: 'running' | 'succeeded' | 'failed';
+  readonly status: 'running' | 'paused' | 'succeeded' | 'failed';
   readonly input: unknown;
   readonly result?: unknown;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
   readonly startedAt: string;
   readonly completedAt?: string;
   readonly terminationReason?: WorkflowBudgetTerminationReason;
+  readonly pendingConfirmation?: Readonly<{ nodeId: string; prompt: string }>;
 }
 
 export interface WorkflowNodeEvent {

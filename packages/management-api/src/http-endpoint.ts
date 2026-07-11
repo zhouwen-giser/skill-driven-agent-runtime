@@ -152,6 +152,7 @@ const ExecuteWorkflowSchema = z.object({
   input: z.unknown(),
   skillIds: z.array(z.string().min(1)).optional(),
 });
+const ResumeHumanConfirmationSchema = z.object({ confirmed: z.boolean() });
 const CreateGoalSchema = z.object({
   goalId: z.string().min(1),
   contextId: z.string().min(1),
@@ -212,7 +213,7 @@ export interface ManagementOperations {
   >;
   readonly workflows: Pick<WorkflowValidator, 'validate'> &
     Pick<WorkflowPlannerService, 'plan'> &
-    Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+    Pick<WorkflowExecutionService, 'confirm' | 'execute' | 'resumeHumanConfirmation'>;
   readonly workflowControls: Pick<
     WorkflowControllerService,
     'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
@@ -353,6 +354,18 @@ export async function startManagementHttpEndpoint(
           planId: pathValue(request, 'planId'),
           input: input.input,
           ...(input.skillIds === undefined ? {} : { skillIds: input.skillIds }),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/instances/:instanceId/human-confirmation',
+    asyncRoute(async (request, response) => {
+      const input = ResumeHumanConfirmationSchema.parse(request.body);
+      response.json(
+        await options.operations.workflows.resumeHumanConfirmation({
+          instanceId: pathValue(request, 'instanceId'),
+          confirmed: input.confirmed,
         }),
       );
     }),

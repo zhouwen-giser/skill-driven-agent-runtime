@@ -1207,6 +1207,7 @@ interface WorkflowInstanceRow extends QueryResultRow {
   budget_limits_json: unknown;
   budget_usage_json: unknown;
   termination_reason: NonNullable<WorkflowInstance['terminationReason']> | null;
+  pending_confirmation_json: unknown;
 }
 
 const WorkflowErrorsSchema = z.record(
@@ -1234,11 +1235,21 @@ const WorkflowBudgetUsageSchema = z
     cost: z.number().nonnegative(),
   })
   .strict();
+const PendingConfirmationSchema = z
+  .object({ nodeId: z.string().min(1), prompt: z.string().min(1) })
+  .strict();
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) {
     this.#pool = pool;
+  }
+  async countNodeEvents(instanceId: string): Promise<number> {
+    const result = await this.#pool.query<{ count: number }>(
+      'SELECT COUNT(*)::int count FROM workflow_node_event WHERE instance_id=$1',
+      [instanceId],
+    );
+    return result.rows[0]?.count ?? 0;
   }
 
   async findInstance(instanceId: string): Promise<WorkflowInstance | undefined> {
@@ -1265,6 +1276,9 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       startedAt: toIsoString(row.started_at),
       ...(row.completed_at === null ? {} : { completedAt: toIsoString(row.completed_at) }),
       ...(row.termination_reason === null ? {} : { terminationReason: row.termination_reason }),
+      ...(row.pending_confirmation_json === null
+        ? {}
+        : { pendingConfirmation: PendingConfirmationSchema.parse(row.pending_confirmation_json) }),
     };
   }
 
@@ -1273,15 +1287,16 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       `INSERT INTO workflow_instance(
          instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
          status,input_json,result_json,errors_json,started_at,completed_at,
-         skill_versions_json,budget_limits_json,budget_usage_json,termination_reason)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16)
+         skill_versions_json,budget_limits_json,budget_usage_json,termination_reason,pending_confirmation_json)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17::jsonb)
        ON CONFLICT(instance_id) DO UPDATE SET
          status=EXCLUDED.status,
          result_json=EXCLUDED.result_json,
          errors_json=EXCLUDED.errors_json,
          completed_at=EXCLUDED.completed_at,
          budget_usage_json=EXCLUDED.budget_usage_json,
-         termination_reason=EXCLUDED.termination_reason`,
+         termination_reason=EXCLUDED.termination_reason,
+         pending_confirmation_json=EXCLUDED.pending_confirmation_json`,
       [
         instance.instanceId,
         instance.planId,
@@ -1299,6 +1314,9 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
         JSON.stringify(instance.budgetLimits),
         JSON.stringify(instance.budgetUsage),
         instance.terminationReason ?? null,
+        instance.pendingConfirmation === undefined
+          ? null
+          : JSON.stringify(instance.pendingConfirmation),
       ],
     );
   }

@@ -300,6 +300,7 @@ export interface WorkflowPlanRepository {
 
 export interface WorkflowExecutionRepository {
   findInstance(instanceId: string): Promise<WorkflowInstance | undefined>;
+  countNodeEvents(instanceId: string): Promise<number>;
   saveInstance(instance: WorkflowInstance): Promise<void>;
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
 }
@@ -310,9 +311,10 @@ export interface WorkflowExecutor {
     input: unknown,
     budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
+    executionId?: string,
   ): Promise<
     Readonly<{
-      status: 'succeeded' | 'failed';
+      status: 'paused' | 'succeeded' | 'failed';
       result?: unknown;
       errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
       budgetUsage: WorkflowBudgetUsage;
@@ -323,8 +325,14 @@ export interface WorkflowExecutor {
         timestamp: string;
         summary: string;
       }>[];
+      pendingConfirmation?: Readonly<{ nodeId: string; prompt: string }>;
     }>
   >;
+  resumeHumanConfirmation?(
+    executionId: string,
+    confirmed: boolean,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']>;
 }
 
 export interface ModelProviderRecord {

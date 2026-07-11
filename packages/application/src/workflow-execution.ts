@@ -122,15 +122,19 @@ export class WorkflowExecutionService {
         input.input,
         budgetLimits,
         input.signal,
+        input.instanceId,
       );
-      await this.#instances.saveNodeEvents(this.#events(input.instanceId, outcome.events));
+      await this.#instances.saveNodeEvents(this.#events(input.instanceId, outcome.events, 1));
       const completed: WorkflowInstance = {
         ...running,
         status: outcome.status,
         ...(outcome.result === undefined ? {} : { result: outcome.result }),
         errors: outcome.errors,
         budgetUsage: { ...outcome.budgetUsage, replanCount },
-        completedAt: this.#clock.now(),
+        ...(outcome.status === 'paused' ? {} : { completedAt: this.#clock.now() }),
+        ...(outcome.pendingConfirmation === undefined
+          ? {}
+          : { pendingConfirmation: outcome.pendingConfirmation }),
         ...(outcome.terminationReason === undefined
           ? {}
           : { terminationReason: outcome.terminationReason }),
@@ -148,6 +152,65 @@ export class WorkflowExecutionService {
           durationMs: elapsedMilliseconds(startedAt, completedAt),
         },
         completedAt,
+      };
+      await this.#instances.saveInstance(failed);
+      throw error;
+    }
+  }
+
+  async resumeHumanConfirmation(
+    input: Readonly<{ instanceId: string; confirmed: boolean; signal?: AbortSignal }>,
+  ): Promise<WorkflowInstance> {
+    const instance = await this.#instances.findInstance(input.instanceId);
+    if (instance?.status !== 'paused' || instance.pendingConfirmation === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_PAUSED',
+        'Only a paused Workflow instance can resume human confirmation.',
+      );
+    const plan = await this.#requirePlan(instance.planId);
+    if (plan.confirmationStatus !== 'confirmed' || plan.definition === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_PLAN_NOT_CONFIRMED',
+        'The immutable plan is no longer confirmed and cannot resume.',
+      );
+    if (this.#executor.resumeHumanConfirmation === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_RESUME_UNAVAILABLE',
+        'The Workflow runtime does not support confirmation resume.',
+      );
+    const instanceWithoutPending = withoutPendingConfirmation(instance);
+    try {
+      const outcome = await this.#executor.resumeHumanConfirmation(
+        instance.instanceId,
+        input.confirmed,
+        input.signal,
+      );
+      const eventCount = await this.#instances.countNodeEvents(instance.instanceId);
+      await this.#instances.saveNodeEvents(
+        this.#events(instance.instanceId, outcome.events, eventCount + 1),
+      );
+      const resumed: WorkflowInstance = {
+        ...instanceWithoutPending,
+        status: outcome.status,
+        ...(outcome.result === undefined ? {} : { result: outcome.result }),
+        errors: outcome.errors,
+        budgetUsage: { ...outcome.budgetUsage, replanCount: instance.budgetUsage.replanCount },
+        ...(outcome.status === 'paused' ? {} : { completedAt: this.#clock.now() }),
+        ...(outcome.pendingConfirmation === undefined
+          ? {}
+          : { pendingConfirmation: outcome.pendingConfirmation }),
+        ...(outcome.terminationReason === undefined
+          ? {}
+          : { terminationReason: outcome.terminationReason }),
+      };
+      await this.#instances.saveInstance(resumed);
+      return resumed;
+    } catch (error: unknown) {
+      const failed: WorkflowInstance = {
+        ...instanceWithoutPending,
+        status: 'failed',
+        errors: { runtime: normalizedError(error) },
+        completedAt: this.#clock.now(),
       };
       await this.#instances.saveInstance(failed);
       throw error;
@@ -188,11 +251,12 @@ export class WorkflowExecutionService {
       timestamp: string;
       summary: string;
     }>[],
+    startingSequence: number,
   ): readonly WorkflowNodeEvent[] {
     return events.map((event, index) => ({
       eventId: this.#ids.nextEventId(),
       instanceId,
-      sequence: index + 1,
+      sequence: startingSequence + index,
       nodeId: event.nodeId,
       eventType: event.type,
       timestamp: event.timestamp,
@@ -203,6 +267,14 @@ export class WorkflowExecutionService {
 
 function emptyUsage(replanCount: number) {
   return { replanCount, durationMs: 0, llmCalls: 0, mcpCalls: 0, cost: 0 } as const;
+}
+
+function withoutPendingConfirmation(
+  instance: WorkflowInstance,
+): Omit<WorkflowInstance, 'pendingConfirmation'> {
+  const { pendingConfirmation, ...remaining } = instance;
+  void pendingConfirmation;
+  return remaining;
 }
 
 function elapsedMilliseconds(startedAt: string, completedAt: string): number {
@@ -218,12 +290,14 @@ function normalizedError(error: unknown): Readonly<{ code: string; message: stri
 }
 
 export type WorkflowExecutionErrorCode =
+  | 'WORKFLOW_INSTANCE_NOT_PAUSED'
   | 'WORKFLOW_INSTANCE_ALREADY_EXISTS'
   | 'WORKFLOW_PLAN_NOT_CONFIRMED'
   | 'WORKFLOW_PLAN_NOT_EXECUTABLE'
   | 'WORKFLOW_PLAN_NOT_FOUND'
   | 'WORKFLOW_PLAN_REVALIDATION_FAILED'
   | 'WORKFLOW_REPLAN_BUDGET_EXHAUSTED'
+  | 'WORKFLOW_RESUME_UNAVAILABLE'
   | 'WORKFLOW_SKILL_NOT_ENABLED';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;

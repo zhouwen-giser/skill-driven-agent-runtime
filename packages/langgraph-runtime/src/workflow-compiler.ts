@@ -1,4 +1,12 @@
-import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
+import {
+  Annotation,
+  Command,
+  END,
+  MemorySaver,
+  START,
+  StateGraph,
+  interrupt,
+} from '@langchain/langgraph';
 
 import type {
   ToolReference,
@@ -66,7 +74,7 @@ export interface WorkflowCallCosts {
 }
 
 export interface WorkflowExecutionResult {
-  readonly status: 'succeeded' | 'failed';
+  readonly status: 'paused' | 'succeeded' | 'failed';
   readonly result?: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
@@ -74,9 +82,11 @@ export interface WorkflowExecutionResult {
   readonly events: readonly WorkflowExecutionEvent[];
   readonly budgetUsage: WorkflowBudgetUsage;
   readonly terminationReason?: WorkflowBudgetTerminationReason;
+  readonly pendingConfirmation?: Readonly<{ nodeId: string; prompt: string }>;
 }
 
 interface WorkflowExecutionState {
+  readonly executionId: string;
   readonly input: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
@@ -85,11 +95,10 @@ interface WorkflowExecutionState {
   readonly events: readonly WorkflowExecutionEvent[];
   readonly result?: unknown;
   readonly failed: boolean;
-  readonly signal: AbortSignal | undefined;
-  readonly budgetMeter: WorkflowBudgetMeter;
 }
 
 const ExecutionState = Annotation.Root({
+  executionId: Annotation<string>,
   input: Annotation<unknown>,
   outputs: Annotation<Readonly<Record<string, unknown>>>({
     reducer: (left, right) => ({ ...left, ...right }),
@@ -113,8 +122,6 @@ const ExecutionState = Annotation.Root({
   }),
   result: Annotation<unknown>,
   failed: Annotation<boolean>,
-  signal: Annotation<AbortSignal | undefined>,
-  budgetMeter: Annotation<WorkflowBudgetMeter>,
 });
 
 type StateUpdate = Partial<WorkflowExecutionState>;
@@ -126,6 +133,12 @@ export interface CompiledWorkflow {
     input: unknown,
     budgetLimits: WorkflowBudgetLimits,
     callCosts: WorkflowCallCosts,
+    signal?: AbortSignal,
+    executionId?: string,
+  ): Promise<WorkflowExecutionResult>;
+  resume(
+    executionId: string,
+    confirmed: boolean,
     signal?: AbortSignal,
   ): Promise<WorkflowExecutionResult>;
 }
@@ -142,6 +155,10 @@ export function compileWorkflow(
     );
   assertCompilable(definition);
   const immutableDefinition = deepFreeze(structuredClone(definition));
+  const runtimeContexts = new Map<
+    string,
+    Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>
+  >();
   const handlers = new Map(
     immutableDefinition.nodes
       .filter((node) => node.type === 'error_handler')
@@ -154,6 +171,7 @@ export function compileWorkflow(
       immutableDefinition,
       handlers,
       ports,
+      (executionId) => requiredRuntimeContext(runtimeContexts, executionId),
     );
 
   const graph = new StateGraph(ExecutionState).addNode(actions);
@@ -202,14 +220,42 @@ export function compileWorkflow(
   }
   for (const join of parallelJoins)
     graph.addEdge(join.predecessorNodeIds.map(graphNodeKey), graphNodeKey(join.joinNodeId));
-  const executable = graph.compile({ name: immutableDefinition.workflowDefinitionId });
+  const executable = graph.compile({
+    name: immutableDefinition.workflowDefinitionId,
+    checkpointer: new MemorySaver(),
+  });
+  const resultFromState = (
+    state: WorkflowExecutionState & Readonly<Record<string, unknown>>,
+    previousEventCount = 0,
+  ): WorkflowExecutionResult => {
+    const pending = pendingConfirmation(state);
+    return {
+      status: pending === undefined ? (state.failed ? 'failed' : 'succeeded') : 'paused',
+      ...(state.result === undefined ? {} : { result: state.result }),
+      outputs: state.outputs,
+      errors: state.errors,
+      loopCounts: state.loopCounts,
+      events: state.events.slice(previousEventCount),
+      budgetUsage: requiredRuntimeContext(
+        runtimeContexts,
+        state.executionId,
+      ).budgetMeter.snapshot(),
+      ...(pending === undefined ? {} : { pendingConfirmation: pending }),
+    };
+  };
   return {
     definition: immutableDefinition,
-    async invoke(input, budgetLimits, callCosts, signal) {
+    async invoke(input, budgetLimits, callCosts, signal, executionId) {
       const budgetMeter = new WorkflowBudgetMeter(budgetLimits, callCosts, ports.nowMilliseconds);
+      const runId = executionId ?? immutableDefinition.workflowDefinitionId;
+      runtimeContexts.set(runId, {
+        budgetMeter,
+        ...(signal === undefined ? {} : { signal }),
+      });
       try {
         const state = await executable.invoke(
           {
+            executionId: runId,
             input,
             outputs: {},
             errors: {},
@@ -217,20 +263,13 @@ export function compileWorkflow(
             loopCounts: {},
             events: [],
             failed: false,
-            signal,
-            budgetMeter,
           },
-          signal === undefined ? undefined : { signal },
+          {
+            configurable: { thread_id: runId },
+            ...(signal === undefined ? {} : { signal }),
+          },
         );
-        return {
-          status: state.failed ? 'failed' : 'succeeded',
-          ...(state.result === undefined ? {} : { result: state.result }),
-          outputs: state.outputs,
-          errors: state.errors,
-          loopCounts: state.loopCounts,
-          events: state.events,
-          budgetUsage: budgetMeter.snapshot(),
-        };
+        return resultFromState(state);
       } catch (error: unknown) {
         if (!(error instanceof WorkflowBudgetExceededError)) throw error;
         return {
@@ -244,7 +283,55 @@ export function compileWorkflow(
         };
       }
     },
+    async resume(executionId, confirmed, signal) {
+      const existingContext = runtimeContexts.get(executionId);
+      if (existingContext === undefined)
+        throw new WorkflowCompilerError(
+          'WORKFLOW_CHECKPOINT_NOT_AVAILABLE',
+          'Workflow checkpoint is unavailable and cannot be recovered or retried.',
+        );
+      const config = {
+        configurable: { thread_id: executionId },
+        ...(signal === undefined ? {} : { signal }),
+      };
+      runtimeContexts.set(executionId, {
+        budgetMeter: existingContext.budgetMeter,
+        ...(signal === undefined ? {} : { signal }),
+      });
+      existingContext.budgetMeter.resume();
+      const before = await executable.getState(config);
+      const previousEventCount = workflowEventCount(before.values);
+      const state = await executable.invoke(new Command({ resume: confirmed }), config);
+      const result = resultFromState(state, previousEventCount);
+      if (result.status !== 'paused') runtimeContexts.delete(executionId);
+      return result;
+    },
   };
+}
+
+function pendingConfirmation(
+  state: Readonly<Record<string, unknown>>,
+): Readonly<{ nodeId: string; prompt: string }> | undefined {
+  const interruptions = state['__interrupt__'];
+  if (!Array.isArray(interruptions)) return undefined;
+  const first: unknown = interruptions[0];
+  if (typeof first !== 'object' || first === null || !('value' in first)) return undefined;
+  const value: unknown = first.value;
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('nodeId' in value) ||
+    typeof value.nodeId !== 'string' ||
+    !('prompt' in value) ||
+    typeof value.prompt !== 'string'
+  )
+    return undefined;
+  return { nodeId: value.nodeId, prompt: value.prompt };
+}
+
+function workflowEventCount(value: unknown): number {
+  if (typeof value !== 'object' || value === null || !('events' in value)) return 0;
+  return Array.isArray(value.events) ? value.events.length : 0;
 }
 
 function detectParallelJoins(
@@ -328,9 +415,13 @@ function createNodeAction(
   definition: WorkflowDefinition,
   handlers: ReadonlyMap<string, Extract<WorkflowNode, { type: 'error_handler' }>>,
   ports: WorkflowRuntimePorts,
+  runtimeContext: (
+    executionId: string,
+  ) => Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>,
 ): NodeAction {
   return async (state) => {
-    state.budgetMeter.assertDuration();
+    const context = runtimeContext(state.executionId);
+    context.budgetMeter.assertDuration();
     const started: WorkflowExecutionEvent = {
       nodeId: node.nodeId,
       type: 'node_started',
@@ -338,7 +429,7 @@ function createNodeAction(
       summary: `${node.type} node started.`,
     };
     try {
-      const update = await executeNode(node, state, definition, ports);
+      const update = await executeNode(node, state, definition, ports, context);
       const handler = handlers.get(node.nodeId);
       const successRoute =
         handler === undefined || update.routes?.[node.nodeId] !== undefined
@@ -383,61 +474,65 @@ async function executeNode(
   state: WorkflowExecutionState,
   definition: WorkflowDefinition,
   ports: WorkflowRuntimePorts,
+  runtimeContext: Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>,
 ): Promise<StateUpdate> {
-  const signal = state.signal;
+  const signal = runtimeContext.signal;
+  const budgetMeter = runtimeContext.budgetMeter;
   switch (node.type) {
     case 'llm': {
-      state.budgetMeter.reserve('llm');
-      const callSignal = state.budgetMeter.signal(signal);
+      budgetMeter.reserve('llm');
+      const callSignal = budgetMeter.signal(signal);
       const value = await ports.executeLlm({
         instruction: node.instruction,
         responseSchema: node.responseSchema,
         signal: callSignal,
       });
-      state.budgetMeter.assertDuration();
+      budgetMeter.assertDuration();
       return output(node.nodeId, value);
     }
     case 'mcp_tool': {
-      state.budgetMeter.reserve('mcp');
-      const callSignal = state.budgetMeter.signal(signal);
+      budgetMeter.reserve('mcp');
+      const callSignal = budgetMeter.signal(signal);
       const value = await ports.callMcpTool({
         tool: node.tool,
         arguments: node.arguments,
         signal: callSignal,
       });
-      state.budgetMeter.assertDuration();
+      budgetMeter.assertDuration();
       return output(node.nodeId, value);
     }
     case 'skill_call': {
-      state.budgetMeter.reserve('skill');
-      const callSignal = state.budgetMeter.signal(signal);
+      budgetMeter.reserve('skill');
+      const callSignal = budgetMeter.signal(signal);
       const value = await ports.executeSkill({
         skillId: node.skillId,
         input: node.input,
         signal: callSignal,
       });
-      state.budgetMeter.assertDuration();
+      budgetMeter.assertDuration();
       return output(node.nodeId, value);
     }
     case 'subworkflow': {
-      state.budgetMeter.reserve('subworkflow');
-      const callSignal = state.budgetMeter.signal(signal);
+      budgetMeter.reserve('subworkflow');
+      const callSignal = budgetMeter.signal(signal);
       const value = await ports.executeSubworkflow({
         workflowDefinitionId: node.workflowDefinitionId,
         workflowVersion: node.workflowVersion,
         parentInput: state.input,
         signal: callSignal,
       });
-      state.budgetMeter.assertDuration();
+      budgetMeter.assertDuration();
       return output(node.nodeId, value);
     }
     case 'human_confirmation': {
-      const callSignal = state.budgetMeter.signal(signal);
-      const confirmed = await ports.requestHumanConfirmation({
+      budgetMeter.assertDuration();
+      budgetMeter.pause();
+      const confirmed = interrupt<Readonly<{ nodeId: string; prompt: string }>, boolean>({
+        nodeId: node.nodeId,
         prompt: node.prompt,
-        signal: callSignal,
       });
-      state.budgetMeter.assertDuration();
+      budgetMeter.resume();
+      budgetMeter.assertDuration();
       return {
         outputs: { [node.nodeId]: confirmed },
         routes: {
@@ -607,6 +702,22 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
+function requiredRuntimeContext(
+  contexts: ReadonlyMap<
+    string,
+    Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>
+  >,
+  executionId: string,
+): Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }> {
+  const context = contexts.get(executionId);
+  if (context === undefined)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_CHECKPOINT_NOT_AVAILABLE',
+      'Workflow runtime context is unavailable and cannot be recovered or retried.',
+    );
+  return context;
+}
+
 export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_CONDITION_NOT_BOOLEAN'
   | 'WORKFLOW_DEFINITION_INVALID'
@@ -615,7 +726,8 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_ROUTE_AMBIGUOUS'
   | 'WORKFLOW_ROUTE_MISSING'
   | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
-  | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID';
+  | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'
+  | 'WORKFLOW_CHECKPOINT_NOT_AVAILABLE';
 
 export class WorkflowCompilerError extends Error {
   readonly code: WorkflowCompilerErrorCode;
@@ -632,7 +744,8 @@ class WorkflowBudgetMeter {
   readonly #limits: WorkflowBudgetLimits;
   readonly #costs: WorkflowCallCosts;
   readonly #now: () => number;
-  readonly #startedAt: number;
+  #activeStartedAt: number | undefined;
+  #elapsedMs = 0;
   #llmCalls = 0;
   #mcpCalls = 0;
   #cost = 0;
@@ -642,7 +755,7 @@ class WorkflowBudgetMeter {
     this.#limits = limits;
     this.#costs = costs;
     this.#now = now;
-    this.#startedAt = now();
+    this.#activeStartedAt = now();
   }
 
   assertDuration(): void {
@@ -692,8 +805,22 @@ class WorkflowBudgetMeter {
     };
   }
 
+  pause(): void {
+    if (this.#activeStartedAt === undefined) return;
+    this.#elapsedMs += Math.max(0, this.#now() - this.#activeStartedAt);
+    this.#activeStartedAt = undefined;
+  }
+
+  resume(): void {
+    if (this.#activeStartedAt !== undefined) return;
+    this.#activeStartedAt = this.#now();
+  }
+
   #durationMs(): number {
-    return Math.max(0, this.#now() - this.#startedAt);
+    return (
+      this.#elapsedMs +
+      (this.#activeStartedAt === undefined ? 0 : Math.max(0, this.#now() - this.#activeStartedAt))
+    );
   }
 }
 

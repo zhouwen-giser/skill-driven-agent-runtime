@@ -99,7 +99,7 @@ Decision: ADR-020 separates validation from compilation/execution and forbids ar
 - [x] Verify condition routing, bounded loops, parallel convergence and all three error strategies; implement the production subworkflow recursion/depth guard.
 - [x] Execute a real local MCP plan only after confirmation.
 - [x] Execute a corrected version inherited from a confirmed source without a second confirmation.
-- [ ] Connect human_confirmation to persisted EP-04 pause/resume instead of the current explicit runtime stop.
+- [x] Connect human_confirmation to native LangGraph interrupt/resume with PostgreSQL paused state and no-replay evidence.
 - [ ] Add the outer replan controller with max-replan enforcement and natural-language/admin editing.
 
 ## Workflow Budget Enforcement Progress Update - 2026-07-12
@@ -137,6 +137,16 @@ Decision: ADR-024 defines the outer-loop, confirmation and replan-exhaustion sem
 - [ ] Build the browser visual DAG editor in EP-06 against the verified server contract.
 
 Decision: ADR-025 defines immutable revision, source-confirmation invalidation, and Task binding semantics.
+
+## Native Human Confirmation Progress Update - 2026-07-12
+
+- [x] Interrupt at the actual LangGraph node and persist the displayable confirmation request.
+- [x] Resume the same checkpoint and immutable Workflow instance via LangGraph `Command`.
+- [x] Continue ordered events and the original budget meter while excluding human wait time.
+- [x] Fail closed without reconstruction, replay, or automatic retry when checkpoint state is lost.
+- [x] Prove a real preceding MCP call is not repeated across confirmation resume.
+
+Decision: ADR-026 defines PostgreSQL authority, ephemeral checkpoint behavior, and no-replay semantics.
 
 Decision: ADR-023 defines conservative Skill override resolution, fail-closed exhaustion and configured cost accounting.
 

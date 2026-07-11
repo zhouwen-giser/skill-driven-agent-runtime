@@ -135,6 +135,62 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes persisted human-confirmation resume for a paused Workflow instance', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        workflows: {
+          ...configured.workflows,
+          resumeHumanConfirmation: ({ instanceId, confirmed }) =>
+            Promise.resolve({
+              instanceId,
+              planId: 'plan-1',
+              workflowDefinitionId: 'workflow-1',
+              workflowVersion: 1,
+              goalId: 'goal-1',
+              goalVersion: 1,
+              skillVersions: [],
+              budgetLimits: {
+                maxReplans: 3,
+                maxDurationSeconds: 60,
+                maxLlmCalls: 10,
+                maxMcpCalls: 10,
+                maxCost: 100,
+              },
+              budgetUsage: {
+                replanCount: 0,
+                durationMs: 2,
+                llmCalls: 0,
+                mcpCalls: 1,
+                cost: 1,
+              },
+              status: 'succeeded' as const,
+              input: {},
+              result: confirmed,
+              errors: {},
+              startedAt: '2026-07-12T00:00:00.000Z',
+              completedAt: '2026-07-12T00:00:02.000Z',
+            }),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/workflows/instances/instance-1/human-confirmation`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirmed: true }),
+      },
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      instanceId: 'instance-1',
+      status: 'succeeded',
+      result: true,
+    });
+  });
+
   it('exposes Goal creation and the persisted outer-control entry point', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -330,6 +386,7 @@ function operations(failServerList = false): ManagementOperations {
     workflows: {
       confirm: unused,
       execute: unused,
+      resumeHumanConfirmation: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
     },
