@@ -6,6 +6,24 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/models/providers/{providerId}:
+    parameters: [{ name: providerId, in: path, required: true, schema: { type: string } }]
+    put:
+      operationId: configureModelProvider
+      description: Stores an AES-GCM encrypted credential and protocol-neutral Provider configuration.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+      responses: { '204': { description: Configured }, '400': { $ref: '#/components/responses/Error' } }
+  /api/v1/models/routes/{stage}:
+    parameters: [{ name: stage, in: path, required: true, schema: { type: string } }]
+    put:
+      operationId: routeModelStage
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [providerId], properties: { providerId: { type: string } } } } } }
+      responses: { '204': { description: Fixed route configured }, '400': { $ref: '#/components/responses/Error' } }
+  /api/v1/models/invocations:
+    get:
+      operationId: listModelInvocations
+      parameters: [{ name: stage, in: query, required: false, schema: { type: string } }]
+      responses: { '200': { description: Sanitized model invocation audits } }
   /api/v1/health:
     get:
       operationId: getHealth

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { get } from 'node:http';
+import { createServer, get, type Server } from 'node:http';
+import { once } from 'node:events';
 import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -13,17 +14,18 @@ const postgresUrl =
 const redis = { host: '127.0.0.1', port: 56379 };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
+let modelServer: Server;
 
 beforeAll(async () => {
+  modelServer = await startModelLoopback();
+  const address = modelServer.address();
+  if (address === null || typeof address === 'string') throw new Error('MODEL_ADDRESS_UNAVAILABLE');
   runtime = await startServerRuntime({
     postgresUrl,
     redis,
     mcpMasterKeyBase64: randomBytes(32).toString('base64'),
     queueName,
     applyMigrations: true,
-    skillAuthoringModel: {
-      generateStructured: () => Promise.resolve(generatedSkillMetadata()),
-    },
     skillSelection: {
       embeddings: {
         embed: (text) =>
@@ -46,10 +48,38 @@ beforeAll(async () => {
       },
     },
   });
+  const providerResponse = await fetch(
+    `${runtime.management.baseUrl}/api/v1/models/providers/provider.e2e`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'E2E model',
+        kind: 'openai_compatible',
+        baseUrl: `http://127.0.0.1:${String(address.port)}/v1`,
+        model: 'model-e2e',
+        enabled: true,
+        timeoutMs: 2000,
+        credentialHeaders: { Authorization: 'Bearer e2e-only' },
+      }),
+    },
+  );
+  if (providerResponse.status !== 204) throw new Error('MODEL_PROVIDER_SETUP_FAILED');
+  const routeResponse = await fetch(
+    `${runtime.management.baseUrl}/api/v1/models/routes/skill_authoring`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.e2e' }),
+    },
+  );
+  if (routeResponse.status !== 204) throw new Error('MODEL_ROUTE_SETUP_FAILED');
 });
 
 afterAll(async () => {
   await runtime.close();
+  modelServer.close();
+  await once(modelServer, 'close');
 });
 
 describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
@@ -256,6 +286,105 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       validationPassed: true,
     });
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+    const auditResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_authoring`,
+    );
+    const audits = z
+      .object({
+        items: z.array(
+          z.object({
+            providerId: z.string(),
+            model: z.string(),
+            status: z.string(),
+            rawResponse: z.unknown(),
+            inputTokens: z.number(),
+            outputTokens: z.number(),
+          }),
+        ),
+      })
+      .parse(await auditResponse.json());
+    expect(audits.items).toContainEqual(
+      expect.objectContaining({
+        providerId: 'provider.e2e',
+        model: 'model-e2e',
+        status: 'succeeded',
+        inputTokens: 9,
+        outputTokens: 4,
+      }),
+    );
+    expect(JSON.stringify(audits)).not.toContain('e2e-only');
+  });
+
+  it('fails the stage without fallback and audits the configured upstream failure', async () => {
+    const baseUrl = runtime.management.baseUrl;
+    const modelAddress = modelServer.address();
+    if (modelAddress === null || typeof modelAddress === 'string')
+      throw new Error('MODEL_ADDRESS_UNAVAILABLE');
+    const configure = await fetch(`${baseUrl}/api/v1/models/providers/provider.fail`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Failing model',
+        kind: 'openai_compatible',
+        baseUrl: `http://127.0.0.1:${String(modelAddress.port)}/v1`,
+        model: 'fail-model',
+        enabled: true,
+        timeoutMs: 2000,
+        credentialHeaders: {},
+      }),
+    });
+    expect(configure.status).toBe(204);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/v1/models/routes/skill_authoring`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ providerId: 'provider.fail' }),
+        })
+      ).status,
+    ).toBe(204);
+    const response = await fetch(`${baseUrl}/api/v1/skills/author`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        skillId: `skill.failed.${randomUUID()}`,
+        naturalLanguageDescription:
+          'Create a detailed device inspection Skill with explicit input and output fields.',
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        status: 'enabled',
+        sourceKind: 'admin',
+      }),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'MODEL_INVOCATION_FAILED' },
+    });
+    const audits = z
+      .object({
+        items: z.array(
+          z.object({
+            providerId: z.string(),
+            status: z.string(),
+            errorCode: z.string().optional(),
+          }),
+        ),
+      })
+      .parse(
+        await (await fetch(`${baseUrl}/api/v1/models/invocations?stage=skill_authoring`)).json(),
+      );
+    expect(audits.items.filter((item) => item.providerId === 'provider.fail')).toEqual([
+      expect.objectContaining({ status: 'failed', errorCode: 'MODEL_UPSTREAM_ERROR' }),
+    ]);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/v1/models/routes/skill_authoring`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ providerId: 'provider.e2e' }),
+        })
+      ).status,
+    ).toBe(204);
   });
 
   it('uses real pgvector scores as candidate context while the decider makes the final selection', async () => {
@@ -653,6 +782,51 @@ function generatedSkillMetadata() {
       properties: { status: { type: 'string' }, observation: { type: 'string' } },
     },
   };
+}
+
+async function startModelLoopback(): Promise<Server> {
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on('data', (chunk: Buffer) => chunks.push(chunk));
+    request.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { model?: string };
+      response.setHeader('content-type', 'application/json');
+      if (body.model === 'fail-model') {
+        response.statusCode = 503;
+        response.end(JSON.stringify({ error: 'unavailable' }));
+        return;
+      }
+      if (request.url?.endsWith('/chat/completions') === true) {
+        response.end(
+          JSON.stringify({
+            id: 'chat-e2e',
+            model: 'model-e2e',
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify(generatedSkillMetadata()),
+                  reasoning: 'excluded',
+                },
+              },
+            ],
+            usage: { prompt_tokens: 9, completion_tokens: 4 },
+            private_reasoning: 'excluded',
+          }),
+        );
+      } else {
+        response.end(
+          JSON.stringify({
+            model: 'model-e2e',
+            data: [{ embedding: [1, 0, 0] }],
+            usage: { prompt_tokens: 2 },
+          }),
+        );
+      }
+    });
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  return server;
 }
 
 async function sendFollowUp(taskId: string, contextId: string, action: string, text: string) {

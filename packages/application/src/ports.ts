@@ -7,6 +7,9 @@ import type {
   McpInvocation,
   McpTool,
   McpToolEnhancement,
+  ModelInvocationRecord,
+  ModelProviderConfiguration,
+  ModelStage,
   McpToolDependencyChange,
   Skill,
   SkillRelation,
@@ -253,6 +256,54 @@ export interface StructuredModelProvider {
       correctionErrors: readonly string[];
     }>,
   ): Promise<unknown>;
+}
+
+export interface ModelProviderRecord {
+  readonly configuration: ModelProviderConfiguration;
+  readonly encryptedCredential: string;
+}
+
+export interface ModelRuntimeRepository {
+  findProvider(providerId: string): Promise<ModelProviderRecord | undefined>;
+  findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined>;
+  saveProvider(record: ModelProviderRecord): Promise<void>;
+  saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void>;
+  saveInvocation(invocation: ModelInvocationRecord): Promise<void>;
+  listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]>;
+}
+
+export interface ModelTransportAdapter {
+  generateStructured(
+    input: Readonly<{
+      configuration: ModelProviderConfiguration;
+      credentialHeaders: Readonly<Record<string, string>>;
+      instruction: string;
+      responseSchema: unknown;
+      correctionErrors: readonly string[];
+      signal: AbortSignal;
+    }>,
+  ): Promise<
+    Readonly<{
+      rawResponse: unknown;
+      structuredResult: unknown;
+      inputTokens?: number;
+      outputTokens?: number;
+    }>
+  >;
+  embed(
+    input: Readonly<{
+      configuration: ModelProviderConfiguration;
+      credentialHeaders: Readonly<Record<string, string>>;
+      text: string;
+      signal: AbortSignal;
+    }>,
+  ): Promise<
+    Readonly<{
+      rawResponse: unknown;
+      vector: readonly number[];
+      inputTokens?: number;
+    }>
+  >;
 }
 
 export interface ContextTaskQueue {

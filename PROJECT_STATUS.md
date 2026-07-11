@@ -1,5 +1,7 @@
 # Project Status
 
+EP-03 Model Runtime update (2026-07-12): approximately 18%. PostgreSQL Provider configurations and fixed stage routes, AES-GCM credentials, OpenAI-compatible/local structured and embedding HTTP calls, sanitized invocation audit, token/duration capture, timeouts, and no-fallback failure semantics are implemented. Real local HTTP, PostgreSQL, and same-process e2e pass; Prompt versions and remaining decision stages/Workflow DSL remain open.
+
 EP-02 pgvector selection update (2026-07-11): approximately 84%. Current enabled SkillVersion content is projected into PostgreSQL pgvector, provider/dimension drift fails closed, real cosine scores join persisted operational metrics, and only a separately injected decider can make the final selection. Unit, real PostgreSQL integration, and same-process e2e pass. Production embedding/model adapters and invocation audit remain EP-03 gaps.
 
 EP-02 Skill authoring update (2026-07-11): approximately 79%. Structured model output is shape-checked, both generated Schemas are Ajv-validated and explicit, invalid output receives one bounded correction attempt, and failure persists no fallback Skill. PostgreSQL/Agent Card e2e uses an injected simulated provider; a production ModelProvider adapter, stage routing, Prompt versions, and invocation audit remain EP-03 gaps.

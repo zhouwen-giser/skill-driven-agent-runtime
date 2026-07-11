@@ -66,4 +66,17 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Outcomes and Retrospective
 
+## Model Runtime Progress Update - 2026-07-12
+
+- [x] Add domain-owned Provider configuration, fixed stage route, and invocation audit records.
+- [x] Encrypt Provider credentials and persist configuration/routes/audits in PostgreSQL.
+- [x] Add OpenAI-compatible/local HTTP structured-generation and embedding Adapter.
+- [x] Fail the configured stage on timeout/upstream/shape errors without fallback.
+- [x] Sanitize raw response audit to exclude provider reasoning/private fields.
+- [x] Verify local HTTP contract, PostgreSQL integration, and same-process success/failure e2e.
+- [ ] Add Prompt version lifecycle and associate active PromptVersion with every invocation.
+- [ ] Route all final decision stages and implement Workflow DSL planning.
+
+Decision: ADR-018 fixes stage routing and audit/credential boundaries.
+
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。

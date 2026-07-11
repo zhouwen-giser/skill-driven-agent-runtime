@@ -112,6 +112,11 @@ function operations(failServerList = false): ManagementOperations {
       updateToolEnhancement: unused,
       updateCredentials: unused,
     },
+    models: {
+      configureProvider: unused,
+      listInvocations: () => Promise.resolve([]),
+      route: unused,
+    },
     skills: {
       diff: unused,
       listCurrentVersions: () => Promise.resolve([]),

@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import type {
   McpRegistryService,
+  ModelRuntimeService,
   SkillAuthoringService,
   SkillSelectionService,
   RegisterSkillVersionInput,
@@ -101,6 +102,27 @@ const AuthorSkillSchema = z.object({
   sourceKind: z.enum(['admin', 'a2a_draft']),
 });
 const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
+const ModelStageSchema = z.enum([
+  'intent',
+  'goal',
+  'skill_authoring',
+  'skill_selection',
+  'workflow_planning',
+  'execution_decision',
+  'goal_evaluation',
+  'evaluation',
+]);
+const ConfigureModelProviderSchema = z.object({
+  providerId: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.enum(['openai_compatible', 'local', 'other_vendor']),
+  baseUrl: z.url(),
+  model: z.string().min(1),
+  enabled: z.boolean(),
+  timeoutMs: z.number().int().positive(),
+  credentialHeaders: z.record(z.string(), z.string()),
+});
+const RouteModelStageSchema = z.object({ providerId: z.string().min(1) });
 
 export interface ManagementOperations {
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -124,6 +146,7 @@ export interface ManagementOperations {
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
+  readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -147,6 +170,50 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/health', (_request, response) => {
     response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
   });
+  app.put(
+    '/api/v1/models/providers/:providerId',
+    asyncRoute(async (request, response) => {
+      const input = ConfigureModelProviderSchema.parse({
+        ...request.body,
+        providerId: pathValue(request, 'providerId'),
+      });
+      const timestamp = new Date().toISOString();
+      await options.operations.models.configureProvider(
+        {
+          providerId: input.providerId,
+          name: input.name,
+          kind: input.kind,
+          baseUrl: input.baseUrl,
+          model: input.model,
+          enabled: input.enabled,
+          timeoutMs: input.timeoutMs,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        input.credentialHeaders,
+      );
+      response.status(204).end();
+    }),
+  );
+  app.put(
+    '/api/v1/models/routes/:stage',
+    asyncRoute(async (request, response) => {
+      const stage = ModelStageSchema.parse(pathValue(request, 'stage'));
+      const input = RouteModelStageSchema.parse(request.body);
+      await options.operations.models.route(stage, input.providerId);
+      response.status(204).end();
+    }),
+  );
+  app.get(
+    '/api/v1/models/invocations',
+    asyncRoute(async (request, response) => {
+      const stage =
+        request.query['stage'] === undefined
+          ? undefined
+          : ModelStageSchema.parse(request.query['stage']);
+      response.json({ items: await options.operations.models.listInvocations(stage) });
+    }),
+  );
   app.get('/api/v1/mcp/servers', async (_request, response) => {
     response.json({ items: await options.operations.mcp.listServers() });
   });

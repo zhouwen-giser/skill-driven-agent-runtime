@@ -14,6 +14,7 @@ import {
   PlanPreparationProcessor,
   ResultProcessor,
   McpRegistryService,
+  ModelRuntimeService,
   SkillGraphService,
   SkillAuthoringService,
   SkillSelectionService,
@@ -30,6 +31,7 @@ import type { SkillVersion } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
+import { OpenAiCompatibleModelAdapter } from '../../../packages/model-provider-adapter/src/index.js';
 import {
   startManagementHttpEndpoint,
   type ManagementHttpEndpointHandle,
@@ -39,6 +41,7 @@ import {
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
+  PostgresModelRuntimeRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillEmbeddingRepository,
@@ -124,19 +127,23 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const modelRuntime = new ModelRuntimeService({
+    repository: new PostgresModelRuntimeRepository(pool),
+    transport: new OpenAiCompatibleModelAdapter(),
+    cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
+    clock,
+    ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
+  });
   const service = new TaskService({ contexts, tasks, events, skillDrafts, queue, clock, ids });
   const schemaValidator = new AjvJsonSchemaValidator();
   const resultProcessor = new ResultProcessor(schemaValidator);
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
-  const skillAuthoring =
-    options.skillAuthoringModel === undefined
-      ? undefined
-      : new SkillAuthoringService({
-          model: options.skillAuthoringModel,
-          schemas: schemaValidator,
-          registry: skillRegistry,
-          maxAttempts: 2,
-        });
+  const skillAuthoring = new SkillAuthoringService({
+    model: options.skillAuthoringModel ?? modelRuntime,
+    schemas: schemaValidator,
+    registry: skillRegistry,
+    maxAttempts: 2,
+  });
   const skillGraph = new SkillGraphService({
     graph: skillGraphRepository,
     skills,
@@ -194,7 +201,8 @@ export async function startServerRuntime(
         graph: skillGraph,
         mcp: mcpRegistry,
         skills: skillRegistry,
-        ...(skillAuthoring === undefined ? {} : { skillAuthoring }),
+        skillAuthoring,
+        models: modelRuntime,
         ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills,
       },
@@ -297,6 +305,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0011_skill_selection.up.sql',
     '0012_temporary_skill.up.sql',
     '0013_skill_embedding.up.sql',
+    '0014_model_runtime.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

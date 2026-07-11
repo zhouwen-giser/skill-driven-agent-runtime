@@ -7,6 +7,8 @@ import type {
   McpRegistryRepository,
   McpToolCatalog,
   McpServerRecord,
+  ModelProviderRecord,
+  ModelRuntimeRepository,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
@@ -25,6 +27,8 @@ import type {
   McpTool,
   McpToolDependencyChange,
   McpToolEnhancement,
+  ModelInvocationRecord,
+  ModelStage,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -724,6 +728,133 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   }
 }
 
+interface ModelProviderRow extends QueryResultRow {
+  provider_id: string;
+  name: string;
+  kind: 'openai_compatible' | 'local' | 'other_vendor';
+  base_url: string;
+  model: string;
+  enabled: boolean;
+  timeout_ms: number;
+  encrypted_credential: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface ModelInvocationRow extends QueryResultRow {
+  invocation_id: string;
+  stage: ModelStage;
+  provider_id: string;
+  model: string;
+  operation: ModelInvocationRecord['operation'];
+  request_json: unknown;
+  context_json: unknown;
+  raw_response_json: unknown;
+  structured_result_json: unknown;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  duration_ms: number;
+  status: ModelInvocationRecord['status'];
+  error_code: string | null;
+  error_message: string | null;
+  created_at: Date | string;
+}
+
+export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async findProvider(providerId: string): Promise<ModelProviderRecord | undefined> {
+    const result = await this.#pool.query<ModelProviderRow>(
+      'SELECT * FROM model_provider WHERE provider_id = $1',
+      [providerId],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelProviderRow(result.rows[0]);
+  }
+
+  async findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined> {
+    const result = await this.#pool.query<ModelProviderRow>(
+      `SELECT p.* FROM stage_model_route r
+       JOIN model_provider p ON p.provider_id = r.provider_id
+       WHERE r.stage = $1`,
+      [stage],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelProviderRow(result.rows[0]);
+  }
+
+  async saveProvider(record: ModelProviderRecord): Promise<void> {
+    const value = record.configuration;
+    await this.#pool.query(
+      `INSERT INTO model_provider
+       (provider_id,name,kind,base_url,model,enabled,timeout_ms,encrypted_credential,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (provider_id) DO UPDATE SET
+         name=EXCLUDED.name, kind=EXCLUDED.kind, base_url=EXCLUDED.base_url,
+         model=EXCLUDED.model, enabled=EXCLUDED.enabled, timeout_ms=EXCLUDED.timeout_ms,
+         encrypted_credential=EXCLUDED.encrypted_credential, updated_at=EXCLUDED.updated_at`,
+      [
+        value.providerId,
+        value.name,
+        value.kind,
+        value.baseUrl,
+        value.model,
+        value.enabled,
+        value.timeoutMs,
+        record.encryptedCredential,
+        value.createdAt,
+        value.updatedAt,
+      ],
+    );
+  }
+
+  async saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO stage_model_route(stage,provider_id,updated_at) VALUES ($1,$2,$3)
+       ON CONFLICT(stage) DO UPDATE SET provider_id=EXCLUDED.provider_id, updated_at=EXCLUDED.updated_at`,
+      [stage, providerId, updatedAt],
+    );
+  }
+
+  async saveInvocation(invocation: ModelInvocationRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO model_invocation
+       (invocation_id,stage,provider_id,model,operation,request_json,context_json,raw_response_json,
+        structured_result_json,input_tokens,output_tokens,duration_ms,status,error_code,error_message,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)`,
+      [
+        invocation.invocationId,
+        invocation.stage,
+        invocation.providerId,
+        invocation.model,
+        invocation.operation,
+        JSON.stringify(invocation.request),
+        JSON.stringify(invocation.context),
+        invocation.rawResponse === undefined ? null : JSON.stringify(invocation.rawResponse),
+        invocation.structuredResult === undefined
+          ? null
+          : JSON.stringify(invocation.structuredResult),
+        invocation.inputTokens ?? null,
+        invocation.outputTokens ?? null,
+        invocation.durationMs,
+        invocation.status,
+        invocation.errorCode ?? null,
+        invocation.errorMessage ?? null,
+        invocation.createdAt,
+      ],
+    );
+  }
+
+  async listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]> {
+    const result = await this.#pool.query<ModelInvocationRow>(
+      `SELECT * FROM model_invocation WHERE ($1::text IS NULL OR stage = $1) ORDER BY created_at, invocation_id`,
+      [stage ?? null],
+    );
+    return result.rows.map(mapModelInvocationRow);
+  }
+}
+
 interface SkillEmbeddingScoreRow extends QueryResultRow {
   skill_id: string;
   semantic_score: number;
@@ -1303,6 +1434,46 @@ function mapMcpServerRow(row: McpServerRow): McpServer {
     toolRevision: row.tool_revision,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function mapModelProviderRow(row: ModelProviderRow): ModelProviderRecord {
+  return {
+    configuration: {
+      providerId: row.provider_id,
+      name: row.name,
+      kind: row.kind,
+      baseUrl: row.base_url,
+      model: row.model,
+      enabled: row.enabled,
+      timeoutMs: row.timeout_ms,
+      createdAt: toIsoString(row.created_at),
+      updatedAt: toIsoString(row.updated_at),
+    },
+    encryptedCredential: row.encrypted_credential,
+  };
+}
+
+function mapModelInvocationRow(row: ModelInvocationRow): ModelInvocationRecord {
+  return {
+    invocationId: row.invocation_id,
+    stage: row.stage,
+    providerId: row.provider_id,
+    model: row.model,
+    operation: row.operation,
+    request: row.request_json,
+    context: row.context_json,
+    ...(row.raw_response_json === null ? {} : { rawResponse: row.raw_response_json }),
+    ...(row.structured_result_json === null
+      ? {}
+      : { structuredResult: row.structured_result_json }),
+    ...(row.input_tokens === null ? {} : { inputTokens: row.input_tokens }),
+    ...(row.output_tokens === null ? {} : { outputTokens: row.output_tokens }),
+    durationMs: row.duration_ms,
+    status: row.status,
+    ...(row.error_code === null ? {} : { errorCode: row.error_code }),
+    ...(row.error_message === null ? {} : { errorMessage: row.error_message }),
+    createdAt: toIsoString(row.created_at),
   };
 }
 

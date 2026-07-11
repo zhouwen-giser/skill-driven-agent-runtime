@@ -9,6 +9,7 @@ import {
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
+  PostgresModelRuntimeRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
@@ -90,11 +91,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillEmbeddingMigration);
+  const modelRuntimeMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0014_model_runtime.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(modelRuntimeMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE model_invocation, stage_model_route, model_provider, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -103,6 +109,58 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists encrypted Model Providers, fixed stage routes, and displayable invocation audits', async () => {
+    const repository = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.db',
+      name: 'DB Provider',
+      kind: 'openai_compatible' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'model-db',
+      enabled: true,
+      timeoutMs: 5000,
+      createdAt: '2026-07-11T10:00:00.000Z',
+      updatedAt: '2026-07-11T10:00:00.000Z',
+    };
+    await repository.saveProvider({ configuration, encryptedCredential: 'aes-gcm-envelope' });
+    await repository.saveStageRoute(
+      'workflow_planning',
+      configuration.providerId,
+      configuration.updatedAt,
+    );
+    await repository.saveInvocation({
+      invocationId: 'model-invocation-db-1',
+      stage: 'workflow_planning',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { prompt: 'visible' },
+      context: { taskId: 'task-db' },
+      rawResponse: { choices: [] },
+      structuredResult: { nodes: [] },
+      inputTokens: 11,
+      outputTokens: 4,
+      durationMs: 25,
+      status: 'succeeded',
+      createdAt: configuration.createdAt,
+    });
+
+    await expect(repository.findProviderForStage('workflow_planning')).resolves.toEqual({
+      configuration,
+      encryptedCredential: 'aes-gcm-envelope',
+    });
+    await expect(repository.listInvocations('workflow_planning')).resolves.toEqual([
+      expect.objectContaining({
+        invocationId: 'model-invocation-db-1',
+        inputTokens: 11,
+        outputTokens: 4,
+      }),
+    ]);
+    const raw = await pool.query<{ encrypted_credential: string }>(
+      'SELECT encrypted_credential FROM model_provider',
+    );
+    expect(raw.rows[0]?.encrypted_credential).toBe('aes-gcm-envelope');
+  });
   it('stores rebuildable Skill vectors and scores only matching provider dimensions with pgvector', async () => {
     const skills = new PostgresSkillRepository(pool);
     for (const [skillId, name] of [
