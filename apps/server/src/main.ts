@@ -13,6 +13,8 @@ const EnvironmentSchema = z.object({
   SDAR_REDIS_PORT: z.coerce.number().int().positive().default(56379),
   SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),
   SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
+  SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
+  SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
   SDAR_MCP_MASTER_KEY_BASE64: z.string().min(1),
 });
 
@@ -24,9 +26,13 @@ const runtime = await startServerRuntime({
   applyMigrations: true,
   a2aHost: environment.SDAR_A2A_HOST,
   a2aPort: environment.SDAR_A2A_PORT,
+  managementHost: environment.SDAR_MANAGEMENT_HOST,
+  managementPort: environment.SDAR_MANAGEMENT_PORT,
 });
 
-process.stdout.write(`${JSON.stringify({ event: 'server.ready', a2aUrl: runtime.a2a.baseUrl })}\n`);
+process.stdout.write(
+  `${JSON.stringify({ event: 'server.ready', a2aUrl: runtime.a2a.baseUrl, managementUrl: runtime.management.baseUrl })}\n`,
+);
 
 let closing = false;
 async function close(): Promise<void> {

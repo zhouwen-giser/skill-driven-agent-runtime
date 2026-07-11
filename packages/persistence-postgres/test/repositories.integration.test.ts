@@ -11,6 +11,9 @@ import {
   PostgresMcpRegistryRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
+  PostgresSkillGraphRepository,
+  PostgresSkillSelectionRepository,
+  PostgresTemporarySkillRepository,
   PostgresSkillRepository,
 } from '../src/index.js';
 import { createSkillVersion } from '../../domain/src/index.js';
@@ -66,11 +69,26 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(mcpAuditMigration);
+  const skillGraphMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0010_skill_graph.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(skillGraphMigration);
+  const skillSelectionMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0011_skill_selection.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(skillSelectionMigration);
+  const temporarySkillMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0012_temporary_skill.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(temporarySkillMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -79,6 +97,172 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('expires Temporary Skills atomically into experience without inserting a formal Skill', async () => {
+    const repository = new PostgresTemporarySkillRepository(pool);
+    const active = {
+      temporarySkillId: 'temporary-db-1',
+      taskId: 'task-db-1',
+      contextId: 'context-db-1',
+      name: 'Temporary',
+      description: 'Task-only capability.',
+      tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      capabilityFingerprint: 'fingerprint-db',
+      status: 'active' as const,
+      createdAt: '2026-07-11T10:00:00.000Z',
+    };
+    await repository.save(active);
+    const expired = {
+      ...active,
+      status: 'expired' as const,
+      expiredAt: '2026-07-11T10:01:00.000Z',
+    };
+    const experience = {
+      experienceId: 'experience-db-1',
+      temporarySkillId: active.temporarySkillId,
+      taskId: active.taskId,
+      contextId: active.contextId,
+      capabilityFingerprint: active.capabilityFingerprint,
+      successful: true,
+      outcomeSummary: 'Succeeded.',
+      createdAt: expired.expiredAt,
+    };
+    await repository.expireAndSaveExperience(expired, experience);
+    await repository.saveFormalizationCandidate({
+      candidateId: 'candidate-db-1',
+      capabilityFingerprint: active.capabilityFingerprint,
+      successfulExperienceCount: 2,
+      requiredSuccessThreshold: 2,
+      sourceExperienceIds: ['experience-db-0', experience.experienceId],
+      status: 'awaiting_simulation',
+      createdAt: expired.expiredAt,
+    });
+
+    await expect(repository.find(active.temporarySkillId)).resolves.toEqual(expired);
+    await expect(
+      repository.listSuccessfulExperiences(active.capabilityFingerprint),
+    ).resolves.toEqual([experience]);
+    await expect(
+      repository.findFormalizationCandidate(active.capabilityFingerprint),
+    ).resolves.toMatchObject({
+      status: 'awaiting_simulation',
+      successfulExperienceCount: 2,
+    });
+    const formalSkills = await pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM skill',
+    );
+    expect(formalSkills.rows[0]?.count).toBe('0');
+  });
+
+  it('persists Skill metrics, selection snapshots, and confirmation-bound replacement plans', async () => {
+    const skills = new PostgresSkillRepository(pool);
+    const version = createSkillVersion({
+      skillId: 'skill.selection',
+      version: 1,
+      name: 'Selection',
+      summary: 'Candidate.',
+      description: 'Selection candidate Skill.',
+      capabilities: ['selection'],
+      workflowGuidance: 'Select.',
+      outputInstruction: 'Return result.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-07-11T10:00:00.000Z',
+    });
+    await skills.saveVersionAndSetCurrent(version, version.createdAt);
+    const repository = new PostgresSkillSelectionRepository(pool);
+    const metrics = {
+      sampleCount: 4,
+      successRate: 0.75,
+      averageDurationMs: 80,
+      averageCost: 0.01,
+      failureCount: 1,
+      stabilityScore: 0.9,
+    };
+    await repository.saveMetrics(version.skillId, metrics, version.createdAt);
+    const candidates = [
+      {
+        skillId: version.skillId,
+        skillVersion: 1,
+        semanticScore: 0.8,
+        metrics,
+      },
+    ];
+    const selection = {
+      selectionId: 'selection-db-1',
+      goalDescription: 'Select a Skill.',
+      candidates,
+      selectedSkillId: version.skillId,
+      selectedSkillVersion: 1,
+      decisionSummary: 'Selected from complete metrics.',
+      createdAt: version.createdAt,
+    };
+    await repository.saveSelection(selection);
+    await repository.saveReplacementPlan({
+      replacementPlanId: 'replacement-db-1',
+      selectionId: selection.selectionId,
+      failedSkillId: version.skillId,
+      candidates,
+      replacementSkillId: version.skillId,
+      replacementSkillVersion: 1,
+      decisionSummary: 'Await confirmation.',
+      status: 'awaiting_confirmation',
+      createdAt: version.createdAt,
+    });
+
+    await expect(repository.findMetrics(version.skillId)).resolves.toEqual(metrics);
+    await expect(repository.findSelection(selection.selectionId)).resolves.toEqual(selection);
+    const persisted = await pool.query<{ status: string }>(
+      'SELECT status FROM skill_replacement_plan WHERE replacement_plan_id = $1',
+      ['replacement-db-1'],
+    );
+    expect(persisted.rows[0]?.status).toBe('awaiting_confirmation');
+  });
+
+  it('persists and deletes typed Skill graph relations with metadata', async () => {
+    const skills = new PostgresSkillRepository(pool);
+    for (const skillId of ['skill.graph.a', 'skill.graph.b']) {
+      const version = createSkillVersion({
+        skillId,
+        version: 1,
+        name: skillId,
+        summary: 'Graph node.',
+        description: 'Graph node Skill description.',
+        capabilities: ['graph'],
+        workflowGuidance: 'Use relation.',
+        outputInstruction: 'Return output.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        status: 'enabled',
+        sourceKind: 'admin',
+        validationPassed: true,
+        createdAt: '2026-07-11T10:00:00.000Z',
+      });
+      await skills.saveVersionAndSetCurrent(version, version.createdAt);
+    }
+    const graph = new PostgresSkillGraphRepository(pool);
+    const relation = {
+      relationId: 'relation-1',
+      sourceSkillId: 'skill.graph.a',
+      targetSkillId: 'skill.graph.b',
+      relationType: 'composition' as const,
+      metadata: { order: 1 },
+      createdAt: '2026-07-11T10:01:00.000Z',
+    };
+    await graph.saveRelation(relation);
+    await expect(graph.listRelations()).resolves.toEqual([relation]);
+    await graph.deleteRelation(relation.relationId);
+    await expect(graph.listRelations()).resolves.toEqual([]);
+  });
+
   it('stores encrypted MCP credentials and atomically replaces discovered Tool definitions', async () => {
     const repository = new PostgresMcpRegistryRepository(pool);
     const record = {

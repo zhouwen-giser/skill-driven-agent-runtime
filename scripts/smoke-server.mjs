@@ -22,7 +22,13 @@ try {
   if (!Array.isArray(card.skills) || card.skills.length === 0) {
     throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
   }
-  process.stdout.write('Server build smoke passed: Agent Card is reachable with enabled skills.\n');
+  const management = await waitForJson('http://127.0.0.1:9998/api/v1/health');
+  if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
+    throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
+  }
+  process.stdout.write(
+    'Server build smoke passed: Agent Card and trusted-intranet management API are reachable.\n',
+  );
 } finally {
   server.kill();
   run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);

@@ -9,8 +9,16 @@ import type {
   McpToolEnhancement,
   McpToolDependencyChange,
   Skill,
+  SkillRelation,
+  SkillPerformanceMetrics,
+  SkillReplacementPlan,
+  SkillSelectionRecord,
   SkillDraft,
   SkillVersion,
+  SkillFormalizationCandidate,
+  TemporarySkill,
+  TemporarySkillExperience,
+  ToolReference,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -38,8 +46,63 @@ export interface SkillRepository {
   find(skillId: string): Promise<Skill | undefined>;
   findCurrentVersion(skillId: string): Promise<SkillVersion | undefined>;
   findVersion(skillId: string, version: number): Promise<SkillVersion | undefined>;
+  listVersions(skillId: string): Promise<readonly SkillVersion[]>;
   listEnabledVersions(): Promise<readonly SkillVersion[]>;
+  listCurrentVersions(): Promise<readonly SkillVersion[]>;
   saveVersionAndSetCurrent(version: SkillVersion, timestamp: string): Promise<void>;
+}
+
+export interface SkillGraphRepository {
+  listRelations(): Promise<readonly SkillRelation[]>;
+  saveRelation(relation: SkillRelation): Promise<void>;
+  deleteRelation(relationId: string): Promise<void>;
+}
+
+export interface SkillSelectionRepository {
+  findMetrics(skillId: string): Promise<SkillPerformanceMetrics | undefined>;
+  saveMetrics(skillId: string, metrics: SkillPerformanceMetrics, updatedAt: string): Promise<void>;
+  saveSelection(record: SkillSelectionRecord): Promise<void>;
+  findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
+  saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillSemanticRetriever {
+  score(
+    goalDescription: string,
+    skills: readonly SkillVersion[],
+  ): Promise<Readonly<Record<string, number>>>;
+}
+
+export interface SkillSelectionDecider {
+  decide(
+    input: Readonly<{
+      goalDescription: string;
+      candidates: SkillSelectionRecord['candidates'];
+      mode: 'initial' | 'replacement';
+      failedSkillId?: string;
+    }>,
+  ): Promise<Readonly<{ selectedSkillId: string; decisionSummary: string }>>;
+}
+
+export interface TemporarySkillRepository {
+  find(temporarySkillId: string): Promise<TemporarySkill | undefined>;
+  listByTask(taskId: string): Promise<readonly TemporarySkill[]>;
+  save(skill: TemporarySkill): Promise<void>;
+  expireAndSaveExperience(
+    skill: TemporarySkill,
+    experience: TemporarySkillExperience,
+  ): Promise<void>;
+  listSuccessfulExperiences(
+    capabilityFingerprint: string,
+  ): Promise<readonly TemporarySkillExperience[]>;
+  findFormalizationCandidate(
+    capabilityFingerprint: string,
+  ): Promise<SkillFormalizationCandidate | undefined>;
+  saveFormalizationCandidate(candidate: SkillFormalizationCandidate): Promise<void>;
+}
+
+export interface McpToolCatalog {
+  exists(reference: ToolReference): Promise<boolean>;
 }
 
 export interface McpServerRecord {
@@ -49,6 +112,7 @@ export interface McpServerRecord {
 
 export interface McpRegistryRepository {
   findServer(serverId: string): Promise<McpServerRecord | undefined>;
+  listServers(): Promise<readonly McpServer[]>;
   listTools(serverId: string): Promise<readonly McpTool[]>;
   saveServerAndReplaceTools(
     record: McpServerRecord,
@@ -92,6 +156,12 @@ export interface McpTransportAdapter {
     }>,
   ): Promise<unknown>;
   disconnect(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+    }>,
+  ): Promise<void>;
+  ping(
     input: Readonly<{
       endpoint: string;
       headers: Readonly<Record<string, string>>;

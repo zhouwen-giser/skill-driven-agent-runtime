@@ -19,7 +19,9 @@ export function requireIdentifier(
     | 'MCP_SERVER_ID_REQUIRED'
     | 'SKILL_DRAFT_ID_REQUIRED'
     | 'SKILL_ID_REQUIRED'
-    | 'TASK_ID_REQUIRED',
+    | 'SKILL_RELATION_ID_REQUIRED'
+    | 'TASK_ID_REQUIRED'
+    | 'TEMPORARY_SKILL_ID_REQUIRED',
 ): string {
   const normalized = value.trim();
   if (normalized === '')

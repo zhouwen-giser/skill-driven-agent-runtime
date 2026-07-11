@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Task-scoped Temporary Skills with enabled-MCP-Tool validation, atomic expiration/Experience persistence, canonical capability fingerprints, and a repeated-success `awaiting_simulation` formalization gate that cannot publish formal Skills.
+- Skill candidate metric snapshots and an LLM-decision port that prevents semantic retrieval from becoming the final selector.
+- Persistent Skill selection records and alternative-only replacement plans fixed at `awaiting_confirmation`.
+- Domain-owned persistent Skill Graph with six typed relation kinds, hierarchical cycle prevention, management CRUD, OpenAPI, and real e2e evidence.
+- MCP remote health checks that persist enabled/unreachable state, and remotely validated AES-GCM credential rotation without Tool rediscovery.
+- Skill immutable version-chain, field-diff, and rollback-as-new-version management APIs.
+- Same-process management HTTP API for real MCP and Skill operations, with OpenAPI, strict Zod input validation, credential-free responses, redacted errors, and explicit trusted-intranet/no-auth warnings.
 - Persistent MCP invocation audit records with task/context correlation, arguments, displayable results/errors, status, timestamps, and duration.
 - Persistent dependency warnings for enabled SkillVersions affected by removed or schema-changed MCP Tools, without automatic Skill disablement.
 - Editable validated Tool enhancement metadata preserved across manual refreshes while original input schemas remain authoritative.

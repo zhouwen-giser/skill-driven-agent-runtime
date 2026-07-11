@@ -1,0 +1,267 @@
+openapi: 3.1.0
+info:
+  title: Skill-Driven Agent Runtime Management API
+  version: 1.0.0-dev
+  description: Unauthenticated V1 API for trusted-intranet deployments only.
+servers:
+  - url: http://127.0.0.1:9998
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      responses:
+        '200': { description: Health and deployment risk marker }
+  /api/v1/mcp/servers:
+    get:
+      operationId: listMcpServers
+      responses:
+        '200': { description: Credential-free MCP Server list }
+    post:
+      operationId: registerMcpServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterMcpServer' }
+      responses:
+        '201': { description: Registered Server and discovered Tools }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/servers/{serverId}:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    delete:
+      operationId: deleteMcpServer
+      responses:
+        '204': { description: Deleted }
+  /api/v1/mcp/servers/{serverId}/refresh:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: refreshMcpServer
+      responses:
+        '200': { description: Refreshed Tools and dependency changes }
+  /api/v1/mcp/servers/{serverId}/health:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: checkMcpServerHealth
+      responses:
+        '200': { description: Remote protocol health, status, and duration }
+  /api/v1/mcp/servers/{serverId}/credentials:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    put:
+      operationId: updateMcpServerCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credentialHeaders]
+              properties:
+                credentialHeaders: { type: object, additionalProperties: { type: string } }
+      responses:
+        '204': { description: Remotely validated and encrypted credentials updated }
+  /api/v1/mcp/servers/{serverId}/tools:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    get:
+      operationId: listMcpTools
+      responses:
+        '200': { description: Current original schemas and enhancements }
+  /api/v1/mcp/servers/{serverId}/tools/{toolName}/enhancement:
+    parameters:
+      - $ref: '#/components/parameters/ServerId'
+      - { name: toolName, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: updateMcpToolEnhancement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ToolEnhancement' }
+      responses:
+        '204': { description: Updated }
+  /api/v1/mcp/servers/{serverId}/invocations:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    get:
+      operationId: listMcpInvocations
+      responses:
+        '200': { description: Replayable invocation summaries }
+  /api/v1/mcp/servers/{serverId}/warnings:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    get:
+      operationId: listMcpDependencyWarnings
+      responses:
+        '200': { description: Skill dependency warnings }
+  /api/v1/skills:
+    get:
+      operationId: listCurrentSkillVersions
+      responses:
+        '200': { description: Current Skill versions }
+    post:
+      operationId: registerSkillVersion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: New current Skill version }
+  /api/v1/skill-graph:
+    get:
+      operationId: listSkillGraph
+      responses:
+        '200': { description: All typed Skill relation edges }
+  /api/v1/skill-graph/relations:
+    post:
+      operationId: createSkillRelation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceSkillId, targetSkillId, relationType]
+              properties:
+                sourceSkillId: { type: string }
+                targetSkillId: { type: string }
+                relationType:
+                  enum: [parent_child, depends_on, input_output_match, alternative, composition, capability_coverage]
+                metadata: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: Created graph edge }
+  /api/v1/skill-graph/relations/{relationId}:
+    parameters:
+      - { name: relationId, in: path, required: true, schema: { type: string } }
+    delete:
+      operationId: deleteSkillRelation
+      responses:
+        '204': { description: Deleted graph edge }
+  /api/v1/skills/{skillId}/enable:
+    parameters: [{ $ref: '#/components/parameters/SkillId' }]
+    post:
+      operationId: enableSkill
+      responses:
+        '200': { description: New enabled Skill version }
+  /api/v1/skills/{skillId}/disable:
+    parameters: [{ $ref: '#/components/parameters/SkillId' }]
+    post:
+      operationId: disableSkill
+      responses:
+        '200': { description: New disabled Skill version }
+  /api/v1/skills/{skillId}/versions:
+    parameters: [{ $ref: '#/components/parameters/SkillId' }]
+    get:
+      operationId: listSkillVersions
+      responses:
+        '200': { description: Immutable Skill version chain }
+  /api/v1/skills/{skillId}/diff:
+    parameters:
+      - $ref: '#/components/parameters/SkillId'
+      - { name: from, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: to, in: query, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: diffSkillVersions
+      responses:
+        '200': { description: Changed fields and both immutable versions }
+  /api/v1/skills/{skillId}/rollback/{version}:
+    parameters:
+      - $ref: '#/components/parameters/SkillId'
+      - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    post:
+      operationId: rollbackSkill
+      responses:
+        '200': { description: New current version copied from the target }
+  /api/v1/tasks/{taskId}/temporary-skills:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listTaskTemporarySkills
+      responses:
+        '200': { description: Task-scoped Temporary Skills, including expired records }
+    post:
+      operationId: createTaskTemporarySkill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTemporarySkill' }
+      responses:
+        '201': { description: Active task-scoped Temporary Skill }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/temporary-skills/{temporarySkillId}/complete:
+    parameters:
+      - { name: temporarySkillId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: completeTemporarySkill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [successful, outcomeSummary]
+              properties:
+                successful: { type: boolean }
+                outcomeSummary: { type: string, minLength: 1 }
+      responses:
+        '200': { description: Expired Skill, Experience, and optional awaiting-simulation candidate }
+        '400': { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    ServerId: { name: serverId, in: path, required: true, schema: { type: string } }
+    SkillId: { name: skillId, in: path, required: true, schema: { type: string } }
+  responses:
+    Error:
+      description: Stable error envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+  schemas:
+    RegisterMcpServer:
+      type: object
+      additionalProperties: false
+      required: [serverId, name, endpoint, credentialHeaders]
+      properties:
+        serverId: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        endpoint: { type: string, format: uri }
+        credentialHeaders: { type: object, additionalProperties: { type: string } }
+    ToolEnhancement:
+      type: object
+      additionalProperties: false
+      required: [purpose, scenarios, constraints, returnDescription, commonErrors, tags]
+      properties:
+        purpose: { type: string }
+        scenarios: { type: array, items: { type: string } }
+        constraints: { type: array, items: { type: string } }
+        returnDescription: { type: string }
+        commonErrors: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string } }
+    CreateTemporarySkill:
+      type: object
+      additionalProperties: false
+      required: [contextId, name, description, tools, inputSchema, outputSchema]
+      properties:
+        contextId: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        tools:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [serverId, toolName]
+            properties:
+              serverId: { type: string, minLength: 1 }
+              toolName: { type: string, minLength: 1 }
+        inputSchema: { oneOf: [{ type: boolean }, { type: object }] }
+        outputSchema: { oneOf: [{ type: boolean }, { type: object }] }

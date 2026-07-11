@@ -1,0 +1,428 @@
+import { once } from 'node:events';
+import { createServer, type Server as HttpServer } from 'node:http';
+
+import express, { type NextFunction, type Request, type Response } from 'express';
+import { z } from 'zod';
+
+import type {
+  McpRegistryService,
+  RegisterSkillVersionInput,
+  SkillRegistryService,
+  SkillGraphService,
+  TemporarySkillService,
+} from '../../application/src/index.js';
+
+const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
+const RegisterMcpServerSchema = z.object({
+  serverId: z.string().min(1),
+  name: z.string().min(1),
+  endpoint: z.url(),
+  credentialHeaders: z.record(z.string(), z.string()),
+});
+const CredentialHeadersSchema = z.object({
+  credentialHeaders: z.record(z.string(), z.string()),
+});
+const ToolEnhancementSchema = z.object({
+  purpose: z.string(),
+  scenarios: z.array(z.string()),
+  constraints: z.array(z.string()),
+  returnDescription: z.string(),
+  commonErrors: z.array(z.string()),
+  tags: z.array(z.string()),
+});
+const ToolReferenceSchema = z.object({ serverId: z.string().min(1), toolName: z.string().min(1) });
+const SkillRelationSchema = z.object({
+  sourceSkillId: z.string().min(1),
+  targetSkillId: z.string().min(1),
+  relationType: z.enum([
+    'parent_child',
+    'depends_on',
+    'input_output_match',
+    'alternative',
+    'composition',
+    'capability_coverage',
+  ]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+const RegisterSkillSchema = z.object({
+  skillId: z.string().min(1),
+  name: z.string().min(1),
+  summary: z.string().min(1),
+  description: z.string().min(1),
+  capabilities: z.array(z.string()),
+  workflowGuidance: z.string(),
+  outputInstruction: z.string(),
+  inputSchema: JsonSchema,
+  outputSchema: JsonSchema,
+  toolPolicy: z.object({
+    required: z.array(ToolReferenceSchema),
+    optional: z.array(ToolReferenceSchema),
+    forbidden: z.array(ToolReferenceSchema),
+  }),
+  runtimePolicy: z.object({
+    autoConfirmPlan: z.boolean(),
+    maxReplans: z.number().int().nonnegative().optional(),
+    maxDurationSeconds: z.number().int().positive().optional(),
+    maxLlmCalls: z.number().int().nonnegative().optional(),
+    maxMcpCalls: z.number().int().nonnegative().optional(),
+    maxCost: z.number().nonnegative().optional(),
+    pauseReplanThresholdSeconds: z.number().int().nonnegative().optional(),
+    cancelStrategy: z.enum(['wait_current', 'try_interrupt', 'cleanup_workflow']).optional(),
+    compensationGuidance: z.string().optional(),
+  }),
+  status: z.enum(['draft', 'validating', 'enabled', 'disabled', 'deprecated', 'validation_failed']),
+  sourceKind: z.enum(['admin', 'a2a_draft', 'experience_evolution', 'manual_correction']),
+  validationPassed: z.boolean(),
+});
+const CreateTemporarySkillSchema = z.object({
+  contextId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  tools: z.array(ToolReferenceSchema).min(1),
+  inputSchema: JsonSchema,
+  outputSchema: JsonSchema,
+});
+const CompleteTemporarySkillSchema = z.object({
+  successful: z.boolean(),
+  outcomeSummary: z.string().min(1),
+});
+
+export interface ManagementOperations {
+  readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
+  readonly mcp: Pick<
+    McpRegistryService,
+    | 'delete'
+    | 'checkHealth'
+    | 'listDependencyWarnings'
+    | 'listInvocations'
+    | 'listServers'
+    | 'listTools'
+    | 'refresh'
+    | 'register'
+    | 'updateToolEnhancement'
+    | 'updateCredentials'
+  >;
+  readonly skills: Pick<
+    SkillRegistryService,
+    'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
+  >;
+  readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
+}
+
+export interface ManagementHttpEndpointHandle {
+  readonly baseUrl: string;
+  close(): Promise<void>;
+}
+
+export async function startManagementHttpEndpoint(
+  options: Readonly<{
+    operations: ManagementOperations;
+    host?: string;
+    port?: number;
+  }>,
+): Promise<ManagementHttpEndpointHandle> {
+  const app = express();
+  app.use(express.json({ limit: '1mb' }));
+  app.use((_request, response, next) => {
+    response.setHeader('X-SDAR-Security-Warning', 'trusted-intranet-only-no-auth');
+    next();
+  });
+  app.get('/api/v1/health', (_request, response) => {
+    response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
+  });
+  app.get('/api/v1/mcp/servers', async (_request, response) => {
+    response.json({ items: await options.operations.mcp.listServers() });
+  });
+  app.post(
+    '/api/v1/mcp/servers',
+    asyncRoute(async (request, response) => {
+      const result = await options.operations.mcp.register(
+        RegisterMcpServerSchema.parse(request.body),
+      );
+      response.status(201).json(result);
+    }),
+  );
+  app.get(
+    '/api/v1/mcp/servers/:serverId/tools',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.mcp.listTools(pathValue(request, 'serverId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/mcp/servers/:serverId/invocations',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.mcp.listInvocations(pathValue(request, 'serverId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/mcp/servers/:serverId/warnings',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.mcp.listDependencyWarnings(pathValue(request, 'serverId')),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/servers/:serverId/refresh',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.mcp.refresh(pathValue(request, 'serverId')));
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/servers/:serverId/health',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.mcp.checkHealth(pathValue(request, 'serverId')));
+    }),
+  );
+  app.put(
+    '/api/v1/mcp/servers/:serverId/credentials',
+    asyncRoute(async (request, response) => {
+      const input = CredentialHeadersSchema.parse(request.body);
+      await options.operations.mcp.updateCredentials(
+        pathValue(request, 'serverId'),
+        input.credentialHeaders,
+      );
+      response.status(204).end();
+    }),
+  );
+  app.put(
+    '/api/v1/mcp/servers/:serverId/tools/:toolName/enhancement',
+    asyncRoute(async (request, response) => {
+      await options.operations.mcp.updateToolEnhancement(
+        pathValue(request, 'serverId'),
+        pathValue(request, 'toolName'),
+        ToolEnhancementSchema.parse(request.body),
+      );
+      response.status(204).end();
+    }),
+  );
+  app.delete(
+    '/api/v1/mcp/servers/:serverId',
+    asyncRoute(async (request, response) => {
+      await options.operations.mcp.delete(pathValue(request, 'serverId'));
+      response.status(204).end();
+    }),
+  );
+  app.get('/api/v1/skills', async (_request, response) => {
+    response.json({ items: await options.operations.skills.listCurrentVersions() });
+  });
+  app.get(
+    '/api/v1/tasks/:taskId/temporary-skills',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.temporarySkills.listByTask(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/temporary-skills',
+    asyncRoute(async (request, response) => {
+      response.status(201).json(
+        await options.operations.temporarySkills.create({
+          taskId: pathValue(request, 'taskId'),
+          ...CreateTemporarySkillSchema.parse(request.body),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/temporary-skills/:temporarySkillId/complete',
+    asyncRoute(async (request, response) => {
+      const input = CompleteTemporarySkillSchema.parse(request.body);
+      response.json(
+        await options.operations.temporarySkills.complete(
+          pathValue(request, 'temporarySkillId'),
+          input.successful,
+          input.outcomeSummary,
+        ),
+      );
+    }),
+  );
+  app.get('/api/v1/skill-graph', async (_request, response) => {
+    response.json({ items: await options.operations.graph.list() });
+  });
+  app.post(
+    '/api/v1/skill-graph/relations',
+    asyncRoute(async (request, response) => {
+      response
+        .status(201)
+        .json(await options.operations.graph.create(SkillRelationSchema.parse(request.body)));
+    }),
+  );
+  app.delete(
+    '/api/v1/skill-graph/relations/:relationId',
+    asyncRoute(async (request, response) => {
+      await options.operations.graph.delete(pathValue(request, 'relationId'));
+      response.status(204).end();
+    }),
+  );
+  app.post(
+    '/api/v1/skills',
+    asyncRoute(async (request, response) => {
+      const input = skillRegistrationInput(RegisterSkillSchema.parse(request.body));
+      response.status(201).json(await options.operations.skills.register(input));
+    }),
+  );
+  app.post(
+    '/api/v1/skills/:skillId/enable',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.skills.setEnabled(pathValue(request, 'skillId'), true),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/skills/:skillId/disable',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.skills.setEnabled(pathValue(request, 'skillId'), false),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/skills/:skillId/versions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.skills.listVersions(pathValue(request, 'skillId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/skills/:skillId/diff',
+    asyncRoute(async (request, response) => {
+      const query = z
+        .object({
+          from: z.coerce.number().int().positive(),
+          to: z.coerce.number().int().positive(),
+        })
+        .parse(request.query);
+      response.json(
+        await options.operations.skills.diff(pathValue(request, 'skillId'), query.from, query.to),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/skills/:skillId/rollback/:version',
+    asyncRoute(async (request, response) => {
+      const version = z.coerce.number().int().positive().parse(pathValue(request, 'version'));
+      response.json(
+        await options.operations.skills.rollback(pathValue(request, 'skillId'), version),
+      );
+    }),
+  );
+  app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
+    void next;
+    const normalized = normalizeHttpError(error);
+    response.status(normalized.status).json({ error: normalized.body });
+  });
+
+  const server = createServer(app);
+  const host = options.host ?? '127.0.0.1';
+  server.listen(options.port ?? 0, host);
+  await once(server, 'listening');
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    await closeServer(server);
+    throw new Error('MANAGEMENT_ENDPOINT_ADDRESS_UNAVAILABLE');
+  }
+  return {
+    baseUrl: `http://${host}:${String(address.port)}`,
+    close: () => closeServer(server),
+  };
+}
+
+function skillRegistrationInput(
+  parsed: z.infer<typeof RegisterSkillSchema>,
+): RegisterSkillVersionInput {
+  const policy = parsed.runtimePolicy;
+  return {
+    ...parsed,
+    runtimePolicy: {
+      autoConfirmPlan: policy.autoConfirmPlan,
+      ...(policy.maxReplans === undefined ? {} : { maxReplans: policy.maxReplans }),
+      ...(policy.maxDurationSeconds === undefined
+        ? {}
+        : { maxDurationSeconds: policy.maxDurationSeconds }),
+      ...(policy.maxLlmCalls === undefined ? {} : { maxLlmCalls: policy.maxLlmCalls }),
+      ...(policy.maxMcpCalls === undefined ? {} : { maxMcpCalls: policy.maxMcpCalls }),
+      ...(policy.maxCost === undefined ? {} : { maxCost: policy.maxCost }),
+      ...(policy.pauseReplanThresholdSeconds === undefined
+        ? {}
+        : { pauseReplanThresholdSeconds: policy.pauseReplanThresholdSeconds }),
+      ...(policy.cancelStrategy === undefined ? {} : { cancelStrategy: policy.cancelStrategy }),
+      ...(policy.compensationGuidance === undefined
+        ? {}
+        : { compensationGuidance: policy.compensationGuidance }),
+    },
+  };
+}
+
+function asyncRoute(
+  handler: (request: Request, response: Response) => Promise<void>,
+): (request: Request, response: Response, next: NextFunction) => void {
+  return (request, response, next) => void handler(request, response).catch(next);
+}
+
+function pathValue(request: Request, name: string): string {
+  const value = request.params[name];
+  if (typeof value !== 'string' || value.trim() === '')
+    throw new HttpInputError('PATH_PARAMETER_INVALID');
+  return value;
+}
+
+function normalizeHttpError(error: unknown): Readonly<{
+  status: number;
+  body: Readonly<{ code: string; message: string; details?: unknown }>;
+}> {
+  if (error instanceof z.ZodError) {
+    return {
+      status: 400,
+      body: {
+        code: 'REQUEST_VALIDATION_FAILED',
+        message: 'Request validation failed.',
+        details: error.issues,
+      },
+    };
+  }
+  const code = errorCode(error);
+  if (code === undefined) {
+    return {
+      status: 500,
+      body: { code: 'MANAGEMENT_INTERNAL_ERROR', message: 'Management operation failed.' },
+    };
+  }
+  const message = error instanceof Error ? error.message : 'Unexpected management API error.';
+  if (code.endsWith('_NOT_FOUND')) return { status: 404, body: { code, message } };
+  if (code.endsWith('_ALREADY_EXISTS')) return { status: 409, body: { code, message } };
+  return { status: 400, body: { code, message } };
+}
+
+function errorCode(error: unknown): string | undefined {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+  )
+    return error.code;
+  return error instanceof HttpInputError ? error.code : undefined;
+}
+
+class HttpInputError extends Error {
+  readonly code: string;
+  constructor(code: string) {
+    super('A required path parameter is invalid.');
+    this.code = code;
+  }
+}
+
+async function closeServer(server: HttpServer): Promise<void> {
+  if (!server.listening) return;
+  server.close();
+  server.closeAllConnections();
+  await once(server, 'close');
+}

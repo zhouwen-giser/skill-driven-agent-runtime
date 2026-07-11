@@ -4,5 +4,8 @@ export * from './goal.js';
 export * from './identity.js';
 export * from './skill-draft.js';
 export * from './skill.js';
+export * from './skill-graph.js';
+export * from './skill-selection.js';
+export * from './temporary-skill.js';
 export * from './mcp.js';
 export * from './task.js';

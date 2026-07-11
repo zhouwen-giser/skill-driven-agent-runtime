@@ -128,6 +128,28 @@ describe('McpRegistryService', () => {
       'invocation-2',
     ]);
   });
+
+  it('validates rotated credentials remotely and persists health status without refreshing Tools', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    const service = createService(repository, transport);
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: { Authorization: 'Bearer old' },
+    });
+    await service.updateCredentials('mcp.devices', { Authorization: 'Bearer rotated' });
+    expect(transport.lastPingHeaders).toEqual({ Authorization: 'Bearer rotated' });
+    expect(repository.record?.encryptedCredential).toBe('Bearer rotated');
+
+    transport.pingFailure = new Error('offline');
+    await expect(service.checkHealth('mcp.devices')).resolves.toEqual(
+      expect.objectContaining({ status: 'unreachable', errorCode: 'MCP_HEALTH_CHECK_FAILED' }),
+    );
+    expect(repository.record?.server.status).toBe('unreachable');
+    expect(transport.discoveries).toBe(1);
+  });
 });
 
 function createService(repository: McpRegistryRepository, transport: McpTransportAdapter) {
@@ -137,8 +159,8 @@ function createService(repository: McpRegistryRepository, transport: McpTranspor
     transport,
     schemas: new AjvJsonSchemaValidator(),
     cipher: {
-      encrypt: () => 'encrypted',
-      decrypt: () => ({ Authorization: 'Bearer secret' }),
+      encrypt: (secret) => secret['Authorization'] ?? 'none',
+      decrypt: (encrypted) => (encrypted === 'none' ? {} : { Authorization: encrypted }),
     },
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
     ids: { nextInvocationId: () => `invocation-${String(++invocationSequence)}` },
@@ -149,6 +171,8 @@ class ChangingTransport implements McpTransportAdapter {
   discoveries = 0;
   calls = 0;
   failure: Error | undefined;
+  pingFailure: Error | undefined;
+  lastPingHeaders: Readonly<Record<string, string>> | undefined;
   discover() {
     this.discoveries += 1;
     const schema =
@@ -170,6 +194,11 @@ class ChangingTransport implements McpTransportAdapter {
   disconnect() {
     return Promise.resolve();
   }
+  ping(input: Readonly<{ headers: Readonly<Record<string, string>> }>) {
+    this.lastPingHeaders = input.headers;
+    if (this.pingFailure !== undefined) return Promise.reject(this.pingFailure);
+    return Promise.resolve();
+  }
 }
 
 class MemoryMcpRepository implements McpRegistryRepository {
@@ -179,6 +208,9 @@ class MemoryMcpRepository implements McpRegistryRepository {
   warnings: readonly McpDependencyWarning[] = [];
   findServer() {
     return Promise.resolve(this.record);
+  }
+  listServers() {
+    return Promise.resolve(this.record === undefined ? [] : [this.record.server]);
   }
   listTools() {
     return Promise.resolve(this.tools);

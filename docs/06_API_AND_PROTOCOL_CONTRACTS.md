@@ -24,6 +24,10 @@ interface A2AProtocolAdapter {
 
 ## Management API
 
+Implemented base URL: `http://127.0.0.1:9998/api/v1` (configurable). OpenAPI: `schemas/management-api.openapi.yaml`.
+
+Implemented resources: `/health`, `/mcp/servers`, MCP refresh/remote-health/credential-rotation/tools/enhancement/invocations/warnings, `/skills`, Skill enable/disable, immutable version list/diff, rollback-as-new-version, and `/skill-graph` typed relation CRUD. Every response includes `X-SDAR-Security-Warning: trusted-intranet-only-no-auth`; MCP lists omit credentials and unknown internal errors are redacted.
+
 建议分组：
 
 - `/management/mcp-servers`

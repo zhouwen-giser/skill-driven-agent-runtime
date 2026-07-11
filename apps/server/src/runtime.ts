@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -14,7 +14,9 @@ import {
   PlanPreparationProcessor,
   ResultProcessor,
   McpRegistryService,
+  SkillGraphService,
   SkillRegistryService,
+  TemporarySkillService,
   TaskService,
   type RegisterSkillVersionInput,
 } from '../../../packages/application/src/index.js';
@@ -23,13 +25,19 @@ import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/inde
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
 import {
+  startManagementHttpEndpoint,
+  type ManagementHttpEndpointHandle,
+} from '../../../packages/management-api/src/index.js';
+import {
   PostgresAgentTaskRepository,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
+  PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresTemporarySkillRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -45,10 +53,13 @@ export interface ServerRuntimeOptions {
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
   readonly a2aPort?: number;
+  readonly managementHost?: string;
+  readonly managementPort?: number;
 }
 
 export interface ServerRuntimeHandle {
   readonly a2a: A2AHttpEndpointHandle;
+  readonly management: ManagementHttpEndpointHandle;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -92,7 +103,9 @@ export async function startServerRuntime(
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
+  const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const mcpRepository = new PostgresMcpRegistryRepository(pool);
+  const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
@@ -101,6 +114,12 @@ export async function startServerRuntime(
   const schemaValidator = new AjvJsonSchemaValidator();
   const resultProcessor = new ResultProcessor(schemaValidator);
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const skillGraph = new SkillGraphService({
+    graph: skillGraphRepository,
+    skills,
+    clock,
+    ids: { nextRelationId: () => `skill-relation-${randomUUID()}` },
+  });
   const mcpTransport = new StreamableHttpMcpAdapter();
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
@@ -110,10 +129,35 @@ export async function startServerRuntime(
     clock,
     ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
   });
+  const temporarySkills = new TemporarySkillService({
+    repository: temporarySkillRepository,
+    tools: mcpRepository,
+    schemas: schemaValidator,
+    clock,
+    ids: {
+      nextTemporarySkillId: () => `temporary-skill-${randomUUID()}`,
+      nextExperienceId: () => `temporary-skill-experience-${randomUUID()}`,
+      nextFormalizationCandidateId: () => `skill-formalization-candidate-${randomUUID()}`,
+    },
+    fingerprint: (canonical) => createHash('sha256').update(canonical).digest('hex'),
+    successThreshold: 2,
+  });
   const processor = new PlanPreparationProcessor({ tasks, events, clock, ids });
   const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
   worker.start();
+  let management: ManagementHttpEndpointHandle | undefined;
   try {
+    const startedManagement = await startManagementHttpEndpoint({
+      operations: {
+        graph: skillGraph,
+        mcp: mcpRegistry,
+        skills: skillRegistry,
+        temporarySkills,
+      },
+      ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
+      ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
+    });
+    management = startedManagement;
     const a2a = await startA2AHttpEndpoint({
       executor: new TaskServiceAgentExecutor({ tasks: service }),
       taskStore: new A2AProjectionTaskStore(
@@ -138,6 +182,7 @@ export async function startServerRuntime(
     });
     return {
       a2a,
+      management: startedManagement,
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },
@@ -177,6 +222,7 @@ export async function startServerRuntime(
       },
       async close(): Promise<void> {
         await a2a.close();
+        await startedManagement.close();
         await mcpTransport.close();
         await worker.close();
         await queue.close();
@@ -184,6 +230,7 @@ export async function startServerRuntime(
       },
     };
   } catch (error: unknown) {
+    await management?.close();
     await mcpTransport.close();
     await worker.close();
     await queue.close();
@@ -202,6 +249,9 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0007_skill_registry.up.sql',
     '0008_mcp_registry.up.sql',
     '0009_mcp_audit.up.sql',
+    '0010_skill_graph.up.sql',
+    '0011_skill_selection.up.sql',
+    '0012_temporary_skill.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

@@ -20,6 +20,7 @@ EP-02 requires runtime registration of remote MCP Servers, manual Tool refresh, 
 - Removed or schema-changed Tools atomically produce persistent warnings for affected current enabled SkillVersions without disabling them.
 - Every attempted remote call persists arguments, displayable result or stable error summary, status, task/context correlation, timestamps and duration. Schema-rejected inputs are not represented as remote calls.
 - Administrators can edit validated enhancement metadata independently of the untouched original input schema; refresh preserves enhancement for Tools that retain their names.
+- Credential rotation first validates the new registration headers with an MCP ping, then encrypts the replacement and disconnects the old credential session. Remote health pings do not rediscover Tools and persist enabled/unreachable status.
 
 ## Consequences
 

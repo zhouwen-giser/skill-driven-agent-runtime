@@ -1,5 +1,15 @@
 # Project Status
 
+EP-02 Temporary Skill update (2026-07-11): approximately 74%. Task-scoped Temporary Skills are isolated from the formal registry, validate live MCP Tool references, expire into PostgreSQL Experience records, and produce only an `awaiting_simulation` candidate after two equivalent successes. Unit, integration, contract, and real same-process e2e pass. Automatic capability-gap generation/execution and EP-05 simulation/publication remain open.
+
+EP-02 selection update (2026-07-11): approximately 68%. Candidate metric snapshots, LLM decision boundary, persistent selection evidence, and confirmation-bound alternative plans are implemented with simulated decider tests and real PostgreSQL persistence. Production ModelProvider/e2e remains open.
+
+EP-02 graph update (2026-07-11): approximately 60%. The six-relation Skill Graph is domain-owned, persisted, cycle-checked, exposed through management API, and verified with real e2e. Selection, temporary Skills, LLM generation, and Console remain open.
+
+EP-02 lifecycle update (2026-07-11): approximately 52%. MCP remote health/credential rotation and Skill version list/diff/rollback APIs are verified. Remaining core gaps are LLM Schema/metadata generation, Skill graph/search/selection, temporary Skills, and Console.
+
+EP-02 management update (2026-07-11): approximately 45%. Same-process MCP/Skill management HTTP API, OpenAPI contract, trusted-intranet risk markers, and real e2e CRUD are implemented. Console, LLM generation, Skill graph/search/temporary Skills remain open.
+
 EP-02 audit update (2026-07-11): approximately 38%. MCP invocation traces, persistent Skill dependency warnings, and editable refresh-stable Tool enhancement metadata are implemented. Management API/console and LLM-driven enhancement/failure decisions remain open.
 
 EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remote MCP register/refresh/delete/call with AES-256-GCM credentials pass real integration, official SDK contract, and single-process e2e tests. Remaining: LLM Schema/metadata generation, Skill graph/search/temporary Skills, persisted warnings/audits, and management API/console.

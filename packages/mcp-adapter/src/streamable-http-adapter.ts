@@ -65,6 +65,16 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
     if (client !== undefined) await (await client).close();
   }
 
+  async ping(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+    }>,
+  ): Promise<void> {
+    const client = await this.#getClient(input);
+    await client.ping();
+  }
+
   #getClient(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
     const key = clientKey(input);
     const existing = this.#clients.get(key);

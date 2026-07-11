@@ -32,17 +32,68 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   it('registers, persists, discovers, and calls a remote MCP Tool without restart', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.devices.${randomUUID()}`;
+    const encodedServerId = encodeURIComponent(serverId);
     try {
-      const registration = await runtime.registerMcpServer({
-        serverId,
-        name: 'Device MCP',
-        endpoint: mockMcp.endpoint.toString(),
-        credentialHeaders: { Authorization: 'Bearer local-test-only' },
+      const registrationResponse = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Device MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: { Authorization: 'Bearer local-test-only' },
+        }),
       });
+      expect(registrationResponse.status).toBe(201);
+      expect(registrationResponse.headers.get('x-sdar-security-warning')).toBe(
+        'trusted-intranet-only-no-auth',
+      );
+      const registration = z
+        .object({ tools: z.array(z.object({ toolName: z.string() })) })
+        .parse(await registrationResponse.json());
       expect(registration.tools.map((tool) => tool.toolName)).toEqual([
         'device_status',
         'slow_probe',
       ]);
+      const enhancementResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/tools/device_status/enhancement`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            purpose: 'Read device status',
+            scenarios: ['inspection'],
+            constraints: ['read-only'],
+            returnDescription: 'Device state',
+            commonErrors: ['offline'],
+            tags: ['device'],
+          }),
+        },
+      );
+      expect(enhancementResponse.status).toBe(204);
+      const toolsResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/tools`,
+      );
+      const tools = z
+        .object({
+          items: z.array(
+            z.object({
+              toolName: z.string(),
+              enhancement: z.object({ purpose: z.string() }).optional(),
+            }),
+          ),
+        })
+        .parse(await toolsResponse.json());
+      expect(tools.items[0]).toMatchObject({
+        toolName: 'device_status',
+        enhancement: { purpose: 'Read device status' },
+      });
+      const healthResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/health`,
+        { method: 'POST' },
+      );
+      expect(healthResponse.status).toBe(200);
+      await expect(healthResponse.json()).resolves.toMatchObject({ status: 'enabled' });
       await expect(
         runtime.callMcpTool(serverId, 'device_status', { deviceId: 'device-42' }, undefined, {
           taskId: 'task-audit-1',
@@ -56,7 +107,22 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(runtime.callMcpTool(serverId, 'device_status', {})).rejects.toMatchObject({
         code: 'MCP_ARGUMENT_SCHEMA_MISMATCH',
       });
-      await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([
+      const invocationsResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/invocations`,
+      );
+      const invocations = z
+        .object({
+          items: z.array(
+            z.object({
+              taskId: z.string().optional(),
+              contextId: z.string().optional(),
+              status: z.string(),
+              arguments: z.record(z.string(), z.unknown()),
+            }),
+          ),
+        })
+        .parse(await invocationsResponse.json());
+      expect(invocations.items).toEqual([
         expect.objectContaining({
           taskId: 'task-audit-1',
           contextId: 'context-audit-1',
@@ -64,7 +130,22 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           arguments: { deviceId: 'device-42' },
         }),
       ]);
-      await runtime.deleteMcpServer(serverId);
+      const credentialResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/credentials`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            credentialHeaders: { Authorization: 'Bearer local-test-only' },
+          }),
+        },
+      );
+      expect(credentialResponse.status).toBe(204);
+      const deleteResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}`,
+        { method: 'DELETE' },
+      );
+      expect(deleteResponse.status).toBe(204);
     } finally {
       await mockMcp.close();
     }
@@ -72,14 +153,190 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
 
   it('refreshes the public Agent Card when enabled skills change', async () => {
     const skillId = `skill.updated.${randomUUID()}`;
-    await runtime.registerSkill(skillInput(skillId, 'Updated skill'));
+    const createResponse = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(skillInput(skillId, 'Updated skill')),
+    });
+    expect(createResponse.status).toBe(201);
+    const listResponse = await fetch(`${runtime.management.baseUrl}/api/v1/skills`);
+    const listedSkills = z
+      .object({ items: z.array(z.object({ skillId: z.string(), status: z.string() })) })
+      .parse(await listResponse.json());
+    expect(listedSkills.items).toContainEqual(
+      expect.objectContaining({ skillId, status: 'enabled' }),
+    );
 
     const refreshed = await readAgentCard();
     expect(refreshed.skills).toContainEqual(
       expect.objectContaining({ id: skillId, name: 'Updated skill' }),
     );
-    await runtime.setSkillEnabled(skillId, false);
+    const disableResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/disable`,
+      { method: 'POST' },
+    );
+    expect(disableResponse.status).toBe(200);
     expect((await readAgentCard()).skills.map((skill) => skill.id)).not.toContain(skillId);
+    const versionsResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/versions`,
+    );
+    const versions = z
+      .object({ items: z.array(z.object({ version: z.number(), status: z.string() })) })
+      .parse(await versionsResponse.json());
+    expect(versions.items).toEqual([
+      expect.objectContaining({ version: 1, status: 'enabled' }),
+      expect.objectContaining({ version: 2, status: 'disabled' }),
+    ]);
+    const diffResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/diff?from=1&to=2`,
+    );
+    await expect(diffResponse.json()).resolves.toMatchObject({
+      fromVersion: 1,
+      toVersion: 2,
+      changedFields: expect.arrayContaining(['status']),
+    });
+    const rollbackResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/rollback/1`,
+      { method: 'POST' },
+    );
+    expect(rollbackResponse.status).toBe(200);
+    await expect(rollbackResponse.json()).resolves.toMatchObject({
+      version: 3,
+      previousVersion: 2,
+      status: 'enabled',
+    });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+  });
+
+  it('creates, lists, and deletes persisted Skill Graph relations through management HTTP', async () => {
+    const sourceSkillId = `skill.graph.source.${randomUUID()}`;
+    const targetSkillId = `skill.graph.target.${randomUUID()}`;
+    for (const [skillId, name] of [
+      [sourceSkillId, 'Graph source'],
+      [targetSkillId, 'Graph target'],
+    ] as const) {
+      const response = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(skillInput(skillId, name)),
+      });
+      expect(response.status).toBe(201);
+    }
+    const createResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skill-graph/relations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sourceSkillId,
+          targetSkillId,
+          relationType: 'composition',
+          metadata: { sequence: 1 },
+        }),
+      },
+    );
+    expect(createResponse.status).toBe(201);
+    const created = z.object({ relationId: z.string() }).parse(await createResponse.json());
+    const listResponse = await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph`);
+    const graph = z
+      .object({
+        items: z.array(
+          z.object({
+            relationId: z.string(),
+            sourceSkillId: z.string(),
+            targetSkillId: z.string(),
+            relationType: z.string(),
+            metadata: z.record(z.string(), z.unknown()),
+          }),
+        ),
+      })
+      .parse(await listResponse.json());
+    expect(graph.items).toContainEqual(
+      expect.objectContaining({
+        relationId: created.relationId,
+        sourceSkillId,
+        targetSkillId,
+        relationType: 'composition',
+        metadata: { sequence: 1 },
+      }),
+    );
+    const deleteResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skill-graph/relations/${encodeURIComponent(created.relationId)}`,
+      { method: 'DELETE' },
+    );
+    expect(deleteResponse.status).toBe(204);
+  });
+
+  it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.temporary.${randomUUID()}`;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Temporary Skill MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      const formalSkillsBefore = await readFormalSkillIds();
+      const createAndComplete = async (taskId: string) => {
+        const createdResponse = await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/temporary-skills`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              contextId: `context-${taskId}`,
+              name: 'Inspect device temporarily',
+              description: 'Read current device state for this task.',
+              tools: [{ serverId, toolName: 'device_status' }],
+              inputSchema: { type: 'object', properties: { deviceId: { type: 'string' } } },
+              outputSchema: { type: 'object', properties: { status: { type: 'string' } } },
+            }),
+          },
+        );
+        expect(createdResponse.status).toBe(201);
+        const created = z
+          .object({ temporarySkillId: z.string(), status: z.literal('active') })
+          .parse(await createdResponse.json());
+        const completedResponse = await fetch(
+          `${runtime.management.baseUrl}/api/v1/temporary-skills/${encodeURIComponent(created.temporarySkillId)}/complete`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ successful: true, outcomeSummary: 'Device state read.' }),
+          },
+        );
+        expect(completedResponse.status).toBe(200);
+        return z
+          .object({
+            skill: z.object({ status: z.literal('expired') }),
+            experience: z.object({ successful: z.literal(true) }),
+            formalizationCandidate: z
+              .object({
+                status: z.literal('awaiting_simulation'),
+                successfulExperienceCount: z.number(),
+              })
+              .optional(),
+          })
+          .parse(await completedResponse.json());
+      };
+
+      const first = await createAndComplete(`task-temp-${randomUUID()}`);
+      expect(first.formalizationCandidate).toBeUndefined();
+      const second = await createAndComplete(`task-temp-${randomUUID()}`);
+      expect(second.formalizationCandidate).toMatchObject({
+        status: 'awaiting_simulation',
+        successfulExperienceCount: 2,
+      });
+      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
+    } finally {
+      await mockMcp.close();
+    }
   });
 
   it('submits, streams, persists, lists, and cancels at the plan-confirmation boundary', async () => {
@@ -250,6 +507,15 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     await resumed.return(undefined);
   });
 });
+
+async function readFormalSkillIds(): Promise<string[]> {
+  const response = await fetch(`${runtime.management.baseUrl}/api/v1/skills`);
+  return z
+    .object({ items: z.array(z.object({ skillId: z.string() })) })
+    .parse(await response.json())
+    .items.map((item) => item.skillId)
+    .sort();
+}
 
 function skillInput(skillId: string, name: string): RegisterSkillVersionInput {
   return {

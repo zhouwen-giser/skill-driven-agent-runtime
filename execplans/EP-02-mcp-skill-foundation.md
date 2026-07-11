@@ -65,6 +65,60 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Outcomes and Retrospective
 
+## Temporary Skill Progress Update - 2026-07-11
+
+- [x] Add task/context-scoped Temporary Skill domain models outside the formal Skill registry.
+- [x] Validate current enabled MCP Tool references and JSON Schemas before persistence.
+- [x] Atomically expire completed Temporary Skills into Experience records.
+- [x] Require two equivalent successes before creating an `awaiting_simulation` formalization candidate.
+- [x] Verify PostgreSQL persistence and same-process management API with real loopback MCP e2e.
+- [ ] Wire automatic capability-gap detection, confirmed Workflow execution, and task-completion callbacks.
+- [ ] Route formalization candidates through EP-05 simulation/evaluation and governed Skill publication.
+
+Decision: ADR-015 keeps temporary state out of the formal registry and prevents repeated success from bypassing simulation.
+
+## Skill Selection Progress Update — 2026-07-11
+
+- [x] Build candidate snapshots with semantic, success, latency, cost, failure and stability signals.
+- [x] Require a structured decider result that references an enabled candidate.
+- [x] Persist candidate snapshots, selected SkillVersion and displayable decision summary.
+- [x] Restrict replacements to enabled `alternative` graph targets and persist only `awaiting_confirmation` plans.
+- [x] Verify orchestration with a simulated decider and persistence with real PostgreSQL.
+- [ ] Wire a production structured ModelProvider, pgvector retriever, management views and failure/reconfirmation e2e.
+
+Decision: ADR-014 prevents retrieval scores from becoming the final selector and excludes private reasoning from persisted decisions.
+
+## Skill Graph Progress Update — 2026-07-11
+
+- [x] Add all six required typed directed Skill relations.
+- [x] Reject missing endpoints, self-reference, duplicates, and parent/dependency cycles.
+- [x] Persist graph edges and metadata in PostgreSQL with rollback migration.
+- [x] Expose graph list/create/delete through management HTTP and OpenAPI.
+- [x] Verify domain, real PostgreSQL, and real same-process e2e behavior.
+- [ ] Consume graph relations in Skill selection and replacement planning.
+
+Decision: ADR-013 keeps graph authority in the Skill domain and treats future React Flow state as a projection only.
+
+## Registry Lifecycle Progress Update — 2026-07-11
+
+- [x] Add remote MCP protocol health without Tool rediscovery and persist enabled/unreachable status.
+- [x] Validate replacement registration credentials remotely, encrypt them, and disconnect the old session.
+- [x] Expose immutable Skill history, top-level field diff, and rollback-as-new-version.
+- [x] Verify real management e2e plus application tests for changed credentials and unreachable health.
+- [ ] Add management operation audit records and Console views.
+
+Test distinction: the official loopback server fixture supports one initialized session. Real e2e verifies same-value credential re-encryption through the full stack; changed-header validation is simulated at the application transport port. Production transport behavior for ping is covered with the official SDK contract session.
+
+## Management API Progress Update — 2026-07-11
+
+- [x] Add a same-process management listener isolated from A2A SDK routing.
+- [x] Expose real MCP and Skill registry operations with Zod validation and redacted errors.
+- [x] Mark every response and health output as unauthenticated trusted-intranet-only.
+- [x] Add OpenAPI, contract tests, real PostgreSQL/Redis/Mock MCP e2e and built smoke coverage.
+- [ ] Add MCP credential update/remote health, Skill rollback/diff, and the React console.
+
+Decision: ADR-012 uses a second listener inside the same process so management DTOs do not contaminate A2A SDK routing or core modules.
+
 ## MCP Audit Progress Update — 2026-07-11
 
 - [x] Persist successful/failed/canceled invocation inputs, displayable outputs/errors, correlation IDs and duration.

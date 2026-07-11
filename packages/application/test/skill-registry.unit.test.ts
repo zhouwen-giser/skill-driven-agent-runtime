@@ -17,6 +17,12 @@ describe('SkillRegistryService', () => {
     expect(disabled).toMatchObject({ status: 'disabled', previousVersion: 1 });
     expect(rolledBack).toMatchObject({ status: 'enabled', previousVersion: 2 });
     await expect(registry.getOutputSchema(first.skillId)).resolves.toEqual(first.outputSchema);
+    await expect(registry.listVersions(first.skillId)).resolves.toHaveLength(3);
+    await expect(registry.diff(first.skillId, 1, 2)).resolves.toMatchObject({
+      fromVersion: 1,
+      toVersion: 2,
+      changedFields: expect.arrayContaining(['status', 'sourceKind']),
+    });
   });
 
   it('rejects invalid schemas and overlapping tool policy membership', async () => {
@@ -89,11 +95,22 @@ class MemorySkillRepository implements SkillRepository {
   findVersion(skillId: string, version: number): Promise<SkillVersion | undefined> {
     return Promise.resolve(this.#versions.get(skillId)?.find((item) => item.version === version));
   }
+  listVersions(skillId: string): Promise<readonly SkillVersion[]> {
+    return Promise.resolve(this.#versions.get(skillId) ?? []);
+  }
   listEnabledVersions(): Promise<readonly SkillVersion[]> {
     return Promise.resolve(
       [...this.#versions.values()].flatMap((versions) => {
         const current = versions.at(-1);
         return current?.status === 'enabled' ? [current] : [];
+      }),
+    );
+  }
+  listCurrentVersions(): Promise<readonly SkillVersion[]> {
+    return Promise.resolve(
+      [...this.#versions.values()].flatMap((versions) => {
+        const current = versions.at(-1);
+        return current === undefined ? [] : [current];
       }),
     );
   }

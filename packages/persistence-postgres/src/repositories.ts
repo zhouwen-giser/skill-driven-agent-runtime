@@ -5,10 +5,14 @@ import type {
   ExternalTaskProjectionQuery,
   ExternalTaskProjectionRepository,
   McpRegistryRepository,
+  McpToolCatalog,
   McpServerRecord,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
+  SkillGraphRepository,
+  SkillSelectionRepository,
+  TemporarySkillRepository,
   SkillRepository,
 } from '../../application/src/index.js';
 import type {
@@ -21,6 +25,14 @@ import type {
   McpToolDependencyChange,
   McpToolEnhancement,
   Skill,
+  SkillRelation,
+  SkillPerformanceMetrics,
+  SkillReplacementPlan,
+  SkillSelectionRecord,
+  SkillFormalizationCandidate,
+  TemporarySkill,
+  TemporarySkillExperience,
+  ToolReference,
   SkillDraft,
   SkillRuntimePolicy,
   SkillVersion,
@@ -30,6 +42,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
+const ToolReferencesSchema = z.array(ToolReferenceSchema);
 const CapabilitiesSchema = z.array(z.string());
 const ToolPolicySchema = z.object({
   required: z.array(ToolReferenceSchema),
@@ -55,6 +68,20 @@ const McpEnhancementSchema = z.object({
   returnDescription: z.string(),
   commonErrors: StringArraySchema,
   tags: StringArraySchema,
+});
+const SkillMetricsSchema = z.object({
+  sampleCount: z.number().int().nonnegative(),
+  successRate: z.number().min(0).max(1),
+  averageDurationMs: z.number().nonnegative(),
+  averageCost: z.number().nonnegative(),
+  failureCount: z.number().int().nonnegative(),
+  stabilityScore: z.number().min(0).max(1),
+});
+const SkillCandidateSchema = z.object({
+  skillId: z.string(),
+  skillVersion: z.number().int().positive(),
+  semanticScore: z.number().min(0).max(1),
+  metrics: SkillMetricsSchema,
 });
 
 interface ContextRow extends QueryResultRow {
@@ -127,6 +154,70 @@ interface SkillVersionRow extends QueryResultRow {
   source_kind: SkillVersion['sourceKind'];
   validation_passed: boolean;
   previous_version: number | null;
+  created_at: Date | string;
+}
+
+interface SkillRelationRow extends QueryResultRow {
+  relation_id: string;
+  source_skill_id: string;
+  target_skill_id: string;
+  relation_type: SkillRelation['relationType'];
+  metadata_json: Record<string, unknown>;
+  created_at: Date | string;
+}
+
+interface SkillMetricsRow extends QueryResultRow {
+  sample_count: number;
+  success_rate: number;
+  average_duration_ms: number;
+  average_cost: number;
+  failure_count: number;
+  stability_score: number;
+}
+
+interface SkillSelectionRow extends QueryResultRow {
+  selection_id: string;
+  goal_description: string;
+  candidates_json: unknown;
+  selected_skill_id: string;
+  selected_skill_version: number;
+  decision_summary: string;
+  created_at: Date | string;
+}
+
+interface TemporarySkillRow extends QueryResultRow {
+  temporary_skill_id: string;
+  task_id: string;
+  context_id: string;
+  name: string;
+  description: string;
+  tools_json: unknown;
+  input_schema_json: unknown;
+  output_schema_json: unknown;
+  capability_fingerprint: string;
+  status: TemporarySkill['status'];
+  created_at: Date | string;
+  expired_at: Date | string | null;
+}
+
+interface TemporaryExperienceRow extends QueryResultRow {
+  experience_id: string;
+  temporary_skill_id: string;
+  task_id: string;
+  context_id: string;
+  capability_fingerprint: string;
+  successful: boolean;
+  outcome_summary: string;
+  created_at: Date | string;
+}
+
+interface FormalizationCandidateRow extends QueryResultRow {
+  candidate_id: string;
+  capability_fingerprint: string;
+  successful_experience_count: number;
+  required_success_threshold: number;
+  source_experience_ids_json: unknown;
+  status: SkillFormalizationCandidate['status'];
   created_at: Date | string;
 }
 
@@ -407,11 +498,28 @@ export class PostgresSkillRepository implements SkillRepository {
     return result.rows[0] === undefined ? undefined : mapSkillVersionRow(result.rows[0]);
   }
 
+  async listVersions(skillId: string): Promise<readonly SkillVersion[]> {
+    const result = await this.#pool.query<SkillVersionRow>(
+      `${skillVersionSelect} WHERE v.skill_id = $1 ORDER BY v.version`,
+      [skillId],
+    );
+    return result.rows.map(mapSkillVersionRow);
+  }
+
   async listEnabledVersions(): Promise<readonly SkillVersion[]> {
     const result = await this.#pool.query<SkillVersionRow>(
       `${skillVersionSelect}
        JOIN skill s ON s.skill_id = v.skill_id AND s.current_version = v.version
        WHERE v.status = 'enabled' ORDER BY v.skill_id`,
+    );
+    return result.rows.map(mapSkillVersionRow);
+  }
+
+  async listCurrentVersions(): Promise<readonly SkillVersion[]> {
+    const result = await this.#pool.query<SkillVersionRow>(
+      `${skillVersionSelect}
+       JOIN skill s ON s.skill_id = v.skill_id AND s.current_version = v.version
+       ORDER BY v.skill_id`,
     );
     return result.rows.map(mapSkillVersionRow);
   }
@@ -466,7 +574,278 @@ export class PostgresSkillRepository implements SkillRepository {
   }
 }
 
-export class PostgresMcpRegistryRepository implements McpRegistryRepository {
+export class PostgresSkillGraphRepository implements SkillGraphRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async listRelations(): Promise<readonly SkillRelation[]> {
+    const result = await this.#pool.query<SkillRelationRow>(
+      `SELECT relation_id, source_skill_id, target_skill_id, relation_type,
+              metadata_json, created_at
+       FROM skill_relation ORDER BY relation_type, source_skill_id, target_skill_id`,
+    );
+    return result.rows.map((row) => ({
+      relationId: row.relation_id,
+      sourceSkillId: row.source_skill_id,
+      targetSkillId: row.target_skill_id,
+      relationType: row.relation_type,
+      metadata: row.metadata_json,
+      createdAt: toIsoString(row.created_at),
+    }));
+  }
+
+  async saveRelation(relation: SkillRelation): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_relation
+         (relation_id, source_skill_id, target_skill_id, relation_type, metadata_json, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [
+        relation.relationId,
+        relation.sourceSkillId,
+        relation.targetSkillId,
+        relation.relationType,
+        JSON.stringify(relation.metadata),
+        relation.createdAt,
+      ],
+    );
+  }
+
+  async deleteRelation(relationId: string): Promise<void> {
+    await this.#pool.query('DELETE FROM skill_relation WHERE relation_id = $1', [relationId]);
+  }
+}
+
+export class PostgresSkillSelectionRepository implements SkillSelectionRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async findMetrics(skillId: string): Promise<SkillPerformanceMetrics | undefined> {
+    const result = await this.#pool.query<SkillMetricsRow>(
+      `SELECT sample_count, success_rate, average_duration_ms, average_cost,
+              failure_count, stability_score
+       FROM skill_performance_metrics WHERE skill_id = $1`,
+      [skillId],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          sampleCount: row.sample_count,
+          successRate: row.success_rate,
+          averageDurationMs: row.average_duration_ms,
+          averageCost: row.average_cost,
+          failureCount: row.failure_count,
+          stabilityScore: row.stability_score,
+        };
+  }
+
+  async saveMetrics(
+    skillId: string,
+    metrics: SkillPerformanceMetrics,
+    updatedAt: string,
+  ): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_performance_metrics
+         (skill_id, sample_count, success_rate, average_duration_ms, average_cost,
+          failure_count, stability_score, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (skill_id) DO UPDATE SET
+         sample_count = EXCLUDED.sample_count, success_rate = EXCLUDED.success_rate,
+         average_duration_ms = EXCLUDED.average_duration_ms,
+         average_cost = EXCLUDED.average_cost, failure_count = EXCLUDED.failure_count,
+         stability_score = EXCLUDED.stability_score, updated_at = EXCLUDED.updated_at`,
+      [
+        skillId,
+        metrics.sampleCount,
+        metrics.successRate,
+        metrics.averageDurationMs,
+        metrics.averageCost,
+        metrics.failureCount,
+        metrics.stabilityScore,
+        updatedAt,
+      ],
+    );
+  }
+
+  async saveSelection(record: SkillSelectionRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_selection_record
+         (selection_id, goal_description, candidates_json, selected_skill_id,
+          selected_skill_version, decision_summary, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        record.selectionId,
+        record.goalDescription,
+        JSON.stringify(record.candidates),
+        record.selectedSkillId,
+        record.selectedSkillVersion,
+        record.decisionSummary,
+        record.createdAt,
+      ],
+    );
+  }
+
+  async findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined> {
+    const result = await this.#pool.query<SkillSelectionRow>(
+      `SELECT selection_id, goal_description, candidates_json, selected_skill_id,
+              selected_skill_version, decision_summary, created_at
+       FROM skill_selection_record WHERE selection_id = $1`,
+      [selectionId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapSkillSelectionRow(row);
+  }
+
+  async saveReplacementPlan(plan: SkillReplacementPlan): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_replacement_plan
+         (replacement_plan_id, selection_id, failed_skill_id, candidates_json,
+          replacement_skill_id, replacement_skill_version, decision_summary, status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        plan.replacementPlanId,
+        plan.selectionId,
+        plan.failedSkillId,
+        JSON.stringify(plan.candidates),
+        plan.replacementSkillId,
+        plan.replacementSkillVersion,
+        plan.decisionSummary,
+        plan.status,
+        plan.createdAt,
+      ],
+    );
+  }
+}
+
+export class PostgresTemporarySkillRepository implements TemporarySkillRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async find(temporarySkillId: string): Promise<TemporarySkill | undefined> {
+    const result = await this.#pool.query<TemporarySkillRow>(
+      `${temporarySkillSelect} WHERE temporary_skill_id = $1`,
+      [temporarySkillId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTemporarySkillRow(result.rows[0]);
+  }
+
+  async listByTask(taskId: string): Promise<readonly TemporarySkill[]> {
+    const result = await this.#pool.query<TemporarySkillRow>(
+      `${temporarySkillSelect} WHERE task_id = $1 ORDER BY created_at, temporary_skill_id`,
+      [taskId],
+    );
+    return result.rows.map(mapTemporarySkillRow);
+  }
+
+  async save(skill: TemporarySkill): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO temporary_skill
+         (temporary_skill_id, task_id, context_id, name, description, tools_json,
+          input_schema_json, output_schema_json, capability_fingerprint, status,
+          created_at, expired_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      temporarySkillParameters(skill),
+    );
+  }
+
+  async expireAndSaveExperience(
+    skill: TemporarySkill,
+    experience: TemporarySkillExperience,
+  ): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        `UPDATE temporary_skill SET status = $2, expired_at = $3
+         WHERE temporary_skill_id = $1 AND status = 'active'`,
+        [skill.temporarySkillId, skill.status, skill.expiredAt ?? null],
+      );
+      if (updated.rowCount !== 1) throw new Error('TEMPORARY_SKILL_CONCURRENT_EXPIRY');
+      await client.query(
+        `INSERT INTO temporary_skill_experience
+           (experience_id, temporary_skill_id, task_id, context_id,
+            capability_fingerprint, successful, outcome_summary, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          experience.experienceId,
+          experience.temporarySkillId,
+          experience.taskId,
+          experience.contextId,
+          experience.capabilityFingerprint,
+          experience.successful,
+          experience.outcomeSummary,
+          experience.createdAt,
+        ],
+      );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listSuccessfulExperiences(
+    capabilityFingerprint: string,
+  ): Promise<readonly TemporarySkillExperience[]> {
+    const result = await this.#pool.query<TemporaryExperienceRow>(
+      `SELECT experience_id, temporary_skill_id, task_id, context_id,
+              capability_fingerprint, successful, outcome_summary, created_at
+       FROM temporary_skill_experience
+       WHERE capability_fingerprint = $1 AND successful = true
+       ORDER BY created_at, experience_id`,
+      [capabilityFingerprint],
+    );
+    return result.rows.map(mapTemporaryExperienceRow);
+  }
+
+  async findFormalizationCandidate(
+    capabilityFingerprint: string,
+  ): Promise<SkillFormalizationCandidate | undefined> {
+    const result = await this.#pool.query<FormalizationCandidateRow>(
+      `SELECT candidate_id, capability_fingerprint, successful_experience_count,
+              required_success_threshold, source_experience_ids_json, status, created_at
+       FROM skill_formalization_candidate WHERE capability_fingerprint = $1`,
+      [capabilityFingerprint],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapFormalizationCandidateRow(row);
+  }
+
+  async saveFormalizationCandidate(candidate: SkillFormalizationCandidate): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_formalization_candidate
+         (candidate_id, capability_fingerprint, successful_experience_count,
+          required_success_threshold, source_experience_ids_json, status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (capability_fingerprint) DO NOTHING`,
+      [
+        candidate.candidateId,
+        candidate.capabilityFingerprint,
+        candidate.successfulExperienceCount,
+        candidate.requiredSuccessThreshold,
+        JSON.stringify(candidate.sourceExperienceIds),
+        candidate.status,
+        candidate.createdAt,
+      ],
+    );
+  }
+}
+
+const temporarySkillSelect = `SELECT temporary_skill_id, task_id, context_id, name,
+  description, tools_json, input_schema_json, output_schema_json,
+  capability_fingerprint, status, created_at, expired_at FROM temporary_skill`;
+
+export class PostgresMcpRegistryRepository implements McpRegistryRepository, McpToolCatalog {
   readonly #pool: Pool;
 
   constructor(pool: Pool) {
@@ -486,6 +865,15 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository {
       : { server: mapMcpServerRow(row), encryptedCredential: row.encrypted_credential };
   }
 
+  async listServers(): Promise<readonly McpServer[]> {
+    const result = await this.#pool.query<McpServerRow>(
+      `SELECT server_id, name, endpoint, transport, status, tool_revision,
+              encrypted_credential, created_at, updated_at
+       FROM mcp_server ORDER BY server_id`,
+    );
+    return result.rows.map(mapMcpServerRow);
+  }
+
   async listTools(serverId: string): Promise<readonly McpTool[]> {
     const result = await this.#pool.query<McpToolRow>(
       `SELECT server_id, tool_name, title, description, input_schema_json,
@@ -494,6 +882,17 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository {
       [serverId],
     );
     return result.rows.map(mapMcpToolRow);
+  }
+
+  async exists(reference: ToolReference): Promise<boolean> {
+    const result = await this.#pool.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM mcp_tool t JOIN mcp_server s ON s.server_id = t.server_id
+         WHERE t.server_id = $1 AND t.tool_name = $2 AND s.status = 'enabled'
+       ) AS exists`,
+      [reference.serverId, reference.toolName],
+    );
+    return result.rows[0]?.exists === true;
   }
 
   async saveServerAndReplaceTools(
@@ -758,6 +1157,77 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
     sourceKind: row.source_kind,
     validationPassed: row.validation_passed,
     ...(row.previous_version === null ? {} : { previousVersion: row.previous_version }),
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {
+  return {
+    selectionId: row.selection_id,
+    goalDescription: row.goal_description,
+    candidates: z.array(SkillCandidateSchema).parse(row.candidates_json),
+    selectedSkillId: row.selected_skill_id,
+    selectedSkillVersion: row.selected_skill_version,
+    decisionSummary: row.decision_summary,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function temporarySkillParameters(skill: TemporarySkill): unknown[] {
+  return [
+    skill.temporarySkillId,
+    skill.taskId,
+    skill.contextId,
+    skill.name,
+    skill.description,
+    JSON.stringify(skill.tools),
+    JSON.stringify(skill.inputSchema),
+    JSON.stringify(skill.outputSchema),
+    skill.capabilityFingerprint,
+    skill.status,
+    skill.createdAt,
+    skill.expiredAt ?? null,
+  ];
+}
+
+function mapTemporarySkillRow(row: TemporarySkillRow): TemporarySkill {
+  return {
+    temporarySkillId: row.temporary_skill_id,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    name: row.name,
+    description: row.description,
+    tools: ToolReferencesSchema.parse(row.tools_json),
+    inputSchema: row.input_schema_json,
+    outputSchema: row.output_schema_json,
+    capabilityFingerprint: row.capability_fingerprint,
+    status: row.status,
+    createdAt: toIsoString(row.created_at),
+    ...(row.expired_at === null ? {} : { expiredAt: toIsoString(row.expired_at) }),
+  };
+}
+
+function mapTemporaryExperienceRow(row: TemporaryExperienceRow): TemporarySkillExperience {
+  return {
+    experienceId: row.experience_id,
+    temporarySkillId: row.temporary_skill_id,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    capabilityFingerprint: row.capability_fingerprint,
+    successful: row.successful,
+    outcomeSummary: row.outcome_summary,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapFormalizationCandidateRow(row: FormalizationCandidateRow): SkillFormalizationCandidate {
+  return {
+    candidateId: row.candidate_id,
+    capabilityFingerprint: row.capability_fingerprint,
+    successfulExperienceCount: row.successful_experience_count,
+    requiredSuccessThreshold: row.required_success_threshold,
+    sourceExperienceIds: z.array(z.string()).parse(row.source_experience_ids_json),
+    status: row.status,
     createdAt: toIsoString(row.created_at),
   };
 }

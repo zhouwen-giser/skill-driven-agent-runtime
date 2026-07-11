@@ -37,6 +37,14 @@ export interface McpCallContext {
   readonly contextId?: string;
 }
 
+export interface McpHealthResult {
+  readonly serverId: string;
+  readonly status: 'enabled' | 'unreachable';
+  readonly checkedAt: string;
+  readonly durationMs: number;
+  readonly errorCode?: 'MCP_HEALTH_CHECK_FAILED';
+}
+
 export class McpRegistryService {
   readonly #repository: McpRegistryRepository;
   readonly #transport: McpTransportAdapter;
@@ -187,8 +195,61 @@ export class McpRegistryService {
     await this.#repository.deleteServer(serverId);
   }
 
+  async updateCredentials(
+    serverId: string,
+    credentialHeaders: Readonly<Record<string, string>>,
+  ): Promise<void> {
+    const record = await this.#requireServer(serverId);
+    const previousHeaders = this.#cipher.decrypt(record.encryptedCredential);
+    await this.#transport.ping({ endpoint: record.server.endpoint, headers: credentialHeaders });
+    const tools = await this.#repository.listTools(serverId);
+    await this.#transport.disconnect({
+      endpoint: record.server.endpoint,
+      headers: previousHeaders,
+    });
+    await this.#repository.saveServerAndReplaceTools(
+      { ...record, encryptedCredential: this.#cipher.encrypt(credentialHeaders) },
+      tools,
+    );
+  }
+
+  async checkHealth(serverId: string): Promise<McpHealthResult> {
+    const record = await this.#requireServer(serverId);
+    const headers = this.#cipher.decrypt(record.encryptedCredential);
+    const startedAt = this.#clock.now();
+    let status: McpHealthResult['status'] = 'enabled';
+    let errorCode: McpHealthResult['errorCode'];
+    try {
+      await this.#transport.ping({ endpoint: record.server.endpoint, headers });
+    } catch {
+      status = 'unreachable';
+      errorCode = 'MCP_HEALTH_CHECK_FAILED';
+    }
+    const checkedAt = this.#clock.now();
+    const server = createMcpServer({ ...record.server, status, updatedAt: checkedAt });
+    await this.#repository.saveServerAndReplaceTools(
+      { server, encryptedCredential: record.encryptedCredential },
+      await this.#repository.listTools(serverId),
+    );
+    return {
+      serverId,
+      status,
+      checkedAt,
+      durationMs: elapsedMilliseconds(startedAt, checkedAt),
+      ...(errorCode === undefined ? {} : { errorCode }),
+    };
+  }
+
   listInvocations(serverId: string) {
     return this.#repository.listInvocations(serverId);
+  }
+
+  listServers() {
+    return this.#repository.listServers();
+  }
+
+  listTools(serverId: string) {
+    return this.#repository.listTools(serverId);
   }
 
   listDependencyWarnings(serverId: string) {
@@ -260,7 +321,7 @@ function invocationRecord(
     completedAt: string;
   }>,
 ): McpInvocation {
-  const duration = Date.parse(input.completedAt) - Date.parse(input.startedAt);
+  const duration = elapsedMilliseconds(input.startedAt, input.completedAt);
   return {
     invocationId: input.invocationId,
     ...input.context,
@@ -273,8 +334,13 @@ function invocationRecord(
     ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),
     startedAt: input.startedAt,
     completedAt: input.completedAt,
-    durationMs: Number.isFinite(duration) && duration >= 0 ? duration : 0,
+    durationMs: duration,
   };
+}
+
+function elapsedMilliseconds(startedAt: string, completedAt: string): number {
+  const duration = Date.parse(completedAt) - Date.parse(startedAt);
+  return Number.isFinite(duration) && duration >= 0 ? duration : 0;
 }
 
 function compareTools(

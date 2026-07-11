@@ -16,6 +16,7 @@ Agent Card publication and result validation previously accepted an in-memory ca
 - Resolve result validation schemas from the current enabled SkillVersion; execution callers cannot supply a competing schema.
 - Validate JSON Schema and domain invariants before atomically inserting the version and updating the current pointer.
 - Keep the domain and application models independent of PostgreSQL, Ajv, A2A, and future MCP SDK types.
+- Version history and top-level field differences are queryable. Rollback copies the selected immutable version into a new current version linked to the previously current version.
 
 ## Consequences
 

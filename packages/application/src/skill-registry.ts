@@ -8,6 +8,15 @@ export type RegisterSkillVersionInput = Omit<
   'version' | 'previousVersion' | 'createdAt'
 >;
 
+export interface SkillVersionDiff {
+  readonly skillId: string;
+  readonly fromVersion: number;
+  readonly toVersion: number;
+  readonly changedFields: readonly string[];
+  readonly from: SkillVersion;
+  readonly to: SkillVersion;
+}
+
 export class SkillRegistryService {
   readonly #skills: SkillRepository;
   readonly #validator: JsonSchemaValidator;
@@ -58,6 +67,47 @@ export class SkillRegistryService {
       throw new SkillRegistryError('SKILL_NOT_ENABLED', 'Skill is not enabled.');
     }
     return current.outputSchema;
+  }
+
+  listCurrentVersions(): Promise<readonly SkillVersion[]> {
+    return this.#skills.listCurrentVersions();
+  }
+
+  listVersions(skillId: string): Promise<readonly SkillVersion[]> {
+    return this.#skills.listVersions(skillId);
+  }
+
+  async diff(skillId: string, fromVersion: number, toVersion: number): Promise<SkillVersionDiff> {
+    const from = await this.#skills.findVersion(skillId, fromVersion);
+    const to = await this.#skills.findVersion(skillId, toVersion);
+    if (from === undefined || to === undefined) {
+      throw new SkillRegistryError('SKILL_VERSION_NOT_FOUND', 'Skill version was not found.');
+    }
+    const fields: readonly (keyof SkillVersion)[] = [
+      'name',
+      'summary',
+      'description',
+      'capabilities',
+      'workflowGuidance',
+      'outputInstruction',
+      'inputSchema',
+      'outputSchema',
+      'toolPolicy',
+      'runtimePolicy',
+      'status',
+      'sourceKind',
+      'validationPassed',
+    ];
+    return {
+      skillId,
+      fromVersion,
+      toVersion,
+      changedFields: fields.filter(
+        (field) => JSON.stringify(from[field]) !== JSON.stringify(to[field]),
+      ),
+      from,
+      to,
+    };
   }
 
   async #copyAsNewVersion(current: SkillVersion, status: SkillStatus): Promise<SkillVersion> {
