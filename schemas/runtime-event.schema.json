@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "task_id",
+    "context_id",
+    "occurred_at",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "task_queued",
+        "task_started",
+        "goal_resolved",
+        "goal_patched",
+        "skill_candidates",
+        "skill_selected",
+        "workflow_planned",
+        "workflow_validation_failed",
+        "workflow_validated",
+        "confirmation_required",
+        "confirmation_received",
+        "workflow_started",
+        "node_started",
+        "node_completed",
+        "node_failed",
+        "mcp_call_started",
+        "mcp_call_completed",
+        "model_call_started",
+        "model_call_completed",
+        "task_paused",
+        "task_resumed",
+        "task_canceled",
+        "goal_evaluated",
+        "replan_requested",
+        "result_emitted",
+        "evaluation_completed",
+        "experience_recorded",
+        "skill_evolution_triggered",
+        "task_failed",
+        "task_completed"
+      ]
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "context_id": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "workflow_instance_id": {
+      "type": "string"
+    },
+    "node_run_id": {
+      "type": "string"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

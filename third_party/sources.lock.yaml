@@ -1,0 +1,73 @@
+schema_version: 1
+updated_at: 2026-07-11
+sources:
+  - name: LangGraph.js
+    repository: https://github.com/langchain-ai/langgraphjs
+    license: "MIT"
+    use: direct_dependency
+    pin: UNPINNED
+    allowed: "published @langchain/langgraph APIs"
+    forbidden: "none; avoid hosted proprietary assumptions"
+  - name: Mastra
+    repository: https://github.com/mastra-ai/mastra
+    license: "Apache-2.0 core / enterprise ee"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "core server/storage/eval/observability design"
+    forbidden: "all ee/ paths and runtime integration"
+  - name: VoltAgent
+    repository: https://github.com/VoltAgent/voltagent
+    license: "MIT"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "model/tool/event/trace/eval patterns"
+    forbidden: "second agent/workflow runtime"
+  - name: OpenHands
+    repository: https://github.com/OpenHands/OpenHands
+    license: "MIT main repo"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "skill/plugin packaging concepts"
+    forbidden: "commercial/non-MIT repos and Python runtime integration"
+  - name: Dify
+    repository: https://github.com/langgenius/dify
+    license: "Dify Open Source License (modified Apache-2.0)"
+    use: design_reference_only
+    pin: UNPINNED
+    allowed: "UX and information architecture observation"
+    forbidden: "source code copying or vendoring"
+  - name: Google ADK JS
+    repository: https://github.com/google/adk-js
+    license: "Apache-2.0"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "workflow/session/eval/MCP tests"
+    forbidden: "runtime integration"
+  - name: BeeAI Framework
+    repository: https://github.com/i-am-bee/beeai-framework
+    license: "Apache-2.0"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "constraints/events/serialization patterns"
+    forbidden: "workflow/A2A runtime integration"
+  - name: Microsoft Agent Framework
+    repository: https://github.com/microsoft/agent-framework
+    license: "MIT"
+    use: reference_only
+    pin: UNPINNED
+    allowed: "middleware/telemetry/HITL/dev UI patterns"
+    forbidden: ".NET/Python runtime integration"
+  - name: A2A JavaScript SDK
+    repository: https://github.com/a2aproject/a2a-js
+    license: "Apache-2.0"
+    use: direct_dependency
+    pin: UNPINNED
+    allowed: "official protocol SDK behind adapter"
+    forbidden: "SDK models in domain"
+  - name: MCP TypeScript SDK
+    repository: https://github.com/modelcontextprotocol/typescript-sdk
+    license: "VERIFY_AT_PIN"
+    use: direct_dependency
+    pin: UNPINNED
+    allowed: "client and Streamable HTTP behind adapter"
+    forbidden: "SDK models in domain"

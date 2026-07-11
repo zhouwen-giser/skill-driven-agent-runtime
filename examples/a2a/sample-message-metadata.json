@@ -1,0 +1,15 @@
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "查询园区 A 的在线设备并生成状态报告"
+      }
+    ],
+    "metadata": {
+      "user_id": "demo-user"
+    }
+  },
+  "context_id": null
+}

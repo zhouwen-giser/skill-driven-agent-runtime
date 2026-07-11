@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MemoryItem",
+  "type": "object",
+  "required": [
+    "memory_id",
+    "type",
+    "content",
+    "status",
+    "source_refs",
+    "created_at"
+  ],
+  "properties": {
+    "memory_id": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "fact",
+        "success_experience",
+        "failure_experience",
+        "workflow_pattern",
+        "skill_learning",
+        "prompt_learning"
+      ]
+    },
+    "content": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "superseded",
+        "invalid"
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

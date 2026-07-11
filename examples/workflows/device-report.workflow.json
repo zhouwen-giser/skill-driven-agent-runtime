@@ -1,0 +1,107 @@
+{
+  "workflow_id": "wf-example-device-report",
+  "version": 1,
+  "goal_ref": {
+    "goal_id": "goal-example",
+    "goal_version": 1
+  },
+  "skill_refs": [
+    {
+      "skill_id": "skill.device-status-report",
+      "planned_version": 1
+    }
+  ],
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "scope": {
+        "type": "string"
+      },
+      "devices": {
+        "type": "array"
+      },
+      "report": {
+        "type": "object"
+      }
+    }
+  },
+  "entry_node": "query_devices",
+  "nodes": [
+    {
+      "id": "query_devices",
+      "type": "mcp_tool",
+      "name": "查询设备",
+      "input_mapping": {
+        "scope": {
+          "var": "state.scope"
+        }
+      },
+      "output_mapping": {
+        "devices": "state.devices"
+      },
+      "config": {
+        "server_id": "mock-iot",
+        "tool_name": "query_devices"
+      },
+      "on_error": "handle_error"
+    },
+    {
+      "id": "compose_report",
+      "type": "llm",
+      "name": "生成报告",
+      "input_mapping": {
+        "devices": {
+          "var": "state.devices"
+        }
+      },
+      "output_mapping": {
+        "report": "state.report"
+      },
+      "config": {
+        "stage": "result_composition",
+        "response_schema_ref": "skill.output_schema"
+      }
+    },
+    {
+      "id": "emit_result",
+      "type": "result",
+      "name": "输出结果",
+      "config": {
+        "text": {
+          "var": "state.report.summary"
+        },
+        "data": {
+          "var": "state.report"
+        }
+      }
+    },
+    {
+      "id": "handle_error",
+      "type": "error_handler",
+      "name": "错误处理",
+      "config": {
+        "strategy_stage": "execution_exception"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "query_devices",
+      "to": "compose_report"
+    },
+    {
+      "from": "compose_report",
+      "to": "emit_result"
+    },
+    {
+      "from": "handle_error",
+      "to": "emit_result"
+    }
+  ],
+  "budgets": {
+    "max_duration_seconds": 120,
+    "max_llm_calls": 4,
+    "max_mcp_calls": 2,
+    "max_loop_iterations": 2
+  }
+}

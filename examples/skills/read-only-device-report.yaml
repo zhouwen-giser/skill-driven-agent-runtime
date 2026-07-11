@@ -1,0 +1,53 @@
+skill_id: skill.device-status-report
+version: 1
+name: 设备状态分析报告
+summary: 查询设备状态并生成结构化分析报告
+description: |
+  根据用户指定范围查询在线设备、位置、电量和任务状态，识别异常并生成报告。
+  此 Skill 只允许读取，不得创建任务或发送控制命令。
+status: enabled
+capabilities:
+  - 设备查询
+  - 状态分析
+  - 报告生成
+tool_policy:
+  required:
+    - server_id: mock-iot
+      tool_name: query_devices
+  optional:
+    - server_id: mock-iot
+      tool_name: query_active_tasks
+  forbidden:
+    - server_id: mock-iot
+      tool_name: send_device_command
+workflow_guidance: |
+  先解析范围，再查询设备；如用户要求任务信息则并行查询任务；校验数据后汇总异常。
+output_instruction: 同时生成自然语言摘要和符合 output_schema 的 JSON。
+input_schema:
+  type: object
+  required: [scope]
+  properties:
+    scope: {type: string}
+    include_tasks: {type: boolean, default: false}
+output_schema:
+  type: object
+  required: [summary, devices, anomalies]
+  properties:
+    summary: {type: string}
+    devices: {type: array, items: {type: object}}
+    anomalies: {type: array, items: {type: object}}
+confirmation:
+  auto_confirm_plan: false
+budgets:
+  max_replans: 2
+  max_duration_seconds: 120
+  max_llm_calls: 8
+  max_mcp_calls: 4
+  max_cost: 1
+lifecycle:
+  pause_replan_threshold_seconds: 300
+  cancel_strategy: try_interrupt
+  compensation_guidance: ''
+source:
+  kind: admin
+  reference_ids: [example]

@@ -1,0 +1,61 @@
+{
+  "server_id": "mock-iot",
+  "tools": [
+    {
+      "name": "query_devices",
+      "description": "查询设备状态",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "query_active_tasks",
+      "description": "查询活动任务",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "send_device_command",
+      "description": "发送设备控制命令",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "device_id",
+          "command"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    }
+  ]
+}

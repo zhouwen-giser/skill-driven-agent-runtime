@@ -1,0 +1,357 @@
+{
+  "package": "Skill-Driven-Agent-Runtime Codex Project Pack",
+  "version": "1.0",
+  "generated_at": "2026-07-11",
+  "files": [
+    {
+      "path": ".agents/skills/sdar-acceptance-auditor/SKILL.md",
+      "size": 769,
+      "sha256": "b9a57a244cc7823a703d8d0a8b20572c57799a541e299dd2afad83b48e842506"
+    },
+    {
+      "path": ".agents/skills/sdar-architecture-guardian/SKILL.md",
+      "size": 831,
+      "sha256": "913dcdd70845451097b380f29d619b944c07d276118796b796e86b51a65a0b80"
+    },
+    {
+      "path": ".agents/skills/sdar-implementation-gate/SKILL.md",
+      "size": 681,
+      "sha256": "bc03419ea5d9dd998cbdb48a9d0c17c70c08d42f18212a2612ad4529ff4967c4"
+    },
+    {
+      "path": ".agents/skills/sdar-open-source-intake/SKILL.md",
+      "size": 836,
+      "sha256": "4d44ccbaf2715d7c7e2643afde16ceb59a3f42c1a19e541664abcb7d27860859"
+    },
+    {
+      "path": "AGENTS.md",
+      "size": 5413,
+      "sha256": "afe5c071935aee1e67250242ba6dd5d51b93a2881776f5aa182f09b395701803"
+    },
+    {
+      "path": "CODEX_GOAL_PROMPT.md",
+      "size": 5935,
+      "sha256": "a7efac9bb28e54a1c70167cd4e4a86ae1e4c8695ca67499fbf36ce6c0dabbab7"
+    },
+    {
+      "path": "PLANS.md",
+      "size": 2526,
+      "sha256": "fde3e37f46317d6c2c1f5055ef310f67075e018a691994b01ab23025e3601a49"
+    },
+    {
+      "path": "PROJECT_STATUS.md",
+      "size": 924,
+      "sha256": "ea844f9f345faf36dd3f701f9a40a4509f15ede27593f8843a7fd939fefe89b9"
+    },
+    {
+      "path": "QUICK_START_CODEX.md",
+      "size": 2423,
+      "sha256": "8278837138e67456cd4eb1fd51029b369ee7a965fe14b8f30b47939119ce71b7"
+    },
+    {
+      "path": "README.md",
+      "size": 2277,
+      "sha256": "16e1f812ec0b3c41e8f21600e56bafa31311ca5a7f268a48046102ab57202684"
+    },
+    {
+      "path": "adr/ADR-001-single-runtime-langgraph.md",
+      "size": 498,
+      "sha256": "94cd905208b73023c1b3bd3c4a5c8773cdc12d77593b566d667dfb59b0d9d9a1"
+    },
+    {
+      "path": "adr/ADR-002-protocol-adapters.md",
+      "size": 475,
+      "sha256": "06c788110a63111797a3ae0d1206e1f7bf9d854665b623666a32f9b693ec7eeb"
+    },
+    {
+      "path": "adr/ADR-003-skill-capability-contract.md",
+      "size": 521,
+      "sha256": "22d5b258444591ff8e62987d976cac962037d53761736e00b978a67dc23d8270"
+    },
+    {
+      "path": "adr/ADR-004-no-dynamic-code.md",
+      "size": 455,
+      "sha256": "a0673e018667543510c4d132a762f54aa1b2e3069ca5c6d7dbc75f3b8d4bc642"
+    },
+    {
+      "path": "adr/ADR-005-storage.md",
+      "size": 479,
+      "sha256": "0328b9489b42a795468eb64730c19c32a65f32404e56b4329b197c263fde935a"
+    },
+    {
+      "path": "adr/ADR-006-oss-reuse-boundary.md",
+      "size": 467,
+      "sha256": "b56fcfdea2f6c321c22d5b4f1be90471479076e52e656355db6e73c73984b673"
+    },
+    {
+      "path": "adr/ADR-007-modular-monolith-stack.md",
+      "size": 512,
+      "sha256": "ba1a5785a2a44be3cf68fac3bba81cd4a77f19b352ede76d2ac8e3df08841bf7"
+    },
+    {
+      "path": "docs/00_PROJECT_CHARTER.md",
+      "size": 1368,
+      "sha256": "a3aff3956ce6919e9ead530597e56a3970debe647f7ec803f8cf82fc8c33a2f8"
+    },
+    {
+      "path": "docs/01_REQUIREMENTS_BASELINE.md",
+      "size": 25389,
+      "sha256": "df9cf98c8d058fd29f03fcd41b0451ff1c9ec08ab43af7ca988ca2a802eaa2a8"
+    },
+    {
+      "path": "docs/02_ARCHITECTURE_BASELINE.md",
+      "size": 2632,
+      "sha256": "07f826c1bf2c63eb51d40d7c565973537f888bfca198e748cd5c642bbefddee0"
+    },
+    {
+      "path": "docs/03_OPEN_SOURCE_REUSE_STRATEGY.md",
+      "size": 3242,
+      "sha256": "6911bd13445307f1c24a0c7b5f46cc5f075e500cecb9122e7776afdfe781f045"
+    },
+    {
+      "path": "docs/04_DOMAIN_MODEL.md",
+      "size": 2317,
+      "sha256": "8678f25a66f1a10212639efeb9f0b3ca2d259e87595f6b64f0d0893a2d05fd82"
+    },
+    {
+      "path": "docs/05_WORKFLOW_DSL_SPEC.md",
+      "size": 1488,
+      "sha256": "23ff3507acb5f2fc8346d387cedc49b4dbb406786f396c338e198c2c33b0d503"
+    },
+    {
+      "path": "docs/06_API_AND_PROTOCOL_CONTRACTS.md",
+      "size": 1703,
+      "sha256": "c675cfe07e5dcf3ce5bf4774ad96d75bf623d7854e1aa35c96f98abb786da90a"
+    },
+    {
+      "path": "docs/07_DATA_STORAGE_SCHEMA.md",
+      "size": 1658,
+      "sha256": "068292e04c4608313dbb68d16773b1c60ee9f21bd3d3453090328835fe3d23a4"
+    },
+    {
+      "path": "docs/08_SECURITY_AND_RISK.md",
+      "size": 1431,
+      "sha256": "12c343aa89d2001a78eb494e8ec970a35b42d305a2b4bb8709d7e5d901fd4d37"
+    },
+    {
+      "path": "docs/09_TEST_AND_ACCEPTANCE_STRATEGY.md",
+      "size": 1592,
+      "sha256": "517368a404ad1c3e7cc9906f8fcde8a8848c786fdbce399ebb3c23acbd073b31"
+    },
+    {
+      "path": "docs/10_IMPLEMENTATION_ROADMAP.md",
+      "size": 1596,
+      "sha256": "7d940d2d7edf26dda6800267af1dacf12f7985d17cb5bac4a8026269cd5cd1cf"
+    },
+    {
+      "path": "docs/11_TASK_BACKLOG.md",
+      "size": 23340,
+      "sha256": "aab192667b7768706047fcdeb50e50cbf4b766ac69dd5d58b433c625efa9a9bb"
+    },
+    {
+      "path": "docs/12_CODEX_OPERATING_PLAYBOOK.md",
+      "size": 1697,
+      "sha256": "c55890385050cff6315243e7da80d67b612759677acf8c19be13cd70066315ef"
+    },
+    {
+      "path": "docs/13_OPEN_SOURCE_LICENSE_LEDGER.md",
+      "size": 1572,
+      "sha256": "db70fe45b644ba0ead37e163ef49beb378c92700a448ae71a41dfc0ee82ba402"
+    },
+    {
+      "path": "docs/14_DECISION_LOG_ADR.md",
+      "size": 622,
+      "sha256": "82d9fafe8da470b9fb78025ed052cfc44746d331f329a313deb2659506e4e3c4"
+    },
+    {
+      "path": "docs/15_DEMO_SCENARIOS.md",
+      "size": 1612,
+      "sha256": "cc00c803d63362fba48fc51c034282f065e97807c8060d77c2a9d0a4d4802eba"
+    },
+    {
+      "path": "docs/16_DEFINITION_OF_DONE.md",
+      "size": 1200,
+      "sha256": "d24f4519f5ece52b8af63e943ec819215048b8818df0e8e50ff746331c0beaad"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "size": 11462,
+      "sha256": "bb3061d43972936d478dfa964987ea8ae2fa58b680456aa4a8550f15831b2119"
+    },
+    {
+      "path": "docs/18_KNOWN_ASSUMPTIONS_AND_GAPS.md",
+      "size": 1359,
+      "sha256": "cfcd82a25312f3b381a534997a0e371ab5817e7dec469b2ca26874e13dbc674a"
+    },
+    {
+      "path": "docs/19_REPOSITORY_LAYOUT.md",
+      "size": 1078,
+      "sha256": "ef2a33b6a16fe8f08c079da3fa2a99acb3d843decff5c19d032ddac603daad53"
+    },
+    {
+      "path": "docs/research/SOURCES.md",
+      "size": 1324,
+      "sha256": "c976e90e1005b51298f0b8c5e5351de0146bce2cdbb9edf0979240740c5e582e"
+    },
+    {
+      "path": "examples/a2a/sample-message-metadata.json",
+      "size": 250,
+      "sha256": "8db8d55325fb54ad0b5f15eb20a39efb54e3ef35b9c91bf8c1e6e1bebd8cc027"
+    },
+    {
+      "path": "examples/mcp/mock-tools.json",
+      "size": 1197,
+      "sha256": "646c9cba8be8a1324fec0f16c9b14de0962727cde13f930e8a0b509a71049970"
+    },
+    {
+      "path": "examples/skills/read-only-device-report.yaml",
+      "size": 1538,
+      "sha256": "da5504883c5155012a00fdec8131a4248584b5fa83b86b5680a210657492b378"
+    },
+    {
+      "path": "examples/workflows/device-report.workflow.json",
+      "size": 2080,
+      "sha256": "f1286b8f904428e24ca5a3f127f1234c329ac3a9717efac9d2f6455ec2315cbd"
+    },
+    {
+      "path": "execplans/EP-00-repo-bootstrap.md",
+      "size": 2243,
+      "sha256": "5351fcd821a5a6ee38bc7ff06a04134f68b364fcc00622a87b337b9def0d31bd"
+    },
+    {
+      "path": "execplans/EP-01-protocol-domain-skeleton.md",
+      "size": 2246,
+      "sha256": "21ad4161027ad423a7a392235f9716a64c20a2f34c271ed46378229ee34eef78"
+    },
+    {
+      "path": "execplans/EP-02-mcp-skill-foundation.md",
+      "size": 2493,
+      "sha256": "962385422cf1fee0f3b320ee15fcf76e0ddc559f80f0885b1041944afe91ad27"
+    },
+    {
+      "path": "execplans/EP-03-workflow-planner-runtime.md",
+      "size": 2340,
+      "sha256": "75d111f9bd1904281378f84dec6e21603562ef0fa20f56f1713c98c303b1fa18"
+    },
+    {
+      "path": "execplans/EP-04-task-lifecycle-goal-loop.md",
+      "size": 2477,
+      "sha256": "6fd9ff82709fd1df4022fb372b86d64f42d03b542aec1b14480f1cca11d496a9"
+    },
+    {
+      "path": "execplans/EP-05-memory-evaluation-evolution.md",
+      "size": 2471,
+      "sha256": "240e3cba368734a3d0f77ee35e3e15d41e7fdf2e0bafef579361bd08d08c2aa5"
+    },
+    {
+      "path": "execplans/EP-06-console-observability.md",
+      "size": 2217,
+      "sha256": "3210d0d4e14c815f0e62a3d1bec7cd93484c71bad6e93f6d295b2875624a8fc8"
+    },
+    {
+      "path": "execplans/EP-07-hardening-acceptance.md",
+      "size": 2226,
+      "sha256": "2f02256ee6bb6f71b66ba1c2b7cf26f61606b4fc42c9618f4db87e579290feca"
+    },
+    {
+      "path": "schemas/memory-item.schema.json",
+      "size": 1086,
+      "sha256": "fcaa1e8d0d8c17e40828ee71a2f5fe3feb95cf9444b26de5ccb835bfa3d75e08"
+    },
+    {
+      "path": "schemas/runtime-event.schema.json",
+      "size": 1670,
+      "sha256": "ee7d1a503ada2763883e17d27065aaf7a6b2ca320c30ee2ef73703d5ce82568a"
+    },
+    {
+      "path": "schemas/skill.schema.json",
+      "size": 5129,
+      "sha256": "29ee00f5a32793651f18553368235026fbe2f0ff41152be1e1f6eb52bd2d871a"
+    },
+    {
+      "path": "schemas/task-quality-report.schema.json",
+      "size": 1544,
+      "sha256": "51fa45a857d4495fe8e342967f9e1773e87ddb254b65407ad3a97c699efc584b"
+    },
+    {
+      "path": "schemas/workflow.schema.json",
+      "size": 5116,
+      "sha256": "5a1b52babeaa55a7f2d1defb83c87e6fc5fd357bccdf90b91b5f4eb658790b87"
+    },
+    {
+      "path": "scripts/check-materials.sh",
+      "size": 544,
+      "sha256": "568abbef074ed30716e012aee2dcb068462549e5321bc6222703e9d84c67d069"
+    },
+    {
+      "path": "scripts/verify-traceability.py",
+      "size": 540,
+      "sha256": "bee94b73488cf266ddcdea06b6755031446e938fd363ab1c01c710e7d3ffd98b"
+    },
+    {
+      "path": "source/Agent通用模板Server需求规格说明书_V1.0.docx",
+      "size": 1005793,
+      "sha256": "d48984e756a097563644ebd96a274bf883ddb8e66bd872d271c3a319478f9b4e"
+    },
+    {
+      "path": "source/Skill-Driven_Agent_Runtime_Codex项目实施任务包_V1.0.docx",
+      "size": 43060,
+      "sha256": "e312a652b1b04bd86516b1ce93a60a21a12f1fa045a35ebf2b5f5048abec5f0b"
+    },
+    {
+      "path": "source/agent_server_architecture.png",
+      "size": 505456,
+      "sha256": "4b1e8b520e7014bc494ccc80e8166d14023add2e245a59edd1f9817c980c5384"
+    },
+    {
+      "path": "source/agent_task_lifecycle.png",
+      "size": 353755,
+      "sha256": "55fb420a6087ca15c56be4b758d8cd562c39268a1cf60273562c791550f9384d"
+    },
+    {
+      "path": "source/skill_evolution.png",
+      "size": 194869,
+      "sha256": "36426dd5e9fbb0f88c3d7f4c0f0cbd5e73f3327ce9c6cc75d493322dcf79a02c"
+    },
+    {
+      "path": "templates/ADR_TEMPLATE.md",
+      "size": 153,
+      "sha256": "43d97199208a7a27080e911faaecf802ca4544b1a60acf6d4f9830f6612be155"
+    },
+    {
+      "path": "templates/CHANGELOG_ENTRY_TEMPLATE.md",
+      "size": 84,
+      "sha256": "49c3ebac281a722950db4c831763a11a0de3c782d203a98613d851ce7a3ba5f9"
+    },
+    {
+      "path": "templates/EXECPLAN_TEMPLATE.md",
+      "size": 297,
+      "sha256": "3c91da35b94c0a4d907b212cc50a49a56399ade0e169ba28d15ead1396efb9c3"
+    },
+    {
+      "path": "templates/OSS_INTAKE_TEMPLATE.md",
+      "size": 430,
+      "sha256": "d10a7e9c1511f9f4f29b54eccab9d8ad12e5d6a2a54c1614b76749a216c934ac"
+    },
+    {
+      "path": "templates/RELEASE_CHECKLIST.md",
+      "size": 464,
+      "sha256": "e34a71e9bda1be23a08dac02c10c87829375e3d468df990b65cf976da6fb344f"
+    },
+    {
+      "path": "templates/TEST_REPORT_TEMPLATE.md",
+      "size": 214,
+      "sha256": "2a46b31b891e085dea4345f7bce1866f971b5d67914ff9e4f540283ce958f9d4"
+    },
+    {
+      "path": "third_party/README.md",
+      "size": 332,
+      "sha256": "f9e1804d63039f1c5ad2d5b18c118e79b8ea488263144d00aa3f4a176c86ea9f"
+    },
+    {
+      "path": "third_party/sources.lock.yaml",
+      "size": 2631,
+      "sha256": "9dc5ea861b254c3bd2c301e1ed0d580183cdb90573ca3749d43390574d9187b9"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TaskQualityReport",
+  "type": "object",
+  "required": [
+    "task_id",
+    "dimensions",
+    "overall_score",
+    "generated_at"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "overall_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "score",
+          "summary",
+          "evidence"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "goal",
+              "workflow",
+              "skill",
+              "result",
+              "tool"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "summary": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "implicit_feedback": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "signal": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

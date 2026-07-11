@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/schemas/skill.schema.json",
+  "title": "SkillVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skill_id",
+    "version",
+    "name",
+    "summary",
+    "description",
+    "status",
+    "tool_policy",
+    "workflow_guidance",
+    "output_instruction",
+    "confirmation",
+    "budgets",
+    "lifecycle"
+  ],
+  "properties": {
+    "skill_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "validating",
+        "enabled",
+        "disabled",
+        "deprecated",
+        "validation_failed"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "tool_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "optional",
+        "forbidden"
+      ],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/toolRef"
+          },
+          "uniqueItems": true
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/toolRef"
+          },
+          "uniqueItems": true
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/toolRef"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "workflow_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output_instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "auto_confirm_plan"
+      ],
+      "properties": {
+        "auto_confirm_plan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_replans": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_duration_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_llm_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_mcp_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_cost": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pause_replan_threshold_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancel_strategy": {
+          "enum": [
+            "wait_current",
+            "try_interrupt",
+            "cleanup_workflow"
+          ]
+        },
+        "compensation_guidance": {
+          "type": "string"
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "skill_id"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "depends_on",
+              "composes",
+              "alternative_to",
+              "parent_of",
+              "child_of"
+            ]
+          },
+          "skill_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recommended_stage_models": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "admin",
+            "a2a_draft",
+            "experience_evolution",
+            "manual_correction"
+          ]
+        },
+        "reference_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "not": {
+              "const": "draft"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "input_schema",
+          "output_schema"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "toolRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "server_id",
+        "tool_name"
+      ],
+      "properties": {
+        "server_id": {
+          "type": "string"
+        },
+        "tool_name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
