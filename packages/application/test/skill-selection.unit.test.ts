@@ -29,6 +29,10 @@ describe('SkillSelectionService', () => {
     expect(selection.candidates[0]).toEqual({
       skillId: 'skill.a',
       skillVersion: 1,
+      name: 'skill.a',
+      summary: 'Candidate.',
+      capabilities: ['inspection'],
+      createdAt: '2026-07-11T10:00:00.000Z',
       semanticScore: 0.9,
       metrics: expect.objectContaining({
         successRate: 0.8,

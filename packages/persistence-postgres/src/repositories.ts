@@ -100,6 +100,10 @@ const SkillMetricsSchema = z.object({
 const SkillCandidateSchema = z.object({
   skillId: z.string(),
   skillVersion: z.number().int().positive(),
+  name: z.string(),
+  summary: z.string(),
+  capabilities: z.array(z.string()),
+  createdAt: z.string(),
   semanticScore: z.number().min(0).max(1),
   metrics: SkillMetricsSchema,
 });

@@ -15,6 +15,7 @@ export * from './goal-service.js';
 export * from './workflow-revision.js';
 export * from './mcp-registry.js';
 export * from './model-runtime.js';
+export * from './model-decisions.js';
 export * from './plan-preparation-processor.js';
 export * from './prompt-service.js';
 export * from './task-service.js';

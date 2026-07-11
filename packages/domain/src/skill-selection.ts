@@ -10,6 +10,10 @@ export interface SkillPerformanceMetrics {
 export interface SkillCandidateSnapshot {
   readonly skillId: string;
   readonly skillVersion: number;
+  readonly name: string;
+  readonly summary: string;
+  readonly capabilities: readonly string[];
+  readonly createdAt: string;
   readonly semanticScore: number;
   readonly metrics: SkillPerformanceMetrics;
 }

@@ -28,6 +28,9 @@ import {
   WorkflowExecutionService,
   WorkflowControllerService,
   StructuredGoalEvaluator,
+  StructuredSkillSelectionDecider,
+  StructuredTaskDecisionService,
+  StructuredExecutionExceptionDecider,
   GoalService,
   WorkflowRevisionService,
   TaskService,
@@ -89,7 +92,7 @@ export interface ServerRuntimeOptions {
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
-    decider: SkillSelectionDecider;
+    decider?: SkillSelectionDecider;
   }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
@@ -214,7 +217,8 @@ export async function startServerRuntime(
             repository: new PostgresSkillEmbeddingRepository(pool),
             clock,
           }),
-          decider: options.skillSelection.decider,
+          decider:
+            options.skillSelection.decider ?? new StructuredSkillSelectionDecider(modelRuntime),
           clock,
           ids: {
             nextSelectionId: () => `skill-selection-${randomUUID()}`,
@@ -231,6 +235,7 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
   });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
+  const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
     executeLlm: ({ instruction, responseSchema }) =>
@@ -283,6 +288,7 @@ export async function startServerRuntime(
     requestHumanConfirmation: () => {
       throw new Error('WORKFLOW_HUMAN_CONFIRMATION_REQUIRED');
     },
+    decideExecutionError: (input) => executionExceptionDecider.decide(input),
     now: clock.now,
     nowMilliseconds: () => Date.now(),
   };
@@ -356,7 +362,18 @@ export async function startServerRuntime(
     fingerprint: (canonical) => createHash('sha256').update(canonical).digest('hex'),
     successThreshold: 2,
   });
-  const processor = new PlanPreparationProcessor({ tasks, events, clock, ids });
+  const processor = new PlanPreparationProcessor({
+    tasks,
+    events,
+    clock,
+    ids,
+    decisions: new StructuredTaskDecisionService(modelRuntime),
+    goals: goalService,
+    skillSelection: skillSelection ?? {
+      select: () => Promise.reject(new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED')),
+    },
+    nextGoalId: () => `goal-${randomUUID()}`,
+  });
   const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
   worker.start();
   let management: ManagementHttpEndpointHandle | undefined;

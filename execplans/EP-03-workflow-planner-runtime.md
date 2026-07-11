@@ -148,6 +148,18 @@ Decision: ADR-025 defines immutable revision, source-confirmation invalidation, 
 
 Decision: ADR-026 defines PostgreSQL authority, ephemeral checkpoint behavior, and no-replay semantics.
 
+## Fixed-Stage Final Decision Progress Update - 2026-07-12
+
+- [x] Route intent and Goal formulation through strict fixed model stages in the real queue processor.
+- [x] Make the production Skill selection decider a structured model call over persisted retrieval/metric evidence.
+- [x] Include Skill identity, metadata, capabilities, timestamp, semantic score and metrics in candidate snapshots.
+- [x] Constrain execution-exception LLM decisions to routes already present in the immutable graph.
+- [x] Preserve structured Workflow planning and Goal evaluation as the remaining model verdict boundaries.
+- [x] Fail the Task and queue job without rule/model fallback when a decision stage fails.
+- [x] Verify model invocation audits and a real stopped-MCP exception recovery path.
+
+Decision: ADR-027 defines the six fixed-stage final-decision boundaries and candidate-versus-verdict rule.
+
 Decision: ADR-023 defines conservative Skill override resolution, fail-closed exhaustion and configured cost accounting.
 
 Decision: ADR-022 confines LangGraph types to the runtime adapter and defines immutable execution/audit semantics.

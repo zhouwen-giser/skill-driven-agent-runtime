@@ -142,6 +142,10 @@ export class SkillSelectionService {
       skills.map(async (skill) => ({
         skillId: skill.skillId,
         skillVersion: skill.version,
+        name: skill.name,
+        summary: skill.summary,
+        capabilities: skill.capabilities,
+        createdAt: skill.createdAt,
         semanticScore: normalizedScore(scores[skill.skillId] ?? 0),
         metrics: validateMetrics((await this.#records.findMetrics(skill.skillId)) ?? EMPTY_METRICS),
       })),

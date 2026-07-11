@@ -308,6 +308,15 @@ function validateReachability(
   let changed = true;
   while (changed) {
     changed = false;
+    for (const node of definition.nodes)
+      if (
+        node.type === 'error_handler' &&
+        reached.has(node.handledNodeId) &&
+        !reached.has(node.nodeId)
+      ) {
+        reached.add(node.nodeId);
+        changed = true;
+      }
     for (const edge of definition.edges)
       if (reached.has(edge.sourceNodeId) && !reached.has(edge.targetNodeId)) {
         reached.add(edge.targetNodeId);

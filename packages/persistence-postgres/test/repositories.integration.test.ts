@@ -753,6 +753,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
       {
         skillId: version.skillId,
         skillVersion: 1,
+        name: version.name,
+        summary: version.summary,
+        capabilities: version.capabilities,
+        createdAt: version.createdAt,
         semanticScore: 0.8,
         metrics,
       },

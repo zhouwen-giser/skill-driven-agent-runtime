@@ -1,5 +1,7 @@
 # Project Status
 
+EP-03 final-decision update (2026-07-12): approximately 97%. Intent, Goal, Skill selection, Workflow generation, execution-exception strategy and Goal evaluation now use fixed schema-constrained Model Runtime stages. The real queue path persists LLM-formulated Goals and selections; candidate metadata joins pgvector/metrics; unavailable decision models fail the Task without fallback. Real local-model and stopped-MCP e2e pass. FR-LLM-004 is verified; FR-LLM-001 provider breadth and FR-LLM-005/007 EP-05 memory/evolution portions remain open.
+
 EP-03 human-confirmation update (2026-07-12): approximately 93%. The DSL node now uses native LangGraph interrupt/Command resume, persists paused instance and displayable prompt state in PostgreSQL, preserves budgets/events, and fails rather than replaying when its ephemeral checkpoint is lost. A real MCP-before-confirmation e2e proves exactly one Tool call across resume. FR-WF-002 is verified; general user pause/cancel and long-pause replanning continue in EP-04.
 
 EP-03 plan revision update (2026-07-12): approximately 88%. Natural-language A2A and administrator DSL/DAG edits now share strict validation, create immutable next versions, atomically supersede the source and always require fresh confirmation. Real Task-to-plan binding, PostgreSQL lineage, management contracts, and same-process A2A/admin execution e2e pass. FR-WF-010 is verified; the remaining principal EP-03 gap is persisted in-graph human confirmation/pause-resume.

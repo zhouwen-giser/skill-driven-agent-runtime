@@ -62,6 +62,14 @@ export interface WorkflowRuntimePorts {
       signal?: AbortSignal;
     }>,
   ) => Promise<boolean>;
+  readonly decideExecutionError: (
+    input: Readonly<{
+      handledNodeId: string;
+      error: Readonly<{ code: string; message: string }>;
+      allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[];
+      gotoNodeId?: string;
+    }>,
+  ) => Promise<Readonly<{ strategy: 'terminate' | 'continue' | 'goto'; summary: string }>>;
   readonly now: () => string;
   readonly nowMilliseconds: () => number;
 }
@@ -589,17 +597,40 @@ async function executeNode(
           'WORKFLOW_HANDLER_WITHOUT_ERROR',
           'Error handler ran without its handled error.',
         );
-      if (node.strategy === 'terminate') return { failed: true, routes: { [node.nodeId]: END } };
-      if (node.strategy === 'goto') {
+      const allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[] =
+        node.gotoNodeId === undefined
+          ? ['terminate', 'continue']
+          : ['terminate', 'continue', 'goto'];
+      const decision = await ports.decideExecutionError({
+        handledNodeId: node.handledNodeId,
+        error: handledError,
+        allowedStrategies,
+        ...(node.gotoNodeId === undefined ? {} : { gotoNodeId: node.gotoNodeId }),
+      });
+      if (!allowedStrategies.includes(decision.strategy))
+        throw new WorkflowCompilerError(
+          'WORKFLOW_ERROR_DECISION_INVALID',
+          'Execution error decision selected a strategy outside the constrained choices.',
+        );
+      if (decision.strategy === 'terminate')
+        return {
+          failed: true,
+          outputs: { [node.nodeId]: decision },
+          routes: { [node.nodeId]: END },
+        };
+      if (decision.strategy === 'goto') {
         if (node.gotoNodeId === undefined)
           throw new WorkflowCompilerError(
             'WORKFLOW_DEFINITION_INVALID',
             'Goto error handler requires a target.',
           );
-        return { routes: { [node.nodeId]: node.gotoNodeId } };
+        return {
+          outputs: { [node.nodeId]: decision },
+          routes: { [node.nodeId]: node.gotoNodeId },
+        };
       }
       const next = defaultTarget(definition, node.nodeId);
-      return { routes: { [node.nodeId]: next ?? END } };
+      return { outputs: { [node.nodeId]: decision }, routes: { [node.nodeId]: next ?? END } };
     }
   }
 }
@@ -721,6 +752,7 @@ function requiredRuntimeContext(
 export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_CONDITION_NOT_BOOLEAN'
   | 'WORKFLOW_DEFINITION_INVALID'
+  | 'WORKFLOW_ERROR_DECISION_INVALID'
   | 'WORKFLOW_HANDLER_WITHOUT_ERROR'
   | 'WORKFLOW_PLAN_NOT_CONFIRMED'
   | 'WORKFLOW_ROUTE_AMBIGUOUS'

@@ -11,6 +11,10 @@ function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePo
     executeSkill: vi.fn().mockResolvedValue({ skill: 'done' }),
     executeSubworkflow: vi.fn().mockResolvedValue({ child: 'done' }),
     requestHumanConfirmation: vi.fn().mockResolvedValue(true),
+    decideExecutionError: vi.fn().mockResolvedValue({
+      strategy: 'continue',
+      summary: 'Continue within the validated graph.',
+    }),
     now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z`,
     nowMilliseconds: () => tick * 100,
     ...overrides,
@@ -253,6 +257,10 @@ describe('LangGraph Workflow compiler', () => {
         callMcpTool: vi
           .fn()
           .mockRejectedValue(Object.assign(new Error('offline'), { code: 'MCP_OFFLINE' })),
+        decideExecutionError: vi.fn().mockResolvedValue({
+          strategy,
+          summary: `LLM selected ${strategy}.`,
+        }),
       });
       const handler = {
         nodeId: 'handler',
@@ -293,6 +301,12 @@ describe('LangGraph Workflow compiler', () => {
       ).invoke({}, budget, costs);
 
       expect(result.errors).toEqual({ mcp: { code: 'MCP_OFFLINE', message: 'offline' } });
+      expect(runtime.decideExecutionError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          handledNodeId: 'mcp',
+          error: { code: 'MCP_OFFLINE', message: 'offline' },
+        }),
+      );
       if (strategy === 'terminate') expect(result.status).toBe('failed');
       else expect(result).toMatchObject({ status: 'succeeded', result: 'recovered' });
     },

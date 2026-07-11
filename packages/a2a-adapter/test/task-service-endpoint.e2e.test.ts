@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { createServer, get, type Server } from 'node:http';
+import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,6 +22,8 @@ let controlEvaluationCalls = 0;
 let mcpWorkflowTarget:
   | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
   | undefined;
+let taskWorkflowTarget:
+  Readonly<{ workflowId: string; goalId: string; goalVersion: number }> | undefined;
 
 beforeAll(async () => {
   modelServer = await startModelLoopback();
@@ -40,18 +42,6 @@ beforeAll(async () => {
             providerId: 'embedding.e2e.v1',
             vector: text.toLowerCase().includes('zebra') ? [1, 0, 0] : [0, 1, 0],
           }),
-      },
-      decider: {
-        decide: (input) => {
-          const selected = [...input.candidates].sort(
-            (left, right) => right.semanticScore - left.semanticScore,
-          )[0];
-          if (selected === undefined) throw new Error('NO_SELECTION_CANDIDATE');
-          return Promise.resolve({
-            selectedSkillId: selected.skillId,
-            decisionSummary: 'Selected from semantic relevance and the persisted metric snapshot.',
-          });
-        },
       },
     },
   });
@@ -138,6 +128,26 @@ beforeAll(async () => {
     }),
   });
   if (evaluationPrompt.status !== 201) throw new Error('GOAL_EVALUATION_PROMPT_SETUP_FAILED');
+  for (const stage of ['intent', 'goal', 'skill_selection', 'execution_decision'] as const) {
+    const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.e2e' }),
+    });
+    if (route.status !== 204) throw new Error(`TASK_DECISION_ROUTE_SETUP_FAILED:${stage}`);
+    const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        promptId: `prompt.${stage}.e2e`,
+        stage,
+        content: `Structured ${stage} decision. {{instruction}}`,
+        source: 'admin',
+        publish: true,
+      }),
+    });
+    if (prompt.status !== 201) throw new Error(`TASK_DECISION_PROMPT_SETUP_FAILED:${stage}`);
+  }
 });
 
 afterAll(async () => {
@@ -1091,6 +1101,125 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('uses the fixed LLM stage for the final execution-exception decision', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.exception.${randomUUID()}`;
+    const sourcePlanId = `plan.exception.source.${randomUUID()}`;
+    const planId = `plan.exception.${randomUUID()}`;
+    const workflowId = `workflow.exception.${randomUUID()}`;
+    const goalId = `goal.exception.${randomUUID()}`;
+    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    let closed = false;
+    try {
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Exception decision MCP',
+            endpoint: mockMcp.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            planId: sourcePlanId,
+            workflowDefinitionId: workflowId,
+            workflowVersion: 1,
+            goalId,
+            goalVersion: 1,
+            planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      const revision = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/revisions`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            newPlanId: planId,
+            format: 'dsl',
+            definition: {
+              workflowDefinitionId: workflowId,
+              version: 2,
+              goalId,
+              goalVersion: 1,
+              entryNodeId: 'tool',
+              exitNodeIds: ['result'],
+              nodes: [
+                {
+                  nodeId: 'tool',
+                  name: 'Unavailable tool',
+                  type: 'mcp_tool',
+                  tool: { serverId, toolName: 'device_status' },
+                  arguments: { deviceId: 'device-exception' },
+                },
+                {
+                  nodeId: 'handler',
+                  name: 'LLM exception decision',
+                  type: 'error_handler',
+                  handledNodeId: 'tool',
+                  strategy: 'continue',
+                },
+                {
+                  nodeId: 'result',
+                  name: 'Recovered result',
+                  type: 'result',
+                  value: { op: 'literal', value: 'recovered-after-llm-decision' },
+                },
+              ],
+              edges: [{ sourceNodeId: 'handler', targetNodeId: 'result' }],
+            },
+          }),
+        },
+      );
+      expect(revision.status).toBe(201);
+      expect(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+          { method: 'POST' },
+        ),
+      ).toMatchObject({ status: 200 });
+      await mockMcp.close();
+      closed = true;
+      const execution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `instance.exception.${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(execution.status).toBe(201);
+      await expect(execution.json()).resolves.toMatchObject({
+        status: 'succeeded',
+        result: 'recovered-after-llm-decision',
+        errors: { tool: expect.any(Object) },
+      });
+      const decisions = z
+        .object({ items: z.array(z.object({ stage: z.string(), status: z.string() })) })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/models/invocations?stage=execution_decision`,
+            )
+          ).json(),
+        );
+      expect(decisions.items).toContainEqual(
+        expect.objectContaining({ stage: 'execution_decision', status: 'succeeded' }),
+      );
+    } finally {
+      mcpWorkflowTarget = undefined;
+      if (!closed) await mockMcp.close();
+    }
+  });
+
   it('evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds', async () => {
     const submitted = await runtime.a2a.client.sendMessage(
       SendMessageRequest.fromJSON({
@@ -1106,7 +1235,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.control.${randomUUID()}`;
     const skillId = `skill.control.${randomUUID()}`;
-    const goalId = `goal.control.${randomUUID()}`;
+    const preparedTask = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+    ).then((response) => response.json() as Promise<{ goalId: string }>);
+    const goalId = preparedTask.goalId;
     const workflowId = `workflow.control.${randomUUID()}`;
     const initialPlanId = `plan.control.${randomUUID()}`;
     const controlId = `control.${randomUUID()}`;
@@ -1139,18 +1271,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           })
         ).status,
       ).toBe(201);
-      const goal = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          goalId,
-          contextId: submitted.contextId,
-          title: 'Control Goal',
-          description: 'CONTROL_GOAL collect two observations.',
-          successCriteria: ['Two Workflow rounds are evaluated.'],
-        }),
-      });
-      expect(goal.status).toBe(201);
       const initialPlan = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1318,6 +1438,27 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const stored = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
     expect(stored.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
     expect(stored.history[0]?.parts[0]?.content?.$case).toBe('text');
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      goalId: expect.any(String),
+      goalVersion: 1,
+      phase: 'awaiting_plan_confirmation',
+    });
+    for (const stage of ['intent', 'goal', 'skill_selection'] as const) {
+      const invocations = z
+        .object({ items: z.array(z.object({ stage: z.string(), status: z.string() })) })
+        .parse(
+          await (
+            await fetch(`${runtime.management.baseUrl}/api/v1/models/invocations?stage=${stage}`)
+          ).json(),
+        );
+      expect(invocations.items).toContainEqual(
+        expect.objectContaining({ stage, status: 'succeeded' }),
+      );
+    }
 
     const listed = await runtime.a2a.client.listTasks({
       tenant: '',
@@ -1532,6 +1673,29 @@ function generatedSkillMetadata() {
   };
 }
 
+function embeddedOperation(
+  messages: readonly Readonly<{ content?: string }>[] | undefined,
+  operation: string,
+): unknown {
+  const content = messages
+    ?.map((message) => message.content)
+    .find((candidate) => candidate?.includes(`"operation":"${operation}"`) === true);
+  const start = content?.indexOf('{"operation":') ?? -1;
+  if (content === undefined || start < 0) throw new Error(`MODEL_OPERATION_MISSING:${operation}`);
+  return JSON.parse(content.slice(start)) as unknown;
+}
+
+function respondStructured(response: ServerResponse, content: unknown): void {
+  response.end(
+    JSON.stringify({
+      id: 'structured-decision-e2e',
+      model: 'model-e2e',
+      choices: [{ message: { content: JSON.stringify(content) } }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }),
+  );
+}
+
 async function startModelLoopback(): Promise<Server> {
   const server = createServer((request, response) => {
     const chunks: Buffer[] = [];
@@ -1548,9 +1712,24 @@ async function startModelLoopback(): Promise<Server> {
         return;
       }
       if (request.url?.endsWith('/chat/completions') === true) {
+        const intentDecisionRequest = body.messages?.some(
+          (message) => message.content?.includes('decide_task_intent') === true,
+        );
+        const goalDecisionRequest = body.messages?.some(
+          (message) => message.content?.includes('formulate_goal') === true,
+        );
+        const skillSelectionRequest = body.messages?.some(
+          (message) => message.content?.includes('select_skill') === true,
+        );
+        const exceptionDecisionRequest = body.messages?.some(
+          (message) => message.content?.includes('decide_execution_exception') === true,
+        );
         const workflowRequest =
           body.messages?.some((message) => message.content?.includes('PLAN_WORKFLOW') === true) ===
           true;
+        const taskWorkflowRequest = body.messages?.some(
+          (message) => message.content?.includes('TASK_ATTACHED_PLAN') === true,
+        );
         const naturalRevisionRequest =
           body.messages?.some(
             (message) => message.content?.includes('natural_language_plan_revision') === true,
@@ -1565,6 +1744,73 @@ async function startModelLoopback(): Promise<Server> {
         const controlEvaluationRequest =
           body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
           true;
+        if (intentDecisionRequest === true) {
+          respondStructured(response, {
+            intent: 'execute',
+            summary: 'The request requires task execution.',
+          });
+          return;
+        }
+        if (goalDecisionRequest === true) {
+          const requestData = z
+            .object({ requestText: z.string() })
+            .parse(embeddedOperation(body.messages, 'formulate_goal'));
+          const controlGoal = requestData.requestText.includes('control loop');
+          respondStructured(response, {
+            title: controlGoal ? 'Control Goal' : 'Execute the requested task',
+            description: controlGoal
+              ? 'CONTROL_GOAL collect two observations.'
+              : 'Complete the user request using an enabled Skill.',
+            constraints: [],
+            successCriteria: [
+              controlGoal
+                ? 'Two Workflow rounds are evaluated.'
+                : 'A validated result is returned.',
+            ],
+            requiresInput: false,
+          });
+          return;
+        }
+        if (skillSelectionRequest === true) {
+          const requestData = embeddedOperation(body.messages, 'select_skill');
+          const candidates = z
+            .object({
+              candidates: z.array(
+                z.looseObject({
+                  skillId: z.string(),
+                  name: z.string(),
+                  semanticScore: z.number(),
+                  createdAt: z.string(),
+                }),
+              ),
+            })
+            .parse(requestData).candidates;
+          const semanticLeaders = [...candidates]
+            .sort((left, right) => right.semanticScore - left.semanticScore)
+            .filter(
+              (candidate, _index, sorted) => candidate.semanticScore === sorted[0]?.semanticScore,
+            );
+          const deviceLeaders = semanticLeaders.filter((candidate) =>
+            candidate.name.toLowerCase().includes('zebra'),
+          );
+          const preferred = deviceLeaders.length > 0 ? deviceLeaders : semanticLeaders;
+          const selected = [...preferred].sort((left, right) =>
+            left.createdAt.localeCompare(right.createdAt),
+          )[preferred.length - 1];
+          if (selected === undefined) throw new Error('NO_SKILL_SELECTION_CANDIDATE');
+          respondStructured(response, {
+            selectedSkillId: selected.skillId,
+            decisionSummary: 'LLM selected from retrieval and the persisted metric snapshot.',
+          });
+          return;
+        }
+        if (exceptionDecisionRequest === true) {
+          respondStructured(response, {
+            strategy: 'continue',
+            summary: 'Continue through the validated error-handler path.',
+          });
+          return;
+        }
         if (controlEvaluationRequest) {
           controlEvaluationCalls += 1;
           const content =
@@ -1586,11 +1832,13 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (naturalRevisionRequest) {
+          const requestData = z
+            .object({ sourceDefinition: z.record(z.string(), z.unknown()) })
+            .parse(embeddedOperation(body.messages, 'natural_language_plan_revision'));
+          const source = requestData.sourceDefinition;
           const content = {
-            workflowDefinitionId: 'workflow.planned.e2e',
-            version: 2,
-            goalId: 'goal.planned.e2e',
-            goalVersion: 1,
+            ...source,
+            version: z.number().int().positive().parse(source['version']) + 1,
             entryNodeId: 'result',
             exitNodeIds: ['result'],
             nodes: [
@@ -1611,6 +1859,28 @@ async function startModelLoopback(): Promise<Server> {
               usage: { prompt_tokens: 10, completion_tokens: 5 },
             }),
           );
+          return;
+        }
+        if (taskWorkflowRequest === true) {
+          const target = taskWorkflowTarget;
+          if (target === undefined) throw new Error('TASK_WORKFLOW_TARGET_MISSING');
+          respondStructured(response, {
+            workflowDefinitionId: target.workflowId,
+            version: 1,
+            goalId: target.goalId,
+            goalVersion: target.goalVersion,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Task result',
+                type: 'result',
+                value: { op: 'literal', value: true },
+              },
+            ],
+            edges: [],
+          });
           return;
         }
         if (workflowRequest) {
@@ -1733,39 +2003,30 @@ async function sendFollowUp(taskId: string, contextId: string, action: string, t
 async function attachPlannedTask(taskId: string): Promise<string> {
   const task = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
-  ).then((response) => response.json() as Promise<{ contextId: string }>);
-  const goal = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      goalId: 'goal.planned.e2e',
-      contextId: task.contextId,
-      title: 'Task plan E2E Goal',
-      description: 'Provide a real persisted Goal for the attached Workflow plan.',
-    }),
-  });
-  if (goal.status !== 201 && goal.status !== 409)
-    throw new Error(`TASK_GOAL_CREATE_FAILED:${String(goal.status)}:${await goal.text()}`);
+  ).then((response) => response.json() as Promise<{ goalId: string; goalVersion: number }>);
   const planId = `plan.task.${randomUUID()}`;
+  const workflowId = `workflow.task.${randomUUID()}`;
+  taskWorkflowTarget = { workflowId, goalId: task.goalId, goalVersion: task.goalVersion };
   const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       planId,
-      workflowDefinitionId: 'workflow.planned.e2e',
+      workflowDefinitionId: workflowId,
       workflowVersion: 1,
-      goalId: 'goal.planned.e2e',
-      goalVersion: 1,
-      planningInstruction: 'PLAN_WORKFLOW',
+      goalId: task.goalId,
+      goalVersion: task.goalVersion,
+      planningInstruction: 'TASK_ATTACHED_PLAN',
     }),
   });
+  taskWorkflowTarget = undefined;
   if (planned.status !== 201) throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}`);
   const attached = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/plan`,
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ planId, goalId: 'goal.planned.e2e', goalVersion: 1 }),
+      body: JSON.stringify({ planId, goalId: task.goalId, goalVersion: task.goalVersion }),
     },
   );
   if (!attached.ok)

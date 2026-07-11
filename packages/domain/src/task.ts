@@ -59,6 +59,23 @@ export function bindTaskPlan(
   };
 }
 
+export function bindTaskGoal(
+  task: AgentTask,
+  input: Readonly<{ goalId: string; goalVersion: number; timestamp: string }>,
+): AgentTask {
+  if (task.phase !== 'goal_deliberation')
+    throw new DomainError(
+      'TASK_PHASE_TRANSITION_INVALID',
+      'A Goal can be bound only during Goal deliberation.',
+    );
+  return {
+    ...task,
+    goalId: requireIdentifier(input.goalId, 'GOAL_ID_REQUIRED'),
+    goalVersion: input.goalVersion,
+    updatedAt: input.timestamp,
+  };
+}
+
 export interface CreateAgentTaskInput {
   readonly taskId: string;
   readonly contextId: string;
