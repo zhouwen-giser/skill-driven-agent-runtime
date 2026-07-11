@@ -18,6 +18,7 @@ let modelServer: Server;
 let initialPromptVersion = 0;
 const failingProviderId = `provider.fail.${randomUUID()}`;
 let workflowPlanningCalls = 0;
+let controlEvaluationCalls = 0;
 let mcpWorkflowTarget:
   | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
   | undefined;
@@ -116,6 +117,27 @@ beforeAll(async () => {
     }),
   });
   if (workflowPrompt.status !== 201) throw new Error('WORKFLOW_PROMPT_SETUP_FAILED');
+  const evaluationRoute = await fetch(
+    `${runtime.management.baseUrl}/api/v1/models/routes/goal_evaluation`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.e2e' }),
+    },
+  );
+  if (evaluationRoute.status !== 204) throw new Error('GOAL_EVALUATION_ROUTE_SETUP_FAILED');
+  const evaluationPrompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      promptId: 'prompt.goal-evaluation.e2e',
+      stage: 'goal_evaluation',
+      content: 'Goal evaluation policy. {{instruction}}',
+      source: 'admin',
+      publish: true,
+    }),
+  });
+  if (evaluationPrompt.status !== 201) throw new Error('GOAL_EVALUATION_PROMPT_SETUP_FAILED');
 });
 
 afterAll(async () => {
@@ -859,6 +881,129 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds', async () => {
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Create a context for the control loop.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.control.${randomUUID()}`;
+    const skillId = `skill.control.${randomUUID()}`;
+    const goalId = `goal.control.${randomUUID()}`;
+    const workflowId = `workflow.control.${randomUUID()}`;
+    const initialPlanId = `plan.control.${randomUUID()}`;
+    const controlId = `control.${randomUUID()}`;
+    controlEvaluationCalls = 0;
+    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    try {
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              serverId,
+              name: 'Control MCP',
+              endpoint: mockMcp.endpoint.toString(),
+              credentialHeaders: {},
+            }),
+          })
+        ).status,
+      ).toBe(201);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              ...skillInput(skillId, 'Auto-confirm control'),
+              runtimePolicy: { autoConfirmPlan: true, maxReplans: 1 },
+            }),
+          })
+        ).status,
+      ).toBe(201);
+      const goal = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          goalId,
+          contextId: submitted.contextId,
+          title: 'Control Goal',
+          description: 'CONTROL_GOAL collect two observations.',
+          successCriteria: ['Two Workflow rounds are evaluated.'],
+        }),
+      });
+      expect(goal.status).toBe(201);
+      const initialPlan = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId: initialPlanId,
+          workflowDefinitionId: workflowId,
+          workflowVersion: 1,
+          goalId,
+          goalVersion: 1,
+          planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+        }),
+      });
+      expect(initialPlan.status).toBe(201);
+      expect(
+        (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(initialPlanId)}/confirm`,
+            { method: 'POST' },
+          )
+        ).status,
+      ).toBe(200);
+      mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 2, goalId };
+      const control = await fetch(`${runtime.management.baseUrl}/api/v1/workflow-controls`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          controlId,
+          contextId: submitted.contextId,
+          goalId,
+          goalVersion: 1,
+          initialPlanId,
+          input: {},
+          skillIds: [skillId],
+          planningInstruction: 'CONTROL_REPLAN',
+        }),
+      });
+      expect(control.status).toBe(201);
+      await expect(control.json()).resolves.toMatchObject({
+        status: 'achieved',
+        roundCount: 2,
+        replanCount: 1,
+      });
+      const rounds = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflow-controls/${encodeURIComponent(controlId)}/rounds`,
+      );
+      await expect(rounds.json()).resolves.toMatchObject({
+        items: [
+          { roundIndex: 0, workflowVersion: 1, evaluation: { decision: 'replan' } },
+          { roundIndex: 1, workflowVersion: 2, evaluation: { decision: 'achieved' } },
+        ],
+      });
+      const storedGoal = await fetch(
+        `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(goalId)}`,
+      );
+      await expect(storedGoal.json()).resolves.toMatchObject({ status: 'achieved' });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
+      expect(controlEvaluationCalls).toBe(2);
+    } finally {
+      mcpWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
@@ -1179,6 +1324,32 @@ async function startModelLoopback(): Promise<Server> {
           body.messages?.some(
             (message) => message.content?.includes('EXECUTE_MCP_WORKFLOW') === true,
           ) === true;
+        const controlReplanRequest =
+          body.messages?.some((message) => message.content?.includes('CONTROL_REPLAN') === true) ===
+          true;
+        const controlEvaluationRequest =
+          body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
+          true;
+        if (controlEvaluationRequest) {
+          controlEvaluationCalls += 1;
+          const content =
+            controlEvaluationCalls === 1
+              ? {
+                  decision: 'replan',
+                  summary: 'A second observation is required.',
+                  replanInstruction: 'Run the next immutable Workflow version.',
+                }
+              : { decision: 'achieved', summary: 'Two evaluated observations satisfy the Goal.' };
+          response.end(
+            JSON.stringify({
+              id: 'goal-evaluation-e2e',
+              model: 'model-e2e',
+              choices: [{ message: { content: JSON.stringify(content) } }],
+              usage: { prompt_tokens: 12, completion_tokens: 6 },
+            }),
+          );
+          return;
+        }
         if (workflowRequest) {
           workflowPlanningCalls += 1;
           const content =
@@ -1211,7 +1382,7 @@ async function startModelLoopback(): Promise<Server> {
           );
           return;
         }
-        if (mcpExecutionRequest) {
+        if (mcpExecutionRequest || controlReplanRequest) {
           const target = mcpWorkflowTarget;
           if (target === undefined) throw new Error('MCP_WORKFLOW_TARGET_MISSING');
           const content = {

@@ -32,6 +32,9 @@ import type {
   WorkflowBudgetUsage,
   WorkflowInstance,
   WorkflowNodeEvent,
+  WorkflowControlRecord,
+  WorkflowControlRound,
+  GoalEvaluationResult,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -40,8 +43,22 @@ export interface ConversationContextRepository {
 }
 
 export interface GoalRepository {
+  findById(goalId: string): Promise<Goal | undefined>;
   findActiveByContextId(contextId: string): Promise<Goal | undefined>;
   save(goal: Goal): Promise<void>;
+}
+
+export interface WorkflowControlRepository {
+  find(controlId: string): Promise<WorkflowControlRecord | undefined>;
+  save(control: WorkflowControlRecord): Promise<void>;
+  saveRound(round: WorkflowControlRound): Promise<void>;
+  listRounds(controlId: string): Promise<readonly WorkflowControlRound[]>;
+}
+
+export interface GoalEvaluator {
+  evaluate(
+    input: Readonly<{ goal: Goal; instance: WorkflowInstance }>,
+  ): Promise<GoalEvaluationResult>;
 }
 
 export interface AgentTaskRepository {

@@ -64,6 +64,7 @@ export class WorkflowExecutionService {
       planId: string;
       input: unknown;
       skillIds?: readonly string[];
+      replanCount?: number;
       signal?: AbortSignal;
     }>,
   ): Promise<WorkflowInstance> {
@@ -90,6 +91,12 @@ export class WorkflowExecutionService {
       skillVersions.map((skill) => skill.runtimePolicy),
     );
     const startedAt = this.#clock.now();
+    const replanCount = input.replanCount ?? 0;
+    if (!Number.isInteger(replanCount) || replanCount < 0 || replanCount > budgetLimits.maxReplans)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_REPLAN_BUDGET_EXHAUSTED',
+        'Workflow replan count exceeds the resolved budget.',
+      );
     const running: WorkflowInstance = {
       instanceId: input.instanceId,
       planId: plan.planId,
@@ -102,7 +109,7 @@ export class WorkflowExecutionService {
         version: skill.version,
       })),
       budgetLimits,
-      budgetUsage: emptyUsage(),
+      budgetUsage: emptyUsage(replanCount),
       status: 'running',
       input: input.input,
       errors: {},
@@ -122,7 +129,7 @@ export class WorkflowExecutionService {
         status: outcome.status,
         ...(outcome.result === undefined ? {} : { result: outcome.result }),
         errors: outcome.errors,
-        budgetUsage: outcome.budgetUsage,
+        budgetUsage: { ...outcome.budgetUsage, replanCount },
         completedAt: this.#clock.now(),
         ...(outcome.terminationReason === undefined
           ? {}
@@ -194,8 +201,8 @@ export class WorkflowExecutionService {
   }
 }
 
-function emptyUsage() {
-  return { replanCount: 0, durationMs: 0, llmCalls: 0, mcpCalls: 0, cost: 0 } as const;
+function emptyUsage(replanCount: number) {
+  return { replanCount, durationMs: 0, llmCalls: 0, mcpCalls: 0, cost: 0 } as const;
 }
 
 function elapsedMilliseconds(startedAt: string, completedAt: string): number {
@@ -216,6 +223,7 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_PLAN_NOT_EXECUTABLE'
   | 'WORKFLOW_PLAN_NOT_FOUND'
   | 'WORKFLOW_PLAN_REVALIDATION_FAILED'
+  | 'WORKFLOW_REPLAN_BUDGET_EXHAUSTED'
   | 'WORKFLOW_SKILL_NOT_ENABLED';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;

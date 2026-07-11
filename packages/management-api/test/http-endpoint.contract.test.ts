@@ -134,11 +134,79 @@ describe('management HTTP API contract', () => {
       status: 'succeeded',
     });
   });
+
+  it('exposes Goal creation and the persisted outer-control entry point', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        goals: {
+          ...configured.goals,
+          create: (input) =>
+            Promise.resolve({
+              ...input,
+              constraints: input.constraints ?? [],
+              successCriteria: input.successCriteria ?? [],
+              version: 1,
+              status: 'active' as const,
+              createdAt: '2026-07-12T00:00:00.000Z',
+              updatedAt: '2026-07-12T00:00:00.000Z',
+            }),
+        },
+        workflowControls: {
+          ...configured.workflowControls,
+          start: (input) =>
+            Promise.resolve({
+              ...input,
+              status: 'awaiting_confirmation' as const,
+              currentPlanId: input.initialPlanId,
+              roundCount: 1,
+              replanCount: 1,
+              createdAt: '2026-07-12T00:00:00.000Z',
+              updatedAt: '2026-07-12T00:00:01.000Z',
+            }),
+        },
+      },
+    });
+    const goal = await fetch(`${endpoint.baseUrl}/api/v1/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        goalId: 'goal-1',
+        contextId: 'context-1',
+        title: 'Goal',
+        description: 'Complete the task.',
+      }),
+    });
+    expect(goal.status).toBe(201);
+    await expect(goal.json()).resolves.toMatchObject({ goalId: 'goal-1', status: 'active' });
+    const control = await fetch(`${endpoint.baseUrl}/api/v1/workflow-controls`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        controlId: 'control-1',
+        contextId: 'context-1',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        initialPlanId: 'plan-1',
+        input: {},
+        skillIds: ['skill-1'],
+        planningInstruction: 'Complete the task.',
+      }),
+    });
+    expect(control.status).toBe(201);
+    await expect(control.json()).resolves.toMatchObject({
+      controlId: 'control-1',
+      status: 'awaiting_confirmation',
+      replanCount: 1,
+    });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
+    goals: { create: unused, get: unused },
     graph: {
       create: unused,
       delete: unused,
@@ -201,6 +269,12 @@ function operations(failServerList = false): ManagementOperations {
       execute: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
+    },
+    workflowControls: {
+      continueAfterConfirmation: unused,
+      get: unused,
+      listRounds: () => Promise.resolve([]),
+      start: unused,
     },
   };
 }

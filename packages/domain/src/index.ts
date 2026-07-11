@@ -9,6 +9,7 @@ export * from './skill-selection.js';
 export * from './temporary-skill.js';
 export * from './workflow.js';
 export * from './workflow-budget.js';
+export * from './workflow-control.js';
 export * from './mcp.js';
 export * from './model-runtime.js';
 export * from './prompt.js';

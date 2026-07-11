@@ -26,6 +26,9 @@ import {
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
+  WorkflowControllerService,
+  StructuredGoalEvaluator,
+  GoalService,
   TaskService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -63,6 +66,8 @@ import {
   PostgresTemporarySkillRepository,
   PostgresWorkflowPlanRepository,
   PostgresWorkflowExecutionRepository,
+  PostgresWorkflowControlRepository,
+  PostgresGoalRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -131,6 +136,7 @@ export async function startServerRuntime(
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
   if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
   const contexts = new PostgresConversationContextRepository(pool);
+  const goals = new PostgresGoalRepository(pool);
   const tasks = new PostgresAgentTaskRepository(pool);
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
@@ -291,6 +297,23 @@ export async function startServerRuntime(
     skills,
     systemBudgetDefaults: workflowBudgetDefaults,
   });
+  const goalService = new GoalService({ goals, contexts, clock });
+  const workflowController = new WorkflowControllerService({
+    controls: new PostgresWorkflowControlRepository(pool),
+    plans: workflowPlans,
+    goals,
+    skills,
+    planner: workflowPlanner,
+    execution: workflowExecution,
+    evaluator: new StructuredGoalEvaluator(modelRuntime),
+    clock,
+    ids: {
+      nextPlanId: (controlId, replanCount) =>
+        `plan-${controlId}-${String(replanCount)}-${randomUUID()}`,
+      nextInstanceId: (controlId, roundIndex) =>
+        `instance-${controlId}-${String(roundIndex)}-${randomUUID()}`,
+    },
+  });
   const temporarySkills = new TemporarySkillService({
     repository: temporarySkillRepository,
     tools: mcpRepository,
@@ -312,6 +335,7 @@ export async function startServerRuntime(
     const startedManagement = await startManagementHttpEndpoint({
       operations: {
         graph: skillGraph,
+        goals: goalService,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -325,6 +349,7 @@ export async function startServerRuntime(
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
         },
+        workflowControls: workflowController,
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -434,6 +459,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0016_workflow_planning.up.sql',
     '0017_workflow_execution.up.sql',
     '0018_workflow_budget.up.sql',
+    '0019_workflow_control.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

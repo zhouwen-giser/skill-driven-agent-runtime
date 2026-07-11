@@ -6,6 +6,46 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/goals:
+    post:
+      operationId: createGoal
+      responses:
+        '201': { description: PostgreSQL-authoritative active Goal }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}:
+    parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getGoal
+      responses:
+        '200': { description: Current Goal record }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/workflow-controls:
+    post:
+      operationId: startWorkflowControl
+      description: Executes confirmed immutable plans, evaluates the Goal, and creates new plan versions outside LangGraph. Non-auto-confirm replans stop at the confirmation boundary.
+      responses:
+        '201': { description: Terminal or awaiting-confirmation Workflow control }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflow-controls/{controlId}:
+    parameters: [{ name: controlId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getWorkflowControl
+      responses:
+        '200': { description: Persisted outer-control state }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/workflow-controls/{controlId}/rounds:
+    parameters: [{ name: controlId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listWorkflowControlRounds
+      responses:
+        '200': { description: Ordered plan, instance, version and structured evaluation evidence }
+  /api/v1/workflow-controls/{controlId}/continue:
+    parameters: [{ name: controlId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: continueWorkflowControl
+      responses:
+        '200': { description: Continued control after current plan confirmation }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/validate:
     post:
       operationId: validateWorkflowDsl

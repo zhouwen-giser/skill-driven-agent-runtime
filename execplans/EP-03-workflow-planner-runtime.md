@@ -111,7 +111,20 @@ Decision: ADR-020 separates validation from compilation/execution and forbids ar
 - [x] Enforce duration before/after nodes and propagate the remaining deadline as AbortSignal.
 - [x] Persist limits, usage, Skill versions and termination reason in PostgreSQL.
 - [x] Prove a real enabled Skill with zero MCP budget produces zero real MCP invocations.
-- [ ] Enforce `maxReplans` in the FR-WF-008 outer controller.
+- [x] Enforce `maxReplans` in the FR-WF-008 outer controller.
+
+## Outer Goal Evaluation and Replanning Progress Update - 2026-07-12
+
+- [x] Persist the control state and ordered plan/instance/evaluation rounds in PostgreSQL.
+- [x] Validate fixed-stage Goal evaluation as strict displayable structured data.
+- [x] Evaluate successful and failed terminal instances from their latest persisted state.
+- [x] Generate the next immutable WorkflowDefinition version only outside LangGraph.
+- [x] Pause ordinary replans for repository-backed confirmation and continue the same control afterward.
+- [x] Auto-confirm only when every named current enabled Skill opts in; empty Skill sets never auto-confirm.
+- [x] Enforce `maxReplans`, persist exhaustion, retain the final instance and end the Goal fail-closed.
+- [x] Verify a two-round real model + real MCP loop reaches an achieved Goal with replayable evidence.
+
+Decision: ADR-024 defines the outer-loop, confirmation and replan-exhaustion semantics.
 
 Decision: ADR-023 defines conservative Skill override resolution, fail-closed exhaustion and configured cost accounting.
 

@@ -12,6 +12,8 @@ import type {
   PromptRepository,
   WorkflowPlanRepository,
   WorkflowExecutionRepository,
+  WorkflowControlRepository,
+  GoalRepository,
   RuntimeEventPublisher,
   RuntimeTaskEvent,
   SkillDraftRepository,
@@ -39,6 +41,9 @@ import type {
   WorkflowPlanRecord,
   WorkflowInstance,
   WorkflowNodeEvent,
+  WorkflowControlRecord,
+  WorkflowControlRound,
+  Goal,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -102,6 +107,20 @@ const SkillCandidateSchema = z.object({
 interface ContextRow extends QueryResultRow {
   context_id: string;
   user_id: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface GoalRow extends QueryResultRow {
+  goal_id: string;
+  context_id: string;
+  version: number;
+  title: string;
+  description: string;
+  constraints_json: unknown;
+  success_criteria_json: unknown;
+  status: Goal['status'];
+  previous_goal_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -317,6 +336,52 @@ export class PostgresConversationContextRepository implements ConversationContex
        ON CONFLICT (context_id) DO UPDATE
        SET user_id = EXCLUDED.user_id, updated_at = EXCLUDED.updated_at`,
       [context.contextId, context.userId, context.createdAt, context.updatedAt],
+    );
+  }
+}
+
+export class PostgresGoalRepository implements GoalRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async findById(goalId: string): Promise<Goal | undefined> {
+    const result = await this.#pool.query<GoalRow>('SELECT * FROM goal WHERE goal_id=$1', [goalId]);
+    return result.rows[0] === undefined ? undefined : mapGoalRow(result.rows[0]);
+  }
+
+  async findActiveByContextId(contextId: string): Promise<Goal | undefined> {
+    const result = await this.#pool.query<GoalRow>(
+      "SELECT * FROM goal WHERE context_id=$1 AND status='active'",
+      [contextId],
+    );
+    return result.rows[0] === undefined ? undefined : mapGoalRow(result.rows[0]);
+  }
+
+  async save(goal: Goal): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO goal(
+         goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
+         status,previous_goal_id,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11)
+       ON CONFLICT(goal_id) DO UPDATE SET
+         version=EXCLUDED.version,title=EXCLUDED.title,description=EXCLUDED.description,
+         constraints_json=EXCLUDED.constraints_json,success_criteria_json=EXCLUDED.success_criteria_json,
+         status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at`,
+      [
+        goal.goalId,
+        goal.contextId,
+        goal.version,
+        goal.title,
+        goal.description,
+        JSON.stringify(goal.constraints),
+        JSON.stringify(goal.successCriteria),
+        goal.status,
+        goal.previousGoalId ?? null,
+        goal.createdAt,
+        goal.updatedAt,
+      ],
     );
   }
 }
@@ -1225,6 +1290,143 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 }
 
+interface WorkflowControlRow extends QueryResultRow {
+  control_id: string;
+  context_id: string;
+  goal_id: string;
+  goal_version: number;
+  status: WorkflowControlRecord['status'];
+  current_plan_id: string;
+  input_json: unknown;
+  skill_ids_json: unknown;
+  planning_instruction: string;
+  round_count: number;
+  replan_count: number;
+  final_instance_id: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface WorkflowControlRoundRow extends QueryResultRow {
+  control_id: string;
+  round_index: number;
+  plan_id: string;
+  instance_id: string;
+  workflow_version: number;
+  evaluation_decision: WorkflowControlRound['evaluation']['decision'];
+  evaluation_summary: string;
+  replan_instruction: string | null;
+  created_at: Date | string;
+}
+
+export class PostgresWorkflowControlRepository implements WorkflowControlRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async find(controlId: string): Promise<WorkflowControlRecord | undefined> {
+    const result = await this.#pool.query<WorkflowControlRow>(
+      'SELECT * FROM workflow_control WHERE control_id=$1',
+      [controlId],
+    );
+    return result.rows[0] === undefined ? undefined : mapWorkflowControlRow(result.rows[0]);
+  }
+
+  async save(control: WorkflowControlRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_control(
+         control_id,context_id,goal_id,goal_version,status,current_plan_id,input_json,
+         skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
+         created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT(control_id) DO UPDATE SET
+         status=EXCLUDED.status,current_plan_id=EXCLUDED.current_plan_id,
+         round_count=EXCLUDED.round_count,replan_count=EXCLUDED.replan_count,
+         final_instance_id=EXCLUDED.final_instance_id,updated_at=EXCLUDED.updated_at`,
+      [
+        control.controlId,
+        control.contextId,
+        control.goalId,
+        control.goalVersion,
+        control.status,
+        control.currentPlanId,
+        JSON.stringify(control.input),
+        JSON.stringify(control.skillIds),
+        control.planningInstruction,
+        control.roundCount,
+        control.replanCount,
+        control.finalInstanceId ?? null,
+        control.createdAt,
+        control.updatedAt,
+      ],
+    );
+  }
+
+  async saveRound(round: WorkflowControlRound): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_control_round(
+         control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
+         evaluation_summary,replan_instruction,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        round.controlId,
+        round.roundIndex,
+        round.planId,
+        round.instanceId,
+        round.workflowVersion,
+        round.evaluation.decision,
+        round.evaluation.summary,
+        round.evaluation.replanInstruction ?? null,
+        round.createdAt,
+      ],
+    );
+  }
+
+  async listRounds(controlId: string): Promise<readonly WorkflowControlRound[]> {
+    const result = await this.#pool.query<WorkflowControlRoundRow>(
+      'SELECT * FROM workflow_control_round WHERE control_id=$1 ORDER BY round_index',
+      [controlId],
+    );
+    return result.rows.map(mapWorkflowControlRoundRow);
+  }
+}
+
+function mapWorkflowControlRow(row: WorkflowControlRow): WorkflowControlRecord {
+  return {
+    controlId: row.control_id,
+    contextId: row.context_id,
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    status: row.status,
+    currentPlanId: row.current_plan_id,
+    input: row.input_json,
+    skillIds: StringArraySchema.parse(row.skill_ids_json),
+    planningInstruction: row.planning_instruction,
+    roundCount: row.round_count,
+    replanCount: row.replan_count,
+    ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function mapWorkflowControlRoundRow(row: WorkflowControlRoundRow): WorkflowControlRound {
+  return {
+    controlId: row.control_id,
+    roundIndex: row.round_index,
+    planId: row.plan_id,
+    instanceId: row.instance_id,
+    workflowVersion: row.workflow_version,
+    evaluation: {
+      decision: row.evaluation_decision,
+      summary: row.evaluation_summary,
+      ...(row.replan_instruction === null ? {} : { replanInstruction: row.replan_instruction }),
+    },
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
 function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
   return {
     planId: row.plan_id,
@@ -1978,6 +2180,22 @@ function mapTaskRow(row: TaskRow): AgentTask {
     ...(row.goal_version === null ? {} : { goalVersion: row.goal_version }),
     ...output,
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function mapGoalRow(row: GoalRow): Goal {
+  return {
+    goalId: row.goal_id,
+    contextId: row.context_id,
+    version: row.version,
+    title: row.title,
+    description: row.description,
+    constraints: StringArraySchema.parse(row.constraints_json),
+    successCriteria: StringArraySchema.parse(row.success_criteria_json),
+    status: row.status,
+    ...(row.previous_goal_id === null ? {} : { previousGoalId: row.previous_goal_id }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };

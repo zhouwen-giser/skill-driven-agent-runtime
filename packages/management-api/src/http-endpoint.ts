@@ -17,6 +17,8 @@ import type {
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
+  WorkflowControllerService,
+  GoalService,
 } from '../../application/src/index.js';
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -148,8 +150,27 @@ const ExecuteWorkflowSchema = z.object({
   input: z.unknown(),
   skillIds: z.array(z.string().min(1)).optional(),
 });
+const CreateGoalSchema = z.object({
+  goalId: z.string().min(1),
+  contextId: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  constraints: z.array(z.string()).optional(),
+  successCriteria: z.array(z.string()).optional(),
+});
+const StartWorkflowControlSchema = z.object({
+  controlId: z.string().min(1),
+  contextId: z.string().min(1),
+  goalId: z.string().min(1),
+  goalVersion: z.number().int().positive(),
+  initialPlanId: z.string().min(1),
+  input: z.unknown(),
+  skillIds: z.array(z.string().min(1)),
+  planningInstruction: z.string().min(1),
+});
 
 export interface ManagementOperations {
+  readonly goals: Pick<GoalService, 'create' | 'get'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -179,6 +200,10 @@ export interface ManagementOperations {
   readonly workflows: Pick<WorkflowValidator, 'validate'> &
     Pick<WorkflowPlannerService, 'plan'> &
     Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+  readonly workflowControls: Pick<
+    WorkflowControllerService,
+    'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
+  >;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -202,6 +227,63 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/health', (_request, response) => {
     response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
   });
+  app.post(
+    '/api/v1/goals',
+    asyncRoute(async (request, response) => {
+      const input = CreateGoalSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.goals.create({
+          goalId: input.goalId,
+          contextId: input.contextId,
+          title: input.title,
+          description: input.description,
+          ...(input.constraints === undefined ? {} : { constraints: input.constraints }),
+          ...(input.successCriteria === undefined
+            ? {}
+            : { successCriteria: input.successCriteria }),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/goals/:goalId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.goals.get(pathValue(request, 'goalId')));
+    }),
+  );
+  app.post(
+    '/api/v1/workflow-controls',
+    asyncRoute(async (request, response) => {
+      const input = StartWorkflowControlSchema.parse(request.body);
+      response.status(201).json(await options.operations.workflowControls.start(input));
+    }),
+  );
+  app.get(
+    '/api/v1/workflow-controls/:controlId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflowControls.get(pathValue(request, 'controlId')));
+    }),
+  );
+  app.get(
+    '/api/v1/workflow-controls/:controlId/rounds',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.workflowControls.listRounds(
+          pathValue(request, 'controlId'),
+        ),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/workflow-controls/:controlId/continue',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.workflowControls.continueAfterConfirmation(
+          pathValue(request, 'controlId'),
+        ),
+      );
+    }),
+  );
   app.post(
     '/api/v1/workflows/validate',
     asyncRoute(async (request, response) => {

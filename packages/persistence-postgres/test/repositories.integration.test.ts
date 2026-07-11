@@ -13,6 +13,8 @@ import {
   PostgresPromptRepository,
   PostgresWorkflowPlanRepository,
   PostgresWorkflowExecutionRepository,
+  PostgresWorkflowControlRepository,
+  PostgresGoalRepository,
   PostgresRuntimeEventPublisher,
   PostgresSkillDraftRepository,
   PostgresSkillGraphRepository,
@@ -119,11 +121,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowBudgetMigration);
+  const workflowControlMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0019_workflow_control.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowControlMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -286,6 +293,126 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(events.rows).toEqual([
       { sequence: 1, event_type: 'node_started' },
       { sequence: 2, event_type: 'node_succeeded' },
+    ]);
+  });
+  it('persists Goal authority and replayable outer-control rounds', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    await contexts.save({
+      contextId: 'context.control.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const goals = new PostgresGoalRepository(pool);
+    await goals.save({
+      goalId: 'goal.control.db',
+      contextId: 'context.control.db',
+      version: 1,
+      title: 'Control Goal',
+      description: 'Exercise the outer controller.',
+      constraints: ['local-only'],
+      successCriteria: ['completed'],
+      status: 'active',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    await plans.savePlan({
+      planId: 'plan.control.db',
+      goalId: 'goal.control.db',
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.control.db',
+        version: 1,
+        goalId: 'goal.control.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    await executions.saveInstance({
+      instanceId: 'instance.control.db',
+      planId: 'plan.control.db',
+      workflowDefinitionId: 'workflow.control.db',
+      workflowVersion: 1,
+      goalId: 'goal.control.db',
+      goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 2,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      status: 'succeeded',
+      input: {},
+      result: true,
+      errors: {},
+      startedAt: '2026-07-12T00:00:00.000Z',
+      completedAt: '2026-07-12T00:00:01.000Z',
+    });
+    const controls = new PostgresWorkflowControlRepository(pool);
+    await controls.save({
+      controlId: 'control.db',
+      contextId: 'context.control.db',
+      goalId: 'goal.control.db',
+      goalVersion: 1,
+      status: 'running',
+      currentPlanId: 'plan.control.db',
+      input: { request: 'run' },
+      skillIds: [],
+      planningInstruction: 'Complete.',
+      roundCount: 0,
+      replanCount: 0,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    await controls.saveRound({
+      controlId: 'control.db',
+      roundIndex: 0,
+      planId: 'plan.control.db',
+      instanceId: 'instance.control.db',
+      workflowVersion: 1,
+      evaluation: {
+        decision: 'replan',
+        summary: 'One criterion remains.',
+        replanInstruction: 'Collect another result.',
+      },
+      createdAt: '2026-07-12T00:00:02.000Z',
+    });
+
+    await expect(goals.findActiveByContextId('context.control.db')).resolves.toMatchObject({
+      goalId: 'goal.control.db',
+      status: 'active',
+    });
+    await expect(controls.find('control.db')).resolves.toMatchObject({
+      currentPlanId: 'plan.control.db',
+      replanCount: 0,
+    });
+    await expect(controls.listRounds('control.db')).resolves.toEqual([
+      expect.objectContaining({
+        roundIndex: 0,
+        evaluation: {
+          decision: 'replan',
+          summary: 'One criterion remains.',
+          replanInstruction: 'Collect another result.',
+        },
+      }),
     ]);
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
