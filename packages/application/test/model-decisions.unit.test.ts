@@ -23,7 +23,7 @@ describe('structured LLM final decisions', () => {
         decisionSummary: 'This is the next phase of the completed inspection.',
       },
     ]);
-    const decisions = new StructuredTaskDecisionService(model);
+    const decisions = new StructuredTaskDecisionService(model, stageMemories('memory-intent'));
 
     await expect(decisions.decideIntent({ requestText: 'Inspect device 17.' })).resolves.toEqual({
       intent: 'execute',
@@ -50,6 +50,7 @@ describe('structured LLM final decisions', () => {
       }),
     ).resolves.toMatchObject({ relationship: 'related_successor' });
     expect(model.calls.map((call) => call.stage)).toEqual(['intent', 'goal', 'goal']);
+    expect(model.calls[0]?.instruction).toContain('memory-intent');
   });
 
   it('rejects inconsistent Goal clarification instead of applying a rule fallback', async () => {
@@ -73,7 +74,7 @@ describe('structured LLM final decisions', () => {
     const model = new SequenceModel([
       { selectedSkillId: 'skill-safe', decisionSummary: 'Best fit under the Goal constraints.' },
     ]);
-    const decider = new StructuredSkillSelectionDecider(model);
+    const decider = new StructuredSkillSelectionDecider(model, stageMemories('memory-skill'));
     await expect(
       decider.decide({
         goalDescription: 'Inspect safely.',
@@ -102,18 +103,20 @@ describe('structured LLM final decisions', () => {
     ).resolves.toMatchObject({ selectedSkillId: 'skill-safe' });
     expect(model.calls[0]).toMatchObject({ stage: 'skill_selection' });
     expect(model.calls[0]?.instruction).toContain('semanticScore');
+    expect(model.calls[0]?.instruction).toContain('memory-skill');
   });
 
   it('constrains exception decisions to strategies permitted by the immutable graph', async () => {
     const model = new SequenceModel([{ strategy: 'continue', summary: 'Continue safely.' }]);
     await expect(
-      new StructuredExecutionExceptionDecider(model).decide({
+      new StructuredExecutionExceptionDecider(model, stageMemories('memory-failure')).decide({
         handledNodeId: 'tool',
         error: { code: 'MCP_OFFLINE', message: 'Tool is offline.' },
         allowedStrategies: ['terminate', 'continue'],
       }),
     ).resolves.toMatchObject({ strategy: 'continue' });
     expect(model.calls[0]?.stage).toBe('execution_decision');
+    expect(model.calls[0]?.instruction).toContain('memory-failure');
   });
 });
 
@@ -127,4 +130,26 @@ class SequenceModel implements StructuredModelProvider {
     this.calls.push(input);
     return Promise.resolve(this.#outputs[this.calls.length - 1]);
   }
+}
+
+function stageMemories(memoryId: string) {
+  return {
+    searchForStage: () =>
+      Promise.resolve([
+        {
+          item: {
+            memoryId,
+            type: 'failure_experience' as const,
+            content: { lesson: 'Use prior evidence.' },
+            summary: 'Prior evidence.',
+            status: 'active' as const,
+            sourceRefs: ['task:source'],
+            supersedes: [],
+            confidence: 0.9,
+            createdAt: '2026-07-12T00:00:00.000Z',
+          },
+          score: 0.95,
+        },
+      ]),
+  };
 }

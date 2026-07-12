@@ -1,6 +1,7 @@
 import {
   createMemoryItem,
   type MemoryItem,
+  type MemoryRetrievalStage,
   type MemoryType,
   type ProcessedResultRecord,
 } from '../../domain/src/index.js';
@@ -110,6 +111,22 @@ export class MemoryService {
     return this.#repository.search({ ...embedding, limit });
   }
 
+  async searchForStage(stage: MemoryRetrievalStage, subject: string, limit = 5) {
+    if (subject.trim() === '')
+      throw new MemoryApplicationError('MEMORY_QUERY_REQUIRED', 'Stage subject is required.');
+    if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+      throw new MemoryApplicationError(
+        'MEMORY_LIMIT_INVALID',
+        'Stage memory limit must be between 1 and 20.',
+      );
+    const policy = stagePolicy(stage);
+    const embedding = await this.#embeddings.embed(policy.queryTemplate(subject.trim()));
+    validateEmbedding(embedding);
+    return (await this.#repository.search({ ...embedding, limit: 100 }))
+      .filter((hit) => policy.types.includes(hit.item.type))
+      .slice(0, limit);
+  }
+
   async admitProcessedResult(result: ProcessedResultRecord) {
     const admitted: MemoryItem[] = [];
     const duplicateMemoryIds: string[] = [];
@@ -199,6 +216,39 @@ function candidateType(
   if (kind === 'fact' || kind === 'preference') return 'fact';
   if (kind === 'procedure') return 'workflow_pattern';
   return errorBearing ? 'failure_experience' : 'success_experience';
+}
+
+function stagePolicy(stage: MemoryRetrievalStage): Readonly<{
+  types: readonly MemoryType[];
+  queryTemplate(subject: string): string;
+}> {
+  switch (stage) {
+    case 'intent':
+      return {
+        types: ['fact', 'success_experience', 'failure_experience'],
+        queryTemplate: (subject) => `Intent recognition evidence for request: ${subject}`,
+      };
+    case 'skill_selection':
+      return {
+        types: ['skill_learning', 'success_experience', 'failure_experience'],
+        queryTemplate: (subject) => `Skill selection outcomes and lessons for Goal: ${subject}`,
+      };
+    case 'workflow_generation':
+      return {
+        types: ['workflow_pattern', 'success_experience', 'failure_experience'],
+        queryTemplate: (subject) => `Workflow planning patterns and outcomes for Goal: ${subject}`,
+      };
+    case 'exception_handling':
+      return {
+        types: ['failure_experience', 'skill_learning', 'workflow_pattern'],
+        queryTemplate: (subject) => `Exception recovery evidence for failure: ${subject}`,
+      };
+    case 'goal_evaluation':
+      return {
+        types: ['fact', 'success_experience', 'failure_experience'],
+        queryTemplate: (subject) => `Goal evaluation evidence and prior outcomes for: ${subject}`,
+      };
+  }
 }
 
 function searchableText(item: MemoryItem): string {

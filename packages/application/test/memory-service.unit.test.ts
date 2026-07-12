@@ -5,6 +5,29 @@ import type { MemoryRepository } from '../src/ports.js';
 import { MemoryService } from '../src/memory-service.js';
 
 describe('MemoryService', () => {
+  it('uses stage-specific query templates and filters memory types', async () => {
+    const repository = new MemoryRepositoryFake();
+    let queryText = '';
+    const service = new MemoryService({
+      repository,
+      embeddings: {
+        embed: (text) => {
+          queryText = text;
+          return Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] });
+        },
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-stage',
+    });
+    repository.item = memoryItem('skill_learning');
+    await expect(service.searchForStage('intent', 'Inspect device')).resolves.toEqual([]);
+    expect(queryText).toBe('Intent recognition evidence for request: Inspect device');
+    await expect(
+      service.searchForStage('skill_selection', 'Inspect device'),
+    ).resolves.toMatchObject([{ item: { type: 'skill_learning' } }]);
+    expect(queryText).toBe('Skill selection outcomes and lessons for Goal: Inspect device');
+  });
+
   it('admits valuable structured candidates with sources and deduplicates them', async () => {
     const repository = new MemoryRepositoryFake();
     let sequence = 0;
@@ -150,6 +173,20 @@ function processedResult(): ProcessedResultRecord {
     valuable: true,
     valueSummary: 'Useful.',
     memoryCandidates: [{ kind: 'fact', content: '  Device 17  was online. ', confidence: 0.9 }],
+    createdAt: '2026-07-12T00:00:00.000Z',
+  };
+}
+
+function memoryItem(type: MemoryItem['type']): MemoryItem {
+  return {
+    memoryId: `memory-${type}`,
+    type,
+    content: { lesson: 'Use the inspection Skill.' },
+    summary: 'Inspection lesson.',
+    status: 'active',
+    sourceRefs: ['task:task-1'],
+    supersedes: [],
+    confidence: 0.9,
     createdAt: '2026-07-12T00:00:00.000Z',
   };
 }

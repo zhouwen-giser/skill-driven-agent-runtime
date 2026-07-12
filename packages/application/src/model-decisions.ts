@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { SkillSelectionDecider, StructuredModelProvider } from './ports.js';
+import type { MemoryService } from './memory-service.js';
 
 const IntentDecisionSchema = z
   .object({
@@ -103,16 +104,23 @@ export interface GoalContinuityDecision {
 
 export class StructuredTaskDecisionService {
   readonly #model: StructuredModelProvider;
-  constructor(model: StructuredModelProvider) {
+  readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
+  constructor(model: StructuredModelProvider, memories?: Pick<MemoryService, 'searchForStage'>) {
     this.#model = model;
+    this.#memories = memories;
   }
 
   async decideIntent(
     input: Readonly<{ requestText: string; contextSummary?: string }>,
   ): Promise<IntentDecision> {
+    const memoryContext = await this.#memories?.searchForStage('intent', input.requestText);
     const raw = await this.#model.generateStructured({
       stage: 'intent',
-      instruction: JSON.stringify({ operation: 'decide_task_intent', ...input }),
+      instruction: JSON.stringify({
+        operation: 'decide_task_intent',
+        ...input,
+        memoryContext: toMemoryContext(memoryContext),
+      }),
       responseSchema: intentResponseSchema,
       correctionErrors: [],
     });
@@ -173,15 +181,25 @@ export class StructuredTaskDecisionService {
 
 export class StructuredSkillSelectionDecider implements SkillSelectionDecider {
   readonly #model: StructuredModelProvider;
-  constructor(model: StructuredModelProvider) {
+  readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
+  constructor(model: StructuredModelProvider, memories?: Pick<MemoryService, 'searchForStage'>) {
     this.#model = model;
+    this.#memories = memories;
   }
 
   async decide(input: Parameters<SkillSelectionDecider['decide']>[0]) {
+    const memoryContext = await this.#memories?.searchForStage(
+      'skill_selection',
+      input.goalDescription,
+    );
     return SkillSelectionDecisionSchema.parse(
       await this.#model.generateStructured({
         stage: 'skill_selection',
-        instruction: JSON.stringify({ operation: 'select_skill', ...input }),
+        instruction: JSON.stringify({
+          operation: 'select_skill',
+          ...input,
+          memoryContext: toMemoryContext(memoryContext),
+        }),
         responseSchema: skillSelectionResponseSchema,
         correctionErrors: [],
       }),
@@ -198,15 +216,25 @@ export interface ExecutionExceptionDecisionInput {
 
 export class StructuredExecutionExceptionDecider {
   readonly #model: StructuredModelProvider;
-  constructor(model: StructuredModelProvider) {
+  readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
+  constructor(model: StructuredModelProvider, memories?: Pick<MemoryService, 'searchForStage'>) {
     this.#model = model;
+    this.#memories = memories;
   }
 
   async decide(input: ExecutionExceptionDecisionInput) {
+    const memoryContext = await this.#memories?.searchForStage(
+      'exception_handling',
+      `${input.error.code} ${input.error.message}`,
+    );
     const decision = ExceptionDecisionSchema.parse(
       await this.#model.generateStructured({
         stage: 'execution_decision',
-        instruction: JSON.stringify({ operation: 'decide_execution_exception', ...input }),
+        instruction: JSON.stringify({
+          operation: 'decide_execution_exception',
+          ...input,
+          memoryContext: toMemoryContext(memoryContext),
+        }),
         responseSchema: exceptionResponseSchema,
         correctionErrors: [],
       }),
@@ -218,6 +246,18 @@ export class StructuredExecutionExceptionDecider {
       );
     return decision;
   }
+}
+
+function toMemoryContext(hits: Awaited<ReturnType<MemoryService['searchForStage']>> | undefined) {
+  return (hits ?? []).map((hit) => ({
+    memoryId: hit.item.memoryId,
+    type: hit.item.type,
+    summary: hit.item.summary,
+    content: hit.item.content,
+    sourceRefs: hit.item.sourceRefs,
+    confidence: hit.item.confidence,
+    score: hit.score,
+  }));
 }
 
 export class ModelDecisionError extends Error {

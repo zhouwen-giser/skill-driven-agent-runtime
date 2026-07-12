@@ -9,6 +9,8 @@ export type MemoryType =
   | 'skill_learning'
   | 'prompt_learning';
 export type MemoryStatus = 'active' | 'superseded' | 'invalid';
+export type MemoryRetrievalStage =
+  'intent' | 'skill_selection' | 'workflow_generation' | 'exception_handling' | 'goal_evaluation';
 
 export interface MemoryItem {
   readonly memoryId: string;

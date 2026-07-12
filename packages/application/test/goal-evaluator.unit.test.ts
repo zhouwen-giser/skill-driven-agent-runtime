@@ -10,12 +10,33 @@ describe('structured Goal evaluator', () => {
       summary: 'The current result does not satisfy the success criterion.',
       actionInstruction: 'Collect the missing observation.',
     });
-    await expect(new StructuredGoalEvaluator(model).evaluate(evaluationInput())).resolves.toEqual({
+    await expect(
+      new StructuredGoalEvaluator(model, {
+        searchForStage: () =>
+          Promise.resolve([
+            {
+              item: {
+                memoryId: 'memory-evaluation',
+                type: 'success_experience',
+                content: { result: 'complete' },
+                summary: 'A comparable Goal succeeded.',
+                status: 'active',
+                sourceRefs: ['task:source'],
+                supersedes: [],
+                confidence: 0.9,
+                createdAt: '2026-07-12T00:00:00.000Z',
+              },
+              score: 0.9,
+            },
+          ]),
+      }).evaluate(evaluationInput()),
+    ).resolves.toEqual({
       decision: 'adjust_plan',
       summary: 'The current result does not satisfy the success criterion.',
       actionInstruction: 'Collect the missing observation.',
     });
     expect(model.input?.stage).toBe('goal_evaluation');
+    expect(model.input?.instruction).toContain('memory-evaluation');
   });
 
   it('validates decision-specific evidence and rejects unexpected/private fields', async () => {

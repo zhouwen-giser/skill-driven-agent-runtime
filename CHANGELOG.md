@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Stage-specific long-term Memory retrieval with distinct type allowlists/query templates and audited evidence injection for intent, Skill selection, Workflow generation, exception handling, and Goal evaluation.
 - LLM-refined long-term Memory admission from valuable processed results, with normalized structured content, pgvector-assisted exact deduplication, Task/ProcessedResult provenance, and a refinement-only management boundary.
 - Versioned Workflow-template induction from repeated successful Experiences, similarity-ranked planning reuse, immutable adjustment, confirmation preservation, and source/use/effect audit APIs.
 - Version-specific Skill quality observations and persistent low-score/failure-rate warnings with an enforced warning-only, no-auto-disable/no-auto-repair policy.

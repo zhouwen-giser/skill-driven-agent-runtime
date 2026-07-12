@@ -85,24 +85,48 @@ describe('WorkflowPlannerService', () => {
       status: 'enabled' as const,
       createdAt: '2026-07-12T00:00:00.000Z',
     };
-    await planner(repository, model, {
-      findPreferred: () => Promise.resolve(template),
-      recordUse: (_template, planId) => {
-        usedPlanId = planId;
-        return Promise.resolve({
-          useId: 'use-1',
-          templateId: template.templateId,
-          templateVersion: 1,
-          planId,
-          workflowDefinitionId: 'workflow-1',
-          workflowVersion: 1,
-          status: 'planned' as const,
-          createdAt: '2026-07-12T00:00:00.000Z',
-        });
+    await planner(
+      repository,
+      model,
+      {
+        findPreferred: () => Promise.resolve(template),
+        recordUse: (_template, planId) => {
+          usedPlanId = planId;
+          return Promise.resolve({
+            useId: 'use-1',
+            templateId: template.templateId,
+            templateVersion: 1,
+            planId,
+            workflowDefinitionId: 'workflow-1',
+            workflowVersion: 1,
+            status: 'planned' as const,
+            createdAt: '2026-07-12T00:00:00.000Z',
+          });
+        },
       },
-    }).plan({ ...input(), templateQuery: 'Plan safely' });
+      {
+        searchForStage: () =>
+          Promise.resolve([
+            {
+              item: {
+                memoryId: 'memory-workflow',
+                type: 'workflow_pattern',
+                content: { pattern: 'read then return' },
+                summary: 'Successful pattern.',
+                status: 'active',
+                sourceRefs: ['task:source'],
+                supersedes: [],
+                confidence: 0.9,
+                createdAt: '2026-07-12T00:00:00.000Z',
+              },
+              score: 0.9,
+            },
+          ]),
+      },
+    ).plan({ ...input(), templateQuery: 'Plan safely' });
     expect(model.calls[0]?.instruction).toContain('preferredWorkflowTemplate');
     expect(model.calls[0]?.instruction).toContain('workflow-source');
+    expect(model.calls[0]?.instruction).toContain('memory-workflow');
     expect(usedPlanId).toBe('plan-1');
   });
 });
@@ -111,6 +135,7 @@ function planner(
   repository: WorkflowPlanRepository,
   model: StructuredModelProvider,
   templates?: ConstructorParameters<typeof WorkflowPlannerService>[0]['templates'],
+  memories?: ConstructorParameters<typeof WorkflowPlannerService>[0]['memories'],
 ) {
   return new WorkflowPlannerService({
     model,
@@ -119,6 +144,7 @@ function planner(
     clock: { now: () => '2026-07-12T00:00:00.000Z' },
     maxAttempts: 2,
     ...(templates === undefined ? {} : { templates }),
+    ...(memories === undefined ? {} : { memories }),
     validator: new WorkflowValidator({
       tools: {
         exists: () => Promise.resolve(false),

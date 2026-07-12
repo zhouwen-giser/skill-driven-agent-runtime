@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { GoalEvaluationResult } from '../../domain/src/index.js';
 import type { GoalEvaluator, StructuredModelProvider } from './ports.js';
+import type { MemoryService } from './memory-service.js';
 
 const GoalEvaluationSchema = z
   .object({
@@ -64,11 +65,17 @@ const responseSchema = {
 
 export class StructuredGoalEvaluator implements GoalEvaluator {
   readonly #model: StructuredModelProvider;
-  constructor(model: StructuredModelProvider) {
+  readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
+  constructor(model: StructuredModelProvider, memories?: Pick<MemoryService, 'searchForStage'>) {
     this.#model = model;
+    this.#memories = memories;
   }
 
   async evaluate(input: Parameters<GoalEvaluator['evaluate']>[0]): Promise<GoalEvaluationResult> {
+    const memoryContext = await this.#memories?.searchForStage(
+      'goal_evaluation',
+      input.goal.description,
+    );
     const raw = await this.#model.generateStructured({
       stage: 'goal_evaluation',
       instruction: JSON.stringify({
@@ -87,6 +94,15 @@ export class StructuredGoalEvaluator implements GoalEvaluator {
           budgetUsage: input.instance.budgetUsage,
           terminationReason: input.instance.terminationReason,
         },
+        memoryContext: (memoryContext ?? []).map((hit) => ({
+          memoryId: hit.item.memoryId,
+          type: hit.item.type,
+          summary: hit.item.summary,
+          content: hit.item.content,
+          sourceRefs: hit.item.sourceRefs,
+          confidence: hit.item.confidence,
+          score: hit.score,
+        })),
       }),
       responseSchema,
       correctionErrors: [],

@@ -37,6 +37,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-12: persist version-specific quality observations and warning-only low-score/failure-rate signals, proving no automatic disable, repair, evolution, or version mutation (FR-EVO-009, ADR-053).
 - [x] 2026-07-12: induce versioned Workflow templates from three matching successful Experiences, prefer them for exact/lexically similar planning without bypassing validation or confirmation, and persist per-version usage effects (FR-EVO-010, ADR-054).
 - [x] 2026-07-12: separate complete raw PostgreSQL execution evidence from valuable-only, Schema-constrained, normalized and deduplicated long-term Memory admission with Task/ProcessedResult provenance; close direct management creation bypass (FR-MEM-002, ADR-055).
+- [x] 2026-07-12: add domain-owned stage Memory policies and inject source-linked pgvector evidence into intent, Skill selection, Workflow generation, exception handling and Goal evaluation model requests (FR-MEM-003, ADR-056).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

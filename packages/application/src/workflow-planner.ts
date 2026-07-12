@@ -2,6 +2,7 @@ import type { WorkflowPlanAttempt, WorkflowPlanRecord } from '../../domain/src/i
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
 import type { WorkflowTemplateService } from './workflow-template.js';
+import type { MemoryService } from './memory-service.js';
 
 export interface PlanWorkflowInput {
   readonly planId: string;
@@ -25,6 +26,7 @@ export class WorkflowPlannerService {
   readonly #clock: Clock;
   readonly #maxAttempts: number;
   readonly #templates: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'> | undefined;
+  readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -35,6 +37,7 @@ export class WorkflowPlannerService {
       clock: Clock;
       maxAttempts: number;
       templates?: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'>;
+      memories?: Pick<MemoryService, 'searchForStage'>;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -49,6 +52,7 @@ export class WorkflowPlannerService {
     this.#clock = dependencies.clock;
     this.#maxAttempts = dependencies.maxAttempts;
     this.#templates = dependencies.templates;
+    this.#memories = dependencies.memories;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
@@ -66,10 +70,15 @@ export class WorkflowPlannerService {
       input.templateQuery === undefined
         ? undefined
         : await this.#templates?.findPreferred(input.templateQuery);
+    const memoryContext = await this.#memories?.searchForStage(
+      'workflow_generation',
+      input.templateQuery ?? input.planningInstruction,
+    );
+    const withMemory = addMemoryContext(input.planningInstruction, memoryContext);
     const planningInstruction =
       preferredTemplate === undefined
-        ? input.planningInstruction
-        : addPreferredTemplate(input.planningInstruction, preferredTemplate);
+        ? withMemory
+        : addPreferredTemplate(withMemory, preferredTemplate);
     let correctionErrors: readonly string[] = [];
     for (let attempt = 1; attempt <= this.#maxAttempts; attempt += 1) {
       const candidate = await this.#model.generateStructured({
@@ -185,6 +194,34 @@ function addPreferredTemplate(
     operation: 'plan_with_preferred_workflow_template',
     originalInstruction: instruction,
     preferredWorkflowTemplate: template,
+  });
+}
+
+function addMemoryContext(
+  instruction: string,
+  hits: Awaited<ReturnType<MemoryService['searchForStage']>> | undefined,
+): string {
+  if (hits === undefined || hits.length === 0) return instruction;
+  const memoryContext = hits.map((hit) => ({
+    memoryId: hit.item.memoryId,
+    type: hit.item.type,
+    summary: hit.item.summary,
+    content: hit.item.content,
+    sourceRefs: hit.item.sourceRefs,
+    confidence: hit.item.confidence,
+    score: hit.score,
+  }));
+  try {
+    const parsed = JSON.parse(instruction) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
+      return JSON.stringify({ ...parsed, memoryContext });
+  } catch {
+    // Non-JSON instructions remain supported through a data wrapper.
+  }
+  return JSON.stringify({
+    operation: 'plan_with_stage_memory',
+    originalInstruction: instruction,
+    memoryContext,
   });
 }
 

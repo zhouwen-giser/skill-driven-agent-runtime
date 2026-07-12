@@ -244,6 +244,13 @@ export async function startServerRuntime(
   const workflowSchema = JSON.parse(
     await readFile(resolve(process.cwd(), 'schemas', 'workflow-dsl.schema.json'), 'utf8'),
   ) as unknown;
+  const memories = new MemoryService({
+    repository: new PostgresMemoryRepository(pool),
+    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
+    clock,
+    nextId: () => `memory-${randomUUID()}`,
+    model: modelRuntime,
+  });
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
@@ -252,13 +259,7 @@ export async function startServerRuntime(
     clock,
     maxAttempts: 3,
     templates: workflowTemplates,
-  });
-  const memories = new MemoryService({
-    repository: new PostgresMemoryRepository(pool),
-    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
-    clock,
-    nextId: () => `memory-${randomUUID()}`,
-    model: modelRuntime,
+    memories,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const resultProcessing = new ResultProcessingService({
@@ -313,7 +314,8 @@ export async function startServerRuntime(
             clock,
           }),
           decider:
-            options.skillSelection.decider ?? new StructuredSkillSelectionDecider(modelRuntime),
+            options.skillSelection.decider ??
+            new StructuredSkillSelectionDecider(modelRuntime, memories),
           clock,
           ids: {
             nextSelectionId: () => `skill-selection-${randomUUID()}`,
@@ -331,7 +333,7 @@ export async function startServerRuntime(
   });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
-  const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime);
+  const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
     executeLlm: ({ instruction, responseSchema }) =>
@@ -548,7 +550,7 @@ export async function startServerRuntime(
     skills,
     planner: workflowPlanner,
     execution: workflowExecution,
-    evaluator: new StructuredGoalEvaluator(modelRuntime),
+    evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
     experiences: evolutionExperiences,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
@@ -728,7 +730,7 @@ export async function startServerRuntime(
     events,
     clock,
     ids,
-    decisions: new StructuredTaskDecisionService(modelRuntime),
+    decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
     skillSelection: {
       async select(goalDescription, task) {
