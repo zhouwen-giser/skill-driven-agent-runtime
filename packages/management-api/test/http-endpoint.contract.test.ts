@@ -162,6 +162,79 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [expect.objectContaining({ valuable: true })] });
   });
 
+  it('exposes the five-component Task quality report', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskQuality: {
+          getByTask: (taskId) =>
+            Promise.resolve({
+              reportId: 'quality-1',
+              taskId,
+              goalId: 'goal-1',
+              goalVersion: 1,
+              workflowInstanceId: 'instance-1',
+              processedResultId: 'result-1',
+              assessments: [
+                {
+                  component: 'goal',
+                  score: 1,
+                  summary: 'Good.',
+                  findings: [],
+                  evidenceRefs: ['goal:1'],
+                },
+                {
+                  component: 'workflow',
+                  score: 1,
+                  summary: 'Good.',
+                  findings: [],
+                  evidenceRefs: ['workflow:1'],
+                },
+                {
+                  component: 'skill',
+                  score: 1,
+                  summary: 'Good.',
+                  findings: [],
+                  evidenceRefs: ['skill:1'],
+                },
+                {
+                  component: 'result_quality',
+                  score: 1,
+                  summary: 'Good.',
+                  findings: [],
+                  evidenceRefs: ['result:1'],
+                },
+                {
+                  component: 'tool_call',
+                  score: 1,
+                  summary: 'Good.',
+                  findings: [],
+                  evidenceRefs: ['tool:1'],
+                },
+              ],
+              overallScore: 1,
+              status: 'passed',
+              createdAt: '2026-07-13T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/quality-report`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      taskId: 'task-1',
+      assessments: [
+        { component: 'goal' },
+        { component: 'workflow' },
+        { component: 'skill' },
+        { component: 'result_quality' },
+        { component: 'tool_call' },
+      ],
+    });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -1058,6 +1131,7 @@ function operations(failServerList = false): ManagementOperations {
     tasks: { attachPlan: unused, followUp: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
+    taskQuality: { getByTask: unused },
     memories: {
       refine: unused,
       get: unused,

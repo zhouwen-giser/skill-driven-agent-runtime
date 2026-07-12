@@ -139,6 +139,7 @@ beforeAll(async () => {
     'skill_selection',
     'execution_decision',
     'result_processing',
+    'evaluation',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -3377,6 +3378,28 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       content: { kind: 'fact', statement: 'The device was online.' },
       sourceRefs: [expect.stringMatching(/^task:/), expect.stringMatching(/^processed-result:/)],
     });
+    const qualityDeadline = Date.now() + 5_000;
+    let qualityResponse: Response;
+    do {
+      qualityResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/quality-report`,
+      );
+      if (qualityResponse.ok) break;
+      await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+    } while (Date.now() < qualityDeadline);
+    expect(qualityResponse.ok).toBe(true);
+    await expect(qualityResponse.json()).resolves.toMatchObject({
+      taskId: submitted.id,
+      overallScore: 0.9,
+      status: 'passed',
+      assessments: [
+        { component: 'goal', evidenceRefs: ['goal:evidence'] },
+        { component: 'workflow', evidenceRefs: ['workflow:evidence'] },
+        { component: 'skill', evidenceRefs: ['skill:evidence'] },
+        { component: 'result_quality', evidenceRefs: ['result_quality:evidence'] },
+        { component: 'tool_call', evidenceRefs: ['tool_call:evidence'] },
+      ],
+    });
   });
 
   it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
@@ -3667,6 +3690,9 @@ async function startModelLoopback(): Promise<Server> {
         const memoryRefinementRequest = body.messages?.some(
           (message) => message.content?.includes('refine_memory') === true,
         );
+        const taskQualityEvaluationRequest = body.messages?.some(
+          (message) => message.content?.includes('evaluate_task_component') === true,
+        );
         const goalPatchDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('generate_goal_patch') === true,
         );
@@ -3772,6 +3798,18 @@ async function startModelLoopback(): Promise<Server> {
             })
             .parse(embeddedOperation(body.messages, 'refine_memory'));
           respondStructured(response, requestData.candidate);
+          return;
+        }
+        if (taskQualityEvaluationRequest === true) {
+          const requestData = z
+            .object({ component: z.string() })
+            .parse(embeddedOperation(body.messages, 'evaluate_task_component'));
+          respondStructured(response, {
+            score: 0.9,
+            summary: `${requestData.component} evidence satisfies the quality policy.`,
+            findings: [`${requestData.component} evidence is consistent.`],
+            evidenceRefs: [`${requestData.component}:evidence`],
+          });
           return;
         }
         if (skillChildExecutionRequest === true) {

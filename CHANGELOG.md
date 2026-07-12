@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Five-component completed-Task quality reports with strict Goal/Workflow/Skill/result/Tool assessments, deterministic aggregation, PostgreSQL evidence linkage, and management retrieval.
 - PostgreSQL-managed Memory review/archive/delete policy fields with V1 domain/database enforcement that automatic cleanup remains disabled.
 - Source-linked evolution Memory projections for Skill/Prompt manual corrections, Task failure reasons, and Goal evaluation conclusions through the strict refinement boundary.
 - Transactional Memory supersede/invalidate lifecycle with explicit replacement links, append-only status audit, conflict rejection, historical reads, and active-only retrieval.

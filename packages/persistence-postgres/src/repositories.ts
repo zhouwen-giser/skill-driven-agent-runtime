@@ -19,6 +19,7 @@ import type {
   GoalPatchRepository,
   GoalCancellationRepository,
   ProcessedResultRepository,
+  TaskQualityReportRepository,
   MemoryRepository,
   MemoryRetentionPolicyRepository,
   GoalInputInferenceRepository,
@@ -64,6 +65,7 @@ import type {
   GoalPatchRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
+  TaskQualityReport,
   MemoryItem,
   MemorySearchHit,
   MemoryStatusTransition,
@@ -1019,6 +1021,77 @@ export class PostgresProcessedResultRepository implements ProcessedResultReposit
       [taskId],
     );
     return result.rows.map(mapProcessedResultRow);
+  }
+}
+
+interface TaskQualityReportRow extends QueryResultRow {
+  report_id: string;
+  task_id: string;
+  goal_id: string;
+  goal_version: number;
+  workflow_instance_id: string;
+  processed_result_id: string;
+  assessments_json: unknown;
+  overall_score: number;
+  status: TaskQualityReport['status'];
+  created_at: Date | string;
+}
+const TaskQualityAssessmentsSchema = z.array(
+  z
+    .object({
+      component: z.enum(['goal', 'workflow', 'skill', 'result_quality', 'tool_call']),
+      score: z.number().min(0).max(1),
+      summary: z.string().min(1),
+      findings: z.array(z.string()),
+      evidenceRefs: z.array(z.string()).min(1),
+    })
+    .strict(),
+);
+export class PostgresTaskQualityReportRepository implements TaskQualityReportRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async save(report: TaskQualityReport): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO task_quality_report(
+         report_id,task_id,goal_id,goal_version,workflow_instance_id,processed_result_id,
+         assessments_json,overall_score,status,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10)`,
+      [
+        report.reportId,
+        report.taskId,
+        report.goalId,
+        report.goalVersion,
+        report.workflowInstanceId,
+        report.processedResultId,
+        JSON.stringify(report.assessments),
+        report.overallScore,
+        report.status,
+        report.createdAt,
+      ],
+    );
+  }
+  async findByTask(taskId: string): Promise<TaskQualityReport | undefined> {
+    const result = await this.#pool.query<TaskQualityReportRow>(
+      'SELECT * FROM task_quality_report WHERE task_id=$1',
+      [taskId],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          reportId: row.report_id,
+          taskId: row.task_id,
+          goalId: row.goal_id,
+          goalVersion: row.goal_version,
+          workflowInstanceId: row.workflow_instance_id,
+          processedResultId: row.processed_result_id,
+          assessments: TaskQualityAssessmentsSchema.parse(row.assessments_json),
+          overallScore: row.overall_score,
+          status: row.status,
+          createdAt: toIsoString(row.created_at),
+        };
   }
 }
 

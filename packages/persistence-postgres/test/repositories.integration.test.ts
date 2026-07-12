@@ -299,6 +299,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(memoryRetentionMigration);
+  const taskQualityMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0046_task_quality_report.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskQualityMigration);
 });
 
 beforeEach(async () => {
@@ -308,7 +313,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',

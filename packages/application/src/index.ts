@@ -34,4 +34,5 @@ export * from './model-decisions.js';
 export * from './plan-preparation-processor.js';
 export * from './prompt-service.js';
 export * from './task-service.js';
+export * from './task-quality.js';
 export * from './task-wait-timeout.js';

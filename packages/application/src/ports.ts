@@ -57,6 +57,7 @@ import type {
   GoalCancellationRecord,
   ProcessedResultRecord,
   TaskWaitPolicy,
+  TaskQualityReport,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -97,6 +98,11 @@ export interface ProcessedResultRepository {
   save(record: ProcessedResultRecord): Promise<void>;
   find(resultId: string): Promise<ProcessedResultRecord | undefined>;
   listByTask(taskId: string): Promise<readonly ProcessedResultRecord[]>;
+}
+
+export interface TaskQualityReportRepository {
+  save(report: TaskQualityReport): Promise<void>;
+  findByTask(taskId: string): Promise<TaskQualityReport | undefined>;
 }
 
 export interface MemoryRepository {

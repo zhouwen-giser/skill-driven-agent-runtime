@@ -45,7 +45,11 @@ export class WorkflowControllerService {
   readonly #taskOutcomes:
     | Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
-        reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
+        reportAchieved(
+          taskId: string,
+          instance: WorkflowInstance,
+          evaluation: GoalEvaluationResult,
+        ): Promise<unknown>;
         requestInput(taskId: string, question: string): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
@@ -84,7 +88,11 @@ export class WorkflowControllerService {
       memories?: Pick<MemoryService, 'recordEvolution'>;
       taskOutcomes?: Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
-        reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
+        reportAchieved(
+          taskId: string,
+          instance: WorkflowInstance,
+          evaluation: GoalEvaluationResult,
+        ): Promise<unknown>;
         requestInput(taskId: string, question: string): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
@@ -277,7 +285,7 @@ export class WorkflowControllerService {
               'Terminal Task outcome projection is unavailable.',
             );
           if (status === 'achieved')
-            await this.#taskOutcomes.reportAchieved(control.taskId, instance);
+            await this.#taskOutcomes.reportAchieved(control.taskId, instance, evaluation);
           else await this.#taskOutcomes.reportUnachievable(control.taskId, evaluation.summary);
         }
         await this.#goals.save(changeGoalStatus(goal, status, this.#clock.now()));

@@ -33,6 +33,7 @@ import type {
   WorkflowTemplateService,
   TaskService,
   TaskWaitTimeoutService,
+  TaskQualityEvaluationService,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -274,6 +275,7 @@ export interface ManagementOperations {
   readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
+  readonly taskQuality: Pick<TaskQualityEvaluationService, 'getByTask'>;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
@@ -646,6 +648,12 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.resultProcessing.list(pathValue(request, 'taskId')),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/quality-report',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.taskQuality.getByTask(pathValue(request, 'taskId')));
     }),
   );
   app.get(

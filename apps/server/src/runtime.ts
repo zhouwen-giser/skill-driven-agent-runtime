@@ -50,6 +50,7 @@ import {
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
+  TaskQualityEvaluationService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -95,6 +96,7 @@ import {
   PostgresGoalPatchRepository,
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
+  PostgresTaskQualityReportRepository,
   PostgresMemoryRepository,
   PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
@@ -281,6 +283,12 @@ export async function startServerRuntime(
     clock,
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
+  });
+  const taskQuality = new TaskQualityEvaluationService({
+    model: modelRuntime,
+    repository: new PostgresTaskQualityReportRepository(pool),
+    clock,
+    nextId: () => `task-quality-report-${randomUUID()}`,
   });
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
@@ -586,11 +594,19 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
-      async reportAchieved(taskId, instance) {
+      async reportAchieved(taskId, instance, evaluation) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
           const temporary = await temporarySkillRepository.find(task.temporarySkillId);
           if (temporary?.status !== 'active') throw new Error('TEMPORARY_SKILL_NOT_ACTIVE');
+          const processed = await resultProcessing.process({
+            taskId,
+            skillId: temporary.temporarySkillId,
+            skillVersion: 1,
+            outputInstruction: `Evaluate Temporary Skill ${temporary.name} output.`,
+            outputSchema: temporary.outputSchema,
+            rawResult: instance.result,
+          });
           await service.recordResult(
             taskId,
             {
@@ -600,6 +616,24 @@ export async function startServerRuntime(
             },
             resultProcessor,
           );
+          const plan = await workflowPlans.findPlan(instance.planId);
+          const goal = await goals.findById(instance.goalId);
+          if (plan?.definition === undefined || goal === undefined)
+            throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
+          await taskQuality.evaluate({
+            taskId,
+            goal,
+            goalEvaluation: evaluation,
+            workflow: plan.definition,
+            instance,
+            skill: {
+              skillId: temporary.temporarySkillId,
+              version: 1,
+              inputSchema: temporary.inputSchema,
+              outputSchema: temporary.outputSchema,
+            },
+            processedResult: processed,
+          });
           const completed = await temporarySkills.complete(
             temporary.temporarySkillId,
             true,
@@ -626,6 +660,19 @@ export async function startServerRuntime(
           { ...processed.output, outputSchema: skill.outputSchema },
           resultProcessor,
         );
+        const plan = await workflowPlans.findPlan(instance.planId);
+        const goal = await goals.findById(instance.goalId);
+        if (plan?.definition === undefined || goal === undefined)
+          throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
+        await taskQuality.evaluate({
+          taskId,
+          goal,
+          goalEvaluation: evaluation,
+          workflow: plan.definition,
+          instance,
+          skill,
+          processedResult: processed,
+        });
       },
     },
     clock,
@@ -886,6 +933,7 @@ export async function startServerRuntime(
         tasks: service,
         taskWaitTimeouts,
         resultProcessing,
+        taskQuality,
         memories,
         memoryRetention,
         goalInputInference,
@@ -1073,6 +1121,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0043_workflow_template.up.sql',
     '0044_memory_status_transition.up.sql',
     '0045_memory_retention_policy.up.sql',
+    '0046_task_quality_report.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
