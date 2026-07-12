@@ -75,6 +75,17 @@ export class PromptService {
   listVersions(promptId: string): Promise<readonly PromptVersion[]> {
     return this.#repository.listVersions(promptId);
   }
+
+  async createEvaluationCandidate(stage: ModelStage, content: string): Promise<PromptVersion> {
+    const current = await this.#repository.findCurrent(stage);
+    return this.create({
+      promptId: current?.promptId ?? `evaluation-optimization-${stage}`,
+      stage,
+      content,
+      source: 'auto_candidate',
+      publish: false,
+    });
+  }
   effect(promptId: string, version: number): Promise<PromptEffectSummary> {
     return this.#repository.effect(promptId, version);
   }

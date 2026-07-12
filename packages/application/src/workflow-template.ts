@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type {
   EvolutionExperience,
+  TaskQualityReport,
   WorkflowDefinition,
   WorkflowTemplate,
   WorkflowTemplateOccurrence,
@@ -28,12 +29,16 @@ export class WorkflowTemplateService {
     this.#ids = dependencies.ids;
   }
 
-  async observe(experience: EvolutionExperience): Promise<WorkflowTemplate | undefined> {
-    if (!experience.successful) return undefined;
+  async observe(
+    experience: EvolutionExperience,
+    qualityReport: TaskQualityReport,
+  ): Promise<WorkflowTemplate | undefined> {
+    if (!experience.successful || qualityReport.status !== 'passed') return undefined;
     const goalKey = normalizeGoal(experience.goal.description);
     const structureKey = workflowStructureKey(experience.workflow);
     const occurrence: WorkflowTemplateOccurrence = {
       experienceId: experience.experienceId,
+      qualityReportId: qualityReport.reportId,
       goalKey,
       structureKey,
       workflow: experience.workflow,

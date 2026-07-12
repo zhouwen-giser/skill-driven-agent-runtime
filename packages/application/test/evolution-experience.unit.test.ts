@@ -13,6 +13,7 @@ describe('EvolutionExperienceService', () => {
           return Promise.resolve();
         },
         find: () => Promise.resolve(undefined),
+        findByInstance: () => Promise.resolve(undefined),
         listByGoal: () => Promise.resolve([]),
         listBySkill: () => Promise.resolve([]),
         listByTool: () => Promise.resolve([]),

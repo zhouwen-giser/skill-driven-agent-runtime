@@ -44,18 +44,21 @@ export class TaskQualityEvaluationService {
   readonly #repository: TaskQualityReportRepository;
   readonly #clock: Clock;
   readonly #nextId: () => string;
+  readonly #influences: TaskQualityInfluenceSink | undefined;
   constructor(
     dependencies: Readonly<{
       model: StructuredModelProvider;
       repository: TaskQualityReportRepository;
       clock: Clock;
       nextId(): string;
+      influences?: TaskQualityInfluenceSink;
     }>,
   ) {
     this.#model = dependencies.model;
     this.#repository = dependencies.repository;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
+    this.#influences = dependencies.influences;
   }
 
   async evaluate(
@@ -72,6 +75,7 @@ export class TaskQualityEvaluationService {
         outputSchema: unknown;
       }>;
       processedResult: ProcessedResultRecord;
+      isTemporarySkill: boolean;
     }>,
   ): Promise<TaskQualityReport> {
     const evidence = {
@@ -120,6 +124,7 @@ export class TaskQualityEvaluationService {
       createdAt: this.#clock.now(),
     };
     await this.#repository.save(report);
+    await this.#influences?.apply({ report, ...input });
     return report;
   }
 
@@ -128,4 +133,25 @@ export class TaskQualityEvaluationService {
     if (report === undefined) throw new Error('TASK_QUALITY_REPORT_NOT_FOUND');
     return report;
   }
+}
+
+export interface TaskQualityInfluenceSink {
+  apply(
+    input: Readonly<{
+      report: TaskQualityReport;
+      taskId: string;
+      goal: Goal;
+      goalEvaluation: GoalEvaluationResult;
+      workflow: WorkflowDefinition;
+      instance: WorkflowInstance;
+      skill: Readonly<{
+        skillId: string;
+        version: number;
+        inputSchema: unknown;
+        outputSchema: unknown;
+      }>;
+      processedResult: ProcessedResultRecord;
+      isTemporarySkill: boolean;
+    }>,
+  ): Promise<void>;
 }

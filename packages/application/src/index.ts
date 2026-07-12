@@ -23,6 +23,7 @@ export * from './goal-input-inference.js';
 export * from './workflow-controller.js';
 export * from './goal-service.js';
 export * from './implicit-feedback.js';
+export * from './evaluation-influence.js';
 export * from './goal-cancellation-service.js';
 export * from './goal-patch-service.js';
 export * from './workflow-revision.js';

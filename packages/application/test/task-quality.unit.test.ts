@@ -123,5 +123,6 @@ function qualityInput() {
       memoryCandidates: [],
       createdAt: '2026-07-13T00:00:01.000Z',
     },
+    isTemporarySkill: false,
   };
 }

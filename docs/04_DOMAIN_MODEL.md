@@ -55,6 +55,12 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 
 由 Goal、Workflow、Skill、Result、Tool 五类评估器输出，汇总为任务质量报告。
 
+### EvaluationInfluenceRecord
+
+- References one Task quality report and its replayable Evolution Experience.
+- Records the resulting Skill-version observation, quality-gated Workflow Template disposition, and inactive Prompt candidate identity.
+- Is audit evidence only; it cannot mutate a running Workflow or bypass Skill/Prompt publication rules.
+
 ## 不变量
 
 - enabled SkillVersion 必须具有合法 input/output schema 和通过的验证记录。

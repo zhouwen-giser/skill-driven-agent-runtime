@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   EvolutionExperience,
+  TaskQualityReport,
   WorkflowTemplate,
   WorkflowTemplateOccurrence,
   WorkflowTemplateUse,
@@ -21,9 +22,13 @@ describe('WorkflowTemplateService', () => {
         nextUseId: () => `use-${String(++useSequence)}`,
       },
     });
-    await expect(service.observe(experience(1))).resolves.toBeUndefined();
-    await expect(service.observe(experience(2))).resolves.toBeUndefined();
-    const template = await service.observe(experience(3));
+    await expect(service.observe(experience(1), qualityReport(1))).resolves.toBeUndefined();
+    await expect(
+      service.observe(experience(9), { ...qualityReport(9), status: 'warning' }),
+    ).resolves.toBeUndefined();
+    expect(repository.occurrences).toHaveLength(1);
+    await expect(service.observe(experience(2), qualityReport(2))).resolves.toBeUndefined();
+    const template = await service.observe(experience(3), qualityReport(3));
     expect(template).toMatchObject({ version: 1, sourceSuccessCount: 3, useCount: 0 });
     if (template === undefined) throw new Error('EXPECTED_TEMPLATE');
     await expect(service.findPreferred('Inspect current device status')).resolves.toMatchObject({
@@ -149,6 +154,21 @@ function experience(sequence: number): EvolutionExperience {
     evaluation: { decision: 'achieved', summary: 'Done.' },
     successful: true,
     durationMs: 10,
+    createdAt: `2026-07-12T00:00:0${String(sequence)}.000Z`,
+  };
+}
+
+function qualityReport(sequence: number): TaskQualityReport {
+  return {
+    reportId: `quality-${String(sequence)}`,
+    taskId: `task-${String(sequence)}`,
+    goalId: `goal-${String(sequence)}`,
+    goalVersion: 1,
+    workflowInstanceId: `instance-${String(sequence)}`,
+    processedResultId: `result-${String(sequence)}`,
+    assessments: [],
+    overallScore: 1,
+    status: 'passed',
     createdAt: `2026-07-12T00:00:0${String(sequence)}.000Z`,
   };
 }

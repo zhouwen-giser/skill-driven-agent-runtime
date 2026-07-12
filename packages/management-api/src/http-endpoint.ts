@@ -35,6 +35,7 @@ import type {
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
   ImplicitFeedbackService,
+  EvaluationInfluenceService,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -278,6 +279,7 @@ export interface ManagementOperations {
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly taskQuality: Pick<TaskQualityEvaluationService, 'getByTask'>;
   readonly implicitFeedback: Pick<ImplicitFeedbackService, 'listByTask'>;
+  readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
@@ -664,6 +666,14 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.implicitFeedback.listByTask(pathValue(request, 'taskId')),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/task-quality-reports/:reportId/influence',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.evaluationInfluences.getByReport(pathValue(request, 'reportId')),
+      );
     }),
   );
   app.get(

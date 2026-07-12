@@ -54,6 +54,7 @@ import type {
   GoalInferenceSource,
   GoalInputInferenceRecord,
   ImplicitFeedbackRecord,
+  EvaluationInfluenceRecord,
   GoalTransitionRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
@@ -104,6 +105,11 @@ export interface ProcessedResultRepository {
 export interface TaskQualityReportRepository {
   save(report: TaskQualityReport): Promise<void>;
   findByTask(taskId: string): Promise<TaskQualityReport | undefined>;
+}
+
+export interface EvaluationInfluenceRepository {
+  save(record: EvaluationInfluenceRecord): Promise<void>;
+  findByReport(reportId: string): Promise<EvaluationInfluenceRecord | undefined>;
 }
 
 export interface ImplicitFeedbackRepository {
@@ -304,6 +310,7 @@ export interface TemporarySkillRepository {
 export interface EvolutionExperienceRepository {
   save(experience: EvolutionExperience): Promise<void>;
   find(experienceId: string): Promise<EvolutionExperience | undefined>;
+  findByInstance(instanceId: string): Promise<EvolutionExperience | undefined>;
   listByGoal(goalId: string): Promise<readonly EvolutionExperience[]>;
   listBySkill(skillId: string): Promise<readonly EvolutionExperience[]>;
   listByTool(reference: ToolReference): Promise<readonly EvolutionExperience[]>;

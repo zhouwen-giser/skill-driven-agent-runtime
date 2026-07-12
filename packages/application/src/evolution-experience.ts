@@ -13,13 +13,13 @@ import type { WorkflowTemplateService } from './workflow-template.js';
 export class EvolutionExperienceService {
   readonly #repository: EvolutionExperienceRepository;
   readonly #nextId: () => string;
-  readonly #templates: Pick<WorkflowTemplateService, 'observe' | 'recordOutcome'> | undefined;
+  readonly #templates: Pick<WorkflowTemplateService, 'recordOutcome'> | undefined;
 
   constructor(
     dependencies: Readonly<{
       repository: EvolutionExperienceRepository;
       nextId(): string;
-      templates?: Pick<WorkflowTemplateService, 'observe' | 'recordOutcome'>;
+      templates?: Pick<WorkflowTemplateService, 'recordOutcome'>;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -68,12 +68,15 @@ export class EvolutionExperienceService {
     };
     await this.#repository.save(experience);
     await this.#templates?.recordOutcome(experience);
-    await this.#templates?.observe(experience);
     return experience;
   }
 
   get(experienceId: string): Promise<EvolutionExperience | undefined> {
     return this.#repository.find(experienceId);
+  }
+
+  findByInstance(instanceId: string): Promise<EvolutionExperience | undefined> {
+    return this.#repository.findByInstance(instanceId);
   }
 
   listByGoal(goalId: string): Promise<readonly EvolutionExperience[]> {

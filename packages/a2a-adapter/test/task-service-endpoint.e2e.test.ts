@@ -755,6 +755,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'Confirm template run.',
       );
       await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      const quality = z
+        .object({ reportId: z.string() })
+        .parse(await waitForManagementJson(`/api/v1/tasks/${submitted.id}/quality-report`));
+      await waitForManagementJson(`/api/v1/task-quality-reports/${quality.reportId}/influence`);
     };
     await execute();
     await execute();
@@ -3422,6 +3426,73 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('routes a low-quality report into Skill evidence and an inactive Prompt candidate', async () => {
+    const skillId = `skill.evaluation-influence.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Zebra Evaluation Influence'));
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [
+            {
+              text: 'LOW_QUALITY_EVALUATION inspect the device.',
+              mediaType: 'text/plain',
+            },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await attachPlannedTask(submitted.id);
+    await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+    const quality = z
+      .object({ reportId: z.string(), status: z.string(), overallScore: z.number() })
+      .parse(await waitForManagementJson(`/api/v1/tasks/${submitted.id}/quality-report`));
+    expect(quality).toMatchObject({ status: 'failed', overallScore: 0.3 });
+    const influence = z
+      .object({
+        reportId: z.string(),
+        experienceId: z.string(),
+        skillObservationId: z.string(),
+        workflowDisposition: z.string(),
+        promptDisposition: z.string(),
+        promptId: z.string(),
+        promptVersion: z.number(),
+        promptStage: z.string(),
+      })
+      .parse(
+        await waitForManagementJson(`/api/v1/task-quality-reports/${quality.reportId}/influence`),
+      );
+    expect(influence).toMatchObject({
+      reportId: quality.reportId,
+      workflowDisposition: 'rejected_low_quality',
+      promptDisposition: 'candidate_created',
+      promptId: 'prompt.goal.e2e',
+      promptStage: 'goal',
+    });
+    const promptVersions = z
+      .object({
+        items: z.array(z.object({ version: z.number(), status: z.string(), source: z.string() })),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/prompts/${influence.promptId}/versions`,
+        ).then((response) => response.json()),
+      );
+    expect(promptVersions.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          version: influence.promptVersion,
+          status: 'candidate',
+          source: 'auto_candidate',
+        }),
+      ]),
+    );
+  });
+
   it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
     const skillId = `skill.auto-task.${randomUUID()}`;
     await runtime.registerSkill({
@@ -3713,6 +3784,10 @@ async function startModelLoopback(): Promise<Server> {
         const taskQualityEvaluationRequest = body.messages?.some(
           (message) => message.content?.includes('evaluate_task_component') === true,
         );
+        const promptCandidateRequest = body.messages?.some(
+          (message) =>
+            message.content?.includes('generate_prompt_candidate_from_quality_report') === true,
+        );
         const goalPatchDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('generate_goal_patch') === true,
         );
@@ -3822,13 +3897,27 @@ async function startModelLoopback(): Promise<Server> {
         }
         if (taskQualityEvaluationRequest === true) {
           const requestData = z
-            .object({ component: z.string() })
+            .object({ component: z.string(), evidence: z.unknown() })
             .parse(embeddedOperation(body.messages, 'evaluate_task_component'));
+          const lowQuality = JSON.stringify(requestData.evidence).includes(
+            'LOW_QUALITY_EVALUATION',
+          );
           respondStructured(response, {
-            score: 0.9,
+            score: lowQuality ? 0.3 : 0.9,
             summary: `${requestData.component} evidence satisfies the quality policy.`,
             findings: [`${requestData.component} evidence is consistent.`],
             evidenceRefs: [`${requestData.component}:evidence`],
+          });
+          return;
+        }
+        if (promptCandidateRequest === true) {
+          const requestData = z
+            .object({ targetStage: z.string(), reportId: z.string() })
+            .parse(
+              embeddedOperation(body.messages, 'generate_prompt_candidate_from_quality_report'),
+            );
+          respondStructured(response, {
+            content: `Improve ${requestData.targetStage} using quality report ${requestData.reportId}. {{instruction}}`,
           });
           return;
         }
@@ -3884,6 +3973,7 @@ async function startModelLoopback(): Promise<Server> {
             'HISTORICAL_REPLAY_FAILURE',
           );
           const templateReuse = requestData.requestText.includes('TEMPLATE_REUSE');
+          const lowQualityEvaluation = requestData.requestText.includes('LOW_QUALITY_EVALUATION');
           const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(requestData.requestText);
           const temporaryServerId = temporaryTool?.[1] ?? '';
           const temporaryToolName = temporaryTool?.[2] ?? '';
@@ -3900,17 +3990,19 @@ async function startModelLoopback(): Promise<Server> {
                 : 'Execute the requested task',
             description: autoTaskGoal
               ? 'AUTO_TASK_GOAL zebra return device status.'
-              : replaceSkillGoal
-                ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
-                : sharedSkill !== undefined
-                  ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
-                  : capabilityGapGoal
-                    ? 'CAPABILITY_GAP_GOAL requires device pressure.'
-                    : controlGoal
-                      ? 'CONTROL_GOAL collect two observations.'
-                      : temporaryTool !== null
-                        ? `TEMPORARY_SKILL_GOAL:${temporaryServerId}/${temporaryToolName}`
-                        : 'Complete the user request using an enabled Skill.',
+              : lowQualityEvaluation
+                ? 'LOW_QUALITY_EVALUATION complete the task with auditable optimization.'
+                : replaceSkillGoal
+                  ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
+                  : sharedSkill !== undefined
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
+                    : capabilityGapGoal
+                      ? 'CAPABILITY_GAP_GOAL requires device pressure.'
+                      : controlGoal
+                        ? 'CONTROL_GOAL collect two observations.'
+                        : temporaryTool !== null
+                          ? `TEMPORARY_SKILL_GOAL:${temporaryServerId}/${temporaryToolName}`
+                          : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
               controlGoal || capabilityGapGoal || autoTaskGoal
@@ -4597,6 +4689,17 @@ async function waitForTaskState(taskId: string, expected: TaskState): Promise<Ta
   }
   expect(task.status?.state).toBe(expected);
   return task;
+}
+
+async function waitForManagementJson(path: string): Promise<unknown> {
+  let lastBody = '';
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const response = await fetch(`${runtime.management.baseUrl}${path}`);
+    lastBody = await response.text();
+    if (response.ok) return JSON.parse(lastBody) as unknown;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`MANAGEMENT_RESOURCE_NOT_READY:${path}:${lastBody}`);
 }
 
 async function waitForTemporarySkillStatus(taskId: string, expected: string) {

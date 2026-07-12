@@ -36,6 +36,8 @@ import {
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
   PostgresImplicitFeedbackRepository,
+  PostgresTaskQualityReportRepository,
+  PostgresEvaluationInfluenceRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -310,6 +312,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(implicitFeedbackMigration);
+  const evaluationInfluenceMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0048_evaluation_influence.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(evaluationInfluenceMigration);
 });
 
 beforeEach(async () => {
@@ -1079,6 +1086,16 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: '2026-07-12T00:00:00.000Z',
       updatedAt: '2026-07-12T00:00:00.000Z',
     });
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const task = createAgentTask({
+      taskId: 'task.control.db',
+      contextId: 'context.control.db',
+      userId: 'operator',
+      requestText: 'Exercise the outer controller.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    await tasks.save(task);
     const goals = new PostgresGoalRepository(pool);
     await goals.save({
       goalId: 'goal.control.db',
@@ -1148,6 +1165,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       contextId: 'context.control.db',
       goalId: 'goal.control.db',
       goalVersion: 1,
+      taskId: task.taskId,
       status: 'running',
       currentPlanId: 'plan.control.db',
       input: { request: 'run' },
@@ -1195,6 +1213,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       experienceId: 'evolution-experience-db-1',
       controlId: 'control.db',
       roundIndex: 0,
+      taskId: task.taskId,
       contextId: 'context.control.db',
       goal: {
         goalId: 'goal.control.db',
@@ -1242,6 +1261,64 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(
       experiences.listByTool({ serverId: 'mcp.history', toolName: 'replay' }),
     ).resolves.toEqual([experience]);
+    await expect(experiences.findByInstance('instance.control.db')).resolves.toEqual(experience);
+    const processedResults = new PostgresProcessedResultRepository(pool);
+    await processedResults.save({
+      resultId: 'processed.control.db',
+      taskId: task.taskId,
+      skillId: 'temporary.control.db',
+      skillVersion: 1,
+      normalized: {
+        data: true,
+        errors: [],
+        originalSize: 4,
+        contextValue: true,
+        contextTruncated: false,
+        summary: 'Completed.',
+      },
+      output: { text: 'Completed.', structured: true },
+      facts: [],
+      valuable: false,
+      valueSummary: 'No durable fact.',
+      memoryCandidates: [],
+      createdAt: '2026-07-12T00:00:02.000Z',
+    });
+    const qualityReports = new PostgresTaskQualityReportRepository(pool);
+    await qualityReports.save({
+      reportId: 'quality.control.db',
+      taskId: task.taskId,
+      goalId: 'goal.control.db',
+      goalVersion: 1,
+      workflowInstanceId: 'instance.control.db',
+      processedResultId: 'processed.control.db',
+      assessments: [
+        {
+          component: 'workflow',
+          score: 0.4,
+          summary: 'Needs improvement.',
+          findings: ['One criterion remains.'],
+          evidenceRefs: ['experience:evolution-experience-db-1'],
+        },
+      ],
+      overallScore: 0.4,
+      status: 'failed',
+      createdAt: '2026-07-12T00:00:03.000Z',
+    });
+    const influences = new PostgresEvaluationInfluenceRepository(pool);
+    await influences.save({
+      influenceId: 'influence.control.db',
+      reportId: 'quality.control.db',
+      taskId: task.taskId,
+      experienceId: experience.experienceId,
+      workflowDisposition: 'rejected_low_quality',
+      promptDisposition: 'not_required',
+      createdAt: '2026-07-12T00:00:04.000Z',
+    });
+    await expect(influences.findByReport('quality.control.db')).resolves.toMatchObject({
+      experienceId: experience.experienceId,
+      workflowDisposition: 'rejected_low_quality',
+      promptDisposition: 'not_required',
+    });
   });
   it('atomically persists related and unrelated Goal history decisions', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

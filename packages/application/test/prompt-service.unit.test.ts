@@ -60,6 +60,26 @@ describe('PromptService', () => {
       source: 'rollback',
     });
   });
+  it('adds an Evaluation candidate to the active stage identity without activating it', async () => {
+    const repository = new MemoryPromptRepository();
+    const service = createService(repository);
+    await service.create({
+      promptId: 'prompt.plan',
+      stage: 'workflow_planning',
+      content: 'Current {{instruction}}',
+      source: 'admin',
+      publish: true,
+    });
+    await expect(
+      service.createEvaluationCandidate('workflow_planning', 'Candidate {{instruction}}'),
+    ).resolves.toMatchObject({
+      promptId: 'prompt.plan',
+      version: 2,
+      status: 'candidate',
+      source: 'auto_candidate',
+    });
+    expect(repository.current).toMatchObject({ version: 1, status: 'enabled' });
+  });
 });
 function createService(repository: PromptRepository) {
   return new PromptService({ repository, clock: { now: () => '2026-07-12T00:00:00.000Z' } });

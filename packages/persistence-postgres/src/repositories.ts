@@ -21,6 +21,7 @@ import type {
   GoalCancellationRepository,
   ProcessedResultRepository,
   TaskQualityReportRepository,
+  EvaluationInfluenceRepository,
   MemoryRepository,
   MemoryRetentionPolicyRepository,
   GoalInputInferenceRepository,
@@ -67,6 +68,7 @@ import type {
   GoalCancellationRecord,
   ProcessedResultRecord,
   TaskQualityReport,
+  EvaluationInfluenceRecord,
   MemoryItem,
   MemorySearchHit,
   MemoryStatusTransition,
@@ -1094,6 +1096,86 @@ export class PostgresTaskQualityReportRepository implements TaskQualityReportRep
           status: row.status,
           createdAt: toIsoString(row.created_at),
         };
+  }
+}
+
+interface EvaluationInfluenceRow extends QueryResultRow {
+  influence_id: string;
+  report_id: string;
+  task_id: string;
+  experience_id: string;
+  skill_observation_id: string | null;
+  workflow_disposition: EvaluationInfluenceRecord['workflowDisposition'];
+  workflow_template_id: string | null;
+  workflow_template_version: number | null;
+  prompt_disposition: EvaluationInfluenceRecord['promptDisposition'];
+  prompt_id: string | null;
+  prompt_version: number | null;
+  prompt_stage: ModelStage | null;
+  created_at: Date | string;
+}
+
+export class PostgresEvaluationInfluenceRepository implements EvaluationInfluenceRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async save(record: EvaluationInfluenceRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO evaluation_influence(
+         influence_id,report_id,task_id,experience_id,skill_observation_id,
+         workflow_disposition,workflow_template_id,workflow_template_version,
+         prompt_disposition,prompt_id,prompt_version,prompt_stage,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        record.influenceId,
+        record.reportId,
+        record.taskId,
+        record.experienceId,
+        record.skillObservationId ?? null,
+        record.workflowDisposition,
+        record.workflowTemplateId ?? null,
+        record.workflowTemplateVersion ?? null,
+        record.promptDisposition,
+        record.promptId ?? null,
+        record.promptVersion ?? null,
+        record.promptStage ?? null,
+        record.createdAt,
+      ],
+    );
+  }
+  async findByReport(reportId: string): Promise<EvaluationInfluenceRecord | undefined> {
+    const result = await this.#pool.query<EvaluationInfluenceRow>(
+      'SELECT * FROM evaluation_influence WHERE report_id=$1',
+      [reportId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      influenceId: row.influence_id,
+      reportId: row.report_id,
+      taskId: row.task_id,
+      experienceId: row.experience_id,
+      ...(row.skill_observation_id === null
+        ? {}
+        : { skillObservationId: row.skill_observation_id }),
+      workflowDisposition: row.workflow_disposition,
+      ...(row.workflow_template_id === null || row.workflow_template_version === null
+        ? {}
+        : {
+            workflowTemplateId: row.workflow_template_id,
+            workflowTemplateVersion: row.workflow_template_version,
+          }),
+      promptDisposition: row.prompt_disposition,
+      ...(row.prompt_id === null || row.prompt_version === null || row.prompt_stage === null
+        ? {}
+        : {
+            promptId: row.prompt_id,
+            promptVersion: row.prompt_version,
+            promptStage: row.prompt_stage,
+          }),
+      createdAt: toIsoString(row.created_at),
+    };
   }
 }
 
@@ -2488,6 +2570,7 @@ export class PostgresPromptRepository implements PromptRepository {
 
 interface WorkflowTemplateOccurrenceRow extends QueryResultRow {
   experience_id: string;
+  quality_report_id: string | null;
   goal_key: string;
   structure_key: string;
   workflow_json: unknown;
@@ -2558,10 +2641,11 @@ export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepos
   async saveOccurrence(occurrence: WorkflowTemplateOccurrence): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_template_occurrence
-         (experience_id,goal_key,structure_key,workflow_json,duration_ms,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (experience_id) DO NOTHING`,
+         (experience_id,quality_report_id,goal_key,structure_key,workflow_json,duration_ms,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (experience_id) DO NOTHING`,
       [
         occurrence.experienceId,
+        occurrence.qualityReportId ?? null,
         occurrence.goalKey,
         occurrence.structureKey,
         JSON.stringify(occurrence.workflow),
@@ -2573,7 +2657,7 @@ export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepos
 
   async listOccurrences(goalKey: string, structureKey: string) {
     const result = await this.#pool.query<WorkflowTemplateOccurrenceRow>(
-      `SELECT experience_id,goal_key,structure_key,workflow_json,duration_ms,created_at
+      `SELECT experience_id,quality_report_id,goal_key,structure_key,workflow_json,duration_ms,created_at
        FROM workflow_template_occurrence WHERE goal_key=$1 AND structure_key=$2
        ORDER BY created_at,experience_id`,
       [goalKey, structureKey],
@@ -3266,6 +3350,15 @@ export class PostgresEvolutionExperienceRepository implements EvolutionExperienc
     const result = await this.#pool.query<EvolutionExperienceRow>(
       'SELECT * FROM evolution_experience WHERE experience_id=$1',
       [experienceId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapEvolutionExperienceRow(row);
+  }
+
+  async findByInstance(instanceId: string): Promise<EvolutionExperience | undefined> {
+    const result = await this.#pool.query<EvolutionExperienceRow>(
+      'SELECT * FROM evolution_experience WHERE instance_id=$1',
+      [instanceId],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapEvolutionExperienceRow(row);
@@ -3991,6 +4084,7 @@ function mapWorkflowTemplateOccurrenceRow(
 ): WorkflowTemplateOccurrence {
   return {
     experienceId: row.experience_id,
+    ...(row.quality_report_id === null ? {} : { qualityReportId: row.quality_report_id }),
     goalKey: row.goal_key,
     structureKey: row.structure_key,
     workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,

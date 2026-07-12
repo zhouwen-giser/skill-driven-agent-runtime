@@ -51,6 +51,7 @@ import {
   TaskService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
+  EvaluationInfluenceService,
   ImplicitFeedbackService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -98,6 +99,7 @@ import {
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
   PostgresTaskQualityReportRepository,
+  PostgresEvaluationInfluenceRepository,
   PostgresImplicitFeedbackRepository,
   PostgresMemoryRepository,
   PostgresMemoryRetentionPolicyRepository,
@@ -291,12 +293,6 @@ export async function startServerRuntime(
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
   });
-  const taskQuality = new TaskQualityEvaluationService({
-    model: modelRuntime,
-    repository: new PostgresTaskQualityReportRepository(pool),
-    clock,
-    nextId: () => `task-quality-report-${randomUUID()}`,
-  });
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
     memories,
@@ -313,6 +309,23 @@ export async function startServerRuntime(
       nextObservationId: () => `skill-quality-observation-${randomUUID()}`,
       nextWarningId: () => `skill-quality-warning-${randomUUID()}`,
     },
+  });
+  const evaluationInfluences = new EvaluationInfluenceService({
+    repository: new PostgresEvaluationInfluenceRepository(pool),
+    experiences: evolutionExperiences,
+    skillQuality,
+    templates: workflowTemplates,
+    prompts,
+    model: modelRuntime,
+    clock,
+    nextId: () => `evaluation-influence-${randomUUID()}`,
+  });
+  const taskQuality = new TaskQualityEvaluationService({
+    model: modelRuntime,
+    repository: new PostgresTaskQualityReportRepository(pool),
+    clock,
+    nextId: () => `task-quality-report-${randomUUID()}`,
+    influences: evaluationInfluences,
   });
   const skillAuthoring = new SkillAuthoringService({
     model: options.skillAuthoringModel ?? modelRuntime,
@@ -641,6 +654,7 @@ export async function startServerRuntime(
               outputSchema: temporary.outputSchema,
             },
             processedResult: processed,
+            isTemporarySkill: true,
           });
           const completed = await temporarySkills.complete(
             temporary.temporarySkillId,
@@ -680,6 +694,7 @@ export async function startServerRuntime(
           instance,
           skill,
           processedResult: processed,
+          isTemporarySkill: false,
         });
       },
     },
@@ -943,6 +958,7 @@ export async function startServerRuntime(
         resultProcessing,
         taskQuality,
         implicitFeedback,
+        evaluationInfluences,
         memories,
         memoryRetention,
         goalInputInference,
@@ -1132,6 +1148,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0045_memory_retention_policy.up.sql',
     '0046_task_quality_report.up.sql',
     '0047_implicit_feedback.up.sql',
+    '0048_evaluation_influence.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

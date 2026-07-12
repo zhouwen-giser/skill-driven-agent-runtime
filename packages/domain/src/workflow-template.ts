@@ -2,6 +2,7 @@ import type { WorkflowDefinition } from './workflow.js';
 
 export interface WorkflowTemplateOccurrence {
   readonly experienceId: string;
+  readonly qualityReportId?: string;
   readonly goalKey: string;
   readonly structureKey: string;
   readonly workflow: WorkflowDefinition;

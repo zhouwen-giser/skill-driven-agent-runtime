@@ -265,6 +265,39 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes the report-linked Evaluation influence record', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        evaluationInfluences: {
+          getByReport: (reportId) =>
+            Promise.resolve({
+              influenceId: 'influence-1',
+              reportId,
+              taskId: 'task-1',
+              experienceId: 'experience-1',
+              skillObservationId: 'observation-1',
+              workflowDisposition: 'rejected_low_quality',
+              promptDisposition: 'candidate_created',
+              promptId: 'prompt-workflow',
+              promptVersion: 2,
+              promptStage: 'workflow_planning',
+              createdAt: '2026-07-13T01:00:00.000Z',
+            }),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/task-quality-reports/report-1/influence`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      reportId: 'report-1',
+      experienceId: 'experience-1',
+      promptDisposition: 'candidate_created',
+    });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -1163,6 +1196,7 @@ function operations(failServerList = false): ManagementOperations {
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     taskQuality: { getByTask: unused },
     implicitFeedback: { listByTask: () => Promise.resolve([]) },
+    evaluationInfluences: { getByReport: unused },
     memories: {
       refine: unused,
       get: unused,
