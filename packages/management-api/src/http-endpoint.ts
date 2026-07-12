@@ -158,6 +158,13 @@ const AuthorSkillSchema = z.object({
   status: z.enum(['draft', 'enabled', 'disabled']),
   sourceKind: z.enum(['admin', 'a2a_draft']),
 });
+const PublishSkillDraftSchema = z.object({
+  actor: z.string().min(1),
+  skillId: z.string().min(1),
+  toolPolicy: RegisterSkillSchema.shape.toolPolicy,
+  runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
+  status: z.enum(['enabled', 'disabled']),
+});
 const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
 const ModelStageSchema = z.enum([
   'intent',
@@ -279,7 +286,10 @@ export interface ManagementOperations {
     EvolutionPolicyService,
     'getPolicy' | 'listTriggers' | 'updatePolicy'
   >;
-  readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
+  readonly skillAuthoring?: Pick<
+    SkillAuthoringService,
+    'authorAndRegister' | 'getDraft' | 'publishDraft'
+  >;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
   readonly prompts: Pick<
@@ -978,7 +988,13 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/skills',
     asyncRoute(async (request, response) => {
-      const input = skillRegistrationInput(RegisterSkillSchema.parse(request.body));
+      const parsed = RegisterSkillSchema.parse(request.body);
+      if (parsed.sourceKind === 'a2a_draft')
+        throw new HttpInputError(
+          'SKILL_A2A_DRAFT_MANAGEMENT_PUBLICATION_REQUIRED',
+          'A2A Skill drafts must be published from their persisted draft.',
+        );
+      const input = skillRegistrationInput(parsed);
       response.status(201).json(await options.operations.skills.register(input));
     }),
   );
@@ -996,6 +1012,31 @@ export async function startManagementHttpEndpoint(
         await options.operations.skillAuthoring.authorAndRegister({
           ...parsed,
           runtimePolicy: compactRuntimePolicy(parsed.runtimePolicy),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/skill-drafts/:draftId',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillAuthoring === undefined)
+        throw new HttpInputError('SKILL_AUTHORING_UNAVAILABLE', 'Skill authoring is unavailable.');
+      const draft = await options.operations.skillAuthoring.getDraft(pathValue(request, 'draftId'));
+      if (draft === undefined)
+        throw new HttpInputError('SKILL_DRAFT_NOT_FOUND', 'Skill draft was not found.');
+      response.json(draft);
+    }),
+  );
+  app.post(
+    '/api/v1/skill-drafts/:draftId/publish',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillAuthoring === undefined)
+        throw new HttpInputError('SKILL_AUTHORING_UNAVAILABLE', 'Skill authoring is unavailable.');
+      const input = PublishSkillDraftSchema.parse(request.body);
+      response.json(
+        await options.operations.skillAuthoring.publishDraft(pathValue(request, 'draftId'), {
+          ...input,
+          runtimePolicy: compactRuntimePolicy(input.runtimePolicy),
         }),
       );
     }),

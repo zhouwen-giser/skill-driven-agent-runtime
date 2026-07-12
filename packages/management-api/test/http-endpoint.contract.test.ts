@@ -170,6 +170,76 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('publishes a persisted A2A Skill draft only through the management draft route', async () => {
+    const draft = {
+      draftId: 'draft-task-1',
+      taskId: 'task-1',
+      contextId: 'context-1',
+      requestedBy: 'anonymous',
+      intent: 'create' as const,
+      requestText: 'Create a detailed read-only device inspection Skill.',
+      status: 'draft' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        skillAuthoring: {
+          authorAndRegister: () => Promise.reject(new Error('UNUSED')),
+          getDraft: () => Promise.resolve(draft),
+          publishDraft: (_draftId, input) =>
+            Promise.resolve({
+              draft: {
+                ...draft,
+                status: 'published' as const,
+                publishedSkillId: input.skillId,
+                publishedSkillVersion: 1,
+                publishedBy: input.actor,
+                publishedAt: '2026-07-12T00:01:00.000Z',
+              },
+              skill: {
+                skillId: input.skillId,
+                version: 1,
+                name: 'Published draft',
+                summary: 'Published.',
+                description: draft.requestText,
+                capabilities: ['inspection'],
+                workflowGuidance: 'Inspect.',
+                outputInstruction: 'Return.',
+                inputSchema: { type: 'object' },
+                outputSchema: { type: 'object' },
+                toolPolicy: input.toolPolicy,
+                runtimePolicy: input.runtimePolicy,
+                status: input.status,
+                sourceKind: 'a2a_draft' as const,
+                validationPassed: true,
+                createdAt: '2026-07-12T00:01:00.000Z',
+              },
+            }),
+        },
+      },
+    });
+    const read = await fetch(`${endpoint.baseUrl}/api/v1/skill-drafts/draft-task-1`);
+    await expect(read.json()).resolves.toMatchObject({ status: 'draft' });
+    const published = await fetch(`${endpoint.baseUrl}/api/v1/skill-drafts/draft-task-1/publish`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        actor: 'operator@example.test',
+        skillId: 'skill.a2a.published',
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        status: 'enabled',
+      }),
+    });
+    expect(published.status).toBe(200);
+    await expect(published.json()).resolves.toMatchObject({
+      draft: { status: 'published', publishedBy: 'operator@example.test' },
+      skill: { sourceKind: 'a2a_draft', status: 'enabled' },
+    });
+  });
+
   it('fails explicitly when semantic and final selection providers are not configured', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const response = await fetch(`${endpoint.baseUrl}/api/v1/skill-selections`, {

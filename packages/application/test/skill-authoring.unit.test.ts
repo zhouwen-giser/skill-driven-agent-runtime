@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Skill, SkillVersion } from '../../domain/src/index.js';
+import type { Skill, SkillDraft, SkillVersion } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   SkillAuthoringService,
   SkillRegistryService,
   type SkillRepository,
+  type SkillDraftRepository,
   type StructuredModelProvider,
 } from '../src/index.js';
 
@@ -55,9 +56,39 @@ describe('SkillAuthoringService', () => {
     ).rejects.toMatchObject({ code: 'SKILL_DESCRIPTION_INSUFFICIENT' });
     expect(model.calls).toHaveLength(0);
   });
+
+  it('publishes a persisted A2A draft only through the management publication workflow', async () => {
+    const skills = new MemorySkillRepository();
+    const drafts = new MemoryDraftRepository();
+    const service = createService(skills, new SequenceModelProvider([generated()]), drafts);
+
+    await expect(
+      service.authorAndRegister({ ...input(), sourceKind: 'a2a_draft' }),
+    ).rejects.toMatchObject({ code: 'SKILL_A2A_DRAFT_MANAGEMENT_PUBLICATION_REQUIRED' });
+    expect(skills.current).toBeUndefined();
+
+    const result = await service.publishDraft('draft-1', {
+      actor: 'operator@example.test',
+      skillId: 'skill.device.inspect',
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+    });
+    expect(result.skill).toMatchObject({ sourceKind: 'a2a_draft', status: 'enabled', version: 1 });
+    expect(result.draft).toMatchObject({
+      status: 'published',
+      publishedBy: 'operator@example.test',
+      publishedSkillId: 'skill.device.inspect',
+      publishedSkillVersion: 1,
+    });
+  });
 });
 
-function createService(repository: SkillRepository, model: StructuredModelProvider) {
+function createService(
+  repository: SkillRepository,
+  model: StructuredModelProvider,
+  drafts: SkillDraftRepository = new MemoryDraftRepository(),
+) {
   const schemas = new AjvJsonSchemaValidator();
   return new SkillAuthoringService({
     model,
@@ -68,7 +99,55 @@ function createService(repository: SkillRepository, model: StructuredModelProvid
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
     }),
     maxAttempts: 2,
+    drafts,
+    clock: { now: () => '2026-07-11T10:00:00.000Z' },
   });
+}
+
+class MemoryDraftRepository implements SkillDraftRepository {
+  draft: SkillDraft = {
+    draftId: 'draft-1',
+    taskId: 'task-1',
+    contextId: 'context-1',
+    requestedBy: 'a2a-user',
+    intent: 'create',
+    requestText:
+      'Inspect a device by identifier and return its current status plus a displayable observation.',
+    status: 'draft',
+    createdAt: '2026-07-11T09:00:00.000Z',
+    updatedAt: '2026-07-11T09:00:00.000Z',
+  };
+  findById(draftId: string) {
+    return Promise.resolve(this.draft.draftId === draftId ? this.draft : undefined);
+  }
+  listByContextId(contextId: string) {
+    return Promise.resolve(this.draft.contextId === contextId ? [this.draft] : []);
+  }
+  save(draft: SkillDraft) {
+    this.draft = draft;
+    return Promise.resolve();
+  }
+  markPublished(
+    draftId: string,
+    publication: Readonly<{
+      skillId: string;
+      version: number;
+      publishedBy: string;
+      publishedAt: string;
+    }>,
+  ) {
+    if (draftId !== this.draft.draftId) throw new Error('SKILL_DRAFT_NOT_FOUND');
+    this.draft = {
+      ...this.draft,
+      status: 'published',
+      publishedSkillId: publication.skillId,
+      publishedSkillVersion: publication.version,
+      publishedBy: publication.publishedBy,
+      publishedAt: publication.publishedAt,
+      updatedAt: publication.publishedAt,
+    };
+    return Promise.resolve(this.draft);
+  }
 }
 
 function input() {

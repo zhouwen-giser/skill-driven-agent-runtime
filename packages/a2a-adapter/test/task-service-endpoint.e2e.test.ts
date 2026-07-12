@@ -2916,6 +2916,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   it('stores create/update Skill requests as drafts without exposing them in Agent Card', async () => {
     const skillId = `skill.enabled.${randomUUID()}`;
     await runtime.registerSkill(skillInput(skillId, 'Enabled skill'));
+    const draftedSkillId = `skill.a2a.draft.${randomUUID()}`;
     const result = await runtime.a2a.client.sendMessage(
       SendMessageRequest.fromJSON({
         message: {
@@ -2937,7 +2938,64 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         intent: 'create',
       }),
     ]);
-    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+    const cardBeforePublication = (await readAgentCard()).skills.map((skill) => skill.id);
+    expect(cardBeforePublication).toContain(skillId);
+    expect(cardBeforePublication).not.toContain(draftedSkillId);
+    const draftId = `draft-${result.id}`;
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/skill-drafts/${encodeURIComponent(draftId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ draftId, status: 'draft', requestedBy: 'anonymous' });
+    const directBypass = await fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        skillId: draftedSkillId,
+        naturalLanguageDescription: 'Attempt to bypass the persisted A2A draft publication path.',
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        status: 'enabled',
+        sourceKind: 'a2a_draft',
+      }),
+    });
+    expect(directBypass.status).toBe(400);
+    await expect(directBypass.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_A2A_DRAFT_MANAGEMENT_PUBLICATION_REQUIRED' },
+    });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).not.toContain(draftedSkillId);
+    const publication = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skill-drafts/${encodeURIComponent(draftId)}/publish`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          actor: 'operator@example.test',
+          skillId: draftedSkillId,
+          toolPolicy: { required: [], optional: [], forbidden: [] },
+          runtimePolicy: { autoConfirmPlan: false },
+          status: 'enabled',
+        }),
+      },
+    );
+    expect(publication.status).toBe(200);
+    await expect(publication.json()).resolves.toMatchObject({
+      draft: {
+        draftId,
+        status: 'published',
+        publishedBy: 'operator@example.test',
+        publishedSkillId: draftedSkillId,
+        publishedSkillVersion: 1,
+      },
+      skill: {
+        skillId: draftedSkillId,
+        version: 1,
+        status: 'enabled',
+        sourceKind: 'a2a_draft',
+        validationPassed: true,
+      },
+    });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(draftedSkillId);
   });
 
   it('returns schema-validated natural-language and structured final output', async () => {

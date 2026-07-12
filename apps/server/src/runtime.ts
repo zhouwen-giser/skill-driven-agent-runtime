@@ -265,6 +265,8 @@ export async function startServerRuntime(
     schemas: schemaValidator,
     registry: skillRegistry,
     maxAttempts: 2,
+    drafts: skillDrafts,
+    clock,
   });
   const skillGraph = new SkillGraphService({
     graph: skillGraphRepository,
@@ -1016,6 +1018,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0038_evolution_experience.up.sql',
     '0039_evolution_policy.up.sql',
     '0040_skill_evolution_correction.up.sql',
+    '0041_skill_draft_publication.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

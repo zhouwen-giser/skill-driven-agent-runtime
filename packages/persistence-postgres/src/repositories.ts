@@ -250,7 +250,11 @@ interface SkillDraftRow extends QueryResultRow {
   requested_by: string;
   intent: 'create' | 'update';
   request_text: string;
-  status: 'draft';
+  status: SkillDraft['status'];
+  published_skill_id: string | null;
+  published_skill_version: number | null;
+  published_by: string | null;
+  published_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -3253,7 +3257,8 @@ export class PostgresSkillDraftRepository implements SkillDraftRepository {
   async findById(draftId: string): Promise<SkillDraft | undefined> {
     const result = await this.#pool.query<SkillDraftRow>(
       `SELECT draft_id, task_id, context_id, requested_by, intent, request_text,
-              status, created_at, updated_at
+              status, published_skill_id, published_skill_version, published_by, published_at,
+              created_at, updated_at
        FROM skill_draft WHERE draft_id = $1`,
       [draftId],
     );
@@ -3264,7 +3269,8 @@ export class PostgresSkillDraftRepository implements SkillDraftRepository {
   async listByContextId(contextId: string): Promise<readonly SkillDraft[]> {
     const result = await this.#pool.query<SkillDraftRow>(
       `SELECT draft_id, task_id, context_id, requested_by, intent, request_text,
-              status, created_at, updated_at
+              status, published_skill_id, published_skill_version, published_by, published_at,
+              created_at, updated_at
        FROM skill_draft WHERE context_id = $1 ORDER BY created_at, draft_id`,
       [contextId],
     );
@@ -3292,6 +3298,34 @@ export class PostgresSkillDraftRepository implements SkillDraftRepository {
       ],
     );
   }
+
+  async markPublished(
+    draftId: string,
+    publication: Readonly<{
+      skillId: string;
+      version: number;
+      publishedBy: string;
+      publishedAt: string;
+    }>,
+  ): Promise<SkillDraft> {
+    const result = await this.#pool.query<SkillDraftRow>(
+      `UPDATE skill_draft SET status='published', published_skill_id=$2,
+         published_skill_version=$3, published_by=$4, published_at=$5, updated_at=$5
+       WHERE draft_id=$1 AND status='draft'
+       RETURNING draft_id,task_id,context_id,requested_by,intent,request_text,status,
+         published_skill_id,published_skill_version,published_by,published_at,created_at,updated_at`,
+      [
+        draftId,
+        publication.skillId,
+        publication.version,
+        publication.publishedBy,
+        publication.publishedAt,
+      ],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('SKILL_DRAFT_NOT_DRAFT');
+    return mapSkillDraftRow(row);
+  }
 }
 
 function mapSkillDraftRow(row: SkillDraftRow): SkillDraft {
@@ -3303,6 +3337,12 @@ function mapSkillDraftRow(row: SkillDraftRow): SkillDraft {
     intent: row.intent,
     requestText: row.request_text,
     status: row.status,
+    ...(row.published_skill_id === null ? {} : { publishedSkillId: row.published_skill_id }),
+    ...(row.published_skill_version === null
+      ? {}
+      : { publishedSkillVersion: row.published_skill_version }),
+    ...(row.published_by === null ? {} : { publishedBy: row.published_by }),
+    ...(row.published_at === null ? {} : { publishedAt: toIsoString(row.published_at) }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };

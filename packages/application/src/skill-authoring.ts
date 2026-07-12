@@ -1,8 +1,18 @@
 import { z } from 'zod';
 
-import type { SkillRuntimePolicy, SkillToolPolicy, SkillVersion } from '../../domain/src/index.js';
+import type {
+  SkillDraft,
+  SkillRuntimePolicy,
+  SkillToolPolicy,
+  SkillVersion,
+} from '../../domain/src/index.js';
 
-import type { JsonSchemaValidator, StructuredModelProvider } from './ports.js';
+import type {
+  Clock,
+  JsonSchemaValidator,
+  SkillDraftRepository,
+  StructuredModelProvider,
+} from './ports.js';
 import type { SkillRegistryService } from './skill-registry.js';
 
 const JsonSchemaObject = z.record(z.string(), z.unknown());
@@ -31,6 +41,8 @@ export class SkillAuthoringService {
   readonly #schemas: JsonSchemaValidator;
   readonly #registry: SkillRegistryService;
   readonly #maxAttempts: number;
+  readonly #drafts: SkillDraftRepository;
+  readonly #clock: Clock;
 
   constructor(
     dependencies: Readonly<{
@@ -38,6 +50,8 @@ export class SkillAuthoringService {
       schemas: JsonSchemaValidator;
       registry: SkillRegistryService;
       maxAttempts: number;
+      drafts: SkillDraftRepository;
+      clock: Clock;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1) {
@@ -50,9 +64,59 @@ export class SkillAuthoringService {
     this.#schemas = dependencies.schemas;
     this.#registry = dependencies.registry;
     this.#maxAttempts = dependencies.maxAttempts;
+    this.#drafts = dependencies.drafts;
+    this.#clock = dependencies.clock;
   }
 
   async authorAndRegister(input: AuthorSkillInput): Promise<SkillVersion> {
+    if (input.sourceKind === 'a2a_draft')
+      throw new SkillAuthoringError(
+        'SKILL_A2A_DRAFT_MANAGEMENT_PUBLICATION_REQUIRED',
+        'A2A Skill drafts must be published from their persisted draft through management.',
+      );
+    return this.#authorAndRegister(input);
+  }
+
+  async publishDraft(
+    draftId: string,
+    input: Readonly<{
+      actor: string;
+      skillId: string;
+      toolPolicy: SkillToolPolicy;
+      runtimePolicy: SkillRuntimePolicy;
+      status: 'enabled' | 'disabled';
+    }>,
+  ): Promise<Readonly<{ draft: SkillDraft; skill: SkillVersion }>> {
+    const draft = await this.#drafts.findById(draftId);
+    if (draft === undefined)
+      throw new SkillAuthoringError('SKILL_DRAFT_NOT_FOUND', 'Skill draft was not found.');
+    if (draft.status !== 'draft')
+      throw new SkillAuthoringError('SKILL_DRAFT_ALREADY_PUBLISHED', 'Skill draft is not pending.');
+    const actor = input.actor.trim();
+    if (actor.length === 0)
+      throw new SkillAuthoringError('SKILL_DRAFT_PUBLISHER_REQUIRED', 'Publisher is required.');
+    const skill = await this.#authorAndRegister({
+      skillId: input.skillId,
+      naturalLanguageDescription: draft.requestText,
+      toolPolicy: input.toolPolicy,
+      runtimePolicy: input.runtimePolicy,
+      status: input.status,
+      sourceKind: 'a2a_draft',
+    });
+    const publishedDraft = await this.#drafts.markPublished(draftId, {
+      skillId: skill.skillId,
+      version: skill.version,
+      publishedBy: actor,
+      publishedAt: this.#clock.now(),
+    });
+    return { draft: publishedDraft, skill };
+  }
+
+  getDraft(draftId: string): Promise<SkillDraft | undefined> {
+    return this.#drafts.findById(draftId);
+  }
+
+  async #authorAndRegister(input: AuthorSkillInput): Promise<SkillVersion> {
     const description = input.naturalLanguageDescription.trim();
     if (description.length < 20) {
       throw new SkillAuthoringError(
@@ -143,7 +207,11 @@ function schemaErrors(
 export type SkillAuthoringErrorCode =
   | 'SKILL_AUTHORING_ATTEMPTS_INVALID'
   | 'SKILL_DESCRIPTION_INSUFFICIENT'
-  | 'SKILL_SCHEMA_GENERATION_FAILED';
+  | 'SKILL_SCHEMA_GENERATION_FAILED'
+  | 'SKILL_A2A_DRAFT_MANAGEMENT_PUBLICATION_REQUIRED'
+  | 'SKILL_DRAFT_ALREADY_PUBLISHED'
+  | 'SKILL_DRAFT_NOT_FOUND'
+  | 'SKILL_DRAFT_PUBLISHER_REQUIRED';
 
 export class SkillAuthoringError extends Error {
   readonly code: SkillAuthoringErrorCode;

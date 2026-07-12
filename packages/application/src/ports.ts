@@ -151,6 +151,15 @@ export interface SkillDraftRepository {
   findById(draftId: string): Promise<SkillDraft | undefined>;
   listByContextId(contextId: string): Promise<readonly SkillDraft[]>;
   save(draft: SkillDraft): Promise<void>;
+  markPublished(
+    draftId: string,
+    publication: Readonly<{
+      skillId: string;
+      version: number;
+      publishedBy: string;
+      publishedAt: string;
+    }>,
+  ): Promise<SkillDraft>;
 }
 
 export interface SkillRepository {

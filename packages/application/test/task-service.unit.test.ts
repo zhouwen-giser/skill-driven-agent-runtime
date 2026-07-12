@@ -324,6 +324,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       operations.push(`draft.save:${draft.draftId}`);
       return Promise.resolve();
     },
+    markPublished: () => Promise.reject(new Error('UNUSED')),
   };
   let contextSequence = 0;
   let taskSequence = 0;

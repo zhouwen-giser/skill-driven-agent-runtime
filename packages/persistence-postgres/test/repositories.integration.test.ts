@@ -259,6 +259,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(evolutionCorrectionMigration);
+  const skillDraftPublicationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0041_skill_draft_publication.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(skillDraftPublicationMigration);
 });
 
 beforeEach(async () => {
@@ -2155,6 +2163,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(drafts.listByContextId(submitted.context.contextId)).resolves.toEqual([
       expect.objectContaining({ status: 'draft', intent: 'create' }),
     ]);
+    await expect(
+      drafts.markPublished(`draft-${submitted.task.taskId}`, {
+        skillId: 'skill.a2a.published',
+        version: 1,
+        publishedBy: 'operator@example.test',
+        publishedAt: '2026-07-11T10:01:00.000Z',
+      }),
+    ).resolves.toMatchObject({
+      status: 'published',
+      publishedSkillId: 'skill.a2a.published',
+      publishedSkillVersion: 1,
+      publishedBy: 'operator@example.test',
+    });
   });
 
   it('applies the migration idempotently', async () => {
