@@ -2294,6 +2294,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
                     cases: z.array(z.object({ kind: z.string(), passed: z.boolean() })),
                   })
                   .optional(),
+                proposedSkill: z
+                  .object({
+                    skillId: z.string(),
+                    name: z.string(),
+                    summary: z.string(),
+                    description: z.string(),
+                    capabilities: z.array(z.string()),
+                    workflowGuidance: z.string(),
+                    outputInstruction: z.string(),
+                    inputSchema: z.unknown(),
+                    outputSchema: z.unknown(),
+                    tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+                  })
+                  .optional(),
               })
               .optional(),
           })
@@ -2387,6 +2401,84 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           ).then((response) => response.json()),
         );
       expect(versionsAfterFailure.items.map((item) => item.version).sort()).toEqual([1, 2]);
+      const failedProposedSkill = failedThird.formalizationCandidate?.proposedSkill;
+      if (failedProposedSkill === undefined) throw new Error('FAILED_DRAFT_SKILL_MISSING');
+      const correctedSkill = {
+        ...failedProposedSkill,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            deviceId: { type: 'string' },
+            forceSimulationFailure: { type: 'boolean' },
+          },
+          required: ['deviceId', 'forceSimulationFailure'],
+        },
+      };
+      const correctedResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${encodeURIComponent(failedThird.formalizationCandidate?.candidateId ?? '')}/corrections`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            actor: 'operator@example.test',
+            summary: 'Require the boundary discriminator before calling the Tool.',
+            proposedSkill: correctedSkill,
+          }),
+        },
+      );
+      expect(correctedResponse.status).toBe(200);
+      const corrected = z
+        .object({
+          candidate: z.object({
+            status: z.literal('published'),
+            publishedSkillId: z.literal(existingSkillId),
+            publishedSkillVersion: z.literal(3),
+            validationReport: z.object({ allPassed: z.literal(true) }),
+          }),
+          correction: z.object({
+            correctionId: z.string(),
+            actor: z.literal('operator@example.test'),
+            summary: z.string(),
+            diff: z.array(z.object({ path: z.string(), before: z.unknown(), after: z.unknown() })),
+            outcome: z.literal('published'),
+            validationReport: z.object({ allPassed: z.literal(true) }),
+          }),
+        })
+        .parse(await correctedResponse.json());
+      expect(corrected.correction.diff).toContainEqual(
+        expect.objectContaining({ path: '/inputSchema/required' }),
+      );
+      const correctionHistory = z
+        .object({
+          items: z.array(
+            z.object({
+              correctionId: z.string(),
+              actor: z.string(),
+              outcome: z.string(),
+              diff: z.array(z.object({ path: z.string() })),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${encodeURIComponent(failedThird.formalizationCandidate?.candidateId ?? '')}/corrections`,
+          ).then((response) => response.json()),
+        );
+      expect(correctionHistory.items).toMatchObject([
+        {
+          correctionId: corrected.correction.correctionId,
+          actor: 'operator@example.test',
+          outcome: 'published',
+        },
+      ]);
+      const versionsAfterCorrection = z
+        .object({ items: z.array(z.object({ version: z.number() })) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
+          ).then((response) => response.json()),
+        );
+      expect(versionsAfterCorrection.items.map((item) => item.version).sort()).toEqual([1, 2, 3]);
       const disabled = await fetch(
         `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/disable`,
         { method: 'POST' },

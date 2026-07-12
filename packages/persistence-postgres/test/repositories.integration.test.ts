@@ -251,6 +251,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(evolutionPolicyMigration);
+  const evolutionCorrectionMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0040_skill_evolution_correction.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(evolutionCorrectionMigration);
 });
 
 beforeEach(async () => {
@@ -1632,6 +1640,37 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.findFormalizationCandidateById('candidate-db-1')).resolves.toEqual(
       evolvedCandidate,
     );
+    const correctedSkill = {
+      ...evolvedCandidate.proposedSkill,
+      workflowGuidance: 'Validate the input before calling the Tool.',
+    };
+    await repository.saveCorrectionExperience({
+      correctionId: 'correction-db-1',
+      candidateId: evolvedCandidate.candidateId,
+      capabilityFingerprint: evolvedCandidate.capabilityFingerprint,
+      actor: 'operator@example.test',
+      summary: 'Correct boundary handling.',
+      beforeSkill: evolvedCandidate.proposedSkill,
+      afterSkill: correctedSkill,
+      diff: [
+        {
+          path: '/workflowGuidance',
+          before: evolvedCandidate.proposedSkill.workflowGuidance,
+          after: correctedSkill.workflowGuidance,
+        },
+      ],
+      validationReport: evolvedCandidate.validationReport,
+      outcome: 'validation_failed',
+      createdAt: '2026-07-11T10:03:00.000Z',
+    });
+    await expect(repository.listCorrectionExperiences('candidate-db-1')).resolves.toMatchObject([
+      {
+        correctionId: 'correction-db-1',
+        actor: 'operator@example.test',
+        diff: [{ path: '/workflowGuidance' }],
+        outcome: 'validation_failed',
+      },
+    ]);
     const formalSkills = await pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM skill',
     );

@@ -184,6 +184,18 @@ describe('management HTTP API contract', () => {
   });
 
   it('exposes auditable Skill induction and simulation reports', async () => {
+    const proposedSkill = {
+      skillId: 'skill.existing',
+      name: 'Corrected Skill',
+      summary: 'Corrected summary.',
+      description: 'Corrected description.',
+      capabilities: ['inspection'],
+      workflowGuidance: 'Validate before calling the Tool.',
+      outputInstruction: 'Return status.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+    };
     const candidate = {
       candidateId: 'candidate-1',
       capabilityFingerprint: 'fingerprint-1',
@@ -208,12 +220,27 @@ describe('management HTTP API contract', () => {
       createdAt: '2026-07-12T00:00:00.000Z',
       evaluatedAt: '2026-07-12T00:01:00.000Z',
     };
+    const correction = {
+      correctionId: 'correction-1',
+      candidateId: candidate.candidateId,
+      capabilityFingerprint: candidate.capabilityFingerprint,
+      actor: 'operator@example.test',
+      summary: 'Correct boundary handling.',
+      beforeSkill: proposedSkill,
+      afterSkill: proposedSkill,
+      diff: [{ path: '/workflowGuidance', before: 'Call.', after: 'Validate.' }],
+      validationReport: candidate.validationReport,
+      outcome: 'published' as const,
+      createdAt: '2026-07-12T00:02:00.000Z',
+    };
     endpoint = await startManagementHttpEndpoint({
       operations: {
         ...operations(),
         skillEvolution: {
           get: () => Promise.resolve(candidate),
           evaluateAndPublish: () => Promise.resolve(candidate),
+          correctAndRevalidate: () => Promise.resolve({ candidate, correction }),
+          listCorrections: () => Promise.resolve([correction]),
         },
       },
     });
@@ -237,6 +264,28 @@ describe('management HTTP API contract', () => {
     );
     expect(simulate.status).toBe(200);
     await expect(simulate.json()).resolves.toMatchObject({ publishedSkillId: 'skill.evolved' });
+    const corrected = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1/corrections`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          actor: correction.actor,
+          summary: correction.summary,
+          proposedSkill,
+        }),
+      },
+    );
+    expect(corrected.status).toBe(200);
+    await expect(corrected.json()).resolves.toMatchObject({
+      correction: { correctionId: 'correction-1', actor: 'operator@example.test' },
+    });
+    const history = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1/corrections`,
+    );
+    await expect(history.json()).resolves.toMatchObject({
+      items: [{ correctionId: 'correction-1', diff: [{ path: '/workflowGuidance' }] }],
+    });
   });
 
   it('lists replayable Evolution Experiences by Goal', async () => {
@@ -870,6 +919,8 @@ function operations(failServerList = false): ManagementOperations {
     skillEvolution: {
       evaluateAndPublish: unused,
       get: unused,
+      correctAndRevalidate: unused,
+      listCorrections: () => Promise.resolve([]),
     },
     evolutionExperiences: {
       get: unused,

@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type {
   EvolutionExperience,
   ProposedEvolutionSkill,
+  SkillEvolutionCorrectionExperience,
+  SkillInductionReport,
   SkillFormalizationCandidate,
   SkillSimulationCaseResult,
   SkillVersion,
@@ -108,6 +110,7 @@ export class SkillEvolutionService {
   readonly #runner: SkillSimulationRunner;
   readonly #experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
   readonly #clock: Clock;
+  readonly #nextCorrectionId: () => string;
 
   constructor(
     dependencies: Readonly<{
@@ -119,6 +122,7 @@ export class SkillEvolutionService {
       runner: SkillSimulationRunner;
       experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
       clock: Clock;
+      nextCorrectionId(): string;
     }>,
   ) {
     this.#temporarySkills = dependencies.temporarySkills;
@@ -129,6 +133,7 @@ export class SkillEvolutionService {
     this.#runner = dependencies.runner;
     this.#experiences = dependencies.experiences;
     this.#clock = dependencies.clock;
+    this.#nextCorrectionId = dependencies.nextCorrectionId;
   }
 
   async evaluateAndPublish(candidateId: string): Promise<SkillFormalizationCandidate> {
@@ -180,6 +185,95 @@ export class SkillEvolutionService {
       skillId: decision.targetSkillId,
     };
     assertEvolutionTarget(decision, currentSkills);
+    return this.#validateAndPublish(
+      candidate,
+      experiences,
+      inductionReport,
+      proposedSkill,
+      decision.supplementalCases,
+    );
+  }
+
+  async correctAndRevalidate(
+    candidateId: string,
+    input: Readonly<{ actor: string; summary: string; proposedSkill: ProposedEvolutionSkill }>,
+  ): Promise<
+    Readonly<{
+      candidate: SkillFormalizationCandidate;
+      correction: SkillEvolutionCorrectionExperience;
+    }>
+  > {
+    const existing = await this.get(candidateId);
+    if (existing.status !== 'validation_failed')
+      throw new Error('SKILL_EVOLUTION_CORRECTION_REQUIRES_FAILED_DRAFT');
+    if (
+      existing.proposedSkill === undefined ||
+      existing.inductionReport === undefined ||
+      existing.validationReport === undefined
+    )
+      throw new Error('SKILL_EVOLUTION_CORRECTION_SOURCE_INCOMPLETE');
+    const actor = input.actor.trim();
+    const summary = input.summary.trim();
+    if (actor.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_ACTOR_REQUIRED');
+    if (summary.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_SUMMARY_REQUIRED');
+    if (input.proposedSkill.skillId !== existing.inductionReport.targetSkillId)
+      throw new Error('SKILL_EVOLUTION_CORRECTION_TARGET_IMMUTABLE');
+    const diff = diffValues(existing.proposedSkill, input.proposedSkill);
+    const supplementalCases = existing.validationReport.cases
+      .filter(
+        (item) => item.kind === 'normal' || item.kind === 'boundary' || item.kind === 'exception',
+      )
+      .map(({ caseId, kind, input: caseInput, expectedOutcome }) => ({
+        caseId,
+        kind: kind as 'normal' | 'boundary' | 'exception',
+        input: caseInput,
+        expectedOutcome,
+      }));
+    const experiences = await this.#temporarySkills.listSuccessfulExperiences(
+      existing.capabilityFingerprint,
+    );
+    const candidate = await this.#validateAndPublish(
+      existing,
+      experiences,
+      existing.inductionReport,
+      input.proposedSkill,
+      supplementalCases,
+    );
+    if (candidate.validationReport === undefined)
+      throw new Error('SKILL_EVOLUTION_CORRECTION_VALIDATION_MISSING');
+    const correction: SkillEvolutionCorrectionExperience = {
+      correctionId: this.#nextCorrectionId(),
+      candidateId,
+      capabilityFingerprint: existing.capabilityFingerprint,
+      actor,
+      summary,
+      beforeSkill: existing.proposedSkill,
+      afterSkill: input.proposedSkill,
+      diff,
+      validationReport: candidate.validationReport,
+      outcome: candidate.status === 'published' ? 'published' : 'validation_failed',
+      createdAt: this.#clock.now(),
+    };
+    await this.#temporarySkills.saveCorrectionExperience(correction);
+    return { candidate, correction };
+  }
+
+  listCorrections(candidateId: string): Promise<readonly SkillEvolutionCorrectionExperience[]> {
+    return this.#temporarySkills.listCorrectionExperiences(candidateId);
+  }
+
+  async #validateAndPublish(
+    candidate: SkillFormalizationCandidate,
+    experiences: Awaited<ReturnType<TemporarySkillRepository['listSuccessfulExperiences']>>,
+    inductionReport: SkillInductionReport,
+    proposedSkill: ProposedEvolutionSkill,
+    supplementalCases: readonly Readonly<{
+      caseId: string;
+      kind: 'normal' | 'boundary' | 'exception';
+      input: Readonly<Record<string, unknown>>;
+      expectedOutcome: 'success' | 'failure';
+    }>[],
+  ): Promise<SkillFormalizationCandidate> {
     const cases: SkillSimulationCaseResult[] = [];
     const staticErrors = await this.#staticErrors(proposedSkill);
     cases.push({
@@ -217,18 +311,19 @@ export class SkillEvolutionService {
         summary: replay.summary,
       });
     }
-    const requiredKinds = new Set(decision.supplementalCases.map((item) => item.kind));
+    const requiredKinds = new Set(supplementalCases.map((item) => item.kind));
     if (
       !['normal', 'boundary', 'exception'].every((kind) =>
         requiredKinds.has(kind as 'normal' | 'boundary' | 'exception'),
       )
     )
       throw new Error('SKILL_EVOLUTION_TEST_KINDS_INCOMPLETE');
-    for (const case_ of decision.supplementalCases) {
+    for (const case_ of supplementalCases) {
       const outcome = await this.#runner.run({ proposedSkill, case_ });
       cases.push({ ...case_, passed: outcome.passed, summary: outcome.summary });
     }
-    const inductionPassed = decision.consistent && decision.stable && decision.generalizable;
+    const inductionPassed =
+      inductionReport.consistent && inductionReport.stable && inductionReport.generalizable;
     const allPassed = inductionPassed && cases.every((item) => item.passed);
     const validationReport = {
       allPassed,
@@ -285,6 +380,35 @@ export class SkillEvolutionService {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function diffValues(
+  before: ProposedEvolutionSkill,
+  after: ProposedEvolutionSkill,
+): SkillEvolutionCorrectionExperience['diff'] {
+  const changes: { path: string; before: unknown; after: unknown }[] = [];
+  visitDiff(before, after, '', changes);
+  if (changes.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_HAS_NO_CHANGES');
+  return changes;
+}
+
+function visitDiff(
+  before: unknown,
+  after: unknown,
+  path: string,
+  changes: { path: string; before: unknown; after: unknown }[],
+): void {
+  if (JSON.stringify(before) === JSON.stringify(after)) return;
+  if (isRecord(before) && isRecord(after)) {
+    for (const key of [...new Set([...Object.keys(before), ...Object.keys(after)])].sort())
+      visitDiff(before[key], after[key], `${path}/${escapePointer(key)}`, changes);
+    return;
+  }
+  changes.push({ path: path || '/', before: before ?? null, after: after ?? null });
+}
+
+function escapePointer(value: string): string {
+  return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
 function skillSummary(skill: SkillVersion) {

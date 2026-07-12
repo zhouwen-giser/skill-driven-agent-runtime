@@ -623,6 +623,15 @@ export async function startServerRuntime(
         const tool = proposedSkill.tools[0];
         if (tool === undefined)
           return { passed: false, summary: 'No Tool is available for simulation.' };
+        const inputValidation = schemaValidator.validate(proposedSkill.inputSchema, case_.input);
+        if (!inputValidation.valid)
+          return {
+            passed: case_.expectedOutcome === 'failure',
+            summary:
+              case_.expectedOutcome === 'failure'
+                ? 'The Skill input was rejected by its corrected Schema as expected.'
+                : `The Skill input unexpectedly failed Schema validation: ${inputValidation.errors.join('; ')}`,
+          };
         try {
           await mcpRegistry.call(tool.serverId, tool.toolName, case_.input, undefined, {
             contextId: `skill-evolution:${proposedSkill.skillId}`,
@@ -666,6 +675,7 @@ export async function startServerRuntime(
       },
     },
     clock,
+    nextCorrectionId: () => `skill-evolution-correction-${randomUUID()}`,
   });
   const temporarySkillOperations = {
     create: temporarySkills.create.bind(temporarySkills),
@@ -1005,6 +1015,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0037_skill_evolution_simulation.up.sql',
     '0038_evolution_experience.up.sql',
     '0039_evolution_policy.up.sql',
+    '0040_skill_evolution_correction.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

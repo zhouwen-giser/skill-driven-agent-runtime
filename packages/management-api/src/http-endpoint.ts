@@ -130,6 +130,22 @@ const CompleteTemporarySkillSchema = z.object({
   successful: z.boolean(),
   outcomeSummary: z.string().min(1),
 });
+const CorrectEvolutionCandidateSchema = z.object({
+  actor: z.string().min(1),
+  summary: z.string().min(1),
+  proposedSkill: z.object({
+    skillId: z.string().min(1),
+    name: z.string().min(1),
+    summary: z.string().min(1),
+    description: z.string().min(1),
+    capabilities: z.array(z.string().min(1)).min(1),
+    workflowGuidance: z.string().min(1),
+    outputInstruction: z.string().min(1),
+    inputSchema: JsonSchema,
+    outputSchema: JsonSchema,
+    tools: z.array(ToolReferenceSchema).min(1),
+  }),
+});
 const AuthorSkillSchema = z.object({
   skillId: z.string().min(1),
   naturalLanguageDescription: z.string().min(1),
@@ -251,7 +267,10 @@ export interface ManagementOperations {
     'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
-  readonly skillEvolution: Pick<SkillEvolutionService, 'evaluateAndPublish' | 'get'>;
+  readonly skillEvolution: Pick<
+    SkillEvolutionService,
+    'correctAndRevalidate' | 'evaluateAndPublish' | 'get' | 'listCorrections'
+  >;
   readonly evolutionExperiences: Pick<
     EvolutionExperienceService,
     'get' | 'listByGoal' | 'listBySkill'
@@ -883,6 +902,28 @@ export async function startManagementHttpEndpoint(
           pathValue(request, 'candidateId'),
         ),
       );
+    }),
+  );
+  app.post(
+    '/api/v1/skill-formalization-candidates/:candidateId/corrections',
+    asyncRoute(async (request, response) => {
+      const input = CorrectEvolutionCandidateSchema.parse(request.body);
+      response.json(
+        await options.operations.skillEvolution.correctAndRevalidate(
+          pathValue(request, 'candidateId'),
+          input,
+        ),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/skill-formalization-candidates/:candidateId/corrections',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.skillEvolution.listCorrections(
+          pathValue(request, 'candidateId'),
+        ),
+      });
     }),
   );
   app.get(

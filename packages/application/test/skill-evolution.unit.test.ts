@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   SkillFormalizationCandidate,
+  SkillEvolutionCorrectionExperience,
   SkillVersion,
   TemporarySkill,
   TemporarySkillExperience,
@@ -103,6 +104,43 @@ describe('SkillEvolutionService', () => {
     });
     expect(fixture.published).toMatchObject({ skillId: 'skill.evolved.device' });
   });
+
+  it('revalidates an administrator correction and persists it as evolution experience', async () => {
+    const fixture = setup(false);
+    const failed = await fixture.service.evaluateAndPublish('candidate-1');
+    if (failed.proposedSkill === undefined) throw new Error('EXPECTED_PROPOSED_SKILL');
+
+    const result = await fixture.service.correctAndRevalidate('candidate-1', {
+      actor: 'operator@example.test',
+      summary: 'Correct the execution guidance for the boundary case.',
+      proposedSkill: {
+        ...failed.proposedSkill,
+        workflowGuidance: 'Corrected guidance validates boundary inputs before the Tool call.',
+      },
+    });
+
+    expect(result.candidate).toMatchObject({
+      status: 'published',
+      publishedSkillId: 'skill.existing.device',
+      publishedSkillVersion: 2,
+      validationReport: { allPassed: true },
+    });
+    expect(result.correction).toMatchObject({
+      correctionId: 'correction-1',
+      actor: 'operator@example.test',
+      outcome: 'published',
+      diff: [
+        {
+          path: '/workflowGuidance',
+          before: 'Call the required Tool once and return its result.',
+          after: 'Corrected guidance validates boundary inputs before the Tool call.',
+        },
+      ],
+    });
+    await expect(fixture.service.listCorrections('candidate-1')).resolves.toEqual([
+      result.correction,
+    ]);
+  });
 });
 
 function setup(allPass: boolean, modelDecision: unknown = decision()) {
@@ -138,10 +176,18 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
     },
     experiences: { listByTool: () => Promise.resolve([history(true), history(false)]) },
     runner: {
-      run: ({ case_ }) =>
+      run: ({ proposedSkill, case_ }) =>
         Promise.resolve({
-          passed: allPass || case_.kind !== 'boundary',
-          summary: allPass || case_.kind !== 'boundary' ? 'Passed.' : 'Boundary failed.',
+          passed:
+            allPass ||
+            proposedSkill.workflowGuidance.startsWith('Corrected') ||
+            case_.kind !== 'boundary',
+          summary:
+            allPass ||
+            proposedSkill.workflowGuidance.startsWith('Corrected') ||
+            case_.kind !== 'boundary'
+              ? 'Passed.'
+              : 'Boundary failed.',
         }),
       replay: ({ experience }) =>
         Promise.resolve({
@@ -150,6 +196,7 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
         }),
     },
     clock: { now: () => timestamp },
+    nextCorrectionId: () => 'correction-1',
   });
   return {
     service,
@@ -319,6 +366,7 @@ class MemoryRepository {
     outcomeSummary: 'Device status was returned.',
     createdAt: timestamp,
   }));
+  readonly corrections: SkillEvolutionCorrectionExperience[] = [];
   find(id: string) {
     return Promise.resolve(this.skills.find((item) => item.temporarySkillId === id));
   }
@@ -347,5 +395,12 @@ class MemoryRepository {
   saveFormalizationCandidate(candidate: SkillFormalizationCandidate) {
     this.candidate = candidate;
     return Promise.resolve();
+  }
+  saveCorrectionExperience(correction: SkillEvolutionCorrectionExperience) {
+    this.corrections.push(correction);
+    return Promise.resolve();
+  }
+  listCorrectionExperiences() {
+    return Promise.resolve(this.corrections);
   }
 }

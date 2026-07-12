@@ -194,4 +194,10 @@ class MemoryTemporarySkillRepository implements TemporarySkillRepository {
     this.candidate = candidate;
     return Promise.resolve();
   }
+  saveCorrectionExperience() {
+    return Promise.resolve();
+  }
+  listCorrectionExperiences() {
+    return Promise.resolve([]);
+  }
 }

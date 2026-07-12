@@ -92,6 +92,26 @@ export interface SkillSimulationReport {
   readonly decisionSummary: string;
 }
 
+export interface SkillEvolutionCorrectionDiff {
+  readonly path: string;
+  readonly before: unknown;
+  readonly after: unknown;
+}
+
+export interface SkillEvolutionCorrectionExperience {
+  readonly correctionId: string;
+  readonly candidateId: string;
+  readonly capabilityFingerprint: string;
+  readonly actor: string;
+  readonly summary: string;
+  readonly beforeSkill: ProposedEvolutionSkill;
+  readonly afterSkill: ProposedEvolutionSkill;
+  readonly diff: readonly SkillEvolutionCorrectionDiff[];
+  readonly validationReport: SkillSimulationReport;
+  readonly outcome: 'validation_failed' | 'published';
+  readonly createdAt: string;
+}
+
 export function createTemporarySkill(input: TemporarySkill): TemporarySkill {
   const temporarySkillId = requireIdentifier(input.temporarySkillId, 'TEMPORARY_SKILL_ID_REQUIRED');
   const taskId = requireIdentifier(input.taskId, 'TASK_ID_REQUIRED');

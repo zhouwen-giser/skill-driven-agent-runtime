@@ -24,6 +24,7 @@ import type {
   SkillCallWorkflowRecord,
   SkillVersion,
   SkillFormalizationCandidate,
+  SkillEvolutionCorrectionExperience,
   EvolutionExperience,
   EvolutionPolicy,
   EvolutionTriggerRecord,
@@ -236,6 +237,10 @@ export interface TemporarySkillRepository {
     candidateId: string,
   ): Promise<SkillFormalizationCandidate | undefined>;
   saveFormalizationCandidate(candidate: SkillFormalizationCandidate): Promise<void>;
+  saveCorrectionExperience(correction: SkillEvolutionCorrectionExperience): Promise<void>;
+  listCorrectionExperiences(
+    candidateId: string,
+  ): Promise<readonly SkillEvolutionCorrectionExperience[]>;
 }
 
 export interface EvolutionExperienceRepository {

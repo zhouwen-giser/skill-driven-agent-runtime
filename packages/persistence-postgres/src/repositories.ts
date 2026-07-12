@@ -69,6 +69,7 @@ import type {
   SkillReplacementPlan,
   SkillSelectionRecord,
   SkillFormalizationCandidate,
+  SkillEvolutionCorrectionExperience,
   SkillInductionReport,
   SkillSimulationReport,
   ProposedEvolutionSkill,
@@ -349,6 +350,20 @@ interface FormalizationCandidateRow extends QueryResultRow {
   published_skill_version: number | null;
   created_at: Date | string;
   evaluated_at: Date | string | null;
+}
+
+interface SkillEvolutionCorrectionRow extends QueryResultRow {
+  correction_id: string;
+  candidate_id: string;
+  capability_fingerprint: string;
+  actor: string;
+  summary: string;
+  before_skill_json: unknown;
+  after_skill_json: unknown;
+  diff_json: unknown;
+  validation_report_json: unknown;
+  outcome: SkillEvolutionCorrectionExperience['outcome'];
+  created_at: Date | string;
 }
 
 interface EvolutionExperienceRow extends QueryResultRow {
@@ -2975,6 +2990,41 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
       ],
     );
   }
+
+  async saveCorrectionExperience(correction: SkillEvolutionCorrectionExperience): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_evolution_correction_experience
+         (correction_id,candidate_id,capability_fingerprint,actor,summary,
+          before_skill_json,after_skill_json,diff_json,validation_report_json,outcome,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        correction.correctionId,
+        correction.candidateId,
+        correction.capabilityFingerprint,
+        correction.actor,
+        correction.summary,
+        JSON.stringify(correction.beforeSkill),
+        JSON.stringify(correction.afterSkill),
+        JSON.stringify(correction.diff),
+        JSON.stringify(correction.validationReport),
+        correction.outcome,
+        correction.createdAt,
+      ],
+    );
+  }
+
+  async listCorrectionExperiences(
+    candidateId: string,
+  ): Promise<readonly SkillEvolutionCorrectionExperience[]> {
+    const result = await this.#pool.query<SkillEvolutionCorrectionRow>(
+      `SELECT correction_id,candidate_id,capability_fingerprint,actor,summary,
+              before_skill_json,after_skill_json,diff_json,validation_report_json,outcome,created_at
+       FROM skill_evolution_correction_experience
+       WHERE candidate_id = $1 ORDER BY created_at,correction_id`,
+      [candidateId],
+    );
+    return result.rows.map(mapSkillEvolutionCorrectionRow);
+  }
 }
 
 const temporarySkillSelect = `SELECT temporary_skill_id, task_id, context_id, name,
@@ -3369,6 +3419,26 @@ function mapTemporaryExperienceRow(row: TemporaryExperienceRow): TemporarySkillE
     capabilityFingerprint: row.capability_fingerprint,
     successful: row.successful,
     outcomeSummary: row.outcome_summary,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapSkillEvolutionCorrectionRow(
+  row: SkillEvolutionCorrectionRow,
+): SkillEvolutionCorrectionExperience {
+  return {
+    correctionId: row.correction_id,
+    candidateId: row.candidate_id,
+    capabilityFingerprint: row.capability_fingerprint,
+    actor: row.actor,
+    summary: row.summary,
+    beforeSkill: ProposedEvolutionSkillSchema.parse(row.before_skill_json),
+    afterSkill: ProposedEvolutionSkillSchema.parse(row.after_skill_json),
+    diff: z
+      .array(z.object({ path: z.string(), before: z.unknown(), after: z.unknown() }))
+      .parse(row.diff_json),
+    validationReport: SkillSimulationReportSchema.parse(row.validation_report_json),
+    outcome: row.outcome,
     createdAt: toIsoString(row.created_at),
   };
 }
