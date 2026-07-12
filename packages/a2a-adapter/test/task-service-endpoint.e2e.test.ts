@@ -2192,6 +2192,15 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         },
       );
       expect(policyUpdate.status).toBe(200);
+      const existingSkillId = `skill.existing.${serverId}`;
+      await runtime.registerSkill({
+        ...skillInput(existingSkillId, 'Existing device status capability'),
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      });
       const formalSkillsBefore = await readFormalSkillIds();
       const createAndComplete = async (taskId: string) => {
         const createdResponse = await fetch(
@@ -2245,6 +2254,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
                     stable: z.boolean(),
                     generalizable: z.boolean(),
                     duplicateScore: z.number(),
+                    evolutionKind: z.enum(['new_skill', 'new_version']),
+                    targetSkillId: z.string(),
+                    boundaryDecisionSummary: z.string(),
                     decisionSummary: z.string(),
                   })
                   .optional(),
@@ -2270,12 +2282,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(third.formalizationCandidate).toMatchObject({
         status: 'published',
         successfulExperienceCount: 3,
-        publishedSkillId: `skill.evolved.${serverId}`,
+        publishedSkillId: existingSkillId,
         inductionReport: {
           consistent: true,
           stable: true,
           generalizable: true,
-          duplicateScore: 0,
+          duplicateScore: 0.95,
+          evolutionKind: 'new_version',
+          targetSkillId: existingSkillId,
         },
         validationReport: { allPassed: true },
       });
@@ -2311,13 +2325,18 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { successfulExperienceCount: 3, configuredThreshold: 3, decision: 'candidate_created' },
       ]);
       const formalSkillsAfter = await readFormalSkillIds();
-      expect(formalSkillsAfter).toHaveLength(formalSkillsBefore.length + 1);
-      expect(formalSkillsAfter).toContain(`skill.evolved.${serverId}`);
-      expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(
-        `skill.evolved.${serverId}`,
-      );
+      expect(formalSkillsAfter).toEqual(formalSkillsBefore);
+      const versions = z
+        .object({ items: z.array(z.object({ skillId: z.string(), version: z.number() })) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
+          ).then((response) => response.json()),
+        );
+      expect(versions.items.map((item) => item.version).sort()).toEqual([1, 2]);
+      expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(existingSkillId);
       const disabled = await fetch(
-        `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(`skill.evolved.${serverId}`)}/disable`,
+        `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/disable`,
         { method: 'POST' },
       );
       expect(disabled.status).toBe(200);
@@ -3238,20 +3257,32 @@ async function startModelLoopback(): Promise<Server> {
                   outputSchema: z.unknown(),
                 }),
               ),
+              currentSkills: z.array(z.object({ skillId: z.string(), version: z.number() })),
             })
             .parse(embeddedOperation(body.messages, 'induce_skill_from_experience'));
           const source = requestData.sourceSkills[0];
           const tool = source?.tools[0];
           if (source === undefined || tool === undefined)
             throw new Error('SKILL_INDUCTION_SOURCE_REQUIRED');
+          const existingSkillId = `skill.existing.${tool.serverId}`;
+          const existing = requestData.currentSkills.find(
+            (skill) => skill.skillId === existingSkillId,
+          );
           respondStructured(response, {
             consistent: true,
             stable: true,
             generalizable: true,
-            duplicateScore: 0,
+            ...(existing === undefined ? {} : { duplicateSkillId: existing.skillId }),
+            duplicateScore: existing === undefined ? 0 : 0.95,
+            evolutionKind: existing === undefined ? 'new_skill' : 'new_version',
+            targetSkillId: existing?.skillId ?? `skill.evolved.${tool.serverId}`,
+            boundaryDecisionSummary:
+              existing === undefined
+                ? 'No current Skill has the same capability boundary.'
+                : 'The capability boundary is unchanged and execution guidance improved.',
             decisionSummary: 'Repeated successful executions define a stable reusable Skill.',
             proposedSkill: {
-              skillId: `skill.evolved.${tool.serverId}`,
+              skillId: existing?.skillId ?? `skill.evolved.${tool.serverId}`,
               name: 'Evolved device status',
               summary: 'Read device status from the registered Tool.',
               description: 'Read the current state of one device using the registered MCP Tool.',

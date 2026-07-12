@@ -96,6 +96,9 @@ const SkillInductionReportSchema = z.object({
   generalizable: z.boolean(),
   duplicateSkillId: z.string().optional(),
   duplicateScore: z.number(),
+  evolutionKind: z.enum(['new_skill', 'new_version']),
+  targetSkillId: z.string(),
+  boundaryDecisionSummary: z.string(),
   decisionSummary: z.string(),
 });
 const ProposedEvolutionSkillSchema: z.ZodType<ProposedEvolutionSkill> = z.object({

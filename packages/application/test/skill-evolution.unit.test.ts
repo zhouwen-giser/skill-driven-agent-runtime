@@ -16,14 +16,17 @@ describe('SkillEvolutionService', () => {
 
     expect(result).toMatchObject({
       status: 'published',
-      publishedSkillId: 'skill.evolved.device',
-      publishedSkillVersion: 1,
+      publishedSkillId: 'skill.existing.device',
+      publishedSkillVersion: 2,
       inductionReport: {
         consistent: true,
         stable: true,
         generalizable: true,
         duplicateSkillId: 'skill.existing.device',
         duplicateScore: 0.4,
+        evolutionKind: 'new_version',
+        targetSkillId: 'skill.existing.device',
+        boundaryDecisionSummary: 'The capability boundary is unchanged; execution improved.',
         decisionSummary: 'Two stable experiences define a reusable capability.',
       },
       validationReport: { allPassed: true },
@@ -37,7 +40,7 @@ describe('SkillEvolutionService', () => {
       'exception',
     ]);
     expect(fixture.published).toMatchObject({
-      skillId: 'skill.evolved.device',
+      skillId: 'skill.existing.device',
       status: 'enabled',
       sourceKind: 'experience_evolution',
       validationPassed: true,
@@ -68,9 +71,38 @@ describe('SkillEvolutionService', () => {
     expect(fixture.published).toBeUndefined();
     expect(fixture.repository.candidate).toEqual(result);
   });
+
+  it('rejects a new-Skill decision that targets an existing capability owner', async () => {
+    const fixture = setup(true, {
+      ...decision(),
+      evolutionKind: 'new_skill',
+      targetSkillId: 'skill.existing.device',
+    });
+    await expect(fixture.service.evaluateAndPublish('candidate-1')).rejects.toThrow(
+      'SKILL_EVOLUTION_NEW_SKILL_ALREADY_EXISTS',
+    );
+    expect(fixture.published).toBeUndefined();
+  });
+
+  it('creates a new Skill when the model reports a distinct capability boundary', async () => {
+    const fixture = setup(true, {
+      ...decision(),
+      duplicateSkillId: undefined,
+      duplicateScore: 0,
+      evolutionKind: 'new_skill',
+      targetSkillId: 'skill.evolved.device',
+      boundaryDecisionSummary: 'The capability boundary is distinct.',
+    });
+    await expect(fixture.service.evaluateAndPublish('candidate-1')).resolves.toMatchObject({
+      status: 'published',
+      publishedSkillId: 'skill.evolved.device',
+      publishedSkillVersion: 1,
+    });
+    expect(fixture.published).toMatchObject({ skillId: 'skill.evolved.device' });
+  });
 });
 
-function setup(allPass: boolean) {
+function setup(allPass: boolean, modelDecision: unknown = decision()) {
   const repository = new MemoryRepository();
   let published: Omit<SkillVersion, 'version' | 'previousVersion' | 'createdAt'> | undefined;
   let modelInstruction: unknown;
@@ -79,7 +111,7 @@ function setup(allPass: boolean) {
     model: {
       generateStructured: (input) => {
         modelInstruction = JSON.parse(input.instruction) as unknown;
-        return Promise.resolve(decision());
+        return Promise.resolve(modelDecision);
       },
     },
     schemas: new AjvJsonSchemaValidator(),
@@ -91,7 +123,12 @@ function setup(allPass: boolean) {
       listCurrentVersions: () => Promise.resolve([existingSkill()]),
       register: (input) => {
         published = input;
-        return Promise.resolve({ ...input, version: 1, createdAt: timestamp });
+        return Promise.resolve({
+          ...input,
+          version: input.skillId === 'skill.existing.device' ? 2 : 1,
+          ...(input.skillId === 'skill.existing.device' ? { previousVersion: 1 } : {}),
+          createdAt: timestamp,
+        });
       },
     },
     runner: {
@@ -124,6 +161,9 @@ function decision() {
     generalizable: true,
     duplicateSkillId: 'skill.existing.device',
     duplicateScore: 0.4,
+    evolutionKind: 'new_version',
+    targetSkillId: 'skill.existing.device',
+    boundaryDecisionSummary: 'The capability boundary is unchanged; execution improved.',
     decisionSummary: 'Two stable experiences define a reusable capability.',
     proposedSkill: {
       skillId: 'skill.evolved.device',

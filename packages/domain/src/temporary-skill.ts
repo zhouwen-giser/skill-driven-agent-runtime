@@ -50,6 +50,9 @@ export interface SkillInductionReport {
   readonly generalizable: boolean;
   readonly duplicateSkillId?: string;
   readonly duplicateScore: number;
+  readonly evolutionKind: 'new_skill' | 'new_version';
+  readonly targetSkillId: string;
+  readonly boundaryDecisionSummary: string;
   readonly decisionSummary: string;
 }
 

@@ -191,6 +191,17 @@ describe('management HTTP API contract', () => {
       requiredSuccessThreshold: 2,
       sourceExperienceIds: ['experience-1', 'experience-2'],
       status: 'published' as const,
+      inductionReport: {
+        consistent: true,
+        stable: true,
+        generalizable: true,
+        duplicateSkillId: 'skill.existing',
+        duplicateScore: 0.9,
+        evolutionKind: 'new_version' as const,
+        targetSkillId: 'skill.existing',
+        boundaryDecisionSummary: 'The capability boundary is unchanged.',
+        decisionSummary: 'Create a new version.',
+      },
       validationReport: { allPassed: true, cases: [], decisionSummary: 'All passed.' },
       publishedSkillId: 'skill.evolved',
       publishedSkillVersion: 1,
@@ -214,6 +225,11 @@ describe('management HTTP API contract', () => {
     await expect(read.json()).resolves.toMatchObject({
       status: 'published',
       validationReport: { allPassed: true },
+      inductionReport: {
+        evolutionKind: 'new_version',
+        targetSkillId: 'skill.existing',
+        boundaryDecisionSummary: 'The capability boundary is unchanged.',
+      },
     });
     const simulate = await fetch(
       `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1/simulate`,

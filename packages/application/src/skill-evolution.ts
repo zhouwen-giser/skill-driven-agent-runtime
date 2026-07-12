@@ -22,6 +22,9 @@ const InductionDecisionSchema = z.object({
   generalizable: z.boolean(),
   duplicateSkillId: z.string().min(1).optional(),
   duplicateScore: z.number().min(0).max(1),
+  evolutionKind: z.enum(['new_skill', 'new_version']),
+  targetSkillId: z.string().min(1),
+  boundaryDecisionSummary: z.string().min(1),
   decisionSummary: z.string().min(1),
   proposedSkill: z.object({
     skillId: z.string().min(1),
@@ -55,6 +58,9 @@ const responseSchema = {
     'stable',
     'generalizable',
     'duplicateScore',
+    'evolutionKind',
+    'targetSkillId',
+    'boundaryDecisionSummary',
     'decisionSummary',
     'proposedSkill',
     'supplementalCases',
@@ -65,6 +71,9 @@ const responseSchema = {
     generalizable: { type: 'boolean' },
     duplicateSkillId: { type: 'string', minLength: 1 },
     duplicateScore: { type: 'number', minimum: 0, maximum: 1 },
+    evolutionKind: { type: 'string', enum: ['new_skill', 'new_version'] },
+    targetSkillId: { type: 'string', minLength: 1 },
+    boundaryDecisionSummary: { type: 'string', minLength: 1 },
     decisionSummary: { type: 'string', minLength: 1 },
     proposedSkill: { type: 'object' },
     supplementalCases: { type: 'array', minItems: 3, items: { type: 'object' } },
@@ -153,9 +162,16 @@ export class SkillEvolutionService {
         ? {}
         : { duplicateSkillId: decision.duplicateSkillId }),
       duplicateScore: decision.duplicateScore,
+      evolutionKind: decision.evolutionKind,
+      targetSkillId: decision.targetSkillId,
+      boundaryDecisionSummary: decision.boundaryDecisionSummary,
       decisionSummary: decision.decisionSummary,
     };
-    const proposedSkill = decision.proposedSkill;
+    const proposedSkill = {
+      ...decision.proposedSkill,
+      skillId: decision.targetSkillId,
+    };
+    assertEvolutionTarget(decision, currentSkills);
     const cases: SkillSimulationCaseResult[] = [];
     const staticErrors = await this.#staticErrors(proposedSkill);
     cases.push({
@@ -252,4 +268,20 @@ function skillSummary(skill: SkillVersion) {
     summary: skill.summary,
     capabilities: skill.capabilities,
   };
+}
+
+function assertEvolutionTarget(
+  decision: z.infer<typeof InductionDecisionSchema>,
+  currentSkills: readonly SkillVersion[],
+): void {
+  const target = currentSkills.find((skill) => skill.skillId === decision.targetSkillId);
+  if (decision.evolutionKind === 'new_version') {
+    if (target === undefined) throw new Error('SKILL_EVOLUTION_VERSION_TARGET_NOT_FOUND');
+    if (decision.duplicateSkillId !== decision.targetSkillId)
+      throw new Error('SKILL_EVOLUTION_DUPLICATE_TARGET_MISMATCH');
+    return;
+  }
+  if (target !== undefined) throw new Error('SKILL_EVOLUTION_NEW_SKILL_ALREADY_EXISTS');
+  if (decision.proposedSkill.skillId !== decision.targetSkillId)
+    throw new Error('SKILL_EVOLUTION_NEW_SKILL_TARGET_MISMATCH');
 }

@@ -1591,6 +1591,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
         stable: true,
         generalizable: true,
         duplicateScore: 0,
+        evolutionKind: 'new_skill' as const,
+        targetSkillId: 'skill.evolved.db',
+        boundaryDecisionSummary: 'The capability boundary is distinct.',
         decisionSummary: 'Repeated executions are stable.',
       },
       validationReport: {
