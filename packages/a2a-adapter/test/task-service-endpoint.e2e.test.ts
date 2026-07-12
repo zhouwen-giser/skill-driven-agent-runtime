@@ -2264,6 +2264,69 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       item: { memoryId, content: { deviceId: 'device-17' }, sourceRefs: [source.id] },
       score: 1,
     });
+    const replacementId = `memory.global.replacement.${randomUUID()}`;
+    const superseded = await fetch(
+      `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}/supersede`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          memoryId: replacementId,
+          type: 'fact',
+          content: { deviceId: 'device-18' },
+          summary: `The replacement target is device-18. Evidence ${replacementId}.`,
+          sourceRefs: [source.id],
+          confidence: 0.96,
+          actor: 'operator.e2e',
+          reason: 'Newer source evidence changed the target.',
+        }),
+      },
+    );
+    expect(superseded.status).toBe(201);
+    await expect(superseded.json()).resolves.toMatchObject({
+      memoryId: replacementId,
+      status: 'active',
+      supersedes: [memoryId],
+    });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      memoryId,
+      status: 'superseded',
+      content: { deviceId: 'device-17' },
+    });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}/transitions`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          toStatus: 'superseded',
+          replacementMemoryId: replacementId,
+          actor: 'operator.e2e',
+        },
+      ],
+    });
+    expect(
+      (
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(replacementId)}/invalidate`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ actor: 'operator.e2e', reason: 'Evidence was retracted.' }),
+          },
+        )
+      ).status,
+    ).toBe(204);
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(replacementId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ status: 'invalid', content: { deviceId: 'device-18' } });
   });
 
   it('infers missing Goal input from global memory before asking an explicit question', async () => {

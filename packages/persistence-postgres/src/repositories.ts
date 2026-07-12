@@ -65,6 +65,7 @@ import type {
   ProcessedResultRecord,
   MemoryItem,
   MemorySearchHit,
+  MemoryStatusTransition,
   GoalInferenceSource,
   GoalInputInferenceRecord,
   GoalTransitionRecord,
@@ -93,7 +94,7 @@ import type {
   TaskPhase,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
-import type { Pool, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
@@ -1032,6 +1033,17 @@ interface MemoryItemRow extends QueryResultRow {
   score?: number;
 }
 
+interface MemoryStatusTransitionRow extends QueryResultRow {
+  transition_id: string;
+  memory_id: string;
+  from_status: MemoryStatusTransition['fromStatus'];
+  to_status: MemoryStatusTransition['toStatus'];
+  replacement_memory_id: string | null;
+  actor: string;
+  reason: string;
+  created_at: Date | string;
+}
+
 const MemoryContentSchema = z.record(z.string(), z.unknown());
 
 export class PostgresMemoryRepository implements MemoryRepository {
@@ -1085,6 +1097,81 @@ export class PostgresMemoryRepository implements MemoryRepository {
       [vectorLiteral(query.vector), query.providerId, query.vector.length, query.limit],
     );
     return result.rows.map((row) => ({ item: mapMemoryItemRow(row), score: row.score ?? 0 }));
+  }
+
+  async saveAndSupersede(
+    replacement: MemoryItem,
+    embedding: Readonly<{ providerId: string; vector: readonly number[] }>,
+    transitions: readonly MemoryStatusTransition[],
+  ): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO memory_item(
+           memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+           embedding_provider_id,embedding_dimensions,embedding,created_at)
+         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+        [
+          replacement.memoryId,
+          replacement.type,
+          JSON.stringify(replacement.content),
+          replacement.summary,
+          replacement.status,
+          JSON.stringify(replacement.sourceRefs),
+          JSON.stringify(replacement.supersedes),
+          replacement.confidence,
+          embedding.providerId,
+          embedding.vector.length,
+          vectorLiteral(embedding.vector),
+          replacement.createdAt,
+        ],
+      );
+      for (const transition of transitions) {
+        const updated = await client.query(
+          `UPDATE memory_item SET status='superseded'
+           WHERE memory_id=$1 AND status=$2`,
+          [transition.memoryId, transition.fromStatus],
+        );
+        if (updated.rowCount !== 1) throw new Error('MEMORY_STATUS_CONFLICT');
+        await insertMemoryTransition(client, transition);
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async invalidate(transition: MemoryStatusTransition): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        `UPDATE memory_item SET status='invalid'
+         WHERE memory_id=$1 AND status=$2 AND status<>'invalid'`,
+        [transition.memoryId, transition.fromStatus],
+      );
+      if (updated.rowCount !== 1) throw new Error('MEMORY_STATUS_CONFLICT');
+      await insertMemoryTransition(client, transition);
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listTransitions(memoryId: string): Promise<readonly MemoryStatusTransition[]> {
+    const result = await this.#pool.query<MemoryStatusTransitionRow>(
+      `SELECT * FROM memory_status_transition
+       WHERE memory_id=$1 ORDER BY created_at,transition_id`,
+      [memoryId],
+    );
+    return result.rows.map(mapMemoryStatusTransitionRow);
   }
 }
 
@@ -1225,6 +1312,42 @@ function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
     sourceRefs: StringArraySchema.parse(row.source_refs_json),
     supersedes: StringArraySchema.parse(row.supersedes_json),
     confidence: row.confidence,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+async function insertMemoryTransition(
+  client: PoolClient,
+  transition: MemoryStatusTransition,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO memory_status_transition(
+       transition_id,memory_id,from_status,to_status,replacement_memory_id,actor,reason,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [
+      transition.transitionId,
+      transition.memoryId,
+      transition.fromStatus,
+      transition.toStatus,
+      transition.replacementMemoryId ?? null,
+      transition.actor,
+      transition.reason,
+      transition.createdAt,
+    ],
+  );
+}
+
+function mapMemoryStatusTransitionRow(row: MemoryStatusTransitionRow): MemoryStatusTransition {
+  return {
+    transitionId: row.transition_id,
+    memoryId: row.memory_id,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    ...(row.replacement_memory_id === null
+      ? {}
+      : { replacementMemoryId: row.replacement_memory_id }),
+    actor: row.actor,
+    reason: row.reason,
     createdAt: toIsoString(row.created_at),
   };
 }

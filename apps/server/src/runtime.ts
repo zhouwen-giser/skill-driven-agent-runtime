@@ -249,6 +249,7 @@ export async function startServerRuntime(
     embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
     clock,
     nextId: () => `memory-${randomUUID()}`,
+    nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
   });
   const workflowPlanner = new WorkflowPlannerService({
@@ -1052,6 +1053,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0041_skill_draft_publication.up.sql',
     '0042_skill_quality_warning.up.sql',
     '0043_workflow_template.up.sql',
+    '0044_memory_status_transition.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

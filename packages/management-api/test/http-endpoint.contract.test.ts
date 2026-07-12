@@ -923,6 +923,10 @@ describe('management HTTP API contract', () => {
           refine: () => Promise.resolve(item),
           get: () => Promise.resolve(item),
           search: () => Promise.resolve([{ item, score: 1 }]),
+          supersede: () =>
+            Promise.resolve({ ...item, memoryId: 'memory-2', supersedes: ['memory-1'] }),
+          invalidate: () => Promise.resolve(),
+          listTransitions: () => Promise.resolve([]),
         },
         goalInputInference: {
           list: () =>
@@ -971,6 +975,38 @@ describe('management HTTP API contract', () => {
         value.json(),
       ),
     ).resolves.toMatchObject({ items: [{ item: { memoryId: 'memory-1' }, score: 1 }] });
+    const superseded = await fetch(`${endpoint.baseUrl}/api/v1/memories/memory-1/supersede`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'fact',
+        content: { deviceId: 'device-18' },
+        summary: 'The target device is device-18.',
+        sourceRefs: ['task-new'],
+        confidence: 0.95,
+        actor: 'operator.test',
+        reason: 'New evidence.',
+      }),
+    });
+    expect(superseded.status).toBe(201);
+    await expect(superseded.json()).resolves.toMatchObject({
+      memoryId: 'memory-2',
+      supersedes: ['memory-1'],
+    });
+    expect(
+      (
+        await fetch(`${endpoint.baseUrl}/api/v1/memories/memory-2/invalidate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ actor: 'operator.test', reason: 'Retracted.' }),
+        })
+      ).status,
+    ).toBe(204);
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/memories/memory-1/transitions`).then((value) =>
+        value.json(),
+      ),
+    ).resolves.toEqual({ items: [] });
     await expect(
       fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/input-inferences`).then((value) =>
         value.json(),
@@ -990,7 +1026,14 @@ function operations(failServerList = false): ManagementOperations {
     tasks: { attachPlan: unused, followUp: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
-    memories: { refine: unused, get: unused, search: () => Promise.resolve([]) },
+    memories: {
+      refine: unused,
+      get: unused,
+      search: () => Promise.resolve([]),
+      supersede: unused,
+      invalidate: unused,
+      listTransitions: () => Promise.resolve([]),
+    },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     workflowTemplates: {

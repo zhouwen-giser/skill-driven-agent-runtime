@@ -15,6 +15,7 @@ import type {
   McpToolDependencyChange,
   MemoryItem,
   MemorySearchHit,
+  MemoryStatusTransition,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -106,6 +107,13 @@ export interface MemoryRepository {
   search(
     query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
   ): Promise<readonly MemorySearchHit[]>;
+  saveAndSupersede(
+    replacement: MemoryItem,
+    embedding: Readonly<{ providerId: string; vector: readonly number[] }>,
+    transitions: readonly MemoryStatusTransition[],
+  ): Promise<void>;
+  invalidate(transition: MemoryStatusTransition): Promise<void>;
+  listTransitions(memoryId: string): Promise<readonly MemoryStatusTransition[]>;
 }
 
 export interface GoalInputInferenceRepository {

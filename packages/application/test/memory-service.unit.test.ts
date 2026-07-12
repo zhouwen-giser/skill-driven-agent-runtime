@@ -1,10 +1,67 @@
 import { describe, expect, it } from 'vitest';
 
-import type { MemoryItem, MemorySearchHit, ProcessedResultRecord } from '../../domain/src/index.js';
+import type {
+  MemoryItem,
+  MemorySearchHit,
+  MemoryStatusTransition,
+  ProcessedResultRecord,
+} from '../../domain/src/index.js';
 import type { MemoryRepository } from '../src/ports.js';
 import { MemoryService } from '../src/memory-service.js';
 
 describe('MemoryService', () => {
+  it('atomically supersedes active Memory and records one-way invalidation history', async () => {
+    const repository = new MemoryRepositoryFake();
+    repository.item = memoryItem('fact');
+    let transitionSequence = 0;
+    const service = new MemoryService({
+      repository,
+      embeddings: { embed: () => Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] }) },
+      model: {
+        generateStructured: () =>
+          Promise.resolve({
+            type: 'fact',
+            content: { target: 'device-18' },
+            summary: 'The target is device-18.',
+            confidence: 0.95,
+          }),
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-replacement',
+      nextTransitionId: () => `transition-${String(++transitionSequence)}`,
+    });
+    const replacement = await service.supersede(repository.item.memoryId, {
+      type: 'fact',
+      content: { raw: 'device 18' },
+      summary: 'new target',
+      sourceRefs: ['task:new-evidence'],
+      confidence: 0.8,
+      actor: 'operator.test',
+      reason: 'New evidence.',
+    });
+    expect(replacement).toMatchObject({
+      memoryId: 'memory-replacement',
+      supersedes: ['memory-fact'],
+      status: 'active',
+    });
+    expect(repository.transitions).toMatchObject([
+      {
+        memoryId: 'memory-fact',
+        toStatus: 'superseded',
+        replacementMemoryId: 'memory-replacement',
+      },
+    ]);
+    await service.invalidate(replacement.memoryId, 'operator.test', 'Retracted evidence.');
+    await expect(service.get(replacement.memoryId)).resolves.toMatchObject({ status: 'invalid' });
+    expect(repository.transitions.at(-1)).toMatchObject({
+      memoryId: 'memory-replacement',
+      toStatus: 'invalid',
+    });
+    await expect(
+      service.invalidate(replacement.memoryId, 'operator.test', 'Again.'),
+    ).rejects.toMatchObject({ code: 'MEMORY_STATUS_CONFLICT' });
+  });
+
   it('uses stage-specific query templates and filters memory types', async () => {
     const repository = new MemoryRepositoryFake();
     let queryText = '';
@@ -142,6 +199,7 @@ describe('MemoryService', () => {
 
 class MemoryRepositoryFake implements MemoryRepository {
   item?: MemoryItem;
+  readonly transitions: MemoryStatusTransition[] = [];
   save(item: MemoryItem) {
     this.item = item;
     return Promise.resolve();
@@ -151,6 +209,23 @@ class MemoryRepositoryFake implements MemoryRepository {
   }
   search(): Promise<readonly MemorySearchHit[]> {
     return Promise.resolve(this.item === undefined ? [] : [{ item: this.item, score: 1 }]);
+  }
+  saveAndSupersede(
+    replacement: MemoryItem,
+    _embedding: Readonly<{ providerId: string; vector: readonly number[] }>,
+    transitions: readonly MemoryStatusTransition[],
+  ) {
+    this.item = replacement;
+    this.transitions.push(...transitions);
+    return Promise.resolve();
+  }
+  invalidate(transition: MemoryStatusTransition) {
+    if (this.item !== undefined) this.item = { ...this.item, status: 'invalid' };
+    this.transitions.push(transition);
+    return Promise.resolve();
+  }
+  listTransitions(memoryId: string) {
+    return Promise.resolve(this.transitions.filter((item) => item.memoryId === memoryId));
   }
 }
 

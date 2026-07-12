@@ -29,6 +29,17 @@ export interface MemorySearchHit {
   readonly score: number;
 }
 
+export interface MemoryStatusTransition {
+  readonly transitionId: string;
+  readonly memoryId: string;
+  readonly fromStatus: MemoryStatus;
+  readonly toStatus: Exclude<MemoryStatus, 'active'>;
+  readonly replacementMemoryId?: string;
+  readonly actor: string;
+  readonly reason: string;
+  readonly createdAt: string;
+}
+
 export function createMemoryItem(input: MemoryItem): MemoryItem {
   const memoryId = requireIdentifier(input.memoryId, 'MEMORY_ID_REQUIRED');
   const summary = input.summary.trim();

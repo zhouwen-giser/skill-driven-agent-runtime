@@ -57,6 +57,11 @@ const CreateMemorySchema = z.object({
   confidence: z.number().min(0).max(1),
   supersedes: z.array(z.string().min(1)).optional(),
 });
+const SupersedeMemorySchema = CreateMemorySchema.omit({ supersedes: true }).extend({
+  actor: z.string().min(1),
+  reason: z.string().min(1),
+});
+const InvalidateMemorySchema = z.object({ actor: z.string().min(1), reason: z.string().min(1) });
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -261,7 +266,10 @@ export interface ManagementOperations {
   readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
-  readonly memories: Pick<MemoryService, 'refine' | 'get' | 'search'>;
+  readonly memories: Pick<
+    MemoryService,
+    'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
+  >;
   readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
@@ -374,6 +382,44 @@ export async function startManagementHttpEndpoint(
         .default(10)
         .parse(request.query['limit']);
       response.json({ items: await options.operations.memories.search(query, limit) });
+    }),
+  );
+  app.post(
+    '/api/v1/memories/:memoryId/supersede',
+    asyncRoute(async (request, response) => {
+      const input = SupersedeMemorySchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.memories.supersede(pathValue(request, 'memoryId'), {
+          type: input.type,
+          content: input.content,
+          summary: input.summary,
+          sourceRefs: input.sourceRefs,
+          confidence: input.confidence,
+          actor: input.actor,
+          reason: input.reason,
+          ...(input.memoryId === undefined ? {} : { memoryId: input.memoryId }),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/memories/:memoryId/invalidate',
+    asyncRoute(async (request, response) => {
+      const input = InvalidateMemorySchema.parse(request.body);
+      await options.operations.memories.invalidate(
+        pathValue(request, 'memoryId'),
+        input.actor,
+        input.reason,
+      );
+      response.status(204).end();
+    }),
+  );
+  app.get(
+    '/api/v1/memories/:memoryId/transitions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.memories.listTransitions(pathValue(request, 'memoryId')),
+      });
     }),
   );
   app.get(

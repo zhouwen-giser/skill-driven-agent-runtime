@@ -282,11 +282,19 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowTemplateMigration);
+  const memoryStatusMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0044_memory_status_transition.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(memoryStatusMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -380,6 +388,52 @@ describe('PostgreSQL protocol-domain repositories', () => {
         score: 1,
       },
     ]);
+    const replacement = {
+      memoryId: 'memory.global.db.v2',
+      type: 'fact' as const,
+      content: { deviceId: 'device-18' },
+      summary: 'The target device is device-18.',
+      status: 'active' as const,
+      sourceRefs: ['task.user-b'],
+      supersedes: ['memory.global.db'],
+      confidence: 0.95,
+      createdAt: '2026-07-12T00:01:00.000Z',
+    };
+    await repository.saveAndSupersede(
+      replacement,
+      { providerId: 'embedding.db', vector: [1, 0, 0] },
+      [
+        {
+          transitionId: 'memory-transition.supersede.db',
+          memoryId: 'memory.global.db',
+          fromStatus: 'active',
+          toStatus: 'superseded',
+          replacementMemoryId: replacement.memoryId,
+          actor: 'operator.test',
+          reason: 'New evidence identifies a replacement target.',
+          createdAt: '2026-07-12T00:01:00.000Z',
+        },
+      ],
+    );
+    await expect(repository.find('memory.global.db')).resolves.toMatchObject({
+      status: 'superseded',
+      content: { deviceId: 'device-17' },
+    });
+    await expect(repository.listTransitions('memory.global.db')).resolves.toMatchObject([
+      { toStatus: 'superseded', replacementMemoryId: replacement.memoryId },
+    ]);
+    await repository.invalidate({
+      transitionId: 'memory-transition.invalid.db',
+      memoryId: replacement.memoryId,
+      fromStatus: 'active',
+      toStatus: 'invalid',
+      actor: 'operator.test',
+      reason: 'Evidence was retracted.',
+      createdAt: '2026-07-12T00:02:00.000Z',
+    });
+    await expect(
+      repository.search({ providerId: 'embedding.db', vector: [1, 0, 0], limit: 5 }),
+    ).resolves.toEqual([]);
   });
   it('persists every Workflow planning attempt and immutable validated plan', async () => {
     const repository = new PostgresWorkflowPlanRepository(pool);

@@ -2,6 +2,7 @@ import {
   createMemoryItem,
   type MemoryItem,
   type MemoryRetrievalStage,
+  type MemoryStatusTransition,
   type MemoryType,
   type ProcessedResultRecord,
 } from '../../domain/src/index.js';
@@ -56,6 +57,7 @@ export class MemoryService {
   readonly #clock: Clock;
   readonly #nextId: () => string;
   readonly #model: StructuredModelProvider | undefined;
+  readonly #nextTransitionId: () => string;
 
   constructor(
     dependencies: Readonly<{
@@ -64,6 +66,7 @@ export class MemoryService {
       clock: Clock;
       nextId: () => string;
       model?: StructuredModelProvider;
+      nextTransitionId?: () => string;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -71,6 +74,8 @@ export class MemoryService {
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
     this.#model = dependencies.model;
+    this.#nextTransitionId =
+      dependencies.nextTransitionId ?? (() => `${this.#nextId()}-transition`);
   }
 
   async create(
@@ -163,12 +168,94 @@ export class MemoryService {
       supersedes?: readonly string[];
     }>,
   ): Promise<MemoryItem> {
+    const refined = await this.#refineData(input);
+    const duplicate = await this.#findDuplicate(refined.type, normalizeCandidate(refined.summary));
+    if (duplicate !== undefined) return duplicate;
+    return this.create({
+      ...refined,
+      sourceRefs: input.sourceRefs,
+      ...(input.memoryId === undefined ? {} : { memoryId: input.memoryId }),
+      ...(input.supersedes === undefined ? {} : { supersedes: input.supersedes }),
+    });
+  }
+
+  async supersede(
+    memoryId: string,
+    input: Readonly<{
+      memoryId?: string;
+      type: MemoryType;
+      content: Readonly<Record<string, unknown>>;
+      summary: string;
+      sourceRefs: readonly string[];
+      confidence: number;
+      actor: string;
+      reason: string;
+    }>,
+  ): Promise<MemoryItem> {
+    const current = await this.get(memoryId);
+    if (current.status !== 'active')
+      throw new MemoryApplicationError(
+        'MEMORY_STATUS_CONFLICT',
+        'Only active Memory may be superseded.',
+      );
+    const refined = await this.#refineData(input);
+    const replacement = createMemoryItem({
+      ...refined,
+      memoryId: input.memoryId ?? this.#nextId(),
+      status: 'active',
+      sourceRefs: input.sourceRefs,
+      supersedes: [memoryId],
+      createdAt: this.#clock.now(),
+    });
+    const embedding = await this.#embeddings.embed(searchableText(replacement));
+    validateEmbedding(embedding);
+    const transition: MemoryStatusTransition = {
+      transitionId: this.#nextTransitionId(),
+      memoryId,
+      fromStatus: 'active',
+      toStatus: 'superseded',
+      replacementMemoryId: replacement.memoryId,
+      actor: requiredText(input.actor, 'MEMORY_ACTOR_REQUIRED'),
+      reason: requiredText(input.reason, 'MEMORY_REASON_REQUIRED'),
+      createdAt: this.#clock.now(),
+    };
+    await this.#repository.saveAndSupersede(replacement, embedding, [transition]);
+    return replacement;
+  }
+
+  async invalidate(memoryId: string, actor: string, reason: string): Promise<void> {
+    const current = await this.get(memoryId);
+    if (current.status === 'invalid')
+      throw new MemoryApplicationError('MEMORY_STATUS_CONFLICT', 'Memory is already invalid.');
+    await this.#repository.invalidate({
+      transitionId: this.#nextTransitionId(),
+      memoryId,
+      fromStatus: current.status,
+      toStatus: 'invalid',
+      actor: requiredText(actor, 'MEMORY_ACTOR_REQUIRED'),
+      reason: requiredText(reason, 'MEMORY_REASON_REQUIRED'),
+      createdAt: this.#clock.now(),
+    });
+  }
+
+  listTransitions(memoryId: string) {
+    return this.#repository.listTransitions(memoryId);
+  }
+
+  async #refineData(
+    input: Readonly<{
+      type: MemoryType;
+      content: Readonly<Record<string, unknown>>;
+      summary: string;
+      confidence: number;
+    }>,
+  ) {
     if (this.#model === undefined)
       throw new MemoryApplicationError(
         'MEMORY_REFINEMENT_UNAVAILABLE',
         'Memory refinement model is unavailable.',
       );
-    const refined = RefinedMemorySchema.parse(
+    return RefinedMemorySchema.parse(
       await this.#model.generateStructured({
         stage: 'result_processing',
         instruction: JSON.stringify({
@@ -186,14 +273,6 @@ export class MemoryService {
         correctionErrors: [],
       }),
     );
-    const duplicate = await this.#findDuplicate(refined.type, normalizeCandidate(refined.summary));
-    if (duplicate !== undefined) return duplicate;
-    return this.create({
-      ...refined,
-      sourceRefs: input.sourceRefs,
-      ...(input.memoryId === undefined ? {} : { memoryId: input.memoryId }),
-      ...(input.supersedes === undefined ? {} : { supersedes: input.supersedes }),
-    });
   }
 
   async #findDuplicate(type: MemoryType, summary: string): Promise<MemoryItem | undefined> {
@@ -207,6 +286,16 @@ export class MemoryService {
 
 function normalizeCandidate(value: string): string {
   return value.trim().replaceAll(/\s+/g, ' ');
+}
+
+function requiredText(
+  value: string,
+  code: 'MEMORY_ACTOR_REQUIRED' | 'MEMORY_REASON_REQUIRED',
+): string {
+  const normalized = value.trim();
+  if (normalized === '')
+    throw new MemoryApplicationError(code, 'A non-empty audit value is required.');
+  return normalized;
 }
 
 function candidateType(
@@ -268,11 +357,14 @@ function validateEmbedding(value: Readonly<{ providerId: string; vector: readonl
 }
 
 export type MemoryApplicationErrorCode =
+  | 'MEMORY_ACTOR_REQUIRED'
   | 'MEMORY_EMBEDDING_INVALID'
   | 'MEMORY_LIMIT_INVALID'
   | 'MEMORY_NOT_FOUND'
   | 'MEMORY_QUERY_REQUIRED'
-  | 'MEMORY_REFINEMENT_UNAVAILABLE';
+  | 'MEMORY_REFINEMENT_UNAVAILABLE'
+  | 'MEMORY_REASON_REQUIRED'
+  | 'MEMORY_STATUS_CONFLICT';
 export class MemoryApplicationError extends Error {
   readonly code: MemoryApplicationErrorCode;
   constructor(code: MemoryApplicationErrorCode, message: string) {
