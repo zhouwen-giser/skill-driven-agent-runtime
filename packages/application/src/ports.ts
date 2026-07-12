@@ -323,6 +323,7 @@ export interface WorkflowPlanRepository {
 
 export interface WorkflowExecutionRepository {
   findInstance(instanceId: string): Promise<WorkflowInstance | undefined>;
+  findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined>;
   countNodeEvents(instanceId: string): Promise<number>;
   saveInstance(instance: WorkflowInstance): Promise<void>;
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
@@ -337,7 +338,7 @@ export interface WorkflowExecutor {
     executionId?: string,
   ): Promise<
     Readonly<{
-      status: 'paused' | 'succeeded' | 'failed';
+      status: 'paused' | 'succeeded' | 'failed' | 'canceled';
       result?: unknown;
       errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
       budgetUsage: WorkflowBudgetUsage;
@@ -348,7 +349,7 @@ export interface WorkflowExecutor {
         timestamp: string;
         summary: string;
       }>[];
-      pendingConfirmation?: Readonly<{ nodeId: string; prompt: string }>;
+      pendingConfirmation?: WorkflowInstance['pendingConfirmation'];
     }>
   >;
   resumeHumanConfirmation?(
@@ -356,6 +357,8 @@ export interface WorkflowExecutor {
     confirmed: boolean,
     signal?: AbortSignal,
   ): ReturnType<WorkflowExecutor['execute']>;
+  requestPause?(executionId: string): boolean;
+  requestCancel?(executionId: string, interruptCurrent: boolean): boolean;
 }
 
 export interface ModelProviderRecord {

@@ -82,7 +82,7 @@ export interface WorkflowCallCosts {
 }
 
 export interface WorkflowExecutionResult {
-  readonly status: 'paused' | 'succeeded' | 'failed';
+  readonly status: 'paused' | 'succeeded' | 'failed' | 'canceled';
   readonly result?: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
@@ -90,7 +90,12 @@ export interface WorkflowExecutionResult {
   readonly events: readonly WorkflowExecutionEvent[];
   readonly budgetUsage: WorkflowBudgetUsage;
   readonly terminationReason?: WorkflowBudgetTerminationReason;
-  readonly pendingConfirmation?: Readonly<{ nodeId: string; prompt: string }>;
+  readonly pendingConfirmation?: Readonly<{
+    nodeId: string;
+    prompt: string;
+    kind?: 'human_confirmation' | 'task_pause';
+    pausedAt?: string;
+  }>;
 }
 
 interface WorkflowExecutionState {
@@ -149,6 +154,14 @@ export interface CompiledWorkflow {
     confirmed: boolean,
     signal?: AbortSignal,
   ): Promise<WorkflowExecutionResult>;
+  requestPause(executionId: string): boolean;
+  requestCancel(executionId: string, interruptCurrent: boolean): boolean;
+}
+
+interface ExecutionControl {
+  pauseRequested: boolean;
+  cancelRequested: boolean;
+  readonly activeCallAbort: AbortController;
 }
 
 export function compileWorkflow(
@@ -165,7 +178,11 @@ export function compileWorkflow(
   const immutableDefinition = deepFreeze(structuredClone(definition));
   const runtimeContexts = new Map<
     string,
-    Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>
+    Readonly<{
+      budgetMeter: WorkflowBudgetMeter;
+      control: ExecutionControl;
+      signal?: AbortSignal;
+    }>
   >();
   const handlers = new Map(
     immutableDefinition.nodes
@@ -258,6 +275,11 @@ export function compileWorkflow(
       const runId = executionId ?? immutableDefinition.workflowDefinitionId;
       runtimeContexts.set(runId, {
         budgetMeter,
+        control: {
+          pauseRequested: false,
+          cancelRequested: false,
+          activeCallAbort: new AbortController(),
+        },
         ...(signal === undefined ? {} : { signal }),
       });
       try {
@@ -279,6 +301,28 @@ export function compileWorkflow(
         );
         return resultFromState(state);
       } catch (error: unknown) {
+        if (
+          error instanceof WorkflowCanceledError ||
+          runtimeContexts.get(runId)?.control.cancelRequested === true
+        ) {
+          const state = await executable.getState({ configurable: { thread_id: runId } });
+          const result = resultFromState(
+            state.values as WorkflowExecutionState & Readonly<Record<string, unknown>>,
+          );
+          runtimeContexts.delete(runId);
+          return {
+            ...result,
+            status: 'canceled',
+            errors: {
+              ...result.errors,
+              cancellation: {
+                code: 'WORKFLOW_CANCELED',
+                message:
+                  'Workflow canceled; no subsequent node was started and no automatic compensation ran.',
+              },
+            },
+          };
+        }
         if (!(error instanceof WorkflowBudgetExceededError)) throw error;
         return {
           status: 'failed',
@@ -304,6 +348,7 @@ export function compileWorkflow(
       };
       runtimeContexts.set(executionId, {
         budgetMeter: existingContext.budgetMeter,
+        control: existingContext.control,
         ...(signal === undefined ? {} : { signal }),
       });
       existingContext.budgetMeter.resume();
@@ -314,12 +359,25 @@ export function compileWorkflow(
       if (result.status !== 'paused') runtimeContexts.delete(executionId);
       return result;
     },
+    requestPause(executionId) {
+      const context = runtimeContexts.get(executionId);
+      if (context === undefined) return false;
+      context.control.pauseRequested = true;
+      return true;
+    },
+    requestCancel(executionId, interruptCurrent) {
+      const context = runtimeContexts.get(executionId);
+      if (context === undefined) return false;
+      context.control.cancelRequested = true;
+      if (interruptCurrent) context.control.activeCallAbort.abort(new Error('WORKFLOW_CANCELED'));
+      return true;
+    },
   };
 }
 
 function pendingConfirmation(
   state: Readonly<Record<string, unknown>>,
-): Readonly<{ nodeId: string; prompt: string }> | undefined {
+): WorkflowExecutionResult['pendingConfirmation'] {
   const interruptions = state['__interrupt__'];
   if (!Array.isArray(interruptions)) return undefined;
   const first: unknown = interruptions[0];
@@ -334,7 +392,18 @@ function pendingConfirmation(
     typeof value.prompt !== 'string'
   )
     return undefined;
-  return { nodeId: value.nodeId, prompt: value.prompt };
+  const kind =
+    'kind' in value && (value.kind === 'human_confirmation' || value.kind === 'task_pause')
+      ? value.kind
+      : undefined;
+  const pausedAt =
+    'pausedAt' in value && typeof value.pausedAt === 'string' ? value.pausedAt : undefined;
+  return {
+    nodeId: value.nodeId,
+    prompt: value.prompt,
+    ...(kind === undefined ? {} : { kind }),
+    ...(pausedAt === undefined ? {} : { pausedAt }),
+  };
 }
 
 function workflowEventCount(value: unknown): number {
@@ -423,12 +492,34 @@ function createNodeAction(
   definition: WorkflowDefinition,
   handlers: ReadonlyMap<string, Extract<WorkflowNode, { type: 'error_handler' }>>,
   ports: WorkflowRuntimePorts,
-  runtimeContext: (
-    executionId: string,
-  ) => Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>,
+  runtimeContext: (executionId: string) => Readonly<{
+    budgetMeter: WorkflowBudgetMeter;
+    control: ExecutionControl;
+    signal?: AbortSignal;
+  }>,
 ): NodeAction {
   return async (state) => {
     const context = runtimeContext(state.executionId);
+    if (context.control.cancelRequested) throw new WorkflowCanceledError();
+    if (context.control.pauseRequested) {
+      context.budgetMeter.pause();
+      interrupt<
+        Readonly<{
+          nodeId: string;
+          prompt: string;
+          kind: 'task_pause';
+          pausedAt: string;
+        }>,
+        boolean
+      >({
+        nodeId: node.nodeId,
+        prompt: 'Task paused before the next Workflow node.',
+        kind: 'task_pause',
+        pausedAt: ports.now(),
+      });
+      context.control.pauseRequested = false;
+      context.budgetMeter.resume();
+    }
     context.budgetMeter.assertDuration();
     const started: WorkflowExecutionEvent = {
       nodeId: node.nodeId,
@@ -482,9 +573,16 @@ async function executeNode(
   state: WorkflowExecutionState,
   definition: WorkflowDefinition,
   ports: WorkflowRuntimePorts,
-  runtimeContext: Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>,
+  runtimeContext: Readonly<{
+    budgetMeter: WorkflowBudgetMeter;
+    control: ExecutionControl;
+    signal?: AbortSignal;
+  }>,
 ): Promise<StateUpdate> {
-  const signal = runtimeContext.signal;
+  const signal =
+    runtimeContext.signal === undefined
+      ? runtimeContext.control.activeCallAbort.signal
+      : AbortSignal.any([runtimeContext.signal, runtimeContext.control.activeCallAbort.signal]);
   const budgetMeter = runtimeContext.budgetMeter;
   switch (node.type) {
     case 'llm': {
@@ -535,9 +633,19 @@ async function executeNode(
     case 'human_confirmation': {
       budgetMeter.assertDuration();
       budgetMeter.pause();
-      const confirmed = interrupt<Readonly<{ nodeId: string; prompt: string }>, boolean>({
+      const confirmed = interrupt<
+        Readonly<{
+          nodeId: string;
+          prompt: string;
+          kind: 'human_confirmation';
+          pausedAt: string;
+        }>,
+        boolean
+      >({
         nodeId: node.nodeId,
         prompt: node.prompt,
+        kind: 'human_confirmation',
+        pausedAt: ports.now(),
       });
       budgetMeter.resume();
       budgetMeter.assertDuration();
@@ -733,13 +841,7 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function requiredRuntimeContext(
-  contexts: ReadonlyMap<
-    string,
-    Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }>
-  >,
-  executionId: string,
-): Readonly<{ budgetMeter: WorkflowBudgetMeter; signal?: AbortSignal }> {
+function requiredRuntimeContext<T>(contexts: ReadonlyMap<string, T>, executionId: string): T {
   const context = contexts.get(executionId);
   if (context === undefined)
     throw new WorkflowCompilerError(
@@ -760,6 +862,14 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
   | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'
   | 'WORKFLOW_CHECKPOINT_NOT_AVAILABLE';
+
+class WorkflowCanceledError extends Error {
+  readonly code = 'WORKFLOW_CANCELED';
+  constructor() {
+    super('Workflow canceled; no subsequent node was started and no automatic compensation ran.');
+    this.name = 'WorkflowCanceledError';
+  }
+}
 
 export class WorkflowCompilerError extends Error {
   readonly code: WorkflowCompilerErrorCode;

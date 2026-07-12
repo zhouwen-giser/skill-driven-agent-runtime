@@ -11,7 +11,7 @@ ALTER TABLE workflow_plan ADD CONSTRAINT workflow_plan_confirmation_status_check
 );
 ALTER TABLE workflow_instance DROP CONSTRAINT IF EXISTS workflow_instance_status_check;
 ALTER TABLE workflow_instance ADD CONSTRAINT workflow_instance_status_check CHECK(
-  status IN ('running','paused','succeeded','failed','invalidated')
+  status IN ('running','paused','succeeded','failed','canceled','invalidated')
 );
 CREATE TABLE IF NOT EXISTS goal_patch (
   patch_id text PRIMARY KEY,

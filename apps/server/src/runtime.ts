@@ -369,6 +369,18 @@ export async function startServerRuntime(
           taskId: task.taskId,
         });
       },
+      async pause(task) {
+        if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await workflowExecution.pauseForPlan(task.planId);
+      },
+      async cancel(task) {
+        if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await workflowExecution.cancelForPlan(task.planId);
+      },
+      async resume(task) {
+        if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        return (await workflowExecution.resumePauseForPlan(task.planId)).disposition;
+      },
     },
   });
   const workflowController = new WorkflowControllerService({
@@ -444,6 +456,9 @@ export async function startServerRuntime(
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
           resumeHumanConfirmation: (input) => workflowExecution.resumeHumanConfirmation(input),
+          pauseForPlan: (planId) => workflowExecution.pauseForPlan(planId),
+          resumePauseForPlan: (planId) => workflowExecution.resumePauseForPlan(planId),
+          cancelForPlan: (planId) => workflowExecution.cancelForPlan(planId),
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,
@@ -564,6 +579,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0022_model_api_style.up.sql',
     '0023_goal_patch.up.sql',
     '0024_task_wait_timeout.up.sql',
+    '0025_workflow_execution_control.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

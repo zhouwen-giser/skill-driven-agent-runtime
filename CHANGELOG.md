@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- LangGraph-native execution pause/resume/cancel controls with no-next-node guarantees, Skill threshold/policy resolution, long-pause fresh-confirmation replanning, and real MCP/A2A evidence.
 - PostgreSQL-authoritative unified Task wait timeout with managed configuration, atomic cancellation/audit, restart-safe scheduler, and real A2A expiry evidence.
 - Versioned Goal Patch processing with atomic old-state invalidation, immutable audit history, forced new-plan confirmation, A2A/management APIs, and explicit compensation guidance/warnings.
 - Fail-closed process-start recovery that atomically terminates interrupted Tasks/Workflow instances while preserving queued BullMQ work with one attempt and no automatic retry.

@@ -49,6 +49,93 @@ function definition(
 }
 
 describe('LangGraph Workflow compiler', () => {
+  it('pauses after the active node and resumes before starting the next node', async () => {
+    let completeLlm: ((value: unknown) => void) | undefined;
+    const executeLlm = vi.fn(
+      () =>
+        new Promise<unknown>((resolvePromise) => {
+          completeLlm = resolvePromise;
+        }),
+    );
+    const callMcpTool = vi.fn().mockResolvedValue({ done: true });
+    const compiled = compileWorkflow(
+      definition(
+        [
+          { nodeId: 'llm', name: 'LLM', type: 'llm', instruction: 'x', responseSchema: true },
+          {
+            nodeId: 'mcp',
+            name: 'MCP',
+            type: 'mcp_tool',
+            tool: { serverId: 'server', toolName: 'write' },
+            arguments: {},
+          },
+        ],
+        [{ sourceNodeId: 'llm', targetNodeId: 'mcp' }],
+        'llm',
+        ['mcp'],
+      ),
+      'confirmed',
+      ports({ executeLlm, callMcpTool }),
+    );
+    const executing = compiled.invoke({}, budget, costs, undefined, 'execution.pause');
+    await vi.waitFor(() => {
+      expect(executeLlm).toHaveBeenCalledTimes(1);
+    });
+    expect(compiled.requestPause('execution.pause')).toBe(true);
+    completeLlm?.({ answer: 1 });
+    await expect(executing).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { nodeId: 'mcp', kind: 'task_pause' },
+    });
+    expect(callMcpTool).not.toHaveBeenCalled();
+    await expect(compiled.resume('execution.pause', true)).resolves.toMatchObject({
+      status: 'succeeded',
+    });
+    expect(executeLlm).toHaveBeenCalledTimes(1);
+    expect(callMcpTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels after the active node without starting any subsequent node', async () => {
+    let completeLlm: ((value: unknown) => void) | undefined;
+    const executeLlm = vi.fn(
+      () =>
+        new Promise<unknown>((resolvePromise) => {
+          completeLlm = resolvePromise;
+        }),
+    );
+    const callMcpTool = vi.fn().mockResolvedValue({ done: true });
+    const compiled = compileWorkflow(
+      definition(
+        [
+          { nodeId: 'llm', name: 'LLM', type: 'llm', instruction: 'x', responseSchema: true },
+          {
+            nodeId: 'mcp',
+            name: 'MCP',
+            type: 'mcp_tool',
+            tool: { serverId: 'server', toolName: 'write' },
+            arguments: {},
+          },
+        ],
+        [{ sourceNodeId: 'llm', targetNodeId: 'mcp' }],
+        'llm',
+        ['mcp'],
+      ),
+      'confirmed',
+      ports({ executeLlm, callMcpTool }),
+    );
+    const executing = compiled.invoke({}, budget, costs, undefined, 'execution.cancel');
+    await vi.waitFor(() => {
+      expect(executeLlm).toHaveBeenCalledTimes(1);
+    });
+    expect(compiled.requestCancel('execution.cancel', false)).toBe(true);
+    completeLlm?.({ answer: 1 });
+    await expect(executing).resolves.toMatchObject({
+      status: 'canceled',
+      errors: { cancellation: { code: 'WORKFLOW_CANCELED' } },
+    });
+    expect(callMcpTool).not.toHaveBeenCalled();
+  });
+
   it('rejects unconfirmed plans before any node can execute', () => {
     const runtime = ports();
     expect(() =>

@@ -152,9 +152,34 @@ describe('TaskService', () => {
       }),
     ).toMatchObject({ phase: 'executing' });
   });
+
+  it('replans and requires fresh confirmation when the pause threshold was exceeded', async () => {
+    const harness = createHarness('replan_required');
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+      'paused',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-long', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.followUp({ taskId: task.taskId, action: 'resume', messageText: 'Resume.' }),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      planId: 'plan-2',
+    });
+    expect(harness.operations).toContain('plan.revise:plan-long');
+  });
 });
 
-function createHarness(): Readonly<{
+function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resumed'): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
   tasks: Map<string, AgentTask>;
@@ -239,6 +264,9 @@ function createHarness(): Readonly<{
           });
         },
         patchGoal: () => Promise.resolve(),
+        pause: () => Promise.resolve(),
+        cancel: () => Promise.resolve(),
+        resume: () => Promise.resolve(resumeDisposition),
       },
     }),
     contexts,

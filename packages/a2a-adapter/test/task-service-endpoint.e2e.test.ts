@@ -777,6 +777,238 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('pauses before the next real MCP node, resumes without replay, and cancels without compensation', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.control.${randomUUID()}`;
+    const planId = `plan.control.${randomUUID()}`;
+    try {
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Execution control MCP',
+            endpoint: mockMcp.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      const taskRequest = SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Run controlled execution.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      });
+      let taskId = '';
+      let contextId = '';
+      for await (const event of runtime.a2a.client.sendMessageStream(taskRequest)) {
+        if (event.payload?.$case === 'task') {
+          taskId = event.payload.value.id;
+          contextId = event.payload.value.contextId;
+        }
+      }
+      const preparedTask = z
+        .object({ goalId: z.string(), goalVersion: z.number().int().positive() })
+        .parse(await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`)).json());
+      const sourcePlanId = await attachPlannedTask(taskId);
+      const sourcePlan = z
+        .object({
+          definition: z.object({ workflowDefinitionId: z.string(), version: z.number().int() }),
+        })
+        .parse(
+          await (
+            await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plans/${sourcePlanId}`)
+          ).json(),
+        );
+      const revision = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${sourcePlanId}/revisions`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            newPlanId: planId,
+            format: 'dag',
+            definition: {
+              workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
+              version: sourcePlan.definition.version + 1,
+              goalId: preparedTask.goalId,
+              goalVersion: preparedTask.goalVersion,
+              entryNodeId: 'slow',
+              exitNodeIds: ['result'],
+              nodes: [
+                {
+                  nodeId: 'slow',
+                  name: 'Current call',
+                  type: 'mcp_tool',
+                  tool: { serverId, toolName: 'device_status' },
+                  arguments: { deviceId: 'first', delayMs: 300 },
+                },
+                {
+                  nodeId: 'next',
+                  name: 'Next call',
+                  type: 'mcp_tool',
+                  tool: { serverId, toolName: 'device_status' },
+                  arguments: { deviceId: 'second' },
+                },
+                {
+                  nodeId: 'result',
+                  name: 'Result',
+                  type: 'result',
+                  value: { op: 'literal', value: 'controlled' },
+                },
+              ],
+              edges: [
+                { sourceNodeId: 'slow', targetNodeId: 'next' },
+                { sourceNodeId: 'next', targetNodeId: 'result' },
+              ],
+            },
+          }),
+        },
+      );
+      expect(revision.status).toBe(201);
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/confirm`, {
+          method: 'POST',
+        }),
+      ).toMatchObject({ status: 200 });
+      const attached = await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/plan`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          goalId: preparedTask.goalId,
+          goalVersion: preparedTask.goalVersion,
+        }),
+      });
+      const attachedBody = await attached.json();
+      if (attached.status !== 200)
+        throw new Error(`ATTACH_CONTROL_PLAN_FAILED:${JSON.stringify(attachedBody)}`);
+      await sendFollowUp(taskId, contextId, 'confirm_plan', 'Confirm.');
+
+      const firstInstanceId = `instance.control.${randomUUID()}`;
+      const executing = fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: firstInstanceId, input: {} }),
+        },
+      );
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+      const pausedTask = await sendFollowUp(taskId, contextId, 'pause', 'Pause.');
+      expectTaskState(pausedTask, TaskState.TASK_STATE_INPUT_REQUIRED);
+      await expect((await executing).json()).resolves.toMatchObject({
+        status: 'paused',
+        pendingConfirmation: { nodeId: 'next', kind: 'task_pause' },
+      });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+      const resumedTask = await sendFollowUp(taskId, contextId, 'resume', 'Resume.');
+      expectTaskState(resumedTask, TaskState.TASK_STATE_WORKING);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
+
+      const secondInstanceId = `instance.control.${randomUUID()}`;
+      const canceling = fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: secondInstanceId, input: {} }),
+        },
+      );
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+      const canceled = await runtime.a2a.client.cancelTask({
+        tenant: '',
+        id: taskId,
+        metadata: {},
+      });
+      expect(canceled.status?.state).toBe(TaskState.TASK_STATE_CANCELED);
+      await expect((await canceling).json()).resolves.toMatchObject({
+        status: 'canceled',
+        errors: { cancellation: { code: 'WORKFLOW_CANCELED' } },
+      });
+      const afterCancel = await runtime.listMcpInvocations(serverId);
+      expect(afterCancel).toHaveLength(3);
+      expect(afterCancel.at(-1)).toMatchObject({ status: 'canceled', toolName: 'device_status' });
+      expect(JSON.stringify(afterCancel)).not.toContain('automatic compensation');
+
+      const thresholdSkillId = `skill.pause-threshold.${randomUUID()}`;
+      await runtime.registerSkill({
+        ...skillInput(thresholdSkillId, 'Pause threshold'),
+        runtimePolicy: { autoConfirmPlan: false, pauseReplanThresholdSeconds: 0 },
+      });
+      const longPauseRequest = SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Run then replan after a long pause.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      });
+      let longTaskId = '';
+      let longContextId = '';
+      for await (const event of runtime.a2a.client.sendMessageStream(longPauseRequest)) {
+        if (event.payload?.$case === 'task') {
+          longTaskId = event.payload.value.id;
+          longContextId = event.payload.value.contextId;
+        }
+      }
+      const longTaskGoal = z
+        .object({ goalId: z.string(), goalVersion: z.number().int().positive() })
+        .parse(
+          await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}`)).json(),
+        );
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}/plan`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            planId,
+            goalId: longTaskGoal.goalId,
+            goalVersion: longTaskGoal.goalVersion,
+          }),
+        }),
+      ).toMatchObject({ status: 200 });
+      await sendFollowUp(longTaskId, longContextId, 'confirm_plan', 'Confirm.');
+      const longExecution = fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            instanceId: `instance.long-pause.${randomUUID()}`,
+            input: {},
+            skillIds: [thresholdSkillId],
+          }),
+        },
+      );
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+      await sendFollowUp(longTaskId, longContextId, 'pause', 'Pause.');
+      await expect((await longExecution).json()).resolves.toMatchObject({ status: 'paused' });
+      const replannedTask = await sendFollowUp(longTaskId, longContextId, 'resume', 'Resume.');
+      expectTaskState(replannedTask, TaskState.TASK_STATE_INPUT_REQUIRED);
+      const persistedReplan = z
+        .object({ phase: z.string(), planId: z.string() })
+        .parse(
+          await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}`)).json(),
+        );
+      expect(persistedReplan).toMatchObject({ phase: 'awaiting_plan_confirmation' });
+      expect(persistedReplan.planId).not.toBe(planId);
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${persistedReplan.planId}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        sourcePlanId: planId,
+        confirmationStatus: 'awaiting_confirmation',
+      });
+    } finally {
+      await mockMcp.close();
+    }
+  });
+
   it('feeds invalid Workflow DSL back to the same model and persists the corrected plan', async () => {
     workflowPlanningCalls = 0;
     const response = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
@@ -1735,10 +1967,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     const confirmed = await sendFollowUp(taskId, contextId, 'confirm_plan', 'Confirm the plan.');
     expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
-    const paused = await sendFollowUp(taskId, contextId, 'pause', 'Pause execution.');
-    expectTaskState(paused, TaskState.TASK_STATE_INPUT_REQUIRED);
-    const resumed = await sendFollowUp(taskId, contextId, 'resume', 'Resume execution.');
-    expectTaskState(resumed, TaskState.TASK_STATE_WORKING);
     await runtime.requestInput(taskId, 'Provide the target device identifier.');
     const supplemented = await sendFollowUp(
       taskId,

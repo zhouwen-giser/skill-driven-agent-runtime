@@ -154,6 +154,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskWaitMigration);
+  const executionControlMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0025_workflow_execution_control.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(executionControlMigration);
 });
 
 beforeEach(async () => {
@@ -371,11 +379,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await executions.saveInstance({
       ...running,
       status: 'paused',
-      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+      pendingConfirmation: {
+        nodeId: 'next',
+        prompt: 'Task paused.',
+        kind: 'task_pause',
+        pausedAt: '2026-07-12T00:01:02.000Z',
+      },
     });
     await expect(executions.findInstance('instance.db')).resolves.toMatchObject({
       status: 'paused',
-      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+      pendingConfirmation: { nodeId: 'next', kind: 'task_pause' },
+    });
+    await expect(executions.findActiveByPlanId('plan.execution.db')).resolves.toMatchObject({
+      instanceId: 'instance.db',
+      status: 'paused',
     });
     await expect(executions.countNodeEvents('instance.db')).resolves.toBe(2);
     await executions.saveInstance({

@@ -215,6 +215,37 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes plan-scoped pause, resume, and cancel execution controls', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        workflows: {
+          ...configured.workflows,
+          pauseForPlan: (planId) => Promise.resolve(workflowInstance(planId, 'paused')),
+          resumePauseForPlan: (planId) =>
+            Promise.resolve({
+              disposition: 'resumed' as const,
+              instance: workflowInstance(planId, 'succeeded'),
+            }),
+          cancelForPlan: (planId) => Promise.resolve(workflowInstance(planId, 'canceled')),
+        },
+      },
+    });
+    for (const [action, status] of [
+      ['pause', 'paused'],
+      ['resume', 'succeeded'],
+      ['cancel', 'canceled'],
+    ] as const) {
+      const response = await fetch(
+        `${endpoint.baseUrl}/api/v1/workflows/plans/plan-control/${action}`,
+        { method: 'POST' },
+      );
+      expect(response.status).toBe(200);
+      expect(JSON.stringify(await response.json())).toContain(status);
+    }
+  });
+
   it('exposes Goal creation and the persisted outer-control entry point', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -454,9 +485,12 @@ function operations(failServerList = false): ManagementOperations {
       listByTask: () => Promise.resolve([]),
     },
     workflows: {
+      cancelForPlan: unused,
       confirm: unused,
       execute: unused,
+      pauseForPlan: unused,
       resumeHumanConfirmation: unused,
+      resumePauseForPlan: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
     },
@@ -482,5 +516,39 @@ function goalRecord(version: number) {
     status: 'active' as const,
     createdAt: '2026-07-12T00:00:00.000Z',
     updatedAt: '2026-07-12T00:00:00.000Z',
+  };
+}
+
+function workflowInstance(planId: string, status: 'paused' | 'succeeded' | 'canceled') {
+  return {
+    instanceId: 'instance-control',
+    planId,
+    workflowDefinitionId: 'workflow-control',
+    workflowVersion: 1,
+    goalId: 'goal-1',
+    goalVersion: 1,
+    skillVersions: [],
+    budgetLimits: {
+      maxReplans: 3,
+      maxDurationSeconds: 60,
+      maxLlmCalls: 10,
+      maxMcpCalls: 10,
+      maxCost: 100,
+    },
+    budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+    status,
+    input: {},
+    errors: {},
+    startedAt: '2026-07-12T00:00:00.000Z',
+    ...(status === 'paused'
+      ? {
+          pendingConfirmation: {
+            nodeId: 'next',
+            prompt: 'Paused.',
+            kind: 'task_pause' as const,
+            pausedAt: '2026-07-12T00:00:01.000Z',
+          },
+        }
+      : { completedAt: '2026-07-12T00:00:02.000Z' }),
   };
 }

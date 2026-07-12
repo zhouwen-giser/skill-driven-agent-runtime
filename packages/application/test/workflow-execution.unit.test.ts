@@ -217,6 +217,145 @@ describe('Workflow execution application service', () => {
       'instance-budget',
     );
   });
+
+  it('requires replanning after the resolved Skill pause threshold is exceeded', async () => {
+    const instances = new MemoryExecutions();
+    instances.instances.push({
+      instanceId: 'instance-long-pause',
+      planId: validPlan.planId,
+      workflowDefinitionId: 'workflow-1',
+      workflowVersion: 2,
+      goalId: 'goal-1',
+      goalVersion: 1,
+      skillVersions: [{ skillId: 'skill-threshold', version: 1 }],
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      status: 'paused',
+      input: {},
+      errors: {},
+      startedAt: '2026-07-12T00:00:00.000Z',
+      pendingConfirmation: {
+        nodeId: 'next',
+        prompt: 'Paused.',
+        kind: 'task_pause',
+        pausedAt: '2026-07-12T00:00:00.000Z',
+      },
+    });
+    const thresholdSkill = {
+      skillId: 'skill-threshold',
+      version: 1,
+      name: 'Threshold',
+      summary: 'Threshold',
+      description: 'Threshold Skill.',
+      capabilities: [],
+      workflowGuidance: '',
+      outputInstruction: '',
+      inputSchema: true,
+      outputSchema: true,
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false, pauseReplanThresholdSeconds: 1 },
+      status: 'enabled' as const,
+      sourceKind: 'admin' as const,
+      validationPassed: true,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute: vi.fn() },
+      {
+        ...disabledSkills,
+        findVersion: () => Promise.resolve(thresholdSkill),
+      },
+      { now: () => '2026-07-12T00:00:10.000Z' },
+    );
+
+    await expect(service.resumePauseForPlan(validPlan.planId)).resolves.toMatchObject({
+      disposition: 'replan_required',
+      instance: { instanceId: 'instance-long-pause', status: 'paused' },
+    });
+  });
+
+  it('honors a persisted Skill wait-current cancellation strategy', async () => {
+    const instances = new MemoryExecutions();
+    const running: WorkflowInstance = {
+      instanceId: 'instance-cancel-policy',
+      planId: validPlan.planId,
+      workflowDefinitionId: 'workflow-1',
+      workflowVersion: 2,
+      goalId: 'goal-1',
+      goalVersion: 1,
+      skillVersions: [{ skillId: 'skill-cancel', version: 2 }],
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      status: 'running',
+      input: {},
+      errors: {},
+      startedAt: '2026-07-12T00:00:00.000Z',
+    };
+    instances.instances.push(running);
+    const requestCancel = vi.fn((instanceId: string, interruptCurrent: boolean) => {
+      void interruptCurrent;
+      instances.instances.push({
+        ...running,
+        instanceId,
+        status: 'canceled',
+        errors: {
+          cancellation: {
+            code: 'WORKFLOW_CANCELED',
+            message: 'No automatic compensation ran.',
+          },
+        },
+        completedAt: '2026-07-12T00:00:01.000Z',
+      });
+      return true;
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute: vi.fn(), requestCancel },
+      {
+        ...disabledSkills,
+        findVersion: () =>
+          Promise.resolve({
+            skillId: 'skill-cancel',
+            version: 2,
+            name: 'Cancel',
+            summary: 'Cancel',
+            description: 'Cancellation policy.',
+            capabilities: [],
+            workflowGuidance: '',
+            outputInstruction: '',
+            inputSchema: true,
+            outputSchema: true,
+            toolPolicy: { required: [], optional: [], forbidden: [] },
+            runtimePolicy: { autoConfirmPlan: false, cancelStrategy: 'wait_current' },
+            status: 'enabled',
+            sourceKind: 'admin',
+            validationPassed: true,
+            createdAt: '2026-07-12T00:00:00.000Z',
+          }),
+      },
+    );
+
+    await expect(service.cancelForPlan(validPlan.planId)).resolves.toMatchObject({
+      status: 'canceled',
+      errors: { cancellationPolicy: { code: 'CANCEL_STRATEGY_WAIT_CURRENT' } },
+    });
+    expect(requestCancel).toHaveBeenCalledWith('instance-cancel-policy', false);
+  });
 });
 
 function createService(
@@ -224,6 +363,7 @@ function createService(
   instances: WorkflowExecutionRepository,
   executor: WorkflowExecutor,
   skills: SkillRepository = disabledSkills,
+  clockOverride?: Readonly<{ now(): string }>,
 ) {
   let time = 0;
   let event = 0;
@@ -242,7 +382,7 @@ function createService(
         validate: () => ({ valid: true, errors: [] }),
       },
     }),
-    clock: { now: () => `2026-07-12T00:00:0${String(time++)}.000Z` },
+    clock: clockOverride ?? { now: () => `2026-07-12T00:00:0${String(time++)}.000Z` },
     ids: { nextEventId: () => `event-${String(++event)}` },
     skills,
     systemBudgetDefaults: {
@@ -310,6 +450,17 @@ class MemoryExecutions implements WorkflowExecutionRepository {
   findInstance(id: string) {
     return Promise.resolve(
       [...this.instances].reverse().find((instance) => instance.instanceId === id),
+    );
+  }
+  findActiveByPlanId(planId: string) {
+    return Promise.resolve(
+      [...this.instances]
+        .reverse()
+        .find(
+          (instance) =>
+            instance.planId === planId &&
+            (instance.status === 'running' || instance.status === 'paused'),
+        ),
     );
   }
   countNodeEvents(instanceId: string) {

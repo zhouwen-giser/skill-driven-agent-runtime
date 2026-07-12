@@ -35,3 +35,10 @@
 - 记录调用事实；
 - 发生 Goal Patch 时按 Skill 补偿描述生成新待确认计划；
 - 文档明确重复执行风险。
+
+## Execution control risk notice
+
+- A pause is cooperative at the LangGraph node boundary. An already-running external call may finish before the pause becomes effective; no downstream node starts afterward.
+- `try_interrupt` propagates `AbortSignal`, but a remote Tool may ignore cancellation or may already have committed a side effect.
+- Cancellation never automatically compensates or retries external effects. The selected immutable Skill policy and canceled invocation evidence remain auditable.
+- Short resume requires the original in-process checkpoint. Process loss fails the execution instead of replaying it.

@@ -48,12 +48,19 @@ export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle>
     'device_status',
     {
       description: 'Returns deterministic read-only device status.',
-      inputSchema: { deviceId: z.string().min(1) },
+      inputSchema: {
+        deviceId: z.string().min(1),
+        delayMs: z.number().int().nonnegative().optional(),
+      },
     },
-    ({ deviceId }) => ({
-      content: [{ type: 'text', text: JSON.stringify({ deviceId, status: 'online' }) }],
-      structuredContent: { deviceId, status: 'online' },
-    }),
+    async ({ deviceId, delayMs }) => {
+      if (delayMs !== undefined)
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs));
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ deviceId, status: 'online' }) }],
+        structuredContent: { deviceId, status: 'online' },
+      };
+    },
   );
   mcpServer.registerTool(
     'slow_probe',

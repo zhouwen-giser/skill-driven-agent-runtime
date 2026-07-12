@@ -67,6 +67,9 @@ export interface TaskServiceDependencies {
       instruction: string,
     ): Promise<Readonly<{ planId: string; goalId: string; goalVersion: number }>>;
     patchGoal(task: AgentTask, instruction: string): Promise<void>;
+    pause(task: AgentTask): Promise<void>;
+    cancel(task: AgentTask): Promise<void>;
+    resume(task: AgentTask): Promise<'resumed' | 'replan_required'>;
   }>;
 }
 
@@ -138,6 +141,12 @@ export class TaskService {
     const task = await this.#dependencies.tasks.findById(taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
+    if (
+      (task.phase === 'executing' || task.phase === 'paused') &&
+      task.planId !== undefined &&
+      this.#dependencies.planActions !== undefined
+    )
+      await this.#dependencies.planActions.cancel(task);
     const timestamp = this.#dependencies.clock.now();
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
@@ -161,6 +170,45 @@ export class TaskService {
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
+    if (command.action === 'pause') {
+      if (task.planId === undefined || this.#dependencies.planActions === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_ACTIONS_UNAVAILABLE',
+          'Task execution pause is unavailable.',
+        );
+      await this.#dependencies.planActions.pause(task);
+    }
+    if (command.action === 'resume') {
+      if (task.planId === undefined || this.#dependencies.planActions === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_ACTIONS_UNAVAILABLE',
+          'Task execution resume is unavailable.',
+        );
+      const disposition = await this.#dependencies.planActions.resume(task);
+      if (disposition === 'replan_required') {
+        task = await this.#saveTransition(
+          task,
+          'planning',
+          'Pause threshold exceeded; a new plan and confirmation are required.',
+        );
+        const revised = await this.#dependencies.planActions.reviseNaturalLanguage(
+          task,
+          'Replan from persisted results after a long pause. Do not reuse the old confirmation.',
+        );
+        task = bindTaskPlan(task, {
+          planId: revised.planId,
+          goalId: revised.goalId,
+          goalVersion: revised.goalVersion,
+          timestamp: this.#dependencies.clock.now(),
+        });
+        await this.#dependencies.tasks.save(task);
+        return this.#saveTransition(
+          task,
+          'awaiting_plan_confirmation',
+          'Long-pause replanned Workflow requires fresh confirmation.',
+        );
+      }
+    }
     if (command.action === 'patch_goal') {
       if (
         task.goalId === undefined ||

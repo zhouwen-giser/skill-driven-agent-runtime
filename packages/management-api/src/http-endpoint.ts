@@ -225,7 +225,15 @@ export interface ManagementOperations {
   >;
   readonly workflows: Pick<WorkflowValidator, 'validate'> &
     Pick<WorkflowPlannerService, 'plan'> &
-    Pick<WorkflowExecutionService, 'confirm' | 'execute' | 'resumeHumanConfirmation'>;
+    Pick<
+      WorkflowExecutionService,
+      | 'cancelForPlan'
+      | 'confirm'
+      | 'execute'
+      | 'pauseForPlan'
+      | 'resumeHumanConfirmation'
+      | 'resumePauseForPlan'
+    >;
   readonly workflowControls: Pick<
     WorkflowControllerService,
     'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
@@ -409,6 +417,26 @@ export async function startManagementHttpEndpoint(
           ...(input.skillIds === undefined ? {} : { skillIds: input.skillIds }),
         }),
       );
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/pause',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflows.pauseForPlan(pathValue(request, 'planId')));
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/resume',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.workflows.resumePauseForPlan(pathValue(request, 'planId')),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/workflows/plans/:planId/cancel',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflows.cancelForPlan(pathValue(request, 'planId')));
     }),
   );
   app.post(

@@ -159,13 +159,23 @@ export class WorkflowExecutionService {
   }
 
   async resumeHumanConfirmation(
-    input: Readonly<{ instanceId: string; confirmed: boolean; signal?: AbortSignal }>,
+    input: Readonly<{
+      instanceId: string;
+      confirmed: boolean;
+      signal?: AbortSignal;
+      resumeTaskPause?: boolean;
+    }>,
   ): Promise<WorkflowInstance> {
     const instance = await this.#instances.findInstance(input.instanceId);
     if (instance?.status !== 'paused' || instance.pendingConfirmation === undefined)
       throw new WorkflowExecutionError(
         'WORKFLOW_INSTANCE_NOT_PAUSED',
         'Only a paused Workflow instance can resume human confirmation.',
+      );
+    if (instance.pendingConfirmation.kind === 'task_pause' && input.resumeTaskPause !== true)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_PAUSED',
+        'Task-pause checkpoints must resume through the lifecycle control path.',
       );
     const plan = await this.#requirePlan(instance.planId);
     if (plan.confirmationStatus !== 'confirmed' || plan.definition === undefined)
@@ -215,6 +225,112 @@ export class WorkflowExecutionService {
       await this.#instances.saveInstance(failed);
       throw error;
     }
+  }
+
+  async pauseForPlan(planId: string): Promise<WorkflowInstance> {
+    const instance = await this.#instances.findActiveByPlanId(planId);
+    if (instance?.status !== 'running')
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_RUNNING',
+        'No running Workflow instance exists for this plan.',
+      );
+    if (this.#executor.requestPause?.(instance.instanceId) !== true)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE',
+        'The in-memory Workflow execution is unavailable and cannot be paused.',
+      );
+    return this.#waitFor(instance.instanceId, ['paused']);
+  }
+
+  async cancelForPlan(planId: string): Promise<WorkflowInstance> {
+    const instance = await this.#instances.findActiveByPlanId(planId);
+    if (instance === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_RUNNING',
+        'No active Workflow instance exists for this plan.',
+      );
+    const policies = await Promise.all(
+      instance.skillVersions.map(({ skillId, version }) =>
+        this.#skills.findVersion(skillId, version),
+      ),
+    );
+    const strategies = policies
+      .map((skill) => skill?.runtimePolicy.cancelStrategy)
+      .filter((value): value is NonNullable<typeof value> => value !== undefined);
+    const strategy = strategies.includes('cleanup_workflow')
+      ? 'cleanup_workflow'
+      : strategies.includes('wait_current')
+        ? 'wait_current'
+        : 'try_interrupt';
+    if (this.#executor.requestCancel?.(instance.instanceId, strategy === 'try_interrupt') !== true)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE',
+        'The in-memory Workflow execution is unavailable and cannot be canceled.',
+      );
+    const canceled = await this.#waitFor(instance.instanceId, ['canceled', 'failed']);
+    const audited: WorkflowInstance = {
+      ...canceled,
+      errors: {
+        ...canceled.errors,
+        cancellationPolicy: {
+          code: `CANCEL_STRATEGY_${strategy.toUpperCase()}`,
+          message: `Applied Skill cancellation strategy ${strategy}; no automatic compensation ran.`,
+        },
+      },
+    };
+    await this.#instances.saveInstance(audited);
+    return audited;
+  }
+
+  async resumePauseForPlan(
+    planId: string,
+    defaultThresholdSeconds = 300,
+  ): Promise<Readonly<{ disposition: 'resumed' | 'replan_required'; instance: WorkflowInstance }>> {
+    const instance = await this.#instances.findActiveByPlanId(planId);
+    if (
+      instance?.status !== 'paused' ||
+      instance.pendingConfirmation?.kind !== 'task_pause' ||
+      instance.pendingConfirmation.pausedAt === undefined
+    )
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_PAUSED',
+        'No Task-pause checkpoint exists for this plan.',
+      );
+    const policies = await Promise.all(
+      instance.skillVersions.map(({ skillId, version }) =>
+        this.#skills.findVersion(skillId, version),
+      ),
+    );
+    const thresholds = policies
+      .map((skill) => skill?.runtimePolicy.pauseReplanThresholdSeconds)
+      .filter((value): value is number => value !== undefined);
+    const threshold = thresholds.length === 0 ? defaultThresholdSeconds : Math.min(...thresholds);
+    const pausedSeconds = Math.max(
+      0,
+      (Date.parse(this.#clock.now()) - Date.parse(instance.pendingConfirmation.pausedAt)) / 1000,
+    );
+    if (pausedSeconds > threshold) return { disposition: 'replan_required', instance };
+    const resumed = await this.resumeHumanConfirmation({
+      instanceId: instance.instanceId,
+      confirmed: true,
+      resumeTaskPause: true,
+    });
+    return { disposition: 'resumed', instance: resumed };
+  }
+
+  async #waitFor(
+    instanceId: string,
+    statuses: readonly WorkflowInstance['status'][],
+  ): Promise<WorkflowInstance> {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const instance = await this.#instances.findInstance(instanceId);
+      if (instance !== undefined && statuses.includes(instance.status)) return instance;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+    }
+    throw new WorkflowExecutionError(
+      'WORKFLOW_EXECUTION_CONTROL_TIMEOUT',
+      'Workflow execution did not reach the requested controlled state.',
+    );
   }
 
   async #resolveSkillVersions(
@@ -291,6 +407,7 @@ function normalizedError(error: unknown): Readonly<{ code: string; message: stri
 
 export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_INSTANCE_NOT_PAUSED'
+  | 'WORKFLOW_INSTANCE_NOT_RUNNING'
   | 'WORKFLOW_INSTANCE_ALREADY_EXISTS'
   | 'WORKFLOW_PLAN_NOT_CONFIRMED'
   | 'WORKFLOW_PLAN_NOT_EXECUTABLE'
@@ -298,6 +415,8 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_PLAN_REVALIDATION_FAILED'
   | 'WORKFLOW_REPLAN_BUDGET_EXHAUSTED'
   | 'WORKFLOW_RESUME_UNAVAILABLE'
+  | 'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE'
+  | 'WORKFLOW_EXECUTION_CONTROL_TIMEOUT'
   | 'WORKFLOW_SKILL_NOT_ENABLED';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;

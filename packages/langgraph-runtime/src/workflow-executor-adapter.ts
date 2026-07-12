@@ -43,6 +43,14 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     if (result.status !== 'paused') this.#executions.delete(executionId);
     return mapResult(result);
   }
+
+  requestPause(executionId: string): boolean {
+    return this.#executions.get(executionId)?.requestPause(executionId) ?? false;
+  }
+
+  requestCancel(executionId: string, interruptCurrent: boolean): boolean {
+    return this.#executions.get(executionId)?.requestCancel(executionId, interruptCurrent) ?? false;
+  }
 }
 
 function mapResult(result: Awaited<ReturnType<CompiledWorkflow['invoke']>>) {

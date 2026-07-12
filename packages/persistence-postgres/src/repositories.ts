@@ -1532,7 +1532,12 @@ const WorkflowBudgetUsageSchema = z
   })
   .strict();
 const PendingConfirmationSchema = z
-  .object({ nodeId: z.string().min(1), prompt: z.string().min(1) })
+  .object({
+    nodeId: z.string().min(1),
+    prompt: z.string().min(1),
+    kind: z.enum(['human_confirmation', 'task_pause']).optional(),
+    pausedAt: z.string().optional(),
+  })
   .strict();
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
@@ -1574,8 +1579,18 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       ...(row.termination_reason === null ? {} : { terminationReason: row.termination_reason }),
       ...(row.pending_confirmation_json === null
         ? {}
-        : { pendingConfirmation: PendingConfirmationSchema.parse(row.pending_confirmation_json) }),
+        : { pendingConfirmation: mapPendingConfirmation(row.pending_confirmation_json) }),
     };
+  }
+
+  async findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    const result = await this.#pool.query<{ instance_id: string }>(
+      `SELECT instance_id FROM workflow_instance
+       WHERE plan_id=$1 AND status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`,
+      [planId],
+    );
+    const instanceId = result.rows[0]?.instance_id;
+    return instanceId === undefined ? undefined : this.findInstance(instanceId);
   }
 
   async saveInstance(instance: WorkflowInstance): Promise<void> {
@@ -1645,6 +1660,18 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       client.release();
     }
   }
+}
+
+function mapPendingConfirmation(
+  value: unknown,
+): NonNullable<WorkflowInstance['pendingConfirmation']> {
+  const pending = PendingConfirmationSchema.parse(value);
+  return {
+    nodeId: pending.nodeId,
+    prompt: pending.prompt,
+    ...(pending.kind === undefined ? {} : { kind: pending.kind }),
+    ...(pending.pausedAt === undefined ? {} : { pausedAt: pending.pausedAt }),
+  };
 }
 
 interface WorkflowControlRow extends QueryResultRow {

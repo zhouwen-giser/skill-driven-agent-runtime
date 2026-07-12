@@ -119,6 +119,30 @@ paths:
       responses:
         '201': { description: Persisted terminal Workflow instance }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/pause:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: pauseWorkflowExecution
+      description: Requests an in-process LangGraph interrupt after the active node and before any subsequent node starts.
+      responses:
+        '200': { description: Persisted Task-pause checkpoint and boundary identity }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/resume:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: resumeWorkflowExecution
+      description: Resumes the same checkpoint below the Skill threshold; otherwise reports that replanning and fresh confirmation are required.
+      responses:
+        '200': { description: Resume disposition and Workflow instance }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/cancel:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: cancelWorkflowExecution
+      description: Applies the resolved Skill cancellation strategy, prevents subsequent nodes, and never performs automatic compensation.
+      responses:
+        '200': { description: Persisted canceled Workflow instance and policy audit }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/instances/{instanceId}/human-confirmation:
     parameters: [{ name: instanceId, in: path, required: true, schema: { type: string } }]
     post:
