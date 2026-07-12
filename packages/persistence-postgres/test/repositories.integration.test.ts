@@ -23,6 +23,7 @@ import {
   PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
   PostgresTemporarySkillRepository,
+  PostgresTaskWaitPolicyRepository,
   PostgresSkillRepository,
 } from '../src/index.js';
 import { createAgentTask, createSkillVersion, transitionTask } from '../../domain/src/index.js';
@@ -148,6 +149,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalPatchMigration);
+  const taskWaitMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0024_task_wait_timeout.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskWaitMigration);
 });
 
 beforeEach(async () => {
@@ -1229,6 +1235,56 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(storedContext).toEqual(submitted.context);
     expect(storedTask).toEqual(submitted.task);
     expect(eventResult.rows[0]?.count).toBe('1');
+  });
+  it('atomically cancels both confirmation and input waits using the managed timeout', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const waits = new PostgresTaskWaitPolicyRepository(pool);
+    await contexts.save({
+      contextId: 'context.wait.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const base = createAgentTask({
+      taskId: 'task.wait.db',
+      contextId: 'context.wait.db',
+      userId: 'operator',
+      requestText: 'Wait for confirmation.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    const loading = transitionTask(base, 'context_loading', 'Loaded.', base.updatedAt);
+    const deliberating = transitionTask(loading, 'goal_deliberation', 'Goal.', base.updatedAt);
+    const resolving = transitionTask(deliberating, 'skill_resolution', 'Skill.', base.updatedAt);
+    const planning = transitionTask(resolving, 'planning', 'Plan.', base.updatedAt);
+    await tasks.save(
+      transitionTask(
+        planning,
+        'awaiting_plan_confirmation',
+        'Confirm.',
+        '2026-07-12T00:01:00.000Z',
+      ),
+    );
+    await waits.update({ timeoutSeconds: 60, updatedAt: '2026-07-12T00:02:00.000Z' });
+
+    await expect(
+      waits.expireWaiting('2026-07-12T00:01:00.000Z', '2026-07-12T00:02:00.000Z'),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        taskId: 'task.wait.db',
+        phase: 'canceled',
+        errorCode: 'TASK_WAIT_TIMEOUT',
+      }),
+    ]);
+    await expect(tasks.findById('task.wait.db')).resolves.toMatchObject({
+      phase: 'canceled',
+      errorCode: 'TASK_WAIT_TIMEOUT',
+    });
+    const event = await pool.query<{ summary: string }>(
+      "SELECT summary FROM runtime_event WHERE task_id='task.wait.db'",
+    );
+    expect(event.rows).toEqual([{ summary: 'Task canceled after the unified wait timeout.' }]);
   });
 
   it('updates task state without creating a duplicate system-of-record row', async () => {

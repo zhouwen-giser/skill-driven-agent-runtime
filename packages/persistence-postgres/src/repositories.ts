@@ -1,5 +1,6 @@
 import type {
   AgentTaskRepository,
+  TaskWaitPolicyRepository,
   ConversationContextRepository,
   ExternalTaskProjection,
   ExternalTaskProjectionQuery,
@@ -61,6 +62,7 @@ import type {
   SkillRuntimePolicy,
   SkillVersion,
   TaskPhase,
+  TaskWaitPolicy,
 } from '../../domain/src/index.js';
 import type { Pool, QueryResultRow } from 'pg';
 import { z } from 'zod';
@@ -690,6 +692,52 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.updatedAt,
       ],
     );
+  }
+}
+
+export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async get(): Promise<TaskWaitPolicy> {
+    const result = await this.#pool.query<{ timeout_seconds: number; updated_at: Date | string }>(
+      'SELECT timeout_seconds,updated_at FROM task_wait_policy WHERE singleton=true',
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('TASK_WAIT_POLICY_NOT_CONFIGURED');
+    return { timeoutSeconds: row.timeout_seconds, updatedAt: toIsoString(row.updated_at) };
+  }
+
+  async update(policy: TaskWaitPolicy): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO task_wait_policy(singleton,timeout_seconds,updated_at) VALUES(true,$1,$2)
+       ON CONFLICT(singleton) DO UPDATE SET timeout_seconds=EXCLUDED.timeout_seconds,updated_at=EXCLUDED.updated_at`,
+      [policy.timeoutSeconds, policy.updatedAt],
+    );
+  }
+
+  async expireWaiting(cutoff: string, timestamp: string): Promise<readonly AgentTask[]> {
+    const result = await this.#pool.query<TaskRow>(
+      `WITH expired AS (
+         UPDATE agent_task SET phase='canceled',phase_message='Task canceled after the unified wait timeout.',
+           error_code='TASK_WAIT_TIMEOUT',updated_at=$2
+         WHERE phase IN ('awaiting_plan_confirmation','awaiting_user_input') AND updated_at <= $1
+         RETURNING *
+       ), events AS (
+         INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
+         SELECT concat('event-wait-timeout-',task_id,'-',extract(epoch from $2::timestamptz)::bigint),
+           task_id,context_id,'task.phase_changed',$2,'Task canceled after the unified wait timeout.'
+         FROM expired ON CONFLICT(event_id) DO NOTHING
+       )
+       SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
+         goal_id,goal_version,plan_id,output_text,output_structured,error_code,created_at,updated_at
+       FROM expired ORDER BY task_id`,
+      [cutoff, timestamp],
+    );
+    return result.rows.map(mapTaskRow);
   }
 }
 

@@ -1,5 +1,7 @@
 # Project Status
 
+EP-04 wait-timeout update (2026-07-12): approximately 41%. Plan-confirmation and supplementary-input waits now share one PostgreSQL-managed timeout. A same-process idempotent scanner atomically cancels overdue Tasks with `TASK_WAIT_TIMEOUT` and a runtime event; management can read/update the policy, and real A2A e2e verifies expiry. FR-GOAL-007 is verified. Real running-node pause/resume/cancel strategies remain the next lifecycle gap.
+
 EP-04 Goal Patch update (2026-07-12): approximately 34%. Fixed-stage structured patches now increment the PostgreSQL-authoritative Goal version and atomically invalidate every old plan, Workflow instance, Task binding, confirmation and result. A2A and management paths generate the next immutable plan outside LangGraph, always require fresh confirmation, and expose compensation guidance or explicit no-auto-compensation warnings. FR-GOAL-003/004/005 and FR-EXE-007 are verified; general pause/cancel/timeouts and remaining Goal lifecycle/result requirements remain open.
 
 EP-04 process/queue update (2026-07-12): approximately 18%. Server startup now atomically fails executing/paused/evaluating Tasks and running/paused Workflow instances with `PROCESS_EXECUTION_LOST` before starting the Worker; it never reconstructs checkpoints or retries calls. BullMQ remains attempts=1/maxStalledCount=0, and real Redis integration proves queued work survives queue-client restart. FR-EXE-008/009/010 are verified; Goal Patch, general pause/cancel policies, timeouts and integrated task execution remain open.

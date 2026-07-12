@@ -36,6 +36,7 @@ import {
   GoalPatchService,
   WorkflowRevisionService,
   TaskService,
+  TaskWaitTimeoutService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -76,6 +77,7 @@ import {
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
   PostgresGoalPatchRepository,
+  PostgresTaskWaitPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -100,6 +102,7 @@ export interface ServerRuntimeOptions {
   }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
+  readonly taskWaitSweepIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -157,6 +160,10 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const taskWaitTimeouts = new TaskWaitTimeoutService({
+    repository: new PostgresTaskWaitPolicyRepository(pool),
+    clock,
+  });
   await new RuntimeRecoveryService({
     repository: new PostgresRuntimeRecoveryRepository(pool),
     clock,
@@ -405,6 +412,14 @@ export async function startServerRuntime(
     },
     nextGoalId: () => `goal-${randomUUID()}`,
   });
+  const waitSweepTimer = setInterval(() => {
+    void taskWaitTimeouts.sweep().catch((error: unknown) => {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'task_wait_sweep.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+      );
+    });
+  }, options.taskWaitSweepIntervalMs ?? 1000);
+  waitSweepTimer.unref();
   const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
   worker.start();
   let management: ManagementHttpEndpointHandle | undefined;
@@ -415,6 +430,7 @@ export async function startServerRuntime(
         goals: goalService,
         goalPatches,
         tasks: service,
+        taskWaitTimeouts,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -499,6 +515,7 @@ export async function startServerRuntime(
         return mcpRegistry.updateToolEnhancement(serverId, toolName, enhancement);
       },
       async close(): Promise<void> {
+        clearInterval(waitSweepTimer);
         await a2a.close();
         await startedManagement.close();
         await mcpTransport.close();
@@ -508,6 +525,7 @@ export async function startServerRuntime(
       },
     };
   } catch (error: unknown) {
+    clearInterval(waitSweepTimer);
     await management?.close();
     await mcpTransport.close();
     await worker.close();
@@ -545,6 +563,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0021_workflow_interrupt.up.sql',
     '0022_model_api_style.up.sql',
     '0023_goal_patch.up.sql',
+    '0024_task_wait_timeout.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

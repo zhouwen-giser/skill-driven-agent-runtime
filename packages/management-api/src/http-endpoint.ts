@@ -22,7 +22,10 @@ import type {
   GoalPatchService,
   WorkflowRevisionService,
   TaskService,
+  TaskWaitTimeoutService,
 } from '../../application/src/index.js';
+
+const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -193,6 +196,7 @@ export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
+  readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -250,6 +254,19 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/health', (_request, response) => {
     response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
   });
+  app.get(
+    '/api/v1/system/task-wait-policy',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.taskWaitTimeouts.getPolicy());
+    }),
+  );
+  app.put(
+    '/api/v1/system/task-wait-policy',
+    asyncRoute(async (request, response) => {
+      const input = TaskWaitPolicySchema.parse(request.body);
+      response.json(await options.operations.taskWaitTimeouts.updatePolicy(input.timeoutSeconds));
+    }),
+  );
   app.post(
     '/api/v1/goals',
     asyncRoute(async (request, response) => {

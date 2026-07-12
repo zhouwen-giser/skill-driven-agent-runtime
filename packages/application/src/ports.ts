@@ -36,6 +36,7 @@ import type {
   WorkflowControlRound,
   GoalEvaluationResult,
   GoalPatchRecord,
+  TaskWaitPolicy,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -80,6 +81,12 @@ export interface GoalEvaluator {
 export interface AgentTaskRepository {
   findById(taskId: string): Promise<AgentTask | undefined>;
   save(task: AgentTask): Promise<void>;
+}
+
+export interface TaskWaitPolicyRepository {
+  get(): Promise<TaskWaitPolicy>;
+  update(policy: TaskWaitPolicy): Promise<void>;
+  expireWaiting(cutoff: string, timestamp: string): Promise<readonly AgentTask[]>;
 }
 
 export interface SkillDraftRepository {

@@ -1760,6 +1760,54 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('automatically cancels a confirmation wait using the managed unified timeout', async () => {
+    const policyUrl = `${runtime.management.baseUrl}/api/v1/system/task-wait-policy`;
+    try {
+      expect(
+        await fetch(policyUrl, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ timeoutSeconds: 1 }),
+        }),
+      ).toMatchObject({ status: 200 });
+      const request = SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Prepare a timeout test plan.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      });
+      let taskId = '';
+      for await (const event of runtime.a2a.client.sendMessageStream(request)) {
+        if (event.payload?.$case === 'task') taskId = event.payload.value.id;
+      }
+      expect(taskId).not.toBe('');
+      let task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (task.status?.state === TaskState.TASK_STATE_CANCELED) break;
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+        task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
+      }
+      expect(task.status?.state).toBe(TaskState.TASK_STATE_CANCELED);
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`).then((response) =>
+          response.json(),
+        ),
+      ).resolves.toMatchObject({
+        phase: 'canceled',
+        errorCode: 'TASK_WAIT_TIMEOUT',
+        phaseMessage: 'Task canceled after the unified wait timeout.',
+      });
+    } finally {
+      await fetch(policyUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ timeoutSeconds: 300 }),
+      });
+    }
+  });
+
   it('stores create/update Skill requests as drafts without exposing them in Agent Card', async () => {
     const skillId = `skill.enabled.${randomUUID()}`;
     await runtime.registerSkill(skillInput(skillId, 'Enabled skill'));

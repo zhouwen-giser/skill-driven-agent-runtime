@@ -152,5 +152,7 @@ export function failTask(task: AgentTask, errorCode: string, timestamp: string):
 }
 
 export function isTerminalTaskPhase(phase: TaskPhase): phase is TaskTerminalPhase {
-  return phase === 'completed' || phase === 'canceled' || phase === 'failed';
+  return (
+    phase === 'completed' || phase === 'canceled' || phase === 'failed' || phase === 'invalidated'
+  );
 }

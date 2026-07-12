@@ -6,6 +6,17 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/system/task-wait-policy:
+    get:
+      operationId: getTaskWaitPolicy
+      responses:
+        '200': { description: PostgreSQL-authoritative unified confirmation/input wait timeout }
+    put:
+      operationId: updateTaskWaitPolicy
+      description: Changes the timeout applied to all current and future confirmation/input waits.
+      responses:
+        '200': { description: Updated wait policy }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/goals:
     post:
       operationId: createGoal

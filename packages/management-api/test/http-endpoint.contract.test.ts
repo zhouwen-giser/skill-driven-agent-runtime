@@ -14,6 +14,30 @@ describe('management HTTP API contract', () => {
     endpoint = undefined;
   });
 
+  it('reads and updates the unified Task wait timeout', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskWaitTimeouts: {
+          getPolicy: () =>
+            Promise.resolve({ timeoutSeconds: 300, updatedAt: '2026-07-12T00:00:00.000Z' }),
+          updatePolicy: (timeoutSeconds) =>
+            Promise.resolve({ timeoutSeconds, updatedAt: '2026-07-12T00:01:00.000Z' }),
+        },
+      },
+    });
+    await expect(
+      (await fetch(`${endpoint.baseUrl}/api/v1/system/task-wait-policy`)).json(),
+    ).resolves.toMatchObject({ timeoutSeconds: 300 });
+    const update = await fetch(`${endpoint.baseUrl}/api/v1/system/task-wait-policy`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ timeoutSeconds: 60 }),
+    });
+    expect(update.status).toBe(200);
+    await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -371,6 +395,7 @@ function operations(failServerList = false): ManagementOperations {
     goals: { create: unused, get: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     tasks: { attachPlan: unused, get: unused },
+    taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     graph: {
       create: unused,
       delete: unused,
