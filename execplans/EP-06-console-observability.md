@@ -16,7 +16,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 
 - [x] complete management OpenAPI
 - [ ] React console navigation and real CRUD
-- [ ] workflow DAG editor and validation
+- [x] workflow DAG editor and validation
 - [ ] live task/node/LLM/MCP trace
 - [ ] version diff and execution replay
 - [ ] metrics dashboards and warnings
@@ -27,6 +27,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Complete exact-version OSS Intake and ADR-064 for the React/Vite console stack.
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.
 - [x] Deliver real MCP lifecycle controls and PostgreSQL management-operation audit; expose current Skill enable/disable/version/warning/rollback controls.
+- [x] Deliver a repository-owned Workflow DAG/DSL workbench, immutable revision/confirmation actions, and ordered instance-node replay.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -43,6 +44,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - The extended E2E scenario is implemented, but two full attempts and one isolated Compose-start retry hung before test output. Unit, contract, real PostgreSQL integration, and console build evidence pass; E2E remains explicitly unverified for this increment.
 - The existing root ESLint ignore matched only the root `dist`; the console build exposed that nested generated assets must use `**/dist/**` to keep generated third-party bundles outside source linting.
 - No console application existed at EP-06 start. The first production bundle is now independently buildable and contains no static operational records.
+- Workflow node events were persisted but not readable through management operations. `WorkflowExecutionService.trace` now joins the immutable instance with ordered displayable events; the console stores only replay position and editor text.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
@@ -51,6 +53,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - ADR-064 accepts React/Vite only inside `apps/console`; the management API remains the sole operational authority.
 - The console is mounted at `/console` by the existing management listener. Vite is development/build tooling, not another production process.
 - The repository will implement the Workflow DAG UI itself instead of adding a second workflow or third-party console runtime.
+- DAG edits always use the existing `WorkflowRevisionService.reviseAdmin` boundary and therefore supersede rather than mutate a Plan; validation remains read-only and replay never invokes LangGraph.
 
 执行期间持续追加；重大决定另建 ADR。
 

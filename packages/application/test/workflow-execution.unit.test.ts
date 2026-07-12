@@ -42,6 +42,59 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('returns the authoritative instance with ordered displayable node events', async () => {
+    const instances = new MemoryExecutions();
+    const instance: WorkflowInstance = {
+      instanceId: 'instance-trace',
+      planId: 'plan-1',
+      workflowDefinitionId: 'workflow-1',
+      workflowVersion: 2,
+      goalId: 'goal-1',
+      goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      status: 'succeeded',
+      input: {},
+      result: 'done',
+      errors: {},
+      startedAt: '2026-07-13T00:00:00.000Z',
+      completedAt: '2026-07-13T00:00:02.000Z',
+    };
+    await instances.saveInstance(instance);
+    await instances.saveNodeEvents([
+      {
+        eventId: 'event-1',
+        instanceId: instance.instanceId,
+        sequence: 1,
+        nodeId: 'result',
+        eventType: 'node_started',
+        timestamp: instance.startedAt,
+        summary: 'result started.',
+      },
+      {
+        eventId: 'event-2',
+        instanceId: instance.instanceId,
+        sequence: 2,
+        nodeId: 'result',
+        eventType: 'node_succeeded',
+        timestamp: '2026-07-13T00:00:02.000Z',
+        summary: 'result succeeded.',
+      },
+    ]);
+    const service = createService(new MemoryPlans([validPlan]), instances, { execute: vi.fn() });
+    await expect(service.trace(instance.instanceId)).resolves.toEqual({
+      instance,
+      events: instances.events,
+    });
+  });
+
   it('executes a repository-confirmed corrected plan without another confirmation', async () => {
     const plans = new MemoryPlans([validPlan]);
     const instances = new MemoryExecutions();
@@ -519,6 +572,9 @@ class MemoryExecutions implements WorkflowExecutionRepository {
   }
   countNodeEvents(instanceId: string) {
     return Promise.resolve(this.events.filter((event) => event.instanceId === instanceId).length);
+  }
+  listNodeEvents(instanceId: string) {
+    return Promise.resolve(this.events.filter((event) => event.instanceId === instanceId));
   }
   saveInstance(instance: WorkflowInstance) {
     this.instances.push(instance);

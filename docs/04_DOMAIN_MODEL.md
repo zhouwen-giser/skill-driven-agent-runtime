@@ -51,8 +51,6 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - MemoryItem 是提炼、去重、结构化内容，带证据引用、向量、状态和替代关系。
 - Experience 保存成功/失败任务的 Goal、Skill、Workflow、工具组合和评估。
 
-### EvaluationReport
-
 ### McpManagementOperation
 
 - Immutable PostgreSQL evidence for register, refresh, health check, credential rotation, Tool metadata update, and deletion.

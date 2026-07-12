@@ -873,6 +873,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
       status: 'paused',
     });
     await expect(executions.countNodeEvents('instance.db')).resolves.toBe(2);
+    await expect(executions.listNodeEvents('instance.db')).resolves.toEqual([
+      expect.objectContaining({ sequence: 1, nodeId: 'result', eventType: 'node_started' }),
+      expect.objectContaining({ sequence: 2, nodeId: 'result', eventType: 'node_succeeded' }),
+    ]);
     await executions.saveInstance({
       ...running,
       status: 'succeeded',

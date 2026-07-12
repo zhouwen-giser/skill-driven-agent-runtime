@@ -874,6 +874,39 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('returns an ordered Workflow instance trace for replay', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        workflows: {
+          ...configured.workflows,
+          trace: (instanceId) =>
+            Promise.resolve({
+              instance: { ...workflowInstance('plan-trace', 'succeeded'), instanceId },
+              events: [
+                {
+                  eventId: 'event-1',
+                  instanceId,
+                  sequence: 1,
+                  nodeId: 'start',
+                  eventType: 'node_started' as const,
+                  timestamp: '2026-07-13T00:00:00.000Z',
+                  summary: 'start node started.',
+                },
+              ],
+            }),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/workflows/instances/instance-trace`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      instance: { instanceId: 'instance-trace', status: 'succeeded' },
+      events: [{ sequence: 1, nodeId: 'start', eventType: 'node_started' }],
+    });
+  });
+
   it('exposes plan-scoped pause, resume, and cancel execution controls', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -1399,6 +1432,7 @@ function operations(failServerList = false): ManagementOperations {
       pauseForPlan: unused,
       resumeHumanConfirmation: unused,
       resumePauseForPlan: unused,
+      trace: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
     },

@@ -234,6 +234,14 @@ paths:
       responses:
         '200': { description: Resumed, paused-at-next-gate, or terminal Workflow instance }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/instances/{instanceId}:
+    parameters: [{ name: instanceId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getWorkflowInstanceTrace
+      description: Returns the immutable instance snapshot and ordered displayable node-event summaries.
+      responses:
+        '200': { description: Workflow instance and ordered node events for trace and replay }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/plans/{planId}:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
     get:

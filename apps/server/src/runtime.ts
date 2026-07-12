@@ -992,6 +992,7 @@ export async function startServerRuntime(
           pauseForPlan: (planId) => workflowExecution.pauseForPlan(planId),
           resumePauseForPlan: (planId) => workflowExecution.resumePauseForPlan(planId),
           cancelForPlan: (planId) => workflowExecution.cancelForPlan(planId),
+          trace: (instanceId) => workflowExecution.trace(instanceId),
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,

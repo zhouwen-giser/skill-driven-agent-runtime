@@ -1,5 +1,10 @@
 # 需求追踪矩阵
 
+## EP-06 developing evidence supplements (2026-07-13)
+
+- FR-ADM-002: `packages/domain/src/mcp.ts`, `packages/application/src/mcp-registry.ts`, `packages/persistence-postgres/src/repositories.ts`, migration `0050`, management contracts, console lifecycle components, and `reports/EP-06-console-observability/FR-ADM-002-mcp-console-and-audit.md`. Status remains developing until real E2E reruns.
+- FR-ADM-004: `packages/application/src/workflow-execution.ts`, `packages/persistence-postgres/src/repositories.ts`, `packages/management-api/src/http-endpoint.ts`, `apps/console/src/WorkflowPanel.tsx`, targeted unit/contract tests, and `reports/EP-06-console-observability/FR-ADM-004-workflow-dag-trace-replay.md`. Status remains developing until PostgreSQL/UI E2E and full trace linkage pass.
+
 Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已实现待验证 / 已验证 / 阻塞。
 
 | 需求编号     | 阶段  | 最低测试层级             | 状态   | 实现文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 测试文件                                                                                                                                                                                                                                                                                                                                                                                        | 验证证据                                                                                                                                                                                                                                                                                                      |

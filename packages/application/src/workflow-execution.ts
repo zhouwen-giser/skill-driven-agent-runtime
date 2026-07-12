@@ -63,6 +63,18 @@ export class WorkflowExecutionService {
     return this.#instances.findInstance(instanceId);
   }
 
+  async trace(
+    instanceId: string,
+  ): Promise<Readonly<{ instance: WorkflowInstance; events: readonly WorkflowNodeEvent[] }>> {
+    const instance = await this.#instances.findInstance(instanceId);
+    if (instance === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_FOUND',
+        'Workflow instance was not found.',
+      );
+    return { instance, events: await this.#instances.listNodeEvents(instanceId) };
+  }
+
   async execute(
     input: Readonly<{
       instanceId: string;

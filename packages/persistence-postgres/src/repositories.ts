@@ -3035,6 +3035,16 @@ interface WorkflowInstanceRow extends QueryResultRow {
   pending_confirmation_json: unknown;
 }
 
+interface WorkflowNodeEventRow extends QueryResultRow {
+  event_id: string;
+  instance_id: string;
+  sequence: number;
+  node_id: string;
+  event_type: WorkflowNodeEvent['eventType'];
+  event_timestamp: Date | string;
+  summary: string;
+}
+
 const WorkflowErrorsSchema = z.record(
   z.string(),
   z.object({ code: z.string(), message: z.string() }).strict(),
@@ -3156,6 +3166,23 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       [instanceId],
     );
     return result.rows[0]?.count ?? 0;
+  }
+
+  async listNodeEvents(instanceId: string): Promise<readonly WorkflowNodeEvent[]> {
+    const result = await this.#pool.query<WorkflowNodeEventRow>(
+      `SELECT event_id, instance_id, sequence, node_id, event_type, event_timestamp, summary
+       FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence, event_id`,
+      [instanceId],
+    );
+    return result.rows.map((row) => ({
+      eventId: row.event_id,
+      instanceId: row.instance_id,
+      sequence: row.sequence,
+      nodeId: row.node_id,
+      eventType: row.event_type,
+      timestamp: toIsoString(row.event_timestamp),
+      summary: row.summary,
+    }));
   }
 
   async findInstance(instanceId: string): Promise<WorkflowInstance | undefined> {

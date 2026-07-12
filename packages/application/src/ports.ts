@@ -499,6 +499,7 @@ export interface WorkflowExecutionRepository {
   findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined>;
   listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]>;
   countNodeEvents(instanceId: string): Promise<number>;
+  listNodeEvents(instanceId: string): Promise<readonly WorkflowNodeEvent[]>;
   saveInstance(instance: WorkflowInstance): Promise<void>;
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
 }

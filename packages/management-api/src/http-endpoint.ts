@@ -353,6 +353,7 @@ export interface ManagementOperations {
       | 'pauseForPlan'
       | 'resumeHumanConfirmation'
       | 'resumePauseForPlan'
+      | 'trace'
     >;
   readonly workflowControls: Pick<
     WorkflowControllerService,
@@ -804,6 +805,12 @@ export async function startManagementHttpEndpoint(
           confirmed: input.confirmed,
         }),
       );
+    }),
+  );
+  app.get(
+    '/api/v1/workflows/instances/:instanceId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflows.trace(pathValue(request, 'instanceId')));
     }),
   );
   app.get(
