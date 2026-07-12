@@ -37,6 +37,27 @@ paths:
       responses:
         '200': { description: Current Goal record }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}/cancel:
+    parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: cancelGoal
+      description: Applies active Workflow cancellation policies before atomically terminating all remaining Goal work.
+      responses:
+        '201': { description: Goal cancellation cascade and policy warnings }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}/cancellations:
+    parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listGoalCancellations
+      responses:
+        '200': { description: Immutable Goal cancellation history }
+  /api/v1/goal-cancellations/{cancellationId}:
+    parameters: [{ name: cancellationId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getGoalCancellation
+      responses:
+        '200': { description: One Goal cancellation record }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/goals/{goalId}/patches:
     parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
     post:

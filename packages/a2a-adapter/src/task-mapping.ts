@@ -10,6 +10,7 @@ const FollowUpActionSchema = z.enum([
   'reject_plan',
   'revise_plan',
   'patch_goal',
+  'cancel_goal',
   'provide_input',
   'pause',
   'resume',

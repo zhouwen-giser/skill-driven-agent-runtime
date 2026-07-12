@@ -393,6 +393,41 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes Goal cancellation and immutable cancellation history', async () => {
+    const configured = operations();
+    const record = {
+      cancellationId: 'goal-cancellation-1',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      reason: 'Operator canceled.',
+      canceledTaskIds: ['task-1'],
+      invalidatedPlanIds: ['plan-1'],
+      canceledInstanceIds: ['instance-1'],
+      warnings: ['No automatic compensation ran.'],
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        goalCancellations: {
+          cancel: () => Promise.resolve(record),
+          get: () => Promise.resolve(record),
+          list: () => Promise.resolve([record]),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/cancel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason: 'Operator canceled.' }),
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject(record);
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/cancellations`).then((value) => value.json()),
+    ).resolves.toMatchObject({ items: [record] });
+  });
+
   it('exposes task-plan binding and validated admin plan revision contracts', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -461,6 +496,7 @@ function operations(failServerList = false): ManagementOperations {
   return {
     goals: { create: unused, get: unused, history: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
+    goalCancellations: { cancel: unused, get: unused, list: () => Promise.resolve([]) },
     tasks: { attachPlan: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     graph: {

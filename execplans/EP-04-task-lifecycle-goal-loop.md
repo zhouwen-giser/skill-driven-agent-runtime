@@ -29,6 +29,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: implement one managed confirmation/input wait timeout with PostgreSQL atomic cancellation, audit, scheduler and A2A evidence.
 - [x] 2026-07-12: implement real LangGraph pause/short resume, long-pause fresh-confirmation replanning, Skill cancellation policies and no-next-node evidence.
 - [x] 2026-07-12: implement context-wide active Goal reuse and fixed-stage terminal Goal relationship/history decisions.
+- [x] 2026-07-12: implement runtime-first Goal cancellation, atomic shared-work cascade, immutable history and terminal-monotonic Task writes.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。

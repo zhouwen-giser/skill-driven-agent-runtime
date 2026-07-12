@@ -15,6 +15,7 @@ import {
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
+  PostgresGoalCancellationRepository,
   PostgresGoalPatchRepository,
   PostgresRuntimeEventPublisher,
   PostgresRuntimeRecoveryRepository,
@@ -26,7 +27,12 @@ import {
   PostgresTaskWaitPolicyRepository,
   PostgresSkillRepository,
 } from '../src/index.js';
-import { createAgentTask, createSkillVersion, transitionTask } from '../../domain/src/index.js';
+import {
+  bindTaskGoal,
+  createAgentTask,
+  createSkillVersion,
+  transitionTask,
+} from '../../domain/src/index.js';
 
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
@@ -167,6 +173,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalContinuityMigration);
+  const goalCancellationMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0027_goal_cancellation.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(goalCancellationMigration);
 });
 
 beforeEach(async () => {
@@ -719,6 +730,125 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect.objectContaining({ relationship: 'related_successor' }),
       expect.objectContaining({ relationship: 'unrelated_new' }),
     ]);
+  });
+  it('atomically cancels a Goal and all nonterminal Task, plan, and instance state', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const goals = new PostgresGoalRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    await contexts.save({
+      contextId: 'context.goal-cancel.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const goalToCancel = {
+      goalId: 'goal.cancel.db',
+      contextId: 'context.goal-cancel.db',
+      version: 1,
+      title: 'Cancel',
+      description: 'Cancel all work.',
+      constraints: [],
+      successCriteria: [],
+      status: 'active' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    };
+    await goals.save(goalToCancel);
+    let task = createAgentTask({
+      taskId: 'task.goal-cancel.db',
+      contextId: goalToCancel.contextId,
+      userId: 'operator',
+      requestText: 'Run.',
+      requestMetadata: {},
+      timestamp: goalToCancel.createdAt,
+    });
+    task = transitionTask(task, 'context_loading', 'Loaded.', task.updatedAt);
+    task = transitionTask(task, 'goal_deliberation', 'Goal.', task.updatedAt);
+    task = bindTaskGoal(task, {
+      goalId: goalToCancel.goalId,
+      goalVersion: 1,
+      timestamp: task.updatedAt,
+    });
+    task = transitionTask(task, 'skill_resolution', 'Skill.', task.updatedAt);
+    task = transitionTask(task, 'planning', 'Plan.', task.updatedAt);
+    task = transitionTask(task, 'awaiting_plan_confirmation', 'Confirm.', task.updatedAt);
+    await tasks.save(task);
+    await plans.savePlan({
+      planId: 'plan.goal-cancel.db',
+      goalId: goalToCancel.goalId,
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.goal-cancel.db',
+        version: 1,
+        goalId: goalToCancel.goalId,
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: goalToCancel.createdAt,
+    });
+    await executions.saveInstance({
+      instanceId: 'instance.goal-cancel.db',
+      planId: 'plan.goal-cancel.db',
+      workflowDefinitionId: 'workflow.goal-cancel.db',
+      workflowVersion: 1,
+      goalId: goalToCancel.goalId,
+      goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 2,
+        maxMcpCalls: 2,
+        maxCost: 2,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 1 },
+      status: 'canceled',
+      input: {},
+      errors: { cancellation: { code: 'WORKFLOW_CANCELED', message: 'Canceled.' } },
+      startedAt: goalToCancel.createdAt,
+      completedAt: '2026-07-12T00:00:01.000Z',
+    });
+    const cancellations = new PostgresGoalCancellationRepository(pool);
+    await expect(
+      cancellations.cancel({
+        cancellationId: 'goal-cancellation.db',
+        goalId: goalToCancel.goalId,
+        goalVersion: 1,
+        reason: 'Operator canceled.',
+        warnings: ['No automatic compensation ran.'],
+        createdAt: '2026-07-12T00:01:00.000Z',
+      }),
+    ).resolves.toMatchObject({
+      canceledTaskIds: ['task.goal-cancel.db'],
+      invalidatedPlanIds: ['plan.goal-cancel.db'],
+      canceledInstanceIds: ['instance.goal-cancel.db'],
+    });
+    await expect(goals.findById(goalToCancel.goalId)).resolves.toMatchObject({
+      status: 'canceled',
+    });
+    await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
+      phase: 'canceled',
+      errorCode: 'GOAL_CANCELED',
+    });
+    await expect(tasks.save(task)).rejects.toThrow('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    await expect(plans.findPlan('plan.goal-cancel.db')).resolves.toMatchObject({
+      confirmationStatus: 'invalidated',
+    });
+    await expect(cancellations.listByGoal(goalToCancel.goalId)).resolves.toHaveLength(1);
   });
   it('atomically versions a Goal and invalidates its old plans and instances', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

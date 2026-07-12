@@ -267,6 +267,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
         pause: () => Promise.resolve(),
         cancel: () => Promise.resolve(),
         resume: () => Promise.resolve(resumeDisposition),
+        cancelGoal: () => Promise.resolve(),
       },
     }),
     contexts,

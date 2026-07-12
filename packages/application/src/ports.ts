@@ -37,6 +37,7 @@ import type {
   GoalEvaluationResult,
   GoalPatchRecord,
   GoalTransitionRecord,
+  GoalCancellationRecord,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
 
@@ -61,6 +62,17 @@ export interface GoalPatchRepository {
   ): Promise<GoalPatchRecord>;
   find(patchId: string): Promise<GoalPatchRecord | undefined>;
   listByGoal(goalId: string): Promise<readonly GoalPatchRecord[]>;
+}
+
+export interface GoalCancellationRepository {
+  cancel(
+    input: Omit<
+      GoalCancellationRecord,
+      'canceledTaskIds' | 'invalidatedPlanIds' | 'canceledInstanceIds'
+    >,
+  ): Promise<GoalCancellationRecord>;
+  find(cancellationId: string): Promise<GoalCancellationRecord | undefined>;
+  listByGoal(goalId: string): Promise<readonly GoalCancellationRecord[]>;
 }
 
 export interface RuntimeRecoveryRepository {
@@ -328,6 +340,7 @@ export interface WorkflowPlanRepository {
 export interface WorkflowExecutionRepository {
   findInstance(instanceId: string): Promise<WorkflowInstance | undefined>;
   findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined>;
+  listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]>;
   countNodeEvents(instanceId: string): Promise<number>;
   saveInstance(instance: WorkflowInstance): Promise<void>;
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;

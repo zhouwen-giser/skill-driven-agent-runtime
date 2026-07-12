@@ -463,6 +463,15 @@ class MemoryExecutions implements WorkflowExecutionRepository {
         ),
     );
   }
+  listActiveByGoalId(goalId: string) {
+    return Promise.resolve(
+      [...this.instances].filter(
+        (instance) =>
+          instance.goalId === goalId &&
+          (instance.status === 'running' || instance.status === 'paused'),
+      ),
+    );
+  }
   countNodeEvents(instanceId: string) {
     return Promise.resolve(this.events.filter((event) => event.instanceId === instanceId).length);
   }

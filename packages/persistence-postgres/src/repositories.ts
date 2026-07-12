@@ -16,6 +16,7 @@ import type {
   WorkflowControlRepository,
   GoalRepository,
   GoalPatchRepository,
+  GoalCancellationRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
   RuntimeTaskEvent,
@@ -49,6 +50,7 @@ import type {
   WorkflowControlRound,
   Goal,
   GoalPatchRecord,
+  GoalCancellationRecord,
   GoalTransitionRecord,
   Skill,
   SkillRelation,
@@ -658,6 +660,135 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
   }
 }
 
+interface GoalCancellationRow extends QueryResultRow {
+  cancellation_id: string;
+  goal_id: string;
+  goal_version: number;
+  reason: string;
+  canceled_task_ids_json: unknown;
+  invalidated_plan_ids_json: unknown;
+  canceled_instance_ids_json: unknown;
+  warnings_json: unknown;
+  created_at: Date | string;
+}
+
+export class PostgresGoalCancellationRepository implements GoalCancellationRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async cancel(
+    input: Omit<
+      GoalCancellationRecord,
+      'canceledTaskIds' | 'invalidatedPlanIds' | 'canceledInstanceIds'
+    >,
+  ): Promise<GoalCancellationRecord> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const goal = await client.query<GoalRow>(
+        "SELECT * FROM goal WHERE goal_id=$1 AND version=$2 AND status='active' FOR UPDATE",
+        [input.goalId, input.goalVersion],
+      );
+      if (goal.rows[0] === undefined) throw new Error('GOAL_CANCELLATION_VERSION_CONFLICT');
+      await client.query("UPDATE goal SET status='canceled',updated_at=$2 WHERE goal_id=$1", [
+        input.goalId,
+        input.createdAt,
+      ]);
+      const tasks = await client.query<{ task_id: string }>(
+        `UPDATE agent_task SET phase='canceled',phase_message='Goal canceled by user.',
+           error_code='GOAL_CANCELED',updated_at=$2
+         WHERE (goal_id=$1 OR (
+           goal_id IS NULL AND context_id=(SELECT context_id FROM goal WHERE goal_id=$1)
+           AND created_at <= $2
+         )) AND phase NOT IN ('completed','canceled','failed','invalidated')
+         RETURNING task_id`,
+        [input.goalId, input.createdAt],
+      );
+      const plans = await client.query<{ plan_id: string }>(
+        `UPDATE workflow_plan SET confirmation_status='invalidated'
+         WHERE goal_id=$1 AND goal_version=$2
+           AND confirmation_status IN ('awaiting_confirmation','confirmed') RETURNING plan_id`,
+        [input.goalId, input.goalVersion],
+      );
+      await client.query(
+        `UPDATE workflow_instance SET status='canceled',completed_at=COALESCE(completed_at,$3),
+           pending_confirmation_json=NULL,
+           errors_json=jsonb_set(errors_json,'{goalCancellation}',
+             '{"code":"GOAL_CANCELED","message":"Goal cancellation terminated this Workflow instance without automatic compensation."}'::jsonb,true)
+         WHERE goal_id=$1 AND goal_version=$2 AND status IN ('running','paused')`,
+        [input.goalId, input.goalVersion, input.createdAt],
+      );
+      const instances = await client.query<{ instance_id: string }>(
+        `SELECT instance_id FROM workflow_instance
+         WHERE goal_id=$1 AND goal_version=$2 AND status='canceled' ORDER BY instance_id`,
+        [input.goalId, input.goalVersion],
+      );
+      const completed: GoalCancellationRecord = {
+        ...input,
+        canceledTaskIds: tasks.rows.map((row) => row.task_id),
+        invalidatedPlanIds: plans.rows.map((row) => row.plan_id),
+        canceledInstanceIds: instances.rows.map((row) => row.instance_id),
+      };
+      await client.query(
+        `INSERT INTO goal_cancellation(
+           cancellation_id,goal_id,goal_version,reason,canceled_task_ids_json,
+           invalidated_plan_ids_json,canceled_instance_ids_json,warnings_json,created_at)
+         VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9)`,
+        [
+          completed.cancellationId,
+          completed.goalId,
+          completed.goalVersion,
+          completed.reason,
+          JSON.stringify(completed.canceledTaskIds),
+          JSON.stringify(completed.invalidatedPlanIds),
+          JSON.stringify(completed.canceledInstanceIds),
+          JSON.stringify(completed.warnings),
+          completed.createdAt,
+        ],
+      );
+      await client.query('COMMIT');
+      return completed;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async find(cancellationId: string): Promise<GoalCancellationRecord | undefined> {
+    const result = await this.#pool.query<GoalCancellationRow>(
+      'SELECT * FROM goal_cancellation WHERE cancellation_id=$1',
+      [cancellationId],
+    );
+    return result.rows[0] === undefined ? undefined : mapGoalCancellationRow(result.rows[0]);
+  }
+
+  async listByGoal(goalId: string): Promise<readonly GoalCancellationRecord[]> {
+    const result = await this.#pool.query<GoalCancellationRow>(
+      'SELECT * FROM goal_cancellation WHERE goal_id=$1 ORDER BY created_at,cancellation_id',
+      [goalId],
+    );
+    return result.rows.map(mapGoalCancellationRow);
+  }
+}
+
+function mapGoalCancellationRow(row: GoalCancellationRow): GoalCancellationRecord {
+  return {
+    cancellationId: row.cancellation_id,
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    reason: row.reason,
+    canceledTaskIds: StringArraySchema.parse(row.canceled_task_ids_json),
+    invalidatedPlanIds: StringArraySchema.parse(row.invalidated_plan_ids_json),
+    canceledInstanceIds: StringArraySchema.parse(row.canceled_instance_ids_json),
+    warnings: StringArraySchema.parse(row.warnings_json),
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
 function mapGoalPatchRow(row: GoalPatchRow): GoalPatchRecord {
   const changes = GoalPatchChangesSchema.parse(row.changes_json);
   const beforeGoal = exactGoalSnapshot(row.before_goal_json);
@@ -725,7 +856,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   }
 
   async save(task: AgentTask): Promise<void> {
-    await this.#pool.query(
+    const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
          phase, phase_message, goal_id, goal_version, plan_id,
@@ -742,7 +873,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          error_code = EXCLUDED.error_code,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = EXCLUDED.updated_at
+       WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')
+          OR agent_task.phase = EXCLUDED.phase`,
       [
         task.taskId,
         task.contextId,
@@ -761,6 +894,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.updatedAt,
       ],
     );
+    if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
   }
 }
 
@@ -1660,6 +1794,17 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
     );
     const instanceId = result.rows[0]?.instance_id;
     return instanceId === undefined ? undefined : this.findInstance(instanceId);
+  }
+
+  async listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]> {
+    const result = await this.#pool.query<{ instance_id: string }>(
+      `SELECT instance_id FROM workflow_instance
+       WHERE goal_id=$1 AND status IN ('running','paused') ORDER BY started_at,instance_id`,
+      [goalId],
+    );
+    return Promise.all(result.rows.map((row) => this.findInstance(row.instance_id))).then(
+      (instances) => instances.filter((value): value is WorkflowInstance => value !== undefined),
+    );
   }
 
   async saveInstance(instance: WorkflowInstance): Promise<void> {

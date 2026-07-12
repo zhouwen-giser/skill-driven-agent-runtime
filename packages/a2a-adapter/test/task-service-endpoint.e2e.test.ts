@@ -2116,6 +2116,62 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('cancels an active Goal and every Task that shares it through A2A', async () => {
+    const first = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Begin cancelable work.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in first)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const second = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          contextId: first.contextId,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Continue cancelable work.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in second)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const firstTask = z
+      .object({ goalId: z.string() })
+      .parse(await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${first.id}`)).json());
+    const canceled = await sendFollowUp(
+      first.id,
+      first.contextId,
+      'cancel_goal',
+      'Cancel the entire Goal.',
+    );
+    expectTaskState(canceled, TaskState.TASK_STATE_CANCELED);
+    await expect(runtime.a2a.client.getTask({ tenant: '', id: second.id })).resolves.toMatchObject({
+      status: { state: TaskState.TASK_STATE_CANCELED },
+    });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/goals/${firstTask.goalId}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({ status: 'canceled' });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/goals/${firstTask.goalId}/cancellations`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [
+        expect.objectContaining({
+          reason: 'Cancel the entire Goal.',
+          canceledTaskIds: expect.arrayContaining([first.id, second.id]),
+        }),
+      ],
+    });
+  });
+
   it('stores create/update Skill requests as drafts without exposing them in Agent Card', async () => {
     const skillId = `skill.enabled.${randomUUID()}`;
     await runtime.registerSkill(skillInput(skillId, 'Enabled skill'));

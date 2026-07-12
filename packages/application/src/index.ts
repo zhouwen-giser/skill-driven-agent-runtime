@@ -13,6 +13,7 @@ export * from './workflow-execution.js';
 export * from './goal-evaluator.js';
 export * from './workflow-controller.js';
 export * from './goal-service.js';
+export * from './goal-cancellation-service.js';
 export * from './goal-patch-service.js';
 export * from './workflow-revision.js';
 export * from './mcp-registry.js';

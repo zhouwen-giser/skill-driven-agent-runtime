@@ -42,6 +42,7 @@ export type TaskFollowUpAction =
   | 'reject_plan'
   | 'revise_plan'
   | 'patch_goal'
+  | 'cancel_goal'
   | 'provide_input'
   | 'pause'
   | 'resume';
@@ -70,6 +71,7 @@ export interface TaskServiceDependencies {
     pause(task: AgentTask): Promise<void>;
     cancel(task: AgentTask): Promise<void>;
     resume(task: AgentTask): Promise<'resumed' | 'replan_required'>;
+    cancelGoal(task: AgentTask, reason: string): Promise<void>;
   }>;
 }
 
@@ -170,6 +172,15 @@ export class TaskService {
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
+    if (command.action === 'cancel_goal') {
+      if (task.goalId === undefined || this.#dependencies.planActions === undefined)
+        throw new TaskApplicationError(
+          'TASK_PLAN_ACTIONS_UNAVAILABLE',
+          'Task Goal cancellation is unavailable.',
+        );
+      await this.#dependencies.planActions.cancelGoal(task, command.messageText);
+      return this.get(task.taskId);
+    }
     if (command.action === 'pause') {
       if (task.planId === undefined || this.#dependencies.planActions === undefined)
         throw new TaskApplicationError(
@@ -382,6 +393,7 @@ function followUpTransitions(
       { phase: 'awaiting_plan_confirmation', message: 'Revised plan confirmation required.' },
     ];
   if (action === 'patch_goal') return [];
+  if (action === 'cancel_goal') return [];
   if (action === 'provide_input')
     return [{ phase: 'goal_deliberation', message: 'Supplementary input received.' }];
   if (action === 'pause') return [{ phase: 'paused', message: 'Task paused by user.' }];

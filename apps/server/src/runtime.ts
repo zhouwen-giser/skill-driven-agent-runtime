@@ -34,6 +34,7 @@ import {
   StructuredExecutionExceptionDecider,
   GoalService,
   GoalPatchService,
+  GoalCancellationService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
@@ -77,6 +78,7 @@ import {
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
   PostgresGoalPatchRepository,
+  PostgresGoalCancellationRepository,
   PostgresTaskWaitPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -308,9 +310,10 @@ export async function startServerRuntime(
     nowMilliseconds: () => Date.now(),
   };
   const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts, workflowCallCosts);
+  const workflowInstances = new PostgresWorkflowExecutionRepository(pool);
   const workflowExecution = new WorkflowExecutionService({
     plans: workflowPlans,
-    instances: new PostgresWorkflowExecutionRepository(pool),
+    instances: workflowInstances,
     validator: workflowValidator,
     executor: langGraphExecutor,
     clock,
@@ -325,6 +328,14 @@ export async function startServerRuntime(
     clock,
   });
   const goalService = new GoalService({ goals, contexts, clock });
+  const goalCancellations = new GoalCancellationService({
+    goals,
+    instances: workflowInstances,
+    execution: workflowExecution,
+    repository: new PostgresGoalCancellationRepository(pool),
+    clock,
+    nextId: () => `goal-cancellation-${randomUUID()}`,
+  });
   const goalPatches = new GoalPatchService({
     goals,
     patches: new PostgresGoalPatchRepository(pool),
@@ -380,6 +391,10 @@ export async function startServerRuntime(
       async resume(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         return (await workflowExecution.resumePauseForPlan(task.planId)).disposition;
+      },
+      async cancelGoal(task, reason) {
+        if (task.goalId === undefined) throw new Error('TASK_GOAL_NOT_ATTACHED');
+        await goalCancellations.cancel(task.goalId, reason);
       },
     },
   });
@@ -442,6 +457,7 @@ export async function startServerRuntime(
         graph: skillGraph,
         goals: goalService,
         goalPatches,
+        goalCancellations,
         tasks: service,
         taskWaitTimeouts,
         mcp: mcpRegistry,
@@ -582,6 +598,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0024_task_wait_timeout.up.sql',
     '0025_workflow_execution_control.up.sql',
     '0026_goal_continuity.up.sql',
+    '0027_goal_cancellation.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

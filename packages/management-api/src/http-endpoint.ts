@@ -20,12 +20,14 @@ import type {
   WorkflowControllerService,
   GoalService,
   GoalPatchService,
+  GoalCancellationService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
+const CancelGoalSchema = z.object({ reason: z.string().min(1) });
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -195,6 +197,7 @@ const AdminWorkflowRevisionSchema = z.object({
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
+  readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
@@ -297,6 +300,36 @@ export async function startManagementHttpEndpoint(
     '/api/v1/goals/:goalId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.goals.get(pathValue(request, 'goalId')));
+    }),
+  );
+  app.post(
+    '/api/v1/goals/:goalId/cancel',
+    asyncRoute(async (request, response) => {
+      const input = CancelGoalSchema.parse(request.body);
+      response
+        .status(201)
+        .json(
+          await options.operations.goalCancellations.cancel(
+            pathValue(request, 'goalId'),
+            input.reason,
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/api/v1/goals/:goalId/cancellations',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.goalCancellations.list(pathValue(request, 'goalId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/goal-cancellations/:cancellationId',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.goalCancellations.get(pathValue(request, 'cancellationId')),
+      );
     }),
   );
   app.get(
