@@ -21,6 +21,7 @@ import type {
   SkillReplacementPlan,
   SkillSelectionRecord,
   SkillDraft,
+  SkillCallWorkflowRecord,
   SkillVersion,
   SkillFormalizationCandidate,
   TemporarySkill,
@@ -381,6 +382,15 @@ export interface WorkflowExecutionRepository {
   countNodeEvents(instanceId: string): Promise<number>;
   saveInstance(instance: WorkflowInstance): Promise<void>;
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
+}
+
+export interface SkillCallWorkflowRepository {
+  save(record: SkillCallWorkflowRecord): Promise<void>;
+  find(
+    parentInstanceId: string,
+    parentNodeId: string,
+  ): Promise<SkillCallWorkflowRecord | undefined>;
+  listByParent(parentInstanceId: string): Promise<readonly SkillCallWorkflowRecord[]>;
 }
 
 export interface WorkflowExecutor {

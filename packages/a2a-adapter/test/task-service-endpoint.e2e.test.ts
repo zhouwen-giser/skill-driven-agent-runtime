@@ -24,6 +24,9 @@ let mcpWorkflowTarget:
   | undefined;
 let taskWorkflowTarget:
   Readonly<{ workflowId: string; goalId: string; goalVersion: number }> | undefined;
+let skillCallWorkflowTarget:
+  | Readonly<{ workflowId: string; goalId: string; goalVersion: number; skillId: string }>
+  | undefined;
 
 beforeAll(async () => {
   modelServer = await startModelLoopback();
@@ -780,6 +783,97 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(response.json()).resolves.toMatchObject({ valid: true, errors: [] });
     } finally {
       await mockMcp.close();
+    }
+  });
+
+  it('executes skill_call as an independent LangGraph child Workflow using the current Skill version', async () => {
+    const skillId = `skill.child.${randomUUID()}`;
+    const first = await runtime.registerSkill({
+      ...skillInput(skillId, 'Child Workflow Skill v1'),
+      workflowGuidance: 'SKILL_CHILD_EXECUTION version one.',
+    });
+    expect(first.version).toBe(1);
+    const planId = `plan.skill-call.${randomUUID()}`;
+    const instanceId = `instance.skill-call-parent.${randomUUID()}`;
+    skillCallWorkflowTarget = {
+      workflowId: `workflow.skill-call.${randomUUID()}`,
+      goalId: `goal.skill-call.${randomUUID()}`,
+      goalVersion: 1,
+      skillId,
+    };
+    const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId,
+        workflowDefinitionId: skillCallWorkflowTarget.workflowId,
+        workflowVersion: 1,
+        goalId: skillCallWorkflowTarget.goalId,
+        goalVersion: 1,
+        planningInstruction: 'SKILL_CALL_PLAN',
+      }),
+    });
+    skillCallWorkflowTarget = undefined;
+    expect(planned.status).toBe(201);
+    const second = await runtime.registerSkill({
+      ...skillInput(skillId, 'Child Workflow Skill v2'),
+      workflowGuidance: 'SKILL_CHILD_EXECUTION version two.',
+    });
+    expect(second.version).toBe(2);
+    expect(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+        { method: 'POST' },
+      ),
+    ).toMatchObject({ status: 200 });
+    const execution = await fetch(
+      `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ instanceId, input: { deviceId: 'device-parent' } }),
+      },
+    );
+    expect(execution.status).toBe(201);
+    await expect(execution.json()).resolves.toMatchObject({
+      instanceId,
+      status: 'succeeded',
+      result: { status: 'online' },
+      skillVersions: [{ skillId, version: 2 }],
+    });
+    await expect(runtime.listSkillCallWorkflows(instanceId)).resolves.toEqual([
+      expect.objectContaining({
+        parentNodeId: 'child',
+        skillId,
+        skillVersion: 2,
+        status: 'succeeded',
+        evaluationSummary: expect.stringContaining(`${skillId}@2`),
+      }),
+    ]);
+  });
+
+  it('retrieves the same globally shared formal Skill for different user_id values', async () => {
+    const skillId = `skill.shared.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Globally shared formal Skill'));
+    for (const userId of ['shared-user-a', 'shared-user-b']) {
+      const task = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [{ text: `Use GLOBAL_SHARED_SKILL:${skillId}`, mediaType: 'text/plain' }],
+            metadata: { user_id: userId },
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in task)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/tasks/${task.id}`).then((response) =>
+          response.json(),
+        ),
+      ).resolves.toMatchObject({ userId, selectedSkillId: skillId });
     }
   });
 
@@ -2614,6 +2708,12 @@ async function startModelLoopback(): Promise<Server> {
         const taskWorkflowRequest = body.messages?.some(
           (message) => message.content?.includes('TASK_ATTACHED_PLAN') === true,
         );
+        const skillCallWorkflowRequest = body.messages?.some(
+          (message) => message.content?.includes('SKILL_CALL_PLAN') === true,
+        );
+        const skillChildExecutionRequest = body.messages?.some(
+          (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
+        );
         const initialTaskPlanRequest = body.messages?.some(
           (message) => message.content?.includes('task_initial_plan') === true,
         );
@@ -2661,6 +2761,10 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (skillChildExecutionRequest === true) {
+          respondStructured(response, { status: 'online' });
+          return;
+        }
         if (goalInputInferenceRequest === true) {
           const requestData = z
             .object({
@@ -2701,6 +2805,9 @@ async function startModelLoopback(): Promise<Server> {
           const controlGoal = requestData.requestText.includes('control loop');
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
           const autoTaskGoal = requestData.requestText.includes('zebra auto task');
+          const sharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
+            requestData.requestText,
+          )?.[1];
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
             requestData.requestText.includes('unknown target');
@@ -2711,11 +2818,13 @@ async function startModelLoopback(): Promise<Server> {
                 : 'Execute the requested task',
             description: autoTaskGoal
               ? 'AUTO_TASK_GOAL zebra return device status.'
-              : capabilityGapGoal
-                ? 'CAPABILITY_GAP_GOAL requires device pressure.'
-                : controlGoal
-                  ? 'CONTROL_GOAL collect two observations.'
-                  : 'Complete the user request using an enabled Skill.',
+              : sharedSkill !== undefined
+                ? `GLOBAL_SHARED_SKILL:${sharedSkill}`
+                : capabilityGapGoal
+                  ? 'CAPABILITY_GAP_GOAL requires device pressure.'
+                  : controlGoal
+                    ? 'CONTROL_GOAL collect two observations.'
+                    : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
               controlGoal || capabilityGapGoal || autoTaskGoal
@@ -2763,6 +2872,12 @@ async function startModelLoopback(): Promise<Server> {
           const eligibleCandidates = candidates.goalDescription.includes('AUTO_TASK_GOAL')
             ? candidates.candidates.filter((candidate) => candidate.autoConfirmPlan)
             : candidates.candidates.filter((candidate) => !candidate.autoConfirmPlan);
+          const requestedSharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
+            candidates.goalDescription,
+          )?.[1];
+          const exactSharedCandidate = eligibleCandidates.find(
+            (candidate) => candidate.skillId === requestedSharedSkill,
+          );
           const semanticLeaders = [...eligibleCandidates]
             .sort((left, right) => right.semanticScore - left.semanticScore)
             .filter(
@@ -2772,9 +2887,11 @@ async function startModelLoopback(): Promise<Server> {
             candidate.name.toLowerCase().includes('zebra'),
           );
           const preferred = deviceLeaders.length > 0 ? deviceLeaders : semanticLeaders;
-          const selected = [...preferred].sort((left, right) =>
-            left.createdAt.localeCompare(right.createdAt),
-          )[preferred.length - 1];
+          const selected =
+            exactSharedCandidate ??
+            [...preferred].sort((left, right) => left.createdAt.localeCompare(right.createdAt))[
+              preferred.length - 1
+            ];
           if (selected === undefined) throw new Error('NO_SKILL_SELECTION_CANDIDATE');
           respondStructured(response, {
             selectedSkillId: selected.skillId,
@@ -2939,6 +3056,35 @@ async function startModelLoopback(): Promise<Server> {
               },
             ],
             edges: [],
+          });
+          return;
+        }
+        if (skillCallWorkflowRequest === true) {
+          const target = skillCallWorkflowTarget;
+          if (target === undefined) throw new Error('SKILL_CALL_WORKFLOW_TARGET_MISSING');
+          respondStructured(response, {
+            workflowDefinitionId: target.workflowId,
+            version: 1,
+            goalId: target.goalId,
+            goalVersion: target.goalVersion,
+            entryNodeId: 'child',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'child',
+                name: 'Execute child Skill',
+                type: 'skill_call',
+                skillId: target.skillId,
+                input: { deviceId: 'device-child' },
+              },
+              {
+                nodeId: 'result',
+                name: 'Return child result',
+                type: 'result',
+                value: { op: 'ref', path: ['nodes', 'child'] },
+              },
+            ],
+            edges: [{ sourceNodeId: 'child', targetNodeId: 'result' }],
           });
           return;
         }

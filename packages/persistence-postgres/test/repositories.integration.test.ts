@@ -26,6 +26,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
   PostgresTaskWaitPolicyRepository,
   PostgresSkillRepository,
@@ -215,11 +216,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskSelectedSkillMigration);
+  const skillCallWorkflowMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0034_skill_call_workflow.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(skillCallWorkflowMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE goal_input_inference, memory_item, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -603,6 +609,111 @@ describe('PostgreSQL protocol-domain repositories', () => {
       { sequence: 2, event_type: 'node_succeeded' },
     ]);
   });
+  it('persists an independently traceable Skill-call child Workflow and actual Skill version', async () => {
+    const skills = new PostgresSkillRepository(pool);
+    const skill = createSkillVersion({
+      skillId: 'skill.child.db',
+      version: 1,
+      name: 'Child Skill',
+      summary: 'Child execution.',
+      description: 'Runs as a child Workflow.',
+      capabilities: ['child'],
+      workflowGuidance: 'Return status.',
+      outputInstruction: 'Return status.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    await skills.saveVersionAndSetCurrent(skill, skill.createdAt);
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    const definition = (id: string) => ({
+      workflowDefinitionId: id,
+      version: 1,
+      goalId: 'goal.skill-call.db',
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: true },
+        },
+      ],
+      edges: [],
+    });
+    for (const [planId, workflowId] of [
+      ['plan.parent.db', 'workflow.parent.db'],
+      ['plan.child.db', 'workflow.child.db'],
+    ] as const)
+      await plans.savePlan({
+        planId,
+        goalId: 'goal.skill-call.db',
+        goalVersion: 1,
+        definition: definition(workflowId),
+        confirmationStatus: 'confirmed',
+        attemptCount: 1,
+        createdAt: '2026-07-12T00:00:00.000Z',
+      });
+    const instance = (instanceId: string, planId: string, workflowDefinitionId: string) => ({
+      instanceId,
+      planId,
+      workflowDefinitionId,
+      workflowVersion: 1,
+      goalId: 'goal.skill-call.db',
+      goalVersion: 1,
+      skillVersions: [{ skillId: skill.skillId, version: skill.version }],
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 2,
+        maxMcpCalls: 0,
+        maxCost: 10,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 5, llmCalls: 1, mcpCalls: 0, cost: 1 },
+      status: 'succeeded' as const,
+      input: {},
+      result: { status: 'online' },
+      errors: {},
+      startedAt: '2026-07-12T00:00:01.000Z',
+      completedAt: '2026-07-12T00:00:02.000Z',
+    });
+    await executions.saveInstance(
+      instance('instance.parent.db', 'plan.parent.db', 'workflow.parent.db'),
+    );
+    await executions.saveInstance(
+      instance('instance.child.db', 'plan.child.db', 'workflow.child.db'),
+    );
+    const repository = new PostgresSkillCallWorkflowRepository(pool);
+    await repository.save({
+      parentInstanceId: 'instance.parent.db',
+      parentNodeId: 'child',
+      childInstanceId: 'instance.child.db',
+      childPlanId: 'plan.child.db',
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      status: 'succeeded',
+      evaluationSummary: 'Output Schema passed.',
+      createdAt: '2026-07-12T00:00:01.000Z',
+      completedAt: '2026-07-12T00:00:02.000Z',
+    });
+    await expect(repository.listByParent('instance.parent.db')).resolves.toEqual([
+      expect.objectContaining({
+        childInstanceId: 'instance.child.db',
+        skillId: 'skill.child.db',
+        skillVersion: 1,
+        evaluationSummary: 'Output Schema passed.',
+      }),
+    ]);
+  });
+
   it('atomically fails interrupted Tasks and Workflow instances without reconstructing execution', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     await contexts.save({

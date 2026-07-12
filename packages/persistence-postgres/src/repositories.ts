@@ -29,6 +29,7 @@ import type {
   SkillSelectionRepository,
   TemporarySkillRepository,
   SkillRepository,
+  SkillCallWorkflowRepository,
 } from '../../application/src/index.js';
 import type {
   AgentTask,
@@ -72,6 +73,7 @@ import type {
   SkillDraft,
   SkillRuntimePolicy,
   SkillVersion,
+  SkillCallWorkflowRecord,
   TaskPhase,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
@@ -2067,6 +2069,82 @@ const PendingConfirmationSchema = z
     pausedAt: z.string().optional(),
   })
   .strict();
+
+interface SkillCallWorkflowRow extends QueryResultRow {
+  parent_instance_id: string;
+  parent_node_id: string;
+  child_instance_id: string;
+  child_plan_id: string;
+  skill_id: string;
+  skill_version: number;
+  status: SkillCallWorkflowRecord['status'];
+  evaluation_summary: string;
+  created_at: Date;
+  completed_at: Date;
+}
+
+export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(record: SkillCallWorkflowRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_call_workflow(
+         parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
+         status,evaluation_summary,created_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT(parent_instance_id,parent_node_id) DO UPDATE SET
+         child_instance_id=EXCLUDED.child_instance_id,child_plan_id=EXCLUDED.child_plan_id,
+         skill_id=EXCLUDED.skill_id,skill_version=EXCLUDED.skill_version,status=EXCLUDED.status,
+         evaluation_summary=EXCLUDED.evaluation_summary,completed_at=EXCLUDED.completed_at`,
+      [
+        record.parentInstanceId,
+        record.parentNodeId,
+        record.childInstanceId,
+        record.childPlanId,
+        record.skillId,
+        record.skillVersion,
+        record.status,
+        record.evaluationSummary,
+        record.createdAt,
+        record.completedAt,
+      ],
+    );
+  }
+
+  async find(parentInstanceId: string, parentNodeId: string) {
+    const result = await this.#pool.query<SkillCallWorkflowRow>(
+      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 AND parent_node_id=$2`,
+      [parentInstanceId, parentNodeId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
+  }
+
+  async listByParent(parentInstanceId: string) {
+    const result = await this.#pool.query<SkillCallWorkflowRow>(
+      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id`,
+      [parentInstanceId],
+    );
+    return result.rows.map(mapSkillCallWorkflow);
+  }
+}
+
+function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
+  return {
+    parentInstanceId: row.parent_instance_id,
+    parentNodeId: row.parent_node_id,
+    childInstanceId: row.child_instance_id,
+    childPlanId: row.child_plan_id,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    status: row.status,
+    evaluationSummary: row.evaluation_summary,
+    createdAt: row.created_at.toISOString(),
+    completedAt: row.completed_at.toISOString(),
+  };
+}
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
   readonly #pool: Pool;

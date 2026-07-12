@@ -46,6 +46,8 @@ export interface WorkflowRuntimePorts {
     input: Readonly<{
       skillId: string;
       input: unknown;
+      parentExecutionId: string;
+      parentNodeId: string;
       signal?: AbortSignal;
     }>,
   ) => Promise<unknown>;
@@ -614,6 +616,8 @@ async function executeNode(
       const value = await ports.executeSkill({
         skillId: node.skillId,
         input: node.input,
+        parentExecutionId: state.executionId,
+        parentNodeId: node.nodeId,
         signal: callSignal,
       });
       budgetMeter.assertDuration();

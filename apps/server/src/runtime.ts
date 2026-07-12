@@ -23,6 +23,7 @@ import {
   SkillGraphService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillCallWorkflowService,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
   TemporarySkillService,
@@ -75,6 +76,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
   PostgresWorkflowPlanRepository,
   PostgresWorkflowExecutionRepository,
@@ -138,6 +140,9 @@ export interface ServerRuntimeHandle {
   ): Promise<unknown>;
   deleteMcpServer(serverId: string): Promise<void>;
   listMcpInvocations(serverId: string): ReturnType<McpRegistryService['listInvocations']>;
+  listSkillCallWorkflows(
+    parentInstanceId: string,
+  ): ReturnType<PostgresSkillCallWorkflowRepository['listByParent']>;
   listMcpDependencyWarnings(
     serverId: string,
   ): ReturnType<McpRegistryService['listDependencyWarnings']>;
@@ -278,6 +283,7 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
   });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
+  const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
@@ -292,18 +298,18 @@ export async function startServerRuntime(
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       return mcpRegistry.call(tool.serverId, tool.toolName, arguments_, signal);
     },
-    async executeSkill({ skillId, input }) {
-      const skill = await skills.findCurrentVersion(skillId);
-      if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
-      const result = await modelRuntime.generateStructured({
-        stage: 'execution_decision',
-        instruction: `${skill.workflowGuidance}\nInput: ${JSON.stringify(input)}`,
-        responseSchema: skill.outputSchema,
-        correctionErrors: [],
+    async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
+      const parent = await workflowInstances.findInstance(parentExecutionId);
+      if (parent === undefined) throw new Error('WORKFLOW_PARENT_INSTANCE_NOT_FOUND');
+      return skillCallWorkflowService.execute({
+        skillId,
+        value: input,
+        parentInstanceId: parentExecutionId,
+        parentNodeId,
+        parentGoalId: parent.goalId,
+        parentGoalVersion: parent.goalVersion,
+        ...(signal === undefined ? {} : { signal }),
       });
-      const validation = schemaValidator.validate(skill.outputSchema, result);
-      if (!validation.valid) throw new Error('WORKFLOW_SKILL_OUTPUT_INVALID');
-      return result;
     },
     async executeSubworkflow({ workflowDefinitionId, workflowVersion, parentInput, signal }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
@@ -346,6 +352,14 @@ export async function startServerRuntime(
     ids: { nextEventId: () => `workflow-event-${randomUUID()}` },
     skills,
     systemBudgetDefaults: workflowBudgetDefaults,
+  });
+  const skillCallWorkflowService = new SkillCallWorkflowService({
+    skills,
+    plans: workflowPlans,
+    execution: workflowExecution,
+    records: skillCallWorkflows,
+    clock,
+    nextId: randomUUID,
   });
   const workflowRevision = new WorkflowRevisionService({
     plans: workflowPlans,
@@ -701,6 +715,9 @@ export async function startServerRuntime(
       listMcpInvocations(serverId) {
         return mcpRegistry.listInvocations(serverId);
       },
+      listSkillCallWorkflows(parentInstanceId) {
+        return skillCallWorkflows.listByParent(parentInstanceId);
+      },
       listMcpDependencyWarnings(serverId) {
         return mcpRegistry.listDependencyWarnings(serverId);
       },
@@ -766,6 +783,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0031_global_memory.up.sql',
     '0032_goal_input_inference.up.sql',
     '0033_task_selected_skill.up.sql',
+    '0034_skill_call_workflow.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
