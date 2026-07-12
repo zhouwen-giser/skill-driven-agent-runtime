@@ -162,6 +162,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(executionControlMigration);
+  const goalContinuityMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0026_goal_continuity.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(goalContinuityMigration);
 });
 
 beforeEach(async () => {
@@ -627,6 +632,92 @@ describe('PostgreSQL protocol-domain repositories', () => {
           replanInstruction: 'Collect another result.',
         },
       }),
+    ]);
+  });
+  it('atomically persists related and unrelated Goal history decisions', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const goals = new PostgresGoalRepository(pool);
+    await contexts.save({
+      contextId: 'context.goal-history.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const previous = {
+      goalId: 'goal.history.previous',
+      contextId: 'context.goal-history.db',
+      version: 1,
+      title: 'Inspect',
+      description: 'Inspect the device.',
+      constraints: [],
+      successCriteria: ['inspected'],
+      status: 'achieved' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:01:00.000Z',
+    };
+    await goals.save(previous);
+    const successor = {
+      ...previous,
+      goalId: 'goal.history.successor',
+      title: 'Summarize',
+      description: 'Summarize the inspection.',
+      status: 'active' as const,
+      previousGoalId: previous.goalId,
+      createdAt: '2026-07-12T00:02:00.000Z',
+      updatedAt: '2026-07-12T00:02:00.000Z',
+    };
+    await goals.save(successor, {
+      transitionId: 'goal-transition.db',
+      contextId: successor.contextId,
+      fromGoalId: previous.goalId,
+      toGoalId: successor.goalId,
+      relationship: 'related_successor',
+      decisionSummary: 'The summary is the next phase.',
+      requestText: 'Summarize it.',
+      createdAt: successor.createdAt,
+    });
+
+    await expect(goals.findLatestByContextId(successor.contextId)).resolves.toMatchObject({
+      goalId: successor.goalId,
+      previousGoalId: previous.goalId,
+    });
+    await expect(goals.listByContextId(successor.contextId)).resolves.toHaveLength(2);
+    await expect(goals.listTransitions(successor.contextId)).resolves.toEqual([
+      expect.objectContaining({
+        fromGoalId: previous.goalId,
+        toGoalId: successor.goalId,
+        relationship: 'related_successor',
+      }),
+    ]);
+    await goals.save({
+      ...successor,
+      status: 'achieved',
+      updatedAt: '2026-07-12T00:03:00.000Z',
+    });
+    const unrelated = {
+      ...successor,
+      goalId: 'goal.history.unrelated',
+      title: 'Book travel',
+      description: 'Book an unrelated trip.',
+      status: 'active' as const,
+      createdAt: '2026-07-12T00:04:00.000Z',
+      updatedAt: '2026-07-12T00:04:00.000Z',
+    };
+    const { previousGoalId: ignoredPreviousGoalId, ...unrelatedWithoutPrevious } = unrelated;
+    void ignoredPreviousGoalId;
+    await goals.save(unrelatedWithoutPrevious, {
+      transitionId: 'goal-transition-unrelated.db',
+      contextId: unrelated.contextId,
+      fromGoalId: successor.goalId,
+      toGoalId: unrelated.goalId,
+      relationship: 'unrelated_new',
+      decisionSummary: 'The travel request is unrelated.',
+      requestText: 'Book travel.',
+      createdAt: unrelated.createdAt,
+    });
+    await expect(goals.listTransitions(successor.contextId)).resolves.toEqual([
+      expect.objectContaining({ relationship: 'related_successor' }),
+      expect.objectContaining({ relationship: 'unrelated_new' }),
     ]);
   });
   it('atomically versions a Goal and invalidates its old plans and instances', async () => {

@@ -41,6 +41,21 @@ const goalResponseSchema = {
     clarificationQuestion: { type: 'string', minLength: 1 },
   },
 } as const;
+const GoalContinuityDecisionSchema = z
+  .object({
+    relationship: z.enum(['related_successor', 'unrelated_new']),
+    decisionSummary: z.string().min(1),
+  })
+  .strict();
+const goalContinuityResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['relationship', 'decisionSummary'],
+  properties: {
+    relationship: { enum: ['related_successor', 'unrelated_new'] },
+    decisionSummary: { type: 'string', minLength: 1 },
+  },
+} as const;
 
 const SkillSelectionDecisionSchema = z
   .object({ selectedSkillId: z.string().min(1), decisionSummary: z.string().min(1) })
@@ -79,6 +94,11 @@ export interface GoalDecision {
   readonly successCriteria: readonly string[];
   readonly requiresInput: boolean;
   readonly clarificationQuestion?: string;
+}
+
+export interface GoalContinuityDecision {
+  readonly relationship: 'related_successor' | 'unrelated_new';
+  readonly decisionSummary: string;
 }
 
 export class StructuredTaskDecisionService {
@@ -125,6 +145,29 @@ export class StructuredTaskDecisionService {
         ? {}
         : { clarificationQuestion: result.clarificationQuestion }),
     };
+  }
+
+  async decideGoalContinuity(
+    input: Readonly<{
+      requestText: string;
+      previousGoal: Readonly<{
+        goalId: string;
+        title: string;
+        description: string;
+        constraints: readonly string[];
+        successCriteria: readonly string[];
+        status: string;
+      }>;
+    }>,
+  ): Promise<GoalContinuityDecision> {
+    return GoalContinuityDecisionSchema.parse(
+      await this.#model.generateStructured({
+        stage: 'goal',
+        instruction: JSON.stringify({ operation: 'decide_goal_continuity', ...input }),
+        responseSchema: goalContinuityResponseSchema,
+        correctionErrors: [],
+      }),
+    );
   }
 }
 

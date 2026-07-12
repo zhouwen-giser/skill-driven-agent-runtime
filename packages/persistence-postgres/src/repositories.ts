@@ -49,6 +49,7 @@ import type {
   WorkflowControlRound,
   Goal,
   GoalPatchRecord,
+  GoalTransitionRecord,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -407,9 +408,53 @@ export class PostgresGoalRepository implements GoalRepository {
     return result.rows[0] === undefined ? undefined : mapGoalRow(result.rows[0]);
   }
 
-  async save(goal: Goal): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO goal(
+  async findLatestByContextId(contextId: string): Promise<Goal | undefined> {
+    const result = await this.#pool.query<GoalRow>(
+      'SELECT * FROM goal WHERE context_id=$1 ORDER BY created_at DESC,goal_id DESC LIMIT 1',
+      [contextId],
+    );
+    return result.rows[0] === undefined ? undefined : mapGoalRow(result.rows[0]);
+  }
+
+  async listByContextId(contextId: string): Promise<readonly Goal[]> {
+    const result = await this.#pool.query<GoalRow>(
+      'SELECT * FROM goal WHERE context_id=$1 ORDER BY created_at,goal_id',
+      [contextId],
+    );
+    return result.rows.map(mapGoalRow);
+  }
+
+  async listTransitions(contextId: string): Promise<readonly GoalTransitionRecord[]> {
+    const result = await this.#pool.query<{
+      transition_id: string;
+      context_id: string;
+      from_goal_id: string;
+      to_goal_id: string;
+      relationship: GoalTransitionRecord['relationship'];
+      decision_summary: string;
+      request_text: string;
+      created_at: Date | string;
+    }>('SELECT * FROM goal_transition WHERE context_id=$1 ORDER BY created_at,transition_id', [
+      contextId,
+    ]);
+    return result.rows.map((row) => ({
+      transitionId: row.transition_id,
+      contextId: row.context_id,
+      fromGoalId: row.from_goal_id,
+      toGoalId: row.to_goal_id,
+      relationship: row.relationship,
+      decisionSummary: row.decision_summary,
+      requestText: row.request_text,
+      createdAt: toIsoString(row.created_at),
+    }));
+  }
+
+  async save(goal: Goal, transition?: GoalTransitionRecord): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO goal(
          goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
          status,previous_goal_id,created_at,updated_at)
        VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11)
@@ -417,20 +462,44 @@ export class PostgresGoalRepository implements GoalRepository {
          version=EXCLUDED.version,title=EXCLUDED.title,description=EXCLUDED.description,
          constraints_json=EXCLUDED.constraints_json,success_criteria_json=EXCLUDED.success_criteria_json,
          status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at`,
-      [
-        goal.goalId,
-        goal.contextId,
-        goal.version,
-        goal.title,
-        goal.description,
-        JSON.stringify(goal.constraints),
-        JSON.stringify(goal.successCriteria),
-        goal.status,
-        goal.previousGoalId ?? null,
-        goal.createdAt,
-        goal.updatedAt,
-      ],
-    );
+        [
+          goal.goalId,
+          goal.contextId,
+          goal.version,
+          goal.title,
+          goal.description,
+          JSON.stringify(goal.constraints),
+          JSON.stringify(goal.successCriteria),
+          goal.status,
+          goal.previousGoalId ?? null,
+          goal.createdAt,
+          goal.updatedAt,
+        ],
+      );
+      if (transition !== undefined)
+        await client.query(
+          `INSERT INTO goal_transition(
+             transition_id,context_id,from_goal_id,to_goal_id,relationship,
+             decision_summary,request_text,created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            transition.transitionId,
+            transition.contextId,
+            transition.fromGoalId,
+            transition.toGoalId,
+            transition.relationship,
+            transition.decisionSummary,
+            transition.requestText,
+            transition.createdAt,
+          ],
+        );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

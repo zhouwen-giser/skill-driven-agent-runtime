@@ -21,10 +21,14 @@ export interface PlanPreparationProcessorDependencies {
   readonly events: RuntimeEventPublisher;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
-  readonly decisions: Pick<StructuredTaskDecisionService, 'decideIntent' | 'formulateGoal'>;
-  readonly goals: Pick<GoalService, 'create'>;
+  readonly decisions: Pick<
+    StructuredTaskDecisionService,
+    'decideGoalContinuity' | 'decideIntent' | 'formulateGoal'
+  >;
+  readonly goals: Pick<GoalService, 'create' | 'findActiveByContextId' | 'findLatestByContextId'>;
   readonly skillSelection: Pick<SkillSelectionService, 'select'>;
   readonly nextGoalId: () => string;
+  readonly nextGoalTransitionId: () => string;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -65,31 +69,77 @@ export class PlanPreparationProcessor {
       'goal_deliberation',
       `LLM intent ${intent.intent}: ${intent.summary}`,
     );
-    const goalDecision = await this.#dependencies.decisions.formulateGoal({
-      requestText: task.requestText,
-    });
-    if (goalDecision.requiresInput) {
-      await this.#transition(
-        task,
-        'awaiting_user_input',
-        goalDecision.clarificationQuestion ?? 'Additional Goal input is required.',
-      );
-      return;
+    let goal = await this.#dependencies.goals.findActiveByContextId(task.contextId);
+    let goalSummary = 'Continuing the active Goal for this context.';
+    if (goal === undefined) {
+      const goalDecision = await this.#dependencies.decisions.formulateGoal({
+        requestText: task.requestText,
+      });
+      if (goalDecision.requiresInput) {
+        await this.#transition(
+          task,
+          'awaiting_user_input',
+          goalDecision.clarificationQuestion ?? 'Additional Goal input is required.',
+        );
+        return;
+      }
+      const previousGoal = await this.#dependencies.goals.findLatestByContextId(task.contextId);
+      const continuity =
+        previousGoal === undefined
+          ? undefined
+          : await this.#dependencies.decisions.decideGoalContinuity({
+              requestText: task.requestText,
+              previousGoal: {
+                goalId: previousGoal.goalId,
+                title: previousGoal.title,
+                description: previousGoal.description,
+                constraints: previousGoal.constraints,
+                successCriteria: previousGoal.successCriteria,
+                status: previousGoal.status,
+              },
+            });
+      const nextGoalId = this.#dependencies.nextGoalId();
+      goalSummary = continuity?.decisionSummary ?? 'Created the first Goal for this context.';
+      goal = await this.#dependencies.goals.create({
+        goalId: nextGoalId,
+        contextId: task.contextId,
+        title: goalDecision.title,
+        description: goalDecision.description,
+        constraints: goalDecision.constraints,
+        successCriteria: goalDecision.successCriteria,
+        ...(continuity?.relationship === 'related_successor' && previousGoal !== undefined
+          ? { previousGoalId: previousGoal.goalId }
+          : {}),
+        ...(continuity === undefined || previousGoal === undefined
+          ? {}
+          : {
+              transition: {
+                transitionId: this.#dependencies.nextGoalTransitionId(),
+                contextId: task.contextId,
+                fromGoalId: previousGoal.goalId,
+                toGoalId: nextGoalId,
+                relationship: continuity.relationship,
+                decisionSummary: continuity.decisionSummary,
+                requestText: task.requestText,
+                createdAt: this.#dependencies.clock.now(),
+              },
+            }),
+      });
     }
-    const goal = await this.#dependencies.goals.create({
-      goalId: this.#dependencies.nextGoalId(),
-      contextId: task.contextId,
-      title: goalDecision.title,
-      description: goalDecision.description,
-      constraints: goalDecision.constraints,
-      successCriteria: goalDecision.successCriteria,
-    });
     task = bindTaskGoal(task, {
       goalId: goal.goalId,
       goalVersion: goal.version,
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: task.taskId,
+      contextId: task.contextId,
+      eventType: 'task.phase_changed',
+      timestamp: this.#dependencies.clock.now(),
+      summary: goalSummary,
+    });
     const selection = await this.#dependencies.skillSelection.select(goal.description);
     task = await this.#transition(
       task,

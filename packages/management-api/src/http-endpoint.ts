@@ -193,7 +193,7 @@ const AdminWorkflowRevisionSchema = z.object({
 });
 
 export interface ManagementOperations {
-  readonly goals: Pick<GoalService, 'create' | 'get'>;
+  readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
@@ -297,6 +297,12 @@ export async function startManagementHttpEndpoint(
     '/api/v1/goals/:goalId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.goals.get(pathValue(request, 'goalId')));
+    }),
+  );
+  app.get(
+    '/api/v1/contexts/:contextId/goals',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.goals.history(pathValue(request, 'contextId')));
     }),
   );
   app.post(

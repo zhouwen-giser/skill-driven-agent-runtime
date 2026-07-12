@@ -423,6 +423,7 @@ export async function startServerRuntime(
       select: () => Promise.reject(new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED')),
     },
     nextGoalId: () => `goal-${randomUUID()}`,
+    nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
   });
   const waitSweepTimer = setInterval(() => {
     void taskWaitTimeouts.sweep().catch((error: unknown) => {
@@ -580,6 +581,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0023_goal_patch.up.sql',
     '0024_task_wait_timeout.up.sql',
     '0025_workflow_execution_control.up.sql',
+    '0026_goal_continuity.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

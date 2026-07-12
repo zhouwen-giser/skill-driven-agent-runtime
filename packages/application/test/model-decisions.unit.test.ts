@@ -18,6 +18,10 @@ describe('structured LLM final decisions', () => {
         successCriteria: ['status returned'],
         requiresInput: false,
       },
+      {
+        relationship: 'related_successor',
+        decisionSummary: 'This is the next phase of the completed inspection.',
+      },
     ]);
     const decisions = new StructuredTaskDecisionService(model);
 
@@ -32,7 +36,20 @@ describe('structured LLM final decisions', () => {
       constraints: ['read-only'],
       requiresInput: false,
     });
-    expect(model.calls.map((call) => call.stage)).toEqual(['intent', 'goal']);
+    await expect(
+      decisions.decideGoalContinuity({
+        requestText: 'Now summarize it.',
+        previousGoal: {
+          goalId: 'goal-1',
+          title: 'Inspect',
+          description: 'Inspect the device.',
+          constraints: [],
+          successCriteria: ['complete'],
+          status: 'achieved',
+        },
+      }),
+    ).resolves.toMatchObject({ relationship: 'related_successor' });
+    expect(model.calls.map((call) => call.stage)).toEqual(['intent', 'goal', 'goal']);
   });
 
   it('rejects inconsistent Goal clarification instead of applying a rule fallback', async () => {

@@ -33,9 +33,43 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       phaseMessage: 'Task preparation failed with MODEL_INVOCATION_FAILED.',
     });
   });
+
+  it('reuses the active Goal for another Task in the same context', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await processorWith(tasks, false, 'active').process({
+      taskId: 'task-1',
+      contextId: 'context-1',
+    });
+    expect(tasks.value).toMatchObject({ goalId: 'goal-existing', goalVersion: 3 });
+    expect(tasks.goalFormulations).toBe(0);
+    expect(tasks.messages).toContain('Continuing the active Goal for this context.');
+  });
+
+  it('records an LLM-decided related successor after the previous Goal ended', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await processorWith(tasks, false, 'terminal').process({
+      taskId: 'task-1',
+      contextId: 'context-1',
+    });
+    expect(tasks.createdGoal).toMatchObject({
+      goalId: 'goal-1',
+      previousGoalId: 'goal-existing',
+      transition: {
+        relationship: 'related_successor',
+        fromGoalId: 'goal-existing',
+        toGoalId: 'goal-1',
+      },
+    });
+  });
 });
 
-function processorWith(tasks: MemoryTasks, fail = false) {
+function processorWith(
+  tasks: MemoryTasks,
+  fail = false,
+  prior: 'none' | 'active' | 'terminal' = 'none',
+) {
   let event = 0;
   return new PlanPreparationProcessor({
     tasks,
@@ -56,18 +90,30 @@ function processorWith(tasks: MemoryTasks, fail = false) {
               }),
             )
           : Promise.resolve({ intent: 'execute', summary: 'Execute the task.' }),
-      formulateGoal: () =>
-        Promise.resolve({
+      formulateGoal: () => {
+        tasks.goalFormulations += 1;
+        return Promise.resolve({
           title: 'Goal',
           description: 'Complete the task.',
           constraints: [],
           successCriteria: ['Completed'],
           requiresInput: false,
+        });
+      },
+      decideGoalContinuity: () =>
+        Promise.resolve({
+          relationship: 'related_successor',
+          decisionSummary: 'Continue with the next related phase.',
         }),
     },
     goals: {
-      create: (input) =>
-        Promise.resolve({
+      findActiveByContextId: () =>
+        Promise.resolve(prior === 'active' ? existingGoal('active') : undefined),
+      findLatestByContextId: () =>
+        Promise.resolve(prior === 'terminal' ? existingGoal('achieved') : undefined),
+      create: (input) => {
+        tasks.createdGoal = input;
+        return Promise.resolve({
           ...input,
           constraints: input.constraints ?? [],
           successCriteria: input.successCriteria ?? [],
@@ -75,7 +121,8 @@ function processorWith(tasks: MemoryTasks, fail = false) {
           status: 'active',
           createdAt: timestamp,
           updatedAt: timestamp,
-        }),
+        });
+      },
     },
     skillSelection: {
       select: (goalDescription) =>
@@ -90,7 +137,23 @@ function processorWith(tasks: MemoryTasks, fail = false) {
         }),
     },
     nextGoalId: () => 'goal-1',
+    nextGoalTransitionId: () => 'goal-transition-1',
   });
+}
+
+function existingGoal(status: 'active' | 'achieved') {
+  return {
+    goalId: 'goal-existing',
+    contextId: 'context-1',
+    version: 3,
+    title: 'Existing Goal',
+    description: 'Continue the existing work.',
+    constraints: [],
+    successCriteria: ['Complete'],
+    status,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  } as const;
 }
 
 function task(): AgentTask {
@@ -107,6 +170,8 @@ function task(): AgentTask {
 class MemoryTasks {
   value: AgentTask | undefined;
   readonly messages: string[] = [];
+  goalFormulations = 0;
+  createdGoal: unknown;
   findById() {
     return Promise.resolve(this.value);
   }

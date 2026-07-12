@@ -6,6 +6,13 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/contexts/{contextId}/goals:
+    parameters: [{ name: contextId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listContextGoalHistory
+      description: Returns ordered Goals and fixed-stage relationship decisions for one context.
+      responses:
+        '200': { description: Goal history and related-successor/unrelated-new transition evidence }
   /api/v1/system/task-wait-policy:
     get:
       operationId: getTaskWaitPolicy

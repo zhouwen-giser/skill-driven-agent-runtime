@@ -1,4 +1,4 @@
-import { createGoal, type Goal } from '../../domain/src/index.js';
+import { createGoal, type Goal, type GoalTransitionRecord } from '../../domain/src/index.js';
 import type { Clock, ConversationContextRepository, GoalRepository } from './ports.js';
 
 export class GoalService {
@@ -25,6 +25,8 @@ export class GoalService {
       description: string;
       constraints?: readonly string[];
       successCriteria?: readonly string[];
+      previousGoalId?: string;
+      transition?: GoalTransitionRecord;
     }>,
   ): Promise<Goal> {
     if ((await this.#contexts.findById(input.contextId)) === undefined)
@@ -32,7 +34,7 @@ export class GoalService {
     if ((await this.#goals.findById(input.goalId)) !== undefined)
       throw new GoalServiceError('GOAL_ALREADY_EXISTS', 'Goal already exists.');
     const goal = createGoal({ ...input, timestamp: this.#clock.now() });
-    await this.#goals.save(goal);
+    await this.#goals.save(goal, input.transition);
     return goal;
   }
 
@@ -40,6 +42,21 @@ export class GoalService {
     const goal = await this.#goals.findById(goalId);
     if (goal === undefined) throw new GoalServiceError('GOAL_NOT_FOUND', 'Goal was not found.');
     return goal;
+  }
+
+  findActiveByContextId(contextId: string): Promise<Goal | undefined> {
+    return this.#goals.findActiveByContextId(contextId);
+  }
+
+  findLatestByContextId(contextId: string): Promise<Goal | undefined> {
+    return this.#goals.findLatestByContextId(contextId);
+  }
+
+  async history(contextId: string) {
+    return {
+      goals: await this.#goals.listByContextId(contextId),
+      transitions: await this.#goals.listTransitions(contextId),
+    };
   }
 }
 

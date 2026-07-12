@@ -2,6 +2,7 @@ export * from './conversation-context.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-patch.js';
+export * from './goal-transition.js';
 export * from './identity.js';
 export * from './skill-draft.js';
 export * from './skill.js';

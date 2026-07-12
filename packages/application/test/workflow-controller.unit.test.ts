@@ -344,6 +344,15 @@ class MemoryGoals implements GoalRepository {
       id === this.goal.contextId && this.goal.status === 'active' ? this.goal : undefined,
     );
   }
+  findLatestByContextId(id: string) {
+    return Promise.resolve(id === this.goal.contextId ? this.goal : undefined);
+  }
+  listByContextId(id: string) {
+    return Promise.resolve(id === this.goal.contextId ? [this.goal] : []);
+  }
+  listTransitions() {
+    return Promise.resolve([]);
+  }
   save(goal: Goal) {
     this.goal = goal;
     return Promise.resolve();

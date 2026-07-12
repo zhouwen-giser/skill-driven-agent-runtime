@@ -36,6 +36,7 @@ import type {
   WorkflowControlRound,
   GoalEvaluationResult,
   GoalPatchRecord,
+  GoalTransitionRecord,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
 
@@ -47,7 +48,10 @@ export interface ConversationContextRepository {
 export interface GoalRepository {
   findById(goalId: string): Promise<Goal | undefined>;
   findActiveByContextId(contextId: string): Promise<Goal | undefined>;
-  save(goal: Goal): Promise<void>;
+  findLatestByContextId(contextId: string): Promise<Goal | undefined>;
+  listByContextId(contextId: string): Promise<readonly Goal[]>;
+  listTransitions(contextId: string): Promise<readonly GoalTransitionRecord[]>;
+  save(goal: Goal, transition?: GoalTransitionRecord): Promise<void>;
 }
 
 export interface GoalPatchRepository {

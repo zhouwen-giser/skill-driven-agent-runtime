@@ -357,6 +357,42 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [{ patchId: 'patch-1' }] });
   });
 
+  it('exposes ordered Goal and relationship history for a context', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        goals: {
+          ...configured.goals,
+          history: () =>
+            Promise.resolve({
+              goals: [goalRecord(1)],
+              transitions: [
+                {
+                  transitionId: 'transition-1',
+                  contextId: 'context-1',
+                  fromGoalId: 'goal-old',
+                  toGoalId: 'goal-1',
+                  relationship: 'related_successor',
+                  decisionSummary: 'Related next phase.',
+                  requestText: 'Continue.',
+                  createdAt: '2026-07-12T00:00:00.000Z',
+                },
+              ],
+            }),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/contexts/context-1/goals`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      goals: [expect.objectContaining({ goalId: 'goal-1' })],
+      transitions: [expect.objectContaining({ relationship: 'related_successor' })],
+    });
+  });
+
   it('exposes task-plan binding and validated admin plan revision contracts', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -423,7 +459,7 @@ describe('management HTTP API contract', () => {
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
-    goals: { create: unused, get: unused },
+    goals: { create: unused, get: unused, history: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     tasks: { attachPlan: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },

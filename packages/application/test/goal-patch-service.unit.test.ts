@@ -71,6 +71,9 @@ describe('GoalPatchService', () => {
       goals: {
         findById: () => Promise.resolve(goal),
         findActiveByContextId: () => Promise.resolve(goal),
+        findLatestByContextId: () => Promise.resolve(goal),
+        listByContextId: () => Promise.resolve([goal]),
+        listTransitions: () => Promise.resolve([]),
         save: () => Promise.resolve(),
       },
       plans: {

@@ -1801,6 +1801,43 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(storedGoal.json()).resolves.toMatchObject({ status: 'achieved' });
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
       expect(controlEvaluationCalls).toBe(2);
+      const successorTask = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            contextId: submitted.contextId,
+            role: 'ROLE_USER',
+            parts: [{ text: 'Summarize the completed observations.', mediaType: 'text/plain' }],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in successorTask)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      const successor = z
+        .object({ goalId: z.string() })
+        .parse(
+          await (
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${successorTask.id}`)
+          ).json(),
+        );
+      expect(successor.goalId).not.toBe(goalId);
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/contexts/${submitted.contextId}/goals`).then(
+          (response) => response.json(),
+        ),
+      ).resolves.toMatchObject({
+        goals: [
+          expect.objectContaining({ goalId, status: 'achieved' }),
+          expect.objectContaining({ goalId: successor.goalId, previousGoalId: goalId }),
+        ],
+        transitions: [
+          expect.objectContaining({
+            fromGoalId: goalId,
+            toGoalId: successor.goalId,
+            relationship: 'related_successor',
+          }),
+        ],
+      });
     } finally {
       mcpWorkflowTarget = undefined;
       await mockMcp.close();
@@ -2036,6 +2073,49 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('reuses one active Goal across multiple A2A Tasks in the same context', async () => {
+    const first = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Begin a multi-step inspection.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in first)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const second = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          contextId: first.contextId,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Continue with the next device.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in second)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const readGoal = (taskId: string) =>
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`).then(
+        (response) => response.json() as Promise<{ goalId: string; goalVersion: number }>,
+      );
+    const [firstTask, secondTask] = await Promise.all([readGoal(first.id), readGoal(second.id)]);
+    expect(secondTask).toMatchObject({
+      goalId: firstTask.goalId,
+      goalVersion: firstTask.goalVersion,
+    });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/contexts/${first.contextId}/goals`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      goals: [expect.objectContaining({ goalId: firstTask.goalId, status: 'active' })],
+      transitions: [],
+    });
+  });
+
   it('stores create/update Skill requests as drafts without exposing them in Agent Card', async () => {
     const skillId = `skill.enabled.${randomUUID()}`;
     await runtime.registerSkill(skillInput(skillId, 'Enabled skill'));
@@ -2246,6 +2326,9 @@ async function startModelLoopback(): Promise<Server> {
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
+        const goalContinuityRequest = body.messages?.some(
+          (message) => message.content?.includes('decide_goal_continuity') === true,
+        );
         const goalPatchDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('generate_goal_patch') === true,
         );
@@ -2302,6 +2385,13 @@ async function startModelLoopback(): Promise<Server> {
                 : 'A validated result is returned.',
             ],
             requiresInput: false,
+          });
+          return;
+        }
+        if (goalContinuityRequest === true) {
+          respondStructured(response, {
+            relationship: 'related_successor',
+            decisionSummary: 'The new request is a related next phase of the completed Goal.',
           });
           return;
         }
