@@ -235,6 +235,36 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('lists low-confidence implicit feedback linked to a Task', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        implicitFeedback: {
+          listByTask: (taskId) =>
+            Promise.resolve([
+              {
+                feedbackId: 'feedback-1',
+                kind: 'requested_redo',
+                sourceTaskId: taskId,
+                triggerTaskId: taskId,
+                contextId: 'context-1',
+                confidence: 0.35,
+                evidenceSummary: 'The revision text requested a redo.',
+                createdAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/implicit-feedback`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [{ kind: 'requested_redo', sourceTaskId: 'task-1', confidence: 0.35 }],
+    });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -1132,6 +1162,7 @@ function operations(failServerList = false): ManagementOperations {
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     taskQuality: { getByTask: unused },
+    implicitFeedback: { listByTask: () => Promise.resolve([]) },
     memories: {
       refine: unused,
       get: unused,

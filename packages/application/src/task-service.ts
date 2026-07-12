@@ -27,6 +27,7 @@ import type {
 } from './ports.js';
 import type { ResultCandidate, ResultProcessor } from './result-processor.js';
 import type { MemoryService } from './memory-service.js';
+import type { ImplicitFeedbackService } from './implicit-feedback.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
@@ -68,6 +69,10 @@ export interface TaskServiceDependencies {
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
   readonly memories?: Pick<MemoryService, 'recordEvolution'>;
+  readonly feedback?: Pick<
+    ImplicitFeedbackService,
+    'observeSubmission' | 'observeRevision' | 'observeSkillSwitch'
+  >;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<void>;
     executeConfirmed(task: AgentTask): Promise<void>;
@@ -120,6 +125,7 @@ export class TaskService {
 
     if (existing === undefined) await this.#dependencies.contexts.save(context);
     await this.#dependencies.tasks.save(task);
+    await this.#dependencies.feedback?.observeSubmission(task);
     if (command.skillDraftIntent !== undefined) {
       await this.#dependencies.skillDrafts.save(
         createSkillDraft({
@@ -269,6 +275,7 @@ export class TaskService {
         timestamp: this.#dependencies.clock.now(),
       });
       await this.#dependencies.tasks.save(task);
+      await this.#dependencies.feedback?.observeRevision(task, command.messageText);
     }
     if (command.action === 'confirm_plan') {
       if (task.planId === undefined)
@@ -370,9 +377,12 @@ export class TaskService {
     input: Readonly<{ planId: string; skillId: string; skillVersion: number; summary: string }>,
   ): Promise<AgentTask> {
     let task = await this.get(taskId);
+    const previousSkillId = task.selectedSkillId;
     task = await this.#saveTransition(task, 'planning', input.summary);
     task = bindTaskReplacement(task, { ...input, timestamp: this.#dependencies.clock.now() });
     await this.#dependencies.tasks.save(task);
+    if (previousSkillId !== undefined && previousSkillId !== input.skillId)
+      await this.#dependencies.feedback?.observeSkillSwitch(task, previousSkillId, input.skillId);
     return this.#saveTransition(
       task,
       'awaiting_plan_confirmation',

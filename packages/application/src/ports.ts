@@ -53,6 +53,7 @@ import type {
   GoalPatchRecord,
   GoalInferenceSource,
   GoalInputInferenceRecord,
+  ImplicitFeedbackRecord,
   GoalTransitionRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
@@ -103,6 +104,12 @@ export interface ProcessedResultRepository {
 export interface TaskQualityReportRepository {
   save(report: TaskQualityReport): Promise<void>;
   findByTask(taskId: string): Promise<TaskQualityReport | undefined>;
+}
+
+export interface ImplicitFeedbackRepository {
+  findPreviousTerminal(contextId: string, excludeTaskId: string): Promise<AgentTask | undefined>;
+  save(record: ImplicitFeedbackRecord): Promise<void>;
+  listByTask(taskId: string): Promise<readonly ImplicitFeedbackRecord[]>;
 }
 
 export interface MemoryRepository {

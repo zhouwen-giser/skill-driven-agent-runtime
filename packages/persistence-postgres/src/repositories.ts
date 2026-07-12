@@ -16,6 +16,7 @@ import type {
   WorkflowExecutionRepository,
   WorkflowControlRepository,
   GoalRepository,
+  ImplicitFeedbackRepository,
   GoalPatchRepository,
   GoalCancellationRepository,
   ProcessedResultRepository,
@@ -73,6 +74,7 @@ import type {
   GoalInferenceSource,
   GoalInputInferenceRecord,
   GoalTransitionRecord,
+  ImplicitFeedbackRecord,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -1625,6 +1627,68 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       ],
     );
     if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
+  }
+}
+
+interface ImplicitFeedbackRow extends QueryResultRow {
+  feedback_id: string;
+  kind: ImplicitFeedbackRecord['kind'];
+  source_task_id: string;
+  trigger_task_id: string;
+  context_id: string;
+  confidence: number;
+  evidence_summary: string;
+  created_at: Date | string;
+}
+
+export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async findPreviousTerminal(contextId: string, excludeTaskId: string) {
+    const result = await this.#pool.query<TaskRow>(
+      `SELECT * FROM agent_task
+       WHERE context_id=$1 AND task_id<>$2
+         AND phase IN ('completed','canceled','failed','invalidated')
+       ORDER BY updated_at DESC,task_id DESC LIMIT 1`,
+      [contextId, excludeTaskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTaskRow(result.rows[0]);
+  }
+  async save(record: ImplicitFeedbackRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO implicit_feedback(
+         feedback_id,kind,source_task_id,trigger_task_id,context_id,confidence,evidence_summary,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        record.feedbackId,
+        record.kind,
+        record.sourceTaskId,
+        record.triggerTaskId,
+        record.contextId,
+        record.confidence,
+        record.evidenceSummary,
+        record.createdAt,
+      ],
+    );
+  }
+  async listByTask(taskId: string): Promise<readonly ImplicitFeedbackRecord[]> {
+    const result = await this.#pool.query<ImplicitFeedbackRow>(
+      `SELECT * FROM implicit_feedback
+       WHERE source_task_id=$1 OR trigger_task_id=$1 ORDER BY created_at,feedback_id`,
+      [taskId],
+    );
+    return result.rows.map((row) => ({
+      feedbackId: row.feedback_id,
+      kind: row.kind,
+      sourceTaskId: row.source_task_id,
+      triggerTaskId: row.trigger_task_id,
+      contextId: row.context_id,
+      confidence: row.confidence,
+      evidenceSummary: row.evidence_summary,
+      createdAt: toIsoString(row.created_at),
+    }));
   }
 }
 

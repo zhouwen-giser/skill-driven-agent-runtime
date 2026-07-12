@@ -17,7 +17,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [ ] stage-specific memory retrieval
 - [ ] memory version/status/replacement
 - [ ] five evaluator pipeline
-- [ ] implicit feedback inference
+- [x] implicit feedback inference
 - [ ] experience clustering threshold
 - [x] skill test generation, actual historical Workflow replay, supplemental simulation, and all-pass publication (FR-SKL-015, FR-EVO-005); broader FR-EVO-007 evolution remains open
 - [ ] prompt optimization candidate generation
@@ -42,6 +42,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-12: project authoritative Skill/Prompt corrections, Task failure reasons and Goal evaluation conclusions through strict refinement into source-linked retrievable evolution Memory (FR-MEM-005, ADR-058).
 - [x] 2026-07-12: persist review/archive/delete Memory retention fields while enforcing automatic archive/delete disabled in both domain and PostgreSQL, with management configuration and no cleanup worker (FR-MEM-006, ADR-059).
 - [x] 2026-07-13: run five strict Goal/Workflow/Skill/result/Tool evaluation components after final Result Processing and persist one deterministic source-linked TaskQualityReport (FR-EVAL-001, ADR-060).
+- [x] 2026-07-13: infer five V1 behavioral feedback classes at authoritative Task lifecycle boundaries, persist source/trigger Task links with fixed confidence 0.35, and expose management evidence (FR-EVAL-002, ADR-061).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

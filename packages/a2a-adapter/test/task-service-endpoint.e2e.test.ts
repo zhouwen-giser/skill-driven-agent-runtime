@@ -1152,6 +1152,19 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     expect(replacement.planId).not.toBe(initial.planId);
     await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/implicit-feedback`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [
+        expect.objectContaining({
+          kind: 'switched_skill',
+          sourceTaskId: submitted.id,
+          confidence: 0.35,
+        }),
+      ],
+    });
+    await expect(
       fetch(
         `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(initial.planId)}`,
       ).then((response) => response.json()),
@@ -2981,6 +2994,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const sourcePlanId = await attachPlannedTask(taskId);
     const revised = await sendFollowUp(taskId, contextId, 'revise_plan', 'Add a safety check.');
     expectTaskState(revised, TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/implicit-feedback`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [expect.objectContaining({ kind: 'continued_modification', confidence: 0.35 })],
+    });
     const taskAfterRevision = await fetch(
       `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
     ).then((response) => response.json() as Promise<{ planId: string }>);

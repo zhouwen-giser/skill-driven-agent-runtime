@@ -35,6 +35,7 @@ import {
   PostgresSkillRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
+  PostgresImplicitFeedbackRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -304,6 +305,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskQualityMigration);
+  const implicitFeedbackMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0047_implicit_feedback.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(implicitFeedbackMigration);
 });
 
 beforeEach(async () => {
@@ -326,6 +332,61 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists low-confidence feedback and finds the previous terminal Task', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const feedback = new PostgresImplicitFeedbackRepository(pool);
+    await contexts.save({
+      contextId: 'context.feedback.db',
+      userId: 'anonymous',
+      createdAt: '2026-07-13T00:00:00.000Z',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+    });
+    const previous = createAgentTask({
+      taskId: 'task.feedback.previous',
+      contextId: 'context.feedback.db',
+      userId: 'anonymous',
+      requestText: 'Inspect the device.',
+      requestMetadata: {},
+      timestamp: '2026-07-13T00:00:00.000Z',
+    });
+    const current = createAgentTask({
+      taskId: 'task.feedback.current',
+      contextId: 'context.feedback.db',
+      userId: 'anonymous',
+      requestText: 'Continue.',
+      requestMetadata: {},
+      timestamp: '2026-07-13T00:01:00.000Z',
+    });
+    await tasks.save(previous);
+    await pool.query("UPDATE agent_task SET phase='completed',updated_at=$2 WHERE task_id=$1", [
+      previous.taskId,
+      '2026-07-13T00:00:30.000Z',
+    ]);
+    await tasks.save(current);
+
+    await expect(
+      feedback.findPreviousTerminal('context.feedback.db', current.taskId),
+    ).resolves.toMatchObject({ taskId: previous.taskId, phase: 'completed' });
+    await feedback.save({
+      feedbackId: 'feedback.db.1',
+      kind: 'accepted_result',
+      sourceTaskId: previous.taskId,
+      triggerTaskId: current.taskId,
+      contextId: 'context.feedback.db',
+      confidence: 0.35,
+      evidenceSummary: 'A successor followed the terminal Task.',
+      createdAt: '2026-07-13T00:01:00.000Z',
+    });
+    await expect(feedback.listByTask(previous.taskId)).resolves.toEqual([
+      expect.objectContaining({
+        feedbackId: 'feedback.db.1',
+        kind: 'accepted_result',
+        confidence: 0.35,
+      }),
+    ]);
+  });
+
   it('collects conversation evidence and replays an explainable input inference', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);

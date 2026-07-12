@@ -51,6 +51,7 @@ import {
   TaskService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
+  ImplicitFeedbackService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -97,6 +98,7 @@ import {
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
   PostgresTaskQualityReportRepository,
+  PostgresImplicitFeedbackRepository,
   PostgresMemoryRepository,
   PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
@@ -194,6 +196,11 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const implicitFeedback = new ImplicitFeedbackService({
+    repository: new PostgresImplicitFeedbackRepository(pool),
+    clock,
+    nextId: () => `implicit-feedback-${randomUUID()}`,
+  });
   const workflowTemplates = new WorkflowTemplateService({
     repository: new PostgresWorkflowTemplateRepository(pool),
     clock,
@@ -467,6 +474,7 @@ export async function startServerRuntime(
     clock,
     ids,
     memories,
+    feedback: implicitFeedback,
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
@@ -934,6 +942,7 @@ export async function startServerRuntime(
         taskWaitTimeouts,
         resultProcessing,
         taskQuality,
+        implicitFeedback,
         memories,
         memoryRetention,
         goalInputInference,
@@ -1122,6 +1131,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0044_memory_status_transition.up.sql',
     '0045_memory_retention_policy.up.sql',
     '0046_task_quality_report.up.sql',
+    '0047_implicit_feedback.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
