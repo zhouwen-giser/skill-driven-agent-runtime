@@ -18,7 +18,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [ ] pause/resume thresholds and cancellation
 - [ ] goal patch invalidation and compensation planning
 - [x] result normalization and structured output
-- [ ] goal evaluation/replanning budgets
+- [x] goal evaluation/replanning budgets
 - [ ] replacement skill plan confirmation
 
 ## Progress
@@ -31,6 +31,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: implement context-wide active Goal reuse and fixed-stage terminal Goal relationship/history decisions.
 - [x] 2026-07-12: implement runtime-first Goal cancellation, atomic shared-work cascade, immutable history and terminal-monotonic Task writes.
 - [x] 2026-07-12: implement MCP downstream result envelopes and fixed-stage Skill-directed final output with facts/value/memory candidates.
+- [x] 2026-07-12: require per-round Goal evaluation and persist explicit input/plan/Skill/capability/termination actions with immutable outer replanning.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -64,6 +65,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] `goal patch invalidation tests`: unit + real PostgreSQL integration + management contract + A2A/MCP e2e.
 - [x] `timeout auto-cancel`: managed one-second policy proven through real A2A/PostgreSQL e2e.
 - [x] `pause short/long behavior`: real MCP/A2A short resume and zero-second Skill-threshold replan evidence.
+- [x] `Goal evaluation actions`: unit + PostgreSQL integration + management contract + real A2A/MCP two-round e2e.
 
 ## Idempotence and Recovery
 

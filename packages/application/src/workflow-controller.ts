@@ -183,6 +183,17 @@ export class WorkflowControllerService {
         await this.#controls.save(control);
         return control;
       }
+      if (evaluation.decision === 'request_input' || evaluation.decision === 'capability_gap') {
+        control = {
+          ...control,
+          status: evaluation.decision === 'request_input' ? 'awaiting_input' : 'capability_gap',
+          roundCount: completedRound,
+          finalInstanceId: instanceId,
+          updatedAt: this.#clock.now(),
+        };
+        await this.#controls.save(control);
+        return control;
+      }
       if (control.replanCount >= instance.budgetLimits.maxReplans) {
         await this.#goals.save(changeGoalStatus(goal, 'unachievable', this.#clock.now()));
         control = {
@@ -210,7 +221,8 @@ export class WorkflowControllerService {
           instruction: control.planningInstruction,
           previousInstanceId: instanceId,
           evaluationSummary: evaluation.summary,
-          replanInstruction: evaluation.replanInstruction,
+          evaluationDecision: evaluation.decision,
+          actionInstruction: evaluation.actionInstruction,
         }),
       });
       const autoConfirmSkillIds = new Set(control.skillIds);

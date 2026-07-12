@@ -2012,7 +2012,7 @@ interface WorkflowControlRoundRow extends QueryResultRow {
   workflow_version: number;
   evaluation_decision: WorkflowControlRound['evaluation']['decision'];
   evaluation_summary: string;
-  replan_instruction: string | null;
+  evaluation_detail_json: unknown;
   created_at: Date | string;
 }
 
@@ -2064,8 +2064,8 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
     await this.#pool.query(
       `INSERT INTO workflow_control_round(
          control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
-         evaluation_summary,replan_instruction,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+         evaluation_summary,evaluation_detail_json,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
       [
         round.controlId,
         round.roundIndex,
@@ -2074,7 +2074,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         round.workflowVersion,
         round.evaluation.decision,
         round.evaluation.summary,
-        round.evaluation.replanInstruction ?? null,
+        JSON.stringify(round.evaluation),
         round.createdAt,
       ],
     );
@@ -2115,12 +2115,52 @@ function mapWorkflowControlRoundRow(row: WorkflowControlRoundRow): WorkflowContr
     planId: row.plan_id,
     instanceId: row.instance_id,
     workflowVersion: row.workflow_version,
-    evaluation: {
-      decision: row.evaluation_decision,
-      summary: row.evaluation_summary,
-      ...(row.replan_instruction === null ? {} : { replanInstruction: row.replan_instruction }),
-    },
+    evaluation: mapWorkflowControlEvaluation(row.evaluation_detail_json),
     createdAt: toIsoString(row.created_at),
+  };
+}
+
+const WorkflowControlEvaluationSchema = z
+  .object({
+    decision: z.enum([
+      'achieved',
+      'request_input',
+      'adjust_plan',
+      'replace_skill',
+      'invoke_additional_skill',
+      'capability_gap',
+      'unachievable',
+    ]),
+    summary: z.string().min(1),
+    actionInstruction: z.string().min(1).optional(),
+    question: z.string().min(1).optional(),
+    missingCapability: z.string().min(1).optional(),
+    suggestedToolContract: z
+      .object({
+        name: z.string().min(1),
+        description: z.string().min(1),
+        inputSchema: z.unknown(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+function mapWorkflowControlEvaluation(value: unknown): WorkflowControlRound['evaluation'] {
+  const result = WorkflowControlEvaluationSchema.parse(value);
+  return {
+    decision: result.decision,
+    summary: result.summary,
+    ...(result.actionInstruction === undefined
+      ? {}
+      : { actionInstruction: result.actionInstruction }),
+    ...(result.question === undefined ? {} : { question: result.question }),
+    ...(result.missingCapability === undefined
+      ? {}
+      : { missingCapability: result.missingCapability }),
+    ...(result.suggestedToolContract === undefined
+      ? {}
+      : { suggestedToolContract: result.suggestedToolContract }),
   };
 }
 

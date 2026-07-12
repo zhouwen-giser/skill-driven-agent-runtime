@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS workflow_control (
   goal_id text NOT NULL REFERENCES goal(goal_id),
   goal_version integer NOT NULL CHECK(goal_version > 0),
   status text NOT NULL CHECK(status IN (
-    'running','awaiting_confirmation','achieved','unachievable','failed','replan_budget_exhausted'
+    'running','awaiting_confirmation','awaiting_input','capability_gap',
+    'achieved','unachievable','failed','replan_budget_exhausted'
   )),
   current_plan_id text NOT NULL REFERENCES workflow_plan(plan_id),
   input_json jsonb NOT NULL,
@@ -23,9 +24,13 @@ CREATE TABLE IF NOT EXISTS workflow_control_round (
   plan_id text NOT NULL REFERENCES workflow_plan(plan_id),
   instance_id text NOT NULL REFERENCES workflow_instance(instance_id),
   workflow_version integer NOT NULL CHECK(workflow_version > 0),
-  evaluation_decision text NOT NULL CHECK(evaluation_decision IN ('achieved','replan','unachievable')),
+  evaluation_decision text NOT NULL CHECK(evaluation_decision IN (
+    'achieved','request_input','adjust_plan','replace_skill','invoke_additional_skill',
+    'capability_gap','unachievable'
+  )),
   evaluation_summary text NOT NULL,
   replan_instruction text,
+  evaluation_detail_json jsonb NOT NULL,
   created_at timestamptz NOT NULL,
   PRIMARY KEY(control_id, round_index)
 );

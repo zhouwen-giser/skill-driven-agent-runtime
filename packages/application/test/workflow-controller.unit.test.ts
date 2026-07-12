@@ -23,9 +23,9 @@ describe('Workflow outer controller', () => {
     const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
     fixture.evaluator.decisions.push(
       {
-        decision: 'replan',
+        decision: 'adjust_plan',
         summary: 'Need another observation.',
-        replanInstruction: 'Read again.',
+        actionInstruction: 'Read again.',
       },
       { decision: 'achieved', summary: 'Goal satisfied.' },
     );
@@ -57,7 +57,7 @@ describe('Workflow outer controller', () => {
   it('pauses a normal replan for confirmation and continues the same persisted control', async () => {
     const fixture = createFixture({ maxReplans: 2, autoConfirm: false });
     fixture.evaluator.decisions.push(
-      { decision: 'replan', summary: 'Revise.', replanInstruction: 'Use another route.' },
+      { decision: 'replace_skill', summary: 'Revise.', actionInstruction: 'Use another Skill.' },
       { decision: 'achieved', summary: 'Done.' },
     );
 
@@ -78,9 +78,9 @@ describe('Workflow outer controller', () => {
   it('terminates and marks the Goal unachievable when maxReplans is exhausted', async () => {
     const fixture = createFixture({ maxReplans: 0, autoConfirm: true });
     fixture.evaluator.decisions.push({
-      decision: 'replan',
+      decision: 'invoke_additional_skill',
       summary: 'Still incomplete.',
-      replanInstruction: 'Try again.',
+      actionInstruction: 'Try an additional diagnostic Skill.',
     });
 
     const result = await fixture.controller.start(startInput());
@@ -103,9 +103,9 @@ describe('Workflow outer controller', () => {
     });
     fixture.evaluator.decisions.push(
       {
-        decision: 'replan',
+        decision: 'adjust_plan',
         summary: 'Recover from failure.',
-        replanInstruction: 'Use a safe retry.',
+        actionInstruction: 'Use a safe retry.',
       },
       { decision: 'achieved', summary: 'Recovered.' },
     );
@@ -116,6 +116,45 @@ describe('Workflow outer controller', () => {
     });
     expect(fixture.controls.rounds[0]?.evaluation.summary).toBe('Recover from failure.');
   });
+
+  it.each([
+    [
+      'request_input' as const,
+      { question: 'Which device should be inspected?' },
+      'awaiting_input' as const,
+    ],
+    [
+      'capability_gap' as const,
+      {
+        missingCapability: 'Read pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read pressure.',
+          inputSchema: { type: 'object' },
+        },
+      },
+      'capability_gap' as const,
+    ],
+  ])(
+    'stops after evaluation decision %s without planning or executing another node',
+    async (decision, detail, status) => {
+      const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
+      fixture.evaluator.decisions.push({
+        decision,
+        summary: 'More evidence is required.',
+        ...detail,
+      });
+
+      await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+        status,
+        roundCount: 1,
+        replanCount: 0,
+      });
+      expect(fixture.planner.plan).not.toHaveBeenCalled();
+      expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+      expect(fixture.goals.goal.status).toBe('active');
+    },
+  );
 });
 
 function startInput() {

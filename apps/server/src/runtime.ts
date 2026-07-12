@@ -623,6 +623,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0026_goal_continuity.up.sql',
     '0027_goal_cancellation.up.sql',
     '0028_result_processing.up.sql',
+    '0029_goal_evaluation_decisions.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

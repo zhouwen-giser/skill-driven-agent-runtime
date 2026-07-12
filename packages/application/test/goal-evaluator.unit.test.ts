@@ -4,31 +4,71 @@ import type { StructuredModelProvider } from '../src/ports.js';
 import { StructuredGoalEvaluator } from '../src/goal-evaluator.js';
 
 describe('structured Goal evaluator', () => {
-  it('accepts a displayable structured replan decision', async () => {
+  it('accepts a displayable structured plan-adjustment decision', async () => {
     const model = new FixedModel({
-      decision: 'replan',
+      decision: 'adjust_plan',
       summary: 'The current result does not satisfy the success criterion.',
-      replanInstruction: 'Collect the missing observation.',
+      actionInstruction: 'Collect the missing observation.',
     });
     await expect(new StructuredGoalEvaluator(model).evaluate(evaluationInput())).resolves.toEqual({
-      decision: 'replan',
+      decision: 'adjust_plan',
       summary: 'The current result does not satisfy the success criterion.',
-      replanInstruction: 'Collect the missing observation.',
+      actionInstruction: 'Collect the missing observation.',
     });
     expect(model.input?.stage).toBe('goal_evaluation');
   });
 
-  it('rejects missing replan instructions and unexpected/private fields', async () => {
+  it('validates decision-specific evidence and rejects unexpected/private fields', async () => {
     await expect(
       new StructuredGoalEvaluator(
-        new FixedModel({ decision: 'replan', summary: 'Incomplete.' }),
+        new FixedModel({ decision: 'replace_skill', summary: 'Current Skill is unsuitable.' }),
       ).evaluate(evaluationInput()),
-    ).rejects.toMatchObject({ code: 'GOAL_EVALUATION_REPLAN_INSTRUCTION_REQUIRED' });
+    ).rejects.toMatchObject({ code: 'GOAL_EVALUATION_ACTION_INSTRUCTION_REQUIRED' });
+    await expect(
+      new StructuredGoalEvaluator(
+        new FixedModel({ decision: 'request_input', summary: 'A value is missing.' }),
+      ).evaluate(evaluationInput()),
+    ).rejects.toMatchObject({ code: 'GOAL_EVALUATION_QUESTION_REQUIRED' });
+    await expect(
+      new StructuredGoalEvaluator(
+        new FixedModel({
+          decision: 'capability_gap',
+          summary: 'A tool is missing.',
+          missingCapability: 'Read a pressure gauge.',
+        }),
+      ).evaluate(evaluationInput()),
+    ).rejects.toMatchObject({ code: 'GOAL_EVALUATION_CAPABILITY_EVIDENCE_REQUIRED' });
     await expect(
       new StructuredGoalEvaluator(
         new FixedModel({ decision: 'achieved', summary: 'Done.', reasoning: 'private' }),
       ).evaluate(evaluationInput()),
     ).rejects.toThrow('Unrecognized key');
+  });
+
+  it('accepts explicit input and capability-gap evidence without starting a plan', async () => {
+    await expect(
+      new StructuredGoalEvaluator(
+        new FixedModel({
+          decision: 'request_input',
+          summary: 'The device identity cannot be inferred.',
+          question: 'Which device should be inspected?',
+        }),
+      ).evaluate(evaluationInput()),
+    ).resolves.toMatchObject({ decision: 'request_input' });
+    await expect(
+      new StructuredGoalEvaluator(
+        new FixedModel({
+          decision: 'capability_gap',
+          summary: 'No registered tool can read pressure.',
+          missingCapability: 'Read pressure.',
+          suggestedToolContract: {
+            name: 'read_pressure',
+            description: 'Read pressure for a device.',
+            inputSchema: { type: 'object', required: ['deviceId'] },
+          },
+        }),
+      ).evaluate(evaluationInput()),
+    ).resolves.toMatchObject({ decision: 'capability_gap' });
   });
 });
 

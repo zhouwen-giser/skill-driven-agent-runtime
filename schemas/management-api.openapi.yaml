@@ -109,9 +109,9 @@ paths:
   /api/v1/workflow-controls:
     post:
       operationId: startWorkflowControl
-      description: Executes confirmed immutable plans, evaluates the Goal, and creates new plan versions outside LangGraph. Non-auto-confirm replans stop at the confirmation boundary.
+      description: Executes confirmed immutable plans and requires a structured Goal evaluation after every round. Plan adjustment, Skill replacement, and additional-Skill decisions create new versions outside LangGraph; input and capability-gap decisions stop without starting another node.
       responses:
-        '201': { description: Terminal or awaiting-confirmation Workflow control }
+        '201': { description: Terminal, awaiting-confirmation, awaiting-input, or capability-gap Workflow control }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflow-controls/{controlId}:
     parameters: [{ name: controlId, in: path, required: true, schema: { type: string } }]

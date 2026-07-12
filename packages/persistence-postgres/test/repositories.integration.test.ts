@@ -184,6 +184,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(resultProcessingMigration);
+  const goalEvaluationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0029_goal_evaluation_decisions.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(goalEvaluationMigration);
 });
 
 beforeEach(async () => {
@@ -625,9 +633,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       instanceId: 'instance.control.db',
       workflowVersion: 1,
       evaluation: {
-        decision: 'replan',
+        decision: 'replace_skill',
         summary: 'One criterion remains.',
-        replanInstruction: 'Collect another result.',
+        actionInstruction: 'Select the ranked replacement Skill.',
       },
       createdAt: '2026-07-12T00:00:02.000Z',
     });
@@ -644,9 +652,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect.objectContaining({
         roundIndex: 0,
         evaluation: {
-          decision: 'replan',
+          decision: 'replace_skill',
           summary: 'One criterion remains.',
-          replanInstruction: 'Collect another result.',
+          actionInstruction: 'Select the ranked replacement Skill.',
         },
       }),
     ]);

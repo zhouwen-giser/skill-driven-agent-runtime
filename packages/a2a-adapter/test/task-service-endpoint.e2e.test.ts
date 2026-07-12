@@ -1803,7 +1803,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       );
       await expect(rounds.json()).resolves.toMatchObject({
         items: [
-          { roundIndex: 0, workflowVersion: 1, evaluation: { decision: 'replan' } },
+          { roundIndex: 0, workflowVersion: 1, evaluation: { decision: 'adjust_plan' } },
           { roundIndex: 1, workflowVersion: 2, evaluation: { decision: 'achieved' } },
         ],
       });
@@ -2574,9 +2574,9 @@ async function startModelLoopback(): Promise<Server> {
           const content =
             controlEvaluationCalls === 1
               ? {
-                  decision: 'replan',
+                  decision: 'adjust_plan',
                   summary: 'A second observation is required.',
-                  replanInstruction: 'Run the next immutable Workflow version.',
+                  actionInstruction: 'Run the next immutable Workflow version.',
                 }
               : { decision: 'achieved', summary: 'Two evaluated observations satisfy the Goal.' };
           response.end(

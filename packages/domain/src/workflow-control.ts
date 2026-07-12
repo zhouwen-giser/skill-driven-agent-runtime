@@ -1,14 +1,30 @@
-export type GoalEvaluationDecision = 'achieved' | 'replan' | 'unachievable';
+export type GoalEvaluationDecision =
+  | 'achieved'
+  | 'request_input'
+  | 'adjust_plan'
+  | 'replace_skill'
+  | 'invoke_additional_skill'
+  | 'capability_gap'
+  | 'unachievable';
 
 export interface GoalEvaluationResult {
   readonly decision: GoalEvaluationDecision;
   readonly summary: string;
-  readonly replanInstruction?: string;
+  readonly actionInstruction?: string;
+  readonly question?: string;
+  readonly missingCapability?: string;
+  readonly suggestedToolContract?: Readonly<{
+    name: string;
+    description: string;
+    inputSchema: unknown;
+  }>;
 }
 
 export type WorkflowControlStatus =
   | 'running'
   | 'awaiting_confirmation'
+  | 'awaiting_input'
+  | 'capability_gap'
   | 'achieved'
   | 'unachievable'
   | 'failed'
