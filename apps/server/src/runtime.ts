@@ -29,6 +29,7 @@ import {
   SkillRegistryService,
   TemporarySkillService,
   TemporarySkillResolver,
+  SkillEvolutionService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -541,11 +542,13 @@ export async function startServerRuntime(
             },
             resultProcessor,
           );
-          await temporarySkills.complete(
+          const completed = await temporarySkills.complete(
             temporary.temporarySkillId,
             true,
             'Temporary Skill Workflow completed and its output Schema passed.',
           );
+          if (completed.formalizationCandidate !== undefined)
+            await skillEvolution.evaluateAndPublish(completed.formalizationCandidate.candidateId);
           return;
         }
         const selected = instance.skillVersions[0];
@@ -593,6 +596,59 @@ export async function startServerRuntime(
     model: modelRuntime,
     temporarySkills,
   });
+  const skillEvolution = new SkillEvolutionService({
+    temporarySkills: temporarySkillRepository,
+    model: modelRuntime,
+    schemas: schemaValidator,
+    tools: mcpRepository,
+    skills: skillRegistry,
+    runner: {
+      async run({ proposedSkill, case_ }) {
+        const tool = proposedSkill.tools[0];
+        if (tool === undefined)
+          return { passed: false, summary: 'No Tool is available for simulation.' };
+        try {
+          await mcpRegistry.call(tool.serverId, tool.toolName, case_.input, undefined, {
+            contextId: `skill-evolution:${proposedSkill.skillId}`,
+          });
+          return {
+            passed: case_.expectedOutcome === 'success',
+            summary:
+              case_.expectedOutcome === 'success'
+                ? 'The simulation call succeeded as expected.'
+                : 'The simulation unexpectedly succeeded.',
+          };
+        } catch (error: unknown) {
+          return {
+            passed: case_.expectedOutcome === 'failure',
+            summary:
+              case_.expectedOutcome === 'failure'
+                ? 'The simulation failed as expected.'
+                : `The simulation unexpectedly failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+          };
+        }
+      },
+    },
+    clock,
+  });
+  const temporarySkillOperations = {
+    create: temporarySkills.create.bind(temporarySkills),
+    listByTask: temporarySkills.listByTask.bind(temporarySkills),
+    async complete(temporarySkillId: string, successful: boolean, outcomeSummary: string) {
+      const completed = await temporarySkills.complete(
+        temporarySkillId,
+        successful,
+        outcomeSummary,
+      );
+      if (completed.formalizationCandidate === undefined) return completed;
+      return {
+        ...completed,
+        formalizationCandidate: await skillEvolution.evaluateAndPublish(
+          completed.formalizationCandidate.candidateId,
+        ),
+      };
+    },
+  };
   const processor = new PlanPreparationProcessor({
     tasks,
     events,
@@ -746,7 +802,8 @@ export async function startServerRuntime(
         models: modelRuntime,
         prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
-        temporarySkills,
+        temporarySkills: temporarySkillOperations,
+        skillEvolution,
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
           plan: (input) => workflowPlanner.plan(input),
@@ -907,6 +964,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0034_skill_call_workflow.up.sql',
     '0035_task_skill_selection.up.sql',
     '0036_task_temporary_skill.up.sql',
+    '0037_skill_evolution_simulation.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

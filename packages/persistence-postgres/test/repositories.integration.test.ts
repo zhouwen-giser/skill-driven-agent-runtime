@@ -231,6 +231,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskTemporarySkillMigration);
+  const skillEvolutionMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0037_skill_evolution_simulation.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(skillEvolutionMigration);
 });
 
 beforeEach(async () => {
@@ -1485,6 +1493,53 @@ describe('PostgreSQL protocol-domain repositories', () => {
       status: 'awaiting_simulation',
       successfulExperienceCount: 2,
     });
+    const evolvedCandidate = {
+      candidateId: 'candidate-db-1',
+      capabilityFingerprint: active.capabilityFingerprint,
+      successfulExperienceCount: 2,
+      requiredSuccessThreshold: 2,
+      sourceExperienceIds: ['experience-db-0', experience.experienceId],
+      status: 'validation_failed' as const,
+      inductionReport: {
+        consistent: true,
+        stable: true,
+        generalizable: true,
+        duplicateScore: 0,
+        decisionSummary: 'Repeated executions are stable.',
+      },
+      validationReport: {
+        allPassed: false,
+        cases: [
+          {
+            caseId: 'boundary-1',
+            kind: 'boundary' as const,
+            input: {},
+            expectedOutcome: 'failure' as const,
+            passed: false,
+            summary: 'Unexpected success.',
+          },
+        ],
+        decisionSummary: 'Draft remains unpublished.',
+      },
+      proposedSkill: {
+        skillId: 'skill.evolved.db',
+        name: 'Evolved Skill',
+        summary: 'Evolved summary.',
+        description: 'Evolved from repeated Temporary Skill success.',
+        capabilities: ['device-status'],
+        workflowGuidance: 'Call the Tool.',
+        outputInstruction: 'Return status.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        tools: active.tools,
+      },
+      createdAt: expired.expiredAt,
+      evaluatedAt: '2026-07-11T10:02:00.000Z',
+    };
+    await repository.saveFormalizationCandidate(evolvedCandidate);
+    await expect(repository.findFormalizationCandidateById('candidate-db-1')).resolves.toEqual(
+      evolvedCandidate,
+    );
     const formalSkills = await pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM skill',
     );

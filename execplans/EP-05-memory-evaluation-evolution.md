@@ -19,12 +19,13 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [ ] five evaluator pipeline
 - [ ] implicit feedback inference
 - [ ] experience clustering threshold
-- [ ] skill test generation/replay/simulation/all-pass publish
+- [x] skill test generation/replay/simulation/all-pass publish for repeated Temporary Skill success (FR-SKL-015); broader FR-EVO-004/005/007 evolution remains open
 - [ ] prompt optimization candidate generation
 
 ## Progress
 
 - [x] 2026-07-12: establish source-traceable global MemoryItem storage, pgvector retrieval, management contracts, and cross-user E2E evidence for FR-MEM-001.
+- [x] 2026-07-12: connect repeated Temporary Skill Experience to structured induction, persisted evolution drafts, static/history/normal/boundary/exception simulation, fail-closed all-pass publication, and dynamic Agent Card evidence.
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

@@ -67,6 +67,9 @@ import type {
   SkillReplacementPlan,
   SkillSelectionRecord,
   SkillFormalizationCandidate,
+  SkillInductionReport,
+  SkillSimulationReport,
+  ProposedEvolutionSkill,
   TemporarySkill,
   TemporarySkillExperience,
   ToolReference,
@@ -82,6 +85,40 @@ import { z } from 'zod';
 
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
 const ToolReferencesSchema = z.array(ToolReferenceSchema);
+const SkillInductionReportSchema = z.object({
+  consistent: z.boolean(),
+  stable: z.boolean(),
+  generalizable: z.boolean(),
+  duplicateSkillId: z.string().optional(),
+  duplicateScore: z.number(),
+  decisionSummary: z.string(),
+});
+const ProposedEvolutionSkillSchema: z.ZodType<ProposedEvolutionSkill> = z.object({
+  skillId: z.string(),
+  name: z.string(),
+  summary: z.string(),
+  description: z.string(),
+  capabilities: z.array(z.string()),
+  workflowGuidance: z.string(),
+  outputInstruction: z.string(),
+  inputSchema: z.unknown(),
+  outputSchema: z.unknown(),
+  tools: ToolReferencesSchema,
+});
+const SkillSimulationReportSchema: z.ZodType<SkillSimulationReport> = z.object({
+  allPassed: z.boolean(),
+  cases: z.array(
+    z.object({
+      caseId: z.string(),
+      kind: z.enum(['static_validation', 'historical_replay', 'normal', 'boundary', 'exception']),
+      input: z.record(z.string(), z.unknown()),
+      expectedOutcome: z.enum(['success', 'failure']),
+      passed: z.boolean(),
+      summary: z.string(),
+    }),
+  ),
+  decisionSummary: z.string(),
+});
 const CapabilitiesSchema = z.array(z.string());
 const ToolPolicySchema = z.object({
   required: z.array(ToolReferenceSchema),
@@ -282,7 +319,13 @@ interface FormalizationCandidateRow extends QueryResultRow {
   required_success_threshold: number;
   source_experience_ids_json: unknown;
   status: SkillFormalizationCandidate['status'];
+  induction_report_json: unknown;
+  validation_report_json: unknown;
+  proposed_skill_json: unknown;
+  published_skill_id: string | null;
+  published_skill_version: number | null;
   created_at: Date | string;
+  evaluated_at: Date | string | null;
 }
 
 interface McpServerRow extends QueryResultRow {
@@ -2653,9 +2696,26 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
   ): Promise<SkillFormalizationCandidate | undefined> {
     const result = await this.#pool.query<FormalizationCandidateRow>(
       `SELECT candidate_id, capability_fingerprint, successful_experience_count,
-              required_success_threshold, source_experience_ids_json, status, created_at
+              required_success_threshold, source_experience_ids_json, status,
+              induction_report_json, validation_report_json, proposed_skill_json,
+              published_skill_id, published_skill_version, created_at, evaluated_at
        FROM skill_formalization_candidate WHERE capability_fingerprint = $1`,
       [capabilityFingerprint],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapFormalizationCandidateRow(row);
+  }
+
+  async findFormalizationCandidateById(
+    candidateId: string,
+  ): Promise<SkillFormalizationCandidate | undefined> {
+    const result = await this.#pool.query<FormalizationCandidateRow>(
+      `SELECT candidate_id, capability_fingerprint, successful_experience_count,
+              required_success_threshold, source_experience_ids_json, status,
+              induction_report_json, validation_report_json, proposed_skill_json,
+              published_skill_id, published_skill_version, created_at, evaluated_at
+       FROM skill_formalization_candidate WHERE candidate_id = $1`,
+      [candidateId],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapFormalizationCandidateRow(row);
@@ -2665,8 +2725,20 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
     await this.#pool.query(
       `INSERT INTO skill_formalization_candidate
          (candidate_id, capability_fingerprint, successful_experience_count,
-          required_success_threshold, source_experience_ids_json, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (capability_fingerprint) DO NOTHING`,
+          required_success_threshold, source_experience_ids_json, status,
+          induction_report_json, validation_report_json, proposed_skill_json,
+          published_skill_id, published_skill_version, created_at, evaluated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT (capability_fingerprint) DO UPDATE SET
+         successful_experience_count = EXCLUDED.successful_experience_count,
+         source_experience_ids_json = EXCLUDED.source_experience_ids_json,
+         status = EXCLUDED.status,
+         induction_report_json = EXCLUDED.induction_report_json,
+         validation_report_json = EXCLUDED.validation_report_json,
+         proposed_skill_json = EXCLUDED.proposed_skill_json,
+         published_skill_id = EXCLUDED.published_skill_id,
+         published_skill_version = EXCLUDED.published_skill_version,
+         evaluated_at = EXCLUDED.evaluated_at`,
       [
         candidate.candidateId,
         candidate.capabilityFingerprint,
@@ -2674,7 +2746,15 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
         candidate.requiredSuccessThreshold,
         JSON.stringify(candidate.sourceExperienceIds),
         candidate.status,
+        candidate.inductionReport === undefined ? null : JSON.stringify(candidate.inductionReport),
+        candidate.validationReport === undefined
+          ? null
+          : JSON.stringify(candidate.validationReport),
+        candidate.proposedSkill === undefined ? null : JSON.stringify(candidate.proposedSkill),
+        candidate.publishedSkillId ?? null,
+        candidate.publishedSkillVersion ?? null,
         candidate.createdAt,
+        candidate.evaluatedAt ?? null,
       ],
     );
   }
@@ -3084,7 +3164,25 @@ function mapFormalizationCandidateRow(row: FormalizationCandidateRow): SkillForm
     requiredSuccessThreshold: row.required_success_threshold,
     sourceExperienceIds: z.array(z.string()).parse(row.source_experience_ids_json),
     status: row.status,
+    ...(row.induction_report_json === null
+      ? {}
+      : {
+          inductionReport: SkillInductionReportSchema.parse(
+            row.induction_report_json,
+          ) as SkillInductionReport,
+        }),
+    ...(row.validation_report_json === null
+      ? {}
+      : { validationReport: SkillSimulationReportSchema.parse(row.validation_report_json) }),
+    ...(row.proposed_skill_json === null
+      ? {}
+      : { proposedSkill: ProposedEvolutionSkillSchema.parse(row.proposed_skill_json) }),
+    ...(row.published_skill_id === null ? {} : { publishedSkillId: row.published_skill_id }),
+    ...(row.published_skill_version === null
+      ? {}
+      : { publishedSkillVersion: row.published_skill_version }),
     createdAt: toIsoString(row.created_at),
+    ...(row.evaluated_at === null ? {} : { evaluatedAt: toIsoString(row.evaluated_at) }),
   };
 }
 

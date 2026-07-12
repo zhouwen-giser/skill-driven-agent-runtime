@@ -148,6 +148,11 @@ class MemoryTemporarySkillRepository implements TemporarySkillRepository {
       this.candidate?.capabilityFingerprint === fingerprint ? this.candidate : undefined,
     );
   }
+  findFormalizationCandidateById(candidateId: string) {
+    return Promise.resolve(
+      this.candidate?.candidateId === candidateId ? this.candidate : undefined,
+    );
+  }
   saveFormalizationCandidate(candidate: SkillFormalizationCandidate) {
     this.candidate = candidate;
     return Promise.resolve();

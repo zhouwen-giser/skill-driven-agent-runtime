@@ -34,8 +34,54 @@ export interface SkillFormalizationCandidate {
   readonly successfulExperienceCount: number;
   readonly requiredSuccessThreshold: number;
   readonly sourceExperienceIds: readonly string[];
-  readonly status: 'awaiting_simulation';
+  readonly status: 'awaiting_simulation' | 'validation_failed' | 'published';
+  readonly inductionReport?: SkillInductionReport;
+  readonly validationReport?: SkillSimulationReport;
+  readonly proposedSkill?: ProposedEvolutionSkill;
+  readonly publishedSkillId?: string;
+  readonly publishedSkillVersion?: number;
   readonly createdAt: string;
+  readonly evaluatedAt?: string;
+}
+
+export interface SkillInductionReport {
+  readonly consistent: boolean;
+  readonly stable: boolean;
+  readonly generalizable: boolean;
+  readonly duplicateSkillId?: string;
+  readonly duplicateScore: number;
+  readonly decisionSummary: string;
+}
+
+export interface ProposedEvolutionSkill {
+  readonly skillId: string;
+  readonly name: string;
+  readonly summary: string;
+  readonly description: string;
+  readonly capabilities: readonly string[];
+  readonly workflowGuidance: string;
+  readonly outputInstruction: string;
+  readonly inputSchema: unknown;
+  readonly outputSchema: unknown;
+  readonly tools: readonly ToolReference[];
+}
+
+export type SkillSimulationCaseKind =
+  'static_validation' | 'historical_replay' | 'normal' | 'boundary' | 'exception';
+
+export interface SkillSimulationCaseResult {
+  readonly caseId: string;
+  readonly kind: SkillSimulationCaseKind;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly expectedOutcome: 'success' | 'failure';
+  readonly passed: boolean;
+  readonly summary: string;
+}
+
+export interface SkillSimulationReport {
+  readonly allPassed: boolean;
+  readonly cases: readonly SkillSimulationCaseResult[];
+  readonly decisionSummary: string;
 }
 
 export function createTemporarySkill(input: TemporarySkill): TemporarySkill {

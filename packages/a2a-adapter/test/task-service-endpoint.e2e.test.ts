@@ -2195,7 +2195,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
               name: 'Inspect device temporarily',
               description: 'Read current device state for this task.',
               tools: [{ serverId, toolName: 'device_status' }],
-              inputSchema: { type: 'object', properties: { deviceId: { type: 'string' } } },
+              inputSchema: {
+                type: 'object',
+                properties: { deviceId: { type: 'string' } },
+                required: ['deviceId'],
+              },
               outputSchema: { type: 'object', properties: { status: { type: 'string' } } },
             }),
           },
@@ -2219,8 +2223,16 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             experience: z.object({ successful: z.literal(true) }),
             formalizationCandidate: z
               .object({
-                status: z.literal('awaiting_simulation'),
+                candidateId: z.string(),
+                status: z.enum(['awaiting_simulation', 'validation_failed', 'published']),
                 successfulExperienceCount: z.number(),
+                publishedSkillId: z.string().optional(),
+                validationReport: z
+                  .object({
+                    allPassed: z.boolean(),
+                    cases: z.array(z.object({ kind: z.string() })),
+                  })
+                  .optional(),
               })
               .optional(),
           })
@@ -2229,12 +2241,35 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
 
       const first = await createAndComplete(`task-temp-${randomUUID()}`);
       expect(first.formalizationCandidate).toBeUndefined();
+      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
       const second = await createAndComplete(`task-temp-${randomUUID()}`);
       expect(second.formalizationCandidate).toMatchObject({
-        status: 'awaiting_simulation',
+        status: 'published',
         successfulExperienceCount: 2,
+        publishedSkillId: `skill.evolved.${serverId}`,
+        validationReport: { allPassed: true },
       });
-      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
+      expect(
+        second.formalizationCandidate?.validationReport?.cases.map((item) => item.kind),
+      ).toEqual([
+        'static_validation',
+        'historical_replay',
+        'historical_replay',
+        'normal',
+        'boundary',
+        'exception',
+      ]);
+      const formalSkillsAfter = await readFormalSkillIds();
+      expect(formalSkillsAfter).toHaveLength(formalSkillsBefore.length + 1);
+      expect(formalSkillsAfter).toContain(`skill.evolved.${serverId}`);
+      expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(
+        `skill.evolved.${serverId}`,
+      );
+      const disabled = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(`skill.evolved.${serverId}`)}/disable`,
+        { method: 'POST' },
+      );
+      expect(disabled.status).toBe(200);
     } finally {
       await mockMcp.close();
     }
@@ -2930,6 +2965,9 @@ async function startModelLoopback(): Promise<Server> {
         const temporarySkillResolutionRequest = body.messages?.some(
           (message) => message.content?.includes('resolve_temporary_skill') === true,
         );
+        const skillInductionRequest = body.messages?.some(
+          (message) => message.content?.includes('induce_skill_from_experience') === true,
+        );
         const naturalRevisionRequest =
           body.messages?.some(
             (message) => message.content?.includes('natural_language_plan_revision') === true,
@@ -3096,6 +3134,63 @@ async function startModelLoopback(): Promise<Server> {
             description: 'Use the registered device Tool for this Task only.',
             outputSchema: { type: 'object' },
             decisionSummary: 'No formal Skill matched; the registered Tool closes the gap.',
+          });
+          return;
+        }
+        if (skillInductionRequest === true) {
+          const requestData = z
+            .object({
+              sourceSkills: z.array(
+                z.object({
+                  tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+                  inputSchema: z.unknown(),
+                  outputSchema: z.unknown(),
+                }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'induce_skill_from_experience'));
+          const source = requestData.sourceSkills[0];
+          const tool = source?.tools[0];
+          if (source === undefined || tool === undefined)
+            throw new Error('SKILL_INDUCTION_SOURCE_REQUIRED');
+          respondStructured(response, {
+            consistent: true,
+            stable: true,
+            generalizable: true,
+            duplicateScore: 0,
+            decisionSummary: 'Repeated successful executions define a stable reusable Skill.',
+            proposedSkill: {
+              skillId: `skill.evolved.${tool.serverId}`,
+              name: 'Evolved device status',
+              summary: 'Read device status from the registered Tool.',
+              description: 'Read the current state of one device using the registered MCP Tool.',
+              capabilities: ['device-status'],
+              workflowGuidance: 'Call the required Tool once and return its structured result.',
+              outputInstruction: 'Return the structured device state.',
+              inputSchema: source.inputSchema,
+              outputSchema: source.outputSchema,
+              tools: [tool],
+            },
+            supplementalCases: [
+              {
+                caseId: 'normal-device',
+                kind: 'normal',
+                input: { deviceId: 'device-simulation' },
+                expectedOutcome: 'success',
+              },
+              {
+                caseId: 'boundary-missing-device',
+                kind: 'boundary',
+                input: {},
+                expectedOutcome: 'failure',
+              },
+              {
+                caseId: 'exception-invalid-input',
+                kind: 'exception',
+                input: {},
+                expectedOutcome: 'failure',
+              },
+            ],
           });
           return;
         }

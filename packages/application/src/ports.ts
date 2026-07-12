@@ -229,6 +229,9 @@ export interface TemporarySkillRepository {
   findFormalizationCandidate(
     capabilityFingerprint: string,
   ): Promise<SkillFormalizationCandidate | undefined>;
+  findFormalizationCandidateById(
+    candidateId: string,
+  ): Promise<SkillFormalizationCandidate | undefined>;
   saveFormalizationCandidate(candidate: SkillFormalizationCandidate): Promise<void>;
 }
 

@@ -139,6 +139,46 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes auditable Skill induction and simulation reports', async () => {
+    const candidate = {
+      candidateId: 'candidate-1',
+      capabilityFingerprint: 'fingerprint-1',
+      successfulExperienceCount: 2,
+      requiredSuccessThreshold: 2,
+      sourceExperienceIds: ['experience-1', 'experience-2'],
+      status: 'published' as const,
+      validationReport: { allPassed: true, cases: [], decisionSummary: 'All passed.' },
+      publishedSkillId: 'skill.evolved',
+      publishedSkillVersion: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      evaluatedAt: '2026-07-12T00:01:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        skillEvolution: {
+          get: () => Promise.resolve(candidate),
+          evaluateAndPublish: () => Promise.resolve(candidate),
+        },
+      },
+    });
+
+    const read = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1`,
+    );
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toMatchObject({
+      status: 'published',
+      validationReport: { allPassed: true },
+    });
+    const simulate = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1/simulate`,
+      { method: 'POST' },
+    );
+    expect(simulate.status).toBe(200);
+    await expect(simulate.json()).resolves.toMatchObject({ publishedSkillId: 'skill.evolved' });
+  });
+
   it('exposes the same confirmed-plan state through confirmation and execution endpoints', async () => {
     const configured = operations();
     const confirm = (planId: string) =>
@@ -700,6 +740,10 @@ function operations(failServerList = false): ManagementOperations {
       complete: unused,
       create: unused,
       listByTask: () => Promise.resolve([]),
+    },
+    skillEvolution: {
+      evaluateAndPublish: unused,
+      get: unused,
     },
     workflows: {
       cancelForPlan: unused,

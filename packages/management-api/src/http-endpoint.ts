@@ -14,6 +14,7 @@ import type {
   SkillRegistryService,
   SkillGraphService,
   TemporarySkillService,
+  SkillEvolutionService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -247,6 +248,7 @@ export interface ManagementOperations {
     'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
+  readonly skillEvolution: Pick<SkillEvolutionService, 'evaluateAndPublish' | 'get'>;
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
@@ -830,6 +832,22 @@ export async function startManagementHttpEndpoint(
           pathValue(request, 'temporarySkillId'),
           input.successful,
           input.outcomeSummary,
+        ),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/skill-formalization-candidates/:candidateId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.skillEvolution.get(pathValue(request, 'candidateId')));
+    }),
+  );
+  app.post(
+    '/api/v1/skill-formalization-candidates/:candidateId/simulate',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.skillEvolution.evaluateAndPublish(
+          pathValue(request, 'candidateId'),
         ),
       );
     }),
