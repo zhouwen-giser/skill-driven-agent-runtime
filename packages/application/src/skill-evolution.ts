@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type {
+  EvolutionExperience,
   ProposedEvolutionSkill,
   SkillFormalizationCandidate,
   SkillSimulationCaseResult,
@@ -9,6 +10,7 @@ import type {
 
 import type {
   Clock,
+  EvolutionExperienceRepository,
   JsonSchemaValidator,
   McpToolCatalog,
   StructuredModelProvider,
@@ -92,6 +94,9 @@ export interface SkillSimulationRunner {
       }>;
     }>,
   ): Promise<Readonly<{ passed: boolean; summary: string }>>;
+  replay(
+    input: Readonly<{ experience: EvolutionExperience }>,
+  ): Promise<Readonly<{ succeeded: boolean; summary: string }>>;
 }
 
 export class SkillEvolutionService {
@@ -101,6 +106,7 @@ export class SkillEvolutionService {
   readonly #tools: McpToolCatalog;
   readonly #skills: Pick<SkillRegistryService, 'listCurrentVersions' | 'register'>;
   readonly #runner: SkillSimulationRunner;
+  readonly #experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
   readonly #clock: Clock;
 
   constructor(
@@ -111,6 +117,7 @@ export class SkillEvolutionService {
       tools: McpToolCatalog;
       skills: Pick<SkillRegistryService, 'listCurrentVersions' | 'register'>;
       runner: SkillSimulationRunner;
+      experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
       clock: Clock;
     }>,
   ) {
@@ -120,6 +127,7 @@ export class SkillEvolutionService {
     this.#tools = dependencies.tools;
     this.#skills = dependencies.skills;
     this.#runner = dependencies.runner;
+    this.#experiences = dependencies.experiences;
     this.#clock = dependencies.clock;
   }
 
@@ -188,12 +196,27 @@ export class SkillEvolutionService {
     for (const experience of experiences)
       cases.push({
         caseId: `replay-${experience.experienceId}`,
-        kind: 'historical_replay',
+        kind: 'source_experience',
         input: {},
         expectedOutcome: 'success',
         passed: experience.successful,
         summary: experience.outcomeSummary,
       });
+    const histories = new Map<string, EvolutionExperience>();
+    for (const tool of proposedSkill.tools)
+      for (const history of await this.#experiences.listByTool(tool))
+        histories.set(history.experienceId, history);
+    for (const history of histories.values()) {
+      const replay = await this.#runner.replay({ experience: history });
+      cases.push({
+        caseId: `historical-${history.experienceId}`,
+        kind: 'historical_replay',
+        input: isRecord(history.input) ? history.input : {},
+        expectedOutcome: history.successful ? 'success' : 'failure',
+        passed: replay.succeeded === history.successful,
+        summary: replay.summary,
+      });
+    }
     const requiredKinds = new Set(decision.supplementalCases.map((item) => item.kind));
     if (
       !['normal', 'boundary', 'exception'].every((kind) =>
@@ -258,6 +281,10 @@ export class SkillEvolutionService {
         errors.push(`Tool ${tool.serverId}/${tool.toolName} is unavailable.`);
     return errors;
   }
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function skillSummary(skill: SkillVersion) {

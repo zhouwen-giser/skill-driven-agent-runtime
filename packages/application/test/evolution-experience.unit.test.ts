@@ -15,6 +15,7 @@ describe('EvolutionExperienceService', () => {
         find: () => Promise.resolve(undefined),
         listByGoal: () => Promise.resolve([]),
         listBySkill: () => Promise.resolve([]),
+        listByTool: () => Promise.resolve([]),
       },
       nextId: () => 'experience-1',
     });

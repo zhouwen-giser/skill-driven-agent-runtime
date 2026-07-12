@@ -617,6 +617,7 @@ export async function startServerRuntime(
     schemas: schemaValidator,
     tools: mcpRepository,
     skills: skillRegistry,
+    experiences: new PostgresEvolutionExperienceRepository(pool),
     runner: {
       async run({ proposedSkill, case_ }) {
         const tool = proposedSkill.tools[0];
@@ -640,6 +641,26 @@ export async function startServerRuntime(
               case_.expectedOutcome === 'failure'
                 ? 'The simulation failed as expected.'
                 : `The simulation unexpectedly failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+          };
+        }
+      },
+      async replay({ experience }) {
+        try {
+          const outcome = await langGraphExecutor.execute(
+            experience.workflow,
+            experience.input,
+            workflowBudgetDefaults,
+            undefined,
+            `evolution-replay-${experience.experienceId}-${randomUUID()}`,
+          );
+          return {
+            succeeded: outcome.status === 'succeeded',
+            summary: `Historical Workflow replay finished with ${outcome.status}.`,
+          };
+        } catch (error: unknown) {
+          return {
+            succeeded: false,
+            summary: `Historical Workflow replay failed: ${error instanceof Error ? error.message : 'unknown error'}`,
           };
         }
       },

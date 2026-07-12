@@ -118,7 +118,14 @@ const SkillSimulationReportSchema: z.ZodType<SkillSimulationReport> = z.object({
   cases: z.array(
     z.object({
       caseId: z.string(),
-      kind: z.enum(['static_validation', 'historical_replay', 'normal', 'boundary', 'exception']),
+      kind: z.enum([
+        'static_validation',
+        'source_experience',
+        'historical_replay',
+        'normal',
+        'boundary',
+        'exception',
+      ]),
       input: z.record(z.string(), z.unknown()),
       expectedOutcome: z.enum(['success', 'failure']),
       passed: z.boolean(),
@@ -2648,6 +2655,15 @@ export class PostgresEvolutionExperienceRepository implements EvolutionExperienc
       `SELECT * FROM evolution_experience
        WHERE skill_versions_json @> $1::jsonb ORDER BY created_at,experience_id`,
       [JSON.stringify([{ skillId }])],
+    );
+    return result.rows.map(mapEvolutionExperienceRow);
+  }
+
+  async listByTool(reference: ToolReference): Promise<readonly EvolutionExperience[]> {
+    const result = await this.#pool.query<EvolutionExperienceRow>(
+      `SELECT * FROM evolution_experience
+       WHERE tools_json @> $1::jsonb ORDER BY created_at,experience_id`,
+      [JSON.stringify([reference])],
     );
     return result.rows.map(mapEvolutionExperienceRow);
   }

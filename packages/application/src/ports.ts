@@ -243,6 +243,7 @@ export interface EvolutionExperienceRepository {
   find(experienceId: string): Promise<EvolutionExperience | undefined>;
   listByGoal(goalId: string): Promise<readonly EvolutionExperience[]>;
   listBySkill(skillId: string): Promise<readonly EvolutionExperience[]>;
+  listByTool(reference: ToolReference): Promise<readonly EvolutionExperience[]>;
 }
 
 export interface EvolutionPolicyRepository {

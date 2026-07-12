@@ -990,7 +990,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       },
       instanceId: 'instance.control.db',
       skillVersions: [],
-      tools: [],
+      tools: [{ serverId: 'mcp.history', toolName: 'replay' }],
       input: {},
       result: true,
       errors: {},
@@ -1006,6 +1006,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await experiences.save(experience);
     await expect(experiences.find(experience.experienceId)).resolves.toEqual(experience);
     await expect(experiences.listByGoal('goal.control.db')).resolves.toEqual([experience]);
+    await expect(
+      experiences.listByTool({ serverId: 'mcp.history', toolName: 'replay' }),
+    ).resolves.toEqual([experience]);
   });
   it('atomically persists related and unrelated Goal history decisions', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

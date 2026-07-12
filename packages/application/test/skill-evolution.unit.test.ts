@@ -33,6 +33,8 @@ describe('SkillEvolutionService', () => {
     });
     expect(result.validationReport?.cases.map((item) => item.kind)).toEqual([
       'static_validation',
+      'source_experience',
+      'source_experience',
       'historical_replay',
       'historical_replay',
       'normal',
@@ -131,11 +133,17 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
         });
       },
     },
+    experiences: { listByTool: () => Promise.resolve([history(true), history(false)]) },
     runner: {
       run: ({ case_ }) =>
         Promise.resolve({
           passed: allPass || case_.kind !== 'boundary',
           summary: allPass || case_.kind !== 'boundary' ? 'Passed.' : 'Boundary failed.',
+        }),
+      replay: ({ experience }) =>
+        Promise.resolve({
+          succeeded: experience.successful,
+          summary: `Replayed expected ${experience.successful ? 'success' : 'failure'}.`,
         }),
     },
     clock: { now: () => timestamp },
@@ -221,6 +229,52 @@ function existingSkill(): SkillVersion {
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,
+    createdAt: timestamp,
+  };
+}
+
+function history(successful: boolean) {
+  return {
+    experienceId: successful ? 'history-success' : 'history-failure',
+    controlId: successful ? 'control-success' : 'control-failure',
+    roundIndex: 0,
+    contextId: 'context-history',
+    goal: {
+      goalId: successful ? 'goal-success' : 'goal-failure',
+      version: 1,
+      title: 'Historical device Goal',
+      description: 'Read device state.',
+      constraints: [],
+      successCriteria: ['State observed'],
+    },
+    workflow: {
+      workflowDefinitionId: successful ? 'workflow-success' : 'workflow-failure',
+      version: 1,
+      goalId: successful ? 'goal-success' : 'goal-failure',
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Historical result',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: successful },
+        },
+      ],
+      edges: [],
+    },
+    instanceId: successful ? 'instance-success' : 'instance-failure',
+    skillVersions: [],
+    tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+    input: { deviceId: 'device-history' },
+    ...(successful ? { result: { status: 'online' } } : {}),
+    errors: successful ? {} : { tool: { code: 'HISTORICAL_FAILURE', message: 'Failed.' } },
+    evaluation: successful
+      ? ({ decision: 'achieved', summary: 'Succeeded.' } as const)
+      : ({ decision: 'unachievable', summary: 'Failed.' } as const),
+    successful,
+    durationMs: 10,
     createdAt: timestamp,
   };
 }

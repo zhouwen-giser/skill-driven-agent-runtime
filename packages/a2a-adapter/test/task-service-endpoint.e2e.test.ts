@@ -2201,6 +2201,29 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           forbidden: [],
         },
       });
+      const executeHistory = async (marker: string) => {
+        const submitted = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: `message-${randomUUID()}`,
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: `${marker} GLOBAL_SHARED_SKILL:${existingSkillId}`,
+                  mediaType: 'text/plain',
+                },
+              ],
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+        expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm history.');
+        await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      };
+      await executeHistory('HISTORICAL_REPLAY_SUCCESS');
+      await executeHistory('HISTORICAL_REPLAY_FAILURE');
       const formalSkillsBefore = await readFormalSkillIds();
       const createAndComplete = async (taskId: string) => {
         const createdResponse = await fetch(
@@ -2297,7 +2320,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         third.formalizationCandidate?.validationReport?.cases.map((item) => item.kind),
       ).toEqual([
         'static_validation',
-        'historical_replay',
+        'source_experience',
+        'source_experience',
+        'source_experience',
         'historical_replay',
         'historical_replay',
         'normal',
@@ -3180,6 +3205,12 @@ async function startModelLoopback(): Promise<Server> {
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
           const autoTaskGoal = requestData.requestText.includes('zebra auto task');
           const replaceSkillGoal = requestData.requestText.includes('replace failed skill');
+          const historicalReplaySuccess = requestData.requestText.includes(
+            'HISTORICAL_REPLAY_SUCCESS',
+          );
+          const historicalReplayFailure = requestData.requestText.includes(
+            'HISTORICAL_REPLAY_FAILURE',
+          );
           const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(requestData.requestText);
           const temporaryServerId = temporaryTool?.[1] ?? '';
           const temporaryToolName = temporaryTool?.[2] ?? '';
@@ -3199,7 +3230,7 @@ async function startModelLoopback(): Promise<Server> {
               : replaceSkillGoal
                 ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                 : sharedSkill !== undefined
-                  ? `GLOBAL_SHARED_SKILL:${sharedSkill}`
+                  ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
                   : capabilityGapGoal
                     ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                     : controlGoal
@@ -3462,57 +3493,111 @@ async function startModelLoopback(): Promise<Server> {
                   tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
                 })
                 .optional(),
+              selectedSkill: z
+                .object({
+                  skillId: z.string(),
+                  toolPolicy: z.object({
+                    required: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+                  }),
+                })
+                .optional(),
             })
             .parse(embeddedOperation(body.messages, 'task_initial_plan'));
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
           const temporaryTool = requestData.selectedTemporarySkill?.tools[0];
+          const historicalTool = requestData.selectedSkill?.toolPolicy.required[0];
+          const historicalSuccess = requestData.goalDescription.includes(
+            'HISTORICAL_REPLAY_SUCCESS',
+          );
+          const historicalFailure = requestData.goalDescription.includes(
+            'HISTORICAL_REPLAY_FAILURE',
+          );
+          const historical = historicalSuccess || historicalFailure;
           respondStructured(response, {
             ...requestData.workflowIdentity,
-            entryNodeId: failPrimary ? 'execute' : temporaryTool === undefined ? 'result' : 'tool',
+            entryNodeId:
+              failPrimary || historicalFailure
+                ? 'execute'
+                : temporaryTool !== undefined || historicalSuccess
+                  ? 'tool'
+                  : 'result',
             exitNodeIds: ['result'],
             nodes:
-              temporaryTool !== undefined
+              historical && historicalTool !== undefined
                 ? [
+                    ...(historicalFailure
+                      ? [
+                          {
+                            nodeId: 'execute',
+                            name: 'Reproduce historical failure',
+                            type: 'llm',
+                            instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                            responseSchema: { type: 'object' },
+                          },
+                        ]
+                      : []),
                     {
                       nodeId: 'tool',
-                      name: 'Execute task-scoped Tool',
+                      name: 'Historical device call',
                       type: 'mcp_tool',
-                      tool: temporaryTool,
-                      arguments: { deviceId: 'device-temporary' },
+                      tool: historicalTool,
+                      arguments: { deviceId: 'device-history' },
                     },
                     {
                       nodeId: 'result',
-                      name: 'Return Temporary Skill result',
+                      name: 'Historical result',
                       type: 'result',
                       value: { op: 'ref', path: ['nodes', 'tool'] },
                     },
                   ]
-                : failPrimary
+                : temporaryTool !== undefined
                   ? [
                       {
-                        nodeId: 'execute',
-                        name: 'Fail primary Skill execution',
-                        type: 'llm',
-                        instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                        responseSchema: { type: 'object' },
+                        nodeId: 'tool',
+                        name: 'Execute task-scoped Tool',
+                        type: 'mcp_tool',
+                        tool: temporaryTool,
+                        arguments: { deviceId: 'device-temporary' },
                       },
                       {
                         nodeId: 'result',
-                        name: 'Primary result',
+                        name: 'Return Temporary Skill result',
                         type: 'result',
-                        value: { op: 'ref', path: ['nodes', 'execute'] },
+                        value: { op: 'ref', path: ['nodes', 'tool'] },
                       },
                     ]
-                  : [
-                      {
-                        nodeId: 'result',
-                        name: 'Initial Task result',
-                        type: 'result',
-                        value: { op: 'literal', value: 'online' },
-                      },
-                    ],
-            edges:
-              temporaryTool !== undefined
+                  : failPrimary
+                    ? [
+                        {
+                          nodeId: 'execute',
+                          name: 'Fail primary Skill execution',
+                          type: 'llm',
+                          instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                          responseSchema: { type: 'object' },
+                        },
+                        {
+                          nodeId: 'result',
+                          name: 'Primary result',
+                          type: 'result',
+                          value: { op: 'ref', path: ['nodes', 'execute'] },
+                        },
+                      ]
+                    : [
+                        {
+                          nodeId: 'result',
+                          name: 'Initial Task result',
+                          type: 'result',
+                          value: { op: 'literal', value: 'online' },
+                        },
+                      ],
+            edges: historical
+              ? historicalFailure
+                ? [
+                    { sourceNodeId: 'execute', targetNodeId: 'tool' },
+                    { sourceNodeId: 'tool', targetNodeId: 'result' },
+                  ]
+                : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+              : temporaryTool !== undefined
                 ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
                 : failPrimary
                   ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]

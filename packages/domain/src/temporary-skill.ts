@@ -70,7 +70,12 @@ export interface ProposedEvolutionSkill {
 }
 
 export type SkillSimulationCaseKind =
-  'static_validation' | 'historical_replay' | 'normal' | 'boundary' | 'exception';
+  | 'static_validation'
+  | 'source_experience'
+  | 'historical_replay'
+  | 'normal'
+  | 'boundary'
+  | 'exception';
 
 export interface SkillSimulationCaseResult {
   readonly caseId: string;
