@@ -877,6 +877,42 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('rejects a generated Task plan when the selected Skill required Tool is missing', async () => {
+    const skillId = `skill.required-tool.${randomUUID()}`;
+    const serverId = `mcp.required-missing.${randomUUID()}`;
+    await runtime.registerSkill({
+      ...skillInput(skillId, 'Required Tool Skill'),
+      toolPolicy: {
+        required: [{ serverId, toolName: 'required_read' }],
+        optional: [],
+        forbidden: [],
+      },
+    });
+    const task = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: `Use GLOBAL_SHARED_SKILL:${skillId}`, mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in task)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_FAILED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${task.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      phase: 'failed',
+      selectedSkillId: skillId,
+      phaseMessage: expect.stringContaining('TASK_PREPARATION_FAILED'),
+    });
+    await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([]);
+    await runtime.setSkillEnabled(skillId, false);
+  });
+
   it('pauses before the next real MCP node and resumes without replay', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.control.${randomUUID()}`;

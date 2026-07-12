@@ -6,6 +6,7 @@ export * from './skill-registry.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
 export * from './skill-call-workflow.js';
+export * from './skill-tool-policy.js';
 export * from './skill-semantic-retriever.js';
 export * from './skill-authoring.js';
 export * from './temporary-skill.js';

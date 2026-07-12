@@ -218,6 +218,51 @@ describe('Workflow execution application service', () => {
     );
   });
 
+  it('rejects a confirmed plan before execution when a selected Skill required Tool is missing', async () => {
+    const execute = vi.fn();
+    const policySkill = {
+      skillId: 'skill-policy',
+      version: 2,
+      name: 'Policy',
+      summary: 'Policy',
+      description: 'Required Tool policy.',
+      capabilities: [],
+      workflowGuidance: '',
+      outputInstruction: '',
+      inputSchema: true,
+      outputSchema: true,
+      toolPolicy: {
+        required: [{ serverId: 'mcp.device', toolName: 'read' }],
+        optional: [],
+        forbidden: [],
+      },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled' as const,
+      sourceKind: 'admin' as const,
+      validationPassed: true,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      new MemoryExecutions(),
+      { execute },
+      {
+        ...disabledSkills,
+        findCurrentVersion: () => Promise.resolve(policySkill),
+      },
+    );
+
+    await expect(
+      service.execute({
+        instanceId: 'instance-policy',
+        planId: validPlan.planId,
+        input: {},
+        skillIds: [policySkill.skillId],
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION' });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('requires replanning after the resolved Skill pause threshold is exceeded', async () => {
     const instances = new MemoryExecutions();
     instances.instances.push({

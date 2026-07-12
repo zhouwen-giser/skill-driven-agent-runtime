@@ -23,6 +23,7 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 ## Progress
 
 - [x] 2026-07-12: verify global formal-Skill reuse across distinct user identities and replace direct `skill_call` model invocation with an independent LangGraph child plan/instance that records the actual current SkillVersion and evaluation summary.
+- [x] 2026-07-12: reconcile provisional FR-SKL evidence against completed EP-03/04 paths and enforce selected-Skill required/forbidden Tool policy after planning and before execution.
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

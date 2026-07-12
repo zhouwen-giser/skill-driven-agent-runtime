@@ -24,6 +24,7 @@ import {
   SkillAuthoringService,
   SkillSelectionService,
   SkillCallWorkflowService,
+  validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
   TemporarySkillService,
@@ -571,6 +572,11 @@ export async function startServerRuntime(
           }),
         });
         if (plan.definition === undefined) throw new Error('TASK_PLAN_GENERATION_FAILED');
+        const toolPolicyViolations = validateSkillToolPolicies(plan.definition, [skill]);
+        if (toolPolicyViolations.length > 0)
+          throw new Error(
+            `TASK_PLAN_SKILL_TOOL_POLICY_INVALID:${JSON.stringify(toolPolicyViolations)}`,
+          );
         if (skill.runtimePolicy.autoConfirmPlan) await workflowExecution.confirm(plan.planId);
         return { planId: plan.planId, autoConfirmed: skill.runtimePolicy.autoConfirmPlan };
       },

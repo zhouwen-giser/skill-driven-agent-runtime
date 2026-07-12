@@ -13,6 +13,7 @@ import type {
   WorkflowPlanRepository,
 } from './ports.js';
 import type { WorkflowValidator } from './workflow-validator.js';
+import { validateSkillToolPolicies } from './skill-tool-policy.js';
 
 export class WorkflowExecutionService {
   readonly #plans: WorkflowPlanRepository;
@@ -86,6 +87,12 @@ export class WorkflowExecutionService {
         'Persisted plan no longer validates against current Tool and Skill catalogs.',
       );
     const skillVersions = await this.#resolveSkillVersions(validation.definition, input.skillIds);
+    const toolPolicyViolations = validateSkillToolPolicies(validation.definition, skillVersions);
+    if (toolPolicyViolations.length > 0)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION',
+        `Workflow violates Skill Tool policy: ${JSON.stringify(toolPolicyViolations)}`,
+      );
     const budgetLimits = resolveWorkflowBudgetLimits(
       this.#systemBudgetDefaults,
       skillVersions.map((skill) => skill.runtimePolicy),
@@ -431,7 +438,8 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_RESUME_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_TIMEOUT'
-  | 'WORKFLOW_SKILL_NOT_ENABLED';
+  | 'WORKFLOW_SKILL_NOT_ENABLED'
+  | 'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;
   constructor(code: WorkflowExecutionErrorCode, message: string) {
