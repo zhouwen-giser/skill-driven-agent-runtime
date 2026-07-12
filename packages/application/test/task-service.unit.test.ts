@@ -103,6 +103,42 @@ describe('TaskService', () => {
     );
   });
 
+  it('persists structured capability-gap evidence and emits an audit event', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Read pressure.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+      'evaluating',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.reportCapabilityGap(task.taskId, {
+        decision: 'capability_gap',
+        summary: 'No registered tool can read pressure.',
+        missingCapability: 'Read device pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read pressure for one device.',
+          inputSchema: { type: 'object', required: ['deviceId'] },
+        },
+      }),
+    ).resolves.toMatchObject({
+      phase: 'capability_gap',
+      capabilityGap: {
+        missingCapability: 'Read device pressure.',
+        suggestedToolContract: { name: 'read_pressure' },
+      },
+    });
+    expect(harness.events.at(-1)?.summary).toContain('No registered tool');
+  });
+
   it('applies plan revision, confirmation, pause, and resume through domain transitions', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });

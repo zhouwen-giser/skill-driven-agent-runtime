@@ -53,12 +53,6 @@ export class A2AProjectionTaskStore implements TaskStore {
         : Task.fromJSON(StoredDocumentSchema.parse(projection.document));
     const authoritative = await this.#tasks?.findById(taskId);
     if (authoritative === undefined) return stored;
-    if (
-      stored?.status?.timestamp !== undefined &&
-      Date.parse(stored.status.timestamp) > Date.parse(authoritative.updatedAt)
-    ) {
-      return stored;
-    }
     const current = toA2ATask(authoritative);
     return Task.fromJSON({
       ...StoredDocumentSchema.parse(Task.toJSON(current)),

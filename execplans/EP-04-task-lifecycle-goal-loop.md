@@ -32,6 +32,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: implement runtime-first Goal cancellation, atomic shared-work cascade, immutable history and terminal-monotonic Task writes.
 - [x] 2026-07-12: implement MCP downstream result envelopes and fixed-stage Skill-directed final output with facts/value/memory candidates.
 - [x] 2026-07-12: require per-round Goal evaluation and persist explicit input/plan/Skill/capability/termination actions with immutable outer replanning.
+- [x] 2026-07-12: project fixed-stage capability gaps onto authoritative Tasks with A2A INPUT_REQUIRED evidence and suggested tool contracts.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -66,6 +67,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] `timeout auto-cancel`: managed one-second policy proven through real A2A/PostgreSQL e2e.
 - [x] `pause short/long behavior`: real MCP/A2A short resume and zero-second Skill-threshold replan evidence.
 - [x] `Goal evaluation actions`: unit + PostgreSQL integration + management contract + real A2A/MCP two-round e2e.
+- [x] `capability gap`: unit + PostgreSQL integration + official A2A SDK getTask e2e with no subsequent node.
 
 ## Idempotence and Recovery
 

@@ -415,6 +415,7 @@ export async function startServerRuntime(
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime),
+    taskOutcomes: service,
     clock,
     ids: {
       nextPlanId: (controlId, replanCount) =>
@@ -624,6 +625,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0027_goal_cancellation.up.sql',
     '0028_result_processing.up.sql',
     '0029_goal_evaluation_decisions.up.sql',
+    '0030_task_capability_gap.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

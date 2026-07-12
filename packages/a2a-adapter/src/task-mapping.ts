@@ -113,6 +113,7 @@ export function toA2ATask(task: AgentTask): Task {
       internalPhase: task.phase,
       userId: task.userId,
       ...(task.errorCode === undefined ? {} : { errorCode: task.errorCode }),
+      ...(task.capabilityGap === undefined ? {} : { capabilityGap: task.capabilityGap }),
     },
   });
 }

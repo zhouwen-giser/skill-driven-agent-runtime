@@ -1856,6 +1856,79 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('projects a Goal-evaluation capability gap onto the persisted A2A Task', async () => {
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Create a capability gap control task.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const planId = await attachPlannedTask(submitted.id);
+    await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
+    const prepared = z
+      .object({ goalId: z.string(), goalVersion: z.number() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+        ).then((response) => response.json()),
+      );
+    const controlId = `control.capability-gap.${randomUUID()}`;
+    const response = await fetch(`${runtime.management.baseUrl}/api/v1/workflow-controls`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        controlId,
+        taskId: submitted.id,
+        contextId: submitted.contextId,
+        goalId: prepared.goalId,
+        goalVersion: prepared.goalVersion,
+        initialPlanId: planId,
+        input: {},
+        skillIds: [],
+        planningInstruction: 'Evaluate the capability requirement.',
+      }),
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({ status: 'capability_gap' });
+
+    const projected = await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
+    expect(projected.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(projected.status?.message?.parts[0]?.content).toMatchObject({
+      value: 'Required capability is unavailable: Read device pressure.',
+    });
+    expect(projected.metadata).toMatchObject({
+      internalPhase: 'capability_gap',
+      capabilityGap: {
+        evaluationSummary: 'No registered MCP tool can read device pressure.',
+        missingCapability: 'Read device pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read pressure for one device.',
+          inputSchema: { type: 'object', required: ['deviceId'] },
+        },
+      },
+    });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflow-controls/${encodeURIComponent(controlId)}/rounds`,
+      ).then((rounds) => rounds.json()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          evaluation: {
+            decision: 'capability_gap',
+            missingCapability: 'Read device pressure.',
+          },
+        },
+      ],
+    });
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
@@ -2446,6 +2519,10 @@ async function startModelLoopback(): Promise<Server> {
         const controlEvaluationRequest =
           body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
           true;
+        const capabilityGapEvaluationRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
+          ) === true;
         if (intentDecisionRequest === true) {
           respondStructured(response, {
             intent: 'execute',
@@ -2470,14 +2547,17 @@ async function startModelLoopback(): Promise<Server> {
             .object({ requestText: z.string() })
             .parse(embeddedOperation(body.messages, 'formulate_goal'));
           const controlGoal = requestData.requestText.includes('control loop');
+          const capabilityGapGoal = requestData.requestText.includes('capability gap control');
           respondStructured(response, {
-            title: controlGoal ? 'Control Goal' : 'Execute the requested task',
-            description: controlGoal
-              ? 'CONTROL_GOAL collect two observations.'
-              : 'Complete the user request using an enabled Skill.',
+            title: controlGoal || capabilityGapGoal ? 'Control Goal' : 'Execute the requested task',
+            description: capabilityGapGoal
+              ? 'CAPABILITY_GAP_GOAL requires device pressure.'
+              : controlGoal
+                ? 'CONTROL_GOAL collect two observations.'
+                : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
-              controlGoal
+              controlGoal || capabilityGapGoal
                 ? 'Two Workflow rounds are evaluated.'
                 : 'A validated result is returned.',
             ],
@@ -2566,6 +2646,19 @@ async function startModelLoopback(): Promise<Server> {
               },
             ],
             edges: [],
+          });
+          return;
+        }
+        if (capabilityGapEvaluationRequest) {
+          respondStructured(response, {
+            decision: 'capability_gap',
+            summary: 'No registered MCP tool can read device pressure.',
+            missingCapability: 'Read device pressure.',
+            suggestedToolContract: {
+              name: 'read_pressure',
+              description: 'Read pressure for one device.',
+              inputSchema: { type: 'object', required: ['deviceId'] },
+            },
           });
           return;
         }

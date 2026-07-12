@@ -109,7 +109,7 @@ paths:
   /api/v1/workflow-controls:
     post:
       operationId: startWorkflowControl
-      description: Executes confirmed immutable plans and requires a structured Goal evaluation after every round. Plan adjustment, Skill replacement, and additional-Skill decisions create new versions outside LangGraph; input and capability-gap decisions stop without starting another node.
+      description: Executes confirmed immutable plans and requires a structured Goal evaluation after every round. An optional taskId projects capability-gap evidence onto the authoritative A2A Task. Plan adjustment, Skill replacement, and additional-Skill decisions create new versions outside LangGraph; input and capability-gap decisions stop without starting another node.
       responses:
         '201': { description: Terminal, awaiting-confirmation, awaiting-input, or capability-gap Workflow control }
         '400': { $ref: '#/components/responses/Error' }

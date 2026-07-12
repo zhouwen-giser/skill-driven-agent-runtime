@@ -35,6 +35,7 @@ export interface WorkflowControlRecord {
   readonly contextId: string;
   readonly goalId: string;
   readonly goalVersion: number;
+  readonly taskId?: string;
   readonly status: WorkflowControlStatus;
   readonly currentPlanId: string;
   readonly input: unknown;

@@ -153,6 +153,9 @@ describe('Workflow outer controller', () => {
       expect(fixture.planner.plan).not.toHaveBeenCalled();
       expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
       expect(fixture.goals.goal.status).toBe('active');
+      expect(fixture.taskOutcomes.reportCapabilityGap).toHaveBeenCalledTimes(
+        decision === 'capability_gap' ? 1 : 0,
+      );
     },
   );
 });
@@ -163,6 +166,7 @@ function startInput() {
     contextId: 'context-control',
     goalId: 'goal-control',
     goalVersion: 1,
+    taskId: 'task-control',
     initialPlanId: 'plan-initial',
     input: { request: 'run' },
     skillIds: ['skill-control'],
@@ -177,6 +181,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   const skill = skillVersion(input.maxReplans, input.autoConfirm);
   const skills = memorySkills(skill);
   const evaluator = new SequenceEvaluator();
+  const taskOutcomes = { reportCapabilityGap: vi.fn(() => Promise.resolve()) };
   const planner = {
     plan: vi.fn(async (request: { planId: string; workflowVersion: number }) => {
       const next = plan(request.planId, request.workflowVersion, 'awaiting_confirmation');
@@ -207,13 +212,14 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     planner,
     execution,
     evaluator,
+    taskOutcomes,
     clock: { now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z` },
     ids: {
       nextPlanId: (controlId, replanCount) => `plan-${controlId}-${String(replanCount)}`,
       nextInstanceId: (_controlId, roundIndex) => `instance-${String(roundIndex)}`,
     },
   });
-  return { controller, controls, goals, evaluator, execution, planner };
+  return { controller, controls, goals, evaluator, execution, planner, taskOutcomes };
 }
 
 function plan(

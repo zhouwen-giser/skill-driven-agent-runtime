@@ -28,6 +28,16 @@ export interface TaskOutput {
   readonly structured: unknown;
 }
 
+export interface TaskCapabilityGap {
+  readonly evaluationSummary: string;
+  readonly missingCapability: string;
+  readonly suggestedToolContract: Readonly<{
+    name: string;
+    description: string;
+    inputSchema: unknown;
+  }>;
+}
+
 export interface AgentTask {
   readonly taskId: string;
   readonly contextId: string;
@@ -40,6 +50,7 @@ export interface AgentTask {
   readonly goalVersion?: number;
   readonly planId?: string;
   readonly output?: TaskOutput;
+  readonly capabilityGap?: TaskCapabilityGap;
   readonly errorCode?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -98,8 +109,22 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   awaiting_plan_confirmation: ['planning', 'executing', 'canceled', 'failed'],
   awaiting_user_input: ['goal_deliberation', 'canceled', 'failed'],
   paused: ['executing', 'planning', 'canceled', 'failed'],
-  executing: ['paused', 'evaluating', 'awaiting_user_input', 'canceled', 'failed'],
-  evaluating: ['planning', 'completed', 'awaiting_user_input', 'canceled', 'failed'],
+  executing: [
+    'paused',
+    'evaluating',
+    'awaiting_user_input',
+    'capability_gap',
+    'canceled',
+    'failed',
+  ],
+  evaluating: [
+    'planning',
+    'completed',
+    'awaiting_user_input',
+    'capability_gap',
+    'canceled',
+    'failed',
+  ],
   capability_gap: ['skill_resolution', 'canceled', 'failed'],
   completed: [],
   canceled: [],
@@ -144,6 +169,20 @@ export function transitionTask(
 export function completeTask(task: AgentTask, output: TaskOutput, timestamp: string): AgentTask {
   const completed = transitionTask(task, 'completed', 'Task completed.', timestamp);
   return { ...completed, output };
+}
+
+export function recordTaskCapabilityGap(
+  task: AgentTask,
+  capabilityGap: TaskCapabilityGap,
+  timestamp: string,
+): AgentTask {
+  const waiting = transitionTask(
+    task,
+    'capability_gap',
+    `Required capability is unavailable: ${capabilityGap.missingCapability}`,
+    timestamp,
+  );
+  return { ...waiting, capabilityGap };
 }
 
 export function failTask(task: AgentTask, errorCode: string, timestamp: string): AgentTask {

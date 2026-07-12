@@ -6,9 +6,11 @@ import {
   createSkillDraft,
   completeTask,
   normalizeUserId,
+  recordTaskCapabilityGap,
   transitionTask,
   type AgentTask,
   type ConversationContext,
+  type GoalEvaluationResult,
 } from '../../domain/src/index.js';
 
 import type {
@@ -319,6 +321,39 @@ export class TaskService {
     return waiting;
   }
 
+  async reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<AgentTask> {
+    if (
+      evaluation.decision !== 'capability_gap' ||
+      evaluation.missingCapability === undefined ||
+      evaluation.suggestedToolContract === undefined
+    )
+      throw new TaskApplicationError(
+        'TASK_CAPABILITY_GAP_EVIDENCE_INVALID',
+        'Capability-gap Task projection requires complete structured evidence.',
+      );
+    const task = await this.get(taskId);
+    const timestamp = this.#dependencies.clock.now();
+    const waiting = recordTaskCapabilityGap(
+      task,
+      {
+        evaluationSummary: evaluation.summary,
+        missingCapability: evaluation.missingCapability,
+        suggestedToolContract: evaluation.suggestedToolContract,
+      },
+      timestamp,
+    );
+    await this.#dependencies.tasks.save(waiting);
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: waiting.taskId,
+      contextId: waiting.contextId,
+      eventType: 'task.phase_changed',
+      timestamp,
+      summary: `Capability gap: ${evaluation.summary}`,
+    });
+    return waiting;
+  }
+
   async recordResult(
     taskId: string,
     candidate: ResultCandidate,
@@ -364,7 +399,10 @@ export class TaskService {
 }
 
 export type TaskApplicationErrorCode =
-  'TASK_NOT_FOUND' | 'TASK_PLAN_ACTIONS_UNAVAILABLE' | 'TASK_PLAN_NOT_ATTACHED';
+  | 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID'
+  | 'TASK_NOT_FOUND'
+  | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
+  | 'TASK_PLAN_NOT_ATTACHED';
 
 export class TaskApplicationError extends Error {
   readonly code: TaskApplicationErrorCode;

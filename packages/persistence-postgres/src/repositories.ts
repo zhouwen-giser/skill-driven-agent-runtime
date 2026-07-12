@@ -153,6 +153,7 @@ interface TaskRow extends QueryResultRow {
   plan_id: string | null;
   output_text: string | null;
   output_structured: unknown;
+  capability_gap_json: unknown;
   error_code: string | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -945,7 +946,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
               phase, phase_message, goal_id, goal_version, plan_id,
-              output_text, output_structured, error_code, created_at, updated_at
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
       [taskId],
@@ -959,8 +960,8 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
          phase, phase_message, goal_id, goal_version, plan_id,
-         output_text, output_structured, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -971,6 +972,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          plan_id = EXCLUDED.plan_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
+         capability_gap_json = EXCLUDED.capability_gap_json,
          error_code = EXCLUDED.error_code,
          updated_at = EXCLUDED.updated_at
        WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')
@@ -988,6 +990,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.planId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
+        task.capabilityGap ?? null,
         task.errorCode ?? null,
         task.createdAt,
         task.updatedAt,
@@ -1035,7 +1038,7 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
        SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,output_text,output_structured,error_code,created_at,updated_at
+         goal_id,goal_version,plan_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
@@ -1992,6 +1995,7 @@ interface WorkflowControlRow extends QueryResultRow {
   context_id: string;
   goal_id: string;
   goal_version: number;
+  task_id: string | null;
   status: WorkflowControlRecord['status'];
   current_plan_id: string;
   input_json: unknown;
@@ -2033,10 +2037,10 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
   async save(control: WorkflowControlRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_control(
-         control_id,context_id,goal_id,goal_version,status,current_plan_id,input_json,
+         control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
          skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
          created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15)
        ON CONFLICT(control_id) DO UPDATE SET
          status=EXCLUDED.status,current_plan_id=EXCLUDED.current_plan_id,
          round_count=EXCLUDED.round_count,replan_count=EXCLUDED.replan_count,
@@ -2046,6 +2050,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         control.contextId,
         control.goalId,
         control.goalVersion,
+        control.taskId ?? null,
         control.status,
         control.currentPlanId,
         JSON.stringify(control.input),
@@ -2095,6 +2100,7 @@ function mapWorkflowControlRow(row: WorkflowControlRow): WorkflowControlRecord {
     contextId: row.context_id,
     goalId: row.goal_id,
     goalVersion: row.goal_version,
+    ...(row.task_id === null ? {} : { taskId: row.task_id }),
     status: row.status,
     currentPlanId: row.current_plan_id,
     input: row.input_json,
@@ -2920,11 +2926,28 @@ function mapTaskRow(row: TaskRow): AgentTask {
     ...(row.goal_version === null ? {} : { goalVersion: row.goal_version }),
     ...(row.plan_id === null ? {} : { planId: row.plan_id }),
     ...output,
+    ...(row.capability_gap_json === null
+      ? {}
+      : { capabilityGap: TaskCapabilityGapSchema.parse(row.capability_gap_json) }),
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };
 }
+
+const TaskCapabilityGapSchema = z
+  .object({
+    evaluationSummary: z.string().min(1),
+    missingCapability: z.string().min(1),
+    suggestedToolContract: z
+      .object({
+        name: z.string().min(1),
+        description: z.string().min(1),
+        inputSchema: z.unknown(),
+      })
+      .strict(),
+  })
+  .strict();
 
 function mapGoalRow(row: GoalRow): Goal {
   return {

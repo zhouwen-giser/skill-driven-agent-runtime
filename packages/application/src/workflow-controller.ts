@@ -1,4 +1,8 @@
-import { changeGoalStatus, type WorkflowControlRecord } from '../../domain/src/index.js';
+import {
+  changeGoalStatus,
+  type GoalEvaluationResult,
+  type WorkflowControlRecord,
+} from '../../domain/src/index.js';
 import type {
   Clock,
   GoalEvaluator,
@@ -15,6 +19,7 @@ export interface StartWorkflowControlInput {
   readonly contextId: string;
   readonly goalId: string;
   readonly goalVersion: number;
+  readonly taskId?: string;
   readonly initialPlanId: string;
   readonly input: unknown;
   readonly skillIds: readonly string[];
@@ -29,6 +34,11 @@ export class WorkflowControllerService {
   readonly #planner: Pick<WorkflowPlannerService, 'plan'>;
   readonly #execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
   readonly #evaluator: GoalEvaluator;
+  readonly #taskOutcomes:
+    | Readonly<{
+        reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
+      }>
+    | undefined;
   readonly #clock: Clock;
   readonly #ids: Readonly<{
     nextPlanId(controlId: string, replanCount: number): string;
@@ -44,6 +54,9 @@ export class WorkflowControllerService {
       planner: Pick<WorkflowPlannerService, 'plan'>;
       execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
       evaluator: GoalEvaluator;
+      taskOutcomes?: Readonly<{
+        reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
+      }>;
       clock: Clock;
       ids: Readonly<{
         nextPlanId(controlId: string, replanCount: number): string;
@@ -58,6 +71,7 @@ export class WorkflowControllerService {
     this.#planner = dependencies.planner;
     this.#execution = dependencies.execution;
     this.#evaluator = dependencies.evaluator;
+    this.#taskOutcomes = dependencies.taskOutcomes;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
@@ -86,6 +100,7 @@ export class WorkflowControllerService {
       contextId: input.contextId,
       goalId: input.goalId,
       goalVersion: input.goalVersion,
+      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       status: 'running',
       currentPlanId: input.initialPlanId,
       input: input.input,
@@ -184,6 +199,14 @@ export class WorkflowControllerService {
         return control;
       }
       if (evaluation.decision === 'request_input' || evaluation.decision === 'capability_gap') {
+        if (evaluation.decision === 'capability_gap' && control.taskId !== undefined) {
+          if (this.#taskOutcomes === undefined)
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'Capability-gap Task projection is unavailable.',
+            );
+          await this.#taskOutcomes.reportCapabilityGap(control.taskId, evaluation);
+        }
         control = {
           ...control,
           status: evaluation.decision === 'request_input' ? 'awaiting_input' : 'capability_gap',
@@ -280,6 +303,7 @@ export type WorkflowControllerErrorCode =
   | 'WORKFLOW_CONTROL_INITIAL_PLAN_INVALID'
   | 'WORKFLOW_CONTROL_NOT_AWAITING_CONFIRMATION'
   | 'WORKFLOW_CONTROL_NOT_FOUND'
+  | 'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE'
   | 'WORKFLOW_CONTROL_PLAN_NOT_CONFIRMED';
 export class WorkflowControllerError extends Error {
   readonly code: WorkflowControllerErrorCode;

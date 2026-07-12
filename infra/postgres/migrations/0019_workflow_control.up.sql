@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS workflow_control (
   context_id text NOT NULL REFERENCES conversation_context(context_id),
   goal_id text NOT NULL REFERENCES goal(goal_id),
   goal_version integer NOT NULL CHECK(goal_version > 0),
+  task_id text REFERENCES agent_task(task_id),
   status text NOT NULL CHECK(status IN (
     'running','awaiting_confirmation','awaiting_input','capability_gap',
     'achieved','unachievable','failed','replan_budget_exhausted'

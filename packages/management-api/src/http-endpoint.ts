@@ -180,6 +180,7 @@ const StartWorkflowControlSchema = z.object({
   contextId: z.string().min(1),
   goalId: z.string().min(1),
   goalVersion: z.number().int().positive(),
+  taskId: z.string().min(1).optional(),
   initialPlanId: z.string().min(1),
   input: z.unknown(),
   skillIds: z.array(z.string().min(1)),
@@ -373,7 +374,19 @@ export async function startManagementHttpEndpoint(
     '/api/v1/workflow-controls',
     asyncRoute(async (request, response) => {
       const input = StartWorkflowControlSchema.parse(request.body);
-      response.status(201).json(await options.operations.workflowControls.start(input));
+      response.status(201).json(
+        await options.operations.workflowControls.start({
+          controlId: input.controlId,
+          contextId: input.contextId,
+          goalId: input.goalId,
+          goalVersion: input.goalVersion,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+          initialPlanId: input.initialPlanId,
+          input: input.input,
+          skillIds: input.skillIds,
+          planningInstruction: input.planningInstruction,
+        }),
+      );
     }),
   );
   app.get(

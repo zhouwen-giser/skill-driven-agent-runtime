@@ -32,6 +32,7 @@ import {
   bindTaskGoal,
   createAgentTask,
   createSkillVersion,
+  recordTaskCapabilityGap,
   transitionTask,
 } from '../../domain/src/index.js';
 
@@ -192,6 +193,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalEvaluationMigration);
+  const taskCapabilityGapMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0030_task_capability_gap.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskCapabilityGapMigration);
 });
 
 beforeEach(async () => {
@@ -265,6 +271,55 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.findConfirmedDefinition('workflow.db', 1)).resolves.toMatchObject({
       planId: 'plan.db',
       confirmationStatus: 'confirmed',
+    });
+  });
+  it('round-trips structured Task capability-gap evidence', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    await contexts.save({
+      contextId: 'context.capability-gap.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    let task = createAgentTask({
+      taskId: 'task.capability-gap.db',
+      contextId: 'context.capability-gap.db',
+      userId: 'operator',
+      requestText: 'Read pressure.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+      'evaluating',
+    ] as const)
+      task = transitionTask(task, phase, phase, '2026-07-12T00:00:01.000Z');
+    task = recordTaskCapabilityGap(
+      task,
+      {
+        evaluationSummary: 'No registered tool can read pressure.',
+        missingCapability: 'Read device pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read pressure for one device.',
+          inputSchema: { type: 'object', required: ['deviceId'] },
+        },
+      },
+      '2026-07-12T00:00:02.000Z',
+    );
+    const tasks = new PostgresAgentTaskRepository(pool);
+    await tasks.save(task);
+
+    await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
+      phase: 'capability_gap',
+      capabilityGap: {
+        missingCapability: 'Read device pressure.',
+        suggestedToolContract: { name: 'read_pressure' },
+      },
     });
   });
   it('atomically supersedes a plan when persisting its immutable revision', async () => {
