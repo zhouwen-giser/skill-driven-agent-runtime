@@ -726,6 +726,115 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     await runtime.setSkillEnabled(skillId, false);
   });
 
+  it('induces a frequent successful Workflow Template and tracks adjusted reuse effects', async () => {
+    const skillId = `skill.template.reuse.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Template reuse Skill'));
+    const execute = async () => {
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `TEMPLATE_REUSE GLOBAL_SHARED_SKILL:${skillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm template run.',
+      );
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+    };
+    await execute();
+    await execute();
+    await execute();
+    const induced = z
+      .object({
+        items: z.array(
+          z.object({
+            templateId: z.string(),
+            version: z.number(),
+            goalKey: z.string(),
+            sourceExperienceIds: z.array(z.string()),
+            sourceSuccessCount: z.number(),
+            useCount: z.number(),
+            successfulUseCount: z.number(),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflow-templates`).then((response) =>
+          response.json(),
+        ),
+      );
+    const template = induced.items.find((item) => item.goalKey.includes('template_reuse'));
+    expect(template).toMatchObject({
+      version: 1,
+      sourceSuccessCount: 3,
+      useCount: 0,
+      successfulUseCount: 0,
+    });
+    expect(template?.sourceExperienceIds).toHaveLength(3);
+    if (template === undefined) throw new Error('WORKFLOW_TEMPLATE_NOT_INDUCED');
+    await execute();
+    const updated = z
+      .object({
+        items: z.array(
+          z.object({
+            templateId: z.string(),
+            useCount: z.number(),
+            successfulUseCount: z.number(),
+            averageUseDurationMs: z.number(),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflow-templates`).then((response) =>
+          response.json(),
+        ),
+      );
+    expect(updated.items.find((item) => item.templateId === template.templateId)).toMatchObject({
+      useCount: 1,
+      successfulUseCount: 1,
+    });
+    const uses = z
+      .object({
+        items: z.array(
+          z.object({
+            templateId: z.string(),
+            templateVersion: z.number(),
+            status: z.string(),
+            workflowDefinitionId: z.string(),
+            durationMs: z.number().optional(),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflow-templates/${encodeURIComponent(template.templateId)}/uses`,
+        ).then((response) => response.json()),
+      );
+    expect(uses.items).toMatchObject([
+      {
+        templateId: template.templateId,
+        templateVersion: 1,
+        status: 'succeeded',
+      },
+    ]);
+    expect(uses.items[0]?.workflowDefinitionId).toContain('workflow-task-');
+    await runtime.setSkillEnabled(skillId, false);
+  });
+
   it('creates, lists, and deletes persisted Skill Graph relations through management HTTP', async () => {
     const sourceSkillId = `skill.graph.source.${randomUUID()}`;
     const targetSkillId = `skill.graph.target.${randomUUID()}`;
@@ -3453,6 +3562,7 @@ async function startModelLoopback(): Promise<Server> {
           const historicalReplayFailure = requestData.requestText.includes(
             'HISTORICAL_REPLAY_FAILURE',
           );
+          const templateReuse = requestData.requestText.includes('TEMPLATE_REUSE');
           const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(requestData.requestText);
           const temporaryServerId = temporaryTool?.[1] ?? '';
           const temporaryToolName = temporaryTool?.[2] ?? '';
@@ -3472,7 +3582,7 @@ async function startModelLoopback(): Promise<Server> {
               : replaceSkillGoal
                 ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                 : sharedSkill !== undefined
-                  ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
+                  ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
                   : capabilityGapGoal
                     ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                     : controlGoal

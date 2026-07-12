@@ -67,15 +67,58 @@ describe('WorkflowPlannerService', () => {
       }),
     ).rejects.toMatchObject({ code: 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED' });
   });
+  it('offers a preferred successful template for adjustment and records the produced plan use', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    let usedPlanId: string | undefined;
+    const template = {
+      templateId: 'template-1',
+      version: 1,
+      goalKey: 'plan safely',
+      structureKey: 'structure-1',
+      workflow: validDefinition({ workflowDefinitionId: 'workflow-source' }),
+      sourceExperienceIds: ['experience-1', 'experience-2', 'experience-3'],
+      sourceSuccessCount: 3,
+      useCount: 0,
+      successfulUseCount: 0,
+      averageUseDurationMs: 0,
+      status: 'enabled' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    await planner(repository, model, {
+      findPreferred: () => Promise.resolve(template),
+      recordUse: (_template, planId) => {
+        usedPlanId = planId;
+        return Promise.resolve({
+          useId: 'use-1',
+          templateId: template.templateId,
+          templateVersion: 1,
+          planId,
+          workflowDefinitionId: 'workflow-1',
+          workflowVersion: 1,
+          status: 'planned' as const,
+          createdAt: '2026-07-12T00:00:00.000Z',
+        });
+      },
+    }).plan({ ...input(), templateQuery: 'Plan safely' });
+    expect(model.calls[0]?.instruction).toContain('preferredWorkflowTemplate');
+    expect(model.calls[0]?.instruction).toContain('workflow-source');
+    expect(usedPlanId).toBe('plan-1');
+  });
 });
 
-function planner(repository: WorkflowPlanRepository, model: StructuredModelProvider) {
+function planner(
+  repository: WorkflowPlanRepository,
+  model: StructuredModelProvider,
+  templates?: ConstructorParameters<typeof WorkflowPlannerService>[0]['templates'],
+) {
   return new WorkflowPlannerService({
     model,
     repository,
     workflowSchema: { type: 'object' },
     clock: { now: () => '2026-07-12T00:00:00.000Z' },
     maxAttempts: 2,
+    ...(templates === undefined ? {} : { templates }),
     validator: new WorkflowValidator({
       tools: {
         exists: () => Promise.resolve(false),

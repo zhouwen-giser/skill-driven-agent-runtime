@@ -35,6 +35,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-12: add administrator correction/revalidation, immutable actor/before/after/diff/result Experience history, and real failed-v2-to-corrected-v3 E2E (FR-EVO-007, ADR-051).
 - [x] 2026-07-12: enforce source-governed publication: all-pass system evolution auto-publishes, while A2A requests remain drafts until the dedicated management publication workflow records publisher and SkillVersion (FR-EVO-008, ADR-052).
 - [x] 2026-07-12: persist version-specific quality observations and warning-only low-score/failure-rate signals, proving no automatic disable, repair, evolution, or version mutation (FR-EVO-009, ADR-053).
+- [x] 2026-07-12: induce versioned Workflow templates from three matching successful Experiences, prefer them for exact/lexically similar planning without bypassing validation or confirmation, and persist per-version usage effects (FR-EVO-010, ADR-054).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

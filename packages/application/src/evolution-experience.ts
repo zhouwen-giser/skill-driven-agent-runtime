@@ -8,19 +8,23 @@ import type {
 } from '../../domain/src/index.js';
 
 import type { EvolutionExperienceRepository } from './ports.js';
+import type { WorkflowTemplateService } from './workflow-template.js';
 
 export class EvolutionExperienceService {
   readonly #repository: EvolutionExperienceRepository;
   readonly #nextId: () => string;
+  readonly #templates: Pick<WorkflowTemplateService, 'observe' | 'recordOutcome'> | undefined;
 
   constructor(
     dependencies: Readonly<{
       repository: EvolutionExperienceRepository;
       nextId(): string;
+      templates?: Pick<WorkflowTemplateService, 'observe' | 'recordOutcome'>;
     }>,
   ) {
     this.#repository = dependencies.repository;
     this.#nextId = dependencies.nextId;
+    this.#templates = dependencies.templates;
   }
 
   async record(
@@ -63,6 +67,8 @@ export class EvolutionExperienceService {
       createdAt: input.createdAt,
     };
     await this.#repository.save(experience);
+    await this.#templates?.recordOutcome(experience);
+    await this.#templates?.observe(experience);
     return experience;
   }
 

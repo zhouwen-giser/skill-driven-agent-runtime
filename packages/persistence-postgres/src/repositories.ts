@@ -12,6 +12,7 @@ import type {
   ModelRuntimeRepository,
   PromptRepository,
   WorkflowPlanRepository,
+  WorkflowTemplateRepository,
   WorkflowExecutionRepository,
   WorkflowControlRepository,
   GoalRepository,
@@ -49,6 +50,9 @@ import type {
   PromptEffectSummary,
   PromptVersion,
   WorkflowDefinition,
+  WorkflowTemplate,
+  WorkflowTemplateOccurrence,
+  WorkflowTemplateUse,
   WorkflowPlanAttempt,
   WorkflowPlanRecord,
   WorkflowInstance,
@@ -2168,6 +2172,43 @@ export class PostgresPromptRepository implements PromptRepository {
   }
 }
 
+interface WorkflowTemplateOccurrenceRow extends QueryResultRow {
+  experience_id: string;
+  goal_key: string;
+  structure_key: string;
+  workflow_json: unknown;
+  duration_ms: number;
+  created_at: Date | string;
+}
+
+interface WorkflowTemplateRow extends QueryResultRow {
+  template_id: string;
+  version: number;
+  goal_key: string;
+  structure_key: string;
+  workflow_json: unknown;
+  source_experience_ids_json: unknown;
+  source_success_count: number;
+  use_count: number;
+  successful_use_count: number;
+  average_use_duration_ms: number;
+  status: 'enabled';
+  created_at: Date | string;
+}
+
+interface WorkflowTemplateUseRow extends QueryResultRow {
+  use_id: string;
+  template_id: string;
+  template_version: number;
+  plan_id: string;
+  workflow_definition_id: string;
+  workflow_version: number;
+  status: WorkflowTemplateUse['status'];
+  duration_ms: number | null;
+  created_at: Date | string;
+  completed_at: Date | string | null;
+}
+
 interface WorkflowPlanRow extends QueryResultRow {
   plan_id: string;
   goal_id: string;
@@ -2193,6 +2234,147 @@ const StoredWorkflowDefinitionSchema = z
     edges: z.array(z.unknown()),
   })
   .strict();
+
+export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async saveOccurrence(occurrence: WorkflowTemplateOccurrence): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_template_occurrence
+         (experience_id,goal_key,structure_key,workflow_json,duration_ms,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (experience_id) DO NOTHING`,
+      [
+        occurrence.experienceId,
+        occurrence.goalKey,
+        occurrence.structureKey,
+        JSON.stringify(occurrence.workflow),
+        occurrence.durationMs,
+        occurrence.createdAt,
+      ],
+    );
+  }
+
+  async listOccurrences(goalKey: string, structureKey: string) {
+    const result = await this.#pool.query<WorkflowTemplateOccurrenceRow>(
+      `SELECT experience_id,goal_key,structure_key,workflow_json,duration_ms,created_at
+       FROM workflow_template_occurrence WHERE goal_key=$1 AND structure_key=$2
+       ORDER BY created_at,experience_id`,
+      [goalKey, structureKey],
+    );
+    return result.rows.map(mapWorkflowTemplateOccurrenceRow);
+  }
+
+  async findPreferred(goalKey: string): Promise<WorkflowTemplate | undefined> {
+    const result = await this.#pool.query<WorkflowTemplateRow>(
+      `SELECT * FROM workflow_template WHERE goal_key=$1 AND status='enabled'
+       ORDER BY version DESC,created_at DESC LIMIT 1`,
+      [goalKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapWorkflowTemplateRow(row);
+  }
+
+  async saveTemplate(template: WorkflowTemplate): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_template
+         (template_id,version,goal_key,structure_key,workflow_json,source_experience_ids_json,
+          source_success_count,use_count,successful_use_count,average_use_duration_ms,status,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        template.templateId,
+        template.version,
+        template.goalKey,
+        template.structureKey,
+        JSON.stringify(template.workflow),
+        JSON.stringify(template.sourceExperienceIds),
+        template.sourceSuccessCount,
+        template.useCount,
+        template.successfulUseCount,
+        template.averageUseDurationMs,
+        template.status,
+        template.createdAt,
+      ],
+    );
+  }
+
+  async saveUse(use: WorkflowTemplateUse): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO workflow_template_use
+         (use_id,template_id,template_version,plan_id,workflow_definition_id,workflow_version,
+          status,duration_ms,created_at,completed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        use.useId,
+        use.templateId,
+        use.templateVersion,
+        use.planId,
+        use.workflowDefinitionId,
+        use.workflowVersion,
+        use.status,
+        use.durationMs ?? null,
+        use.createdAt,
+        use.completedAt ?? null,
+      ],
+    );
+  }
+
+  async findPlannedUse(workflowDefinitionId: string, workflowVersion: number) {
+    const result = await this.#pool.query<WorkflowTemplateUseRow>(
+      `SELECT * FROM workflow_template_use
+       WHERE workflow_definition_id=$1 AND workflow_version=$2 AND status='planned'`,
+      [workflowDefinitionId, workflowVersion],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapWorkflowTemplateUseRow(row);
+  }
+
+  async completeUse(use: WorkflowTemplateUse, template: WorkflowTemplate): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE workflow_template SET use_count=$3,successful_use_count=$4,
+           average_use_duration_ms=$5 WHERE template_id=$1 AND version=$2`,
+        [
+          template.templateId,
+          template.version,
+          template.useCount,
+          template.successfulUseCount,
+          template.averageUseDurationMs,
+        ],
+      );
+      await client.query(
+        `UPDATE workflow_template_use SET status=$2,duration_ms=$3,completed_at=$4
+         WHERE use_id=$1 AND status='planned'`,
+        [use.useId, use.status, use.durationMs ?? null, use.completedAt ?? null],
+      );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listTemplates() {
+    const result = await this.#pool.query<WorkflowTemplateRow>(
+      'SELECT * FROM workflow_template ORDER BY template_id,version',
+    );
+    return result.rows.map(mapWorkflowTemplateRow);
+  }
+
+  async listUses(templateId: string) {
+    const result = await this.#pool.query<WorkflowTemplateUseRow>(
+      'SELECT * FROM workflow_template_use WHERE template_id=$1 ORDER BY created_at,use_id',
+      [templateId],
+    );
+    return result.rows.map(mapWorkflowTemplateUseRow);
+  }
+}
 
 export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   readonly #pool: Pool;
@@ -3487,6 +3669,51 @@ function mapSkillQualityWarningRow(row: SkillQualityWarningRow): SkillQualityWar
     status: row.status,
     skillStatusAtCreation: row.skill_status_at_creation,
     createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapWorkflowTemplateOccurrenceRow(
+  row: WorkflowTemplateOccurrenceRow,
+): WorkflowTemplateOccurrence {
+  return {
+    experienceId: row.experience_id,
+    goalKey: row.goal_key,
+    structureKey: row.structure_key,
+    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    durationMs: row.duration_ms,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapWorkflowTemplateRow(row: WorkflowTemplateRow): WorkflowTemplate {
+  return {
+    templateId: row.template_id,
+    version: row.version,
+    goalKey: row.goal_key,
+    structureKey: row.structure_key,
+    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    sourceExperienceIds: z.array(z.string()).parse(row.source_experience_ids_json),
+    sourceSuccessCount: row.source_success_count,
+    useCount: row.use_count,
+    successfulUseCount: row.successful_use_count,
+    averageUseDurationMs: row.average_use_duration_ms,
+    status: row.status,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapWorkflowTemplateUseRow(row: WorkflowTemplateUseRow): WorkflowTemplateUse {
+  return {
+    useId: row.use_id,
+    templateId: row.template_id,
+    templateVersion: row.template_version,
+    planId: row.plan_id,
+    workflowDefinitionId: row.workflow_definition_id,
+    workflowVersion: row.workflow_version,
+    status: row.status,
+    ...(row.duration_ms === null ? {} : { durationMs: row.duration_ms }),
+    createdAt: toIsoString(row.created_at),
+    ...(row.completed_at === null ? {} : { completedAt: toIsoString(row.completed_at) }),
   };
 }
 

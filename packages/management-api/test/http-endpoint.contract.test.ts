@@ -15,6 +15,16 @@ describe('management HTTP API contract', () => {
     endpoint = undefined;
   });
 
+  it('exposes workflow-template inventory and usage evidence', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const inventory = await fetch(`${endpoint.baseUrl}/api/v1/workflow-templates`);
+    expect(inventory.status).toBe(200);
+    await expect(inventory.json()).resolves.toEqual({ items: [] });
+    const uses = await fetch(`${endpoint.baseUrl}/api/v1/workflow-templates/template-1/uses`);
+    expect(uses.status).toBe(200);
+    await expect(uses.json()).resolves.toEqual({ items: [] });
+  });
+
   it('reads and updates the unified Task wait timeout', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -983,6 +993,10 @@ function operations(failServerList = false): ManagementOperations {
     memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
+    workflowTemplates: {
+      listTemplates: () => Promise.resolve([]),
+      listUses: () => Promise.resolve([]),
+    },
     graph: {
       create: unused,
       delete: unused,

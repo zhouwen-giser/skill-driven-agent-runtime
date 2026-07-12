@@ -14,6 +14,7 @@ import {
   PostgresPromptRepository,
   PostgresProcessedResultRepository,
   PostgresWorkflowPlanRepository,
+  PostgresWorkflowTemplateRepository,
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
@@ -276,11 +277,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillQualityWarningMigration);
+  const workflowTemplateMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0043_workflow_template.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(workflowTemplateMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -436,6 +442,49 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.db',
       confirmationStatus: 'confirmed',
     });
+    const templates = new PostgresWorkflowTemplateRepository(pool);
+    const template = {
+      templateId: 'template.db',
+      version: 1,
+      goalKey: 'inspect device',
+      structureKey: 'structure.db',
+      workflow: definition,
+      sourceExperienceIds: ['experience-1', 'experience-2', 'experience-3'],
+      sourceSuccessCount: 3,
+      useCount: 0,
+      successfulUseCount: 0,
+      averageUseDurationMs: 0,
+      status: 'enabled' as const,
+      createdAt: '2026-07-12T00:01:00.000Z',
+    };
+    await templates.saveTemplate(template);
+    await templates.saveUse({
+      useId: 'template-use.db',
+      templateId: template.templateId,
+      templateVersion: 1,
+      planId: 'plan.db',
+      workflowDefinitionId: definition.workflowDefinitionId,
+      workflowVersion: 1,
+      status: 'planned',
+      createdAt: '2026-07-12T00:02:00.000Z',
+    });
+    const plannedUse = await templates.findPlannedUse(definition.workflowDefinitionId, 1);
+    if (plannedUse === undefined) throw new Error('EXPECTED_TEMPLATE_USE');
+    await templates.completeUse(
+      {
+        ...plannedUse,
+        status: 'succeeded',
+        durationMs: 25,
+        completedAt: '2026-07-12T00:03:00.000Z',
+      },
+      { ...template, useCount: 1, successfulUseCount: 1, averageUseDurationMs: 25 },
+    );
+    await expect(templates.listTemplates()).resolves.toMatchObject([
+      { templateId: 'template.db', useCount: 1, successfulUseCount: 1 },
+    ]);
+    await expect(templates.listUses('template.db')).resolves.toMatchObject([
+      { useId: 'template-use.db', status: 'succeeded', durationMs: 25 },
+    ]);
   });
   it('round-trips structured Task capability-gap evidence', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

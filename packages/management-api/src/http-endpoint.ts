@@ -29,6 +29,7 @@ import type {
   MemoryService,
   GoalInputInferenceService,
   WorkflowRevisionService,
+  WorkflowTemplateService,
   TaskService,
   TaskWaitTimeoutService,
 } from '../../application/src/index.js';
@@ -299,6 +300,7 @@ export interface ManagementOperations {
   >;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly skillQuality: Pick<SkillQualityService, 'listWarnings' | 'record'>;
+  readonly workflowTemplates: Pick<WorkflowTemplateService, 'listTemplates' | 'listUses'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
   readonly prompts: Pick<
     PromptService,
@@ -1082,6 +1084,22 @@ export async function startManagementHttpEndpoint(
       const skillId =
         typeof request.query['skillId'] === 'string' ? request.query['skillId'] : undefined;
       response.json({ items: await options.operations.skillQuality.listWarnings(skillId) });
+    }),
+  );
+  app.get(
+    '/api/v1/workflow-templates',
+    asyncRoute(async (_request, response) => {
+      response.json({ items: await options.operations.workflowTemplates.listTemplates() });
+    }),
+  );
+  app.get(
+    '/api/v1/workflow-templates/:templateId/uses',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.workflowTemplates.listUses(
+          pathValue(request, 'templateId'),
+        ),
+      });
     }),
   );
   app.post(

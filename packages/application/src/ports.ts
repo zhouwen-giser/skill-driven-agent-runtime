@@ -41,6 +41,9 @@ import type {
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
   WorkflowInstance,
+  WorkflowTemplate,
+  WorkflowTemplateOccurrence,
+  WorkflowTemplateUse,
   WorkflowNodeEvent,
   WorkflowControlRecord,
   WorkflowControlRound,
@@ -277,6 +280,24 @@ export interface EvolutionExperienceRepository {
   listByGoal(goalId: string): Promise<readonly EvolutionExperience[]>;
   listBySkill(skillId: string): Promise<readonly EvolutionExperience[]>;
   listByTool(reference: ToolReference): Promise<readonly EvolutionExperience[]>;
+}
+
+export interface WorkflowTemplateRepository {
+  saveOccurrence(occurrence: WorkflowTemplateOccurrence): Promise<void>;
+  listOccurrences(
+    goalKey: string,
+    structureKey: string,
+  ): Promise<readonly WorkflowTemplateOccurrence[]>;
+  findPreferred(goalKey: string): Promise<WorkflowTemplate | undefined>;
+  saveTemplate(template: WorkflowTemplate): Promise<void>;
+  saveUse(use: WorkflowTemplateUse): Promise<void>;
+  findPlannedUse(
+    workflowDefinitionId: string,
+    workflowVersion: number,
+  ): Promise<WorkflowTemplateUse | undefined>;
+  completeUse(use: WorkflowTemplateUse, template: WorkflowTemplate): Promise<void>;
+  listTemplates(): Promise<readonly WorkflowTemplate[]>;
+  listUses(templateId: string): Promise<readonly WorkflowTemplateUse[]>;
 }
 
 export interface EvolutionPolicyRepository {

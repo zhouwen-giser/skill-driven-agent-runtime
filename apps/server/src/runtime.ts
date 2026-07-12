@@ -35,6 +35,7 @@ import {
   EvolutionPolicyService,
   WorkflowValidator,
   WorkflowPlannerService,
+  WorkflowTemplateService,
   WorkflowExecutionService,
   WorkflowControllerService,
   StructuredGoalEvaluator,
@@ -86,6 +87,7 @@ import {
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
   PostgresWorkflowPlanRepository,
+  PostgresWorkflowTemplateRepository,
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
@@ -182,14 +184,24 @@ export async function startServerRuntime(
   const mcpRepository = new PostgresMcpRegistryRepository(pool);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
-  const evolutionExperiences = new EvolutionExperienceService({
-    repository: new PostgresEvolutionExperienceRepository(pool),
-    nextId: () => `evolution-experience-${randomUUID()}`,
-  });
+  const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const workflowTemplates = new WorkflowTemplateService({
+    repository: new PostgresWorkflowTemplateRepository(pool),
+    clock,
+    ids: {
+      nextTemplateId: () => `workflow-template-${randomUUID()}`,
+      nextUseId: () => `workflow-template-use-${randomUUID()}`,
+    },
+  });
+  const evolutionExperiences = new EvolutionExperienceService({
+    repository: evolutionExperienceRepository,
+    nextId: () => `evolution-experience-${randomUUID()}`,
+    templates: workflowTemplates,
+  });
   const evolutionPolicy = new EvolutionPolicyService({
     repository: evolutionPolicyRepository,
     clock,
@@ -239,6 +251,7 @@ export async function startServerRuntime(
     workflowSchema,
     clock,
     maxAttempts: 3,
+    templates: workflowTemplates,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const resultProcessing = new ResultProcessingService({
@@ -760,6 +773,7 @@ export async function startServerRuntime(
           workflowVersion: 1,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
             workflowIdentity: {
@@ -862,6 +876,7 @@ export async function startServerRuntime(
         prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
         skillQuality,
+        workflowTemplates,
         temporarySkills: temporarySkillOperations,
         skillEvolution,
         evolutionExperiences,
@@ -1032,6 +1047,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0040_skill_evolution_correction.up.sql',
     '0041_skill_draft_publication.up.sql',
     '0042_skill_quality_warning.up.sql',
+    '0043_workflow_template.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

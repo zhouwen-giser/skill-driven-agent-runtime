@@ -1,6 +1,7 @@
 import type { WorkflowPlanAttempt, WorkflowPlanRecord } from '../../domain/src/index.js';
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
+import type { WorkflowTemplateService } from './workflow-template.js';
 
 export interface PlanWorkflowInput {
   readonly planId: string;
@@ -13,6 +14,7 @@ export interface PlanWorkflowInput {
   readonly sourcePlanId?: string;
   readonly revisionKind?: NonNullable<WorkflowPlanRecord['revisionKind']>;
   readonly supersedeSourcePlan?: boolean;
+  readonly templateQuery?: string;
 }
 
 export class WorkflowPlannerService {
@@ -22,6 +24,7 @@ export class WorkflowPlannerService {
   readonly #schema: unknown;
   readonly #clock: Clock;
   readonly #maxAttempts: number;
+  readonly #templates: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -31,6 +34,7 @@ export class WorkflowPlannerService {
       workflowSchema: unknown;
       clock: Clock;
       maxAttempts: number;
+      templates?: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'>;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -44,6 +48,7 @@ export class WorkflowPlannerService {
     this.#schema = dependencies.workflowSchema;
     this.#clock = dependencies.clock;
     this.#maxAttempts = dependencies.maxAttempts;
+    this.#templates = dependencies.templates;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
@@ -57,11 +62,19 @@ export class WorkflowPlannerService {
         'Repair source plan is not confirmed.',
       );
     }
+    const preferredTemplate =
+      input.templateQuery === undefined
+        ? undefined
+        : await this.#templates?.findPreferred(input.templateQuery);
+    const planningInstruction =
+      preferredTemplate === undefined
+        ? input.planningInstruction
+        : addPreferredTemplate(input.planningInstruction, preferredTemplate);
     let correctionErrors: readonly string[] = [];
     for (let attempt = 1; attempt <= this.#maxAttempts; attempt += 1) {
       const candidate = await this.#model.generateStructured({
         stage: 'workflow_planning',
-        instruction: input.planningInstruction,
+        instruction: planningInstruction,
         responseSchema: this.#schema,
         correctionErrors,
       });
@@ -93,6 +106,8 @@ export class WorkflowPlannerService {
             );
           await this.#repository.savePlanAndSupersede(plan, input.sourcePlanId);
         } else await this.#repository.savePlan(plan);
+        if (preferredTemplate !== undefined)
+          await this.#templates?.recordUse(preferredTemplate, plan.planId, validation.definition);
         return plan;
       }
       correctionErrors = validation.errors.map(
@@ -143,6 +158,34 @@ export class WorkflowPlannerService {
       });
     return errors.length === 0 ? result : { valid: false, errors };
   }
+}
+
+function addPreferredTemplate(
+  instruction: string,
+  template: Awaited<ReturnType<WorkflowTemplateService['findPreferred']>>,
+): string {
+  if (template === undefined) return instruction;
+  try {
+    const parsed = JSON.parse(instruction) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
+      return JSON.stringify({
+        ...parsed,
+        preferredWorkflowTemplate: {
+          templateId: template.templateId,
+          version: template.version,
+          workflow: template.workflow,
+          instruction:
+            'Prefer this successful structure, but adjust identities, parameters, and nodes for the current Goal and validate the complete DSL.',
+        },
+      });
+  } catch {
+    // Non-JSON planning instructions remain supported through an explicit wrapper.
+  }
+  return JSON.stringify({
+    operation: 'plan_with_preferred_workflow_template',
+    originalInstruction: instruction,
+    preferredWorkflowTemplate: template,
+  });
 }
 
 function toAttempt(
