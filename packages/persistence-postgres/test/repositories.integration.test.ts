@@ -18,6 +18,7 @@ import {
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
   PostgresGoalCancellationRepository,
+  PostgresGoalInputInferenceRepository,
   PostgresGoalPatchRepository,
   PostgresRuntimeEventPublisher,
   PostgresRuntimeRecoveryRepository,
@@ -204,11 +205,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(globalMemoryMigration);
+  const goalInputInferenceMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0032_goal_input_inference.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(goalInputInferenceMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE memory_item, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE goal_input_inference, memory_item, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -217,6 +223,59 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('collects conversation evidence and replays an explainable input inference', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    await contexts.save({
+      contextId: 'context.inference.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    for (const [taskId, requestText] of [
+      ['task.inference.source', 'The device is device-17.'],
+      ['task.inference.current', 'Inspect it.'],
+    ] as const)
+      await tasks.save(
+        createAgentTask({
+          taskId,
+          contextId: 'context.inference.db',
+          userId: 'operator',
+          requestText,
+          requestMetadata: {},
+          timestamp: taskId.endsWith('source')
+            ? '2026-07-12T00:00:00.000Z'
+            : '2026-07-12T00:00:01.000Z',
+        }),
+      );
+    const repository = new PostgresGoalInputInferenceRepository(pool);
+    const evidence = await repository.collect('context.inference.db', 'task.inference.current', 10);
+    expect(evidence.conversationHistory).toMatchObject([
+      { sourceId: 'task:task.inference.source', kind: 'conversation_history' },
+    ]);
+    await repository.save({
+      inferenceId: 'inference.db',
+      taskId: 'task.inference.current',
+      contextId: 'context.inference.db',
+      outcome: 'inferred',
+      decisionSummary: 'The prior request identifies device-17.',
+      usedSources: evidence.conversationHistory,
+      inferredGoal: {
+        title: 'Inspect device',
+        description: 'Inspect device-17.',
+        constraints: [],
+        successCriteria: ['Inspected'],
+      },
+      createdAt: '2026-07-12T00:00:02.000Z',
+    });
+    await expect(repository.listByTask('task.inference.current')).resolves.toMatchObject([
+      {
+        outcome: 'inferred',
+        usedSources: [{ sourceId: 'task:task.inference.source' }],
+        inferredGoal: { description: 'Inspect device-17.' },
+      },
+    ]);
+  });
   it('persists source-linked global memory and ranks active pgvector matches', async () => {
     const repository = new PostgresMemoryRepository(pool);
     await repository.save(

@@ -12,6 +12,7 @@ export * from './workflow-validator.js';
 export * from './workflow-planner.js';
 export * from './workflow-execution.js';
 export * from './goal-evaluator.js';
+export * from './goal-input-inference.js';
 export * from './workflow-controller.js';
 export * from './goal-service.js';
 export * from './goal-cancellation-service.js';

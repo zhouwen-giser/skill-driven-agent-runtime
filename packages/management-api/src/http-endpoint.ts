@@ -23,6 +23,7 @@ import type {
   GoalCancellationService,
   ResultProcessingService,
   MemoryService,
+  GoalInputInferenceService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
@@ -222,6 +223,7 @@ export interface ManagementOperations {
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly memories: Pick<MemoryService, 'create' | 'get' | 'search'>;
+  readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -481,6 +483,14 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       response.json({
         items: await options.operations.resultProcessing.list(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/input-inferences',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.goalInputInference.list(pathValue(request, 'taskId')),
       });
     }),
   );

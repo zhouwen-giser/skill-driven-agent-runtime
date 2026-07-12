@@ -38,6 +38,8 @@ import type {
   WorkflowControlRound,
   GoalEvaluationResult,
   GoalPatchRecord,
+  GoalInferenceSource,
+  GoalInputInferenceRecord,
   GoalTransitionRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
@@ -93,6 +95,21 @@ export interface MemoryRepository {
   search(
     query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
   ): Promise<readonly MemorySearchHit[]>;
+}
+
+export interface GoalInputInferenceRepository {
+  collect(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<
+    Readonly<{
+      conversationHistory: readonly GoalInferenceSource[];
+      existingData: readonly GoalInferenceSource[];
+    }>
+  >;
+  save(record: GoalInputInferenceRecord): Promise<void>;
+  listByTask(taskId: string): Promise<readonly GoalInputInferenceRecord[]>;
 }
 
 export interface RuntimeRecoveryRepository {

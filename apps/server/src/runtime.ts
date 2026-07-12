@@ -37,6 +37,7 @@ import {
   GoalService,
   GoalPatchService,
   GoalCancellationService,
+  GoalInputInferenceService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
@@ -83,6 +84,7 @@ import {
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
   PostgresMemoryRepository,
+  PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -225,6 +227,13 @@ export async function startServerRuntime(
     embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
     clock,
     nextId: () => `memory-${randomUUID()}`,
+  });
+  const goalInputInference = new GoalInputInferenceService({
+    repository: new PostgresGoalInputInferenceRepository(pool),
+    memories,
+    model: modelRuntime,
+    clock,
+    nextId: () => `goal-input-inference-${randomUUID()}`,
   });
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
   const skillAuthoring = new SkillAuthoringService({
@@ -457,6 +466,7 @@ export async function startServerRuntime(
     },
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
+    inputInference: goalInputInference,
   });
   const waitSweepTimer = setInterval(() => {
     void taskWaitTimeouts.sweep().catch((error: unknown) => {
@@ -480,6 +490,7 @@ export async function startServerRuntime(
         taskWaitTimeouts,
         resultProcessing,
         memories,
+        goalInputInference,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -636,6 +647,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0029_goal_evaluation_decisions.up.sql',
     '0030_task_capability_gap.up.sql',
     '0031_global_memory.up.sql',
+    '0032_goal_input_inference.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

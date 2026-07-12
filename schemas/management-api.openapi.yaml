@@ -113,6 +113,12 @@ paths:
       operationId: listTaskProcessedResults
       responses:
         '200': { description: Normalized results, facts, value assessments and memory candidates }
+  /api/v1/tasks/{taskId}/input-inferences:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskInputInferences
+      responses:
+        '200': { description: Ordered missing-input decisions and explainable evidence sources }
   /api/v1/processed-results/{resultId}:
     parameters: [{ name: resultId, in: path, required: true, schema: { type: string } }]
     get:

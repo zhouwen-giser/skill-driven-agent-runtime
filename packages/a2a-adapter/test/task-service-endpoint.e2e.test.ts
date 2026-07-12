@@ -1987,6 +1987,82 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('infers missing Goal input from global memory before asking an explicit question', async () => {
+    const source = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Provide evidence for remembered device 17.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in source)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const memoryId = `memory.inference.${randomUUID()}`;
+    expect(
+      (
+        await fetch(`${runtime.management.baseUrl}/api/v1/memories`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            memoryId,
+            type: 'fact',
+            content: { deviceId: 'device-17' },
+            summary: 'The remembered target is device-17.',
+            sourceRefs: [source.id],
+            confidence: 0.98,
+          }),
+        })
+      ).status,
+    ).toBe(201);
+
+    const inferred = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect the remembered target.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in inferred)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(inferred.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(inferred.status?.message?.parts[0]?.content).toMatchObject({
+      value: 'Plan confirmation required.',
+    });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(inferred.id)}/input-inferences`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          outcome: 'inferred',
+          inferredGoal: { description: 'Inspect device-17 using the remembered target.' },
+          usedSources: [{ sourceId: `memory:${memoryId}`, kind: 'global_memory' }],
+        },
+      ],
+    });
+
+    const unresolved = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect the unknown target.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in unresolved)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(unresolved.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(unresolved.status?.message?.parts[0]?.content).toMatchObject({
+      value: 'Which device should be inspected?',
+    });
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
@@ -2539,6 +2615,9 @@ async function startModelLoopback(): Promise<Server> {
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
+        const goalInputInferenceRequest = body.messages?.some(
+          (message) => message.content?.includes('infer_missing_goal_input') === true,
+        );
         const goalContinuityRequest = body.messages?.some(
           (message) => message.content?.includes('decide_goal_continuity') === true,
         );
@@ -2600,12 +2679,48 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (goalInputInferenceRequest === true) {
+          const requestData = z
+            .object({
+              requestText: z.string(),
+              evidence: z.array(
+                z.object({ sourceId: z.string(), kind: z.string(), summary: z.string() }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'infer_missing_goal_input'));
+          if (requestData.requestText.includes('unknown target')) {
+            respondStructured(response, {
+              outcome: 'input_required',
+              decisionSummary: 'Available evidence does not identify the requested target.',
+              usedSourceIds: [],
+              clarificationQuestion: 'Which device should be inspected?',
+            });
+            return;
+          }
+          const memory = requestData.evidence.find((item) => item.kind === 'global_memory');
+          if (memory === undefined) throw new Error('INFERENCE_MEMORY_EVIDENCE_REQUIRED');
+          respondStructured(response, {
+            outcome: 'inferred',
+            decisionSummary: 'The high-confidence global memory identifies device-17.',
+            usedSourceIds: [memory.sourceId],
+            inferredGoal: {
+              title: 'Inspect remembered target',
+              description: 'Inspect device-17 using the remembered target.',
+              constraints: [],
+              successCriteria: ['Device inspection returned'],
+            },
+          });
+          return;
+        }
         if (goalDecisionRequest === true) {
           const requestData = z
             .object({ requestText: z.string() })
             .parse(embeddedOperation(body.messages, 'formulate_goal'));
           const controlGoal = requestData.requestText.includes('control loop');
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
+          const requiresInput =
+            requestData.requestText.includes('remembered target') ||
+            requestData.requestText.includes('unknown target');
           respondStructured(response, {
             title: controlGoal || capabilityGapGoal ? 'Control Goal' : 'Execute the requested task',
             description: capabilityGapGoal
@@ -2619,7 +2734,8 @@ async function startModelLoopback(): Promise<Server> {
                 ? 'Two Workflow rounds are evaluated.'
                 : 'A validated result is returned.',
             ],
-            requiresInput: false,
+            requiresInput,
+            ...(requiresInput ? { clarificationQuestion: 'The target is missing.' } : {}),
           });
           return;
         }

@@ -19,6 +19,7 @@ import type {
   GoalCancellationRepository,
   ProcessedResultRepository,
   MemoryRepository,
+  GoalInputInferenceRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
   RuntimeTaskEvent,
@@ -56,6 +57,8 @@ import type {
   ProcessedResultRecord,
   MemoryItem,
   MemorySearchHit,
+  GoalInferenceSource,
+  GoalInputInferenceRecord,
   GoalTransitionRecord,
   Skill,
   SkillRelation,
@@ -929,6 +932,133 @@ export class PostgresMemoryRepository implements MemoryRepository {
     );
     return result.rows.map((row) => ({ item: mapMemoryItemRow(row), score: row.score ?? 0 }));
   }
+}
+
+interface GoalInputInferenceRow extends QueryResultRow {
+  inference_id: string;
+  task_id: string;
+  context_id: string;
+  outcome: GoalInputInferenceRecord['outcome'];
+  decision_summary: string;
+  used_sources_json: unknown;
+  inferred_goal_json: unknown;
+  clarification_question: string | null;
+  created_at: Date | string;
+}
+
+const GoalInferenceSourceSchema = z
+  .object({
+    sourceId: z.string().min(1),
+    kind: z.enum(['conversation_history', 'global_memory', 'existing_data']),
+    summary: z.string(),
+    content: z.unknown(),
+  })
+  .strict();
+const InferredGoalSchema = z
+  .object({
+    title: z.string(),
+    description: z.string(),
+    constraints: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+  })
+  .strict();
+
+export class PostgresGoalInputInferenceRepository implements GoalInputInferenceRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async collect(contextId: string, excludeTaskId: string, limit: number) {
+    const history = await this.#pool.query<{
+      task_id: string;
+      request_text: string;
+      phase: string;
+      output_text: string | null;
+      output_structured: unknown;
+    }>(
+      `SELECT task_id,request_text,phase,output_text,output_structured FROM agent_task
+       WHERE context_id=$1 AND task_id<>$2 ORDER BY created_at DESC,task_id DESC LIMIT $3`,
+      [contextId, excludeTaskId, limit],
+    );
+    const data = await this.#pool.query<{
+      result_id: string;
+      value_summary: string;
+      output_json: unknown;
+      facts_json: unknown;
+    }>(
+      `SELECT result_id,value_summary,output_json,facts_json FROM processed_result result
+       JOIN agent_task task ON task.task_id=result.task_id
+       WHERE task.context_id=$1 AND task.task_id<>$2
+       ORDER BY result.created_at DESC,result.result_id DESC LIMIT $3`,
+      [contextId, excludeTaskId, limit],
+    );
+    return {
+      conversationHistory: history.rows.map<GoalInferenceSource>((row) => ({
+        sourceId: `task:${row.task_id}`,
+        kind: 'conversation_history',
+        summary: `${row.phase}: ${row.request_text}`,
+        content: {
+          requestText: row.request_text,
+          ...(row.output_text === null
+            ? {}
+            : { output: { text: row.output_text, structured: row.output_structured } }),
+        },
+      })),
+      existingData: data.rows.map<GoalInferenceSource>((row) => ({
+        sourceId: `result:${row.result_id}`,
+        kind: 'existing_data',
+        summary: row.value_summary,
+        content: { output: row.output_json, facts: row.facts_json },
+      })),
+    };
+  }
+
+  async save(record: GoalInputInferenceRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO goal_input_inference(
+         inference_id,task_id,context_id,outcome,decision_summary,used_sources_json,
+         inferred_goal_json,clarification_question,created_at)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9)`,
+      [
+        record.inferenceId,
+        record.taskId,
+        record.contextId,
+        record.outcome,
+        record.decisionSummary,
+        JSON.stringify(record.usedSources),
+        record.inferredGoal === undefined ? null : JSON.stringify(record.inferredGoal),
+        record.clarificationQuestion ?? null,
+        record.createdAt,
+      ],
+    );
+  }
+
+  async listByTask(taskId: string): Promise<readonly GoalInputInferenceRecord[]> {
+    const result = await this.#pool.query<GoalInputInferenceRow>(
+      'SELECT * FROM goal_input_inference WHERE task_id=$1 ORDER BY created_at,inference_id',
+      [taskId],
+    );
+    return result.rows.map(mapGoalInputInferenceRow);
+  }
+}
+
+function mapGoalInputInferenceRow(row: GoalInputInferenceRow): GoalInputInferenceRecord {
+  return {
+    inferenceId: row.inference_id,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    outcome: row.outcome,
+    decisionSummary: row.decision_summary,
+    usedSources: z.array(GoalInferenceSourceSchema).parse(row.used_sources_json),
+    ...(row.inferred_goal_json === null
+      ? {}
+      : { inferredGoal: InferredGoalSchema.parse(row.inferred_goal_json) }),
+    ...(row.clarification_question === null
+      ? {}
+      : { clarificationQuestion: row.clarification_question }),
+    createdAt: toIsoString(row.created_at),
+  };
 }
 
 function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {

@@ -63,6 +63,29 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       },
     });
   });
+
+  it('uses an explainable inferred Goal instead of entering input-required', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.goalRequiresInput = true;
+    tasks.inferenceOutcome = 'inferred';
+    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    expect(tasks.value).toMatchObject({ phase: 'awaiting_plan_confirmation' });
+    expect(tasks.createdGoal).toMatchObject({ description: 'Inspect inferred device-17.' });
+  });
+
+  it('asks the explicit inference question when available evidence is unreliable', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.goalRequiresInput = true;
+    tasks.inferenceOutcome = 'input_required';
+    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_user_input',
+      phaseMessage: 'Which device should be inspected?',
+    });
+    expect(tasks.createdGoal).toBeUndefined();
+  });
 });
 
 function processorWith(
@@ -97,7 +120,8 @@ function processorWith(
           description: 'Complete the task.',
           constraints: [],
           successCriteria: ['Completed'],
-          requiresInput: false,
+          requiresInput: tasks.goalRequiresInput,
+          ...(tasks.goalRequiresInput ? { clarificationQuestion: 'Missing device.' } : {}),
         });
       },
       decideGoalContinuity: () =>
@@ -138,6 +162,37 @@ function processorWith(
     },
     nextGoalId: () => 'goal-1',
     nextGoalTransitionId: () => 'goal-transition-1',
+    inputInference: {
+      resolve: () =>
+        Promise.resolve(
+          tasks.inferenceOutcome === 'inferred'
+            ? {
+                inferenceId: 'inference-1',
+                taskId: 'task-1',
+                contextId: 'context-1',
+                outcome: 'inferred' as const,
+                decisionSummary: 'Memory reliably identifies device-17.',
+                usedSources: [],
+                inferredGoal: {
+                  title: 'Inspect device',
+                  description: 'Inspect inferred device-17.',
+                  constraints: [],
+                  successCriteria: ['Inspected'],
+                },
+                createdAt: timestamp,
+              }
+            : {
+                inferenceId: 'inference-1',
+                taskId: 'task-1',
+                contextId: 'context-1',
+                outcome: 'input_required' as const,
+                decisionSummary: 'Evidence conflicts.',
+                usedSources: [],
+                clarificationQuestion: 'Which device should be inspected?',
+                createdAt: timestamp,
+              },
+        ),
+    },
   });
 }
 
@@ -172,6 +227,8 @@ class MemoryTasks {
   readonly messages: string[] = [];
   goalFormulations = 0;
   createdGoal: unknown;
+  goalRequiresInput = false;
+  inferenceOutcome: 'inferred' | 'input_required' = 'inferred';
   findById() {
     return Promise.resolve(this.value);
   }

@@ -13,6 +13,7 @@ import type {
 } from './ports.js';
 import type { GoalService } from './goal-service.js';
 import type { StructuredTaskDecisionService } from './model-decisions.js';
+import type { GoalInputInferenceService } from './goal-input-inference.js';
 import type { SkillSelectionService } from './skill-selection.js';
 import { TaskApplicationError } from './task-service.js';
 
@@ -29,6 +30,7 @@ export interface PlanPreparationProcessorDependencies {
   readonly skillSelection: Pick<SkillSelectionService, 'select'>;
   readonly nextGoalId: () => string;
   readonly nextGoalTransitionId: () => string;
+  readonly inputInference: Pick<GoalInputInferenceService, 'resolve'>;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -72,16 +74,28 @@ export class PlanPreparationProcessor {
     let goal = await this.#dependencies.goals.findActiveByContextId(task.contextId);
     let goalSummary = 'Continuing the active Goal for this context.';
     if (goal === undefined) {
-      const goalDecision = await this.#dependencies.decisions.formulateGoal({
+      let goalDecision = await this.#dependencies.decisions.formulateGoal({
         requestText: task.requestText,
       });
       if (goalDecision.requiresInput) {
-        await this.#transition(
-          task,
-          'awaiting_user_input',
-          goalDecision.clarificationQuestion ?? 'Additional Goal input is required.',
-        );
-        return;
+        const inference = await this.#dependencies.inputInference.resolve({
+          taskId: task.taskId,
+          contextId: task.contextId,
+          requestText: task.requestText,
+        });
+        if (inference.outcome === 'input_required') {
+          await this.#transition(
+            task,
+            'awaiting_user_input',
+            inference.clarificationQuestion ?? 'Additional Goal input is required.',
+          );
+          return;
+        }
+        if (inference.inferredGoal === undefined) throw new Error('INFERRED_GOAL_REQUIRED');
+        goalDecision = {
+          ...inference.inferredGoal,
+          requiresInput: false,
+        };
       }
       const previousGoal = await this.#dependencies.goals.findLatestByContextId(task.contextId);
       const continuity =

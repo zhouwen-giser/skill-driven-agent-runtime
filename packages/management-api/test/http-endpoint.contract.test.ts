@@ -549,6 +549,33 @@ describe('management HTTP API contract', () => {
           get: () => Promise.resolve(item),
           search: () => Promise.resolve([{ item, score: 1 }]),
         },
+        goalInputInference: {
+          list: () =>
+            Promise.resolve([
+              {
+                inferenceId: 'inference-1',
+                taskId: 'task-1',
+                contextId: 'context-1',
+                outcome: 'inferred' as const,
+                decisionSummary: 'Memory identified device-17.',
+                usedSources: [
+                  {
+                    sourceId: 'memory:memory-1',
+                    kind: 'global_memory' as const,
+                    summary: item.summary,
+                    content: item.content,
+                  },
+                ],
+                inferredGoal: {
+                  title: 'Inspect',
+                  description: 'Inspect device-17.',
+                  constraints: [],
+                  successCriteria: ['Inspected'],
+                },
+                createdAt: item.createdAt,
+              },
+            ]),
+        },
       },
     });
     const created = await fetch(`${endpoint.baseUrl}/api/v1/memories`, {
@@ -569,6 +596,13 @@ describe('management HTTP API contract', () => {
         value.json(),
       ),
     ).resolves.toMatchObject({ items: [{ item: { memoryId: 'memory-1' }, score: 1 }] });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/input-inferences`).then((value) =>
+        value.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [{ outcome: 'inferred', usedSources: [{ sourceId: 'memory:memory-1' }] }],
+    });
   });
 });
 
@@ -582,6 +616,7 @@ function operations(failServerList = false): ManagementOperations {
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
+    goalInputInference: { list: () => Promise.resolve([]) },
     graph: {
       create: unused,
       delete: unused,
