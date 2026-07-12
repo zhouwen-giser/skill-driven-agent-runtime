@@ -49,6 +49,38 @@ describe('management HTTP API contract', () => {
     await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
   });
 
+  it('reads and updates disabled-by-default Memory retention controls', async () => {
+    const policy = {
+      reviewAfterDays: 90,
+      archiveAfterDays: 365,
+      deleteAfterDays: 730,
+      automaticArchiveEnabled: false,
+      automaticDeleteEnabled: false,
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        memoryRetention: {
+          getPolicy: () => Promise.resolve(policy),
+          updatePolicy: (input) => Promise.resolve({ ...input, updatedAt: policy.updatedAt }),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/system/memory-retention-policy`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject(policy);
+    const updated = await fetch(`${endpoint.baseUrl}/api/v1/system/memory-retention-policy`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...policy, reviewAfterDays: 30 }),
+    });
+    expect(updated.status).toBe(200);
+    await expect(updated.json()).resolves.toMatchObject({ reviewAfterDays: 30 });
+  });
+
   it('reads and updates the authoritative Evolution threshold and exposes trigger logs', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -1034,6 +1066,7 @@ function operations(failServerList = false): ManagementOperations {
       invalidate: unused,
       listTransitions: () => Promise.resolve([]),
     },
+    memoryRetention: { getPolicy: unused, updatePolicy: unused },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     workflowTemplates: {

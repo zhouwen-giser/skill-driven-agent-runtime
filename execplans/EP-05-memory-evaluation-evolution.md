@@ -40,6 +40,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-12: add domain-owned stage Memory policies and inject source-linked pgvector evidence into intent, Skill selection, Workflow generation, exception handling and Goal evaluation model requests (FR-MEM-003, ADR-056).
 - [x] 2026-07-12: add transactional Memory supersede/invalidate projections with replacement links, append-only actor/reason transition history, conflict rollback and active-only retrieval (FR-MEM-004, ADR-057).
 - [x] 2026-07-12: project authoritative Skill/Prompt corrections, Task failure reasons and Goal evaluation conclusions through strict refinement into source-linked retrievable evolution Memory (FR-MEM-005, ADR-058).
+- [x] 2026-07-12: persist review/archive/delete Memory retention fields while enforcing automatic archive/delete disabled in both domain and PostgreSQL, with management configuration and no cleanup worker (FR-MEM-006, ADR-059).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

@@ -20,6 +20,7 @@ import type {
   GoalCancellationRepository,
   ProcessedResultRepository,
   MemoryRepository,
+  MemoryRetentionPolicyRepository,
   GoalInputInferenceRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
@@ -66,6 +67,7 @@ import type {
   MemoryItem,
   MemorySearchHit,
   MemoryStatusTransition,
+  MemoryRetentionPolicy,
   GoalInferenceSource,
   GoalInputInferenceRecord,
   GoalTransitionRecord,
@@ -1173,6 +1175,58 @@ export class PostgresMemoryRepository implements MemoryRepository {
     );
     return result.rows.map(mapMemoryStatusTransitionRow);
   }
+}
+
+interface MemoryRetentionPolicyRow extends QueryResultRow {
+  review_after_days: number;
+  archive_after_days: number | null;
+  delete_after_days: number | null;
+  automatic_archive_enabled: boolean;
+  automatic_delete_enabled: boolean;
+  updated_at: Date | string;
+}
+
+export class PostgresMemoryRetentionPolicyRepository implements MemoryRetentionPolicyRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async get(): Promise<MemoryRetentionPolicy> {
+    const result = await this.#pool.query<MemoryRetentionPolicyRow>(
+      'SELECT * FROM memory_retention_policy WHERE singleton=true',
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('MEMORY_RETENTION_POLICY_MISSING');
+    return mapMemoryRetentionPolicyRow(row);
+  }
+  async update(policy: MemoryRetentionPolicy): Promise<void> {
+    const result = await this.#pool.query(
+      `UPDATE memory_retention_policy SET
+         review_after_days=$1,archive_after_days=$2,delete_after_days=$3,
+         automatic_archive_enabled=$4,automatic_delete_enabled=$5,updated_at=$6
+       WHERE singleton=true`,
+      [
+        policy.reviewAfterDays,
+        policy.archiveAfterDays,
+        policy.deleteAfterDays,
+        policy.automaticArchiveEnabled,
+        policy.automaticDeleteEnabled,
+        policy.updatedAt,
+      ],
+    );
+    if (result.rowCount !== 1) throw new Error('MEMORY_RETENTION_POLICY_MISSING');
+  }
+}
+
+function mapMemoryRetentionPolicyRow(row: MemoryRetentionPolicyRow): MemoryRetentionPolicy {
+  return {
+    reviewAfterDays: row.review_after_days,
+    archiveAfterDays: row.archive_after_days,
+    deleteAfterDays: row.delete_after_days,
+    automaticArchiveEnabled: row.automatic_archive_enabled,
+    automaticDeleteEnabled: row.automatic_delete_enabled,
+    updatedAt: toIsoString(row.updated_at),
+  };
 }
 
 interface GoalInputInferenceRow extends QueryResultRow {

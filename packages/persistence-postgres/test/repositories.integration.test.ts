@@ -11,6 +11,7 @@ import {
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
   PostgresMemoryRepository,
+  PostgresMemoryRetentionPolicyRepository,
   PostgresPromptRepository,
   PostgresProcessedResultRepository,
   PostgresWorkflowPlanRepository,
@@ -290,9 +291,22 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(memoryStatusMigration);
+  const memoryRetentionMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0045_memory_retention_policy.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(memoryRetentionMigration);
 });
 
 beforeEach(async () => {
+  await pool.query(
+    `UPDATE memory_retention_policy SET review_after_days=90,archive_after_days=365,
+       delete_after_days=730,automatic_archive_enabled=false,automatic_delete_enabled=false,
+       updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
+  );
   await pool.query(
     'TRUNCATE memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
@@ -434,6 +448,31 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(
       repository.search({ providerId: 'embedding.db', vector: [1, 0, 0], limit: 5 }),
     ).resolves.toEqual([]);
+  });
+  it('persists Memory retention fields without enabling or executing cleanup', async () => {
+    const repository = new PostgresMemoryRetentionPolicyRepository(pool);
+    await expect(repository.get()).resolves.toMatchObject({
+      reviewAfterDays: 90,
+      archiveAfterDays: 365,
+      deleteAfterDays: 730,
+      automaticArchiveEnabled: false,
+      automaticDeleteEnabled: false,
+    });
+    await repository.update({
+      reviewAfterDays: 30,
+      archiveAfterDays: null,
+      deleteAfterDays: null,
+      automaticArchiveEnabled: false,
+      automaticDeleteEnabled: false,
+      updatedAt: '2026-07-12T00:03:00.000Z',
+    });
+    await expect(repository.get()).resolves.toMatchObject({
+      reviewAfterDays: 30,
+      archiveAfterDays: null,
+      deleteAfterDays: null,
+      automaticArchiveEnabled: false,
+      automaticDeleteEnabled: false,
+    });
   });
   it('persists every Workflow planning attempt and immutable validated plan', async () => {
     const repository = new PostgresWorkflowPlanRepository(pool);

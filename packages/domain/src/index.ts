@@ -22,6 +22,7 @@ export * from './workflow-template.js';
 export * from './mcp.js';
 export * from './model-runtime.js';
 export * from './memory.js';
+export * from './memory-retention.js';
 export * from './prompt.js';
 export * from './processed-result.js';
 export * from './task.js';

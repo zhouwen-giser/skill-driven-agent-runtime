@@ -27,6 +27,7 @@ import type {
   GoalCancellationService,
   ResultProcessingService,
   MemoryService,
+  MemoryRetentionPolicyService,
   GoalInputInferenceService,
   WorkflowRevisionService,
   WorkflowTemplateService,
@@ -36,6 +37,13 @@ import type {
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const EvolutionPolicySchema = z.object({ successThreshold: z.number().int().min(2) });
+const MemoryRetentionPolicySchema = z.object({
+  reviewAfterDays: z.number().int().positive(),
+  archiveAfterDays: z.number().int().positive().nullable(),
+  deleteAfterDays: z.number().int().positive().nullable(),
+  automaticArchiveEnabled: z.boolean(),
+  automaticDeleteEnabled: z.boolean(),
+});
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
 const TaskActionSchema = z.object({
   action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
@@ -270,6 +278,7 @@ export interface ManagementOperations {
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
   >;
+  readonly memoryRetention: Pick<MemoryRetentionPolicyService, 'getPolicy' | 'updatePolicy'>;
   readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
@@ -432,6 +441,22 @@ export async function startManagementHttpEndpoint(
     '/api/v1/system/task-wait-policy',
     asyncRoute(async (_request, response) => {
       response.json(await options.operations.taskWaitTimeouts.getPolicy());
+    }),
+  );
+  app.get(
+    '/api/v1/system/memory-retention-policy',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.memoryRetention.getPolicy());
+    }),
+  );
+  app.put(
+    '/api/v1/system/memory-retention-policy',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.memoryRetention.updatePolicy(
+          MemoryRetentionPolicySchema.parse(request.body),
+        ),
+      );
     }),
   );
   app.put(

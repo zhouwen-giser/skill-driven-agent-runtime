@@ -16,6 +16,7 @@ import {
   ResultProcessor,
   ResultProcessingService,
   MemoryService,
+  MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
   ModelRuntimeService,
@@ -95,6 +96,7 @@ import {
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
   PostgresMemoryRepository,
+  PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
   PostgresEvolutionExperienceRepository,
@@ -251,6 +253,10 @@ export async function startServerRuntime(
     nextId: () => `memory-${randomUUID()}`,
     nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
+  });
+  const memoryRetention = new MemoryRetentionPolicyService({
+    repository: new PostgresMemoryRetentionPolicyRepository(pool),
+    clock,
   });
   const prompts = new PromptService({
     repository: new PostgresPromptRepository(pool),
@@ -881,6 +887,7 @@ export async function startServerRuntime(
         taskWaitTimeouts,
         resultProcessing,
         memories,
+        memoryRetention,
         goalInputInference,
         mcp: mcpRegistry,
         skills: skillRegistry,
@@ -1065,6 +1072,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0042_skill_quality_warning.up.sql',
     '0043_workflow_template.up.sql',
     '0044_memory_status_transition.up.sql',
+    '0045_memory_retention_policy.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

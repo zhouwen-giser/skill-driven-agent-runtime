@@ -2405,6 +2405,79 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('configures Memory retention fields while V1 keeps automatic cleanup disabled', async () => {
+    const source = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Create retention-policy source evidence.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in source)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const memoryId = `memory.retention.${randomUUID()}`;
+    expect(
+      (
+        await fetch(`${runtime.management.baseUrl}/api/v1/memories`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            memoryId,
+            type: 'fact',
+            content: { retained: true },
+            summary: `Retention evidence ${memoryId}.`,
+            sourceRefs: [source.id],
+            confidence: 1,
+          }),
+        })
+      ).status,
+    ).toBe(201);
+    const configured = await fetch(
+      `${runtime.management.baseUrl}/api/v1/system/memory-retention-policy`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reviewAfterDays: 14,
+          archiveAfterDays: 180,
+          deleteAfterDays: 365,
+          automaticArchiveEnabled: false,
+          automaticDeleteEnabled: false,
+        }),
+      },
+    );
+    expect(configured.status).toBe(200);
+    await expect(configured.json()).resolves.toMatchObject({
+      reviewAfterDays: 14,
+      archiveAfterDays: 180,
+      deleteAfterDays: 365,
+      automaticArchiveEnabled: false,
+      automaticDeleteEnabled: false,
+    });
+    const forbidden = await fetch(
+      `${runtime.management.baseUrl}/api/v1/system/memory-retention-policy`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reviewAfterDays: 14,
+          archiveAfterDays: 180,
+          deleteAfterDays: 365,
+          automaticArchiveEnabled: true,
+          automaticDeleteEnabled: false,
+        }),
+      },
+    );
+    expect(forbidden.status).toBe(400);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({ memoryId, status: 'active', content: { retained: true } });
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;

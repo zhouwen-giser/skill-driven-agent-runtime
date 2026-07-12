@@ -16,6 +16,7 @@ import type {
   MemoryItem,
   MemorySearchHit,
   MemoryStatusTransition,
+  MemoryRetentionPolicy,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -114,6 +115,11 @@ export interface MemoryRepository {
   ): Promise<void>;
   invalidate(transition: MemoryStatusTransition): Promise<void>;
   listTransitions(memoryId: string): Promise<readonly MemoryStatusTransition[]>;
+}
+
+export interface MemoryRetentionPolicyRepository {
+  get(): Promise<MemoryRetentionPolicy>;
+  update(policy: MemoryRetentionPolicy): Promise<void>;
 }
 
 export interface GoalInputInferenceRepository {
