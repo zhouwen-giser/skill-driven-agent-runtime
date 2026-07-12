@@ -2239,6 +2239,15 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
                 status: z.enum(['awaiting_simulation', 'validation_failed', 'published']),
                 successfulExperienceCount: z.number(),
                 publishedSkillId: z.string().optional(),
+                inductionReport: z
+                  .object({
+                    consistent: z.boolean(),
+                    stable: z.boolean(),
+                    generalizable: z.boolean(),
+                    duplicateScore: z.number(),
+                    decisionSummary: z.string(),
+                  })
+                  .optional(),
                 validationReport: z
                   .object({
                     allPassed: z.boolean(),
@@ -2262,6 +2271,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         status: 'published',
         successfulExperienceCount: 3,
         publishedSkillId: `skill.evolved.${serverId}`,
+        inductionReport: {
+          consistent: true,
+          stable: true,
+          generalizable: true,
+          duplicateScore: 0,
+        },
         validationReport: { allPassed: true },
       });
       expect(

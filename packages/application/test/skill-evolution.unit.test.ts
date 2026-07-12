@@ -18,7 +18,14 @@ describe('SkillEvolutionService', () => {
       status: 'published',
       publishedSkillId: 'skill.evolved.device',
       publishedSkillVersion: 1,
-      inductionReport: { consistent: true, stable: true, generalizable: true },
+      inductionReport: {
+        consistent: true,
+        stable: true,
+        generalizable: true,
+        duplicateSkillId: 'skill.existing.device',
+        duplicateScore: 0.4,
+        decisionSummary: 'Two stable experiences define a reusable capability.',
+      },
       validationReport: { allPassed: true },
     });
     expect(result.validationReport?.cases.map((item) => item.kind)).toEqual([
@@ -34,6 +41,16 @@ describe('SkillEvolutionService', () => {
       status: 'enabled',
       sourceKind: 'experience_evolution',
       validationPassed: true,
+    });
+    expect(fixture.modelInstruction).toMatchObject({
+      operation: 'induce_skill_from_experience',
+      currentSkills: [
+        {
+          skillId: 'skill.existing.device',
+          name: 'Existing device Skill',
+          capabilities: ['device-status'],
+        },
+      ],
     });
   });
 
@@ -56,16 +73,22 @@ describe('SkillEvolutionService', () => {
 function setup(allPass: boolean) {
   const repository = new MemoryRepository();
   let published: Omit<SkillVersion, 'version' | 'previousVersion' | 'createdAt'> | undefined;
+  let modelInstruction: unknown;
   const service = new SkillEvolutionService({
     temporarySkills: repository,
-    model: { generateStructured: () => Promise.resolve(decision()) },
+    model: {
+      generateStructured: (input) => {
+        modelInstruction = JSON.parse(input.instruction) as unknown;
+        return Promise.resolve(decision());
+      },
+    },
     schemas: new AjvJsonSchemaValidator(),
     tools: {
       exists: () => Promise.resolve(true),
       getInputSchema: () => Promise.resolve({ type: 'object' }),
     },
     skills: {
-      listCurrentVersions: () => Promise.resolve([]),
+      listCurrentVersions: () => Promise.resolve([existingSkill()]),
       register: (input) => {
         published = input;
         return Promise.resolve({ ...input, version: 1, createdAt: timestamp });
@@ -86,6 +109,9 @@ function setup(allPass: boolean) {
     get published() {
       return published;
     },
+    get modelInstruction() {
+      return modelInstruction;
+    },
   };
 }
 
@@ -96,7 +122,8 @@ function decision() {
     consistent: true,
     stable: true,
     generalizable: true,
-    duplicateScore: 0,
+    duplicateSkillId: 'skill.existing.device',
+    duplicateScore: 0.4,
     decisionSummary: 'Two stable experiences define a reusable capability.',
     proposedSkill: {
       skillId: 'skill.evolved.device',
@@ -135,6 +162,27 @@ function decision() {
       },
     ],
   } as const;
+}
+
+function existingSkill(): SkillVersion {
+  return {
+    skillId: 'skill.existing.device',
+    version: 1,
+    name: 'Existing device Skill',
+    summary: 'Reads device state.',
+    description: 'Read current device state from the registered service.',
+    capabilities: ['device-status'],
+    workflowGuidance: 'Call the device Tool.',
+    outputInstruction: 'Return device state.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    createdAt: timestamp,
+  };
 }
 
 class MemoryRepository {
