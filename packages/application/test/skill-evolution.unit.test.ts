@@ -71,6 +71,7 @@ describe('SkillEvolutionService', () => {
       expect.objectContaining({ kind: 'boundary', passed: false }),
     );
     expect(fixture.published).toBeUndefined();
+    expect(fixture.currentSkillVersion).toBe(1);
     expect(fixture.repository.candidate).toEqual(result);
   });
 
@@ -107,6 +108,7 @@ describe('SkillEvolutionService', () => {
 function setup(allPass: boolean, modelDecision: unknown = decision()) {
   const repository = new MemoryRepository();
   let published: Omit<SkillVersion, 'version' | 'previousVersion' | 'createdAt'> | undefined;
+  let currentSkillVersion = 1;
   let modelInstruction: unknown;
   const service = new SkillEvolutionService({
     temporarySkills: repository,
@@ -125,6 +127,7 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
       listCurrentVersions: () => Promise.resolve([existingSkill()]),
       register: (input) => {
         published = input;
+        currentSkillVersion = input.skillId === 'skill.existing.device' ? 2 : 1;
         return Promise.resolve({
           ...input,
           version: input.skillId === 'skill.existing.device' ? 2 : 1,
@@ -156,6 +159,9 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
     },
     get modelInstruction() {
       return modelInstruction;
+    },
+    get currentSkillVersion() {
+      return currentSkillVersion;
     },
   };
 }

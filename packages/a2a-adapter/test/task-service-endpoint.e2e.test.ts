@@ -2225,7 +2225,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await executeHistory('HISTORICAL_REPLAY_SUCCESS');
       await executeHistory('HISTORICAL_REPLAY_FAILURE');
       const formalSkillsBefore = await readFormalSkillIds();
-      const createAndComplete = async (taskId: string) => {
+      const createAndComplete = async (taskId: string, forceSimulationFailure = false) => {
         const createdResponse = await fetch(
           `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/temporary-skills`,
           {
@@ -2238,7 +2238,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
               tools: [{ serverId, toolName: 'device_status' }],
               inputSchema: {
                 type: 'object',
-                properties: { deviceId: { type: 'string' } },
+                properties: {
+                  deviceId: { type: 'string' },
+                  ...(forceSimulationFailure
+                    ? { forceSimulationFailure: { type: 'boolean' } }
+                    : {}),
+                },
                 required: ['deviceId'],
               },
               outputSchema: { type: 'object', properties: { status: { type: 'string' } } },
@@ -2286,7 +2291,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
                 validationReport: z
                   .object({
                     allPassed: z.boolean(),
-                    cases: z.array(z.object({ kind: z.string() })),
+                    cases: z.array(z.object({ kind: z.string(), passed: z.boolean() })),
                   })
                   .optional(),
               })
@@ -2360,6 +2365,28 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         );
       expect(versions.items.map((item) => item.version).sort()).toEqual([1, 2]);
       expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(existingSkillId);
+      const failedFirst = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
+      expect(failedFirst.formalizationCandidate).toBeUndefined();
+      const failedSecond = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
+      expect(failedSecond.formalizationCandidate).toBeUndefined();
+      const failedThird = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
+      expect(failedThird.formalizationCandidate).toMatchObject({
+        status: 'validation_failed',
+        successfulExperienceCount: 3,
+        validationReport: { allPassed: false },
+      });
+      expect(failedThird.formalizationCandidate?.publishedSkillId).toBeUndefined();
+      expect(failedThird.formalizationCandidate?.validationReport?.cases).toContainEqual(
+        expect.objectContaining({ kind: 'normal', passed: false }),
+      );
+      const versionsAfterFailure = z
+        .object({ items: z.array(z.object({ skillId: z.string(), version: z.number() })) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
+          ).then((response) => response.json()),
+        );
+      expect(versionsAfterFailure.items.map((item) => item.version).sort()).toEqual([1, 2]);
       const disabled = await fetch(
         `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/disable`,
         { method: 'POST' },
@@ -3299,6 +3326,9 @@ async function startModelLoopback(): Promise<Server> {
           const existing = requestData.currentSkills.find(
             (skill) => skill.skillId === existingSkillId,
           );
+          const forceSimulationFailure = JSON.stringify(source.inputSchema).includes(
+            'forceSimulationFailure',
+          );
           respondStructured(response, {
             consistent: true,
             stable: true,
@@ -3329,7 +3359,7 @@ async function startModelLoopback(): Promise<Server> {
                 caseId: 'normal-device',
                 kind: 'normal',
                 input: { deviceId: 'device-simulation' },
-                expectedOutcome: 'success',
+                expectedOutcome: forceSimulationFailure ? 'failure' : 'success',
               },
               {
                 caseId: 'boundary-missing-device',

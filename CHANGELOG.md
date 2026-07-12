@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Real failed-simulation acceptance evidence proving the all-pass evolution publication gate retains a draft without changing the current formal Skill version.
 - Tool-indexed historical Evolution Experience replay through the single LangGraph runtime, with successful/failed outcome matching and unified static/source/normal/boundary/exception simulation reports.
 - Failure-driven alternative Skill replacement with persisted initial selection identity, immutable failed-instance evidence, forced fresh plan confirmation, and same-controller continuation.
 - Fail-closed selected-Skill Tool-policy enforcement during generated plan preparation and confirmed execution, rejecting missing required and referenced forbidden MCP Tools before any call.

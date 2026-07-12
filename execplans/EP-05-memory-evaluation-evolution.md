@@ -31,6 +31,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-12: verify the structured induction report covers consistency, stability, generalizability and duplication against current formal Skills, with PostgreSQL/management/E2E evidence (FR-EVO-003).
 - [x] 2026-07-12: enforce capability-boundary new_version/new_skill identity rules and prove the existing Skill v1-to-v2 path in real E2E (FR-EVO-004).
 - [x] 2026-07-12: replay Tool-related historical successful and failed immutable Workflows through the single LangGraph runtime and persist every static/source/replay/supplemental outcome (FR-EVO-005, ADR-050).
+- [x] 2026-07-12: prove the all-pass publication gate with a real failed MCP simulation whose candidate remains a draft and whose existing Skill current version remains unchanged (FR-EVO-006, ADR-046).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。
