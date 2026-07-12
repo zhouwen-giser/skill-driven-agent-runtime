@@ -33,6 +33,7 @@ import {
   StructuredTaskDecisionService,
   StructuredExecutionExceptionDecider,
   GoalService,
+  GoalPatchService,
   WorkflowRevisionService,
   TaskService,
   type RegisterSkillVersionInput,
@@ -74,6 +75,7 @@ import {
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
+  PostgresGoalPatchRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -315,6 +317,20 @@ export async function startServerRuntime(
     validator: workflowValidator,
     clock,
   });
+  const goalService = new GoalService({ goals, contexts, clock });
+  const goalPatches = new GoalPatchService({
+    goals,
+    patches: new PostgresGoalPatchRepository(pool),
+    plans: workflowPlans,
+    planner: workflowPlanner,
+    skills,
+    model: modelRuntime,
+    clock,
+    ids: {
+      nextPatchId: () => `goal-patch-${randomUUID()}`,
+      nextPlanId: () => `plan-goal-patch-${randomUUID()}`,
+    },
+  });
   const service = new TaskService({
     contexts,
     tasks,
@@ -336,9 +352,18 @@ export async function startServerRuntime(
         });
         return { planId: revised.planId, goalId: revised.goalId, goalVersion: revised.goalVersion };
       },
+      async patchGoal(task, instruction) {
+        if (task.goalId === undefined || task.planId === undefined)
+          throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await goalPatches.apply({
+          goalId: task.goalId,
+          sourcePlanId: task.planId,
+          instruction,
+          taskId: task.taskId,
+        });
+      },
     },
   });
-  const goalService = new GoalService({ goals, contexts, clock });
   const workflowController = new WorkflowControllerService({
     controls: new PostgresWorkflowControlRepository(pool),
     plans: workflowPlans,
@@ -388,6 +413,7 @@ export async function startServerRuntime(
       operations: {
         graph: skillGraph,
         goals: goalService,
+        goalPatches,
         tasks: service,
         mcp: mcpRegistry,
         skills: skillRegistry,
@@ -518,6 +544,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0020_plan_revision.up.sql',
     '0021_workflow_interrupt.up.sql',
     '0022_model_api_style.up.sql',
+    '0023_goal_patch.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

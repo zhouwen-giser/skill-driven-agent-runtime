@@ -9,6 +9,7 @@ const FollowUpActionSchema = z.enum([
   'confirm_plan',
   'reject_plan',
   'revise_plan',
+  'patch_goal',
   'provide_input',
   'pause',
   'resume',
@@ -119,7 +120,7 @@ export function taskPhaseToA2AState(phase: TaskPhase): TaskState {
   if (phase === 'queued') return TaskState.TASK_STATE_SUBMITTED;
   if (phase === 'completed') return TaskState.TASK_STATE_COMPLETED;
   if (phase === 'canceled') return TaskState.TASK_STATE_CANCELED;
-  if (phase === 'failed') return TaskState.TASK_STATE_FAILED;
+  if (phase === 'failed' || phase === 'invalidated') return TaskState.TASK_STATE_FAILED;
   if (
     phase === 'awaiting_plan_confirmation' ||
     phase === 'awaiting_user_input' ||

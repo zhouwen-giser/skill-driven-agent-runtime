@@ -15,9 +15,13 @@ export type TaskPhase =
   | 'capability_gap'
   | 'completed'
   | 'canceled'
-  | 'failed';
+  | 'failed'
+  | 'invalidated';
 
-export type TaskTerminalPhase = Extract<TaskPhase, 'completed' | 'canceled' | 'failed'>;
+export type TaskTerminalPhase = Extract<
+  TaskPhase,
+  'completed' | 'canceled' | 'failed' | 'invalidated'
+>;
 
 export interface TaskOutput {
   readonly text: string;
@@ -100,6 +104,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   completed: [],
   canceled: [],
   failed: [],
+  invalidated: [],
 };
 
 export function createAgentTask(input: CreateAgentTaskInput): AgentTask {

@@ -1301,6 +1301,166 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation', async () => {
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect the device status.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const prepared = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+    ).then((response) => response.json() as Promise<{ goalId: string; goalVersion: number }>);
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.goal-patch.${randomUUID()}`;
+    const workflowId = `workflow.goal-patch.${randomUUID()}`;
+    const sourcePlanId = `plan.goal-patch.source.${randomUUID()}`;
+    const instanceId = `instance.goal-patch.source.${randomUUID()}`;
+    mcpWorkflowTarget = {
+      serverId,
+      workflowId,
+      workflowVersion: 1,
+      goalId: prepared.goalId,
+    };
+    try {
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Goal Patch MCP',
+            endpoint: mockMcp.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            planId: sourcePlanId,
+            workflowDefinitionId: workflowId,
+            workflowVersion: 1,
+            goalId: prepared.goalId,
+            goalVersion: prepared.goalVersion,
+            planningInstruction: 'EXECUTE_MCP_WORKFLOW',
+          }),
+        }),
+      ).toMatchObject({ status: 201 });
+      expect(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/plan`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            planId: sourcePlanId,
+            goalId: prepared.goalId,
+            goalVersion: prepared.goalVersion,
+          }),
+        }),
+      ).toMatchObject({ status: 200 });
+      expect(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/confirm`,
+          { method: 'POST' },
+        ),
+      ).toMatchObject({ status: 200 });
+      const oldExecution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId, input: {} }),
+        },
+      );
+      expect(oldExecution.status).toBe(201);
+      await expect(oldExecution.json()).resolves.toMatchObject({ status: 'succeeded' });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+
+      const patchedTaskResult = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'patch_goal',
+        'Also return the temperature.',
+      );
+      expectTaskState(patchedTaskResult, TaskState.TASK_STATE_WORKING);
+      const patches = z
+        .object({ items: z.array(z.unknown()) })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(prepared.goalId)}/patches`,
+            )
+          ).json(),
+        );
+      const patch = z
+        .object({
+          patchId: z.string(),
+          fromVersion: z.literal(1),
+          toVersion: z.literal(2),
+          newPlanId: z.string(),
+          invalidatedPlanIds: z.array(z.string()),
+          invalidatedInstanceIds: z.array(z.string()),
+          compensationWarnings: z.array(z.string()),
+        })
+        .parse(patches.items.at(-1));
+      expect(patch.invalidatedPlanIds).toContain(sourcePlanId);
+      expect(patch.invalidatedInstanceIds).toContain(instanceId);
+      expect(patch.compensationWarnings.join(' ')).toContain('no automatic compensation');
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(sourcePlanId)}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({ confirmationStatus: 'invalidated' });
+      const patchedTask = await fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+      ).then((response) => response.json() as Promise<Record<string, unknown>>);
+      expect(patchedTask).toMatchObject({ phase: 'planning', goalVersion: 2 });
+      expect(patchedTask).not.toHaveProperty('planId');
+      const blocked = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(patch.newPlanId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `blocked.patch.${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(blocked.status).toBe(400);
+      await expect(blocked.json()).resolves.toMatchObject({
+        error: { code: 'WORKFLOW_PLAN_NOT_CONFIRMED' },
+      });
+      expect(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(patch.newPlanId)}/confirm`,
+          { method: 'POST' },
+        ),
+      ).toMatchObject({ status: 200 });
+      const newExecution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(patch.newPlanId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId: `instance.patch.${randomUUID()}`, input: {} }),
+        },
+      );
+      expect(newExecution.status).toBe(201);
+      await expect(newExecution.json()).resolves.toMatchObject({
+        status: 'succeeded',
+        result: 'goal-patch-replanned',
+      });
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+    } finally {
+      mcpWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
   it('evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds', async () => {
     const submitted = await runtime.a2a.client.sendMessage(
       SendMessageRequest.fromJSON({
@@ -1810,6 +1970,12 @@ async function startModelLoopback(): Promise<Server> {
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
+        const goalPatchDecisionRequest = body.messages?.some(
+          (message) => message.content?.includes('generate_goal_patch') === true,
+        );
+        const goalPatchReplanRequest = body.messages?.some(
+          (message) => message.content?.includes('goal_patch_replan') === true,
+        );
         const skillSelectionRequest = body.messages?.some(
           (message) => message.content?.includes('select_skill') === true,
         );
@@ -1863,6 +2029,16 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (goalPatchDecisionRequest === true) {
+          respondStructured(response, {
+            changes: {
+              constraints: ['read-only', 'include temperature'],
+              successCriteria: ['Return status and temperature.'],
+            },
+            decisionSummary: 'Added temperature to the active Goal.',
+          });
+          return;
+        }
         if (skillSelectionRequest === true) {
           const requestData = embeddedOperation(body.messages, 'select_skill');
           const candidates = z
@@ -1900,6 +2076,33 @@ async function startModelLoopback(): Promise<Server> {
           respondStructured(response, {
             strategy: 'continue',
             summary: 'Continue through the validated error-handler path.',
+          });
+          return;
+        }
+        if (goalPatchReplanRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number(),
+                goalId: z.string(),
+                goalVersion: z.number(),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'goal_patch_replan'));
+          respondStructured(response, {
+            ...requestData.workflowIdentity,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Patched Goal result',
+                type: 'result',
+                value: { op: 'literal', value: 'goal-patch-replanned' },
+              },
+            ],
+            edges: [],
           });
           return;
         }

@@ -1,7 +1,7 @@
 BEGIN;
 ALTER TABLE workflow_plan DROP CONSTRAINT IF EXISTS workflow_plan_confirmation_status_check;
 ALTER TABLE workflow_plan ADD CONSTRAINT workflow_plan_confirmation_status_check CHECK(
-  confirmation_status IN ('awaiting_confirmation','confirmed','failed','superseded')
+  confirmation_status IN ('awaiting_confirmation','confirmed','failed','superseded','invalidated')
 );
 ALTER TABLE workflow_plan
   ADD COLUMN IF NOT EXISTS source_plan_id text REFERENCES workflow_plan(plan_id),

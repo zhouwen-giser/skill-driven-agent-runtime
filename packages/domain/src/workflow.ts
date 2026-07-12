@@ -81,7 +81,8 @@ export interface WorkflowPlanRecord {
   readonly sourcePlanId?: string;
   readonly revisionKind?:
     'auto_correction' | 'natural_language' | 'admin_dsl' | 'admin_dag' | 'replan';
-  readonly confirmationStatus: 'awaiting_confirmation' | 'confirmed' | 'failed' | 'superseded';
+  readonly confirmationStatus:
+    'awaiting_confirmation' | 'confirmed' | 'failed' | 'superseded' | 'invalidated';
   readonly attemptCount: number;
   readonly createdAt: string;
 }
@@ -96,7 +97,7 @@ export interface WorkflowInstance {
   readonly skillVersions: readonly Readonly<{ skillId: string; version: number }>[];
   readonly budgetLimits: WorkflowBudgetLimits;
   readonly budgetUsage: WorkflowBudgetUsage;
-  readonly status: 'running' | 'paused' | 'succeeded' | 'failed';
+  readonly status: 'running' | 'paused' | 'succeeded' | 'failed' | 'invalidated';
   readonly input: unknown;
   readonly result?: unknown;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;

@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { get } from 'node:http';
+import { Buffer } from 'node:buffer';
+import { get, request } from 'node:http';
 import process from 'node:process';
 import { setTimeout } from 'node:timers/promises';
 
@@ -18,13 +19,31 @@ const server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
   },
 });
 try {
-  const card = await waitForJson('http://127.0.0.1:9999/.well-known/agent-card.json');
-  if (!Array.isArray(card.skills) || card.skills.length === 0) {
-    throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
-  }
   const management = await waitForJson('http://127.0.0.1:9998/api/v1/health');
   if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
     throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
+  }
+  const skillId = `skill.server-smoke.${String(Date.now())}`;
+  const registrationStatus = await postJson('http://127.0.0.1:9998/api/v1/skills', {
+    skillId,
+    name: 'Server smoke',
+    summary: 'Verifies dynamic Agent Card projection.',
+    description: 'A local-only Skill created by the server smoke test.',
+    capabilities: ['smoke'],
+    workflowGuidance: 'Return a local smoke result.',
+    outputInstruction: 'Return the result.',
+    inputSchema: { type: 'object', additionalProperties: false },
+    outputSchema: { type: 'object', additionalProperties: false },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+  });
+  if (registrationStatus !== 201) throw new Error('SERVER_SMOKE_SKILL_REGISTRATION_FAILED');
+  const card = await waitForJson('http://127.0.0.1:9999/.well-known/agent-card.json');
+  if (!Array.isArray(card.skills) || !card.skills.some((skill) => skill.id === skillId)) {
+    throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
   }
   process.stdout.write(
     'Server build smoke passed: Agent Card and trusted-intranet management API are reachable.\n',
@@ -69,5 +88,24 @@ function requestBody(url) {
       });
     });
     request.once('error', reject);
+  });
+}
+
+function postJson(url, value) {
+  return new Promise((resolvePromise, reject) => {
+    const body = JSON.stringify(value);
+    const outgoing = request(
+      url,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      },
+      (response) => {
+        response.resume();
+        response.on('end', () => resolvePromise(response.statusCode));
+      },
+    );
+    outgoing.once('error', reject);
+    outgoing.end(body);
   });
 }

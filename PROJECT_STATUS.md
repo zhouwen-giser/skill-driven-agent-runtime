@@ -1,5 +1,7 @@
 # Project Status
 
+EP-04 Goal Patch update (2026-07-12): approximately 34%. Fixed-stage structured patches now increment the PostgreSQL-authoritative Goal version and atomically invalidate every old plan, Workflow instance, Task binding, confirmation and result. A2A and management paths generate the next immutable plan outside LangGraph, always require fresh confirmation, and expose compensation guidance or explicit no-auto-compensation warnings. FR-GOAL-003/004/005 and FR-EXE-007 are verified; general pause/cancel/timeouts and remaining Goal lifecycle/result requirements remain open.
+
 EP-04 process/queue update (2026-07-12): approximately 18%. Server startup now atomically fails executing/paused/evaluating Tasks and running/paused Workflow instances with `PROCESS_EXECUTION_LOST` before starting the Worker; it never reconstructs checkpoints or retries calls. BullMQ remains attempts=1/maxStalledCount=0, and real Redis integration proves queued work survives queue-client restart. FR-EXE-008/009/010 are verified; Goal Patch, general pause/cancel policies, timeouts and integrated task execution remain open.
 
 EP-03 Provider breadth update (2026-07-12): core EP-03 scope is approximately 99%. Provider kind is now separated from persisted API wire style; OpenAI-compatible cloud/local and non-OpenAI Messages adapters share one domain-neutral port. Real loopback contracts and same-process other-vendor Skill authoring/audit pass, including explicit unsupported-embedding failure. FR-LLM-001 is verified. Remaining FR-LLM-005 Experience/Memory context and FR-LLM-007 automatic Prompt candidates are intentionally implemented and closed with EP-05 evidence rather than falsely closing them in EP-03.
@@ -44,16 +46,16 @@ EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remo
 
 更新时间：2026-07-11 19:04 +08:00
 
-| 阶段                           | 状态   | 完成度 | 最近证据                                                                             | 阻塞                                                     |
-| ------------------------------ | ------ | -----: | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| EP-00 仓库与兼容性基线         | 已完成 |   100% | `pnpm verify:bootstrap` 16/16；`pnpm smoke:infra`：pgvector 0.8.4、migration、Redis PONG/写读通过 | 当前目录缺少 Git 元数据，无法提供 Conventional Commit 证据 |
-| EP-01 协议与领域骨架           | 进行中 |    94% | 生产断流继续/轮询/resubscribe 已验证；FR-A2A-001/004/005 已关闭；e2e 5/5 | 精确 1.0.1 标签、持久化 SkillVersion schema/Card provider、管理端草案查看为跨 EP 缺口 |
-| EP-02 MCP 与 Skill 基础        | 进行中 |    15% | Skill/SkillVersion、原子版本仓储、发布门禁、动态 Agent Card 与权威结果 Schema 已接通 | MCP Registry、LLM Schema 生成、Skill 图谱/检索与管理 API |
-| EP-03 Workflow 规划与运行时    | 未开始 |     0% | -                                                                                    | -                                                        |
-| EP-04 任务生命周期与 Goal 闭环 | 未开始 |     0% | -                                                                                    | -                                                        |
-| EP-05 记忆、评估与演化         | 未开始 |     0% | -                                                                                    | -                                                        |
-| EP-06 控制台与可观测性         | 未开始 |     0% | -                                                                                    | -                                                        |
-| EP-07 加固与完整验收           | 未开始 |     0% | -                                                                                    | -                                                        |
+| 阶段                           | 状态   | 完成度 | 最近证据                                                                                          | 阻塞                                                                                  |
+| ------------------------------ | ------ | -----: | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| EP-00 仓库与兼容性基线         | 已完成 |   100% | `pnpm verify:bootstrap` 16/16；`pnpm smoke:infra`：pgvector 0.8.4、migration、Redis PONG/写读通过 | 当前目录缺少 Git 元数据，无法提供 Conventional Commit 证据                            |
+| EP-01 协议与领域骨架           | 进行中 |    94% | 生产断流继续/轮询/resubscribe 已验证；FR-A2A-001/004/005 已关闭；e2e 5/5                          | 精确 1.0.1 标签、持久化 SkillVersion schema/Card provider、管理端草案查看为跨 EP 缺口 |
+| EP-02 MCP 与 Skill 基础        | 进行中 |    15% | Skill/SkillVersion、原子版本仓储、发布门禁、动态 Agent Card 与权威结果 Schema 已接通              | MCP Registry、LLM Schema 生成、Skill 图谱/检索与管理 API                              |
+| EP-03 Workflow 规划与运行时    | 未开始 |     0% | -                                                                                                 | -                                                                                     |
+| EP-04 任务生命周期与 Goal 闭环 | 未开始 |     0% | -                                                                                                 | -                                                                                     |
+| EP-05 记忆、评估与演化         | 未开始 |     0% | -                                                                                                 | -                                                                                     |
+| EP-06 控制台与可观测性         | 未开始 |     0% | -                                                                                                 | -                                                                                     |
+| EP-07 加固与完整验收           | 未开始 |     0% | -                                                                                                 | -                                                                                     |
 
 ## 当前目标
 

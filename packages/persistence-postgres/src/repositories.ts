@@ -14,6 +14,7 @@ import type {
   WorkflowExecutionRepository,
   WorkflowControlRepository,
   GoalRepository,
+  GoalPatchRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
   RuntimeTaskEvent,
@@ -46,6 +47,7 @@ import type {
   WorkflowControlRecord,
   WorkflowControlRound,
   Goal,
+  GoalPatchRecord,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -428,6 +430,207 @@ export class PostgresGoalRepository implements GoalRepository {
       ],
     );
   }
+}
+
+interface GoalPatchRow extends QueryResultRow {
+  patch_id: string;
+  goal_id: string;
+  from_version: number;
+  to_version: number;
+  instruction: string;
+  changes_json: unknown;
+  decision_summary: string;
+  compensation_warnings_json: unknown;
+  invalidated_plan_ids_json: unknown;
+  invalidated_instance_ids_json: unknown;
+  new_plan_id: string;
+  before_goal_json: unknown;
+  after_goal_json: unknown;
+  created_at: Date | string;
+}
+
+const GoalSnapshotSchema = z.object({
+  goalId: z.string(),
+  contextId: z.string(),
+  version: z.number().int().positive(),
+  title: z.string(),
+  description: z.string(),
+  constraints: z.array(z.string()),
+  successCriteria: z.array(z.string()),
+  status: z.enum(['active', 'achieved', 'canceled', 'unachievable', 'superseded']),
+  previousGoalId: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+const GoalPatchChangesSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  constraints: z.array(z.string()).optional(),
+  successCriteria: z.array(z.string()).optional(),
+});
+
+export class PostgresGoalPatchRepository implements GoalPatchRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async apply(
+    record: Omit<GoalPatchRecord, 'invalidatedPlanIds' | 'invalidatedInstanceIds'>,
+    triggeringTaskId?: string,
+  ): Promise<GoalPatchRecord> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const goal = await client.query<GoalRow>('SELECT * FROM goal WHERE goal_id=$1 FOR UPDATE', [
+        record.goalId,
+      ]);
+      const current = goal.rows[0];
+      if (current?.version !== record.fromVersion || current.status !== 'active')
+        throw new Error('GOAL_PATCH_VERSION_CONFLICT');
+      await client.query(
+        `UPDATE goal SET version=$2,title=$3,description=$4,constraints_json=$5::jsonb,
+           success_criteria_json=$6::jsonb,updated_at=$7
+         WHERE goal_id=$1`,
+        [
+          record.goalId,
+          record.toVersion,
+          record.afterGoal.title,
+          record.afterGoal.description,
+          JSON.stringify(record.afterGoal.constraints),
+          JSON.stringify(record.afterGoal.successCriteria),
+          record.createdAt,
+        ],
+      );
+      const plans = await client.query<{ plan_id: string }>(
+        `UPDATE workflow_plan SET confirmation_status='invalidated'
+         WHERE goal_id=$1 AND goal_version=$2 AND confirmation_status<>'invalidated'
+         RETURNING plan_id`,
+        [record.goalId, record.fromVersion],
+      );
+      const instances = await client.query<{ instance_id: string }>(
+        `UPDATE workflow_instance SET status='invalidated',completed_at=COALESCE(completed_at,$3),
+           pending_confirmation_json=NULL,
+           errors_json=jsonb_set(errors_json,'{goalPatch}',
+             '{"code":"GOAL_PATCH_INVALIDATED","message":"Goal Patch invalidated this Workflow instance."}'::jsonb,true)
+         WHERE goal_id=$1 AND goal_version=$2 AND status<>'invalidated'
+         RETURNING instance_id`,
+        [record.goalId, record.fromVersion, record.createdAt],
+      );
+      await client.query(
+        `UPDATE agent_task SET
+           phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
+           phase_message='Goal Patch invalidated the old plan and intermediate result.',
+           goal_version=$2,plan_id=NULL,output_text=NULL,output_structured=NULL,
+           error_code='GOAL_PATCH_INVALIDATED',updated_at=$4
+         WHERE goal_id=$1 AND goal_version=$5 AND phase NOT IN ('canceled','failed','invalidated')`,
+        [
+          record.goalId,
+          record.toVersion,
+          triggeringTaskId ?? '',
+          record.createdAt,
+          record.fromVersion,
+        ],
+      );
+      const completed: GoalPatchRecord = {
+        ...record,
+        invalidatedPlanIds: plans.rows.map((row) => row.plan_id),
+        invalidatedInstanceIds: instances.rows.map((row) => row.instance_id),
+      };
+      await client.query(
+        `INSERT INTO goal_patch(
+           patch_id,goal_id,from_version,to_version,instruction,changes_json,decision_summary,
+           compensation_warnings_json,invalidated_plan_ids_json,invalidated_instance_ids_json,
+           new_plan_id,before_goal_json,after_goal_json,created_at)
+         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14)`,
+        [
+          completed.patchId,
+          completed.goalId,
+          completed.fromVersion,
+          completed.toVersion,
+          completed.instruction,
+          JSON.stringify(completed.changes),
+          completed.decisionSummary,
+          JSON.stringify(completed.compensationWarnings),
+          JSON.stringify(completed.invalidatedPlanIds),
+          JSON.stringify(completed.invalidatedInstanceIds),
+          completed.newPlanId,
+          JSON.stringify(completed.beforeGoal),
+          JSON.stringify(completed.afterGoal),
+          completed.createdAt,
+        ],
+      );
+      await client.query('COMMIT');
+      return completed;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async find(patchId: string): Promise<GoalPatchRecord | undefined> {
+    const result = await this.#pool.query<GoalPatchRow>(
+      'SELECT * FROM goal_patch WHERE patch_id=$1',
+      [patchId],
+    );
+    return result.rows[0] === undefined ? undefined : mapGoalPatchRow(result.rows[0]);
+  }
+
+  async listByGoal(goalId: string): Promise<readonly GoalPatchRecord[]> {
+    const result = await this.#pool.query<GoalPatchRow>(
+      'SELECT * FROM goal_patch WHERE goal_id=$1 ORDER BY to_version',
+      [goalId],
+    );
+    return result.rows.map(mapGoalPatchRow);
+  }
+}
+
+function mapGoalPatchRow(row: GoalPatchRow): GoalPatchRecord {
+  const changes = GoalPatchChangesSchema.parse(row.changes_json);
+  const beforeGoal = exactGoalSnapshot(row.before_goal_json);
+  const afterGoal = exactGoalSnapshot(row.after_goal_json);
+  return {
+    patchId: row.patch_id,
+    goalId: row.goal_id,
+    fromVersion: row.from_version,
+    toVersion: row.to_version,
+    instruction: row.instruction,
+    changes: {
+      ...(changes.title === undefined ? {} : { title: changes.title }),
+      ...(changes.description === undefined ? {} : { description: changes.description }),
+      ...(changes.constraints === undefined ? {} : { constraints: changes.constraints }),
+      ...(changes.successCriteria === undefined
+        ? {}
+        : { successCriteria: changes.successCriteria }),
+    },
+    decisionSummary: row.decision_summary,
+    compensationWarnings: StringArraySchema.parse(row.compensation_warnings_json),
+    invalidatedPlanIds: StringArraySchema.parse(row.invalidated_plan_ids_json),
+    invalidatedInstanceIds: StringArraySchema.parse(row.invalidated_instance_ids_json),
+    newPlanId: row.new_plan_id,
+    beforeGoal,
+    afterGoal,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function exactGoalSnapshot(value: unknown): Goal {
+  const goal = GoalSnapshotSchema.parse(value);
+  return {
+    goalId: goal.goalId,
+    contextId: goal.contextId,
+    version: goal.version,
+    title: goal.title,
+    description: goal.description,
+    constraints: goal.constraints,
+    successCriteria: goal.successCriteria,
+    status: goal.status,
+    ...(goal.previousGoalId === undefined ? {} : { previousGoalId: goal.previousGoalId }),
+    createdAt: goal.createdAt,
+    updatedAt: goal.updatedAt,
+  };
 }
 
 export class PostgresAgentTaskRepository implements AgentTaskRepository {

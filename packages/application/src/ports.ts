@@ -35,6 +35,7 @@ import type {
   WorkflowControlRecord,
   WorkflowControlRound,
   GoalEvaluationResult,
+  GoalPatchRecord,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -46,6 +47,15 @@ export interface GoalRepository {
   findById(goalId: string): Promise<Goal | undefined>;
   findActiveByContextId(contextId: string): Promise<Goal | undefined>;
   save(goal: Goal): Promise<void>;
+}
+
+export interface GoalPatchRepository {
+  apply(
+    record: Omit<GoalPatchRecord, 'invalidatedPlanIds' | 'invalidatedInstanceIds'>,
+    triggeringTaskId?: string,
+  ): Promise<GoalPatchRecord>;
+  find(patchId: string): Promise<GoalPatchRecord | undefined>;
+  listByGoal(goalId: string): Promise<readonly GoalPatchRecord[]>;
 }
 
 export interface RuntimeRecoveryRepository {

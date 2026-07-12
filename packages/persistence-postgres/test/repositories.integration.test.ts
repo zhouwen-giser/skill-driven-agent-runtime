@@ -15,6 +15,7 @@ import {
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
   PostgresGoalRepository,
+  PostgresGoalPatchRepository,
   PostgresRuntimeEventPublisher,
   PostgresRuntimeRecoveryRepository,
   PostgresSkillDraftRepository,
@@ -142,6 +143,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(modelApiStyleMigration);
+  const goalPatchMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0023_goal_patch.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(goalPatchMigration);
 });
 
 beforeEach(async () => {
@@ -598,6 +604,120 @@ describe('PostgreSQL protocol-domain repositories', () => {
           replanInstruction: 'Collect another result.',
         },
       }),
+    ]);
+  });
+  it('atomically versions a Goal and invalidates its old plans and instances', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const goals = new PostgresGoalRepository(pool);
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    const executions = new PostgresWorkflowExecutionRepository(pool);
+    const patches = new PostgresGoalPatchRepository(pool);
+    const beforeGoal = {
+      goalId: 'goal.patch.db',
+      contextId: 'context.patch.db',
+      version: 1,
+      title: 'Inspect device',
+      description: 'Inspect the device.',
+      constraints: ['local-only'],
+      successCriteria: ['inspection complete'],
+      status: 'active' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    };
+    await contexts.save({
+      contextId: beforeGoal.contextId,
+      userId: 'operator',
+      createdAt: beforeGoal.createdAt,
+      updatedAt: beforeGoal.updatedAt,
+    });
+    await goals.save(beforeGoal);
+    await plans.savePlan({
+      planId: 'plan.patch.db',
+      goalId: beforeGoal.goalId,
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.patch.db',
+        version: 1,
+        goalId: beforeGoal.goalId,
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: beforeGoal.createdAt,
+    });
+    await executions.saveInstance({
+      instanceId: 'instance.patch.db',
+      planId: 'plan.patch.db',
+      workflowDefinitionId: 'workflow.patch.db',
+      workflowVersion: 1,
+      goalId: beforeGoal.goalId,
+      goalVersion: 1,
+      skillVersions: [],
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 2,
+        maxMcpCalls: 2,
+        maxCost: 2,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      status: 'succeeded',
+      input: {},
+      result: true,
+      errors: {},
+      startedAt: beforeGoal.createdAt,
+      completedAt: '2026-07-12T00:00:01.000Z',
+    });
+    const afterGoal = {
+      ...beforeGoal,
+      version: 2,
+      successCriteria: ['inspection complete', 'temperature recorded'],
+      updatedAt: '2026-07-12T00:01:00.000Z',
+    };
+
+    await expect(
+      patches.apply({
+        patchId: 'patch.db',
+        goalId: beforeGoal.goalId,
+        fromVersion: 1,
+        toVersion: 2,
+        instruction: 'Also record temperature.',
+        changes: { successCriteria: afterGoal.successCriteria },
+        decisionSummary: 'Temperature is now required.',
+        compensationWarnings: ['No automatic compensation was attempted.'],
+        newPlanId: 'plan.patch.db.v2',
+        beforeGoal,
+        afterGoal,
+        createdAt: afterGoal.updatedAt,
+      }),
+    ).resolves.toMatchObject({
+      invalidatedPlanIds: ['plan.patch.db'],
+      invalidatedInstanceIds: ['instance.patch.db'],
+    });
+    await expect(goals.findById(beforeGoal.goalId)).resolves.toMatchObject({
+      version: 2,
+      successCriteria: afterGoal.successCriteria,
+    });
+    await expect(plans.findPlan('plan.patch.db')).resolves.toMatchObject({
+      confirmationStatus: 'invalidated',
+    });
+    await expect(executions.findInstance('instance.patch.db')).resolves.toMatchObject({
+      status: 'invalidated',
+      errors: { goalPatch: { code: 'GOAL_PATCH_INVALIDATED' } },
+    });
+    await expect(patches.listByGoal(beforeGoal.goalId)).resolves.toEqual([
+      expect.objectContaining({ patchId: 'patch.db', fromVersion: 1, toVersion: 2 }),
     ]);
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {

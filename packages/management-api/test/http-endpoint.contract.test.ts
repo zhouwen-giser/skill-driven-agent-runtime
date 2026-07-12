@@ -258,6 +258,50 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('exposes Goal Patch apply and history contracts', async () => {
+    const configured = operations();
+    const patch = {
+      patchId: 'patch-1',
+      goalId: 'goal-1',
+      fromVersion: 1,
+      toVersion: 2,
+      instruction: 'Add temperature.',
+      changes: { successCriteria: ['Return temperature.'] },
+      decisionSummary: 'Added temperature.',
+      compensationWarnings: ['No automatic compensation was attempted.'],
+      invalidatedPlanIds: ['plan-1'],
+      invalidatedInstanceIds: ['instance-1'],
+      newPlanId: 'plan-2',
+      beforeGoal: goalRecord(1),
+      afterGoal: { ...goalRecord(1), version: 2 },
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        goalPatches: {
+          apply: () => Promise.resolve(patch),
+          get: () => Promise.resolve(patch),
+          list: () => Promise.resolve([patch]),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/patches`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sourcePlanId: 'plan-1', instruction: 'Add temperature.' }),
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      patchId: 'patch-1',
+      toVersion: 2,
+      newPlanId: 'plan-2',
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/patches`).then((value) => value.json()),
+    ).resolves.toMatchObject({ items: [{ patchId: 'patch-1' }] });
+  });
+
   it('exposes task-plan binding and validated admin plan revision contracts', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -325,6 +369,7 @@ function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
     goals: { create: unused, get: unused },
+    goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     tasks: { attachPlan: unused, get: unused },
     graph: {
       create: unused,
@@ -397,5 +442,20 @@ function operations(failServerList = false): ManagementOperations {
       start: unused,
     },
     workflowRevisions: { get: unused, reviseAdmin: unused },
+  };
+}
+
+function goalRecord(version: number) {
+  return {
+    goalId: 'goal-1',
+    contextId: 'context-1',
+    version,
+    title: 'Goal',
+    description: 'Complete it.',
+    constraints: [],
+    successCriteria: [],
+    status: 'active' as const,
+    createdAt: '2026-07-12T00:00:00.000Z',
+    updatedAt: '2026-07-12T00:00:00.000Z',
   };
 }

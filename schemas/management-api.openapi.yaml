@@ -19,6 +19,26 @@ paths:
       responses:
         '200': { description: Current Goal record }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}/patches:
+    parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: applyGoalPatch
+      description: Applies a structured Goal version change, atomically invalidates all old-version execution state, and generates a fresh-confirmation plan.
+      responses:
+        '201': { description: Persisted Goal Patch evidence and new plan identity }
+        '400': { $ref: '#/components/responses/Error' }
+    get:
+      operationId: listGoalPatches
+      responses:
+        '200': { description: Ordered immutable Goal Patch history }
+  /api/v1/goal-patches/{patchId}:
+    parameters: [{ name: patchId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getGoalPatch
+      responses:
+        '200':
+          { description: Goal Patch before/after, invalidation, compensation, and plan evidence }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
@@ -156,13 +176,21 @@ paths:
                       type: object,
                       additionalProperties: false,
                       required:
-                        [name, kind, apiStyle, baseUrl, model, enabled, timeoutMs, credentialHeaders],
+                        [
+                          name,
+                          kind,
+                          apiStyle,
+                          baseUrl,
+                          model,
+                          enabled,
+                          timeoutMs,
+                          credentialHeaders,
+                        ],
                       properties:
                         {
                           name: { type: string },
                           kind: { enum: [openai_compatible, local, other_vendor] },
-                          apiStyle:
-                            { enum: [openai_chat_completions, anthropic_messages] },
+                          apiStyle: { enum: [openai_chat_completions, anthropic_messages] },
                           baseUrl: { type: string, format: uri },
                           model: { type: string },
                           enabled: { type: boolean },

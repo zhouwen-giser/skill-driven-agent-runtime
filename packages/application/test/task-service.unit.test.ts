@@ -238,6 +238,7 @@ function createHarness(): Readonly<{
             goalVersion: task.goalVersion ?? 1,
           });
         },
+        patchGoal: () => Promise.resolve(),
       },
     }),
     contexts,

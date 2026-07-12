@@ -38,7 +38,13 @@ export interface SubmitTaskResult {
 }
 
 export type TaskFollowUpAction =
-  'confirm_plan' | 'reject_plan' | 'revise_plan' | 'provide_input' | 'pause' | 'resume';
+  | 'confirm_plan'
+  | 'reject_plan'
+  | 'revise_plan'
+  | 'patch_goal'
+  | 'provide_input'
+  | 'pause'
+  | 'resume';
 
 export interface TaskFollowUpCommand {
   readonly taskId: string;
@@ -60,6 +66,7 @@ export interface TaskServiceDependencies {
       task: AgentTask,
       instruction: string,
     ): Promise<Readonly<{ planId: string; goalId: string; goalVersion: number }>>;
+    patchGoal(task: AgentTask, instruction: string): Promise<void>;
   }>;
 }
 
@@ -154,6 +161,29 @@ export class TaskService {
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
+    if (command.action === 'patch_goal') {
+      if (
+        task.goalId === undefined ||
+        task.goalVersion === undefined ||
+        task.planId === undefined ||
+        this.#dependencies.planActions === undefined
+      )
+        throw new TaskApplicationError(
+          'TASK_PLAN_NOT_ATTACHED',
+          'Task has no Goal/plan that can be patched.',
+        );
+      await this.#dependencies.planActions.patchGoal(task, command.messageText);
+      task = await this.get(task.taskId);
+      await this.#dependencies.events.publish({
+        eventId: this.#dependencies.ids.nextId('event'),
+        taskId: task.taskId,
+        contextId: task.contextId,
+        eventType: 'task.phase_changed',
+        timestamp: this.#dependencies.clock.now(),
+        summary: 'Goal Patch invalidated the old plan; new plan confirmation is required.',
+      });
+      return task;
+    }
     if (command.action === 'revise_plan') {
       if (task.planId === undefined || this.#dependencies.planActions === undefined)
         throw new TaskApplicationError(
@@ -303,6 +333,7 @@ function followUpTransitions(
       { phase: 'planning', message: 'Plan revision requested.' },
       { phase: 'awaiting_plan_confirmation', message: 'Revised plan confirmation required.' },
     ];
+  if (action === 'patch_goal') return [];
   if (action === 'provide_input')
     return [{ phase: 'goal_deliberation', message: 'Supplementary input received.' }];
   if (action === 'pause') return [{ phase: 'paused', message: 'Task paused by user.' }];

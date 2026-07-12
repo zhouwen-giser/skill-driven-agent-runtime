@@ -25,7 +25,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 
 - [x] 2026-07-12: fail interrupted Task/Workflow state atomically on process start.
 - [x] 2026-07-12: verify BullMQ attempts=1/no stalled retry and queued-job retention across Redis client restart.
-- [ ] Implement Goal Patch invalidation and forced reconfirmation.
+- [x] 2026-07-12: implement fixed-stage Goal Patch, atomic old-state invalidation, A2A/management history, compensation evidence, and forced reconfirmation.
 - [ ] Implement general pause/resume/cancel policy and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -56,7 +56,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 
 - [ ] `lifecycle e2e matrix`
 - [ ] `no tool call before confirmation`
-- [ ] `goal patch invalidation tests`
+- [x] `goal patch invalidation tests`: unit + real PostgreSQL integration + management contract + A2A/MCP e2e.
 - [ ] `timeout auto-cancel`
 - [ ] `pause short/long behavior`
 

@@ -19,6 +19,7 @@ import type {
   WorkflowExecutionService,
   WorkflowControllerService,
   GoalService,
+  GoalPatchService,
   WorkflowRevisionService,
   TaskService,
 } from '../../application/src/index.js';
@@ -162,6 +163,11 @@ const CreateGoalSchema = z.object({
   constraints: z.array(z.string()).optional(),
   successCriteria: z.array(z.string()).optional(),
 });
+const ApplyGoalPatchSchema = z.object({
+  sourcePlanId: z.string().min(1),
+  instruction: z.string().min(1),
+  taskId: z.string().min(1).optional(),
+});
 const StartWorkflowControlSchema = z.object({
   controlId: z.string().min(1),
   contextId: z.string().min(1),
@@ -185,6 +191,7 @@ const AdminWorkflowRevisionSchema = z.object({
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get'>;
+  readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
@@ -265,6 +272,34 @@ export async function startManagementHttpEndpoint(
     '/api/v1/goals/:goalId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.goals.get(pathValue(request, 'goalId')));
+    }),
+  );
+  app.post(
+    '/api/v1/goals/:goalId/patches',
+    asyncRoute(async (request, response) => {
+      const input = ApplyGoalPatchSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.goalPatches.apply({
+          goalId: pathValue(request, 'goalId'),
+          sourcePlanId: input.sourcePlanId,
+          instruction: input.instruction,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/goals/:goalId/patches',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.goalPatches.list(pathValue(request, 'goalId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/goal-patches/:patchId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.goalPatches.get(pathValue(request, 'patchId')));
     }),
   );
   app.post(
