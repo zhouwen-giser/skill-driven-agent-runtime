@@ -10,6 +10,7 @@ import {
 import { McpPanel } from './McpPanel.js';
 import { SkillsPanel } from './SkillsPanel.js';
 import { WorkflowPanel } from './WorkflowPanel.js';
+import { TaskPanel } from './TaskPanel.js';
 
 type Section = 'overview' | 'skills' | 'mcp' | 'workflows' | 'tasks' | 'memory' | 'evaluation';
 
@@ -83,6 +84,7 @@ function SectionView({ section }: { readonly section: Section }) {
   if (section === 'mcp') return <McpPanel />;
   if (section === 'evaluation') return <Analytics />;
   if (section === 'workflows') return <WorkflowPanel />;
+  if (section === 'tasks') return <TaskPanel />;
   return <Lookup section={section} />;
 }
 

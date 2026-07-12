@@ -77,7 +77,10 @@ describe('McpRegistryService', () => {
     });
     expect(transport.calls).toBe(0);
     await expect(
-      service.call('mcp.devices', 'device_status', { deviceId: 'device-1' }),
+      service.call('mcp.devices', 'device_status', { deviceId: 'device-1' }, undefined, {
+        taskId: 'task-1',
+        contextId: 'context-1',
+      }),
     ).resolves.toEqual({ ok: true });
     expect(transport.calls).toBe(1);
     expect(repository.invocations).toEqual([
@@ -87,6 +90,9 @@ describe('McpRegistryService', () => {
         arguments: { deviceId: 'device-1' },
         result: { ok: true },
       }),
+    ]);
+    await expect(service.listInvocationsByTask('task-1')).resolves.toEqual([
+      expect.objectContaining({ invocationId: 'invocation-1', taskId: 'task-1' }),
     ]);
   });
 
@@ -256,6 +262,9 @@ class MemoryMcpRepository implements McpRegistryRepository {
   }
   listInvocations() {
     return Promise.resolve(this.invocations);
+  }
+  listInvocationsByTask(taskId: string) {
+    return Promise.resolve(this.invocations.filter((invocation) => invocation.taskId === taskId));
   }
   saveManagementOperation(operation: McpManagementOperation) {
     this.managementOperations = [...this.managementOperations, operation];

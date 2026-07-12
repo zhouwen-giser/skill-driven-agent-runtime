@@ -75,6 +75,18 @@ export class WorkflowExecutionService {
     return { instance, events: await this.#instances.listNodeEvents(instanceId) };
   }
 
+  async traceForPlan(
+    planId: string,
+  ): Promise<Readonly<{ instance: WorkflowInstance; events: readonly WorkflowNodeEvent[] }>> {
+    const instance = await this.#instances.findLatestByPlanId(planId);
+    if (instance === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_FOUND',
+        'Workflow instance was not found for the plan.',
+      );
+    return this.trace(instance.instanceId);
+  }
+
   async execute(
     input: Readonly<{
       instanceId: string;

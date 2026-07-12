@@ -239,6 +239,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(Object.isFrozen(compiled.definition)).toBe(true);
     expect(runtime.callMcpTool).toHaveBeenCalledWith(
       expect.objectContaining({
+        executionId: 'workflow.compiler',
         tool: { serverId: 'weather', toolName: 'current' },
         arguments: { city: 'Shanghai' },
         signal: expect.any(AbortSignal),

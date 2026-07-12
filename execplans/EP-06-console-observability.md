@@ -28,6 +28,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.
 - [x] Deliver real MCP lifecycle controls and PostgreSQL management-operation audit; expose current Skill enable/disable/version/warning/rollback controls.
 - [x] Deliver a repository-owned Workflow DAG/DSL workbench, immutable revision/confirmation actions, and ordered instance-node replay.
+- [x] Add Task-rooted deterministic navigation to Goal/Plan/Workflow/events/results/evaluation/model/MCP evidence using persisted identifiers only.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -45,6 +46,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - The existing root ESLint ignore matched only the root `dist`; the console build exposed that nested generated assets must use `**/dist/**` to keep generated third-party bundles outside source linting.
 - No console application existed at EP-06 start. The first production bundle is now independently buildable and contains no static operational records.
 - Workflow node events were persisted but not readable through management operations. `WorkflowExecutionService.trace` now joins the immutable instance with ordered displayable events; the console stores only replay position and editor text.
+- Model and MCP APIs previously supported stage-wide or Server-wide reads only. Task filters and Plan-to-latest-instance lookup now provide deterministic links without a second trace store.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
@@ -54,6 +56,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - The console is mounted at `/console` by the existing management listener. Vite is development/build tooling, not another production process.
 - The repository will implement the Workflow DAG UI itself instead of adding a second workflow or third-party console runtime.
 - DAG edits always use the existing `WorkflowRevisionService.reviseAdmin` boundary and therefore supersede rather than mutate a Plan; validation remains read-only and replay never invokes LangGraph.
+- ADR-066 makes Task the observability navigation root and prohibits timestamp/name inference or frontend-owned relationship state.
 
 执行期间持续追加；重大决定另建 ADR。
 

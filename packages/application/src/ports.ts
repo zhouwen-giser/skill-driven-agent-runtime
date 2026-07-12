@@ -184,6 +184,7 @@ export interface GoalEvaluator {
 
 export interface AgentTaskRepository {
   findById(taskId: string): Promise<AgentTask | undefined>;
+  findByPlanId(planId: string): Promise<AgentTask | undefined>;
   save(task: AgentTask): Promise<void>;
 }
 
@@ -370,6 +371,7 @@ export interface McpRegistryRepository {
   deleteServer(serverId: string): Promise<void>;
   saveInvocation(invocation: McpInvocation): Promise<void>;
   listInvocations(serverId: string): Promise<readonly McpInvocation[]>;
+  listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]>;
   saveManagementOperation(operation: McpManagementOperation): Promise<void>;
   listManagementOperations(serverId: string): Promise<readonly McpManagementOperation[]>;
   listDependencyWarnings(serverId: string): Promise<readonly McpDependencyWarning[]>;
@@ -497,6 +499,7 @@ export interface WorkflowPlanRepository {
 export interface WorkflowExecutionRepository {
   findInstance(instanceId: string): Promise<WorkflowInstance | undefined>;
   findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined>;
+  findLatestByPlanId(planId: string): Promise<WorkflowInstance | undefined>;
   listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]>;
   countNodeEvents(instanceId: string): Promise<number>;
   listNodeEvents(instanceId: string): Promise<readonly WorkflowNodeEvent[]>;
@@ -557,6 +560,7 @@ export interface ModelRuntimeRepository {
   saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void>;
   saveInvocation(invocation: ModelInvocationRecord): Promise<void>;
   listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]>;
+  listInvocationsByTask(taskId: string): Promise<readonly ModelInvocationRecord[]>;
   findActivePromptForStage(stage: ModelStage): Promise<PromptVersion | undefined>;
 }
 
@@ -608,6 +612,10 @@ export interface ContextTaskQueue {
 
 export interface RuntimeEventPublisher {
   publish(event: RuntimeTaskEvent): Promise<void>;
+}
+
+export interface RuntimeEventQuery {
+  listByTask(taskId: string): Promise<readonly RuntimeTaskEvent[]>;
 }
 
 export interface RuntimeTaskEvent {

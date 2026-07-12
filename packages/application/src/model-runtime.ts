@@ -82,6 +82,10 @@ export class ModelRuntimeService {
     return this.#repository.listInvocations(stage);
   }
 
+  listInvocationsByTask(taskId: string): Promise<readonly ModelInvocationRecord[]> {
+    return this.#repository.listInvocationsByTask(taskId);
+  }
+
   async #invokeStructured(
     input: Readonly<{
       stage: ModelStage;

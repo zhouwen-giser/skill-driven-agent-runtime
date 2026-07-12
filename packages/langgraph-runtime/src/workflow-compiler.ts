@@ -30,6 +30,7 @@ export interface WorkflowExecutionEvent {
 export interface WorkflowRuntimePorts {
   readonly executeLlm: (
     input: Readonly<{
+      executionId: string;
       instruction: string;
       responseSchema: unknown;
       signal?: AbortSignal;
@@ -37,6 +38,7 @@ export interface WorkflowRuntimePorts {
   ) => Promise<unknown>;
   readonly callMcpTool: (
     input: Readonly<{
+      executionId: string;
       tool: ToolReference;
       arguments: unknown;
       signal?: AbortSignal;
@@ -592,6 +594,7 @@ async function executeNode(
       budgetMeter.reserve('llm');
       const callSignal = budgetMeter.signal(signal);
       const value = await ports.executeLlm({
+        executionId: state.executionId,
         instruction: node.instruction,
         responseSchema: node.responseSchema,
         signal: callSignal,
@@ -603,6 +606,7 @@ async function executeNode(
       budgetMeter.reserve('mcp');
       const callSignal = budgetMeter.signal(signal);
       const value = await ports.callMcpTool({
+        executionId: state.executionId,
         tool: node.tool,
         arguments: node.arguments,
         signal: callSignal,

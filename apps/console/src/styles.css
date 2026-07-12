@@ -458,6 +458,101 @@ h2 {
   margin: 7px 0 0;
   color: #5f6c64;
 }
+.trace-identity {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid #ccd3cd;
+  background: #ccd3cd;
+  gap: 1px;
+}
+.trace-identity article {
+  min-width: 0;
+  padding: 17px;
+  background: #f8faf7;
+}
+.trace-identity span,
+.trace-identity small {
+  display: block;
+  color: #718078;
+}
+.trace-identity span {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+.trace-identity strong {
+  display: block;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.trace-identity small {
+  font-size: 10px;
+}
+.task-action {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 16px;
+}
+.task-action label {
+  color: #5f6c64;
+  font-size: 11px;
+}
+.task-action input,
+.task-action select {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  border: 1px solid #aeb9b1;
+  padding: 10px;
+  background: #fff;
+}
+.task-action button {
+  border: 0;
+  background: #22563a;
+  color: #fff;
+  padding: 11px 16px;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.evidence-card {
+  min-width: 0;
+  border: 1px solid #d1d8d2;
+  background: #fff;
+}
+.evidence-card header {
+  padding: 13px 15px;
+  border-bottom: 1px solid #dce1dd;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.evidence-card header span {
+  font-weight: 700;
+}
+.evidence-card header code {
+  color: #78847d;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+.evidence-card pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 15px;
+  font-size: 10px;
+}
+.evidence-error {
+  border-color: #d9a7a1;
+  background: #fff7f6;
+}
+.evidence-error p {
+  padding: 15px;
+  color: #9e443b;
+}
 .admin-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -605,6 +700,11 @@ h2 {
   }
   .split-lookup,
   .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+  .trace-identity,
+  .evidence-grid,
+  .task-action {
     grid-template-columns: 1fr;
   }
   .dag-nodes {

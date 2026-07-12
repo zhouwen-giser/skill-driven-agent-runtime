@@ -38,6 +38,7 @@ import type {
   ImplicitFeedbackService,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
+  RuntimeEventQuery,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -293,6 +294,7 @@ export interface ManagementOperations {
   readonly implicitFeedback: Pick<ImplicitFeedbackService, 'listByTask'>;
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
+  readonly runtimeEvents: RuntimeEventQuery;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
@@ -306,6 +308,7 @@ export interface ManagementOperations {
     | 'checkHealth'
     | 'listDependencyWarnings'
     | 'listInvocations'
+    | 'listInvocationsByTask'
     | 'listManagementOperations'
     | 'listServers'
     | 'listTools'
@@ -338,7 +341,10 @@ export interface ManagementOperations {
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly skillQuality: Pick<SkillQualityService, 'listWarnings' | 'record'>;
   readonly workflowTemplates: Pick<WorkflowTemplateService, 'listTemplates' | 'listUses'>;
-  readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
+  readonly models: Pick<
+    ModelRuntimeService,
+    'configureProvider' | 'listInvocations' | 'listInvocationsByTask' | 'route'
+  >;
   readonly prompts: Pick<
     PromptService,
     'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
@@ -354,6 +360,7 @@ export interface ManagementOperations {
       | 'resumeHumanConfirmation'
       | 'resumePauseForPlan'
       | 'trace'
+      | 'traceForPlan'
     >;
   readonly workflowControls: Pick<
     WorkflowControllerService,
@@ -649,6 +656,14 @@ export async function startManagementHttpEndpoint(
       response.json(await options.operations.tasks.get(pathValue(request, 'taskId')));
     }),
   );
+  app.get(
+    '/api/v1/tasks/:taskId/events',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.runtimeEvents.listByTask(pathValue(request, 'taskId')),
+      });
+    }),
+  );
   app.post(
     '/api/v1/tasks/:taskId/actions',
     asyncRoute(async (request, response) => {
@@ -814,6 +829,12 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/workflows/plans/:planId/trace',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.workflows.traceForPlan(pathValue(request, 'planId')));
+    }),
+  );
+  app.get(
     '/api/v1/workflows/plans/:planId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.workflowRevisions.get(pathValue(request, 'planId')));
@@ -871,11 +892,18 @@ export async function startManagementHttpEndpoint(
   app.get(
     '/api/v1/models/invocations',
     asyncRoute(async (request, response) => {
+      const taskId =
+        typeof request.query['taskId'] === 'string' ? request.query['taskId'] : undefined;
       const stage =
         request.query['stage'] === undefined
           ? undefined
           : ModelStageSchema.parse(request.query['stage']);
-      response.json({ items: await options.operations.models.listInvocations(stage) });
+      response.json({
+        items:
+          taskId === undefined
+            ? await options.operations.models.listInvocations(stage)
+            : await options.operations.models.listInvocationsByTask(taskId),
+      });
     }),
   );
   app.post(
@@ -936,6 +964,13 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/mcp/servers', async (_request, response) => {
     response.json({ items: await options.operations.mcp.listServers() });
   });
+  app.get(
+    '/api/v1/mcp/invocations',
+    asyncRoute(async (request, response) => {
+      const taskId = z.string().min(1).parse(request.query['taskId']);
+      response.json({ items: await options.operations.mcp.listInvocationsByTask(taskId) });
+    }),
+  );
   app.post(
     '/api/v1/mcp/servers',
     asyncRoute(async (request, response) => {

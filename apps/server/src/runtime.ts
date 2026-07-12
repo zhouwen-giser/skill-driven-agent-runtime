@@ -384,16 +384,30 @@ export async function startServerRuntime(
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
-    executeLlm: ({ instruction, responseSchema }) =>
-      modelRuntime.generateStructured({
+    async executeLlm({ executionId, instruction, responseSchema }) {
+      const instance = await workflowInstances.findInstance(executionId);
+      const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
+      return modelRuntime.generateStructured({
         stage: 'execution_decision',
         instruction,
         responseSchema,
         correctionErrors: [],
-      }),
-    async callMcpTool({ tool, arguments: arguments_, signal }) {
+        ...(task === undefined
+          ? {}
+          : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
+      });
+    },
+    async callMcpTool({ executionId, tool, arguments: arguments_, signal }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
-      return mcpRegistry.call(tool.serverId, tool.toolName, arguments_, signal);
+      const instance = await workflowInstances.findInstance(executionId);
+      const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
+      return mcpRegistry.call(
+        tool.serverId,
+        tool.toolName,
+        arguments_,
+        signal,
+        task === undefined ? {} : { taskId: task.taskId, contextId: task.contextId },
+      );
     },
     async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
       const parent = await workflowInstances.findInstance(parentExecutionId);
@@ -968,6 +982,7 @@ export async function startServerRuntime(
         implicitFeedback,
         evaluationInfluences,
         evaluationAnalytics,
+        runtimeEvents: events,
         memories,
         memoryRetention,
         goalInputInference,
@@ -993,6 +1008,7 @@ export async function startServerRuntime(
           resumePauseForPlan: (planId) => workflowExecution.resumePauseForPlan(planId),
           cancelForPlan: (planId) => workflowExecution.cancelForPlan(planId),
           trace: (instanceId) => workflowExecution.trace(instanceId),
+          traceForPlan: (planId) => workflowExecution.traceForPlan(planId),
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,

@@ -93,6 +93,10 @@ describe('Workflow execution application service', () => {
       instance,
       events: instances.events,
     });
+    await expect(service.traceForPlan(instance.planId)).resolves.toEqual({
+      instance,
+      events: instances.events,
+    });
   });
 
   it('executes a repository-confirmed corrected plan without another confirmation', async () => {
@@ -559,6 +563,11 @@ class MemoryExecutions implements WorkflowExecutionRepository {
             instance.planId === planId &&
             (instance.status === 'running' || instance.status === 'paused'),
         ),
+    );
+  }
+  findLatestByPlanId(planId: string) {
+    return Promise.resolve(
+      [...this.instances].reverse().find((instance) => instance.planId === planId),
     );
   }
   listActiveByGoalId(goalId: string) {

@@ -43,6 +43,9 @@ describe('ModelRuntimeService', () => {
       outputTokens: 3,
     });
     expect(JSON.stringify(repository.invocations[0])).not.toContain('secret');
+    await expect(service.listInvocationsByTask('task-1')).resolves.toEqual([
+      expect.objectContaining({ invocationId: 'model-invocation-1', taskId: 'task-1' }),
+    ]);
   });
 
   it('records failure and never falls back to another configured provider', async () => {
@@ -161,6 +164,9 @@ class MemoryModelRepository implements ModelRuntimeRepository {
         ? this.invocations
         : this.invocations.filter((item) => item.stage === stage),
     );
+  }
+  listInvocationsByTask(taskId: string) {
+    return Promise.resolve(this.invocations.filter((item) => item.taskId === taskId));
   }
   findActivePromptForStage(stage: ModelStage) {
     return Promise.resolve({

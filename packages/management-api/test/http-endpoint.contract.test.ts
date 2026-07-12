@@ -907,6 +907,91 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('filters Task-linked runtime, model, MCP, and plan trace evidence', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        runtimeEvents: {
+          listByTask: (taskId) =>
+            Promise.resolve([
+              {
+                eventId: 'runtime-event-1',
+                taskId,
+                contextId: 'context-1',
+                eventType: 'task.phase_changed' as const,
+                timestamp: '2026-07-13T00:00:00.000Z',
+                summary: 'Task executing.',
+              },
+            ]),
+        },
+        models: {
+          ...configured.models,
+          listInvocationsByTask: (taskId) =>
+            Promise.resolve([
+              {
+                invocationId: 'model-invocation-1',
+                taskId,
+                stage: 'goal' as const,
+                providerId: 'provider-1',
+                model: 'model-1',
+                operation: 'structured_generation' as const,
+                request: {},
+                context: {},
+                durationMs: 5,
+                status: 'succeeded' as const,
+                createdAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+        },
+        mcp: {
+          ...configured.mcp,
+          listInvocationsByTask: (taskId) =>
+            Promise.resolve([
+              {
+                invocationId: 'mcp-invocation-1',
+                taskId,
+                contextId: 'context-1',
+                serverId: 'server-1',
+                toolName: 'tool-1',
+                arguments: {},
+                status: 'succeeded' as const,
+                startedAt: '2026-07-13T00:00:00.000Z',
+                completedAt: '2026-07-13T00:00:00.005Z',
+                durationMs: 5,
+              },
+            ]),
+        },
+        workflows: {
+          ...configured.workflows,
+          traceForPlan: (planId) =>
+            Promise.resolve({
+              instance: workflowInstance(planId, 'succeeded'),
+              events: [],
+            }),
+        },
+      },
+    });
+    const [events, models, mcp, trace] = await Promise.all([
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-linked/events`).then((response) =>
+        response.json(),
+      ),
+      fetch(`${endpoint.baseUrl}/api/v1/models/invocations?taskId=task-linked`).then((response) =>
+        response.json(),
+      ),
+      fetch(`${endpoint.baseUrl}/api/v1/mcp/invocations?taskId=task-linked`).then((response) =>
+        response.json(),
+      ),
+      fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-linked/trace`).then((response) =>
+        response.json(),
+      ),
+    ]);
+    expect(events).toMatchObject({ items: [{ taskId: 'task-linked' }] });
+    expect(models).toMatchObject({ items: [{ taskId: 'task-linked' }] });
+    expect(mcp).toMatchObject({ items: [{ taskId: 'task-linked' }] });
+    expect(trace).toMatchObject({ instance: { planId: 'plan-linked' }, events: [] });
+  });
+
   it('exposes plan-scoped pause, resume, and cancel execution controls', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -1344,6 +1429,7 @@ function operations(failServerList = false): ManagementOperations {
       invalidate: unused,
       listTransitions: () => Promise.resolve([]),
     },
+    runtimeEvents: { listByTask: () => Promise.resolve([]) },
     memoryRetention: { getPolicy: unused, updatePolicy: unused },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
@@ -1361,6 +1447,7 @@ function operations(failServerList = false): ManagementOperations {
       delete: unused,
       listDependencyWarnings: () => Promise.resolve([]),
       listInvocations: () => Promise.resolve([]),
+      listInvocationsByTask: () => Promise.resolve([]),
       listManagementOperations: () => Promise.resolve([]),
       listServers: () =>
         failServerList
@@ -1386,6 +1473,7 @@ function operations(failServerList = false): ManagementOperations {
     models: {
       configureProvider: unused,
       listInvocations: () => Promise.resolve([]),
+      listInvocationsByTask: () => Promise.resolve([]),
       route: unused,
     },
     prompts: {
@@ -1433,6 +1521,7 @@ function operations(failServerList = false): ManagementOperations {
       resumeHumanConfirmation: unused,
       resumePauseForPlan: unused,
       trace: unused,
+      traceForPlan: unused,
       plan: unused,
       validate: () => Promise.resolve({ valid: false, errors: [] }),
     },

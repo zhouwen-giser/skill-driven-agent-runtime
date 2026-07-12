@@ -1774,6 +1774,18 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     return row === undefined ? undefined : mapTaskRow(row);
   }
 
+  async findByPlanId(planId: string): Promise<AgentTask | undefined> {
+    const result = await this.#pool.query<TaskRow>(
+      `SELECT task_id, context_id, user_id, request_text, request_metadata,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
+       FROM agent_task WHERE plan_id=$1 ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
+      [planId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapTaskRow(row);
+  }
+
   async save(task: AgentTask): Promise<void> {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
@@ -2022,6 +2034,29 @@ export class PostgresRuntimeEventPublisher implements RuntimeEventPublisher {
         event.summary,
       ],
     );
+  }
+
+  async listByTask(taskId: string): Promise<readonly RuntimeTaskEvent[]> {
+    const result = await this.#pool.query<{
+      event_id: string;
+      task_id: string;
+      context_id: string;
+      event_type: RuntimeTaskEvent['eventType'];
+      event_timestamp: Date | string;
+      summary: string;
+    }>(
+      `SELECT event_id, task_id, context_id, event_type, event_timestamp, summary
+       FROM runtime_event WHERE task_id=$1 ORDER BY event_timestamp, event_id`,
+      [taskId],
+    );
+    return result.rows.map((row) => ({
+      eventId: row.event_id,
+      taskId: row.task_id,
+      contextId: row.context_id,
+      eventType: row.event_type,
+      timestamp: toIsoString(row.event_timestamp),
+      summary: row.summary,
+    }));
   }
 }
 
@@ -2577,6 +2612,14 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
     const result = await this.#pool.query<ModelInvocationRow>(
       `SELECT * FROM model_invocation WHERE ($1::text IS NULL OR stage = $1) ORDER BY created_at, invocation_id`,
       [stage ?? null],
+    );
+    return result.rows.map(mapModelInvocationRow);
+  }
+
+  async listInvocationsByTask(taskId: string): Promise<readonly ModelInvocationRecord[]> {
+    const result = await this.#pool.query<ModelInvocationRow>(
+      'SELECT * FROM model_invocation WHERE task_id=$1 ORDER BY created_at, invocation_id',
+      [taskId],
     );
     return result.rows.map(mapModelInvocationRow);
   }
@@ -3219,6 +3262,16 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
        WHERE plan_id=$1 AND status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`,
+      [planId],
+    );
+    const instanceId = result.rows[0]?.instance_id;
+    return instanceId === undefined ? undefined : this.findInstance(instanceId);
+  }
+
+  async findLatestByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    const result = await this.#pool.query<{ instance_id: string }>(
+      `SELECT instance_id FROM workflow_instance
+       WHERE plan_id=$1 ORDER BY started_at DESC, instance_id DESC LIMIT 1`,
       [planId],
     );
     const instanceId = result.rows[0]?.instance_id;
@@ -4060,6 +4113,16 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
               result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
+    );
+    return result.rows.map(mapMcpInvocationRow);
+  }
+
+  async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
+    const result = await this.#pool.query<McpInvocationRow>(
+      `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
+              result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+       FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
+      [taskId],
     );
     return result.rows.map(mapMcpInvocationRow);
   }

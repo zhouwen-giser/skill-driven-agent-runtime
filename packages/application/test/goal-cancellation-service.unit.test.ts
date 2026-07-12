@@ -32,6 +32,7 @@ describe('GoalCancellationService', () => {
       instances: {
         findInstance: () => Promise.resolve(undefined),
         findActiveByPlanId: () => Promise.resolve(undefined),
+        findLatestByPlanId: () => Promise.resolve(undefined),
         listActiveByGoalId: () =>
           Promise.resolve([instance('instance-1', 'plan-1'), instance('instance-2', 'plan-2')]),
         countNodeEvents: () => Promise.resolve(0),

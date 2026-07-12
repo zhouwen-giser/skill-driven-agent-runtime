@@ -872,6 +872,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
       instanceId: 'instance.db',
       status: 'paused',
     });
+    await expect(executions.findLatestByPlanId('plan.execution.db')).resolves.toMatchObject({
+      instanceId: 'instance.db',
+      status: 'paused',
+    });
     await expect(executions.countNodeEvents('instance.db')).resolves.toBe(2);
     await expect(executions.listNodeEvents('instance.db')).resolves.toEqual([
       expect.objectContaining({ sequence: 1, nodeId: 'result', eventType: 'node_started' }),
@@ -1770,6 +1774,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     await repository.saveInvocation({
       invocationId: 'model-invocation-db-1',
+      taskId: 'task-db',
       stage: 'workflow_planning',
       providerId: configuration.providerId,
       model: configuration.model,
@@ -1795,6 +1800,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
         inputTokens: 11,
         outputTokens: 4,
       }),
+    ]);
+    await expect(repository.listInvocationsByTask('task-db')).resolves.toEqual([
+      expect.objectContaining({ invocationId: 'model-invocation-db-1', taskId: 'task-db' }),
     ]);
     const raw = await pool.query<{ encrypted_credential: string }>(
       'SELECT encrypted_credential FROM model_provider',
@@ -2311,6 +2319,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
         result: { status: 'online' },
       }),
     ]);
+    await expect(repository.listInvocationsByTask('task-1')).resolves.toEqual([
+      expect.objectContaining({ invocationId: 'invocation-1', taskId: 'task-1' }),
+    ]);
     await expect(repository.listManagementOperations('mcp.devices')).resolves.toEqual([
       {
         operationId: 'mcp-operation-1',
@@ -2387,6 +2398,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(storedContext).toEqual(submitted.context);
     expect(storedTask).toEqual(submitted.task);
     expect(eventResult.rows[0]?.count).toBe('1');
+    await expect(events.listByTask(submitted.task.taskId)).resolves.toEqual([
+      expect.objectContaining({ taskId: submitted.task.taskId, eventType: 'task.created' }),
+    ]);
+    await tasks.save({
+      ...submitted.task,
+      phase: 'planning',
+      phaseMessage: 'Planning.',
+      planId: 'plan.task-link.db',
+    });
+    await expect(tasks.findByPlanId('plan.task-link.db')).resolves.toMatchObject({
+      taskId: submitted.task.taskId,
+      planId: 'plan.task-link.db',
+    });
   });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

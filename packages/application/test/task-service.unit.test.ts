@@ -296,6 +296,8 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
   };
   const taskRepository: AgentTaskRepository = {
     findById: (taskId) => Promise.resolve(tasks.get(taskId)),
+    findByPlanId: (planId) =>
+      Promise.resolve([...tasks.values()].find((task) => task.planId === planId)),
     save: (task) => {
       tasks.set(task.taskId, task);
       operations.push(`task.save:${task.taskId}:${task.phase}`);

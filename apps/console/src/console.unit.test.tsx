@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
 import { WorkflowPanel } from './WorkflowPanel.js';
+import { TaskPanel } from './TaskPanel.js';
 
 describe('operational console static accessibility contract', () => {
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
@@ -18,5 +19,13 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Instance ID');
     expect(markup).not.toContain('plan-1');
     expect(markup).not.toContain('instance-1');
+  });
+
+  it('renders a Task trace root without fabricated linked evidence', () => {
+    const markup = renderToStaticMarkup(<TaskPanel />);
+    expect(markup).toContain('Task ID');
+    expect(markup).toContain('CORRELATED TRACE ROOT');
+    expect(markup).not.toContain('task-1');
+    expect(markup).not.toContain('goal-1');
   });
 });

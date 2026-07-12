@@ -263,6 +263,10 @@ export class McpRegistryService {
     return this.#repository.listInvocations(serverId);
   }
 
+  listInvocationsByTask(taskId: string) {
+    return this.#repository.listInvocationsByTask(taskId);
+  }
+
   listManagementOperations(serverId: string) {
     return this.#repository.listManagementOperations(serverId);
   }
