@@ -16,6 +16,7 @@ import type {
   TemporarySkillService,
   SkillEvolutionService,
   EvolutionExperienceService,
+  EvolutionPolicyService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -32,6 +33,7 @@ import type {
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
+const EvolutionPolicySchema = z.object({ successThreshold: z.number().int().min(2) });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
 const TaskActionSchema = z.object({
   action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
@@ -254,6 +256,10 @@ export interface ManagementOperations {
     EvolutionExperienceService,
     'get' | 'listByGoal' | 'listBySkill'
   >;
+  readonly evolutionPolicy: Pick<
+    EvolutionPolicyService,
+    'getPolicy' | 'listTriggers' | 'updatePolicy'
+  >;
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
@@ -348,6 +354,28 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const input = TaskWaitPolicySchema.parse(request.body);
       response.json(await options.operations.taskWaitTimeouts.updatePolicy(input.timeoutSeconds));
+    }),
+  );
+  app.get('/api/v1/system/evolution-policy', async (_request, response) => {
+    response.json(await options.operations.evolutionPolicy.getPolicy());
+  });
+  app.put(
+    '/api/v1/system/evolution-policy',
+    asyncRoute(async (request, response) => {
+      const input = EvolutionPolicySchema.parse(request.body);
+      response.json(await options.operations.evolutionPolicy.updatePolicy(input.successThreshold));
+    }),
+  );
+  app.get(
+    '/api/v1/evolution-triggers',
+    asyncRoute(async (request, response) => {
+      const fingerprint =
+        typeof request.query['capabilityFingerprint'] === 'string'
+          ? request.query['capabilityFingerprint']
+          : undefined;
+      response.json({
+        items: await options.operations.evolutionPolicy.listTriggers(fingerprint),
+      });
     }),
   );
   app.post(

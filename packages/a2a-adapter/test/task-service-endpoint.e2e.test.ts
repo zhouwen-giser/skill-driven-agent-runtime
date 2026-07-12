@@ -2183,6 +2183,15 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         }),
       });
       expect(registration.status).toBe(201);
+      const policyUpdate = await fetch(
+        `${runtime.management.baseUrl}/api/v1/system/evolution-policy`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ successThreshold: 3 }),
+        },
+      );
+      expect(policyUpdate.status).toBe(200);
       const formalSkillsBefore = await readFormalSkillIds();
       const createAndComplete = async (taskId: string) => {
         const createdResponse = await fetch(
@@ -2219,7 +2228,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         expect(completedResponse.status).toBe(200);
         return z
           .object({
-            skill: z.object({ status: z.literal('expired') }),
+            skill: z.object({
+              status: z.literal('expired'),
+              capabilityFingerprint: z.string(),
+            }),
             experience: z.object({ successful: z.literal(true) }),
             formalizationCandidate: z
               .object({
@@ -2243,21 +2255,45 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(first.formalizationCandidate).toBeUndefined();
       expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
       const second = await createAndComplete(`task-temp-${randomUUID()}`);
-      expect(second.formalizationCandidate).toMatchObject({
+      expect(second.formalizationCandidate).toBeUndefined();
+      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
+      const third = await createAndComplete(`task-temp-${randomUUID()}`);
+      expect(third.formalizationCandidate).toMatchObject({
         status: 'published',
-        successfulExperienceCount: 2,
+        successfulExperienceCount: 3,
         publishedSkillId: `skill.evolved.${serverId}`,
         validationReport: { allPassed: true },
       });
       expect(
-        second.formalizationCandidate?.validationReport?.cases.map((item) => item.kind),
+        third.formalizationCandidate?.validationReport?.cases.map((item) => item.kind),
       ).toEqual([
         'static_validation',
+        'historical_replay',
         'historical_replay',
         'historical_replay',
         'normal',
         'boundary',
         'exception',
+      ]);
+      const triggers = z
+        .object({
+          items: z.array(
+            z.object({
+              successfulExperienceCount: z.number(),
+              configuredThreshold: z.number(),
+              decision: z.string(),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/evolution-triggers?capabilityFingerprint=${encodeURIComponent(third.skill.capabilityFingerprint)}`,
+          ).then((response) => response.json()),
+        );
+      expect(triggers.items).toMatchObject([
+        { successfulExperienceCount: 1, configuredThreshold: 3, decision: 'below_threshold' },
+        { successfulExperienceCount: 2, configuredThreshold: 3, decision: 'below_threshold' },
+        { successfulExperienceCount: 3, configuredThreshold: 3, decision: 'candidate_created' },
       ]);
       const formalSkillsAfter = await readFormalSkillIds();
       expect(formalSkillsAfter).toHaveLength(formalSkillsBefore.length + 1);
@@ -2271,6 +2307,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       );
       expect(disabled.status).toBe(200);
     } finally {
+      await fetch(`${runtime.management.baseUrl}/api/v1/system/evolution-policy`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ successThreshold: 2 }),
+      });
       await mockMcp.close();
     }
   });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   SkillFormalizationCandidate,
+  EvolutionTriggerRecord,
   TemporarySkill,
   TemporarySkillExperience,
 } from '../../domain/src/index.js';
@@ -40,6 +41,29 @@ describe('TemporarySkillService', () => {
         sourceExperienceIds: ['experience-1', 'experience-2'],
       }),
     );
+  });
+
+  it('reads the current configurable threshold and writes a trigger decision for every success', async () => {
+    const repository = new MemoryTemporarySkillRepository();
+    const service = createService(repository, () => 'fingerprint-device-status', 3);
+    for (const taskId of ['task-1', 'task-2']) {
+      const skill = await service.create(input(taskId));
+      await service.complete(skill.temporarySkillId, true, 'Succeeded.');
+    }
+    expect(repository.candidate).toBeUndefined();
+    expect(repository.triggers).toMatchObject([
+      { configuredThreshold: 3, successfulExperienceCount: 1, decision: 'below_threshold' },
+      { configuredThreshold: 3, successfulExperienceCount: 2, decision: 'below_threshold' },
+    ]);
+    const third = await service.create(input('task-3'));
+    await service.complete(third.temporarySkillId, true, 'Succeeded.');
+    expect(repository.candidate).toMatchObject({ requiredSuccessThreshold: 3 });
+    expect(repository.triggers[2]).toMatchObject({
+      configuredThreshold: 3,
+      successfulExperienceCount: 3,
+      decision: 'candidate_created',
+      candidateId: 'candidate-1',
+    });
   });
 
   it('rejects unknown Tools and a second completion of an expired Temporary Skill', async () => {
@@ -83,6 +107,7 @@ describe('TemporarySkillService', () => {
 function createService(
   repository: TemporarySkillRepository,
   fingerprint: (canonical: string) => string = () => 'fingerprint-device-status',
+  threshold = 2,
 ): TemporarySkillService {
   let skillSequence = 0;
   let experienceSequence = 0;
@@ -99,9 +124,20 @@ function createService(
       nextTemporarySkillId: () => `temporary-${String(++skillSequence)}`,
       nextExperienceId: () => `experience-${String(++experienceSequence)}`,
       nextFormalizationCandidateId: () => 'candidate-1',
+      nextEvolutionTriggerId: () => `trigger-${String(experienceSequence)}`,
     },
     fingerprint,
-    successThreshold: 2,
+    evolutionPolicy: {
+      get: () =>
+        Promise.resolve({
+          successThreshold: threshold,
+          updatedAt: '2026-07-11T09:00:00.000Z',
+        }),
+      saveTrigger: (trigger) => {
+        if (repository instanceof MemoryTemporarySkillRepository) repository.triggers.push(trigger);
+        return Promise.resolve();
+      },
+    },
   });
 }
 
@@ -121,6 +157,7 @@ class MemoryTemporarySkillRepository implements TemporarySkillRepository {
   readonly skills = new Map<string, TemporarySkill>();
   experiences: readonly TemporarySkillExperience[] = [];
   candidate: SkillFormalizationCandidate | undefined;
+  readonly triggers: EvolutionTriggerRecord[] = [];
   find(temporarySkillId: string) {
     return Promise.resolve(this.skills.get(temporarySkillId));
   }

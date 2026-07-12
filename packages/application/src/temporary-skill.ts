@@ -12,6 +12,7 @@ import type {
   JsonSchemaValidator,
   McpToolCatalog,
   TemporarySkillRepository,
+  EvolutionPolicyRepository,
 } from './ports.js';
 
 export interface CreateTemporarySkillInput {
@@ -33,9 +34,10 @@ export class TemporarySkillService {
     nextTemporarySkillId(): string;
     nextExperienceId(): string;
     nextFormalizationCandidateId(): string;
+    nextEvolutionTriggerId(): string;
   }>;
   readonly #fingerprint: (canonical: string) => string;
-  readonly #successThreshold: number;
+  readonly #evolutionPolicy: Pick<EvolutionPolicyRepository, 'get' | 'saveTrigger'>;
 
   constructor(
     dependencies: Readonly<{
@@ -47,24 +49,19 @@ export class TemporarySkillService {
         nextTemporarySkillId(): string;
         nextExperienceId(): string;
         nextFormalizationCandidateId(): string;
+        nextEvolutionTriggerId(): string;
       }>;
       fingerprint(canonical: string): string;
-      successThreshold: number;
+      evolutionPolicy: Pick<EvolutionPolicyRepository, 'get' | 'saveTrigger'>;
     }>,
   ) {
-    if (!Number.isInteger(dependencies.successThreshold) || dependencies.successThreshold < 2) {
-      throw new TemporarySkillError(
-        'TEMPORARY_SKILL_THRESHOLD_INVALID',
-        'Success threshold must be at least 2.',
-      );
-    }
     this.#repository = dependencies.repository;
     this.#tools = dependencies.tools;
     this.#schemas = dependencies.schemas;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
     this.#fingerprint = dependencies.fingerprint;
-    this.#successThreshold = dependencies.successThreshold;
+    this.#evolutionPolicy = dependencies.evolutionPolicy;
   }
 
   async create(input: CreateTemporarySkillInput): Promise<TemporarySkill> {
@@ -137,24 +134,76 @@ export class TemporarySkillService {
     const experiences = await this.#repository.listSuccessfulExperiences(
       skill.capabilityFingerprint,
     );
-    if (experiences.length < this.#successThreshold) return { skill, experience };
+    const policy = await this.#evolutionPolicy.get();
+    if (experiences.length < policy.successThreshold) {
+      await this.#saveTrigger(
+        skill.capabilityFingerprint,
+        experience.experienceId,
+        experiences.length,
+        policy.successThreshold,
+        'below_threshold',
+        timestamp,
+      );
+      return { skill, experience };
+    }
     const existing = await this.#repository.findFormalizationCandidate(skill.capabilityFingerprint);
-    if (existing !== undefined) return { skill, experience, formalizationCandidate: existing };
+    if (existing !== undefined) {
+      await this.#saveTrigger(
+        skill.capabilityFingerprint,
+        experience.experienceId,
+        experiences.length,
+        policy.successThreshold,
+        'candidate_existing',
+        timestamp,
+        existing.candidateId,
+      );
+      return { skill, experience, formalizationCandidate: existing };
+    }
     const formalizationCandidate: SkillFormalizationCandidate = {
       candidateId: this.#ids.nextFormalizationCandidateId(),
       capabilityFingerprint: skill.capabilityFingerprint,
       successfulExperienceCount: experiences.length,
-      requiredSuccessThreshold: this.#successThreshold,
+      requiredSuccessThreshold: policy.successThreshold,
       sourceExperienceIds: experiences.map((item) => item.experienceId),
       status: 'awaiting_simulation',
       createdAt: timestamp,
     };
     await this.#repository.saveFormalizationCandidate(formalizationCandidate);
+    await this.#saveTrigger(
+      skill.capabilityFingerprint,
+      experience.experienceId,
+      experiences.length,
+      policy.successThreshold,
+      'candidate_created',
+      timestamp,
+      formalizationCandidate.candidateId,
+    );
     return { skill, experience, formalizationCandidate };
   }
 
   listByTask(taskId: string): Promise<readonly TemporarySkill[]> {
     return this.#repository.listByTask(taskId);
+  }
+
+  #saveTrigger(
+    capabilityFingerprint: string,
+    experienceId: string,
+    successfulExperienceCount: number,
+    configuredThreshold: number,
+    decision: 'below_threshold' | 'candidate_created' | 'candidate_existing',
+    createdAt: string,
+    candidateId?: string,
+  ): Promise<void> {
+    return this.#evolutionPolicy.saveTrigger({
+      triggerId: this.#ids.nextEvolutionTriggerId(),
+      capabilityFingerprint,
+      experienceId,
+      successfulExperienceCount,
+      configuredThreshold,
+      decision,
+      ...(candidateId === undefined ? {} : { candidateId }),
+      createdAt,
+    });
   }
 }
 
@@ -191,7 +240,6 @@ export type TemporarySkillErrorCode =
   | 'TEMPORARY_SKILL_NOT_FOUND'
   | 'TEMPORARY_SKILL_OUTCOME_REQUIRED'
   | 'TEMPORARY_SKILL_SCHEMA_INVALID'
-  | 'TEMPORARY_SKILL_THRESHOLD_INVALID'
   | 'TEMPORARY_SKILL_TOOL_NOT_FOUND';
 
 export class TemporarySkillError extends Error {

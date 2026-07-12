@@ -25,6 +25,8 @@ import type {
   SkillVersion,
   SkillFormalizationCandidate,
   EvolutionExperience,
+  EvolutionPolicy,
+  EvolutionTriggerRecord,
   TemporarySkill,
   TemporarySkillExperience,
   ToolReference,
@@ -241,6 +243,13 @@ export interface EvolutionExperienceRepository {
   find(experienceId: string): Promise<EvolutionExperience | undefined>;
   listByGoal(goalId: string): Promise<readonly EvolutionExperience[]>;
   listBySkill(skillId: string): Promise<readonly EvolutionExperience[]>;
+}
+
+export interface EvolutionPolicyRepository {
+  get(): Promise<EvolutionPolicy>;
+  update(policy: EvolutionPolicy): Promise<void>;
+  saveTrigger(trigger: EvolutionTriggerRecord): Promise<void>;
+  listTriggers(capabilityFingerprint?: string): Promise<readonly EvolutionTriggerRecord[]>;
 }
 
 export interface McpToolCatalog {

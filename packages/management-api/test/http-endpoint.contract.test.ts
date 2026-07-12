@@ -39,6 +39,49 @@ describe('management HTTP API contract', () => {
     await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
   });
 
+  it('reads and updates the authoritative Evolution threshold and exposes trigger logs', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        evolutionPolicy: {
+          getPolicy: () =>
+            Promise.resolve({ successThreshold: 2, updatedAt: '2026-07-12T00:00:00.000Z' }),
+          updatePolicy: (successThreshold) =>
+            Promise.resolve({ successThreshold, updatedAt: '2026-07-12T00:01:00.000Z' }),
+          listTriggers: () =>
+            Promise.resolve([
+              {
+                triggerId: 'trigger-1',
+                capabilityFingerprint: 'fingerprint-1',
+                experienceId: 'experience-1',
+                successfulExperienceCount: 1,
+                configuredThreshold: 2,
+                decision: 'below_threshold' as const,
+                createdAt: '2026-07-12T00:00:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/system/evolution-policy`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({ successThreshold: 2 });
+    const update = await fetch(`${endpoint.baseUrl}/api/v1/system/evolution-policy`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ successThreshold: 3 }),
+    });
+    expect(update.status).toBe(200);
+    await expect(update.json()).resolves.toMatchObject({ successThreshold: 3 });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/evolution-triggers`).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      items: [{ configuredThreshold: 2, decision: 'below_threshold' }],
+    });
+  });
+
   it('exposes persisted processed-result evidence by Task', async () => {
     const configured = operations();
     const result = {
@@ -816,6 +859,11 @@ function operations(failServerList = false): ManagementOperations {
       get: unused,
       listByGoal: () => Promise.resolve([]),
       listBySkill: () => Promise.resolve([]),
+    },
+    evolutionPolicy: {
+      getPolicy: unused,
+      updatePolicy: unused,
+      listTriggers: () => Promise.resolve([]),
     },
     workflows: {
       cancelForPlan: unused,

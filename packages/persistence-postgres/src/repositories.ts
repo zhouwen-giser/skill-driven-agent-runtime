@@ -31,6 +31,7 @@ import type {
   SkillRepository,
   SkillCallWorkflowRepository,
   EvolutionExperienceRepository,
+  EvolutionPolicyRepository,
 } from '../../application/src/index.js';
 import type {
   AgentTask,
@@ -79,6 +80,8 @@ import type {
   SkillVersion,
   SkillCallWorkflowRecord,
   EvolutionExperience,
+  EvolutionPolicy,
+  EvolutionTriggerRecord,
   TaskPhase,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
@@ -355,6 +358,17 @@ interface EvolutionExperienceRow extends QueryResultRow {
   evaluation_json: unknown;
   successful: boolean;
   duration_ms: number;
+  created_at: Date | string;
+}
+
+interface EvolutionTriggerRow extends QueryResultRow {
+  trigger_id: string;
+  capability_fingerprint: string;
+  experience_id: string;
+  successful_experience_count: number;
+  configured_threshold: number;
+  decision: EvolutionTriggerRecord['decision'];
+  candidate_id: string | null;
   created_at: Date | string;
 }
 
@@ -1347,6 +1361,72 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
       [cutoff, timestamp],
     );
     return result.rows.map(mapTaskRow);
+  }
+}
+
+export class PostgresEvolutionPolicyRepository implements EvolutionPolicyRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async get(): Promise<EvolutionPolicy> {
+    const result = await this.#pool.query<{
+      success_threshold: number;
+      updated_at: Date | string;
+    }>('SELECT success_threshold,updated_at FROM evolution_policy WHERE singleton=true');
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('EVOLUTION_POLICY_NOT_CONFIGURED');
+    return { successThreshold: row.success_threshold, updatedAt: toIsoString(row.updated_at) };
+  }
+
+  async update(policy: EvolutionPolicy): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO evolution_policy(singleton,success_threshold,updated_at) VALUES(true,$1,$2)
+       ON CONFLICT(singleton) DO UPDATE SET
+         success_threshold=EXCLUDED.success_threshold,updated_at=EXCLUDED.updated_at`,
+      [policy.successThreshold, policy.updatedAt],
+    );
+  }
+
+  async saveTrigger(trigger: EvolutionTriggerRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO evolution_trigger
+         (trigger_id,capability_fingerprint,experience_id,successful_experience_count,
+          configured_threshold,decision,candidate_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        trigger.triggerId,
+        trigger.capabilityFingerprint,
+        trigger.experienceId,
+        trigger.successfulExperienceCount,
+        trigger.configuredThreshold,
+        trigger.decision,
+        trigger.candidateId ?? null,
+        trigger.createdAt,
+      ],
+    );
+  }
+
+  async listTriggers(capabilityFingerprint?: string): Promise<readonly EvolutionTriggerRecord[]> {
+    const result = await this.#pool.query<EvolutionTriggerRow>(
+      `SELECT trigger_id,capability_fingerprint,experience_id,successful_experience_count,
+              configured_threshold,decision,candidate_id,created_at
+       FROM evolution_trigger
+       WHERE $1::text IS NULL OR capability_fingerprint=$1
+       ORDER BY created_at,trigger_id`,
+      [capabilityFingerprint ?? null],
+    );
+    return result.rows.map((row) => ({
+      triggerId: row.trigger_id,
+      capabilityFingerprint: row.capability_fingerprint,
+      experienceId: row.experience_id,
+      successfulExperienceCount: row.successful_experience_count,
+      configuredThreshold: row.configured_threshold,
+      decision: row.decision,
+      ...(row.candidate_id === null ? {} : { candidateId: row.candidate_id }),
+      createdAt: toIsoString(row.created_at),
+    }));
   }
 }
 

@@ -31,6 +31,7 @@ import {
   TemporarySkillResolver,
   SkillEvolutionService,
   EvolutionExperienceService,
+  EvolutionPolicyService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -93,6 +94,7 @@ import {
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
   PostgresEvolutionExperienceRepository,
+  PostgresEvolutionPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -177,6 +179,7 @@ export async function startServerRuntime(
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const mcpRepository = new PostgresMcpRegistryRepository(pool);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
+  const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperiences = new EvolutionExperienceService({
     repository: new PostgresEvolutionExperienceRepository(pool),
     nextId: () => `evolution-experience-${randomUUID()}`,
@@ -185,6 +188,10 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const evolutionPolicy = new EvolutionPolicyService({
+    repository: evolutionPolicyRepository,
+    clock,
+  });
   const taskWaitTimeouts = new TaskWaitTimeoutService({
     repository: new PostgresTaskWaitPolicyRepository(pool),
     clock,
@@ -594,9 +601,10 @@ export async function startServerRuntime(
       nextTemporarySkillId: () => `temporary-skill-${randomUUID()}`,
       nextExperienceId: () => `temporary-skill-experience-${randomUUID()}`,
       nextFormalizationCandidateId: () => `skill-formalization-candidate-${randomUUID()}`,
+      nextEvolutionTriggerId: () => `evolution-trigger-${randomUUID()}`,
     },
     fingerprint: (canonical) => createHash('sha256').update(canonical).digest('hex'),
-    successThreshold: 2,
+    evolutionPolicy: evolutionPolicyRepository,
   });
   const temporarySkillResolver = new TemporarySkillResolver({
     mcp: mcpRepository,
@@ -812,6 +820,7 @@ export async function startServerRuntime(
         temporarySkills: temporarySkillOperations,
         skillEvolution,
         evolutionExperiences,
+        evolutionPolicy,
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
           plan: (input) => workflowPlanner.plan(input),
@@ -974,6 +983,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0036_task_temporary_skill.up.sql',
     '0037_skill_evolution_simulation.up.sql',
     '0038_evolution_experience.up.sql',
+    '0039_evolution_policy.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

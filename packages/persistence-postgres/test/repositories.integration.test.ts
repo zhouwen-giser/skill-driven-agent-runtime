@@ -31,6 +31,7 @@ import {
   PostgresTaskWaitPolicyRepository,
   PostgresSkillRepository,
   PostgresEvolutionExperienceRepository,
+  PostgresEvolutionPolicyRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -245,11 +246,20 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(evolutionExperienceMigration);
+  const evolutionPolicyMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0039_evolution_policy.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(evolutionPolicyMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+  );
+  await pool.query(
+    'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
+    ['2026-07-12T00:00:00.000Z'],
   );
 });
 
@@ -1528,6 +1538,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: expired.expiredAt,
     };
     await repository.expireAndSaveExperience(expired, experience);
+    const evolutionPolicy = new PostgresEvolutionPolicyRepository(pool);
+    await evolutionPolicy.update({
+      successThreshold: 3,
+      updatedAt: '2026-07-11T10:01:30.000Z',
+    });
+    await expect(evolutionPolicy.get()).resolves.toEqual({
+      successThreshold: 3,
+      updatedAt: '2026-07-11T10:01:30.000Z',
+    });
+    await evolutionPolicy.saveTrigger({
+      triggerId: 'trigger-db-1',
+      capabilityFingerprint: active.capabilityFingerprint,
+      experienceId: experience.experienceId,
+      successfulExperienceCount: 1,
+      configuredThreshold: 3,
+      decision: 'below_threshold',
+      createdAt: '2026-07-11T10:01:30.000Z',
+    });
+    await expect(evolutionPolicy.listTriggers(active.capabilityFingerprint)).resolves.toMatchObject(
+      [{ triggerId: 'trigger-db-1', configuredThreshold: 3, decision: 'below_threshold' }],
+    );
     await repository.saveFormalizationCandidate({
       candidateId: 'candidate-db-1',
       capabilityFingerprint: active.capabilityFingerprint,
