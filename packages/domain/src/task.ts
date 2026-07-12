@@ -52,6 +52,7 @@ export interface AgentTask {
   readonly selectedSkillId?: string;
   readonly selectedSkillVersion?: number;
   readonly skillSelectionId?: string;
+  readonly temporarySkillId?: string;
   readonly output?: TaskOutput;
   readonly capabilityGap?: TaskCapabilityGap;
   readonly errorCode?: string;
@@ -140,6 +141,22 @@ export function bindTaskReplacement(
     planId: requireIdentifier(input.planId, 'WORKFLOW_PLAN_ID_REQUIRED'),
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
+    updatedAt: input.timestamp,
+  };
+}
+
+export function bindTaskTemporarySkill(
+  task: AgentTask,
+  input: Readonly<{ temporarySkillId: string; timestamp: string }>,
+): AgentTask {
+  if (task.phase !== 'skill_resolution')
+    throw new DomainError(
+      'TASK_PHASE_TRANSITION_INVALID',
+      'A Temporary Skill can be bound only during Skill resolution.',
+    );
+  return {
+    ...task,
+    temporarySkillId: requireIdentifier(input.temporarySkillId, 'TEMPORARY_SKILL_ID_REQUIRED'),
     updatedAt: input.timestamp,
   };
 }

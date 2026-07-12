@@ -226,6 +226,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskSkillSelectionMigration);
+  const taskTemporarySkillMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0036_task_temporary_skill.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskTemporarySkillMigration);
 });
 
 beforeEach(async () => {
@@ -1421,6 +1426,29 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: '2026-07-11T10:00:00.000Z',
     };
     await repository.save(active);
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    await contexts.save({
+      contextId: active.contextId,
+      userId: 'anonymous',
+      createdAt: active.createdAt,
+      updatedAt: active.createdAt,
+    });
+    await tasks.save({
+      ...createAgentTask({
+        taskId: active.taskId,
+        contextId: active.contextId,
+        userId: 'anonymous',
+        requestText: 'Use the Temporary Skill.',
+        requestMetadata: {},
+        timestamp: active.createdAt,
+      }),
+      phase: 'skill_resolution',
+      temporarySkillId: active.temporarySkillId,
+    });
+    const boundTask = await tasks.findById(active.taskId);
+    expect(boundTask).toMatchObject({ temporarySkillId: active.temporarySkillId });
+    expect(boundTask?.selectedSkillId).toBeUndefined();
     const expired = {
       ...active,
       status: 'expired' as const,

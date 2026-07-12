@@ -100,6 +100,24 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     });
     expect(tasks.autoExecutions).toEqual([{ taskId: 'task-1', planId: 'plan-task-1' }]);
   });
+
+  it('binds a task-scoped Temporary Skill and always stops at plan confirmation', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.useTemporarySkill = true;
+    tasks.autoConfirm = true;
+
+    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      temporarySkillId: 'temporary-1',
+      planId: 'plan-task-1',
+    });
+    expect(tasks.value.selectedSkillId).toBeUndefined();
+    expect(tasks.planningInput).toMatchObject({ temporarySkillId: 'temporary-1' });
+    expect(tasks.autoExecutions).toEqual([]);
+  });
 });
 
 function processorWith(
@@ -164,15 +182,23 @@ function processorWith(
     },
     skillSelection: {
       select: (goalDescription) =>
-        Promise.resolve({
-          selectionId: 'selection-1',
-          goalDescription,
-          candidates: [],
-          selectedSkillId: 'skill-1',
-          selectedSkillVersion: 2,
-          decisionSummary: 'Selected by the configured LLM.',
-          createdAt: timestamp,
-        }),
+        Promise.resolve(
+          tasks.useTemporarySkill
+            ? {
+                temporarySkillId: 'temporary-1',
+                name: 'Temporary device status',
+                decisionSummary: 'No formal Skill matched; use the registered Tool once.',
+              }
+            : {
+                selectionId: 'selection-1',
+                goalDescription,
+                candidates: [],
+                selectedSkillId: 'skill-1',
+                selectedSkillVersion: 2,
+                decisionSummary: 'Selected by the configured LLM.',
+                createdAt: timestamp,
+              },
+        ),
     },
     nextGoalId: () => 'goal-1',
     nextGoalTransitionId: () => 'goal-transition-1',
@@ -208,7 +234,13 @@ function processorWith(
         ),
     },
     taskPlanning: {
-      prepare: () => Promise.resolve({ planId: 'plan-task-1', autoConfirmed: tasks.autoConfirm }),
+      prepare: (input) => {
+        tasks.planningInput = input;
+        return Promise.resolve({
+          planId: 'plan-task-1',
+          autoConfirmed: tasks.useTemporarySkill ? false : tasks.autoConfirm,
+        });
+      },
       executeAuto: (input) => {
         tasks.autoExecutions.push(input);
         return Promise.resolve();
@@ -251,6 +283,8 @@ class MemoryTasks {
   goalRequiresInput = false;
   inferenceOutcome: 'inferred' | 'input_required' = 'inferred';
   autoConfirm = false;
+  useTemporarySkill = false;
+  planningInput: unknown;
   readonly autoExecutions: { taskId: string; planId: string }[] = [];
   findById() {
     return Promise.resolve(this.value);

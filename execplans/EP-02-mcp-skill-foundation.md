@@ -98,10 +98,22 @@ Decision: ADR-016 treats model output as untrusted data and keeps vendor objects
 - [x] Atomically expire completed Temporary Skills into Experience records.
 - [x] Require two equivalent successes before creating an `awaiting_simulation` formalization candidate.
 - [x] Verify PostgreSQL persistence and same-process management API with real loopback MCP e2e.
-- [ ] Wire automatic capability-gap detection, confirmed Workflow execution, and task-completion callbacks.
+- [x] Wire automatic capability-gap detection, mandatory-confirmation Workflow execution, and task-completion callbacks.
 - [ ] Route formalization candidates through EP-05 simulation/evaluation and governed Skill publication.
 
 Decision: ADR-015 keeps temporary state out of the formal registry and prevents repeated success from bypassing simulation.
+
+## Automatic Temporary Skill Execution Update — 2026-07-12
+
+- [x] Resolve capability gaps through a fixed schema-constrained decision over enabled MCP Tool inventory.
+- [x] Reject invented Tool references and create a Task/context-scoped Temporary Skill outside the formal registry.
+- [x] Persist an exclusive Temporary Skill binding on the Task and compile its plan through the existing Workflow DSL/LangGraph path.
+- [x] Enforce mandatory confirmation and prove zero Tool calls before confirmation.
+- [x] Execute exactly one real loopback MCP call, finalize the Task, expire the Temporary Skill, and save Experience.
+- [x] Prove the formal Skill registry and dynamic Agent Card remain unchanged.
+- [ ] Complete FR-SKL-015 simulation and governed publication in EP-05.
+
+Decision: ADR-045 connects the isolated lifecycle from ADR-015 to the single runtime without granting Temporary Skills auto-confirm or publication authority.
 
 ## Skill Selection Progress Update — 2026-07-11
 

@@ -108,3 +108,4 @@ EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remo
 - Docker 阻塞已在恢复环境中解除，真实基础设施 smoke 通过；外部 A2A TCK 移交 EP-01。
 - EP-01 已建立领域权威 Task/Context/Goal、application ports/TaskService 和自动 architecture boundary gate。
 - EP-01 已完成真实 PostgreSQL Repository/migration、Redis/BullMQ context 串行队列和可重建 A2A 协议投影；专用 integration runner 6/6 通过。
+EP-02 automatic Temporary Skill execution update (2026-07-12): FR-SKL-014 is verified. A fixed structured model decision selects only from enabled registered MCP Tools, creates an exclusive Task-scoped Temporary Skill, generates validated Workflow DSL, waits for confirmation, executes exactly once through LangGraph/MCP, then expires and records Experience without changing formal Skills or Agent Card. Full gate passes: format, lint, typecheck, architecture, 127 unit, 29 integration, 35 contract, 35 E2E, build, and smoke.

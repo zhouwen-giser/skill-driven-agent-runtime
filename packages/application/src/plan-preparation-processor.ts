@@ -2,6 +2,7 @@ import {
   bindTaskPlan,
   bindTaskGoal,
   bindTaskSkill,
+  bindTaskTemporarySkill,
   transitionTask,
   type AgentTask,
   type TaskPhase,
@@ -16,7 +17,7 @@ import type {
 import type { GoalService } from './goal-service.js';
 import type { StructuredTaskDecisionService } from './model-decisions.js';
 import type { GoalInputInferenceService } from './goal-input-inference.js';
-import type { SkillSelectionService } from './skill-selection.js';
+import type { SkillSelectionRecord } from '../../domain/src/index.js';
 import { TaskApplicationError } from './task-service.js';
 
 export interface PlanPreparationProcessorDependencies {
@@ -29,7 +30,15 @@ export interface PlanPreparationProcessorDependencies {
     'decideGoalContinuity' | 'decideIntent' | 'formulateGoal'
   >;
   readonly goals: Pick<GoalService, 'create' | 'findActiveByContextId' | 'findLatestByContextId'>;
-  readonly skillSelection: Pick<SkillSelectionService, 'select'>;
+  readonly skillSelection: Readonly<{
+    select(
+      goalDescription: string,
+      task: AgentTask,
+    ): Promise<
+      | SkillSelectionRecord
+      | Readonly<{ temporarySkillId: string; name: string; decisionSummary: string }>
+    >;
+  }>;
   readonly nextGoalId: () => string;
   readonly nextGoalTransitionId: () => string;
   readonly inputInference: Pick<GoalInputInferenceService, 'resolve'>;
@@ -40,8 +49,9 @@ export interface PlanPreparationProcessorDependencies {
         goalId: string;
         goalVersion: number;
         goalDescription: string;
-        skillId: string;
-        skillVersion: number;
+        skillId?: string;
+        skillVersion?: number;
+        temporarySkillId?: string;
       }>,
     ): Promise<Readonly<{ planId: string; autoConfirmed: boolean }>>;
     executeAuto(input: Readonly<{ taskId: string; planId: string }>): Promise<void>;
@@ -169,18 +179,26 @@ export class PlanPreparationProcessor {
       timestamp: this.#dependencies.clock.now(),
       summary: goalSummary,
     });
-    const selection = await this.#dependencies.skillSelection.select(goal.description);
+    const selection = await this.#dependencies.skillSelection.select(goal.description, task);
+    const temporary = 'temporarySkillId' in selection;
     task = await this.#transition(
       task,
       'skill_resolution',
-      `LLM selected ${selection.selectedSkillId}@${String(selection.selectedSkillVersion)}: ${selection.decisionSummary}`,
+      temporary
+        ? `Created task-scoped Temporary Skill ${selection.name}: ${selection.decisionSummary}`
+        : `LLM selected ${selection.selectedSkillId}@${String(selection.selectedSkillVersion)}: ${selection.decisionSummary}`,
     );
-    task = bindTaskSkill(task, {
-      skillId: selection.selectedSkillId,
-      skillVersion: selection.selectedSkillVersion,
-      selectionId: selection.selectionId,
-      timestamp: this.#dependencies.clock.now(),
-    });
+    task = temporary
+      ? bindTaskTemporarySkill(task, {
+          temporarySkillId: selection.temporarySkillId,
+          timestamp: this.#dependencies.clock.now(),
+        })
+      : bindTaskSkill(task, {
+          skillId: selection.selectedSkillId,
+          skillVersion: selection.selectedSkillVersion,
+          selectionId: selection.selectionId,
+          timestamp: this.#dependencies.clock.now(),
+        });
     await this.#dependencies.tasks.save(task);
     task = await this.#transition(task, 'planning', 'Workflow planning required.');
     const prepared = await this.#dependencies.taskPlanning.prepare({
@@ -188,8 +206,12 @@ export class PlanPreparationProcessor {
       goalId: goal.goalId,
       goalVersion: goal.version,
       goalDescription: goal.description,
-      skillId: selection.selectedSkillId,
-      skillVersion: selection.selectedSkillVersion,
+      ...(temporary
+        ? { temporarySkillId: selection.temporarySkillId }
+        : {
+            skillId: selection.selectedSkillId,
+            skillVersion: selection.selectedSkillVersion,
+          }),
     });
     task = bindTaskPlan(task, {
       planId: prepared.planId,

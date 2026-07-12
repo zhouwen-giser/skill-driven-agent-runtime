@@ -2240,6 +2240,80 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('resolves a capability gap into a confirmed task-scoped Temporary Skill execution', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.temporary.execution.${randomUUID()}`;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Temporary execution MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      const formalSkillsBefore = await readFormalSkillIds();
+      const cardBefore = (await readAgentCard()).skills.map((skill) => skill.id);
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `Read the device with TEMPORARY_TOOL:${serverId}/device_status`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      const storedBefore = z
+        .object({
+          temporarySkillId: z.string(),
+          selectedSkillId: z.string().optional(),
+          phase: z.literal('awaiting_plan_confirmation'),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+          ).then((response) => response.json()),
+        );
+      expect(storedBefore.selectedSkillId).toBeUndefined();
+      await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([]);
+      expect((await readAgentCard()).skills.map((skill) => skill.id)).toEqual(cardBefore);
+
+      await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the task-scoped plan.',
+      );
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+      const temporarySkills = await waitForTemporarySkillStatus(submitted.id, 'expired');
+      expect(temporarySkills.items).toContainEqual(
+        expect.objectContaining({
+          temporarySkillId: storedBefore.temporarySkillId,
+          taskId: submitted.id,
+          status: 'expired',
+        }),
+      );
+      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
+      expect((await readAgentCard()).skills.map((skill) => skill.id)).toEqual(cardBefore);
+    } finally {
+      await mockMcp.close();
+    }
+  });
+
   it('submits, streams, persists, lists, and cancels at the plan-confirmation boundary', async () => {
     const request = SendMessageRequest.fromJSON({
       message: {
@@ -2853,6 +2927,9 @@ async function startModelLoopback(): Promise<Server> {
         const initialTaskPlanRequest = body.messages?.some(
           (message) => message.content?.includes('task_initial_plan') === true,
         );
+        const temporarySkillResolutionRequest = body.messages?.some(
+          (message) => message.content?.includes('resolve_temporary_skill') === true,
+        );
         const naturalRevisionRequest =
           body.messages?.some(
             (message) => message.content?.includes('natural_language_plan_revision') === true,
@@ -2955,6 +3032,9 @@ async function startModelLoopback(): Promise<Server> {
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
           const autoTaskGoal = requestData.requestText.includes('zebra auto task');
           const replaceSkillGoal = requestData.requestText.includes('replace failed skill');
+          const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(requestData.requestText);
+          const temporaryServerId = temporaryTool?.[1] ?? '';
+          const temporaryToolName = temporaryTool?.[2] ?? '';
           const sharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
             requestData.requestText,
           )?.[1];
@@ -2976,7 +3056,9 @@ async function startModelLoopback(): Promise<Server> {
                     ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                     : controlGoal
                       ? 'CONTROL_GOAL collect two observations.'
-                      : 'Complete the user request using an enabled Skill.',
+                      : temporaryTool !== null
+                        ? `TEMPORARY_SKILL_GOAL:${temporaryServerId}/${temporaryToolName}`
+                        : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
               controlGoal || capabilityGapGoal || autoTaskGoal
@@ -2985,6 +3067,35 @@ async function startModelLoopback(): Promise<Server> {
             ],
             requiresInput,
             ...(requiresInput ? { clarificationQuestion: 'The target is missing.' } : {}),
+          });
+          return;
+        }
+        if (temporarySkillResolutionRequest === true) {
+          const requestData = z
+            .object({
+              goalDescription: z.string(),
+              tools: z.array(
+                z.object({ serverId: z.string(), toolName: z.string(), description: z.string() }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'resolve_temporary_skill'));
+          const requested = /TEMPORARY_SKILL_GOAL:([^/\s]+)\/([^\s]+)/.exec(
+            requestData.goalDescription,
+          );
+          if (requested === null) throw new Error('TEMPORARY_TOOL_MARKER_MISSING');
+          const requestedServerId = requested[1] ?? '';
+          const requestedToolName = requested[2] ?? '';
+          const selected = requestData.tools.find(
+            (tool) => tool.serverId === requestedServerId && tool.toolName === requestedToolName,
+          );
+          if (selected === undefined) throw new Error('REQUESTED_TEMPORARY_TOOL_MISSING');
+          respondStructured(response, {
+            serverId: selected.serverId,
+            toolName: selected.toolName,
+            name: 'Task-scoped device status',
+            description: 'Use the registered device Tool for this Task only.',
+            outputSchema: { type: 'object' },
+            decisionSummary: 'No formal Skill matched; the registered Tool closes the gap.',
           });
           return;
         }
@@ -3128,38 +3239,67 @@ async function startModelLoopback(): Promise<Server> {
                 goalVersion: z.number(),
               }),
               goalDescription: z.string(),
+              selectedTemporarySkill: z
+                .object({
+                  temporarySkillId: z.string(),
+                  tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+                })
+                .optional(),
             })
             .parse(embeddedOperation(body.messages, 'task_initial_plan'));
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
+          const temporaryTool = requestData.selectedTemporarySkill?.tools[0];
           respondStructured(response, {
             ...requestData.workflowIdentity,
-            entryNodeId: failPrimary ? 'execute' : 'result',
+            entryNodeId: failPrimary ? 'execute' : temporaryTool === undefined ? 'result' : 'tool',
             exitNodeIds: ['result'],
-            nodes: failPrimary
-              ? [
-                  {
-                    nodeId: 'execute',
-                    name: 'Fail primary Skill execution',
-                    type: 'llm',
-                    instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                    responseSchema: { type: 'object' },
-                  },
-                  {
-                    nodeId: 'result',
-                    name: 'Primary result',
-                    type: 'result',
-                    value: { op: 'ref', path: ['nodes', 'execute'] },
-                  },
-                ]
-              : [
-                  {
-                    nodeId: 'result',
-                    name: 'Initial Task result',
-                    type: 'result',
-                    value: { op: 'literal', value: 'online' },
-                  },
-                ],
-            edges: failPrimary ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }] : [],
+            nodes:
+              temporaryTool !== undefined
+                ? [
+                    {
+                      nodeId: 'tool',
+                      name: 'Execute task-scoped Tool',
+                      type: 'mcp_tool',
+                      tool: temporaryTool,
+                      arguments: { deviceId: 'device-temporary' },
+                    },
+                    {
+                      nodeId: 'result',
+                      name: 'Return Temporary Skill result',
+                      type: 'result',
+                      value: { op: 'ref', path: ['nodes', 'tool'] },
+                    },
+                  ]
+                : failPrimary
+                  ? [
+                      {
+                        nodeId: 'execute',
+                        name: 'Fail primary Skill execution',
+                        type: 'llm',
+                        instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                        responseSchema: { type: 'object' },
+                      },
+                      {
+                        nodeId: 'result',
+                        name: 'Primary result',
+                        type: 'result',
+                        value: { op: 'ref', path: ['nodes', 'execute'] },
+                      },
+                    ]
+                  : [
+                      {
+                        nodeId: 'result',
+                        name: 'Initial Task result',
+                        type: 'result',
+                        value: { op: 'literal', value: 'online' },
+                      },
+                    ],
+            edges:
+              temporaryTool !== undefined
+                ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                : failPrimary
+                  ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                  : [],
           });
           return;
         }
@@ -3479,6 +3619,31 @@ async function waitForTaskState(taskId: string, expected: TaskState): Promise<Ta
   }
   expect(task.status?.state).toBe(expected);
   return task;
+}
+
+async function waitForTemporarySkillStatus(taskId: string, expected: string) {
+  const schema = z.object({
+    items: z.array(
+      z.object({ temporarySkillId: z.string(), status: z.string(), taskId: z.string() }),
+    ),
+  });
+  const read = async () =>
+    schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/temporary-skills`,
+      ).then((response) => response.json()),
+    );
+  let result = await read();
+  for (
+    let attempt = 0;
+    attempt < 100 && !result.items.some((item) => item.status === expected);
+    attempt += 1
+  ) {
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+    result = await read();
+  }
+  expect(result.items.some((item) => item.status === expected)).toBe(true);
+  return result;
 }
 
 async function readAgentCard(): Promise<

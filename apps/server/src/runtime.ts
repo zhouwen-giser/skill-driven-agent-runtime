@@ -28,6 +28,7 @@ import {
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
   TemporarySkillService,
+  TemporarySkillResolver,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -411,13 +412,13 @@ export async function startServerRuntime(
           task.planId === undefined ||
           task.goalId === undefined ||
           task.goalVersion === undefined ||
-          task.selectedSkillId === undefined
+          (task.selectedSkillId === undefined && task.temporarySkillId === undefined)
         )
           throw new Error('TASK_EXECUTION_IDENTITY_INCOMPLETE');
         const planId = task.planId;
         const goalId = task.goalId;
         const goalVersion = task.goalVersion;
-        const selectedSkillId = task.selectedSkillId;
+        const selectedSkillIds = task.selectedSkillId === undefined ? [] : [task.selectedSkillId];
         void (async () => {
           const controlId = `control-task-${task.taskId}`;
           try {
@@ -443,7 +444,7 @@ export async function startServerRuntime(
             taskId: task.taskId,
             initialPlanId: planId,
             input: { requestText: task.requestText },
-            skillIds: [selectedSkillId],
+            skillIds: selectedSkillIds,
             planningInstruction: JSON.stringify({
               operation: 'task_outer_replan',
               requestText: task.requestText,
@@ -527,6 +528,26 @@ export async function startServerRuntime(
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
       async reportAchieved(taskId, instance) {
+        const task = await service.get(taskId);
+        if (task.temporarySkillId !== undefined) {
+          const temporary = await temporarySkillRepository.find(task.temporarySkillId);
+          if (temporary?.status !== 'active') throw new Error('TEMPORARY_SKILL_NOT_ACTIVE');
+          await service.recordResult(
+            taskId,
+            {
+              text: `Temporary Skill ${temporary.name} completed.`,
+              structured: instance.result,
+              outputSchema: temporary.outputSchema,
+            },
+            resultProcessor,
+          );
+          await temporarySkills.complete(
+            temporary.temporarySkillId,
+            true,
+            'Temporary Skill Workflow completed and its output Schema passed.',
+          );
+          return;
+        }
         const selected = instance.skillVersions[0];
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
         const skill = await skills.findVersion(selected.skillId, selected.version);
@@ -567,6 +588,11 @@ export async function startServerRuntime(
     fingerprint: (canonical) => createHash('sha256').update(canonical).digest('hex'),
     successThreshold: 2,
   });
+  const temporarySkillResolver = new TemporarySkillResolver({
+    mcp: mcpRepository,
+    model: modelRuntime,
+    temporarySkills,
+  });
   const processor = new PlanPreparationProcessor({
     tasks,
     events,
@@ -574,16 +600,44 @@ export async function startServerRuntime(
     ids,
     decisions: new StructuredTaskDecisionService(modelRuntime),
     goals: goalService,
-    skillSelection: skillSelection ?? {
-      select: () => Promise.reject(new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED')),
+    skillSelection: {
+      async select(goalDescription, task) {
+        if (!goalDescription.includes('TEMPORARY_SKILL_GOAL') && skillSelection !== undefined) {
+          try {
+            return await skillSelection.select(goalDescription);
+          } catch (error: unknown) {
+            if (!(
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              error.code === 'SKILL_SELECTION_NO_CANDIDATES'
+            ))
+              throw error;
+          }
+        }
+        const resolved = await temporarySkillResolver.resolve(goalDescription, task);
+        return {
+          temporarySkillId: resolved.skill.temporarySkillId,
+          name: resolved.skill.name,
+          decisionSummary: resolved.decisionSummary,
+        };
+      },
     },
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
     taskPlanning: {
       async prepare(input) {
-        const skill = await skills.findVersion(input.skillId, input.skillVersion);
-        if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_VERSION_NOT_ENABLED');
+        const skill =
+          input.skillId === undefined || input.skillVersion === undefined
+            ? undefined
+            : await skills.findVersion(input.skillId, input.skillVersion);
+        const temporary =
+          input.temporarySkillId === undefined
+            ? undefined
+            : await temporarySkillRepository.find(input.temporarySkillId);
+        if (skill?.status !== 'enabled' && temporary?.status !== 'active')
+          throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
         const plan = await workflowPlanner.plan({
           planId,
@@ -600,24 +654,43 @@ export async function startServerRuntime(
               goalVersion: input.goalVersion,
             },
             goalDescription: input.goalDescription,
-            selectedSkill: {
-              skillId: skill.skillId,
-              version: skill.version,
-              description: skill.description,
-              toolPolicy: skill.toolPolicy,
-              workflowGuidance: skill.workflowGuidance,
-              outputSchema: skill.outputSchema,
-            },
+            ...(skill === undefined
+              ? {
+                  selectedTemporarySkill: {
+                    temporarySkillId: temporary?.temporarySkillId,
+                    description: temporary?.description,
+                    tools: temporary?.tools,
+                    inputSchema: temporary?.inputSchema,
+                    outputSchema: temporary?.outputSchema,
+                  },
+                }
+              : {
+                  selectedSkill: {
+                    skillId: skill.skillId,
+                    version: skill.version,
+                    description: skill.description,
+                    toolPolicy: skill.toolPolicy,
+                    workflowGuidance: skill.workflowGuidance,
+                    outputSchema: skill.outputSchema,
+                  },
+                }),
           }),
         });
         if (plan.definition === undefined) throw new Error('TASK_PLAN_GENERATION_FAILED');
-        const toolPolicyViolations = validateSkillToolPolicies(plan.definition, [skill]);
+        const toolPolicyViolations = validateSkillToolPolicies(
+          plan.definition,
+          skill === undefined ? [] : [skill],
+        );
         if (toolPolicyViolations.length > 0)
           throw new Error(
             `TASK_PLAN_SKILL_TOOL_POLICY_INVALID:${JSON.stringify(toolPolicyViolations)}`,
           );
-        if (skill.runtimePolicy.autoConfirmPlan) await workflowExecution.confirm(plan.planId);
-        return { planId: plan.planId, autoConfirmed: skill.runtimePolicy.autoConfirmPlan };
+        if (skill?.runtimePolicy.autoConfirmPlan === true)
+          await workflowExecution.confirm(plan.planId);
+        return {
+          planId: plan.planId,
+          autoConfirmed: skill?.runtimePolicy.autoConfirmPlan === true,
+        };
       },
       async executeAuto(input) {
         const task = await service.get(input.taskId);
@@ -833,6 +906,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0033_task_selected_skill.up.sql',
     '0034_skill_call_workflow.up.sql',
     '0035_task_skill_selection.up.sql',
+    '0036_task_temporary_skill.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

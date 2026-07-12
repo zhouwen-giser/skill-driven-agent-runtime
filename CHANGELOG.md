@@ -75,3 +75,4 @@ All notable changes to this project are documented here. The format follows Keep
 - Domain-owned Skill draft intake for explicit A2A create/update requests, persisted in PostgreSQL before queueing and excluded from dynamic Agent Card capabilities.
 - Ajv-backed Result Processor boundary with strict Skill output-schema validation, stable errors, authoritative Task completion and dual text/data A2A artifacts.
 - Production A2A stream-disconnect continuation, polling and standard resubscribe coverage, plus forced active-connection shutdown for deterministic server lifecycle.
+- Automatic capability-gap resolution into a Task-bound Temporary Skill, mandatory-confirmation LangGraph execution, completion expiration/Experience recording, and real zero-before-confirmation MCP E2E evidence.
