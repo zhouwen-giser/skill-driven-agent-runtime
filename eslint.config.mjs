@@ -2,10 +2,10 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'source/**'] },
+  { ignores: ['dist/**', '**/dist/**', 'node_modules/**', 'coverage/**', 'source/**'] },
   eslint.configs.recommended,
   {
-    files: ['**/*.ts'],
+    files: ['**/*.{ts,tsx}'],
     extends: [tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: {
@@ -16,6 +16,17 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    files: ['apps/console/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        AbortController: 'readonly',
+        document: 'readonly',
+        fetch: 'readonly',
+        Headers: 'readonly',
+      },
     },
   },
   {

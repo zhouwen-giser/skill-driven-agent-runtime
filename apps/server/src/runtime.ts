@@ -995,6 +995,7 @@ export async function startServerRuntime(
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
+      consoleDirectory: resolve('apps/console/dist'),
     });
     management = startedManagement;
     const a2a = await startA2AHttpEndpoint({

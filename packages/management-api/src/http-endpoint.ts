@@ -1,5 +1,6 @@
 import { once } from 'node:events';
 import { createServer, type Server as HttpServer } from 'node:http';
+import path from 'node:path';
 
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
@@ -367,6 +368,7 @@ export interface ManagementHttpEndpointHandle {
 export async function startManagementHttpEndpoint(
   options: Readonly<{
     operations: ManagementOperations;
+    consoleDirectory?: string;
     host?: string;
     port?: number;
   }>,
@@ -1276,6 +1278,13 @@ export async function startManagementHttpEndpoint(
       );
     }),
   );
+  if (options.consoleDirectory !== undefined) {
+    const consoleDirectory = path.resolve(options.consoleDirectory);
+    app.use('/console', express.static(consoleDirectory, { index: 'index.html' }));
+    app.get('/console/{*path}', (_request, response) => {
+      response.sendFile(path.join(consoleDirectory, 'index.html'));
+    });
+  }
   app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
     void next;
     const normalized = normalizeHttpError(error);

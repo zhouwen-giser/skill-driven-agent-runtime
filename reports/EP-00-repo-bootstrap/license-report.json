@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 299,
+  "package_count": 306,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -399,6 +399,24 @@
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
     },
     {
+      "name": "@types/react-dom",
+      "version": "19.2.3",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\@types+react-dom@19.2.3_@types+react@19.2.17\\node_modules\\@types\\react-dom\\LICENSE"
+      ],
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    {
+      "name": "@types/react",
+      "version": "19.2.17",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\@types+react@19.2.17\\node_modules\\@types\\react\\LICENSE"
+      ],
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    {
       "name": "@types/retry",
       "version": "0.12.0",
       "license": "MIT",
@@ -523,6 +541,15 @@
         "node_modules\\.pnpm\\@typescript-eslint+visitor-keys@8.63.0\\node_modules\\@typescript-eslint\\visitor-keys\\LICENSE"
       ],
       "repository": "https://github.com/typescript-eslint/typescript-eslint.git"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "version": "6.0.3",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\@vitejs+plugin-react@6.0.3__1de35a5638cdd556c50f63a3d55dd9ca\\node_modules\\@vitejs\\plugin-react\\LICENSE"
+      ],
+      "repository": "git+https://github.com/vitejs/vite-plugin-react.git"
     },
     {
       "name": "@vitest/expect",
@@ -883,6 +910,15 @@
         "node_modules\\.pnpm\\cross-spawn@7.0.6\\node_modules\\cross-spawn\\LICENSE"
       ],
       "repository": "git@github.com:moxystudio/node-cross-spawn.git"
+    },
+    {
+      "name": "csstype",
+      "version": "3.2.3",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\csstype@3.2.3\\node_modules\\csstype\\LICENSE"
+      ],
+      "repository": "https://github.com/frenic/csstype"
     },
     {
       "name": "debug",
@@ -2172,6 +2208,24 @@
       "repository": "stream-utils/raw-body"
     },
     {
+      "name": "react-dom",
+      "version": "19.2.7",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\react-dom@19.2.7_react@19.2.7\\node_modules\\react-dom\\LICENSE"
+      ],
+      "repository": "https://github.com/facebook/react.git"
+    },
+    {
+      "name": "react",
+      "version": "19.2.7",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\react@19.2.7\\node_modules\\react\\LICENSE"
+      ],
+      "repository": "https://github.com/facebook/react.git"
+    },
+    {
       "name": "redis-errors",
       "version": "1.2.0",
       "license": "MIT",
@@ -2233,6 +2287,15 @@
         "node_modules\\.pnpm\\safer-buffer@2.1.2\\node_modules\\safer-buffer\\LICENSE"
       ],
       "repository": "git+https://github.com/ChALkeR/safer-buffer.git"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.27.0",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules\\.pnpm\\scheduler@0.27.0\\node_modules\\scheduler\\LICENSE"
+      ],
+      "repository": "https://github.com/facebook/react.git"
     },
     {
       "name": "semver",

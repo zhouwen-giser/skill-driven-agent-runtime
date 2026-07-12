@@ -7,7 +7,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 - pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
 - Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
 
-## npm packages (299)
+## npm packages (306)
 
 | Package | License | Packaged license/notice files |
 | --- | --- | --- |
@@ -56,6 +56,8 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@types/pg@8.20.0` | MIT | `node_modules\.pnpm\@types+pg@8.20.0\node_modules\@types\pg\LICENSE` |
 | `@types/qs@6.15.1` | MIT | `node_modules\.pnpm\@types+qs@6.15.1\node_modules\@types\qs\LICENSE` |
 | `@types/range-parser@1.2.7` | MIT | `node_modules\.pnpm\@types+range-parser@1.2.7\node_modules\@types\range-parser\LICENSE` |
+| `@types/react-dom@19.2.3` | MIT | `node_modules\.pnpm\@types+react-dom@19.2.3_@types+react@19.2.17\node_modules\@types\react-dom\LICENSE` |
+| `@types/react@19.2.17` | MIT | `node_modules\.pnpm\@types+react@19.2.17\node_modules\@types\react\LICENSE` |
 | `@types/retry@0.12.0` | MIT | `node_modules\.pnpm\@types+retry@0.12.0\node_modules\@types\retry\LICENSE` |
 | `@types/send@1.2.1` | MIT | `node_modules\.pnpm\@types+send@1.2.1\node_modules\@types\send\LICENSE` |
 | `@types/serve-static@2.2.0` | MIT | `node_modules\.pnpm\@types+serve-static@2.2.0\node_modules\@types\serve-static\LICENSE` |
@@ -70,6 +72,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@typescript-eslint/typescript-estree@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+typescript-estree@8.63.0_typescript@6.0.3\node_modules\@typescript-eslint\typescript-estree\LICENSE` |
 | `@typescript-eslint/utils@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+utils@8._0d45ef60122f419091e0223acb45823a\node_modules\@typescript-eslint\utils\LICENSE` |
 | `@typescript-eslint/visitor-keys@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+visitor-keys@8.63.0\node_modules\@typescript-eslint\visitor-keys\LICENSE` |
+| `@vitejs/plugin-react@6.0.3` | MIT | `node_modules\.pnpm\@vitejs+plugin-react@6.0.3__1de35a5638cdd556c50f63a3d55dd9ca\node_modules\@vitejs\plugin-react\LICENSE` |
 | `@vitest/expect@4.1.10` | MIT | `node_modules\.pnpm\@vitest+expect@4.1.10\node_modules\@vitest\expect\LICENSE` |
 | `@vitest/mocker@4.1.10` | MIT | `node_modules\.pnpm\@vitest+mocker@4.1.10_vite@_3b20e0efd4baa82752ea025a91750d25\node_modules\@vitest\mocker\LICENSE` |
 | `@vitest/pretty-format@4.1.10` | MIT | `node_modules\.pnpm\@vitest+pretty-format@4.1.10\node_modules\@vitest\pretty-format\LICENSE` |
@@ -110,6 +113,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `cors@2.8.6` | MIT | `node_modules\.pnpm\cors@2.8.6\node_modules\cors\LICENSE` |
 | `cron-parser@4.9.0` | MIT | `node_modules\.pnpm\cron-parser@4.9.0\node_modules\cron-parser\LICENSE` |
 | `cross-spawn@7.0.6` | MIT | `node_modules\.pnpm\cross-spawn@7.0.6\node_modules\cross-spawn\LICENSE` |
+| `csstype@3.2.3` | MIT | `node_modules\.pnpm\csstype@3.2.3\node_modules\csstype\LICENSE` |
 | `debug@4.4.3` | MIT | `node_modules\.pnpm\debug@4.4.3\node_modules\debug\LICENSE` |
 | `decamelize@1.2.0` | MIT | `node_modules\.pnpm\decamelize@1.2.0\node_modules\decamelize\license` |
 | `deep-is@0.1.4` | MIT | `node_modules\.pnpm\deep-is@0.1.4\node_modules\deep-is\LICENSE` |
@@ -255,6 +259,8 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `qs@6.15.3` | BSD-3-Clause | `node_modules\.pnpm\qs@6.15.3\node_modules\qs\LICENSE.md` |
 | `range-parser@1.3.0` | MIT | `node_modules\.pnpm\range-parser@1.3.0\node_modules\range-parser\LICENSE` |
 | `raw-body@3.0.2` | MIT | `node_modules\.pnpm\raw-body@3.0.2\node_modules\raw-body\LICENSE` |
+| `react-dom@19.2.7` | MIT | `node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\LICENSE` |
+| `react@19.2.7` | MIT | `node_modules\.pnpm\react@19.2.7\node_modules\react\LICENSE` |
 | `redis-errors@1.2.0` | MIT | `node_modules\.pnpm\redis-errors@1.2.0\node_modules\redis-errors\LICENSE` |
 | `redis-parser@3.0.0` | MIT | `node_modules\.pnpm\redis-parser@3.0.0\node_modules\redis-parser\LICENSE` |
 | `require-from-string@2.0.2` | MIT | `node_modules\.pnpm\require-from-string@2.0.2\node_modules\require-from-string\license` |
@@ -262,6 +268,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `rolldown@1.1.5` | MIT | `node_modules\.pnpm\rolldown@1.1.5\node_modules\rolldown\LICENSE` |
 | `router@2.2.0` | MIT | `node_modules\.pnpm\router@2.2.0\node_modules\router\LICENSE` |
 | `safer-buffer@2.1.2` | MIT | `node_modules\.pnpm\safer-buffer@2.1.2\node_modules\safer-buffer\LICENSE` |
+| `scheduler@0.27.0` | MIT | `node_modules\.pnpm\scheduler@0.27.0\node_modules\scheduler\LICENSE` |
 | `semver@7.8.5` | ISC | `node_modules\.pnpm\semver@7.8.5\node_modules\semver\LICENSE` |
 | `send@1.2.1` | MIT | `node_modules\.pnpm\send@1.2.1\node_modules\send\LICENSE` |
 | `serve-static@2.2.1` | MIT | `node_modules\.pnpm\serve-static@2.2.1\node_modules\serve-static\LICENSE` |

@@ -908,6 +908,46 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:npm/@types%2Freact-dom@19.2.3",
+      "name": "@types/react-dom",
+      "version": "19.2.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+        }
+      ],
+      "purl": "pkg:npm/@types%2Freact-dom@19.2.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/@types%2Freact@19.2.17",
+      "name": "@types/react",
+      "version": "19.2.17",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+        }
+      ],
+      "purl": "pkg:npm/@types%2Freact@19.2.17"
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:npm/@types%2Fretry@0.12.0",
       "name": "@types/retry",
       "version": "0.12.0",
@@ -1185,6 +1225,26 @@
         }
       ],
       "purl": "pkg:npm/@typescript-eslint%2Fvisitor-keys@8.63.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/@vitejs%2Fplugin-react@6.0.3",
+      "name": "@vitejs/plugin-react",
+      "version": "6.0.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/vitejs/vite-plugin-react.git"
+        }
+      ],
+      "purl": "pkg:npm/@vitejs%2Fplugin-react@6.0.3"
     },
     {
       "type": "library",
@@ -1985,6 +2045,26 @@
         }
       ],
       "purl": "pkg:npm/cross-spawn@7.0.6"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/csstype@3.2.3",
+      "name": "csstype",
+      "version": "3.2.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/frenic/csstype"
+        }
+      ],
+      "purl": "pkg:npm/csstype@3.2.3"
     },
     {
       "type": "library",
@@ -4888,6 +4968,46 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:npm/react-dom@19.2.7",
+      "name": "react-dom",
+      "version": "19.2.7",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/facebook/react.git"
+        }
+      ],
+      "purl": "pkg:npm/react-dom@19.2.7"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react@19.2.7",
+      "name": "react",
+      "version": "19.2.7",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/facebook/react.git"
+        }
+      ],
+      "purl": "pkg:npm/react@19.2.7"
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:npm/redis-errors@1.2.0",
       "name": "redis-errors",
       "version": "1.2.0",
@@ -5025,6 +5145,26 @@
         }
       ],
       "purl": "pkg:npm/safer-buffer@2.1.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/scheduler@0.27.0",
+      "name": "scheduler",
+      "version": "0.27.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/facebook/react.git"
+        }
+      ],
+      "purl": "pkg:npm/scheduler@0.27.0"
     },
     {
       "type": "library",

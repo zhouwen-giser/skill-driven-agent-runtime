@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { EvolutionExperience } from '../../domain/src/index.js';
 
 import {
@@ -13,6 +16,27 @@ describe('management HTTP API contract', () => {
   afterEach(async () => {
     await endpoint?.close();
     endpoint = undefined;
+  });
+
+  it('serves the unauthenticated console from the management process with the risk header', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'sdar-console-'));
+    try {
+      await writeFile(
+        path.join(directory, 'index.html'),
+        '<!doctype html><html><body>trusted-intranet-only-no-auth</body></html>',
+        'utf8',
+      );
+      endpoint = await startManagementHttpEndpoint({
+        operations: operations(),
+        consoleDirectory: directory,
+      });
+      const response = await fetch(`${endpoint.baseUrl}/console`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('x-sdar-security-warning')).toBe('trusted-intranet-only-no-auth');
+      await expect(response.text()).resolves.toContain('trusted-intranet-only-no-auth');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('exposes workflow-template inventory and usage evidence', async () => {

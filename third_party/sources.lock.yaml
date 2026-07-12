@@ -78,3 +78,45 @@ sources:
     pin: "npm:@modelcontextprotocol/sdk@1.29.0#commit:e12cbd7078db388152f6e839abdbe09ba01f3f32"
     allowed: 'client and Streamable HTTP behind adapter'
     forbidden: 'SDK models in domain'
+  - name: React
+    repository: https://github.com/facebook/react
+    license: 'MIT'
+    use: direct_dependency
+    pin: "npm:react@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ=="
+    allowed: 'apps/console presentation components and hooks'
+    forbidden: 'domain authority or backend framework type leakage'
+  - name: React DOM
+    repository: https://github.com/facebook/react
+    license: 'MIT'
+    use: direct_dependency
+    pin: "npm:react-dom@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ=="
+    allowed: 'apps/console browser rendering'
+    forbidden: 'server or domain ownership'
+  - name: Vite
+    repository: https://github.com/vitejs/vite
+    license: 'MIT'
+    use: direct_development_dependency
+    pin: "npm:vite@8.1.4#tag:v8.1.4#sha512-bTT9PsdWO+MQMNG9ZXIP/qM9wGh37DFxTV/sPq9cFpHr3w4jkgef032PkAL9jAqhk3Nz8NQw3O8n6/xFkqO4QQ=="
+    allowed: 'apps/console development and production asset build'
+    forbidden: 'independent production runtime process'
+  - name: Vite React Plugin
+    repository: https://github.com/vitejs/vite-plugin-react
+    license: 'MIT'
+    use: direct_development_dependency
+    pin: "npm:@vitejs/plugin-react@6.0.3#commit:640fd358a0e82393acfce4e92e19a6ac6e1641a7#sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg=="
+    allowed: 'apps/console JSX transform and Fast Refresh development integration'
+    forbidden: 'production server authority'
+  - name: React Type Definitions
+    repository: https://github.com/DefinitelyTyped/DefinitelyTyped
+    license: 'MIT'
+    use: direct_development_dependency
+    pin: "npm:@types/react@19.2.17#sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=="
+    allowed: 'strict TypeScript checking for apps/console'
+    forbidden: 'runtime use'
+  - name: React DOM Type Definitions
+    repository: https://github.com/DefinitelyTyped/DefinitelyTyped
+    license: 'MIT'
+    use: direct_development_dependency
+    pin: "npm:@types/react-dom@19.2.3#sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="
+    allowed: 'strict TypeScript checking for apps/console DOM rendering'
+    forbidden: 'runtime use'
