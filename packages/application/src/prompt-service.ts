@@ -1,12 +1,21 @@
 import type { ModelStage, PromptEffectSummary, PromptVersion } from '../../domain/src/index.js';
 import type { Clock, PromptRepository } from './ports.js';
+import type { MemoryService } from './memory-service.js';
 
 export class PromptService {
   readonly #repository: PromptRepository;
   readonly #clock: Clock;
-  constructor(dependencies: Readonly<{ repository: PromptRepository; clock: Clock }>) {
+  readonly #memories: Pick<MemoryService, 'recordEvolution'> | undefined;
+  constructor(
+    dependencies: Readonly<{
+      repository: PromptRepository;
+      clock: Clock;
+      memories?: Pick<MemoryService, 'recordEvolution'>;
+    }>,
+  ) {
     this.#repository = dependencies.repository;
     this.#clock = dependencies.clock;
+    this.#memories = dependencies.memories;
   }
 
   async create(
@@ -38,6 +47,20 @@ export class PromptService {
       createdAt: this.#clock.now(),
     };
     await this.#repository.saveVersion(version, input.publish);
+    if (version.source === 'manual_correction')
+      await this.#memories?.recordEvolution({
+        kind: 'prompt_correction',
+        sourceRef: `prompt:${version.promptId}:${String(version.version)}`,
+        summary: `Prompt ${version.promptId} version ${String(version.version)} was manually corrected for ${version.stage}.`,
+        content: {
+          promptId: version.promptId,
+          version: version.version,
+          stage: version.stage,
+          previousVersion: version.previousVersion ?? null,
+          status: version.status,
+        },
+        confidence: 1,
+      });
     return version;
   }
 

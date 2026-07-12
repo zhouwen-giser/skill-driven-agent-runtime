@@ -19,6 +19,7 @@ import type {
   TemporarySkillRepository,
 } from './ports.js';
 import type { SkillRegistryService } from './skill-registry.js';
+import type { MemoryService } from './memory-service.js';
 
 const InductionDecisionSchema = z.object({
   consistent: z.boolean(),
@@ -111,6 +112,7 @@ export class SkillEvolutionService {
   readonly #experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
   readonly #clock: Clock;
   readonly #nextCorrectionId: () => string;
+  readonly #memories: Pick<MemoryService, 'recordEvolution'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -123,6 +125,7 @@ export class SkillEvolutionService {
       experiences: Pick<EvolutionExperienceRepository, 'listByTool'>;
       clock: Clock;
       nextCorrectionId(): string;
+      memories?: Pick<MemoryService, 'recordEvolution'>;
     }>,
   ) {
     this.#temporarySkills = dependencies.temporarySkills;
@@ -134,6 +137,7 @@ export class SkillEvolutionService {
     this.#experiences = dependencies.experiences;
     this.#clock = dependencies.clock;
     this.#nextCorrectionId = dependencies.nextCorrectionId;
+    this.#memories = dependencies.memories;
   }
 
   async evaluateAndPublish(candidateId: string): Promise<SkillFormalizationCandidate> {
@@ -255,6 +259,19 @@ export class SkillEvolutionService {
       createdAt: this.#clock.now(),
     };
     await this.#temporarySkills.saveCorrectionExperience(correction);
+    await this.#memories?.recordEvolution({
+      kind: 'skill_correction',
+      sourceRef: `skill-evolution-correction:${correction.correctionId}`,
+      summary: correction.summary,
+      content: {
+        candidateId: correction.candidateId,
+        actor: correction.actor,
+        diff: correction.diff,
+        outcome: correction.outcome,
+      },
+      confidence: 1,
+      successful: correction.outcome === 'published',
+    });
     return { candidate, correction };
   }
 

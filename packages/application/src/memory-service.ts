@@ -242,6 +242,33 @@ export class MemoryService {
     return this.#repository.listTransitions(memoryId);
   }
 
+  recordEvolution(
+    input: Readonly<{
+      kind: 'skill_correction' | 'prompt_correction' | 'failure_reason' | 'evaluation_conclusion';
+      sourceRef: string;
+      summary: string;
+      content: Readonly<Record<string, unknown>>;
+      confidence: number;
+      successful?: boolean;
+    }>,
+  ): Promise<MemoryItem> {
+    const type: MemoryType =
+      input.kind === 'skill_correction'
+        ? 'skill_learning'
+        : input.kind === 'prompt_correction'
+          ? 'prompt_learning'
+          : input.kind === 'failure_reason' || input.successful === false
+            ? 'failure_experience'
+            : 'success_experience';
+    return this.refine({
+      type,
+      content: { evolutionKind: input.kind, ...input.content },
+      summary: input.summary,
+      sourceRefs: [input.sourceRef],
+      confidence: input.confidence,
+    });
+  }
+
   async #refineData(
     input: Readonly<{
       type: MemoryType;

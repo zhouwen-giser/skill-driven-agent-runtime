@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Source-linked evolution Memory projections for Skill/Prompt manual corrections, Task failure reasons, and Goal evaluation conclusions through the strict refinement boundary.
 - Transactional Memory supersede/invalidate lifecycle with explicit replacement links, append-only status audit, conflict rejection, historical reads, and active-only retrieval.
 - Stage-specific long-term Memory retrieval with distinct type allowlists/query templates and audited evidence injection for intent, Skill selection, Workflow generation, exception handling, and Goal evaluation.
 - LLM-refined long-term Memory admission from valuable processed results, with normalized structured content, pgvector-assisted exact deduplication, Task/ProcessedResult provenance, and a refinement-only management boundary.

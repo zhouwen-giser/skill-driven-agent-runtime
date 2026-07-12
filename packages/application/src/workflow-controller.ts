@@ -15,6 +15,7 @@ import type {
 import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { EvolutionExperienceService } from './evolution-experience.js';
+import type { MemoryService } from './memory-service.js';
 
 export interface StartWorkflowControlInput {
   readonly controlId: string;
@@ -40,6 +41,7 @@ export class WorkflowControllerService {
   >;
   readonly #evaluator: GoalEvaluator;
   readonly #experiences: Pick<EvolutionExperienceService, 'record'> | undefined;
+  readonly #memories: Pick<MemoryService, 'recordEvolution'> | undefined;
   readonly #taskOutcomes:
     | Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
@@ -79,6 +81,7 @@ export class WorkflowControllerService {
       >;
       evaluator: GoalEvaluator;
       experiences?: Pick<EvolutionExperienceService, 'record'>;
+      memories?: Pick<MemoryService, 'recordEvolution'>;
       taskOutcomes?: Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
         reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
@@ -112,6 +115,7 @@ export class WorkflowControllerService {
     this.#execution = dependencies.execution;
     this.#evaluator = dependencies.evaluator;
     this.#experiences = dependencies.experiences;
+    this.#memories = dependencies.memories;
     this.#taskOutcomes = dependencies.taskOutcomes;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
@@ -244,6 +248,24 @@ export class WorkflowControllerService {
         instance,
         evaluation,
         createdAt: this.#clock.now(),
+      });
+      await this.#memories?.recordEvolution({
+        kind: 'evaluation_conclusion',
+        sourceRef: `workflow-control-round:${control.controlId}:${String(control.roundCount)}`,
+        summary: evaluation.summary,
+        content: {
+          controlId: control.controlId,
+          roundIndex: control.roundCount,
+          goalId: goal.goalId,
+          goalVersion: goal.version,
+          workflowDefinitionId: plan.definition.workflowDefinitionId,
+          workflowVersion: plan.definition.version,
+          decision: evaluation.decision,
+          instanceStatus: instance.status,
+          errors: instance.errors,
+        },
+        confidence: 1,
+        successful: evaluation.decision === 'achieved',
       });
       const completedRound = control.roundCount + 1;
       if (evaluation.decision === 'achieved' || evaluation.decision === 'unachievable') {

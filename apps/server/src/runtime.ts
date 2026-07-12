@@ -133,6 +133,7 @@ export interface ServerRuntimeHandle {
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
   setSkillEnabled(skillId: string, enabled: boolean): Promise<SkillVersion>;
+  failTask(taskId: string, errorCode: string, message: string): Promise<void>;
   recordResultForSkill(
     taskId: string,
     skillId: string,
@@ -234,7 +235,6 @@ export async function startServerRuntime(
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
-  const prompts = new PromptService({ repository: new PostgresPromptRepository(pool), clock });
   const schemaValidator = new AjvJsonSchemaValidator();
   const workflowValidator = new WorkflowValidator({
     tools: mcpRepository,
@@ -251,6 +251,11 @@ export async function startServerRuntime(
     nextId: () => `memory-${randomUUID()}`,
     nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
+  });
+  const prompts = new PromptService({
+    repository: new PostgresPromptRepository(pool),
+    clock,
+    memories,
   });
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
@@ -447,6 +452,7 @@ export async function startServerRuntime(
     queue,
     clock,
     ids,
+    memories,
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
@@ -553,6 +559,7 @@ export async function startServerRuntime(
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
     experiences: evolutionExperiences,
+    memories,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
       requestInput: (taskId, question) => service.requestInput(taskId, question),
@@ -707,6 +714,7 @@ export async function startServerRuntime(
     },
     clock,
     nextCorrectionId: () => `skill-evolution-correction-${randomUUID()}`,
+    memories,
   });
   const temporarySkillOperations = {
     create: temporarySkills.create.bind(temporarySkills),
@@ -939,6 +947,9 @@ export async function startServerRuntime(
       },
       setSkillEnabled(skillId: string, enabled: boolean) {
         return skillRegistry.setEnabled(skillId, enabled);
+      },
+      async failTask(taskId: string, errorCode: string, message: string): Promise<void> {
+        await service.fail(taskId, errorCode, message);
       },
       async recordResultForSkill(taskId, skillId, candidate): Promise<void> {
         const skill = await skills.findCurrentVersion(skillId);

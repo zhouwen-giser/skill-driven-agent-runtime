@@ -3351,6 +3351,91 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('retrieves Skill/Prompt corrections, failure reasons, and evaluation conclusions as evolution memory', async () => {
+    const promptId = 'prompt.intent.e2e';
+    const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        promptId,
+        stage: 'intent',
+        content: 'Corrected intent policy. {{instruction}}',
+        source: 'manual_correction',
+        publish: false,
+      }),
+    });
+    const promptBody = await prompt.text();
+    expect(prompt.status, promptBody).toBe(201);
+    const promptVersion = z
+      .object({ version: z.number().int().positive() })
+      .parse(JSON.parse(promptBody)).version;
+    const failureSource = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [
+            {
+              text: 'Prepare a task for explicit failure-memory evidence.',
+              mediaType: 'text/plain',
+            },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in failureSource)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await runtime.failTask(
+      failureSource.id,
+      'E2E_FAILURE_MEMORY',
+      `Explicit failure-memory evidence ${failureSource.id}.`,
+    );
+    const items = z
+      .object({
+        items: z.array(
+          z.object({
+            item: z.object({
+              type: z.string(),
+              sourceRefs: z.array(z.string()),
+              content: z.record(z.string(), z.unknown()),
+            }),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('evolution correction failure evaluation')}&limit=100`,
+        ).then((response) => response.json()),
+      )
+      .items.map((hit) => hit.item);
+    expect(items).toContainEqual(
+      expect.objectContaining({
+        type: 'prompt_learning',
+        sourceRefs: [`prompt:${promptId}:${String(promptVersion)}`],
+        content: expect.objectContaining({ evolutionKind: 'prompt_correction' }),
+      }),
+    );
+    expect(
+      items.some((item) =>
+        item.sourceRefs.some((ref) => ref.startsWith('skill-evolution-correction:')),
+      ),
+    ).toBe(true);
+    expect(
+      items.some(
+        (item) =>
+          item.sourceRefs.some((ref) => ref.startsWith('task:')) &&
+          item.content['evolutionKind'] === 'failure_reason',
+      ),
+    ).toBe(true);
+    expect(
+      items.some(
+        (item) =>
+          item.sourceRefs.some((ref) => ref.startsWith('workflow-control-round:')) &&
+          item.content['evolutionKind'] === 'evaluation_conclusion',
+      ),
+    ).toBe(true);
+  });
+
   it('continues after stream disconnect and supports polling plus standard resubscribe', async () => {
     const stream = runtime.a2a.client.sendMessageStream(
       SendMessageRequest.fromJSON({

@@ -26,6 +26,7 @@ import type {
   SkillDraftRepository,
 } from './ports.js';
 import type { ResultCandidate, ResultProcessor } from './result-processor.js';
+import type { MemoryService } from './memory-service.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
@@ -66,6 +67,7 @@ export interface TaskServiceDependencies {
   readonly skillDrafts: SkillDraftRepository;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
+  readonly memories?: Pick<MemoryService, 'recordEvolution'>;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<void>;
     executeConfirmed(task: AgentTask): Promise<void>;
@@ -391,6 +393,19 @@ export class TaskService {
       eventType: 'task.phase_changed',
       timestamp,
       summary: message,
+    });
+    await this.#dependencies.memories?.recordEvolution({
+      kind: 'failure_reason',
+      sourceRef: `task:${failed.taskId}`,
+      summary: message,
+      content: {
+        taskId: failed.taskId,
+        contextId: failed.contextId,
+        errorCode,
+        phase: failed.phase,
+      },
+      confidence: 1,
+      successful: false,
     });
     return failed;
   }
