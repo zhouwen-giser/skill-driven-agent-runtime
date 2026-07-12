@@ -178,6 +178,7 @@ export class PlanPreparationProcessor {
     task = bindTaskSkill(task, {
       skillId: selection.selectedSkillId,
       skillVersion: selection.selectedSkillVersion,
+      selectionId: selection.selectionId,
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);

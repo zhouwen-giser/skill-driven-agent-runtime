@@ -35,7 +35,7 @@ export class WorkflowControllerService {
   readonly #planner: Pick<WorkflowPlannerService, 'plan'>;
   readonly #execution: Pick<
     WorkflowExecutionService,
-    'confirm' | 'execute' | 'waitForPauseResolution'
+    'confirm' | 'execute' | 'get' | 'waitForPauseResolution'
   >;
   readonly #evaluator: GoalEvaluator;
   readonly #taskOutcomes:
@@ -44,6 +44,18 @@ export class WorkflowControllerService {
         reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
         requestInput(taskId: string, question: string): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
+        prepareSkillReplacement(
+          taskId: string,
+        ): Promise<Readonly<{ skillId: string; skillVersion: number; decisionSummary: string }>>;
+        reportReplacementPlan(
+          taskId: string,
+          input: Readonly<{
+            planId: string;
+            skillId: string;
+            skillVersion: number;
+            summary: string;
+          }>,
+        ): Promise<unknown>;
       }>
     | undefined;
   readonly #clock: Clock;
@@ -59,13 +71,28 @@ export class WorkflowControllerService {
       goals: GoalRepository;
       skills: SkillRepository;
       planner: Pick<WorkflowPlannerService, 'plan'>;
-      execution: Pick<WorkflowExecutionService, 'confirm' | 'execute' | 'waitForPauseResolution'>;
+      execution: Pick<
+        WorkflowExecutionService,
+        'confirm' | 'execute' | 'get' | 'waitForPauseResolution'
+      >;
       evaluator: GoalEvaluator;
       taskOutcomes?: Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
         reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
         requestInput(taskId: string, question: string): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
+        prepareSkillReplacement(
+          taskId: string,
+        ): Promise<Readonly<{ skillId: string; skillVersion: number; decisionSummary: string }>>;
+        reportReplacementPlan(
+          taskId: string,
+          input: Readonly<{
+            planId: string;
+            skillId: string;
+            skillVersion: number;
+            summary: string;
+          }>,
+        ): Promise<unknown>;
       }>;
       clock: Clock;
       ids: Readonly<{
@@ -172,13 +199,20 @@ export class WorkflowControllerService {
           'Current plan is not executable.',
         );
       const instanceId = this.#ids.nextInstanceId(control.controlId, control.roundCount);
-      let instance = await this.#execution.execute({
-        instanceId,
-        planId: plan.planId,
-        input: control.input,
-        skillIds: control.skillIds,
-        replanCount: control.replanCount,
-      });
+      let instance: WorkflowInstance;
+      try {
+        instance = await this.#execution.execute({
+          instanceId,
+          planId: plan.planId,
+          input: control.input,
+          skillIds: control.skillIds,
+          replanCount: control.replanCount,
+        });
+      } catch (error: unknown) {
+        const failed = await this.#execution.get(instanceId);
+        if (failed?.status !== 'failed') throw error;
+        instance = failed;
+      }
       if (instance.status === 'paused')
         instance = await this.#execution.waitForPauseResolution(instance.instanceId);
       const goal = await this.#requireActiveGoal(
@@ -272,6 +306,15 @@ export class WorkflowControllerService {
       }
       const nextReplanCount = control.replanCount + 1;
       const nextPlanId = this.#ids.nextPlanId(control.controlId, nextReplanCount);
+      const replacement =
+        evaluation.decision === 'replace_skill' && control.taskId !== undefined
+          ? await this.#taskOutcomes?.prepareSkillReplacement(control.taskId)
+          : undefined;
+      if (evaluation.decision === 'replace_skill' && replacement === undefined)
+        throw new WorkflowControllerError(
+          'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+          'Skill replacement preparation is unavailable.',
+        );
       const nextPlan = await this.#planner.plan({
         planId: nextPlanId,
         workflowDefinitionId: plan.definition.workflowDefinitionId,
@@ -282,24 +325,42 @@ export class WorkflowControllerService {
         revisionKind: 'replan',
         supersedeSourcePlan: true,
         planningInstruction: JSON.stringify({
+          operation: 'workflow_control_replan',
+          workflowIdentity: {
+            workflowDefinitionId: plan.definition.workflowDefinitionId,
+            version: plan.definition.version + 1,
+            goalId: control.goalId,
+            goalVersion: control.goalVersion,
+          },
           instruction: control.planningInstruction,
           previousInstanceId: instanceId,
           evaluationSummary: evaluation.summary,
           evaluationDecision: evaluation.decision,
           actionInstruction: evaluation.actionInstruction,
+          ...(replacement === undefined ? {} : { replacementSkill: replacement }),
         }),
       });
-      const autoConfirmSkillIds = new Set(control.skillIds);
+      const nextSkillIds = replacement === undefined ? control.skillIds : [replacement.skillId];
+      const autoConfirmSkillIds = new Set(nextSkillIds);
       for (const node of nextPlan.definition?.nodes ?? [])
         if (node.type === 'skill_call') autoConfirmSkillIds.add(node.skillId);
-      const autoConfirm = await this.#allSkillsAutoConfirm([...autoConfirmSkillIds]);
+      const autoConfirm =
+        replacement === undefined && (await this.#allSkillsAutoConfirm([...autoConfirmSkillIds]));
       if (autoConfirm) await this.#execution.confirm(nextPlan.planId);
+      if (replacement !== undefined && control.taskId !== undefined)
+        await this.#taskOutcomes?.reportReplacementPlan(control.taskId, {
+          planId: nextPlan.planId,
+          skillId: replacement.skillId,
+          skillVersion: replacement.skillVersion,
+          summary: replacement.decisionSummary,
+        });
       control = {
         ...control,
         status: autoConfirm ? 'running' : 'awaiting_confirmation',
         currentPlanId: nextPlan.planId,
         roundCount: completedRound,
         replanCount: nextReplanCount,
+        skillIds: nextSkillIds,
         updatedAt: this.#clock.now(),
       };
       await this.#controls.save(control);

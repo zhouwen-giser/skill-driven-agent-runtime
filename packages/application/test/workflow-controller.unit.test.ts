@@ -55,7 +55,7 @@ describe('Workflow outer controller', () => {
   });
 
   it('pauses a normal replan for confirmation and continues the same persisted control', async () => {
-    const fixture = createFixture({ maxReplans: 2, autoConfirm: false });
+    const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
     fixture.evaluator.decisions.push(
       { decision: 'replace_skill', summary: 'Revise.', actionInstruction: 'Use another Skill.' },
       { decision: 'achieved', summary: 'Done.' },
@@ -69,6 +69,16 @@ describe('Workflow outer controller', () => {
       replanCount: 1,
     });
     expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+    expect(fixture.execution.confirm).not.toHaveBeenCalled();
+    expect(fixture.taskOutcomes.prepareSkillReplacement).toHaveBeenCalledWith('task-control');
+    expect(fixture.taskOutcomes.reportReplacementPlan).toHaveBeenCalledWith(
+      'task-control',
+      expect.objectContaining({
+        planId: 'plan-control-1-1',
+        skillId: 'skill-replacement',
+        skillVersion: 1,
+      }),
+    );
     await fixture.execution.confirm('plan-control-1-1');
     const completed = await fixture.controller.continueAfterConfirmation('control-1');
     expect(completed.status).toBe('achieved');
@@ -115,6 +125,31 @@ describe('Workflow outer controller', () => {
       replanCount: 1,
     });
     expect(fixture.controls.rounds[0]?.evaluation.summary).toBe('Recover from failure.');
+  });
+
+  it('evaluates a thrown execution failure only when its failed instance was persisted', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    const failed = {
+      ...instance('instance-0', 'plan-initial', 0, 1),
+      status: 'failed' as const,
+      errors: { runtime: { code: 'MODEL_INVOCATION_FAILED', message: 'Model failed.' } },
+    };
+    fixture.execution.execute.mockRejectedValueOnce(new Error('MODEL_INVOCATION_FAILED'));
+    fixture.execution.get.mockResolvedValueOnce(failed);
+    fixture.evaluator.decisions.push(
+      {
+        decision: 'adjust_plan',
+        summary: 'Use persisted failure evidence.',
+        actionInstruction: 'Generate a replacement plan.',
+      },
+      { decision: 'achieved', summary: 'Recovered.' },
+    );
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'achieved',
+      replanCount: 1,
+    });
+    expect(fixture.evaluator.inputs[0]?.instance).toBe(failed);
   });
 
   it.each([
@@ -186,6 +221,14 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     reportAchieved: vi.fn(() => Promise.resolve()),
     requestInput: vi.fn(() => Promise.resolve()),
     reportUnachievable: vi.fn(() => Promise.resolve()),
+    prepareSkillReplacement: vi.fn(() =>
+      Promise.resolve({
+        skillId: 'skill-replacement',
+        skillVersion: 1,
+        decisionSummary: 'Use the enabled alternative.',
+      }),
+    ),
+    reportReplacementPlan: vi.fn(() => Promise.resolve()),
   };
   const planner = {
     plan: vi.fn(async (request: { planId: string; workflowVersion: number }) => {
@@ -199,8 +242,12 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
       instance(request.instanceId, request.planId, request.replanCount ?? 0, input.maxReplans),
     ),
   );
+  const get = vi.fn<(instanceId: string) => Promise<WorkflowInstance | undefined>>(() =>
+    Promise.resolve(undefined),
+  );
   const execution = {
     execute,
+    get,
     waitForPauseResolution: vi.fn((instanceId: string) =>
       Promise.resolve(instance(instanceId, 'plan-control-1', 0, input.maxReplans)),
     ),
@@ -311,7 +358,9 @@ function skillVersion(maxReplans: number, autoConfirmPlan: boolean): SkillVersio
 
 class SequenceEvaluator implements GoalEvaluator {
   decisions: GoalEvaluationResult[] = [];
-  evaluate() {
+  inputs: Parameters<GoalEvaluator['evaluate']>[0][] = [];
+  evaluate(input: Parameters<GoalEvaluator['evaluate']>[0]) {
+    this.inputs.push(input);
     const decision = this.decisions.shift();
     if (decision === undefined) throw new Error('NO_EVALUATION');
     return Promise.resolve(decision);

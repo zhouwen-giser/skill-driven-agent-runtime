@@ -214,6 +214,42 @@ describe('TaskService', () => {
     expect(harness.operations).toContain('plan.revise:plan-long');
   });
 
+  it('binds a replacement Skill plan and always returns to fresh confirmation', async () => {
+    const harness = createHarness();
+    harness.tasks.set('task-replacement', {
+      taskId: 'task-replacement',
+      contextId: 'context-1',
+      userId: 'user-1',
+      requestText: 'Run.',
+      requestMetadata: {},
+      phase: 'executing',
+      phaseMessage: 'Executing.',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      planId: 'plan-old',
+      selectedSkillId: 'skill-old',
+      selectedSkillVersion: 1,
+      skillSelectionId: 'selection-1',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    await expect(
+      harness.service.awaitReplacementConfirmation('task-replacement', {
+        planId: 'plan-new',
+        skillId: 'skill-alternative',
+        skillVersion: 2,
+        summary: 'Selected the enabled alternative.',
+      }),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      planId: 'plan-new',
+      selectedSkillId: 'skill-alternative',
+      selectedSkillVersion: 2,
+      skillSelectionId: 'selection-1',
+    });
+  });
+
   it('rejects a confirmation-bound plan through the shared follow-up transition', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });

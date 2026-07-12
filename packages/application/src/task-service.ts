@@ -1,6 +1,7 @@
 import {
   ANONYMOUS_USER_ID,
   bindTaskPlan,
+  bindTaskReplacement,
   createAgentTask,
   createConversationContext,
   createSkillDraft,
@@ -360,6 +361,21 @@ export class TaskService {
       summary: `Capability gap: ${evaluation.summary}`,
     });
     return waiting;
+  }
+
+  async awaitReplacementConfirmation(
+    taskId: string,
+    input: Readonly<{ planId: string; skillId: string; skillVersion: number; summary: string }>,
+  ): Promise<AgentTask> {
+    let task = await this.get(taskId);
+    task = await this.#saveTransition(task, 'planning', input.summary);
+    task = bindTaskReplacement(task, { ...input, timestamp: this.#dependencies.clock.now() });
+    await this.#dependencies.tasks.save(task);
+    return this.#saveTransition(
+      task,
+      'awaiting_plan_confirmation',
+      'Replacement Skill plan requires fresh confirmation.',
+    );
   }
 
   async fail(taskId: string, errorCode: string, message: string): Promise<AgentTask> {

@@ -162,6 +162,7 @@ interface TaskRow extends QueryResultRow {
   plan_id: string | null;
   selected_skill_id: string | null;
   selected_skill_version: number | null;
+  skill_selection_id: string | null;
   output_text: string | null;
   output_structured: unknown;
   capability_gap_json: unknown;
@@ -1166,7 +1167,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -1180,9 +1181,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,
+         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -1193,6 +1194,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          plan_id = EXCLUDED.plan_id,
          selected_skill_id = EXCLUDED.selected_skill_id,
          selected_skill_version = EXCLUDED.selected_skill_version,
+         skill_selection_id = EXCLUDED.skill_selection_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          capability_gap_json = EXCLUDED.capability_gap_json,
@@ -1213,6 +1215,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.planId ?? null,
         task.selectedSkillId ?? null,
         task.selectedSkillVersion ?? null,
+        task.skillSelectionId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
         task.capabilityGap ?? null,
@@ -1263,7 +1266,7 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
        SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
+         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
@@ -3230,6 +3233,7 @@ function mapTaskRow(row: TaskRow): AgentTask {
     ...(row.selected_skill_version === null
       ? {}
       : { selectedSkillVersion: row.selected_skill_version }),
+    ...(row.skill_selection_id === null ? {} : { skillSelectionId: row.skill_selection_id }),
     ...output,
     ...(row.capability_gap_json === null
       ? {}

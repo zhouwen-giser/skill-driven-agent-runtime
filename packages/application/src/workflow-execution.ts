@@ -59,6 +59,10 @@ export class WorkflowExecutionService {
     return { ...plan, confirmationStatus: 'confirmed' };
   }
 
+  get(instanceId: string): Promise<WorkflowInstance | undefined> {
+    return this.#instances.findInstance(instanceId);
+  }
+
   async execute(
     input: Readonly<{
       instanceId: string;

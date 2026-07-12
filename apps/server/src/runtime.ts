@@ -144,6 +144,9 @@ export interface ServerRuntimeHandle {
   listSkillCallWorkflows(
     parentInstanceId: string,
   ): ReturnType<PostgresSkillCallWorkflowRepository['listByParent']>;
+  getWorkflowInstance(
+    instanceId: string,
+  ): ReturnType<PostgresWorkflowExecutionRepository['findInstance']>;
   listMcpDependencyWarnings(
     serverId: string,
   ): ReturnType<McpRegistryService['listDependencyWarnings']>;
@@ -411,31 +414,51 @@ export async function startServerRuntime(
           task.selectedSkillId === undefined
         )
           throw new Error('TASK_EXECUTION_IDENTITY_INCOMPLETE');
-        void workflowController
-          .start({
-            controlId: `control-task-${task.taskId}`,
+        const planId = task.planId;
+        const goalId = task.goalId;
+        const goalVersion = task.goalVersion;
+        const selectedSkillId = task.selectedSkillId;
+        void (async () => {
+          const controlId = `control-task-${task.taskId}`;
+          try {
+            const existing = await workflowController.get(controlId);
+            if (existing.status === 'awaiting_confirmation') {
+              await workflowController.continueAfterConfirmation(controlId);
+              return;
+            }
+          } catch (error: unknown) {
+            if (!(
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              error.code === 'WORKFLOW_CONTROL_NOT_FOUND'
+            ))
+              throw error;
+          }
+          await workflowController.start({
+            controlId,
             contextId: task.contextId,
-            goalId: task.goalId,
-            goalVersion: task.goalVersion,
+            goalId,
+            goalVersion,
             taskId: task.taskId,
-            initialPlanId: task.planId,
+            initialPlanId: planId,
             input: { requestText: task.requestText },
-            skillIds: [task.selectedSkillId],
+            skillIds: [selectedSkillId],
             planningInstruction: JSON.stringify({
               operation: 'task_outer_replan',
               requestText: task.requestText,
             }),
-          })
-          .catch(async (error: unknown) => {
-            const code =
-              typeof error === 'object' &&
-              error !== null &&
-              'code' in error &&
-              typeof error.code === 'string'
-                ? error.code
-                : 'TASK_EXECUTION_FAILED';
-            await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
           });
+        })().catch(async (error: unknown) => {
+          const code =
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            typeof error.code === 'string'
+              ? error.code
+              : 'TASK_EXECUTION_FAILED';
+          await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
+        });
         return Promise.resolve();
       },
       async reviseNaturalLanguage(task, instruction) {
@@ -487,6 +510,22 @@ export async function startServerRuntime(
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
       requestInput: (taskId, question) => service.requestInput(taskId, question),
       reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
+      async prepareSkillReplacement(taskId) {
+        if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
+        const task = await service.get(taskId);
+        if (task.skillSelectionId === undefined || task.selectedSkillId === undefined)
+          throw new Error('TASK_SKILL_SELECTION_NOT_BOUND');
+        const replacement = await skillSelection.planReplacement(
+          task.skillSelectionId,
+          task.selectedSkillId,
+        );
+        return {
+          skillId: replacement.replacementSkillId,
+          skillVersion: replacement.replacementSkillVersion,
+          decisionSummary: replacement.decisionSummary,
+        };
+      },
+      reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
       async reportAchieved(taskId, instance) {
         const selected = instance.skillVersions[0];
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
@@ -724,6 +763,9 @@ export async function startServerRuntime(
       listSkillCallWorkflows(parentInstanceId) {
         return skillCallWorkflows.listByParent(parentInstanceId);
       },
+      getWorkflowInstance(instanceId) {
+        return workflowInstances.findInstance(instanceId);
+      },
       listMcpDependencyWarnings(serverId) {
         return mcpRegistry.listDependencyWarnings(serverId);
       },
@@ -790,6 +832,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0032_goal_input_inference.up.sql',
     '0033_task_selected_skill.up.sql',
     '0034_skill_call_workflow.up.sql',
+    '0035_task_skill_selection.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

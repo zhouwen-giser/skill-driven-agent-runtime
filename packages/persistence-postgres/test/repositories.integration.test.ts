@@ -221,6 +221,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillCallWorkflowMigration);
+  const taskSkillSelectionMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0035_task_skill_selection.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskSkillSelectionMigration);
 });
 
 beforeEach(async () => {

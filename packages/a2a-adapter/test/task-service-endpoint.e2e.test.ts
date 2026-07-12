@@ -19,6 +19,7 @@ let initialPromptVersion = 0;
 const failingProviderId = `provider.fail.${randomUUID()}`;
 let workflowPlanningCalls = 0;
 let controlEvaluationCalls = 0;
+let replacementEvaluationCalls = 0;
 let mcpWorkflowTarget:
   | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
   | undefined;
@@ -911,6 +912,102 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([]);
     await runtime.setSkillEnabled(skillId, false);
+  });
+
+  it('replaces a failed selected Skill only through an alternative plan and fresh confirmation', async () => {
+    replacementEvaluationCalls = 0;
+    const primarySkillId = `skill.replace.primary.${randomUUID()}`;
+    const alternativeSkillId = `skill.replace.alternative.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(primarySkillId, 'Replacement primary'));
+    await runtime.registerSkill(skillInput(alternativeSkillId, 'Replacement alternative'));
+    const relation = await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph/relations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sourceSkillId: primarySkillId,
+        targetSkillId: alternativeSkillId,
+        relationType: 'alternative',
+        metadata: { reason: 'E2E replacement' },
+      }),
+    });
+    expect(relation.status).toBe(201);
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [
+            {
+              text: `replace failed skill GLOBAL_SHARED_SKILL:${primarySkillId}`,
+              mediaType: 'text/plain',
+            },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const initial = z
+      .object({ planId: z.string(), skillSelectionId: z.string() })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm primary.');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+    const replacement = z
+      .object({
+        phase: z.string(),
+        planId: z.string(),
+        selectedSkillId: z.string(),
+        selectedSkillVersion: z.number(),
+        skillSelectionId: z.string(),
+      })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    expect(replacement).toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      selectedSkillId: alternativeSkillId,
+      selectedSkillVersion: 1,
+      skillSelectionId: initial.skillSelectionId,
+    });
+    expect(replacement.planId).not.toBe(initial.planId);
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(initial.planId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ confirmationStatus: 'superseded' });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(replacement.planId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      sourcePlanId: initial.planId,
+      confirmationStatus: 'awaiting_confirmation',
+    });
+    const rounds = z
+      .object({ items: z.array(z.object({ instanceId: z.string() })).min(1) })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflow-controls/${encodeURIComponent(`control-task-${submitted.id}`)}/rounds`,
+        ).then((response) => response.json()),
+      );
+    const failedRound = rounds.items[0];
+    if (failedRound === undefined) throw new Error('REPLACEMENT_FAILED_ROUND_REQUIRED');
+    await expect(runtime.getWorkflowInstance(failedRound.instanceId)).resolves.toMatchObject({
+      status: 'failed',
+      errors: { runtime: expect.objectContaining({ code: expect.any(String) }) },
+    });
+    await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm replacement.');
+    const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+    expect(completed.artifacts[0]?.parts[1]?.content).toMatchObject({
+      $case: 'data',
+      value: { status: 'online' },
+    });
   });
 
   it('pauses before the next real MCP node and resumes without replay', async () => {
@@ -2750,6 +2847,9 @@ async function startModelLoopback(): Promise<Server> {
         const skillChildExecutionRequest = body.messages?.some(
           (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
         );
+        const primarySkillFailureRequest = body.messages?.some(
+          (message) => message.content?.includes('FAIL_PRIMARY_SKILL_EXECUTION') === true,
+        );
         const initialTaskPlanRequest = body.messages?.some(
           (message) => message.content?.includes('task_initial_plan') === true,
         );
@@ -2764,6 +2864,11 @@ async function startModelLoopback(): Promise<Server> {
         const controlReplanRequest =
           body.messages?.some((message) => message.content?.includes('CONTROL_REPLAN') === true) ===
           true;
+        const workflowControlReplanRequest = body.messages?.some(
+          (message) =>
+            message.content?.includes('workflow_control_replan') === true &&
+            message.content.includes('replacementSkill'),
+        );
         const controlEvaluationRequest =
           body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
           true;
@@ -2774,10 +2879,18 @@ async function startModelLoopback(): Promise<Server> {
         const autoTaskEvaluationRequest =
           body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
           true;
+        const replacementEvaluationRequest = body.messages?.some(
+          (message) => message.content?.includes('REPLACE_SKILL_GOAL') === true,
+        );
         const genericTaskEvaluationRequest =
           body.messages?.some(
             (message) => message.content?.includes('"workflow":{"instanceId"') === true,
           ) === true;
+        if (primarySkillFailureRequest === true) {
+          response.statusCode = 500;
+          response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
+          return;
+        }
         if (intentDecisionRequest === true) {
           respondStructured(response, {
             intent: 'execute',
@@ -2841,6 +2954,7 @@ async function startModelLoopback(): Promise<Server> {
           const controlGoal = requestData.requestText.includes('control loop');
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
           const autoTaskGoal = requestData.requestText.includes('zebra auto task');
+          const replaceSkillGoal = requestData.requestText.includes('replace failed skill');
           const sharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
             requestData.requestText,
           )?.[1];
@@ -2854,13 +2968,15 @@ async function startModelLoopback(): Promise<Server> {
                 : 'Execute the requested task',
             description: autoTaskGoal
               ? 'AUTO_TASK_GOAL zebra return device status.'
-              : sharedSkill !== undefined
-                ? `GLOBAL_SHARED_SKILL:${sharedSkill}`
-                : capabilityGapGoal
-                  ? 'CAPABILITY_GAP_GOAL requires device pressure.'
-                  : controlGoal
-                    ? 'CONTROL_GOAL collect two observations.'
-                    : 'Complete the user request using an enabled Skill.',
+              : replaceSkillGoal
+                ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
+                : sharedSkill !== undefined
+                  ? `GLOBAL_SHARED_SKILL:${sharedSkill}`
+                  : capabilityGapGoal
+                    ? 'CAPABILITY_GAP_GOAL requires device pressure.'
+                    : controlGoal
+                      ? 'CONTROL_GOAL collect two observations.'
+                      : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
               controlGoal || capabilityGapGoal || autoTaskGoal
@@ -2969,6 +3085,39 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (workflowControlReplanRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number(),
+                goalId: z.string(),
+                goalVersion: z.number(),
+              }),
+              replacementSkill: z
+                .object({ skillId: z.string(), skillVersion: z.number() })
+                .optional(),
+            })
+            .parse(embeddedOperation(body.messages, 'workflow_control_replan'));
+          respondStructured(response, {
+            ...requestData.workflowIdentity,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Replacement result',
+                type: 'result',
+                value: {
+                  op: 'literal',
+                  value: requestData.replacementSkill?.skillId ?? 'replanned',
+                },
+              },
+            ],
+            edges: [],
+          });
+          return;
+        }
         if (initialTaskPlanRequest === true) {
           const requestData = z
             .object({
@@ -2978,21 +3127,39 @@ async function startModelLoopback(): Promise<Server> {
                 goalId: z.string(),
                 goalVersion: z.number(),
               }),
+              goalDescription: z.string(),
             })
             .parse(embeddedOperation(body.messages, 'task_initial_plan'));
+          const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
           respondStructured(response, {
             ...requestData.workflowIdentity,
-            entryNodeId: 'result',
+            entryNodeId: failPrimary ? 'execute' : 'result',
             exitNodeIds: ['result'],
-            nodes: [
-              {
-                nodeId: 'result',
-                name: 'Initial Task result',
-                type: 'result',
-                value: { op: 'literal', value: 'online' },
-              },
-            ],
-            edges: [],
+            nodes: failPrimary
+              ? [
+                  {
+                    nodeId: 'execute',
+                    name: 'Fail primary Skill execution',
+                    type: 'llm',
+                    instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                    responseSchema: { type: 'object' },
+                  },
+                  {
+                    nodeId: 'result',
+                    name: 'Primary result',
+                    type: 'result',
+                    value: { op: 'ref', path: ['nodes', 'execute'] },
+                  },
+                ]
+              : [
+                  {
+                    nodeId: 'result',
+                    name: 'Initial Task result',
+                    type: 'result',
+                    value: { op: 'literal', value: 'online' },
+                  },
+                ],
+            edges: failPrimary ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }] : [],
           });
           return;
         }
@@ -3001,6 +3168,20 @@ async function startModelLoopback(): Promise<Server> {
             decision: 'achieved',
             summary: 'The auto-confirmed Task result satisfies the Goal.',
           });
+          return;
+        }
+        if (replacementEvaluationRequest) {
+          replacementEvaluationCalls += 1;
+          respondStructured(
+            response,
+            replacementEvaluationCalls === 1
+              ? {
+                  decision: 'replace_skill',
+                  summary: 'The initial Skill failed and an enabled alternative is required.',
+                  actionInstruction: 'Use the selected alternative Skill.',
+                }
+              : { decision: 'achieved', summary: 'The replacement Skill satisfied the Goal.' },
+          );
           return;
         }
         if (capabilityGapEvaluationRequest) {

@@ -51,6 +51,7 @@ export interface AgentTask {
   readonly planId?: string;
   readonly selectedSkillId?: string;
   readonly selectedSkillVersion?: number;
+  readonly skillSelectionId?: string;
   readonly output?: TaskOutput;
   readonly capabilityGap?: TaskCapabilityGap;
   readonly errorCode?: string;
@@ -95,7 +96,12 @@ export function bindTaskGoal(
 
 export function bindTaskSkill(
   task: AgentTask,
-  input: Readonly<{ skillId: string; skillVersion: number; timestamp: string }>,
+  input: Readonly<{
+    skillId: string;
+    skillVersion: number;
+    selectionId: string;
+    timestamp: string;
+  }>,
 ): AgentTask {
   if (task.phase !== 'skill_resolution')
     throw new DomainError(
@@ -106,6 +112,32 @@ export function bindTaskSkill(
     throw new DomainError('SKILL_VERSION_INVALID', 'Selected Skill version must be positive.');
   return {
     ...task,
+    selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
+    selectedSkillVersion: input.skillVersion,
+    skillSelectionId: requireIdentifier(input.selectionId, 'SKILL_SELECTION_ID_REQUIRED'),
+    updatedAt: input.timestamp,
+  };
+}
+
+export function bindTaskReplacement(
+  task: AgentTask,
+  input: Readonly<{
+    planId: string;
+    skillId: string;
+    skillVersion: number;
+    timestamp: string;
+  }>,
+): AgentTask {
+  if (task.phase !== 'planning')
+    throw new DomainError(
+      'TASK_PHASE_TRANSITION_INVALID',
+      'A replacement Skill and plan can be bound only while planning.',
+    );
+  if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
+    throw new DomainError('SKILL_VERSION_INVALID', 'Replacement Skill version must be positive.');
+  return {
+    ...task,
+    planId: requireIdentifier(input.planId, 'WORKFLOW_PLAN_ID_REQUIRED'),
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
     updatedAt: input.timestamp,

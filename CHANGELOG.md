@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Failure-driven alternative Skill replacement with persisted initial selection identity, immutable failed-instance evidence, forced fresh plan confirmation, and same-controller continuation.
 - Fail-closed selected-Skill Tool-policy enforcement during generated plan preparation and confirmed execution, rejecting missing required and referenced forbidden MCP Tools before any call.
 - Global formal-Skill reuse across user identities and independently persisted LangGraph child Workflows for `skill_call`, including actual current SkillVersion and schema-evaluation evidence.
 - Task-owned initial Workflow planning with persisted selected-Skill identity, strict confirmation gating, Skill opt-in auto-confirmation, outer-controller execution, and equivalent synchronous/return-immediately A2A results.
