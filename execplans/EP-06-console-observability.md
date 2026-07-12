@@ -14,7 +14,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 
 ## Deliverables
 
-- [ ] complete management OpenAPI
+- [x] complete management OpenAPI
 - [ ] React console navigation and real CRUD
 - [ ] workflow DAG editor and validation
 - [ ] live task/node/LLM/MCP trace
@@ -37,6 +37,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 ## Discoveries and Surprises
 
 - The backend already exposes broad real management operations, but route coverage substantially exceeds the current OpenAPI document and several resources are identifier lookups rather than filterable inventories.
+- The OpenAPI was missing 24 newer operations. It now covers all 94 implemented `/api` method/path pairs, with a permanent route-drift gate in `pnpm verify`.
 - The existing root ESLint ignore matched only the root `dist`; the console build exposed that nested generated assets must use `**/dist/**` to keep generated third-party bundles outside source linting.
 - No console application existed at EP-06 start. The first production bundle is now independently buildable and contains no static operational records.
 

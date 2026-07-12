@@ -147,7 +147,13 @@ paths:
       operationId: startWorkflowControl
       description: Executes confirmed immutable plans and requires a structured Goal evaluation after every round. An optional taskId projects capability-gap evidence onto the authoritative A2A Task. Plan adjustment, Skill replacement, and additional-Skill decisions create new versions outside LangGraph; input and capability-gap decisions stop without starting another node.
       responses:
-        '201': { description: Terminal, awaiting-confirmation, awaiting-input, or capability-gap Workflow control }
+        '201':
+          {
+            description: Terminal,
+            awaiting-confirmation,
+            awaiting-input,
+            or capability-gap Workflow control,
+          }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflow-controls/{controlId}:
     parameters: [{ name: controlId, in: path, required: true, schema: { type: string } }]
@@ -588,6 +594,206 @@ paths:
         '200':
           { description: Expired Skill, Experience, and optional awaiting-simulation candidate }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/memories/{memoryId}/supersede:
+    parameters: [{ $ref: '#/components/parameters/MemoryId' }]
+    post:
+      operationId: supersedeMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupersedeMemory' }
+      responses:
+        '201': { description: New active Memory and immutable supersede transition }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/memories/{memoryId}/invalidate:
+    parameters: [{ $ref: '#/components/parameters/MemoryId' }]
+    post:
+      operationId: invalidateMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemoryStatusAction' }
+      responses:
+        '200': { description: Invalidated Memory and immutable status transition }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/memories/{memoryId}/transitions:
+    parameters: [{ $ref: '#/components/parameters/MemoryId' }]
+    get:
+      operationId: listMemoryTransitions
+      responses:
+        '200': { description: Append-only Memory status history }
+  /api/v1/system/memory-retention-policy:
+    get:
+      operationId: getMemoryRetentionPolicy
+      responses:
+        '200': { description: V1 retention controls and disabled automatic-cleanup flags }
+    put:
+      operationId: updateMemoryRetentionPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemoryRetentionPolicy' }
+      responses:
+        '200': { description: Updated retention controls }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/system/evolution-policy:
+    get:
+      operationId: getEvolutionPolicy
+      responses:
+        '200': { description: Current successful-experience threshold }
+    put:
+      operationId: updateEvolutionPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [successThreshold]
+              properties: { successThreshold: { type: integer, minimum: 2 } }
+      responses:
+        '200': { description: Updated evolution threshold }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/evolution-triggers:
+    get:
+      operationId: listEvolutionTriggers
+      parameters:
+        - { name: capabilityFingerprint, in: query, schema: { type: string, minLength: 1 } }
+      responses:
+        '200': { description: Audited evolution threshold decisions }
+  /api/v1/tasks/{taskId}/quality-report:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    get:
+      operationId: getTaskQualityReport
+      responses:
+        '200': { description: Five-component immutable Task quality report }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/implicit-feedback:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    get:
+      operationId: listTaskImplicitFeedback
+      responses:
+        '200': { description: Low-confidence behavior-derived feedback observations }
+  /api/v1/task-quality-reports/{reportId}/influence:
+    parameters: [{ name: reportId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTaskQualityReportInfluence
+      responses:
+        '200': { description: Skill, Workflow-template, and Prompt effects linked to the report }
+  /api/v1/skill-formalization-candidates/{candidateId}:
+    parameters: [{ $ref: '#/components/parameters/CandidateId' }]
+    get:
+      operationId: getSkillFormalizationCandidate
+      responses:
+        '200': { description: Candidate, simulations, publication, and correction history }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-formalization-candidates/{candidateId}/simulate:
+    parameters: [{ $ref: '#/components/parameters/CandidateId' }]
+    post:
+      operationId: simulateSkillFormalizationCandidate
+      responses:
+        '200': { description: Five-part simulation report and publication decision }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-formalization-candidates/{candidateId}/corrections:
+    parameters: [{ $ref: '#/components/parameters/CandidateId' }]
+    get:
+      operationId: listSkillFormalizationCorrections
+      responses:
+        '200': { description: Immutable manual correction Experience history }
+    post:
+      operationId: correctSkillFormalizationCandidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CorrectEvolutionCandidate' }
+      responses:
+        '200': { description: Corrected candidate and full revalidation result }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/evolution-experiences/{experienceId}:
+    parameters: [{ name: experienceId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getEvolutionExperience
+      responses:
+        '200': { description: Source-linked evolution Experience }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}/evolution-experiences:
+    parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listGoalEvolutionExperiences
+      responses:
+        '200': { description: Evolution Experiences linked to a Goal }
+  /api/v1/skills/{skillId}/evolution-experiences:
+    parameters: [{ $ref: '#/components/parameters/SkillId' }]
+    get:
+      operationId: listSkillEvolutionExperiences
+      responses:
+        '200': { description: Evolution Experiences linked to a Skill }
+  /api/v1/skill-drafts/{draftId}:
+    parameters: [{ name: draftId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getSkillDraft
+      responses:
+        '200': { description: Generated Skill draft and validation evidence }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-drafts/{draftId}/publish:
+    parameters: [{ name: draftId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: publishSkillDraft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actor, skillId, toolPolicy, runtimePolicy, status]
+              properties:
+                actor: { type: string, minLength: 1 }
+                skillId: { type: string, minLength: 1 }
+                toolPolicy: { type: object, additionalProperties: true }
+                runtimePolicy: { type: object, additionalProperties: true }
+                status: { enum: [enabled, disabled] }
+      responses:
+        '201': { description: Published formal Skill version }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skills/{skillId}/quality-observations:
+    parameters: [{ $ref: '#/components/parameters/SkillId' }]
+    post:
+      operationId: recordSkillQualityObservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SkillQualityObservation' }
+      responses:
+        '201': { description: Persisted quality observation and optional warning }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-quality-warnings:
+    get:
+      operationId: listSkillQualityWarnings
+      parameters:
+        - { name: skillId, in: query, schema: { type: string, minLength: 1 } }
+      responses:
+        '200': { description: Warning-only low-quality Skill signals }
+  /api/v1/workflow-templates:
+    get:
+      operationId: listWorkflowTemplates
+      parameters:
+        - { name: skillId, in: query, schema: { type: string, minLength: 1 } }
+        - { name: capabilityFingerprint, in: query, schema: { type: string, minLength: 1 } }
+      responses:
+        '200': { description: Versioned successful Workflow templates }
+  /api/v1/workflow-templates/{templateId}/uses:
+    parameters: [{ name: templateId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listWorkflowTemplateUses
+      responses:
+        '200': { description: Immutable template reuse and effect evidence }
   /api/v1/evaluation/analytics:
     get:
       operationId: getEvaluationAnalytics
@@ -614,13 +820,24 @@ paths:
                 averageCost: 1
                 failureTypes: [{ code: MCP_TIMEOUT, count: 1 }]
                 versionStability:
-                  - { skillId: device-status, skillVersion: 2, sampleCount: 3, successRate: 0.666667, averageQuality: 0.8, qualityDeviation: 0.1, stabilityScore: 0.6 }
+                  - {
+                      skillId: device-status,
+                      skillVersion: 2,
+                      sampleCount: 3,
+                      successRate: 0.666667,
+                      averageQuality: 0.8,
+                      qualityDeviation: 0.1,
+                      stabilityScore: 0.6,
+                    }
                 qualityTrend: []
         '400': { $ref: '#/components/responses/Error' }
 components:
   parameters:
+    CandidateId: { name: candidateId, in: path, required: true, schema: { type: string } }
+    MemoryId: { name: memoryId, in: path, required: true, schema: { type: string } }
     ServerId: { name: serverId, in: path, required: true, schema: { type: string } }
     SkillId: { name: skillId, in: path, required: true, schema: { type: string } }
+    TaskId: { name: taskId, in: path, required: true, schema: { type: string } }
   responses:
     Error:
       description: Stable error envelope
@@ -637,6 +854,69 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    MemoryRetentionPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          reviewAfterDays,
+          archiveAfterDays,
+          deleteAfterDays,
+          automaticArchiveEnabled,
+          automaticDeleteEnabled,
+        ]
+      properties:
+        reviewAfterDays: { type: integer, minimum: 1 }
+        archiveAfterDays: { type: [integer, 'null'], minimum: 1 }
+        deleteAfterDays: { type: [integer, 'null'], minimum: 1 }
+        automaticArchiveEnabled: { type: boolean, const: false }
+        automaticDeleteEnabled: { type: boolean, const: false }
+    MemoryStatusAction:
+      type: object
+      additionalProperties: false
+      required: [actor, reason]
+      properties:
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    SupersedeMemory:
+      allOf:
+        - $ref: '#/components/schemas/MemoryStatusAction'
+        - type: object
+          required: [type, content, summary, sourceRefs, confidence]
+          properties:
+            type:
+              {
+                enum:
+                  [
+                    fact,
+                    success_experience,
+                    failure_experience,
+                    workflow_pattern,
+                    skill_learning,
+                    prompt_learning,
+                  ],
+              }
+            content: { type: object, additionalProperties: true }
+            summary: { type: string, minLength: 1 }
+            sourceRefs: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+            confidence: { type: number, minimum: 0, maximum: 1 }
+    CorrectEvolutionCandidate:
+      type: object
+      additionalProperties: false
+      required: [actor, summary, proposedSkill]
+      properties:
+        actor: { type: string, minLength: 1 }
+        summary: { type: string, minLength: 1 }
+        proposedSkill: { type: object, additionalProperties: true }
+    SkillQualityObservation:
+      type: object
+      additionalProperties: false
+      required: [skillVersion, evaluationRef, score, successful]
+      properties:
+        skillVersion: { type: integer, minimum: 1 }
+        evaluationRef: { type: string, minLength: 1 }
+        score: { type: number, minimum: 0, maximum: 1 }
+        successful: { type: boolean }
     RegisterMcpServer:
       type: object
       additionalProperties: false

@@ -13,6 +13,7 @@
     "start:server": "tsx apps/server/src/main.ts",
     "start:a2a-tck-sut": "tsx apps/a2a-tck-sut/src/main.ts",
     "verify:architecture": "node scripts/check-architecture.mjs",
+    "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "format": "prettier --no-error-on-unmatched-pattern --write package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "lint": "eslint .",
@@ -30,7 +31,7 @@
     "verify:licenses": "node scripts/generate-sbom.mjs --check",
     "verify:infra": "node scripts/verify-compose.mjs && docker compose -f compose.yaml config --quiet",
     "verify:sources": "node scripts/check-sources-lock.mjs",
-    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && vitest run --project unit --project contract && node scripts/check-architecture.mjs && node scripts/check-sources-lock.mjs && node scripts/verify-compose.mjs && node scripts/generate-sbom.mjs --check && docker compose -f compose.yaml config --quiet && tsc -p tsconfig.build.json",
+    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && vitest run --project unit --project contract && node scripts/check-architecture.mjs && node scripts/check-management-openapi.mjs && node scripts/check-sources-lock.mjs && node scripts/verify-compose.mjs && node scripts/generate-sbom.mjs --check && docker compose -f compose.yaml config --quiet && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
     "verify": "pnpm verify:bootstrap"
   },
   "dependencies": {
