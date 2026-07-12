@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { App } from './App.js';
 import { WorkflowPanel } from './WorkflowPanel.js';
 import { TaskPanel } from './TaskPanel.js';
+import { PromptPanel } from './PromptPanel.js';
+import { MemoryPanel } from './MemoryPanel.js';
+import { EvaluationPanel } from './EvaluationPanel.js';
 
 describe('operational console static accessibility contract', () => {
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
@@ -27,5 +30,20 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('CORRELATED TRACE ROOT');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('renders Prompt, Memory, and Evaluation controls without operational fixtures', () => {
+    const markup = [
+      <PromptPanel key="prompt" />,
+      <MemoryPanel key="memory" />,
+      <EvaluationPanel key="evaluation" />,
+    ]
+      .map((panel) => renderToStaticMarkup(panel))
+      .join('');
+    expect(markup).toContain('Prompt Lifecycle');
+    expect(markup).toContain('anonymous shared');
+    expect(markup).toContain('warning-only policy');
+    expect(markup).not.toContain('prompt-1');
+    expect(markup).not.toContain('memory-1');
   });
 });

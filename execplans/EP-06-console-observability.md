@@ -29,6 +29,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Deliver real MCP lifecycle controls and PostgreSQL management-operation audit; expose current Skill enable/disable/version/warning/rollback controls.
 - [x] Deliver a repository-owned Workflow DAG/DSL workbench, immutable revision/confirmation actions, and ordered instance-node replay.
 - [x] Add Task-rooted deterministic navigation to Goal/Plan/Workflow/events/results/evaluation/model/MCP evidence using persisted identifiers only.
+- [x] Add real Prompt version/effect controls, source-linked Memory lifecycle management, and filtered Evaluation/Skill-warning operations.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -47,6 +48,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - No console application existed at EP-06 start. The first production bundle is now independently buildable and contains no static operational records.
 - Workflow node events were persisted but not readable through management operations. `WorkflowExecutionService.trace` now joins the immutable instance with ordered displayable events; the console stores only replay position and editor text.
 - Model and MCP APIs previously supported stage-wide or Server-wide reads only. Task filters and Plan-to-latest-instance lookup now provide deterministic links without a second trace store.
+- Prompt, Memory, and Evaluation application APIs were already authoritative; dedicated console panels now expose them without adding frontend persistence or static operational records.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 

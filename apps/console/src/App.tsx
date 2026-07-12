@@ -11,8 +11,12 @@ import { McpPanel } from './McpPanel.js';
 import { SkillsPanel } from './SkillsPanel.js';
 import { WorkflowPanel } from './WorkflowPanel.js';
 import { TaskPanel } from './TaskPanel.js';
+import { MemoryPanel } from './MemoryPanel.js';
+import { PromptPanel } from './PromptPanel.js';
+import { EvaluationPanel } from './EvaluationPanel.js';
 
-type Section = 'overview' | 'skills' | 'mcp' | 'workflows' | 'tasks' | 'memory' | 'evaluation';
+type Section =
+  'overview' | 'skills' | 'mcp' | 'workflows' | 'tasks' | 'prompts' | 'memory' | 'evaluation';
 
 const navigation: readonly {
   readonly id: Section;
@@ -24,6 +28,7 @@ const navigation: readonly {
   { id: 'skills', label: 'Skills', note: 'Lifecycle' },
   { id: 'workflows', label: 'Workflows', note: 'DAG' },
   { id: 'mcp', label: 'MCP Servers', note: 'Tools' },
+  { id: 'prompts', label: 'Prompts', note: 'Versions' },
   { id: 'memory', label: '长期记忆', note: 'Recall' },
   { id: 'evaluation', label: '评估分析', note: 'Quality' },
 ];
@@ -82,10 +87,11 @@ function SectionView({ section }: { readonly section: Section }) {
   if (section === 'overview') return <Overview />;
   if (section === 'skills') return <SkillsPanel />;
   if (section === 'mcp') return <McpPanel />;
-  if (section === 'evaluation') return <Analytics />;
+  if (section === 'evaluation') return <EvaluationPanel />;
   if (section === 'workflows') return <WorkflowPanel />;
   if (section === 'tasks') return <TaskPanel />;
-  return <Lookup section={section} />;
+  if (section === 'prompts') return <PromptPanel />;
+  return <MemoryPanel />;
 }
 
 function Overview() {
@@ -116,7 +122,7 @@ function Overview() {
   );
 }
 
-function Analytics() {
+export function Analytics() {
   const resource = useResource<EvaluationAnalytics>('/api/v1/evaluation/analytics');
   const entries = Object.entries(resource.data ?? {});
   return (
@@ -144,10 +150,10 @@ function Analytics() {
   );
 }
 
-function Lookup({
+export function Lookup({
   section,
 }: {
-  readonly section: Exclude<Section, 'overview' | 'skills' | 'mcp' | 'evaluation'>;
+  readonly section: Exclude<Section, 'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts'>;
 }) {
   const config = useMemo(
     () =>

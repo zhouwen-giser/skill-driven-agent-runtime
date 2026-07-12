@@ -564,6 +564,8 @@ h2 {
   font-size: 11px;
 }
 .admin-form input,
+.admin-form select,
+.admin-form textarea,
 .inline-field input {
   display: block;
   width: 100%;
@@ -571,6 +573,74 @@ h2 {
   border: 1px solid #b7c1ba;
   background: #fff;
   padding: 10px;
+}
+.admin-form textarea {
+  min-height: 150px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+}
+.wide-field {
+  grid-column: 1 / -1;
+}
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check-field input {
+  width: auto;
+  margin: 0;
+}
+.prompt-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.prompt-actions label {
+  color: #59675f;
+  font-size: 11px;
+}
+.prompt-actions input {
+  display: block;
+  margin-top: 6px;
+  border: 1px solid #aeb9b1;
+  padding: 9px;
+}
+.prompt-actions button {
+  border: 1px solid #9eaaa2;
+  background: #f5f7f4;
+  padding: 9px 12px;
+}
+.prompt-actions button:disabled {
+  opacity: 0.45;
+}
+.risk-copy {
+  border-left: 3px solid #b14b3e;
+  padding-left: 12px;
+  color: #8f443b !important;
+}
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.filter-form label {
+  color: #59675f;
+  font-size: 11px;
+}
+.filter-form input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #aeb9b1;
+  padding: 9px;
+}
+.filter-form button {
+  border: 0;
+  background: #22563a;
+  color: #fff;
+  padding: 10px 15px;
 }
 .admin-form button,
 .action-row button {
@@ -696,6 +766,9 @@ h2 {
   .metric-grid,
   .analytics-grid,
   .admin-form {
+    grid-template-columns: 1fr;
+  }
+  .filter-form {
     grid-template-columns: 1fr;
   }
   .split-lookup,

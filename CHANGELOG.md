@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Real Prompt version/effect controls, source-linked Memory lifecycle management, and filterable Evaluation/quality-warning console views.
 - Task-rooted correlated observability across Goal, Plan/Workflow, runtime events, model and MCP calls, results, inference, evaluation, feedback, evolution, and errors.
 - Workflow DAG workbench with strict DSL validation, immutable administrator revisions, explicit confirmation, PostgreSQL node-event trace lookup, and progressive execution replay.
 - Real MCP and Skill console lifecycle controls plus PostgreSQL-backed, credential-safe MCP management-operation history.
