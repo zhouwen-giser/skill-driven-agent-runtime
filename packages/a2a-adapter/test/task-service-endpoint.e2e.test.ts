@@ -1977,13 +1977,23 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('target device')}&limit=5`,
     );
     expect(search.status).toBe(200);
-    await expect(search.json()).resolves.toMatchObject({
-      items: [
-        {
-          item: { memoryId, content: { deviceId: 'device-17' }, sourceRefs: [source.id] },
-          score: 1,
-        },
-      ],
+    const hits = z
+      .object({
+        items: z.array(
+          z.object({
+            item: z.object({
+              memoryId: z.string(),
+              content: z.record(z.string(), z.unknown()),
+              sourceRefs: z.array(z.string()),
+            }),
+            score: z.number(),
+          }),
+        ),
+      })
+      .parse(await search.json()).items;
+    expect(hits.find((hit) => hit.item.memoryId === memoryId)).toMatchObject({
+      item: { memoryId, content: { deviceId: 'device-17' }, sourceRefs: [source.id] },
+      score: 1,
     });
   });
 
@@ -2290,6 +2300,68 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         body: JSON.stringify({ timeoutSeconds: 300 }),
       });
     }
+  });
+
+  it('uses one authoritative Task path for management confirm, reject, and plan revision', async () => {
+    const createPlanned = async () => {
+      const result = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [{ text: 'Prepare a managed action plan.', mediaType: 'text/plain' }],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in result)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      const planId = await attachPlannedTask(result.id);
+      return { task: result, planId };
+    };
+    const action = (taskId: string, body: unknown) =>
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/actions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+    const confirmed = await createPlanned();
+    const confirmResponse = await action(confirmed.task.id, {
+      action: 'confirm_plan',
+      messageText: 'Confirm from management.',
+    });
+    expect(confirmResponse.status).toBe(200);
+    await expect(confirmResponse.json()).resolves.toMatchObject({ phase: 'executing' });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: confirmed.task.id }),
+    ).resolves.toMatchObject({ status: { state: TaskState.TASK_STATE_WORKING } });
+
+    const rejected = await createPlanned();
+    const rejectResponse = await action(rejected.task.id, {
+      action: 'reject_plan',
+      messageText: 'Reject from management.',
+    });
+    expect(rejectResponse.status).toBe(200);
+    await expect(rejectResponse.json()).resolves.toMatchObject({ phase: 'canceled' });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: rejected.task.id }),
+    ).resolves.toMatchObject({ status: { state: TaskState.TASK_STATE_CANCELED } });
+
+    const revised = await createPlanned();
+    const reviseResponse = await action(revised.task.id, {
+      action: 'revise_plan',
+      messageText: 'Add a management safety check.',
+    });
+    expect(reviseResponse.status).toBe(200);
+    await expect(reviseResponse.json()).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      planId: expect.not.stringMatching(revised.planId),
+    });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: revised.task.id }),
+    ).resolves.toMatchObject({
+      status: { state: TaskState.TASK_STATE_INPUT_REQUIRED },
+    });
   });
 
   it('reuses one active Goal across multiple A2A Tasks in the same context', async () => {

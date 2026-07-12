@@ -134,6 +134,14 @@ paths:
       responses:
         '200': { description: Task with Goal and plan identity }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/actions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: actOnTaskPlan
+      description: Uses the same TaskService path as A2A follow-up messages to confirm, reject, or naturally revise a plan.
+      responses:
+        '200': { description: Authoritative Task state after the action }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflow-controls:
     post:
       operationId: startWorkflowControl

@@ -14,7 +14,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 
 ## Deliverables
 
-- [ ] confirmation via A2A and management API
+- [x] confirmation via A2A and management API
 - [ ] pause/resume thresholds and cancellation
 - [ ] goal patch invalidation and compensation planning
 - [x] result normalization and structured output
@@ -34,6 +34,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: require per-round Goal evaluation and persist explicit input/plan/Skill/capability/termination actions with immutable outer replanning.
 - [x] 2026-07-12: project fixed-stage capability gaps onto authoritative Tasks with A2A INPUT_REQUIRED evidence and suggested tool contracts.
 - [x] 2026-07-12: infer missing Goal input from conversation/global-memory/existing-data evidence before asking one explicit question.
+- [x] 2026-07-12: route management confirm/reject/revise through the same authoritative TaskService path as A2A follow-up.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。

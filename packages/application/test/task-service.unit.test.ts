@@ -213,6 +213,28 @@ describe('TaskService', () => {
     });
     expect(harness.operations).toContain('plan.revise:plan-long');
   });
+
+  it('rejects a confirmation-bound plan through the shared follow-up transition', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'reject_plan',
+        messageText: 'Reject.',
+      }),
+    ).resolves.toMatchObject({ phase: 'canceled', phaseMessage: 'Plan rejected.' });
+  });
 });
 
 function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resumed'): Readonly<{

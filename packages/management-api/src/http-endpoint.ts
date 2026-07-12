@@ -31,6 +31,10 @@ import type {
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
+const TaskActionSchema = z.object({
+  action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
+  messageText: z.string().min(1),
+});
 const CreateMemorySchema = z.object({
   memoryId: z.string().min(1).optional(),
   type: z.enum([
@@ -219,7 +223,7 @@ export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
-  readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
+  readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly memories: Pick<MemoryService, 'create' | 'get' | 'search'>;
@@ -476,6 +480,19 @@ export async function startManagementHttpEndpoint(
     '/api/v1/tasks/:taskId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.tasks.get(pathValue(request, 'taskId')));
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/actions',
+    asyncRoute(async (request, response) => {
+      const input = TaskActionSchema.parse(request.body);
+      response.json(
+        await options.operations.tasks.followUp({
+          taskId: pathValue(request, 'taskId'),
+          action: input.action,
+          messageText: input.messageText,
+        }),
+      );
     }),
   );
   app.get(

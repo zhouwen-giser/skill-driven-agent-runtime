@@ -488,6 +488,26 @@ describe('management HTTP API contract', () => {
               createdAt: '2026-07-12T00:00:00.000Z',
               updatedAt: '2026-07-12T00:00:00.000Z',
             }),
+          followUp: (input) =>
+            Promise.resolve({
+              taskId: input.taskId,
+              contextId: 'context-1',
+              userId: 'anonymous',
+              requestText: 'Inspect.',
+              requestMetadata: {},
+              phase:
+                input.action === 'confirm_plan'
+                  ? ('executing' as const)
+                  : input.action === 'reject_plan'
+                    ? ('canceled' as const)
+                    : ('awaiting_plan_confirmation' as const),
+              phaseMessage: `Action ${input.action}.`,
+              goalId: 'goal-1',
+              goalVersion: 1,
+              planId: input.action === 'revise_plan' ? 'plan-2' : 'plan-1',
+              createdAt: '2026-07-12T00:00:00.000Z',
+              updatedAt: '2026-07-12T00:00:01.000Z',
+            }),
         },
         workflowRevisions: {
           ...configured.workflowRevisions,
@@ -513,6 +533,13 @@ describe('management HTTP API contract', () => {
     });
     expect(attached.status).toBe(200);
     await expect(attached.json()).resolves.toMatchObject({ taskId: 'task-1', planId: 'plan-1' });
+    const confirmed = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'confirm_plan', messageText: 'Confirm.' }),
+    });
+    expect(confirmed.status).toBe(200);
+    await expect(confirmed.json()).resolves.toMatchObject({ phase: 'executing' });
 
     const revised = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/revisions`, {
       method: 'POST',
@@ -612,7 +639,7 @@ function operations(failServerList = false): ManagementOperations {
     goals: { create: unused, get: unused, history: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     goalCancellations: { cancel: unused, get: unused, list: () => Promise.resolve([]) },
-    tasks: { attachPlan: unused, get: unused },
+    tasks: { attachPlan: unused, followUp: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
