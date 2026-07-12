@@ -777,7 +777,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           response.json(),
         ),
       );
-    const template = induced.items.find((item) => item.goalKey.includes('template_reuse'));
+    const template = induced.items.find((item) => item.goalKey.includes(skillId.toLowerCase()));
     expect(template).toMatchObject({
       version: 1,
       sourceSuccessCount: 3,
@@ -2231,7 +2231,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         memoryId,
         type: 'fact',
         content: { deviceId: 'device-17', sourceUserId: 'memory-user-a' },
-        summary: 'The target device is device-17.',
+        summary: `The target device is device-17. Evidence ${memoryId}.`,
         sourceRefs: [source.id],
         confidence: 0.95,
       }),
@@ -2288,7 +2288,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             memoryId,
             type: 'fact',
             content: { deviceId: 'device-17' },
-            summary: 'The remembered target is device-17.',
+            summary: `The remembered target is device-17. Evidence ${memoryId}.`,
             sourceRefs: [source.id],
             confidence: 0.98,
           }),
@@ -3216,6 +3216,31 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         }),
       ],
     });
+    const memorySearch = z
+      .object({
+        items: z.array(
+          z.object({
+            item: z.object({
+              type: z.string(),
+              summary: z.string(),
+              content: z.record(z.string(), z.unknown()),
+              sourceRefs: z.array(z.string()),
+            }),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('The device was online.')}&limit=20`,
+        ).then((response) => response.json()),
+      );
+    expect(
+      memorySearch.items.find((hit) => hit.item.summary === 'The device was online.')?.item,
+    ).toMatchObject({
+      type: 'fact',
+      content: { kind: 'fact', statement: 'The device was online.' },
+      sourceRefs: [expect.stringMatching(/^task:/), expect.stringMatching(/^processed-result:/)],
+    });
   });
 
   it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
@@ -3418,6 +3443,9 @@ async function startModelLoopback(): Promise<Server> {
         const resultProcessingRequest = body.messages?.some(
           (message) => message.content?.includes('process_workflow_result') === true,
         );
+        const memoryRefinementRequest = body.messages?.some(
+          (message) => message.content?.includes('refine_memory') === true,
+        );
         const goalPatchDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('generate_goal_patch') === true,
         );
@@ -3509,6 +3537,20 @@ async function startModelLoopback(): Promise<Server> {
               { kind: 'fact', content: 'The device was online.', confidence: 0.9 },
             ],
           });
+          return;
+        }
+        if (memoryRefinementRequest === true) {
+          const requestData = z
+            .object({
+              candidate: z.object({
+                type: z.string(),
+                content: z.record(z.string(), z.unknown()),
+                summary: z.string(),
+                confidence: z.number(),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'refine_memory'));
+          respondStructured(response, requestData.candidate);
           return;
         }
         if (skillChildExecutionRequest === true) {

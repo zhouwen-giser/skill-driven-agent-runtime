@@ -261,7 +261,7 @@ export interface ManagementOperations {
   readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
-  readonly memories: Pick<MemoryService, 'create' | 'get' | 'search'>;
+  readonly memories: Pick<MemoryService, 'refine' | 'get' | 'search'>;
   readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
@@ -350,7 +350,7 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const input = CreateMemorySchema.parse(request.body);
       response.status(201).json(
-        await options.operations.memories.create({
+        await options.operations.memories.refine({
           type: input.type,
           content: input.content,
           summary: input.summary,

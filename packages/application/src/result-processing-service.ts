@@ -4,6 +4,7 @@ import { normalizeResultEnvelope, type ProcessedResultRecord } from '../../domai
 
 import type { Clock, ProcessedResultRepository, StructuredModelProvider } from './ports.js';
 import type { ResultProcessor } from './result-processor.js';
+import type { MemoryService } from './memory-service.js';
 
 const ResultDecisionSchema = z
   .object({
@@ -83,6 +84,7 @@ export class ResultProcessingService {
   readonly #clock: Clock;
   readonly #nextId: () => string;
   readonly #maxContextCharacters: number;
+  readonly #memories: Pick<MemoryService, 'admitProcessedResult'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -92,6 +94,7 @@ export class ResultProcessingService {
       clock: Clock;
       nextId: () => string;
       maxContextCharacters?: number;
+      memories?: Pick<MemoryService, 'admitProcessedResult'>;
     }>,
   ) {
     this.#model = dependencies.model;
@@ -100,6 +103,7 @@ export class ResultProcessingService {
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
     this.#maxContextCharacters = dependencies.maxContextCharacters ?? 16_000;
+    this.#memories = dependencies.memories;
   }
 
   async process(
@@ -154,6 +158,7 @@ export class ResultProcessingService {
       createdAt: this.#clock.now(),
     };
     await this.#repository.save(record);
+    await this.#memories?.admitProcessedResult(record);
     return record;
   }
 

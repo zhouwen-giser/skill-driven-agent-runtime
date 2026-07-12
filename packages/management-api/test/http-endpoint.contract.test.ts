@@ -920,7 +920,7 @@ describe('management HTTP API contract', () => {
       operations: {
         ...configured,
         memories: {
-          create: () => Promise.resolve(item),
+          refine: () => Promise.resolve(item),
           get: () => Promise.resolve(item),
           search: () => Promise.resolve([{ item, score: 1 }]),
         },
@@ -990,7 +990,7 @@ function operations(failServerList = false): ManagementOperations {
     tasks: { attachPlan: unused, followUp: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
-    memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
+    memories: { refine: unused, get: unused, search: () => Promise.resolve([]) },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     workflowTemplates: {

@@ -253,6 +253,13 @@ export async function startServerRuntime(
     maxAttempts: 3,
     templates: workflowTemplates,
   });
+  const memories = new MemoryService({
+    repository: new PostgresMemoryRepository(pool),
+    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
+    clock,
+    nextId: () => `memory-${randomUUID()}`,
+    model: modelRuntime,
+  });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const resultProcessing = new ResultProcessingService({
     model: modelRuntime,
@@ -260,12 +267,7 @@ export async function startServerRuntime(
     repository: new PostgresProcessedResultRepository(pool),
     clock,
     nextId: () => `processed-result-${randomUUID()}`,
-  });
-  const memories = new MemoryService({
-    repository: new PostgresMemoryRepository(pool),
-    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
-    clock,
-    nextId: () => `memory-${randomUUID()}`,
+    memories,
   });
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
