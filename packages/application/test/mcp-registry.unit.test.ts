@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   McpDependencyWarning,
   McpInvocation,
+  McpManagementOperation,
   McpTool,
   McpToolEnhancement,
 } from '../../domain/src/index.js';
@@ -53,6 +54,11 @@ describe('McpRegistryService', () => {
       commonErrors: ['Unavailable'],
       tags: ['device'],
     });
+    expect(repository.managementOperations.map((operation) => operation.operationType)).toEqual([
+      'register',
+      'tool_metadata_update',
+      'refresh',
+    ]);
   });
 
   it('validates calls against the current original Tool schema before transport invocation', async () => {
@@ -149,11 +155,25 @@ describe('McpRegistryService', () => {
     );
     expect(repository.record?.server.status).toBe('unreachable');
     expect(transport.discoveries).toBe(1);
+    expect(repository.managementOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationType: 'credentials_update',
+          summary: { headerNames: ['Authorization'] },
+        }),
+        expect.objectContaining({
+          operationType: 'health_check',
+          summary: { status: 'unreachable', durationMs: 0 },
+        }),
+      ]),
+    );
+    expect(JSON.stringify(repository.managementOperations)).not.toContain('Bearer rotated');
   });
 });
 
 function createService(repository: McpRegistryRepository, transport: McpTransportAdapter) {
   let invocationSequence = 0;
+  let managementOperationSequence = 0;
   return new McpRegistryService({
     repository,
     transport,
@@ -163,7 +183,11 @@ function createService(repository: McpRegistryRepository, transport: McpTranspor
       decrypt: (encrypted) => (encrypted === 'none' ? {} : { Authorization: encrypted }),
     },
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
-    ids: { nextInvocationId: () => `invocation-${String(++invocationSequence)}` },
+    ids: {
+      nextInvocationId: () => `invocation-${String(++invocationSequence)}`,
+      nextManagementOperationId: () =>
+        `management-operation-${String(++managementOperationSequence)}`,
+    },
   });
 }
 
@@ -206,6 +230,7 @@ class MemoryMcpRepository implements McpRegistryRepository {
   tools: readonly McpTool[] = [];
   invocations: readonly McpInvocation[] = [];
   warnings: readonly McpDependencyWarning[] = [];
+  managementOperations: readonly McpManagementOperation[] = [];
   findServer() {
     return Promise.resolve(this.record);
   }
@@ -231,6 +256,13 @@ class MemoryMcpRepository implements McpRegistryRepository {
   }
   listInvocations() {
     return Promise.resolve(this.invocations);
+  }
+  saveManagementOperation(operation: McpManagementOperation) {
+    this.managementOperations = [...this.managementOperations, operation];
+    return Promise.resolve();
+  }
+  listManagementOperations() {
+    return Promise.resolve(this.managementOperations);
   }
   listDependencyWarnings() {
     return Promise.resolve(this.warnings);

@@ -16,7 +16,7 @@ export async function managementRequest<T>(path: string, init?: RequestInit): Pr
     ...init,
     headers,
   });
-  const payload: unknown = await response.json();
+  const payload: unknown = response.status === 204 ? undefined : await response.json();
   if (!response.ok) throw new ManagementApiError(response.status, payload);
   return payload as T;
 }

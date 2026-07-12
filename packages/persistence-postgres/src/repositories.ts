@@ -45,6 +45,7 @@ import type {
   ConversationContext,
   McpDependencyWarning,
   McpInvocation,
+  McpManagementOperation,
   McpServer,
   McpTool,
   McpToolDependencyChange,
@@ -492,6 +493,16 @@ interface McpInvocationRow extends QueryResultRow {
   started_at: Date | string;
   completed_at: Date | string;
   duration_ms: number;
+}
+
+interface McpManagementOperationRow extends QueryResultRow {
+  operation_id: string;
+  server_id: string;
+  operation_type: McpManagementOperation['operationType'];
+  actor: McpManagementOperation['actor'];
+  target: string | null;
+  summary_json: Record<string, unknown>;
+  occurred_at: Date | string;
 }
 
 export class PostgresConversationContextRepository implements ConversationContextRepository {
@@ -4026,6 +4037,33 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     return result.rows.map(mapMcpInvocationRow);
   }
 
+  async saveManagementOperation(operation: McpManagementOperation): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO mcp_management_operation
+         (operation_id, server_id, operation_type, actor, target, summary_json, occurred_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        operation.operationId,
+        operation.serverId,
+        operation.operationType,
+        operation.actor,
+        operation.target ?? null,
+        JSON.stringify(operation.summary),
+        operation.occurredAt,
+      ],
+    );
+  }
+
+  async listManagementOperations(serverId: string): Promise<readonly McpManagementOperation[]> {
+    const result = await this.#pool.query<McpManagementOperationRow>(
+      `SELECT operation_id, server_id, operation_type, actor, target, summary_json, occurred_at
+       FROM mcp_management_operation WHERE server_id = $1
+       ORDER BY occurred_at, operation_id`,
+      [serverId],
+    );
+    return result.rows.map(mapMcpManagementOperationRow);
+  }
+
   async listDependencyWarnings(serverId: string): Promise<readonly McpDependencyWarning[]> {
     const result = await this.#pool.query<McpWarningRow>(
       `SELECT warning_id, server_id, tool_name, reason, skill_id, skill_version,
@@ -4509,6 +4547,18 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     startedAt: toIsoString(row.started_at),
     completedAt: toIsoString(row.completed_at),
     durationMs: row.duration_ms,
+  };
+}
+
+function mapMcpManagementOperationRow(row: McpManagementOperationRow): McpManagementOperation {
+  return {
+    operationId: row.operation_id,
+    serverId: row.server_id,
+    operationType: row.operation_type,
+    actor: row.actor,
+    ...(row.target === null ? {} : { target: row.target }),
+    summary: row.summary_json,
+    occurredAt: toIsoString(row.occurred_at),
   };
 }
 

@@ -286,6 +286,27 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { method: 'DELETE' },
       );
       expect(deleteResponse.status).toBe(204);
+      const operationsResponse = await fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/operations`,
+      );
+      const operations = z
+        .object({
+          items: z.array(
+            z.object({
+              operationType: z.string(),
+              summary: z.record(z.string(), z.unknown()),
+            }),
+          ),
+        })
+        .parse(await operationsResponse.json());
+      expect(operations.items.map((item) => item.operationType)).toEqual([
+        'register',
+        'tool_metadata_update',
+        'health_check',
+        'credentials_update',
+        'delete',
+      ]);
+      expect(JSON.stringify(operations)).not.toContain('Bearer local-test-only');
     } finally {
       await mockMcp.close();
     }

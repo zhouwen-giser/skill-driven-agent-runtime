@@ -5,6 +5,7 @@ import type {
   McpServer,
   McpDependencyWarning,
   McpInvocation,
+  McpManagementOperation,
   McpTool,
   McpToolEnhancement,
   ModelInvocationRecord,
@@ -369,6 +370,8 @@ export interface McpRegistryRepository {
   deleteServer(serverId: string): Promise<void>;
   saveInvocation(invocation: McpInvocation): Promise<void>;
   listInvocations(serverId: string): Promise<readonly McpInvocation[]>;
+  saveManagementOperation(operation: McpManagementOperation): Promise<void>;
+  listManagementOperations(serverId: string): Promise<readonly McpManagementOperation[]>;
   listDependencyWarnings(serverId: string): Promise<readonly McpDependencyWarning[]>;
   updateToolEnhancement(
     serverId: string,

@@ -306,6 +306,7 @@ export interface ManagementOperations {
     | 'checkHealth'
     | 'listDependencyWarnings'
     | 'listInvocations'
+    | 'listManagementOperations'
     | 'listServers'
     | 'listTools'
     | 'refresh'
@@ -950,6 +951,16 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       response.json({
         items: await options.operations.mcp.listInvocations(pathValue(request, 'serverId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/mcp/servers/:serverId/operations',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.mcp.listManagementOperations(
+          pathValue(request, 'serverId'),
+        ),
       });
     }),
   );

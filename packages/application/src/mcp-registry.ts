@@ -3,6 +3,8 @@ import {
   createMcpTool,
   createMcpToolEnhancement,
   type McpInvocation,
+  type McpManagementOperation,
+  type McpManagementOperationType,
   type McpServer,
   type McpTool,
   type McpToolEnhancement,
@@ -51,7 +53,7 @@ export class McpRegistryService {
   readonly #cipher: SecretCipher;
   readonly #schemas: JsonSchemaValidator;
   readonly #clock: Clock;
-  readonly #ids: Readonly<{ nextInvocationId(): string }>;
+  readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
   constructor(
     dependencies: Readonly<{
@@ -60,7 +62,7 @@ export class McpRegistryService {
       cipher: SecretCipher;
       schemas: JsonSchemaValidator;
       clock: Clock;
-      ids: Readonly<{ nextInvocationId(): string }>;
+      ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -89,6 +91,10 @@ export class McpRegistryService {
     const encryptedCredential = this.#cipher.encrypt(input.credentialHeaders);
     const tools = await this.#discover(server, input.credentialHeaders, timestamp);
     await this.#repository.saveServerAndReplaceTools({ server, encryptedCredential }, tools);
+    await this.#auditManagementOperation(server.serverId, 'register', {
+      toolRevision: server.toolRevision,
+      discoveredToolCount: tools.length,
+    });
     return { server, tools, dependencyWarnings: [] };
   }
 
@@ -115,6 +121,11 @@ export class McpRegistryService {
       tools,
       dependencyWarnings,
     );
+    await this.#auditManagementOperation(serverId, 'refresh', {
+      toolRevision: server.toolRevision,
+      discoveredToolCount: tools.length,
+      dependencyWarningCount: dependencyWarnings.length,
+    });
     return { server, tools, dependencyWarnings };
   }
 
@@ -193,6 +204,7 @@ export class McpRegistryService {
       headers: this.#cipher.decrypt(record.encryptedCredential),
     });
     await this.#repository.deleteServer(serverId);
+    await this.#auditManagementOperation(serverId, 'delete', { disconnected: true });
   }
 
   async updateCredentials(
@@ -211,6 +223,9 @@ export class McpRegistryService {
       { ...record, encryptedCredential: this.#cipher.encrypt(credentialHeaders) },
       tools,
     );
+    await this.#auditManagementOperation(serverId, 'credentials_update', {
+      headerNames: Object.keys(credentialHeaders).sort(),
+    });
   }
 
   async checkHealth(serverId: string): Promise<McpHealthResult> {
@@ -231,6 +246,10 @@ export class McpRegistryService {
       { server, encryptedCredential: record.encryptedCredential },
       await this.#repository.listTools(serverId),
     );
+    await this.#auditManagementOperation(serverId, 'health_check', {
+      status,
+      durationMs: elapsedMilliseconds(startedAt, checkedAt),
+    });
     return {
       serverId,
       status,
@@ -242,6 +261,10 @@ export class McpRegistryService {
 
   listInvocations(serverId: string) {
     return this.#repository.listInvocations(serverId);
+  }
+
+  listManagementOperations(serverId: string) {
+    return this.#repository.listManagementOperations(serverId);
   }
 
   listServers() {
@@ -270,6 +293,30 @@ export class McpRegistryService {
       toolName,
       createMcpToolEnhancement(enhancement),
     );
+    await this.#auditManagementOperation(
+      serverId,
+      'tool_metadata_update',
+      { tags: enhancement.tags, scenarioCount: enhancement.scenarios.length },
+      toolName,
+    );
+  }
+
+  async #auditManagementOperation(
+    serverId: string,
+    operationType: McpManagementOperationType,
+    summary: Readonly<Record<string, unknown>>,
+    target?: string,
+  ): Promise<void> {
+    const operation: McpManagementOperation = {
+      operationId: this.#ids.nextManagementOperationId(),
+      serverId,
+      operationType,
+      actor: 'anonymous-management',
+      ...(target === undefined ? {} : { target }),
+      summary,
+      occurredAt: this.#clock.now(),
+    };
+    await this.#repository.saveManagementOperation(operation);
   }
 
   async #discover(

@@ -323,6 +323,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(evaluationAnalyticsMigration);
+  const mcpManagementOperationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0050_mcp_management_operation.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(mcpManagementOperationMigration);
 });
 
 beforeEach(async () => {
@@ -332,7 +340,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -2258,6 +2266,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
       commonErrors: ['offline'],
       tags: ['device'],
     });
+    await repository.saveManagementOperation({
+      operationId: 'mcp-operation-1',
+      serverId: 'mcp.devices',
+      operationType: 'credentials_update',
+      actor: 'anonymous-management',
+      summary: { headerNames: ['Authorization'] },
+      occurredAt: '2026-07-11T10:03:00.000Z',
+    });
 
     await expect(repository.findServer('mcp.devices')).resolves.toMatchObject({
       server: { toolRevision: 2 },
@@ -2290,6 +2306,16 @@ describe('PostgreSQL protocol-domain repositories', () => {
         arguments: { deviceId: 'device-1' },
         result: { status: 'online' },
       }),
+    ]);
+    await expect(repository.listManagementOperations('mcp.devices')).resolves.toEqual([
+      {
+        operationId: 'mcp-operation-1',
+        serverId: 'mcp.devices',
+        operationType: 'credentials_update',
+        actor: 'anonymous-management',
+        summary: { headerNames: ['Authorization'] },
+        occurredAt: '2026-07-11T10:03:00.000Z',
+      },
     ]);
   });
 

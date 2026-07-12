@@ -430,6 +430,21 @@ paths:
       operationId: listMcpInvocations
       responses:
         '200': { description: Replayable invocation summaries }
+  /api/v1/mcp/servers/{serverId}/operations:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    get:
+      operationId: listMcpManagementOperations
+      description: Returns credential-safe, append-only administrator operation evidence.
+      responses:
+        '200':
+          {
+            description: MCP registration,
+            refresh,
+            health,
+            credential,
+            metadata,
+            and deletion operations,
+          }
   /api/v1/mcp/servers/{serverId}/warnings:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     get:

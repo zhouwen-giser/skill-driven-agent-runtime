@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Real MCP and Skill console lifecycle controls plus PostgreSQL-backed, credential-safe MCP management-operation history.
 - React/Vite operational console foundation with real management-API views, persistent trusted-intranet warning, exact-version OSS intake, and same-process static delivery under `/console`.
 - Route-complete management OpenAPI coverage for all 94 implemented API operations, enforced by an automated drift and duplicate-operation-id gate.
 - Filterable PostgreSQL Evaluation analytics for success, duration, call cost, failure types, Skill-version stability, and quality trend, including explicit model-to-Task correlation.

@@ -49,6 +49,35 @@ describe('management HTTP API contract', () => {
     await expect(uses.json()).resolves.toEqual({ items: [] });
   });
 
+  it('exposes credential-safe MCP management operation evidence', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        mcp: {
+          ...operations().mcp,
+          listManagementOperations: () =>
+            Promise.resolve([
+              {
+                operationId: 'operation-1',
+                serverId: 'mcp.devices',
+                operationType: 'credentials_update' as const,
+                actor: 'anonymous-management' as const,
+                summary: { headerNames: ['Authorization'] },
+                occurredAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/operations`);
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toEqual({
+      items: [expect.objectContaining({ operationType: 'credentials_update' })],
+    });
+    expect(JSON.stringify(payload)).not.toContain('Bearer');
+  });
+
   it('reads and updates the unified Task wait timeout', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -1299,6 +1328,7 @@ function operations(failServerList = false): ManagementOperations {
       delete: unused,
       listDependencyWarnings: () => Promise.resolve([]),
       listInvocations: () => Promise.resolve([]),
+      listManagementOperations: () => Promise.resolve([]),
       listServers: () =>
         failServerList
           ? Promise.reject(new Error('database-password leaked by driver'))

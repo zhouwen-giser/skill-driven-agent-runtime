@@ -374,7 +374,10 @@ export async function startServerRuntime(
     cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
     schemas: schemaValidator,
     clock,
-    ids: { nextInvocationId: () => `mcp-invocation-${randomUUID()}` },
+    ids: {
+      nextInvocationId: () => `mcp-invocation-${randomUUID()}`,
+      nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
+    },
   });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);

@@ -68,6 +68,24 @@ export interface McpInvocation {
   readonly durationMs: number;
 }
 
+export type McpManagementOperationType =
+  | 'register'
+  | 'refresh'
+  | 'health_check'
+  | 'credentials_update'
+  | 'tool_metadata_update'
+  | 'delete';
+
+export interface McpManagementOperation {
+  readonly operationId: string;
+  readonly serverId: string;
+  readonly operationType: McpManagementOperationType;
+  readonly actor: 'anonymous-management';
+  readonly target?: string;
+  readonly summary: Readonly<Record<string, unknown>>;
+  readonly occurredAt: string;
+}
+
 export function createMcpServer(input: McpServer): McpServer {
   const serverId = requireIdentifier(input.serverId, 'MCP_SERVER_ID_REQUIRED');
   const name = input.name.trim();

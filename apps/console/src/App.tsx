@@ -7,6 +7,8 @@ import {
   managementRequest,
   type SkillSummary,
 } from './api.js';
+import { McpPanel } from './McpPanel.js';
+import { SkillsPanel } from './SkillsPanel.js';
 
 type Section = 'overview' | 'skills' | 'mcp' | 'workflows' | 'tasks' | 'memory' | 'evaluation';
 
@@ -76,10 +78,8 @@ export function App() {
 
 function SectionView({ section }: { readonly section: Section }) {
   if (section === 'overview') return <Overview />;
-  if (section === 'skills')
-    return <ResourceList title="Skill Registry" endpoint="/api/v1/skills" />;
-  if (section === 'mcp')
-    return <ResourceList title="MCP Server Registry" endpoint="/api/v1/mcp/servers" />;
+  if (section === 'skills') return <SkillsPanel />;
+  if (section === 'mcp') return <McpPanel />;
   if (section === 'evaluation') return <Analytics />;
   return <Lookup section={section} />;
 }
@@ -109,34 +109,6 @@ function Overview() {
         <p>V1 不提供认证、授权或租户隔离。部署必须实施网络隔离。</p>
       </div>
     </>
-  );
-}
-
-function ResourceList({ title, endpoint }: { readonly title: string; readonly endpoint: string }) {
-  const resource = useResource<unknown>(endpoint);
-  const records = normalizeRecords(resource.data);
-  return (
-    <div className="panel">
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">REAL API DATA</span>
-          <h2>{title}</h2>
-        </div>
-        <Status state={resource} />
-      </div>
-      {records.length === 0 ? (
-        <Empty loading={resource.loading} error={resource.error} />
-      ) : (
-        <div className="record-list">
-          {records.map((record, index) => (
-            <article key={recordKey(record, index)}>
-              <strong>{recordTitle(record, index)}</strong>
-              <pre>{JSON.stringify(record, null, 2)}</pre>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -295,33 +267,16 @@ function Empty({
   return <div className="empty">{loading ? '正在读取管理 API…' : (error ?? '当前没有记录。')}</div>;
 }
 function arrayCount(value: unknown) {
-  return Array.isArray(value) ? value.length : '—';
-}
-function normalizeRecords(value: unknown): readonly Record<string, unknown>[] {
-  if (Array.isArray(value)) return value.filter(isRecord);
-  if (isRecord(value)) {
-    for (const candidate of Object.values(value))
-      if (Array.isArray(candidate)) return candidate.filter(isRecord);
+  if (Array.isArray(value)) return value.length;
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'items' in value &&
+    Array.isArray(value.items)
+  ) {
+    return value.items.length;
   }
-  return [];
-}
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-function recordKey(record: Record<string, unknown>, index: number) {
-  return firstDisplayString(record.id, record.skillId, record.serverId) ?? String(index);
-}
-function recordTitle(record: Record<string, unknown>, index: number) {
-  return (
-    firstDisplayString(record.name, record.skillId, record.serverId) ??
-    `Record ${String(index + 1)}`
-  );
-}
-function firstDisplayString(...values: readonly unknown[]) {
-  for (const value of values) {
-    if (typeof value === 'string' || typeof value === 'number') return String(value);
-  }
-  return undefined;
+  return '—';
 }
 function humanize(value: string) {
   return value.replaceAll(/([A-Z])/g, ' $1').toUpperCase();

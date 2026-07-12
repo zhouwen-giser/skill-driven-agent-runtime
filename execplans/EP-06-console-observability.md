@@ -26,6 +26,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Read the requirement, architecture, OSS, status, and current management-boundary material; inventory the current routes and traceability gaps.
 - [x] Complete exact-version OSS Intake and ADR-064 for the React/Vite console stack.
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.
+- [x] Deliver real MCP lifecycle controls and PostgreSQL management-operation audit; expose current Skill enable/disable/version/warning/rollback controls.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -38,6 +39,8 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 
 - The backend already exposes broad real management operations, but route coverage substantially exceeds the current OpenAPI document and several resources are identifier lookups rather than filterable inventories.
 - The OpenAPI was missing 24 newer operations. It now covers all 94 implemented `/api` method/path pairs, with a permanent route-drift gate in `pnpm verify`.
+- MCP invocation audit did not satisfy administrator operation logging. ADR-065 adds a separate credential-safe immutable record that survives Server deletion; OpenAPI now covers 95 operations.
+- The extended E2E scenario is implemented, but two full attempts and one isolated Compose-start retry hung before test output. Unit, contract, real PostgreSQL integration, and console build evidence pass; E2E remains explicitly unverified for this increment.
 - The existing root ESLint ignore matched only the root `dist`; the console build exposed that nested generated assets must use `**/dist/**` to keep generated third-party bundles outside source linting.
 - No console application existed at EP-06 start. The first production bundle is now independently buildable and contains no static operational records.
 

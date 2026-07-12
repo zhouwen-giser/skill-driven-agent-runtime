@@ -53,6 +53,14 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 
 ### EvaluationReport
 
+### McpManagementOperation
+
+- Immutable PostgreSQL evidence for register, refresh, health check, credential rotation, Tool metadata update, and deletion.
+- Uses the explicit `anonymous-management` V1 actor because authentication is intentionally absent.
+- Stores credential-safe summaries only and remains queryable after the current Server row is deleted.
+
+### EvaluationReport
+
 由 Goal、Workflow、Skill、Result、Tool 五类评估器输出，汇总为任务质量报告。
 
 ### EvaluationInfluenceRecord
