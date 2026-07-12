@@ -87,7 +87,7 @@ const ToolPolicySchema = z.object({
   forbidden: z.array(ToolReferenceSchema),
 });
 const RuntimePolicySchema = z.object({
-  autoConfirmPlan: z.boolean(),
+  autoConfirmPlan: z.boolean().default(false),
   maxReplans: z.number().int().optional(),
   maxDurationSeconds: z.number().int().optional(),
   maxLlmCalls: z.number().int().optional(),
@@ -120,6 +120,7 @@ const SkillCandidateSchema = z.object({
   name: z.string(),
   summary: z.string(),
   capabilities: z.array(z.string()),
+  autoConfirmPlan: z.boolean(),
   createdAt: z.string(),
   semanticScore: z.number().min(0).max(1),
   metrics: SkillMetricsSchema,
@@ -157,6 +158,8 @@ interface TaskRow extends QueryResultRow {
   goal_id: string | null;
   goal_version: number | null;
   plan_id: string | null;
+  selected_skill_id: string | null;
+  selected_skill_version: number | null;
   output_text: string | null;
   output_structured: unknown;
   capability_gap_json: unknown;
@@ -1161,7 +1164,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -1175,9 +1178,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version, plan_id,
+         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -1186,6 +1189,8 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          goal_id = EXCLUDED.goal_id,
          goal_version = EXCLUDED.goal_version,
          plan_id = EXCLUDED.plan_id,
+         selected_skill_id = EXCLUDED.selected_skill_id,
+         selected_skill_version = EXCLUDED.selected_skill_version,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          capability_gap_json = EXCLUDED.capability_gap_json,
@@ -1204,6 +1209,8 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.goalId ?? null,
         task.goalVersion ?? null,
         task.planId ?? null,
+        task.selectedSkillId ?? null,
+        task.selectedSkillVersion ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
         task.capabilityGap ?? null,
@@ -1254,7 +1261,7 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
        SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
+         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
@@ -3141,6 +3148,10 @@ function mapTaskRow(row: TaskRow): AgentTask {
     ...(row.goal_id === null ? {} : { goalId: row.goal_id }),
     ...(row.goal_version === null ? {} : { goalVersion: row.goal_version }),
     ...(row.plan_id === null ? {} : { planId: row.plan_id }),
+    ...(row.selected_skill_id === null ? {} : { selectedSkillId: row.selected_skill_id }),
+    ...(row.selected_skill_version === null
+      ? {}
+      : { selectedSkillVersion: row.selected_skill_version }),
     ...output,
     ...(row.capability_gap_json === null
       ? {}

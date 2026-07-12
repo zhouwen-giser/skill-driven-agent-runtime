@@ -49,6 +49,8 @@ export interface AgentTask {
   readonly goalId?: string;
   readonly goalVersion?: number;
   readonly planId?: string;
+  readonly selectedSkillId?: string;
+  readonly selectedSkillVersion?: number;
   readonly output?: TaskOutput;
   readonly capabilityGap?: TaskCapabilityGap;
   readonly errorCode?: string;
@@ -91,6 +93,25 @@ export function bindTaskGoal(
   };
 }
 
+export function bindTaskSkill(
+  task: AgentTask,
+  input: Readonly<{ skillId: string; skillVersion: number; timestamp: string }>,
+): AgentTask {
+  if (task.phase !== 'skill_resolution')
+    throw new DomainError(
+      'TASK_PHASE_TRANSITION_INVALID',
+      'A selected Skill can be bound only during Skill resolution.',
+    );
+  if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
+    throw new DomainError('SKILL_VERSION_INVALID', 'Selected Skill version must be positive.');
+  return {
+    ...task,
+    selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
+    selectedSkillVersion: input.skillVersion,
+    updatedAt: input.timestamp,
+  };
+}
+
 export interface CreateAgentTaskInput {
   readonly taskId: string;
   readonly contextId: string;
@@ -111,6 +132,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   paused: ['executing', 'planning', 'canceled', 'failed'],
   executing: [
     'paused',
+    'planning',
     'evaluating',
     'awaiting_user_input',
     'capability_gap',

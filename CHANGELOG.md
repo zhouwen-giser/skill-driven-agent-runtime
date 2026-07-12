@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Task-owned initial Workflow planning with persisted selected-Skill identity, strict confirmation gating, Skill opt-in auto-confirmation, outer-controller execution, and equivalent synchronous/return-immediately A2A results.
 - Task-level management confirm/reject/revise actions sharing the same authoritative lifecycle path as A2A follow-up messages.
 - Explainable missing-Goal-input inference over conversation history, global pgvector memory, and existing results, with strict fixed-model decisions and persisted source snapshots.
 - Domain-owned global MemoryItems with mandatory source references, PostgreSQL/pgvector semantic retrieval, management contracts, and cross-user local E2E evidence.

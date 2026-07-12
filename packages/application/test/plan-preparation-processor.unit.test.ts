@@ -16,6 +16,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       phase: 'awaiting_plan_confirmation',
       goalId: 'goal-1',
       goalVersion: 1,
+      planId: 'plan-task-1',
     });
     expect(tasks.messages.join(' ')).toContain('LLM intent execute');
     expect(tasks.messages.join(' ')).toContain('LLM selected skill-1@2');
@@ -85,6 +86,19 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       phaseMessage: 'Which device should be inspected?',
     });
     expect(tasks.createdGoal).toBeUndefined();
+  });
+
+  it('executes immediately only when the selected Skill auto-confirms the generated plan', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.autoConfirm = true;
+    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    expect(tasks.value).toMatchObject({
+      phase: 'executing',
+      planId: 'plan-task-1',
+      phaseMessage: 'Skill policy auto-confirmed the plan.',
+    });
+    expect(tasks.autoExecutions).toEqual([{ taskId: 'task-1', planId: 'plan-task-1' }]);
   });
 });
 
@@ -193,6 +207,13 @@ function processorWith(
               },
         ),
     },
+    taskPlanning: {
+      prepare: () => Promise.resolve({ planId: 'plan-task-1', autoConfirmed: tasks.autoConfirm }),
+      executeAuto: (input) => {
+        tasks.autoExecutions.push(input);
+        return Promise.resolve();
+      },
+    },
   });
 }
 
@@ -229,6 +250,8 @@ class MemoryTasks {
   createdGoal: unknown;
   goalRequiresInput = false;
   inferenceOutcome: 'inferred' | 'input_required' = 'inferred';
+  autoConfirm = false;
+  readonly autoExecutions: { taskId: string; planId: string }[] = [];
   findById() {
     return Promise.resolve(this.value);
   }

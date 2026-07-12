@@ -318,6 +318,19 @@ export class WorkflowExecutionService {
     return { disposition: 'resumed', instance: resumed };
   }
 
+  async waitForPauseResolution(instanceId: string): Promise<WorkflowInstance> {
+    for (;;) {
+      const instance = await this.#instances.findInstance(instanceId);
+      if (instance === undefined)
+        throw new WorkflowExecutionError(
+          'WORKFLOW_INSTANCE_NOT_FOUND',
+          'Paused Workflow instance was not found.',
+        );
+      if (instance.status !== 'paused') return instance;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+    }
+  }
+
   async #waitFor(
     instanceId: string,
     statuses: readonly WorkflowInstance['status'][],
@@ -406,6 +419,7 @@ function normalizedError(error: unknown): Readonly<{ code: string; message: stri
 }
 
 export type WorkflowExecutionErrorCode =
+  | 'WORKFLOW_INSTANCE_NOT_FOUND'
   | 'WORKFLOW_INSTANCE_NOT_PAUSED'
   | 'WORKFLOW_INSTANCE_NOT_RUNNING'
   | 'WORKFLOW_INSTANCE_ALREADY_EXISTS'

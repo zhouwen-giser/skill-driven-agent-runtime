@@ -35,6 +35,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: project fixed-stage capability gaps onto authoritative Tasks with A2A INPUT_REQUIRED evidence and suggested tool contracts.
 - [x] 2026-07-12: infer missing Goal input from conversation/global-memory/existing-data evidence before asking one explicit question.
 - [x] 2026-07-12: route management confirm/reject/revise through the same authoritative TaskService path as A2A follow-up.
+- [x] 2026-07-12: generate and bind the Task-owned initial plan, enforce selected-Skill confirmation policy, execute through one outer controller, and verify equivalent synchronous/return-immediately results.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -63,8 +64,8 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 
 ## Validation
 
-- [ ] `lifecycle e2e matrix`
-- [ ] `no tool call before confirmation`
+- [x] `lifecycle e2e matrix`: 30 real A2A/PostgreSQL/Redis scenarios.
+- [x] `no tool call before confirmation`: ordinary Task plans remain awaiting confirmation and the real MCP execution contract records zero calls before confirmation.
 - [x] `goal patch invalidation tests`: unit + real PostgreSQL integration + management contract + A2A/MCP e2e.
 - [x] `timeout auto-cancel`: managed one-second policy proven through real A2A/PostgreSQL e2e.
 - [x] `pause short/long behavior`: real MCP/A2A short resume and zero-second Skill-threshold replan evidence.

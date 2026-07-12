@@ -1,5 +1,7 @@
 import {
+  bindTaskPlan,
   bindTaskGoal,
+  bindTaskSkill,
   transitionTask,
   type AgentTask,
   type TaskPhase,
@@ -31,6 +33,19 @@ export interface PlanPreparationProcessorDependencies {
   readonly nextGoalId: () => string;
   readonly nextGoalTransitionId: () => string;
   readonly inputInference: Pick<GoalInputInferenceService, 'resolve'>;
+  readonly taskPlanning: Readonly<{
+    prepare(
+      input: Readonly<{
+        task: AgentTask;
+        goalId: string;
+        goalVersion: number;
+        goalDescription: string;
+        skillId: string;
+        skillVersion: number;
+      }>,
+    ): Promise<Readonly<{ planId: string; autoConfirmed: boolean }>>;
+    executeAuto(input: Readonly<{ taskId: string; planId: string }>): Promise<void>;
+  }>;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -160,8 +175,37 @@ export class PlanPreparationProcessor {
       'skill_resolution',
       `LLM selected ${selection.selectedSkillId}@${String(selection.selectedSkillVersion)}: ${selection.decisionSummary}`,
     );
+    task = bindTaskSkill(task, {
+      skillId: selection.selectedSkillId,
+      skillVersion: selection.selectedSkillVersion,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
     task = await this.#transition(task, 'planning', 'Workflow planning required.');
-    await this.#transition(task, 'awaiting_plan_confirmation', 'Plan confirmation required.');
+    const prepared = await this.#dependencies.taskPlanning.prepare({
+      task,
+      goalId: goal.goalId,
+      goalVersion: goal.version,
+      goalDescription: goal.description,
+      skillId: selection.selectedSkillId,
+      skillVersion: selection.selectedSkillVersion,
+    });
+    task = bindTaskPlan(task, {
+      planId: prepared.planId,
+      goalId: goal.goalId,
+      goalVersion: goal.version,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
+    if (!prepared.autoConfirmed) {
+      await this.#transition(task, 'awaiting_plan_confirmation', 'Plan confirmation required.');
+      return;
+    }
+    task = await this.#transition(task, 'executing', 'Skill policy auto-confirmed the plan.');
+    await this.#dependencies.taskPlanning.executeAuto({
+      taskId: task.taskId,
+      planId: prepared.planId,
+    });
   }
 
   async #transition(task: AgentTask, phase: TaskPhase, message: string): Promise<AgentTask> {

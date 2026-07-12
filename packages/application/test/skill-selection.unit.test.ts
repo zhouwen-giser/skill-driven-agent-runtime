@@ -32,6 +32,7 @@ describe('SkillSelectionService', () => {
       name: 'skill.a',
       summary: 'Candidate.',
       capabilities: ['inspection'],
+      autoConfirmPlan: false,
       createdAt: '2026-07-11T10:00:00.000Z',
       semanticScore: 0.9,
       metrics: expect.objectContaining({

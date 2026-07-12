@@ -181,7 +181,12 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   const skill = skillVersion(input.maxReplans, input.autoConfirm);
   const skills = memorySkills(skill);
   const evaluator = new SequenceEvaluator();
-  const taskOutcomes = { reportCapabilityGap: vi.fn(() => Promise.resolve()) };
+  const taskOutcomes = {
+    reportCapabilityGap: vi.fn(() => Promise.resolve()),
+    reportAchieved: vi.fn(() => Promise.resolve()),
+    requestInput: vi.fn(() => Promise.resolve()),
+    reportUnachievable: vi.fn(() => Promise.resolve()),
+  };
   const planner = {
     plan: vi.fn(async (request: { planId: string; workflowVersion: number }) => {
       const next = plan(request.planId, request.workflowVersion, 'awaiting_confirmation');
@@ -196,6 +201,9 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   );
   const execution = {
     execute,
+    waitForPauseResolution: vi.fn((instanceId: string) =>
+      Promise.resolve(instance(instanceId, 'plan-control-1', 0, input.maxReplans)),
+    ),
     confirm: vi.fn(async (planId: string) => {
       await plans.confirmPlan(planId);
       const confirmed = await plans.findPlan(planId);

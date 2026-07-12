@@ -309,10 +309,11 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       clock: { now: () => timestamp },
       ids,
       planActions: {
-        confirm: (planId) => {
-          operations.push(`plan.confirm:${planId}`);
+        confirm: (task) => {
+          operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
           return Promise.resolve();
         },
+        executeConfirmed: () => Promise.resolve(),
         reviseNaturalLanguage: (task) => {
           operations.push(`plan.revise:${task.planId ?? 'missing'}`);
           return Promise.resolve({

@@ -145,6 +145,7 @@ export class SkillSelectionService {
         name: skill.name,
         summary: skill.summary,
         capabilities: skill.capabilities,
+        autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
         createdAt: skill.createdAt,
         semanticScore: normalizedScore(scores[skill.skillId] ?? 0),
         metrics: validateMetrics((await this.#records.findMetrics(skill.skillId)) ?? EMPTY_METRICS),

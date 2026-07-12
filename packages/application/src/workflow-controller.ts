@@ -2,6 +2,7 @@ import {
   changeGoalStatus,
   type GoalEvaluationResult,
   type WorkflowControlRecord,
+  type WorkflowInstance,
 } from '../../domain/src/index.js';
 import type {
   Clock,
@@ -32,11 +33,17 @@ export class WorkflowControllerService {
   readonly #goals: GoalRepository;
   readonly #skills: SkillRepository;
   readonly #planner: Pick<WorkflowPlannerService, 'plan'>;
-  readonly #execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+  readonly #execution: Pick<
+    WorkflowExecutionService,
+    'confirm' | 'execute' | 'waitForPauseResolution'
+  >;
   readonly #evaluator: GoalEvaluator;
   readonly #taskOutcomes:
     | Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
+        reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
+        requestInput(taskId: string, question: string): Promise<unknown>;
+        reportUnachievable(taskId: string, summary: string): Promise<unknown>;
       }>
     | undefined;
   readonly #clock: Clock;
@@ -52,10 +59,13 @@ export class WorkflowControllerService {
       goals: GoalRepository;
       skills: SkillRepository;
       planner: Pick<WorkflowPlannerService, 'plan'>;
-      execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+      execution: Pick<WorkflowExecutionService, 'confirm' | 'execute' | 'waitForPauseResolution'>;
       evaluator: GoalEvaluator;
       taskOutcomes?: Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
+        reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
+        requestInput(taskId: string, question: string): Promise<unknown>;
+        reportUnachievable(taskId: string, summary: string): Promise<unknown>;
       }>;
       clock: Clock;
       ids: Readonly<{
@@ -162,13 +172,15 @@ export class WorkflowControllerService {
           'Current plan is not executable.',
         );
       const instanceId = this.#ids.nextInstanceId(control.controlId, control.roundCount);
-      const instance = await this.#execution.execute({
+      let instance = await this.#execution.execute({
         instanceId,
         planId: plan.planId,
         input: control.input,
         skillIds: control.skillIds,
         replanCount: control.replanCount,
       });
+      if (instance.status === 'paused')
+        instance = await this.#execution.waitForPauseResolution(instance.instanceId);
       const goal = await this.#requireActiveGoal(
         control.goalId,
         control.contextId,
@@ -187,6 +199,16 @@ export class WorkflowControllerService {
       const completedRound = control.roundCount + 1;
       if (evaluation.decision === 'achieved' || evaluation.decision === 'unachievable') {
         const status = evaluation.decision;
+        if (control.taskId !== undefined) {
+          if (this.#taskOutcomes === undefined)
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'Terminal Task outcome projection is unavailable.',
+            );
+          if (status === 'achieved')
+            await this.#taskOutcomes.reportAchieved(control.taskId, instance);
+          else await this.#taskOutcomes.reportUnachievable(control.taskId, evaluation.summary);
+        }
         await this.#goals.save(changeGoalStatus(goal, status, this.#clock.now()));
         control = {
           ...control,
@@ -199,6 +221,14 @@ export class WorkflowControllerService {
         return control;
       }
       if (evaluation.decision === 'request_input' || evaluation.decision === 'capability_gap') {
+        if (evaluation.decision === 'request_input' && control.taskId !== undefined) {
+          if (this.#taskOutcomes === undefined || evaluation.question === undefined)
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'Input-required Task projection is unavailable.',
+            );
+          await this.#taskOutcomes.requestInput(control.taskId, evaluation.question);
+        }
         if (evaluation.decision === 'capability_gap' && control.taskId !== undefined) {
           if (this.#taskOutcomes === undefined)
             throw new WorkflowControllerError(
@@ -218,6 +248,17 @@ export class WorkflowControllerService {
         return control;
       }
       if (control.replanCount >= instance.budgetLimits.maxReplans) {
+        if (control.taskId !== undefined) {
+          if (this.#taskOutcomes === undefined)
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'Budget-exhausted Task projection is unavailable.',
+            );
+          await this.#taskOutcomes.reportUnachievable(
+            control.taskId,
+            'Goal replan budget exhausted.',
+          );
+        }
         await this.#goals.save(changeGoalStatus(goal, 'unachievable', this.#clock.now()));
         control = {
           ...control,

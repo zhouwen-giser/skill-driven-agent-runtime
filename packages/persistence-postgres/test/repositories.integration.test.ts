@@ -210,6 +210,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalInputInferenceMigration);
+  const taskSelectedSkillMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0033_task_selected_skill.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(taskSelectedSkillMigration);
 });
 
 beforeEach(async () => {
@@ -1380,6 +1385,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         name: version.name,
         summary: version.summary,
         capabilities: version.capabilities,
+        autoConfirmPlan: false,
         createdAt: version.createdAt,
         semanticScore: 0.8,
         metrics,

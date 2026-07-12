@@ -85,6 +85,7 @@ describe('structured LLM final decisions', () => {
             name: 'Safe inspection',
             summary: 'Read-only device inspection.',
             capabilities: ['device-inspection'],
+            autoConfirmPlan: false,
             createdAt: '2026-07-12T00:00:00.000Z',
             semanticScore: 0.8,
             metrics: {

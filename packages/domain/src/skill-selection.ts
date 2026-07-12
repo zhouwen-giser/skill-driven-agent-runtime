@@ -13,6 +13,7 @@ export interface SkillCandidateSnapshot {
   readonly name: string;
   readonly summary: string;
   readonly capabilities: readonly string[];
+  readonly autoConfirmPlan: boolean;
   readonly createdAt: string;
   readonly semanticScore: number;
   readonly metrics: SkillPerformanceMetrics;

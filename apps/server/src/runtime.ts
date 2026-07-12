@@ -384,8 +384,44 @@ export async function startServerRuntime(
     clock,
     ids,
     planActions: {
-      async confirm(planId) {
-        await workflowExecution.confirm(planId);
+      async confirm(task) {
+        if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        await workflowExecution.confirm(task.planId);
+      },
+      executeConfirmed(task) {
+        if (
+          task.planId === undefined ||
+          task.goalId === undefined ||
+          task.goalVersion === undefined ||
+          task.selectedSkillId === undefined
+        )
+          throw new Error('TASK_EXECUTION_IDENTITY_INCOMPLETE');
+        void workflowController
+          .start({
+            controlId: `control-task-${task.taskId}`,
+            contextId: task.contextId,
+            goalId: task.goalId,
+            goalVersion: task.goalVersion,
+            taskId: task.taskId,
+            initialPlanId: task.planId,
+            input: { requestText: task.requestText },
+            skillIds: [task.selectedSkillId],
+            planningInstruction: JSON.stringify({
+              operation: 'task_outer_replan',
+              requestText: task.requestText,
+            }),
+          })
+          .catch(async (error: unknown) => {
+            const code =
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              typeof error.code === 'string'
+                ? error.code
+                : 'TASK_EXECUTION_FAILED';
+            await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
+          });
+        return Promise.resolve();
       },
       async reviseNaturalLanguage(task, instruction) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
@@ -432,7 +468,30 @@ export async function startServerRuntime(
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime),
-    taskOutcomes: service,
+    taskOutcomes: {
+      reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
+      requestInput: (taskId, question) => service.requestInput(taskId, question),
+      reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
+      async reportAchieved(taskId, instance) {
+        const selected = instance.skillVersions[0];
+        if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
+        const skill = await skills.findVersion(selected.skillId, selected.version);
+        if (skill?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
+        const processed = await resultProcessing.process({
+          taskId,
+          skillId: skill.skillId,
+          skillVersion: skill.version,
+          outputInstruction: skill.outputInstruction,
+          outputSchema: skill.outputSchema,
+          rawResult: instance.result,
+        });
+        await service.recordResult(
+          taskId,
+          { ...processed.output, outputSchema: skill.outputSchema },
+          resultProcessor,
+        );
+      },
+    },
     clock,
     ids: {
       nextPlanId: (controlId, replanCount) =>
@@ -467,6 +526,64 @@ export async function startServerRuntime(
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
+    taskPlanning: {
+      async prepare(input) {
+        const skill = await skills.findVersion(input.skillId, input.skillVersion);
+        if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_VERSION_NOT_ENABLED');
+        const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const plan = await workflowPlanner.plan({
+          planId,
+          workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+          workflowVersion: 1,
+          goalId: input.goalId,
+          goalVersion: input.goalVersion,
+          planningInstruction: JSON.stringify({
+            operation: 'task_initial_plan',
+            workflowIdentity: {
+              workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+              version: 1,
+              goalId: input.goalId,
+              goalVersion: input.goalVersion,
+            },
+            goalDescription: input.goalDescription,
+            selectedSkill: {
+              skillId: skill.skillId,
+              version: skill.version,
+              description: skill.description,
+              toolPolicy: skill.toolPolicy,
+              workflowGuidance: skill.workflowGuidance,
+              outputSchema: skill.outputSchema,
+            },
+          }),
+        });
+        if (plan.definition === undefined) throw new Error('TASK_PLAN_GENERATION_FAILED');
+        if (skill.runtimePolicy.autoConfirmPlan) await workflowExecution.confirm(plan.planId);
+        return { planId: plan.planId, autoConfirmed: skill.runtimePolicy.autoConfirmPlan };
+      },
+      async executeAuto(input) {
+        const task = await service.get(input.taskId);
+        if (
+          task.goalId === undefined ||
+          task.goalVersion === undefined ||
+          task.selectedSkillId === undefined
+        )
+          throw new Error('TASK_EXECUTION_IDENTITY_INCOMPLETE');
+        await workflowController.start({
+          controlId: `control-task-${task.taskId}`,
+          contextId: task.contextId,
+          goalId: task.goalId,
+          goalVersion: task.goalVersion,
+          taskId: task.taskId,
+          initialPlanId: input.planId,
+          input: { requestText: task.requestText },
+          skillIds: [task.selectedSkillId],
+          planningInstruction: JSON.stringify({
+            operation: 'task_outer_replan',
+            requestText: task.requestText,
+          }),
+        });
+      },
+    },
   });
   const waitSweepTimer = setInterval(() => {
     void taskWaitTimeouts.sweep().catch((error: unknown) => {
@@ -648,6 +765,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0030_task_capability_gap.up.sql',
     '0031_global_memory.up.sql',
     '0032_goal_input_inference.up.sql',
+    '0033_task_selected_skill.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

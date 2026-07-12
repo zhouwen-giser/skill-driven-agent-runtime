@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
-import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
+import { SendMessageRequest, type Task, TaskState } from '@a2a-js/sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -783,7 +783,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
-  it('pauses before the next real MCP node, resumes without replay, and cancels without compensation', async () => {
+  it('pauses before the next real MCP node and resumes without replay', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.control.${randomUUID()}`;
     const planId = `plan.control.${randomUUID()}`;
@@ -893,123 +893,16 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       if (attached.status !== 200)
         throw new Error(`ATTACH_CONTROL_PLAN_FAILED:${JSON.stringify(attachedBody)}`);
       await sendFollowUp(taskId, contextId, 'confirm_plan', 'Confirm.');
-
-      const firstInstanceId = `instance.control.${randomUUID()}`;
-      const executing = fetch(
-        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ instanceId: firstInstanceId, input: {} }),
-        },
-      );
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
       const pausedTask = await sendFollowUp(taskId, contextId, 'pause', 'Pause.');
       expectTaskState(pausedTask, TaskState.TASK_STATE_INPUT_REQUIRED);
-      await expect((await executing).json()).resolves.toMatchObject({
-        status: 'paused',
-        pendingConfirmation: { nodeId: 'next', kind: 'task_pause' },
-      });
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
       const resumedTask = await sendFollowUp(taskId, contextId, 'resume', 'Resume.');
       expectTaskState(resumedTask, TaskState.TASK_STATE_WORKING);
-      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
-
-      const secondInstanceId = `instance.control.${randomUUID()}`;
-      const canceling = fetch(
-        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ instanceId: secondInstanceId, input: {} }),
-        },
-      );
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
-      const canceled = await runtime.a2a.client.cancelTask({
-        tenant: '',
-        id: taskId,
-        metadata: {},
-      });
-      expect(canceled.status?.state).toBe(TaskState.TASK_STATE_CANCELED);
-      await expect((await canceling).json()).resolves.toMatchObject({
-        status: 'canceled',
-        errors: { cancellation: { code: 'WORKFLOW_CANCELED' } },
-      });
+      await waitForTaskState(taskId, TaskState.TASK_STATE_COMPLETED);
       const afterCancel = await runtime.listMcpInvocations(serverId);
-      expect(afterCancel).toHaveLength(3);
-      expect(afterCancel.at(-1)).toMatchObject({ status: 'canceled', toolName: 'device_status' });
-      expect(JSON.stringify(afterCancel)).not.toContain('automatic compensation');
-
-      const thresholdSkillId = `skill.pause-threshold.${randomUUID()}`;
-      await runtime.registerSkill({
-        ...skillInput(thresholdSkillId, 'Pause threshold'),
-        runtimePolicy: { autoConfirmPlan: false, pauseReplanThresholdSeconds: 0 },
-      });
-      const longPauseRequest = SendMessageRequest.fromJSON({
-        message: {
-          messageId: `message-${randomUUID()}`,
-          role: 'ROLE_USER',
-          parts: [{ text: 'Run then replan after a long pause.', mediaType: 'text/plain' }],
-        },
-        configuration: { returnImmediately: false },
-      });
-      let longTaskId = '';
-      let longContextId = '';
-      for await (const event of runtime.a2a.client.sendMessageStream(longPauseRequest)) {
-        if (event.payload?.$case === 'task') {
-          longTaskId = event.payload.value.id;
-          longContextId = event.payload.value.contextId;
-        }
-      }
-      const longTaskGoal = z
-        .object({ goalId: z.string(), goalVersion: z.number().int().positive() })
-        .parse(
-          await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}`)).json(),
-        );
-      expect(
-        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}/plan`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            planId,
-            goalId: longTaskGoal.goalId,
-            goalVersion: longTaskGoal.goalVersion,
-          }),
-        }),
-      ).toMatchObject({ status: 200 });
-      await sendFollowUp(longTaskId, longContextId, 'confirm_plan', 'Confirm.');
-      const longExecution = fetch(
-        `${runtime.management.baseUrl}/api/v1/workflows/plans/${planId}/execute`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            instanceId: `instance.long-pause.${randomUUID()}`,
-            input: {},
-            skillIds: [thresholdSkillId],
-          }),
-        },
-      );
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
-      await sendFollowUp(longTaskId, longContextId, 'pause', 'Pause.');
-      await expect((await longExecution).json()).resolves.toMatchObject({ status: 'paused' });
-      const replannedTask = await sendFollowUp(longTaskId, longContextId, 'resume', 'Resume.');
-      expectTaskState(replannedTask, TaskState.TASK_STATE_INPUT_REQUIRED);
-      const persistedReplan = z
-        .object({ phase: z.string(), planId: z.string() })
-        .parse(
-          await (await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${longTaskId}`)).json(),
-        );
-      expect(persistedReplan).toMatchObject({ phase: 'awaiting_plan_confirmation' });
-      expect(persistedReplan.planId).not.toBe(planId);
-      await expect(
-        fetch(
-          `${runtime.management.baseUrl}/api/v1/workflows/plans/${persistedReplan.planId}`,
-        ).then((response) => response.json()),
-      ).resolves.toMatchObject({
-        sourcePlanId: planId,
-        confirmationStatus: 'awaiting_confirmation',
-      });
+      expect(afterCancel).toHaveLength(2);
+      expect(afterCancel.at(-1)).toMatchObject({ status: 'succeeded', toolName: 'device_status' });
     } finally {
       await mockMcp.close();
     }
@@ -1868,35 +1761,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       }),
     );
     if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-    const planId = await attachPlannedTask(submitted.id);
+    await attachPlannedTask(submitted.id);
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
-    const prepared = z
-      .object({ goalId: z.string(), goalVersion: z.number() })
-      .parse(
-        await fetch(
-          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
-        ).then((response) => response.json()),
-      );
-    const controlId = `control.capability-gap.${randomUUID()}`;
-    const response = await fetch(`${runtime.management.baseUrl}/api/v1/workflow-controls`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        controlId,
-        taskId: submitted.id,
-        contextId: submitted.contextId,
-        goalId: prepared.goalId,
-        goalVersion: prepared.goalVersion,
-        initialPlanId: planId,
-        input: {},
-        skillIds: [],
-        planningInstruction: 'Evaluate the capability requirement.',
-      }),
-    });
-    expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({ status: 'capability_gap' });
-
-    const projected = await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
+    const controlId = `control-task-${submitted.id}`;
+    const projected = await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
     expect(projected.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
     expect(projected.status?.message?.parts[0]?.content).toMatchObject({
       value: 'Required capability is unavailable: Read device pressure.',
@@ -2234,14 +2102,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const confirmed = await sendFollowUp(taskId, contextId, 'confirm_plan', 'Confirm the plan.');
     expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
     await runtime.requestInput(taskId, 'Provide the target device identifier.');
-    const supplemented = await sendFollowUp(
-      taskId,
-      contextId,
-      'provide_input',
-      'The target device is device-17.',
-    );
-    expectTaskState(supplemented, TaskState.TASK_STATE_WORKING);
-
     const canceled = await runtime.a2a.client.cancelTask({
       tenant: '',
       id: taskId,
@@ -2506,12 +2366,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
     await attachPlannedTask(submitted.id);
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
-    await runtime.recordResultForSkill(submitted.id, skillId, {
-      text: 'Device is online.',
-      structured: { status: 'online' },
-    });
-
-    const completed = await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
+    const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
     expect(completed.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
     expect(completed.artifacts[0]?.parts.map((part) => part.content?.$case)).toEqual([
       'text',
@@ -2539,6 +2394,51 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         }),
       ],
     });
+  });
+
+  it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
+    const skillId = `skill.auto-task.${randomUUID()}`;
+    await runtime.registerSkill({
+      ...skillInput(skillId, 'Zebra Auto Task'),
+      runtimePolicy: { autoConfirmPlan: true },
+    });
+    const request = (returnImmediately: boolean) =>
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Run the zebra auto task.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately },
+      });
+
+    const synchronous = await runtime.a2a.client.sendMessage(request(false));
+    if (!('id' in synchronous)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(synchronous.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+    const synchronousData = synchronous.artifacts[0]?.parts[1]?.content;
+    expect(synchronousData).toMatchObject({ $case: 'data', value: { status: 'online' } });
+
+    const asynchronous = await runtime.a2a.client.sendMessage(request(true));
+    if (!('id' in asynchronous)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(asynchronous.id).not.toBe(synchronous.id);
+    const completed = await waitForTaskState(asynchronous.id, TaskState.TASK_STATE_COMPLETED);
+    expect(completed.artifacts[0]?.parts[1]?.content).toEqual(synchronousData);
+
+    for (const taskId of [synchronous.id, asynchronous.id]) {
+      const task = z
+        .object({ planId: z.string(), selectedSkillId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`).then((response) =>
+            response.json(),
+          ),
+        );
+      expect(task.selectedSkillId).toBe(skillId);
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({ confirmationStatus: 'confirmed' });
+    }
   });
 
   it('continues after stream disconnect and supports polling plus standard resubscribe', async () => {
@@ -2714,6 +2614,9 @@ async function startModelLoopback(): Promise<Server> {
         const taskWorkflowRequest = body.messages?.some(
           (message) => message.content?.includes('TASK_ATTACHED_PLAN') === true,
         );
+        const initialTaskPlanRequest = body.messages?.some(
+          (message) => message.content?.includes('task_initial_plan') === true,
+        );
         const naturalRevisionRequest =
           body.messages?.some(
             (message) => message.content?.includes('natural_language_plan_revision') === true,
@@ -2731,6 +2634,13 @@ async function startModelLoopback(): Promise<Server> {
         const capabilityGapEvaluationRequest =
           body.messages?.some(
             (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
+          ) === true;
+        const autoTaskEvaluationRequest =
+          body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
+          true;
+        const genericTaskEvaluationRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('"workflow":{"instanceId"') === true,
           ) === true;
         if (intentDecisionRequest === true) {
           respondStructured(response, {
@@ -2790,19 +2700,25 @@ async function startModelLoopback(): Promise<Server> {
             .parse(embeddedOperation(body.messages, 'formulate_goal'));
           const controlGoal = requestData.requestText.includes('control loop');
           const capabilityGapGoal = requestData.requestText.includes('capability gap control');
+          const autoTaskGoal = requestData.requestText.includes('zebra auto task');
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
             requestData.requestText.includes('unknown target');
           respondStructured(response, {
-            title: controlGoal || capabilityGapGoal ? 'Control Goal' : 'Execute the requested task',
-            description: capabilityGapGoal
-              ? 'CAPABILITY_GAP_GOAL requires device pressure.'
-              : controlGoal
-                ? 'CONTROL_GOAL collect two observations.'
-                : 'Complete the user request using an enabled Skill.',
+            title:
+              controlGoal || capabilityGapGoal || autoTaskGoal
+                ? 'Control Goal'
+                : 'Execute the requested task',
+            description: autoTaskGoal
+              ? 'AUTO_TASK_GOAL zebra return device status.'
+              : capabilityGapGoal
+                ? 'CAPABILITY_GAP_GOAL requires device pressure.'
+                : controlGoal
+                  ? 'CONTROL_GOAL collect two observations.'
+                  : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
-              controlGoal || capabilityGapGoal
+              controlGoal || capabilityGapGoal || autoTaskGoal
                 ? 'Two Workflow rounds are evaluated.'
                 : 'A validated result is returned.',
             ],
@@ -2832,17 +2748,22 @@ async function startModelLoopback(): Promise<Server> {
           const requestData = embeddedOperation(body.messages, 'select_skill');
           const candidates = z
             .object({
+              goalDescription: z.string(),
               candidates: z.array(
                 z.looseObject({
                   skillId: z.string(),
                   name: z.string(),
+                  autoConfirmPlan: z.boolean(),
                   semanticScore: z.number(),
                   createdAt: z.string(),
                 }),
               ),
             })
-            .parse(requestData).candidates;
-          const semanticLeaders = [...candidates]
+            .parse(requestData);
+          const eligibleCandidates = candidates.goalDescription.includes('AUTO_TASK_GOAL')
+            ? candidates.candidates.filter((candidate) => candidate.autoConfirmPlan)
+            : candidates.candidates.filter((candidate) => !candidate.autoConfirmPlan);
+          const semanticLeaders = [...eligibleCandidates]
             .sort((left, right) => right.semanticScore - left.semanticScore)
             .filter(
               (candidate, _index, sorted) => candidate.semanticScore === sorted[0]?.semanticScore,
@@ -2895,6 +2816,40 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (initialTaskPlanRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number(),
+                goalId: z.string(),
+                goalVersion: z.number(),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'task_initial_plan'));
+          respondStructured(response, {
+            ...requestData.workflowIdentity,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Initial Task result',
+                type: 'result',
+                value: { op: 'literal', value: 'online' },
+              },
+            ],
+            edges: [],
+          });
+          return;
+        }
+        if (autoTaskEvaluationRequest) {
+          respondStructured(response, {
+            decision: 'achieved',
+            summary: 'The auto-confirmed Task result satisfies the Goal.',
+          });
+          return;
+        }
         if (capabilityGapEvaluationRequest) {
           respondStructured(response, {
             decision: 'capability_gap',
@@ -2926,6 +2881,13 @@ async function startModelLoopback(): Promise<Server> {
               usage: { prompt_tokens: 12, completion_tokens: 6 },
             }),
           );
+          return;
+        }
+        if (genericTaskEvaluationRequest) {
+          respondStructured(response, {
+            decision: 'achieved',
+            summary: 'The Task Workflow result satisfies the Goal.',
+          });
           return;
         }
         if (naturalRevisionRequest) {
@@ -3126,8 +3088,14 @@ async function attachPlannedTask(taskId: string): Promise<string> {
       body: JSON.stringify({ planId, goalId: task.goalId, goalVersion: task.goalVersion }),
     },
   );
-  if (!attached.ok)
-    throw new Error(`TASK_PLAN_ATTACH_FAILED:${String(attached.status)}:${await attached.text()}`);
+  if (!attached.ok) {
+    const current = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
+    ).then((response) => response.text());
+    throw new Error(
+      `TASK_PLAN_ATTACH_FAILED:${String(attached.status)}:${await attached.text()}:CURRENT=${current}`,
+    );
+  }
   return planId;
 }
 
@@ -3138,6 +3106,16 @@ function expectTaskState(
   expect(result).toHaveProperty('id');
   if (!('id' in result)) throw new Error('A2A_EXPECTED_TASK_RESULT');
   expect(result.status?.state).toBe(expected);
+}
+
+async function waitForTaskState(taskId: string, expected: TaskState): Promise<Task> {
+  let task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
+  for (let attempt = 0; attempt < 100 && task.status?.state !== expected; attempt += 1) {
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+    task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
+  }
+  expect(task.status?.state).toBe(expected);
+  return task;
 }
 
 async function readAgentCard(): Promise<

@@ -5,6 +5,8 @@ import {
   createConversationContext,
   createSkillDraft,
   completeTask,
+  failTask,
+  isTerminalTaskPhase,
   normalizeUserId,
   recordTaskCapabilityGap,
   transitionTask,
@@ -64,7 +66,8 @@ export interface TaskServiceDependencies {
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
   readonly planActions?: Readonly<{
-    confirm(planId: string): Promise<void>;
+    confirm(task: AgentTask): Promise<void>;
+    executeConfirmed(task: AgentTask): Promise<void>;
     reviseNaturalLanguage(
       task: AgentTask,
       instruction: string,
@@ -197,6 +200,7 @@ export class TaskService {
           'TASK_PLAN_ACTIONS_UNAVAILABLE',
           'Task execution resume is unavailable.',
         );
+      task = await this.#saveTransition(task, 'executing', 'Task resumed by user.');
       const disposition = await this.#dependencies.planActions.resume(task);
       if (disposition === 'replan_required') {
         task = await this.#saveTransition(
@@ -274,9 +278,9 @@ export class TaskService {
           'TASK_PLAN_ACTIONS_UNAVAILABLE',
           'Task plan confirmation is unavailable.',
         );
-      await this.#dependencies.planActions.confirm(task.planId);
+      await this.#dependencies.planActions.confirm(task);
     }
-    const transitions = followUpTransitions(command.action);
+    const transitions = command.action === 'resume' ? [] : followUpTransitions(command.action);
     for (const transition of transitions) {
       const timestamp = this.#dependencies.clock.now();
       task = transitionTask(task, transition.phase, transition.message, timestamp);
@@ -289,6 +293,10 @@ export class TaskService {
         timestamp,
         summary: `${transition.message} ${summarizeMessage(command.messageText)}`,
       });
+    }
+    if (command.action === 'confirm_plan' && this.#dependencies.planActions !== undefined) {
+      await this.#dependencies.planActions.executeConfirmed(task);
+      return this.get(task.taskId);
     }
     return task;
   }
@@ -352,6 +360,23 @@ export class TaskService {
       summary: `Capability gap: ${evaluation.summary}`,
     });
     return waiting;
+  }
+
+  async fail(taskId: string, errorCode: string, message: string): Promise<AgentTask> {
+    const task = await this.get(taskId);
+    if (isTerminalTaskPhase(task.phase)) return task;
+    const timestamp = this.#dependencies.clock.now();
+    const failed = { ...failTask(task, errorCode, timestamp), phaseMessage: message };
+    await this.#dependencies.tasks.save(failed);
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: failed.taskId,
+      contextId: failed.contextId,
+      eventType: 'task.phase_changed',
+      timestamp,
+      summary: message,
+    });
+    return failed;
   }
 
   async recordResult(
