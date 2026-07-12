@@ -15,6 +15,7 @@ import type {
   SkillGraphService,
   TemporarySkillService,
   SkillEvolutionService,
+  EvolutionExperienceService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -249,6 +250,10 @@ export interface ManagementOperations {
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<SkillEvolutionService, 'evaluateAndPublish' | 'get'>;
+  readonly evolutionExperiences: Pick<
+    EvolutionExperienceService,
+    'get' | 'listByGoal' | 'listBySkill'
+  >;
   readonly skillAuthoring?: Pick<SkillAuthoringService, 'authorAndRegister'>;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
@@ -850,6 +855,37 @@ export async function startManagementHttpEndpoint(
           pathValue(request, 'candidateId'),
         ),
       );
+    }),
+  );
+  app.get(
+    '/api/v1/evolution-experiences/:experienceId',
+    asyncRoute(async (request, response) => {
+      const experience = await options.operations.evolutionExperiences.get(
+        pathValue(request, 'experienceId'),
+      );
+      if (experience === undefined)
+        throw new HttpInputError('EVOLUTION_EXPERIENCE_NOT_FOUND', 'Experience was not found.');
+      response.json(experience);
+    }),
+  );
+  app.get(
+    '/api/v1/goals/:goalId/evolution-experiences',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.evolutionExperiences.listByGoal(
+          pathValue(request, 'goalId'),
+        ),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/skills/:skillId/evolution-experiences',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.evolutionExperiences.listBySkill(
+          pathValue(request, 'skillId'),
+        ),
+      });
     }),
   );
   app.get('/api/v1/skill-graph', async (_request, response) => {

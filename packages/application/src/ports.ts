@@ -24,6 +24,7 @@ import type {
   SkillCallWorkflowRecord,
   SkillVersion,
   SkillFormalizationCandidate,
+  EvolutionExperience,
   TemporarySkill,
   TemporarySkillExperience,
   ToolReference,
@@ -233,6 +234,13 @@ export interface TemporarySkillRepository {
     candidateId: string,
   ): Promise<SkillFormalizationCandidate | undefined>;
   saveFormalizationCandidate(candidate: SkillFormalizationCandidate): Promise<void>;
+}
+
+export interface EvolutionExperienceRepository {
+  save(experience: EvolutionExperience): Promise<void>;
+  find(experienceId: string): Promise<EvolutionExperience | undefined>;
+  listByGoal(goalId: string): Promise<readonly EvolutionExperience[]>;
+  listBySkill(skillId: string): Promise<readonly EvolutionExperience[]>;
 }
 
 export interface McpToolCatalog {

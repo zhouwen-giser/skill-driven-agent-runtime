@@ -77,3 +77,4 @@ All notable changes to this project are documented here. The format follows Keep
 - Production A2A stream-disconnect continuation, polling and standard resubscribe coverage, plus forced active-connection shutdown for deterministic server lifecycle.
 - Automatic capability-gap resolution into a Task-bound Temporary Skill, mandatory-confirmation LangGraph execution, completion expiration/Experience recording, and real zero-before-confirmation MCP E2E evidence.
 - Repeated-success Skill evolution with persisted induction/simulation reports, fail-closed drafts, all-pass automatic `experience_evolution` publication, management report endpoints, and dynamic Agent Card evidence.
+- PostgreSQL-authoritative Evolution Experiences linking Goal, immutable Workflow, actual Skill versions, MCP Tools, input, result/errors, structured evaluation and duration, with Goal/Skill management retrieval.

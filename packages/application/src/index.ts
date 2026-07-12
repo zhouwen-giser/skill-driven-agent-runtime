@@ -12,6 +12,7 @@ export * from './skill-authoring.js';
 export * from './temporary-skill.js';
 export * from './temporary-skill-resolver.js';
 export * from './skill-evolution.js';
+export * from './evolution-experience.js';
 export * from './workflow-validator.js';
 export * from './workflow-planner.js';
 export * from './workflow-execution.js';

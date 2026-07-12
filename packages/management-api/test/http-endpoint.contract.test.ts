@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { EvolutionExperience } from '../../domain/src/index.js';
 
 import {
   startManagementHttpEndpoint,
@@ -177,6 +178,72 @@ describe('management HTTP API contract', () => {
     );
     expect(simulate.status).toBe(200);
     await expect(simulate.json()).resolves.toMatchObject({ publishedSkillId: 'skill.evolved' });
+  });
+
+  it('lists replayable Evolution Experiences by Goal', async () => {
+    const experience: EvolutionExperience = {
+      experienceId: 'experience-1',
+      controlId: 'control-1',
+      roundIndex: 0,
+      taskId: 'task-1',
+      contextId: 'context-1',
+      goal: {
+        goalId: 'goal-1',
+        version: 1,
+        title: 'Goal',
+        description: 'Complete it.',
+        constraints: [],
+        successCriteria: ['Complete'],
+      },
+      workflow: {
+        workflowDefinitionId: 'workflow-1',
+        version: 1,
+        goalId: 'goal-1',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+      },
+      instanceId: 'instance-1',
+      skillVersions: [{ skillId: 'skill-1', version: 1 }],
+      tools: [],
+      input: {},
+      result: true,
+      errors: {},
+      evaluation: { decision: 'achieved', summary: 'Complete.' },
+      successful: true,
+      durationMs: 10,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        evolutionExperiences: {
+          get: () => Promise.resolve(experience),
+          listByGoal: () => Promise.resolve([experience]),
+          listBySkill: () => Promise.resolve([experience]),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/evolution-experiences`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [
+        {
+          goal: { goalId: 'goal-1' },
+          workflow: { workflowDefinitionId: 'workflow-1' },
+          evaluation: { decision: 'achieved' },
+        },
+      ],
+    });
   });
 
   it('exposes the same confirmed-plan state through confirmation and execution endpoints', async () => {
@@ -744,6 +811,11 @@ function operations(failServerList = false): ManagementOperations {
     skillEvolution: {
       evaluateAndPublish: unused,
       get: unused,
+    },
+    evolutionExperiences: {
+      get: unused,
+      listByGoal: () => Promise.resolve([]),
+      listBySkill: () => Promise.resolve([]),
     },
     workflows: {
       cancelForPlan: unused,

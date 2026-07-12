@@ -14,6 +14,7 @@ import type {
 } from './ports.js';
 import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
+import type { EvolutionExperienceService } from './evolution-experience.js';
 
 export interface StartWorkflowControlInput {
   readonly controlId: string;
@@ -38,6 +39,7 @@ export class WorkflowControllerService {
     'confirm' | 'execute' | 'get' | 'waitForPauseResolution'
   >;
   readonly #evaluator: GoalEvaluator;
+  readonly #experiences: Pick<EvolutionExperienceService, 'record'> | undefined;
   readonly #taskOutcomes:
     | Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
@@ -76,6 +78,7 @@ export class WorkflowControllerService {
         'confirm' | 'execute' | 'get' | 'waitForPauseResolution'
       >;
       evaluator: GoalEvaluator;
+      experiences?: Pick<EvolutionExperienceService, 'record'>;
       taskOutcomes?: Readonly<{
         reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<unknown>;
         reportAchieved(taskId: string, instance: WorkflowInstance): Promise<unknown>;
@@ -108,6 +111,7 @@ export class WorkflowControllerService {
     this.#planner = dependencies.planner;
     this.#execution = dependencies.execution;
     this.#evaluator = dependencies.evaluator;
+    this.#experiences = dependencies.experiences;
     this.#taskOutcomes = dependencies.taskOutcomes;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
@@ -227,6 +231,17 @@ export class WorkflowControllerService {
         planId: plan.planId,
         instanceId,
         workflowVersion: plan.definition.version,
+        evaluation,
+        createdAt: this.#clock.now(),
+      });
+      await this.#experiences?.record({
+        controlId: control.controlId,
+        roundIndex: control.roundCount,
+        ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
+        contextId: control.contextId,
+        goal,
+        workflow: plan.definition,
+        instance,
         evaluation,
         createdAt: this.#clock.now(),
       });

@@ -30,6 +30,7 @@ import type {
   TemporarySkillRepository,
   SkillRepository,
   SkillCallWorkflowRepository,
+  EvolutionExperienceRepository,
 } from '../../application/src/index.js';
 import type {
   AgentTask,
@@ -77,6 +78,7 @@ import type {
   SkillRuntimePolicy,
   SkillVersion,
   SkillCallWorkflowRecord,
+  EvolutionExperience,
   TaskPhase,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
@@ -118,6 +120,14 @@ const SkillSimulationReportSchema: z.ZodType<SkillSimulationReport> = z.object({
     }),
   ),
   decisionSummary: z.string(),
+});
+const EvolutionGoalSchema = z.object({
+  goalId: z.string(),
+  version: z.number().int().positive(),
+  title: z.string(),
+  description: z.string(),
+  constraints: z.array(z.string()),
+  successCriteria: z.array(z.string()),
 });
 const CapabilitiesSchema = z.array(z.string());
 const ToolPolicySchema = z.object({
@@ -326,6 +336,26 @@ interface FormalizationCandidateRow extends QueryResultRow {
   published_skill_version: number | null;
   created_at: Date | string;
   evaluated_at: Date | string | null;
+}
+
+interface EvolutionExperienceRow extends QueryResultRow {
+  experience_id: string;
+  control_id: string;
+  round_index: number;
+  task_id: string | null;
+  context_id: string;
+  goal_json: unknown;
+  workflow_json: unknown;
+  instance_id: string;
+  skill_versions_json: unknown;
+  tools_json: unknown;
+  input_json: unknown;
+  result_json: unknown;
+  errors_json: unknown;
+  evaluation_json: unknown;
+  successful: boolean;
+  duration_ms: number;
+  created_at: Date | string;
 }
 
 interface McpServerRow extends QueryResultRow {
@@ -2476,6 +2506,70 @@ function mapWorkflowControlRoundRow(row: WorkflowControlRoundRow): WorkflowContr
   };
 }
 
+export class PostgresEvolutionExperienceRepository implements EvolutionExperienceRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(experience: EvolutionExperience): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO evolution_experience
+         (experience_id,control_id,round_index,task_id,context_id,goal_id,goal_json,
+          workflow_json,instance_id,skill_versions_json,tools_json,input_json,result_json,
+          errors_json,evaluation_json,successful,duration_ms,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       ON CONFLICT(control_id,round_index) DO NOTHING`,
+      [
+        experience.experienceId,
+        experience.controlId,
+        experience.roundIndex,
+        experience.taskId ?? null,
+        experience.contextId,
+        experience.goal.goalId,
+        JSON.stringify(experience.goal),
+        JSON.stringify(experience.workflow),
+        experience.instanceId,
+        JSON.stringify(experience.skillVersions),
+        JSON.stringify(experience.tools),
+        JSON.stringify(experience.input ?? null),
+        experience.result === undefined ? null : JSON.stringify(experience.result),
+        JSON.stringify(experience.errors),
+        JSON.stringify(experience.evaluation),
+        experience.successful,
+        experience.durationMs,
+        experience.createdAt,
+      ],
+    );
+  }
+
+  async find(experienceId: string): Promise<EvolutionExperience | undefined> {
+    const result = await this.#pool.query<EvolutionExperienceRow>(
+      'SELECT * FROM evolution_experience WHERE experience_id=$1',
+      [experienceId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapEvolutionExperienceRow(row);
+  }
+
+  async listByGoal(goalId: string): Promise<readonly EvolutionExperience[]> {
+    const result = await this.#pool.query<EvolutionExperienceRow>(
+      'SELECT * FROM evolution_experience WHERE goal_id=$1 ORDER BY created_at,experience_id',
+      [goalId],
+    );
+    return result.rows.map(mapEvolutionExperienceRow);
+  }
+
+  async listBySkill(skillId: string): Promise<readonly EvolutionExperience[]> {
+    const result = await this.#pool.query<EvolutionExperienceRow>(
+      `SELECT * FROM evolution_experience
+       WHERE skill_versions_json @> $1::jsonb ORDER BY created_at,experience_id`,
+      [JSON.stringify([{ skillId }])],
+    );
+    return result.rows.map(mapEvolutionExperienceRow);
+  }
+}
+
 const WorkflowControlEvaluationSchema = z
   .object({
     decision: z.enum([
@@ -2517,6 +2611,30 @@ function mapWorkflowControlEvaluation(value: unknown): WorkflowControlRound['eva
     ...(result.suggestedToolContract === undefined
       ? {}
       : { suggestedToolContract: result.suggestedToolContract }),
+  };
+}
+
+function mapEvolutionExperienceRow(row: EvolutionExperienceRow): EvolutionExperience {
+  return {
+    experienceId: row.experience_id,
+    controlId: row.control_id,
+    roundIndex: row.round_index,
+    ...(row.task_id === null ? {} : { taskId: row.task_id }),
+    contextId: row.context_id,
+    goal: EvolutionGoalSchema.parse(row.goal_json),
+    workflow: StoredWorkflowDefinitionSchema.parse(
+      row.workflow_json,
+    ) as unknown as WorkflowDefinition,
+    instanceId: row.instance_id,
+    skillVersions: WorkflowSkillVersionsSchema.parse(row.skill_versions_json),
+    tools: ToolReferencesSchema.parse(row.tools_json),
+    input: row.input_json,
+    ...(row.result_json === null ? {} : { result: row.result_json }),
+    errors: WorkflowErrorsSchema.parse(row.errors_json),
+    evaluation: mapWorkflowControlEvaluation(row.evaluation_json),
+    successful: row.successful,
+    durationMs: row.duration_ms,
+    createdAt: toIsoString(row.created_at),
   };
 }
 

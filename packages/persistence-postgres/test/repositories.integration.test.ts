@@ -30,6 +30,7 @@ import {
   PostgresTemporarySkillRepository,
   PostgresTaskWaitPolicyRepository,
   PostgresSkillRepository,
+  PostgresEvolutionExperienceRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -239,11 +240,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillEvolutionMigration);
+  const evolutionExperienceMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0038_evolution_experience.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(evolutionExperienceMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -941,6 +947,55 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
       }),
     ]);
+    const experiences = new PostgresEvolutionExperienceRepository(pool);
+    const experience = {
+      experienceId: 'evolution-experience-db-1',
+      controlId: 'control.db',
+      roundIndex: 0,
+      contextId: 'context.control.db',
+      goal: {
+        goalId: 'goal.control.db',
+        version: 1,
+        title: 'Control Goal',
+        description: 'Exercise the outer controller.',
+        constraints: ['local-only'],
+        successCriteria: ['completed'],
+      },
+      workflow: {
+        workflowDefinitionId: 'workflow.control.db',
+        version: 1,
+        goalId: 'goal.control.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result' as const,
+            value: { op: 'literal' as const, value: true },
+          },
+        ],
+        edges: [],
+      },
+      instanceId: 'instance.control.db',
+      skillVersions: [],
+      tools: [],
+      input: {},
+      result: true,
+      errors: {},
+      evaluation: {
+        decision: 'replace_skill' as const,
+        summary: 'One criterion remains.',
+        actionInstruction: 'Select the ranked replacement Skill.',
+      },
+      successful: false,
+      durationMs: 1000,
+      createdAt: '2026-07-12T00:00:02.000Z',
+    };
+    await experiences.save(experience);
+    await expect(experiences.find(experience.experienceId)).resolves.toEqual(experience);
+    await expect(experiences.listByGoal('goal.control.db')).resolves.toEqual([experience]);
   });
   it('atomically persists related and unrelated Goal history decisions', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

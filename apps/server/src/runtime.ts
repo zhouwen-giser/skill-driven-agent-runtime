@@ -30,6 +30,7 @@ import {
   TemporarySkillService,
   TemporarySkillResolver,
   SkillEvolutionService,
+  EvolutionExperienceService,
   WorkflowValidator,
   WorkflowPlannerService,
   WorkflowExecutionService,
@@ -91,6 +92,7 @@ import {
   PostgresMemoryRepository,
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
+  PostgresEvolutionExperienceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -175,6 +177,10 @@ export async function startServerRuntime(
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const mcpRepository = new PostgresMcpRegistryRepository(pool);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
+  const evolutionExperiences = new EvolutionExperienceService({
+    repository: new PostgresEvolutionExperienceRepository(pool),
+    nextId: () => `evolution-experience-${randomUUID()}`,
+  });
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
@@ -508,6 +514,7 @@ export async function startServerRuntime(
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime),
+    experiences: evolutionExperiences,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
       requestInput: (taskId, question) => service.requestInput(taskId, question),
@@ -804,6 +811,7 @@ export async function startServerRuntime(
         ...(skillSelection === undefined ? {} : { skillSelection }),
         temporarySkills: temporarySkillOperations,
         skillEvolution,
+        evolutionExperiences,
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
           plan: (input) => workflowPlanner.plan(input),
@@ -965,6 +973,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0035_task_skill_selection.up.sql',
     '0036_task_temporary_skill.up.sql',
     '0037_skill_evolution_simulation.up.sql',
+    '0038_evolution_experience.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

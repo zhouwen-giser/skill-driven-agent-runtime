@@ -2334,6 +2334,41 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
 
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+      const completedTask = z
+        .object({ goalId: z.string() })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+          ).then((response) => response.json()),
+        );
+      const evolutionEvidence = z
+        .object({
+          items: z.array(
+            z.object({
+              taskId: z.string(),
+              goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
+              workflow: z.object({ nodes: z.array(z.unknown()) }),
+              tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+              result: z.unknown(),
+              evaluation: z.object({ decision: z.string(), summary: z.string() }),
+              successful: z.boolean(),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(completedTask.goalId)}/evolution-experiences`,
+          ).then((response) => response.json()),
+        );
+      expect(evolutionEvidence.items).toContainEqual(
+        expect.objectContaining({
+          taskId: submitted.id,
+          goal: expect.objectContaining({ goalId: completedTask.goalId }),
+          tools: [{ serverId, toolName: 'device_status' }],
+          evaluation: expect.objectContaining({ decision: 'achieved' }),
+          successful: true,
+        }),
+      );
       const temporarySkills = await waitForTemporarySkillStatus(submitted.id, 'expired');
       expect(temporarySkills.items).toContainEqual(
         expect.objectContaining({

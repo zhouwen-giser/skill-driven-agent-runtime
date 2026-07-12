@@ -12,6 +12,7 @@ export * from './skill-graph.js';
 export * from './skill-selection.js';
 export * from './skill-call-workflow.js';
 export * from './temporary-skill.js';
+export * from './evolution-experience.js';
 export * from './workflow.js';
 export * from './workflow-budget.js';
 export * from './workflow-control.js';
