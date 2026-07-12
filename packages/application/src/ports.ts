@@ -20,6 +20,9 @@ import type {
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillQualityObservation,
+  SkillQualityWarning,
+  SkillQualityWarningKind,
   SkillDraft,
   SkillCallWorkflowRecord,
   SkillVersion,
@@ -184,6 +187,22 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillQualityRepository {
+  saveObservation(observation: SkillQualityObservation): Promise<void>;
+  listRecentObservations(
+    skillId: string,
+    skillVersion: number,
+    limit: number,
+  ): Promise<readonly SkillQualityObservation[]>;
+  findActiveWarning(
+    skillId: string,
+    skillVersion: number,
+    kind: SkillQualityWarningKind,
+  ): Promise<SkillQualityWarning | undefined>;
+  saveWarning(warning: SkillQualityWarning): Promise<void>;
+  listWarnings(skillId?: string): Promise<readonly SkillQualityWarning[]>;
 }
 
 export interface SkillSemanticRetriever {

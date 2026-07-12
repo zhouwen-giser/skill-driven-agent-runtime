@@ -240,6 +240,59 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('records and lists Skill quality warnings without a status mutation operation', async () => {
+    const warning = {
+      warningId: 'warning-1',
+      skillId: 'skill.quality',
+      skillVersion: 1,
+      kind: 'consecutive_low_score' as const,
+      observationIds: ['observation-1', 'observation-2', 'observation-3'],
+      observedValue: 0.2,
+      threshold: 0.4,
+      summary: 'Low scores.',
+      status: 'active' as const,
+      skillStatusAtCreation: 'enabled' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        skillQuality: {
+          record: (input) =>
+            Promise.resolve({
+              observation: {
+                observationId: 'observation-3',
+                ...input,
+                createdAt: warning.createdAt,
+              },
+              warnings: [warning],
+            }),
+          listWarnings: () => Promise.resolve([warning]),
+        },
+      },
+    });
+    const recorded = await fetch(
+      `${endpoint.baseUrl}/api/v1/skills/skill.quality/quality-observations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          skillVersion: 1,
+          evaluationRef: 'evaluation-3',
+          score: 0.2,
+          successful: false,
+        }),
+      },
+    );
+    expect(recorded.status).toBe(201);
+    await expect(recorded.json()).resolves.toMatchObject({ warnings: [{ status: 'active' }] });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/skill-quality-warnings?skillId=skill.quality`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({ items: [{ warningId: 'warning-1' }] });
+  });
+
   it('fails explicitly when semantic and final selection providers are not configured', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const response = await fetch(`${endpoint.baseUrl}/api/v1/skill-selections`, {
@@ -929,6 +982,7 @@ function operations(failServerList = false): ManagementOperations {
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
     goalInputInference: { list: () => Promise.resolve([]) },
+    skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     graph: {
       create: unused,
       delete: unused,

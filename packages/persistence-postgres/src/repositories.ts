@@ -27,6 +27,7 @@ import type {
   SkillGraphRepository,
   SkillEmbeddingRepository,
   SkillSelectionRepository,
+  SkillQualityRepository,
   TemporarySkillRepository,
   SkillRepository,
   SkillCallWorkflowRepository,
@@ -66,6 +67,8 @@ import type {
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
+  SkillQualityObservation,
+  SkillQualityWarning,
   SkillReplacementPlan,
   SkillSelectionRecord,
   SkillFormalizationCandidate,
@@ -302,6 +305,30 @@ interface SkillMetricsRow extends QueryResultRow {
   average_cost: number;
   failure_count: number;
   stability_score: number;
+}
+
+interface SkillQualityObservationRow extends QueryResultRow {
+  observation_id: string;
+  skill_id: string;
+  skill_version: number;
+  evaluation_ref: string;
+  score: number;
+  successful: boolean;
+  created_at: Date | string;
+}
+
+interface SkillQualityWarningRow extends QueryResultRow {
+  warning_id: string;
+  skill_id: string;
+  skill_version: number;
+  kind: SkillQualityWarning['kind'];
+  observation_ids_json: unknown;
+  observed_value: number;
+  threshold: number;
+  summary: string;
+  status: 'active';
+  skill_status_at_creation: SkillQualityWarning['skillStatusAtCreation'];
+  created_at: Date | string;
 }
 
 interface SkillSelectionRow extends QueryResultRow {
@@ -1710,6 +1737,93 @@ export class PostgresSkillGraphRepository implements SkillGraphRepository {
 
   async deleteRelation(relationId: string): Promise<void> {
     await this.#pool.query('DELETE FROM skill_relation WHERE relation_id = $1', [relationId]);
+  }
+}
+
+export class PostgresSkillQualityRepository implements SkillQualityRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async saveObservation(observation: SkillQualityObservation): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_quality_observation
+         (observation_id,skill_id,skill_version,evaluation_ref,score,successful,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        observation.observationId,
+        observation.skillId,
+        observation.skillVersion,
+        observation.evaluationRef,
+        observation.score,
+        observation.successful,
+        observation.createdAt,
+      ],
+    );
+  }
+
+  async listRecentObservations(
+    skillId: string,
+    skillVersion: number,
+    limit: number,
+  ): Promise<readonly SkillQualityObservation[]> {
+    const result = await this.#pool.query<SkillQualityObservationRow>(
+      `SELECT observation_id,skill_id,skill_version,evaluation_ref,score,successful,created_at
+       FROM skill_quality_observation WHERE skill_id=$1 AND skill_version=$2
+       ORDER BY created_at DESC,observation_id DESC LIMIT $3`,
+      [skillId, skillVersion, limit],
+    );
+    return result.rows.map(mapSkillQualityObservationRow);
+  }
+
+  async findActiveWarning(
+    skillId: string,
+    skillVersion: number,
+    kind: SkillQualityWarning['kind'],
+  ): Promise<SkillQualityWarning | undefined> {
+    const result = await this.#pool.query<SkillQualityWarningRow>(
+      `SELECT warning_id,skill_id,skill_version,kind,observation_ids_json,observed_value,
+              threshold,summary,status,skill_status_at_creation,created_at
+       FROM skill_quality_warning
+       WHERE skill_id=$1 AND skill_version=$2 AND kind=$3 AND status='active'`,
+      [skillId, skillVersion, kind],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapSkillQualityWarningRow(row);
+  }
+
+  async saveWarning(warning: SkillQualityWarning): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_quality_warning
+         (warning_id,skill_id,skill_version,kind,observation_ids_json,observed_value,
+          threshold,summary,status,skill_status_at_creation,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        warning.warningId,
+        warning.skillId,
+        warning.skillVersion,
+        warning.kind,
+        JSON.stringify(warning.observationIds),
+        warning.observedValue,
+        warning.threshold,
+        warning.summary,
+        warning.status,
+        warning.skillStatusAtCreation,
+        warning.createdAt,
+      ],
+    );
+  }
+
+  async listWarnings(skillId?: string): Promise<readonly SkillQualityWarning[]> {
+    const result = await this.#pool.query<SkillQualityWarningRow>(
+      `SELECT warning_id,skill_id,skill_version,kind,observation_ids_json,observed_value,
+              threshold,summary,status,skill_status_at_creation,created_at
+       FROM skill_quality_warning WHERE ($1::text IS NULL OR skill_id=$1)
+       ORDER BY created_at DESC,warning_id DESC`,
+      [skillId ?? null],
+    );
+    return result.rows.map(mapSkillQualityWarningRow);
   }
 }
 
@@ -3345,6 +3459,34 @@ function mapSkillDraftRow(row: SkillDraftRow): SkillDraft {
     ...(row.published_at === null ? {} : { publishedAt: toIsoString(row.published_at) }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function mapSkillQualityObservationRow(row: SkillQualityObservationRow): SkillQualityObservation {
+  return {
+    observationId: row.observation_id,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    evaluationRef: row.evaluation_ref,
+    score: row.score,
+    successful: row.successful,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapSkillQualityWarningRow(row: SkillQualityWarningRow): SkillQualityWarning {
+  return {
+    warningId: row.warning_id,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    kind: row.kind,
+    observationIds: z.array(z.string()).parse(row.observation_ids_json),
+    observedValue: row.observed_value,
+    threshold: row.threshold,
+    summary: row.summary,
+    status: row.status,
+    skillStatusAtCreation: row.skill_status_at_creation,
+    createdAt: toIsoString(row.created_at),
   };
 }
 

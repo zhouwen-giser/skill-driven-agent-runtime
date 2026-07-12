@@ -10,6 +10,7 @@ import type {
   PromptService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillQualityService,
   RegisterSkillVersionInput,
   SkillRegistryService,
   SkillGraphService,
@@ -166,6 +167,12 @@ const PublishSkillDraftSchema = z.object({
   status: z.enum(['enabled', 'disabled']),
 });
 const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
+const SkillQualityObservationSchema = z.object({
+  skillVersion: z.number().int().positive(),
+  evaluationRef: z.string().min(1),
+  score: z.number().min(0).max(1),
+  successful: z.boolean(),
+});
 const ModelStageSchema = z.enum([
   'intent',
   'goal',
@@ -291,6 +298,7 @@ export interface ManagementOperations {
     'authorAndRegister' | 'getDraft' | 'publishDraft'
   >;
   readonly skillSelection?: Pick<SkillSelectionService, 'select'>;
+  readonly skillQuality: Pick<SkillQualityService, 'listWarnings' | 'record'>;
   readonly models: Pick<ModelRuntimeService, 'configureProvider' | 'listInvocations' | 'route'>;
   readonly prompts: Pick<
     PromptService,
@@ -1054,6 +1062,26 @@ export async function startManagementHttpEndpoint(
       response
         .status(201)
         .json(await options.operations.skillSelection.select(input.goalDescription));
+    }),
+  );
+  app.post(
+    '/api/v1/skills/:skillId/quality-observations',
+    asyncRoute(async (request, response) => {
+      const input = SkillQualityObservationSchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.skillQuality.record({
+          skillId: pathValue(request, 'skillId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/skill-quality-warnings',
+    asyncRoute(async (request, response) => {
+      const skillId =
+        typeof request.query['skillId'] === 'string' ? request.query['skillId'] : undefined;
+      response.json({ items: await options.operations.skillQuality.listWarnings(skillId) });
     }),
   );
   app.post(

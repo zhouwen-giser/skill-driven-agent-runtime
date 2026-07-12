@@ -661,6 +661,71 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(selection.decisionSummary).toContain('metric snapshot');
   });
 
+  it('raises a low-quality warning without disabling or repairing the enabled Skill', async () => {
+    const skillId = `skill.quality.warning.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Quality warning Skill'));
+    for (const [index, score] of [0.3, 0.2, 0.1].entries()) {
+      const recorded = await fetch(
+        `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/quality-observations`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            skillVersion: 1,
+            evaluationRef: `evaluation-quality-${String(index + 1)}`,
+            score,
+            successful: false,
+          }),
+        },
+      );
+      expect(recorded.status).toBe(201);
+    }
+    const warnings = z
+      .object({
+        items: z.array(
+          z.object({
+            skillId: z.string(),
+            skillVersion: z.number(),
+            kind: z.string(),
+            status: z.string(),
+            skillStatusAtCreation: z.string(),
+            observationIds: z.array(z.string()),
+          }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/skill-quality-warnings?skillId=${encodeURIComponent(skillId)}`,
+        ).then((response) => response.json()),
+      );
+    expect(warnings.items).toMatchObject([
+      {
+        skillId,
+        skillVersion: 1,
+        kind: 'consecutive_low_score',
+        status: 'active',
+        skillStatusAtCreation: 'enabled',
+      },
+    ]);
+    expect(warnings.items[0]?.observationIds).toHaveLength(3);
+    const versions = z
+      .object({
+        items: z.array(
+          z.object({ version: z.number(), status: z.string(), sourceKind: z.string() }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/versions`,
+        ).then((response) => response.json()),
+      );
+    expect(versions.items).toEqual([
+      expect.objectContaining({ version: 1, status: 'enabled', sourceKind: 'admin' }),
+    ]);
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+    await runtime.setSkillEnabled(skillId, false);
+  });
+
   it('creates, lists, and deletes persisted Skill Graph relations through management HTTP', async () => {
     const sourceSkillId = `skill.graph.source.${randomUUID()}`;
     const targetSkillId = `skill.graph.target.${randomUUID()}`;

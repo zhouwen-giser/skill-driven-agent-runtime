@@ -23,6 +23,7 @@ import {
   SkillGraphService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillQualityService,
   SkillCallWorkflowService,
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
@@ -81,6 +82,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
   PostgresWorkflowPlanRepository,
@@ -260,6 +262,15 @@ export async function startServerRuntime(
     nextId: () => `goal-input-inference-${randomUUID()}`,
   });
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const skillQuality = new SkillQualityService({
+    repository: new PostgresSkillQualityRepository(pool),
+    skills,
+    clock,
+    ids: {
+      nextObservationId: () => `skill-quality-observation-${randomUUID()}`,
+      nextWarningId: () => `skill-quality-warning-${randomUUID()}`,
+    },
+  });
   const skillAuthoring = new SkillAuthoringService({
     model: options.skillAuthoringModel ?? modelRuntime,
     schemas: schemaValidator,
@@ -850,6 +861,7 @@ export async function startServerRuntime(
         models: modelRuntime,
         prompts,
         ...(skillSelection === undefined ? {} : { skillSelection }),
+        skillQuality,
         temporarySkills: temporarySkillOperations,
         skillEvolution,
         evolutionExperiences,
@@ -1019,6 +1031,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0039_evolution_policy.up.sql',
     '0040_skill_evolution_correction.up.sql',
     '0041_skill_draft_publication.up.sql',
+    '0042_skill_quality_warning.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

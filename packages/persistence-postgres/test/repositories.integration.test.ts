@@ -26,6 +26,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
   PostgresTaskWaitPolicyRepository,
@@ -267,11 +268,19 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillDraftPublicationMigration);
+  const skillQualityWarningMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0042_skill_quality_warning.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(skillQualityWarningMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -1752,6 +1761,35 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
 
     await expect(repository.findMetrics(version.skillId)).resolves.toEqual(metrics);
+    const quality = new PostgresSkillQualityRepository(pool);
+    await quality.saveObservation({
+      observationId: 'quality-observation-db-1',
+      skillId: version.skillId,
+      skillVersion: version.version,
+      evaluationRef: 'evaluation-db-1',
+      score: 0.2,
+      successful: false,
+      createdAt: '2026-07-11T10:01:00.000Z',
+    });
+    await quality.saveWarning({
+      warningId: 'quality-warning-db-1',
+      skillId: version.skillId,
+      skillVersion: version.version,
+      kind: 'consecutive_low_score',
+      observationIds: ['quality-observation-db-1'],
+      observedValue: 0.2,
+      threshold: 0.4,
+      summary: 'Low scores.',
+      status: 'active',
+      skillStatusAtCreation: 'enabled',
+      createdAt: '2026-07-11T10:01:00.000Z',
+    });
+    await expect(
+      quality.listRecentObservations(version.skillId, version.version, 3),
+    ).resolves.toMatchObject([{ observationId: 'quality-observation-db-1', score: 0.2 }]);
+    await expect(quality.listWarnings(version.skillId)).resolves.toMatchObject([
+      { warningId: 'quality-warning-db-1', skillStatusAtCreation: 'enabled' },
+    ]);
     await expect(repository.findSelection(selection.selectionId)).resolves.toEqual(selection);
     const persisted = await pool.query<{ status: string }>(
       'SELECT status FROM skill_replacement_plan WHERE replacement_plan_id = $1',
