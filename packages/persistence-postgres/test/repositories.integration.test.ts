@@ -38,6 +38,7 @@ import {
   PostgresImplicitFeedbackRepository,
   PostgresTaskQualityReportRepository,
   PostgresEvaluationInfluenceRepository,
+  PostgresEvaluationAnalyticsRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -317,6 +318,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(evaluationInfluenceMigration);
+  const evaluationAnalyticsMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0049_evaluation_analytics.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(evaluationAnalyticsMigration);
 });
 
 beforeEach(async () => {
@@ -1319,6 +1325,54 @@ describe('PostgreSQL protocol-domain repositories', () => {
       workflowDisposition: 'rejected_low_quality',
       promptDisposition: 'not_required',
     });
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    await modelRuntime.saveProvider({
+      configuration: {
+        providerId: 'provider.analytics.db',
+        name: 'Analytics provider',
+        kind: 'local',
+        apiStyle: 'openai_chat_completions',
+        baseUrl: 'http://127.0.0.1:1234/v1',
+        model: 'model.analytics.db',
+        enabled: true,
+        timeoutMs: 1000,
+        createdAt: '2026-07-12T00:00:00.000Z',
+        updatedAt: '2026-07-12T00:00:00.000Z',
+      },
+      encryptedCredential: 'encrypted-test-only',
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.analytics.db',
+      taskId: task.taskId,
+      stage: 'evaluation',
+      providerId: 'provider.analytics.db',
+      model: 'model.analytics.db',
+      operation: 'structured_generation',
+      request: {},
+      context: {},
+      durationMs: 5,
+      status: 'succeeded',
+      createdAt: '2026-07-12T00:00:03.000Z',
+    });
+    const analytics = new PostgresEvaluationAnalyticsRepository(pool);
+    await expect(
+      analytics.query({
+        providerId: 'provider.analytics.db',
+        model: 'model.analytics.db',
+        serverId: 'mcp.history',
+        toolName: 'replay',
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        experienceId: experience.experienceId,
+        taskId: task.taskId,
+        successful: false,
+        durationMs: 1000,
+        cost: 0,
+        failureCodes: ['goal_evaluation:replace_skill'],
+        qualityReport: expect.objectContaining({ reportId: 'quality.control.db' }),
+      }),
+    ]);
   });
   it('atomically persists related and unrelated Goal history decisions', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

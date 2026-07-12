@@ -298,6 +298,58 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('filters operational Evaluation analytics by Skill, version, model, and Tool', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        evaluationAnalytics: {
+          summarize: (filters) =>
+            Promise.resolve({
+              filters,
+              sampleCount: 2,
+              successCount: 1,
+              successRate: 0.5,
+              averageDurationMs: 150,
+              totalCost: 4,
+              averageCost: 2,
+              failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+              versionStability: [
+                {
+                  skillId: 'skill-1',
+                  skillVersion: 2,
+                  sampleCount: 2,
+                  successRate: 0.5,
+                  averageQuality: 0.6,
+                  qualityDeviation: 0.2,
+                  stabilityScore: 0.4,
+                },
+              ],
+              qualityTrend: [],
+            }),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/evaluation/analytics?skillId=skill-1&skillVersion=2&providerId=provider-1&model=model-a&serverId=mcp-1&toolName=read`,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      filters: {
+        skillId: 'skill-1',
+        skillVersion: 2,
+        providerId: 'provider-1',
+        model: 'model-a',
+        serverId: 'mcp-1',
+        toolName: 'read',
+      },
+      successRate: 0.5,
+      averageDurationMs: 150,
+      totalCost: 4,
+      failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+      versionStability: [{ stabilityScore: 0.4 }],
+    });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -1197,6 +1249,7 @@ function operations(failServerList = false): ManagementOperations {
     taskQuality: { getByTask: unused },
     implicitFeedback: { listByTask: () => Promise.resolve([]) },
     evaluationInfluences: { getByReport: unused },
+    evaluationAnalytics: { summarize: unused },
     memories: {
       refine: unused,
       get: unused,

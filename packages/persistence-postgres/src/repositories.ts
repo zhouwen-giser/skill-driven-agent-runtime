@@ -22,6 +22,7 @@ import type {
   ProcessedResultRepository,
   TaskQualityReportRepository,
   EvaluationInfluenceRepository,
+  EvaluationAnalyticsRepository,
   MemoryRepository,
   MemoryRetentionPolicyRepository,
   GoalInputInferenceRepository,
@@ -69,6 +70,8 @@ import type {
   ProcessedResultRecord,
   TaskQualityReport,
   EvaluationInfluenceRecord,
+  EvaluationAnalyticsFilter,
+  EvaluationAnalyticsSample,
   MemoryItem,
   MemorySearchHit,
   MemoryStatusTransition,
@@ -1176,6 +1179,107 @@ export class PostgresEvaluationInfluenceRepository implements EvaluationInfluenc
           }),
       createdAt: toIsoString(row.created_at),
     };
+  }
+}
+
+interface EvaluationAnalyticsRow extends QueryResultRow {
+  experience_id: string;
+  task_id: string | null;
+  instance_id: string;
+  skill_versions_json: unknown;
+  tools_json: unknown;
+  successful: boolean;
+  duration_ms: number;
+  budget_usage_json: unknown;
+  errors_json: unknown;
+  evaluation_decision: string;
+  report_id: string | null;
+  report_task_id: string | null;
+  overall_score: number | null;
+  quality_status: TaskQualityReport['status'] | null;
+  quality_created_at: Date | string | null;
+}
+
+const AnalyticsSkillVersionsSchema = z.array(
+  z.object({ skillId: z.string(), version: z.number().int().positive() }).strict(),
+);
+const AnalyticsToolsSchema = z.array(
+  z.object({ serverId: z.string(), toolName: z.string() }).strict(),
+);
+const AnalyticsBudgetSchema = z.looseObject({ cost: z.number().nonnegative() });
+const AnalyticsErrorsSchema = z.record(
+  z.string(),
+  z.object({ code: z.string(), message: z.string() }).strict(),
+);
+
+export class PostgresEvaluationAnalyticsRepository implements EvaluationAnalyticsRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+  async query(filters: EvaluationAnalyticsFilter): Promise<readonly EvaluationAnalyticsSample[]> {
+    const result = await this.#pool.query<EvaluationAnalyticsRow>(
+      `SELECT ee.experience_id,ee.task_id,ee.instance_id,ee.skill_versions_json,ee.tools_json,
+              ee.successful,ee.duration_ms,wi.budget_usage_json,wi.errors_json,
+              ee.evaluation_json->>'decision' evaluation_decision,
+              qr.report_id,qr.task_id report_task_id,qr.overall_score,qr.status quality_status,
+              qr.created_at quality_created_at
+       FROM evolution_experience ee
+       JOIN workflow_instance wi ON wi.instance_id=ee.instance_id
+       LEFT JOIN task_quality_report qr ON qr.workflow_instance_id=ee.instance_id
+       WHERE ($1::text IS NULL OR EXISTS (
+         SELECT 1 FROM jsonb_array_elements(ee.skill_versions_json) skill
+         WHERE skill->>'skillId'=$1
+           AND ($2::integer IS NULL OR (skill->>'version')::integer=$2)))
+         AND (($3::text IS NULL AND $4::text IS NULL) OR EXISTS (
+           SELECT 1 FROM model_invocation mi WHERE mi.task_id=ee.task_id
+             AND ($3::text IS NULL OR mi.provider_id=$3)
+             AND ($4::text IS NULL OR mi.model=$4)))
+         AND ($5::text IS NULL OR ee.tools_json @> jsonb_build_array(
+           CASE WHEN $6::text IS NULL THEN jsonb_build_object('serverId',$5::text)
+                ELSE jsonb_build_object('serverId',$5::text,'toolName',$6::text) END))
+       ORDER BY ee.created_at,ee.experience_id`,
+      [
+        filters.skillId ?? null,
+        filters.skillVersion ?? null,
+        filters.providerId ?? null,
+        filters.model ?? null,
+        filters.serverId ?? null,
+        filters.toolName ?? null,
+      ],
+    );
+    return result.rows.map((row) => {
+      const errors = AnalyticsErrorsSchema.parse(row.errors_json);
+      const failureCodes = Object.values(errors).map((error) => error.code);
+      if (!row.successful && failureCodes.length === 0)
+        failureCodes.push(`goal_evaluation:${row.evaluation_decision}`);
+      return {
+        experienceId: row.experience_id,
+        ...(row.task_id === null ? {} : { taskId: row.task_id }),
+        instanceId: row.instance_id,
+        skillVersions: AnalyticsSkillVersionsSchema.parse(row.skill_versions_json),
+        tools: AnalyticsToolsSchema.parse(row.tools_json),
+        successful: row.successful,
+        durationMs: row.duration_ms,
+        cost: AnalyticsBudgetSchema.parse(row.budget_usage_json).cost,
+        failureCodes,
+        ...(row.report_id === null ||
+        row.report_task_id === null ||
+        row.overall_score === null ||
+        row.quality_status === null ||
+        row.quality_created_at === null
+          ? {}
+          : {
+              qualityReport: {
+                reportId: row.report_id,
+                taskId: row.report_task_id,
+                overallScore: row.overall_score,
+                status: row.quality_status,
+                createdAt: toIsoString(row.quality_created_at),
+              },
+            }),
+      };
+    });
   }
 }
 
@@ -2348,6 +2452,7 @@ interface ModelProviderRow extends QueryResultRow {
 
 interface ModelInvocationRow extends QueryResultRow {
   invocation_id: string;
+  task_id: string | null;
   stage: ModelStage;
   provider_id: string;
   model: string;
@@ -2428,11 +2533,12 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
   async saveInvocation(invocation: ModelInvocationRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO model_invocation
-       (invocation_id,stage,provider_id,model,operation,prompt_id,prompt_version,request_json,context_json,raw_response_json,
+       (invocation_id,task_id,stage,provider_id,model,operation,prompt_id,prompt_version,request_json,context_json,raw_response_json,
         structured_result_json,input_tokens,output_tokens,duration_ms,status,error_code,error_message,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14,$15,$16,$17,$18,$19)`,
       [
         invocation.invocationId,
+        invocation.taskId ?? null,
         invocation.stage,
         invocation.providerId,
         invocation.model,
@@ -4324,6 +4430,7 @@ function mapModelProviderRow(row: ModelProviderRow): ModelProviderRecord {
 function mapModelInvocationRow(row: ModelInvocationRow): ModelInvocationRecord {
   return {
     invocationId: row.invocation_id,
+    ...(row.task_id === null ? {} : { taskId: row.task_id }),
     stage: row.stage,
     providerId: row.provider_id,
     model: row.model,

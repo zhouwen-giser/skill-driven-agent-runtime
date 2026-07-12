@@ -24,6 +24,7 @@ export * from './workflow-controller.js';
 export * from './goal-service.js';
 export * from './implicit-feedback.js';
 export * from './evaluation-influence.js';
+export * from './evaluation-analytics.js';
 export * from './goal-cancellation-service.js';
 export * from './goal-patch-service.js';
 export * from './workflow-revision.js';

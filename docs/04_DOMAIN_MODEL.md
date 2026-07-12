@@ -61,6 +61,12 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - Records the resulting Skill-version observation, quality-gated Workflow Template disposition, and inactive Prompt candidate identity.
 - Is audit evidence only; it cannot mutate a running Workflow or bypass Skill/Prompt publication rules.
 
+### EvaluationAnalyticsSnapshot
+
+- Aggregates immutable Experience, Workflow budget/error, model invocation, Tool, SkillVersion, and quality-report evidence.
+- Supports Skill/version/provider/model/Server/Tool filters while PostgreSQL remains authoritative.
+- Contains success, duration, cost, failure, version-stability, and ordered quality-trend projections.
+
 ## 不变量
 
 - enabled SkillVersion 必须具有合法 input/output schema 和通过的验证记录。

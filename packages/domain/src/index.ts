@@ -8,6 +8,7 @@ export * from './goal-transition.js';
 export * from './identity.js';
 export * from './implicit-feedback.js';
 export * from './evaluation-influence.js';
+export * from './evaluation-analytics.js';
 export * from './skill-draft.js';
 export * from './skill.js';
 export * from './skill-graph.js';

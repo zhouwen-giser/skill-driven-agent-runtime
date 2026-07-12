@@ -27,11 +27,13 @@ describe('ModelRuntimeService', () => {
         responseSchema: { type: 'object' },
         correctionErrors: [],
         context: { taskId: 'task-1' },
+        taskId: 'task-1',
       }),
     ).resolves.toEqual({ schema: 'valid' });
     expect(transport.providerIds).toEqual(['provider-primary']);
     expect(repository.invocations[0]).toMatchObject({
       stage: 'skill_authoring',
+      taskId: 'task-1',
       providerId: 'provider-primary',
       model: 'model-a',
       status: 'succeeded',

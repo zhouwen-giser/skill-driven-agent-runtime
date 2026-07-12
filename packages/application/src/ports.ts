@@ -55,6 +55,8 @@ import type {
   GoalInputInferenceRecord,
   ImplicitFeedbackRecord,
   EvaluationInfluenceRecord,
+  EvaluationAnalyticsFilter,
+  EvaluationAnalyticsSample,
   GoalTransitionRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
@@ -110,6 +112,10 @@ export interface TaskQualityReportRepository {
 export interface EvaluationInfluenceRepository {
   save(record: EvaluationInfluenceRecord): Promise<void>;
   findByReport(reportId: string): Promise<EvaluationInfluenceRecord | undefined>;
+}
+
+export interface EvaluationAnalyticsRepository {
+  query(filters: EvaluationAnalyticsFilter): Promise<readonly EvaluationAnalyticsSample[]>;
 }
 
 export interface ImplicitFeedbackRepository {
@@ -468,6 +474,7 @@ export interface StructuredModelProvider {
       instruction: string;
       responseSchema: unknown;
       correctionErrors: readonly string[];
+      taskId?: string;
     }>,
   ): Promise<unknown>;
 }

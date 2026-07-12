@@ -44,6 +44,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-13: run five strict Goal/Workflow/Skill/result/Tool evaluation components after final Result Processing and persist one deterministic source-linked TaskQualityReport (FR-EVAL-001, ADR-060).
 - [x] 2026-07-13: infer five V1 behavioral feedback classes at authoritative Task lifecycle boundaries, persist source/trigger Task links with fixed confidence 0.35, and expose management evidence (FR-EVAL-002, ADR-061).
 - [x] 2026-07-13: route each TaskQualityReport through one report-linked influence record into Skill observations, quality-gated Workflow Template occurrences, and inactive stage-specific Prompt candidates (FR-EVAL-003, FR-LLM-007, ADR-062).
+- [x] 2026-07-13: aggregate PostgreSQL execution/quality/model/Tool evidence into filterable success, duration, cost, failure, version-stability and quality-trend management analytics (FR-EVAL-004, ADR-063).
 
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。

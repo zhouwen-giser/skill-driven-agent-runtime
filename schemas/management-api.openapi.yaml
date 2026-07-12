@@ -588,6 +588,35 @@ paths:
         '200':
           { description: Expired Skill, Experience, and optional awaiting-simulation candidate }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/evaluation/analytics:
+    get:
+      operationId: getEvaluationAnalytics
+      description: Aggregates immutable execution, quality, model, and Tool evidence from PostgreSQL.
+      parameters:
+        - { name: skillId, in: query, schema: { type: string, minLength: 1 } }
+        - { name: skillVersion, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: providerId, in: query, schema: { type: string, minLength: 1 } }
+        - { name: model, in: query, schema: { type: string, minLength: 1 } }
+        - { name: serverId, in: query, schema: { type: string, minLength: 1 } }
+        - { name: toolName, in: query, schema: { type: string, minLength: 1 } }
+      responses:
+        '200':
+          description: Success, duration, cost, failure, version-stability, and quality-trend metrics.
+          content:
+            application/json:
+              example:
+                filters: { skillId: device-status, skillVersion: 2 }
+                sampleCount: 3
+                successCount: 2
+                successRate: 0.666667
+                averageDurationMs: 125
+                totalCost: 3
+                averageCost: 1
+                failureTypes: [{ code: MCP_TIMEOUT, count: 1 }]
+                versionStability:
+                  - { skillId: device-status, skillVersion: 2, sampleCount: 3, successRate: 0.666667, averageQuality: 0.8, qualityDeviation: 0.1, stabilityScore: 0.6 }
+                qualityTrend: []
+        '400': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     ServerId: { name: serverId, in: path, required: true, schema: { type: string } }

@@ -137,6 +137,7 @@ export class ResultProcessingService {
         }),
         responseSchema,
         correctionErrors: [],
+        taskId: input.taskId,
       }),
     );
     const output = this.#processor.process({

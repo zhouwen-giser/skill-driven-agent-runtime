@@ -30,6 +30,7 @@ export interface StageModelRoute {
 
 export interface ModelInvocationRecord {
   readonly invocationId: string;
+  readonly taskId?: string;
   readonly stage: ModelStage;
   readonly providerId: string;
   readonly model: string;

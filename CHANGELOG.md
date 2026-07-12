@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Filterable PostgreSQL Evaluation analytics for success, duration, call cost, failure types, Skill-version stability, and quality trend, including explicit model-to-Task correlation.
 - Report-linked Evaluation influence across Skill quality observations, quality-gated Workflow Template induction, and inactive stage-specific Prompt optimization candidates.
 - Task-linked low-confidence implicit feedback for result acceptance, continued modification, repeated submission, redo requests, and failure-driven Skill switching.
 - Five-component completed-Task quality reports with strict Goal/Workflow/Skill/result/Tool assessments, deterministic aggregation, PostgreSQL evidence linkage, and management retrieval.

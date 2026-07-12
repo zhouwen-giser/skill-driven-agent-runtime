@@ -124,6 +124,7 @@ export class EvaluationInfluenceService implements TaskQualityInfluenceSink {
         }),
         responseSchema: promptCandidateResponseSchema,
         correctionErrors: [],
+        taskId: report.taskId,
       }),
     );
     return this.#prompts.createEvaluationCandidate(stage, generated.content);

@@ -52,6 +52,7 @@ import {
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
   EvaluationInfluenceService,
+  EvaluationAnalyticsService,
   ImplicitFeedbackService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
@@ -100,6 +101,7 @@ import {
   PostgresProcessedResultRepository,
   PostgresTaskQualityReportRepository,
   PostgresEvaluationInfluenceRepository,
+  PostgresEvaluationAnalyticsRepository,
   PostgresImplicitFeedbackRepository,
   PostgresMemoryRepository,
   PostgresMemoryRetentionPolicyRepository,
@@ -319,6 +321,9 @@ export async function startServerRuntime(
     model: modelRuntime,
     clock,
     nextId: () => `evaluation-influence-${randomUUID()}`,
+  });
+  const evaluationAnalytics = new EvaluationAnalyticsService({
+    repository: new PostgresEvaluationAnalyticsRepository(pool),
   });
   const taskQuality = new TaskQualityEvaluationService({
     model: modelRuntime,
@@ -959,6 +964,7 @@ export async function startServerRuntime(
         taskQuality,
         implicitFeedback,
         evaluationInfluences,
+        evaluationAnalytics,
         memories,
         memoryRetention,
         goalInputInference,
@@ -1149,6 +1155,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0046_task_quality_report.up.sql',
     '0047_implicit_feedback.up.sql',
     '0048_evaluation_influence.up.sql',
+    '0049_evaluation_analytics.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

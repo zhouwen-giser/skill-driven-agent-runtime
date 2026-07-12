@@ -36,6 +36,7 @@ import type {
   TaskQualityEvaluationService,
   ImplicitFeedbackService,
   EvaluationInfluenceService,
+  EvaluationAnalyticsService,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -52,6 +53,16 @@ const TaskActionSchema = z.object({
   action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
   messageText: z.string().min(1),
 });
+const EvaluationAnalyticsFilterSchema = z
+  .object({
+    skillId: z.string().min(1).optional(),
+    skillVersion: z.coerce.number().int().positive().optional(),
+    providerId: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    serverId: z.string().min(1).optional(),
+    toolName: z.string().min(1).optional(),
+  })
+  .strict();
 const CreateMemorySchema = z.object({
   memoryId: z.string().min(1).optional(),
   type: z.enum([
@@ -280,6 +291,7 @@ export interface ManagementOperations {
   readonly taskQuality: Pick<TaskQualityEvaluationService, 'getByTask'>;
   readonly implicitFeedback: Pick<ImplicitFeedbackService, 'listByTask'>;
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
+  readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
@@ -673,6 +685,22 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       response.json(
         await options.operations.evaluationInfluences.getByReport(pathValue(request, 'reportId')),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/evaluation/analytics',
+    asyncRoute(async (request, response) => {
+      const query = EvaluationAnalyticsFilterSchema.parse(request.query);
+      response.json(
+        await options.operations.evaluationAnalytics.summarize({
+          ...(query.skillId === undefined ? {} : { skillId: query.skillId }),
+          ...(query.skillVersion === undefined ? {} : { skillVersion: query.skillVersion }),
+          ...(query.providerId === undefined ? {} : { providerId: query.providerId }),
+          ...(query.model === undefined ? {} : { model: query.model }),
+          ...(query.serverId === undefined ? {} : { serverId: query.serverId }),
+          ...(query.toolName === undefined ? {} : { toolName: query.toolName }),
+        }),
       );
     }),
   );

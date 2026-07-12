@@ -64,6 +64,7 @@ export class ModelRuntimeService {
       responseSchema: unknown;
       correctionErrors: readonly string[];
       context?: unknown;
+      taskId?: string;
     }>,
   ): Promise<unknown> {
     return this.#invokeStructured(input);
@@ -88,6 +89,7 @@ export class ModelRuntimeService {
       responseSchema: unknown;
       correctionErrors: readonly string[];
       context?: unknown;
+      taskId?: string;
     }>,
   ): Promise<unknown> {
     const provider = await this.#requiredProvider(input.stage);
@@ -124,6 +126,7 @@ export class ModelRuntimeService {
         'succeeded',
         result,
         prompt,
+        input.taskId,
       );
       return result.structuredResult;
     } catch (error: unknown) {
@@ -136,6 +139,7 @@ export class ModelRuntimeService {
         started,
         error,
         prompt,
+        input.taskId,
       );
       throw new ModelRuntimeError(
         'MODEL_INVOCATION_FAILED',
@@ -212,9 +216,11 @@ export class ModelRuntimeService {
       outputTokens?: number;
     }>,
     prompt?: PromptVersion,
+    taskId?: string,
   ): Promise<void> {
     await this.#repository.saveInvocation({
       invocationId: this.#ids.nextInvocationId(),
+      ...(taskId === undefined ? {} : { taskId }),
       stage,
       providerId: configuration.providerId,
       model: configuration.model,
@@ -241,9 +247,11 @@ export class ModelRuntimeService {
     started: number,
     error: unknown,
     prompt?: PromptVersion,
+    taskId?: string,
   ): Promise<void> {
     await this.#repository.saveInvocation({
       invocationId: this.#ids.nextInvocationId(),
+      ...(taskId === undefined ? {} : { taskId }),
       stage,
       providerId: configuration.providerId,
       model: configuration.model,

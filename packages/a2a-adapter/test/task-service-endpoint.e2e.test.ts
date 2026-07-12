@@ -2125,6 +2125,22 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(storedGoal.json()).resolves.toMatchObject({ status: 'achieved' });
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
       expect(controlEvaluationCalls).toBe(2);
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/evaluation/analytics?skillId=${encodeURIComponent(skillId)}&skillVersion=1&serverId=${encodeURIComponent(serverId)}&toolName=device_status`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        filters: { skillId, skillVersion: 1, serverId, toolName: 'device_status' },
+        sampleCount: 2,
+        successCount: 1,
+        successRate: 0.5,
+        totalCost: 2,
+        averageCost: 1,
+        failureTypes: [{ code: 'goal_evaluation:adjust_plan', count: 1 }],
+        versionStability: [
+          expect.objectContaining({ skillId, skillVersion: 1, sampleCount: 2, successRate: 0.5 }),
+        ],
+      });
       const successorTask = await runtime.a2a.client.sendMessage(
         SendMessageRequest.fromJSON({
           message: {
@@ -3436,7 +3452,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           role: 'ROLE_USER',
           parts: [
             {
-              text: 'LOW_QUALITY_EVALUATION inspect the device.',
+              text: `LOW_QUALITY_EVALUATION GLOBAL_SHARED_SKILL:${skillId} inspect the device.`,
               mediaType: 'text/plain',
             },
           ],
@@ -3491,6 +3507,38 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         }),
       ]),
     );
+    const selected = z
+      .object({ selectedSkillId: z.string(), selectedSkillVersion: z.number() })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/evaluation/analytics?skillId=${encodeURIComponent(selected.selectedSkillId)}&skillVersion=${String(selected.selectedSkillVersion)}&providerId=provider.e2e&model=model-e2e`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      filters: {
+        skillId: selected.selectedSkillId,
+        skillVersion: selected.selectedSkillVersion,
+        providerId: 'provider.e2e',
+        model: 'model-e2e',
+      },
+      sampleCount: 1,
+      successCount: 1,
+      successRate: 1,
+      qualityTrend: [
+        expect.objectContaining({ reportId: quality.reportId, score: 0.3, status: 'failed' }),
+      ],
+      versionStability: [
+        expect.objectContaining({
+          skillId: selected.selectedSkillId,
+          skillVersion: selected.selectedSkillVersion,
+          averageQuality: 0.3,
+        }),
+      ],
+    });
   });
 
   it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
@@ -3991,7 +4039,7 @@ async function startModelLoopback(): Promise<Server> {
             description: autoTaskGoal
               ? 'AUTO_TASK_GOAL zebra return device status.'
               : lowQualityEvaluation
-                ? 'LOW_QUALITY_EVALUATION complete the task with auditable optimization.'
+                ? `LOW_QUALITY_EVALUATION GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'} complete the task with auditable optimization.`
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined

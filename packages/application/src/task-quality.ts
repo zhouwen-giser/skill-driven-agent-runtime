@@ -106,6 +106,7 @@ export class TaskQualityEvaluationService {
           }),
           responseSchema,
           correctionErrors: [],
+          taskId: input.taskId,
         }),
       );
       assessments.push({ component, ...decision });
