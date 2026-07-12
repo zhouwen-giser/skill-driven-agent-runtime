@@ -1929,6 +1929,64 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('stores source-linked memory and retrieves it globally across user identities', async () => {
+    const source = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Record a source task for device 17.', mediaType: 'text/plain' }],
+          metadata: { user_id: 'memory-user-a' },
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in source)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const other = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Start an unrelated task.', mediaType: 'text/plain' }],
+          metadata: { user_id: 'memory-user-b' },
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in other)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const memoryId = `memory.global.${randomUUID()}`;
+    const created = await fetch(`${runtime.management.baseUrl}/api/v1/memories`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        memoryId,
+        type: 'fact',
+        content: { deviceId: 'device-17', sourceUserId: 'memory-user-a' },
+        summary: 'The target device is device-17.',
+        sourceRefs: [source.id],
+        confidence: 0.95,
+      }),
+    });
+    expect(created.status).toBe(201);
+    await expect(created.json()).resolves.toMatchObject({
+      memoryId,
+      status: 'active',
+      sourceRefs: [source.id],
+    });
+    const search = await fetch(
+      `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('target device')}&limit=5`,
+    );
+    expect(search.status).toBe(200);
+    await expect(search.json()).resolves.toMatchObject({
+      items: [
+        {
+          item: { memoryId, content: { deviceId: 'device-17' }, sourceRefs: [source.id] },
+          score: 1,
+        },
+      ],
+    });
+  });
+
   it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;

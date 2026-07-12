@@ -15,6 +15,7 @@ import {
   PlanPreparationProcessor,
   ResultProcessor,
   ResultProcessingService,
+  MemoryService,
   RuntimeRecoveryService,
   McpRegistryService,
   ModelRuntimeService,
@@ -81,6 +82,7 @@ import {
   PostgresGoalPatchRepository,
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
+  PostgresMemoryRepository,
   PostgresTaskWaitPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -217,6 +219,12 @@ export async function startServerRuntime(
     repository: new PostgresProcessedResultRepository(pool),
     clock,
     nextId: () => `processed-result-${randomUUID()}`,
+  });
+  const memories = new MemoryService({
+    repository: new PostgresMemoryRepository(pool),
+    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
+    clock,
+    nextId: () => `memory-${randomUUID()}`,
   });
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
   const skillAuthoring = new SkillAuthoringService({
@@ -471,6 +479,7 @@ export async function startServerRuntime(
         tasks: service,
         taskWaitTimeouts,
         resultProcessing,
+        memories,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -626,6 +635,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0028_result_processing.up.sql',
     '0029_goal_evaluation_decisions.up.sql',
     '0030_task_capability_gap.up.sql',
+    '0031_global_memory.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

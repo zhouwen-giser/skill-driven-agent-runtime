@@ -13,6 +13,8 @@ import type {
   PromptEffectSummary,
   PromptVersion,
   McpToolDependencyChange,
+  MemoryItem,
+  MemorySearchHit,
   Skill,
   SkillRelation,
   SkillPerformanceMetrics,
@@ -80,6 +82,17 @@ export interface ProcessedResultRepository {
   save(record: ProcessedResultRecord): Promise<void>;
   find(resultId: string): Promise<ProcessedResultRecord | undefined>;
   listByTask(taskId: string): Promise<readonly ProcessedResultRecord[]>;
+}
+
+export interface MemoryRepository {
+  save(
+    item: MemoryItem,
+    embedding: Readonly<{ providerId: string; vector: readonly number[] }>,
+  ): Promise<void>;
+  find(memoryId: string): Promise<MemoryItem | undefined>;
+  search(
+    query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
+  ): Promise<readonly MemorySearchHit[]>;
 }
 
 export interface RuntimeRecoveryRepository {

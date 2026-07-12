@@ -10,6 +10,7 @@ import {
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
+  PostgresMemoryRepository,
   PostgresPromptRepository,
   PostgresProcessedResultRepository,
   PostgresWorkflowPlanRepository,
@@ -198,11 +199,16 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskCapabilityGapMigration);
+  const globalMemoryMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0031_global_memory.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(globalMemoryMigration);
 });
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE memory_item, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
 });
 
@@ -211,6 +217,35 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists source-linked global memory and ranks active pgvector matches', async () => {
+    const repository = new PostgresMemoryRepository(pool);
+    await repository.save(
+      {
+        memoryId: 'memory.global.db',
+        type: 'fact',
+        content: { deviceId: 'device-17', ownerUserId: 'user-a' },
+        summary: 'The target device is device-17.',
+        status: 'active',
+        sourceRefs: ['task.user-a'],
+        supersedes: [],
+        confidence: 0.9,
+        createdAt: '2026-07-12T00:00:00.000Z',
+      },
+      { providerId: 'embedding.db', vector: [1, 0, 0] },
+    );
+    await expect(
+      repository.search({ providerId: 'embedding.db', vector: [1, 0, 0], limit: 5 }),
+    ).resolves.toMatchObject([
+      {
+        item: {
+          memoryId: 'memory.global.db',
+          sourceRefs: ['task.user-a'],
+          content: { deviceId: 'device-17' },
+        },
+        score: 1,
+      },
+    ]);
+  });
   it('persists every Workflow planning attempt and immutable validated plan', async () => {
     const repository = new PostgresWorkflowPlanRepository(pool);
     const definition = {

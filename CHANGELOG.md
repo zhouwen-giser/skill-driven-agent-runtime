@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Domain-owned global MemoryItems with mandatory source references, PostgreSQL/pgvector semantic retrieval, management contracts, and cross-user local E2E evidence.
 - Task-bound capability-gap outcomes with persisted missing-tool evidence, suggested contracts, authoritative A2A `INPUT_REQUIRED` reads, and real SDK-client E2E coverage.
 - Seven strict Goal-evaluation action types with action-specific evidence, explicit input/capability waiting states, immutable external replanning, and PostgreSQL per-round replay.
 - Two-stage MCP/result processing with downstream envelopes, context trimming, fixed-stage Skill-directed final output, strict schema validation, and persisted facts/value/memory candidates.

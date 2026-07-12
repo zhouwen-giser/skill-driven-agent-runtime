@@ -18,6 +18,7 @@ import type {
   GoalPatchRepository,
   GoalCancellationRepository,
   ProcessedResultRepository,
+  MemoryRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
   RuntimeTaskEvent,
@@ -53,6 +54,8 @@ import type {
   GoalPatchRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
+  MemoryItem,
+  MemorySearchHit,
   GoalTransitionRecord,
   Skill,
   SkillRelation,
@@ -857,6 +860,89 @@ export class PostgresProcessedResultRepository implements ProcessedResultReposit
     );
     return result.rows.map(mapProcessedResultRow);
   }
+}
+
+interface MemoryItemRow extends QueryResultRow {
+  memory_id: string;
+  type: MemoryItem['type'];
+  content_json: unknown;
+  summary: string;
+  status: MemoryItem['status'];
+  source_refs_json: unknown;
+  supersedes_json: unknown;
+  confidence: number;
+  created_at: Date | string;
+  score?: number;
+}
+
+const MemoryContentSchema = z.record(z.string(), z.unknown());
+
+export class PostgresMemoryRepository implements MemoryRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(
+    item: MemoryItem,
+    embedding: Readonly<{ providerId: string; vector: readonly number[] }>,
+  ): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO memory_item(
+         memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+         embedding_provider_id,embedding_dimensions,embedding,created_at)
+       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+      [
+        item.memoryId,
+        item.type,
+        JSON.stringify(item.content),
+        item.summary,
+        item.status,
+        JSON.stringify(item.sourceRefs),
+        JSON.stringify(item.supersedes),
+        item.confidence,
+        embedding.providerId,
+        embedding.vector.length,
+        vectorLiteral(embedding.vector),
+        item.createdAt,
+      ],
+    );
+  }
+
+  async find(memoryId: string): Promise<MemoryItem | undefined> {
+    const result = await this.#pool.query<MemoryItemRow>(
+      'SELECT * FROM memory_item WHERE memory_id=$1',
+      [memoryId],
+    );
+    return result.rows[0] === undefined ? undefined : mapMemoryItemRow(result.rows[0]);
+  }
+
+  async search(
+    query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
+  ): Promise<readonly MemorySearchHit[]> {
+    const result = await this.#pool.query<MemoryItemRow>(
+      `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
+       FROM memory_item
+       WHERE status='active' AND embedding_provider_id=$2 AND embedding_dimensions=$3
+       ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $4`,
+      [vectorLiteral(query.vector), query.providerId, query.vector.length, query.limit],
+    );
+    return result.rows.map((row) => ({ item: mapMemoryItemRow(row), score: row.score ?? 0 }));
+  }
+}
+
+function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
+  return {
+    memoryId: row.memory_id,
+    type: row.type,
+    content: MemoryContentSchema.parse(row.content_json),
+    summary: row.summary,
+    status: row.status,
+    sourceRefs: StringArraySchema.parse(row.source_refs_json),
+    supersedes: StringArraySchema.parse(row.supersedes_json),
+    confidence: row.confidence,
+    createdAt: toIsoString(row.created_at),
+  };
 }
 
 function mapProcessedResultRow(row: ProcessedResultRow): ProcessedResultRecord {

@@ -17,6 +17,7 @@ export function requireIdentifier(
     | 'CONTEXT_ID_REQUIRED'
     | 'GOAL_ID_REQUIRED'
     | 'MCP_SERVER_ID_REQUIRED'
+    | 'MEMORY_ID_REQUIRED'
     | 'SKILL_DRAFT_ID_REQUIRED'
     | 'SKILL_ID_REQUIRED'
     | 'SKILL_RELATION_ID_REQUIRED'

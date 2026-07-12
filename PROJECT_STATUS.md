@@ -1,5 +1,7 @@
 # Project Status
 
+EP-05 global-memory foundation update (2026-07-12): approximately 12%. Domain-owned, source-traceable MemoryItems now persist in PostgreSQL/pgvector and are retrieved globally without user isolation through real management contracts. Cross-user local E2E verifies the trusted-intranet sharing baseline, so FR-MEM-001 is verified. Candidate admission/deduplication, conflict/version status, stage-specific retrieval, evaluation, and evolution remain open. FR-GOAL-006 can now consume a real long-term-memory source in the next EP-04 increment.
+
 EP-04 capability-gap update (2026-07-12): approximately 95%. A fixed Goal-evaluation capability gap now transitions the bound PostgreSQL-authoritative Task to `capability_gap`, persists the missing capability and suggested tool contract, publishes an audit event, and projects actionable `INPUT_REQUIRED` evidence through the official A2A SDK path without starting another node. FR-RST-006 is verified. The remaining EP-04 P0 gap is inference-before-input-required (FR-GOAL-006).
 
 EP-04 Goal-evaluation update (2026-07-12): approximately 90%. Every terminal Workflow round now enters a fixed structured Goal evaluation. Explicit achieved/input/plan-adjustment/Skill-replacement/additional-Skill/capability-gap/unachievable actions persist their displayable evidence; planning actions create immutable versions outside LangGraph while waits start no new node. FR-RST-004/005 are verified. Remaining EP-04 gaps are inference-before-input-required and A2A Task capability-gap projection.

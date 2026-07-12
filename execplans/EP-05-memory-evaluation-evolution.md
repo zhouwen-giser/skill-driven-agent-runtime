@@ -24,6 +24,8 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 
 ## Progress
 
+- [x] 2026-07-12: establish source-traceable global MemoryItem storage, pgvector retrieval, management contracts, and cross-user E2E evidence for FR-MEM-001.
+
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。
 - [ ] 完成实现增量。

@@ -6,6 +6,28 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/memories:
+    post:
+      operationId: createMemory
+      description: Creates one globally shared, source-linked memory and persists its pgvector embedding.
+      responses:
+        '201': { description: Active global memory item }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/memories/search:
+    get:
+      operationId: searchMemories
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { description: Global active memories ordered by pgvector similarity }
+  /api/v1/memories/{memoryId}:
+    parameters: [{ name: memoryId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getMemory
+      responses:
+        '200': { description: One source-traceable memory item }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/contexts/{contextId}/goals:
     parameters: [{ name: contextId, in: path, required: true, schema: { type: string } }]
     get:

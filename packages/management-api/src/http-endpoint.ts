@@ -22,6 +22,7 @@ import type {
   GoalPatchService,
   GoalCancellationService,
   ResultProcessingService,
+  MemoryService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
@@ -29,6 +30,22 @@ import type {
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
+const CreateMemorySchema = z.object({
+  memoryId: z.string().min(1).optional(),
+  type: z.enum([
+    'fact',
+    'success_experience',
+    'failure_experience',
+    'workflow_pattern',
+    'skill_learning',
+    'prompt_learning',
+  ]),
+  content: z.record(z.string(), z.unknown()),
+  summary: z.string().min(1),
+  sourceRefs: z.array(z.string().min(1)).min(1),
+  confidence: z.number().min(0).max(1),
+  supersedes: z.array(z.string().min(1)).optional(),
+});
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -204,6 +221,7 @@ export interface ManagementOperations {
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
+  readonly memories: Pick<MemoryService, 'create' | 'get' | 'search'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -269,6 +287,43 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/health', (_request, response) => {
     response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
   });
+  app.post(
+    '/api/v1/memories',
+    asyncRoute(async (request, response) => {
+      const input = CreateMemorySchema.parse(request.body);
+      response.status(201).json(
+        await options.operations.memories.create({
+          type: input.type,
+          content: input.content,
+          summary: input.summary,
+          sourceRefs: input.sourceRefs,
+          confidence: input.confidence,
+          ...(input.memoryId === undefined ? {} : { memoryId: input.memoryId }),
+          ...(input.supersedes === undefined ? {} : { supersedes: input.supersedes }),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/memories/search',
+    asyncRoute(async (request, response) => {
+      const query = z.string().min(1).parse(request.query['q']);
+      const limit = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(10)
+        .parse(request.query['limit']);
+      response.json({ items: await options.operations.memories.search(query, limit) });
+    }),
+  );
+  app.get(
+    '/api/v1/memories/:memoryId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.memories.get(pathValue(request, 'memoryId')));
+    }),
+  );
   app.get(
     '/api/v1/system/task-wait-policy',
     asyncRoute(async (_request, response) => {

@@ -527,6 +527,49 @@ describe('management HTTP API contract', () => {
       confirmationStatus: 'awaiting_confirmation',
     });
   });
+
+  it('creates and semantically searches source-traceable global memories', async () => {
+    const configured = operations();
+    const item = {
+      memoryId: 'memory-1',
+      type: 'fact' as const,
+      content: { deviceId: 'device-17' },
+      summary: 'The target device is device-17.',
+      status: 'active' as const,
+      sourceRefs: ['task-source'],
+      supersedes: [],
+      confidence: 0.9,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        memories: {
+          create: () => Promise.resolve(item),
+          get: () => Promise.resolve(item),
+          search: () => Promise.resolve([{ item, score: 1 }]),
+        },
+      },
+    });
+    const created = await fetch(`${endpoint.baseUrl}/api/v1/memories`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'fact',
+        content: { deviceId: 'device-17' },
+        summary: item.summary,
+        sourceRefs: ['task-source'],
+        confidence: 0.9,
+      }),
+    });
+    expect(created.status).toBe(201);
+    await expect(created.json()).resolves.toMatchObject(item);
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/memories/search?q=target%20device&limit=5`).then((value) =>
+        value.json(),
+      ),
+    ).resolves.toMatchObject({ items: [{ item: { memoryId: 'memory-1' }, score: 1 }] });
+  });
 });
 
 function operations(failServerList = false): ManagementOperations {
@@ -538,6 +581,7 @@ function operations(failServerList = false): ManagementOperations {
     tasks: { attachPlan: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
+    memories: { create: unused, get: unused, search: () => Promise.resolve([]) },
     graph: {
       create: unused,
       delete: unused,
