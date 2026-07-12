@@ -724,6 +724,25 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect.objectContaining({ version: 1, status: 'enabled', sourceKind: 'admin' }),
     ]);
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+    const disabled = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/disable`,
+      { method: 'POST' },
+    );
+    expect(disabled.status).toBe(200);
+    await expect(disabled.json()).resolves.toMatchObject({ version: 2, status: 'disabled' });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).not.toContain(skillId);
+    const rolledBack = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/rollback/1`,
+      { method: 'POST' },
+    );
+    expect(rolledBack.status).toBe(200);
+    await expect(rolledBack.json()).resolves.toMatchObject({
+      version: 3,
+      previousVersion: 2,
+      status: 'enabled',
+      sourceKind: 'manual_correction',
+    });
+    expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
     await runtime.setSkillEnabled(skillId, false);
   });
 

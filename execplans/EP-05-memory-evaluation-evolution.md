@@ -14,12 +14,12 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 
 ## Deliverables
 
-- [ ] stage-specific memory retrieval
-- [ ] memory version/status/replacement
-- [ ] five evaluator pipeline
+- [x] stage-specific memory retrieval
+- [x] memory version/status/replacement
+- [x] five evaluator pipeline
 - [x] implicit feedback inference
-- [ ] experience clustering threshold
-- [x] skill test generation, actual historical Workflow replay, supplemental simulation, and all-pass publication (FR-SKL-015, FR-EVO-005); broader FR-EVO-007 evolution remains open
+- [x] experience clustering threshold
+- [x] skill test generation, actual historical Workflow replay, supplemental simulation, all-pass publication, and administrator correction (FR-SKL-015, FR-EVO-005/007)
 - [x] prompt optimization candidate generation
 
 ## Progress
@@ -45,12 +45,13 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 - [x] 2026-07-13: infer five V1 behavioral feedback classes at authoritative Task lifecycle boundaries, persist source/trigger Task links with fixed confidence 0.35, and expose management evidence (FR-EVAL-002, ADR-061).
 - [x] 2026-07-13: route each TaskQualityReport through one report-linked influence record into Skill observations, quality-gated Workflow Template occurrences, and inactive stage-specific Prompt candidates (FR-EVAL-003, FR-LLM-007, ADR-062).
 - [x] 2026-07-13: aggregate PostgreSQL execution/quality/model/Tool evidence into filterable success, duration, cost, failure, version-stability and quality-trend management analytics (FR-EVAL-004, ADR-063).
+- [x] 2026-07-13: reconcile warning-only Skill quality with explicit administrator disable, rollback, and correction paths; prove warning creation itself leaves the Skill unchanged (FR-EVAL-005, ADR-053).
 
-- [ ] 读取材料并记录当前代码状态。
-- [ ] 将具体文件、接口和步骤补充到本计划。
-- [ ] 完成实现增量。
-- [ ] 完成测试与验证。
-- [ ] 更新 Traceability Matrix、PROJECT_STATUS、ADR 和 Outcomes。
+- [x] 读取材料并记录当前代码状态。
+- [x] 将具体文件、接口和步骤补充到本计划。
+- [x] 完成实现增量。
+- [x] 完成测试与验证。
+- [x] 更新 Traceability Matrix、PROJECT_STATUS、ADR 和 Outcomes。
 
 ## Discoveries and Surprises
 
@@ -72,11 +73,11 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 
 ## Validation
 
-- [ ] `memory conflict/version tests`
+- [x] `memory conflict/version tests`
 - [x] `evaluation report schema`
-- [ ] `experience threshold tests`
-- [ ] `failed validation remains draft`
-- [ ] `manual correction learning evidence`
+- [x] `experience threshold tests`
+- [x] `failed validation remains draft`
+- [x] `manual correction learning evidence`
 
 ## Idempotence and Recovery
 
@@ -89,5 +90,7 @@ FR-EVO-001, FR-EVO-002, FR-EVO-003, FR-EVO-004, FR-EVO-005, FR-EVO-006, FR-EVO-0
 将报告保存到 `reports/EP-05-memory-evaluation-evolution/`，并在 Traceability Matrix 中引用。
 
 ## Outcomes and Retrospective
+
+Completed 2026-07-13. FR-EVO-001–010, FR-MEM-001–006, and FR-EVAL-001–005 all have implementation, automated tests, reproducible commands, traceability, ADRs, and stage reports. The final gate passed 152 unit, 46 contract, 31 integration, and 40 E2E tests plus format, lint, typecheck, architecture, build, licenses/SBOM, and local server smoke. PostgreSQL/pgvector, Redis, real LangGraph execution, and loopback MCP/Model services were exercised locally. Production-model semantic quality remains simulated; the React Console and project-wide AC bundle remain EP-06/07 work and are not claimed by this stage. Acceptance evidence: `reports/EP-05-memory-evaluation-evolution/EP-05-ACCEPTANCE-AUDIT.md`.
 
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。
