@@ -17,7 +17,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [ ] confirmation via A2A and management API
 - [ ] pause/resume thresholds and cancellation
 - [ ] goal patch invalidation and compensation planning
-- [ ] result normalization and structured output
+- [x] result normalization and structured output
 - [ ] goal evaluation/replanning budgets
 - [ ] replacement skill plan confirmation
 
@@ -30,6 +30,7 @@ FR-GOAL-001, FR-GOAL-002, FR-GOAL-003, FR-GOAL-004, FR-GOAL-005, FR-GOAL-006, FR
 - [x] 2026-07-12: implement real LangGraph pause/short resume, long-pause fresh-confirmation replanning, Skill cancellation policies and no-next-node evidence.
 - [x] 2026-07-12: implement context-wide active Goal reuse and fixed-stage terminal Goal relationship/history decisions.
 - [x] 2026-07-12: implement runtime-first Goal cancellation, atomic shared-work cascade, immutable history and terminal-monotonic Task writes.
+- [x] 2026-07-12: implement MCP downstream result envelopes and fixed-stage Skill-directed final output with facts/value/memory candidates.
 - [x] Implement general pause/resume/cancel execution control and unified wait timeout.
 
 - [ ] 读取材料并记录当前代码状态。

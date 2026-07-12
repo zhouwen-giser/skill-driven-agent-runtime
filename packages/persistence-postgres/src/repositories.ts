@@ -17,6 +17,7 @@ import type {
   GoalRepository,
   GoalPatchRepository,
   GoalCancellationRepository,
+  ProcessedResultRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
   RuntimeTaskEvent,
@@ -51,6 +52,7 @@ import type {
   Goal,
   GoalPatchRecord,
   GoalCancellationRecord,
+  ProcessedResultRecord,
   GoalTransitionRecord,
   Skill,
   SkillRelation,
@@ -773,6 +775,103 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
     );
     return result.rows.map(mapGoalCancellationRow);
   }
+}
+
+interface ProcessedResultRow extends QueryResultRow {
+  result_id: string;
+  task_id: string;
+  skill_id: string;
+  skill_version: number;
+  normalized_json: unknown;
+  output_json: unknown;
+  facts_json: unknown;
+  valuable: boolean;
+  value_summary: string;
+  memory_candidates_json: unknown;
+  created_at: Date | string;
+}
+
+const NormalizedResultSchema = z.object({
+  data: z.unknown(),
+  errors: z.array(z.object({ code: z.string(), message: z.string() }).strict()),
+  originalSize: z.number().int().nonnegative(),
+  contextValue: z.unknown(),
+  contextTruncated: z.boolean(),
+  summary: z.string(),
+});
+const TaskOutputSchema = z.object({ text: z.string(), structured: z.unknown() }).strict();
+const ResultFactsSchema = z.array(
+  z.object({ name: z.string(), value: z.unknown(), confidence: z.number() }).strict(),
+);
+const ResultMemoryCandidatesSchema = z.array(
+  z
+    .object({
+      kind: z.enum(['fact', 'preference', 'procedure', 'outcome']),
+      content: z.string(),
+      confidence: z.number(),
+    })
+    .strict(),
+);
+
+export class PostgresProcessedResultRepository implements ProcessedResultRepository {
+  readonly #pool: Pool;
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(record: ProcessedResultRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO processed_result(
+         result_id,task_id,skill_id,skill_version,normalized_json,output_json,
+         facts_json,valuable,value_summary,memory_candidates_json,created_at)
+       VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11)`,
+      [
+        record.resultId,
+        record.taskId,
+        record.skillId,
+        record.skillVersion,
+        JSON.stringify(record.normalized),
+        JSON.stringify(record.output),
+        JSON.stringify(record.facts),
+        record.valuable,
+        record.valueSummary,
+        JSON.stringify(record.memoryCandidates),
+        record.createdAt,
+      ],
+    );
+  }
+
+  async find(resultId: string): Promise<ProcessedResultRecord | undefined> {
+    const result = await this.#pool.query<ProcessedResultRow>(
+      'SELECT * FROM processed_result WHERE result_id=$1',
+      [resultId],
+    );
+    return result.rows[0] === undefined ? undefined : mapProcessedResultRow(result.rows[0]);
+  }
+
+  async listByTask(taskId: string): Promise<readonly ProcessedResultRecord[]> {
+    const result = await this.#pool.query<ProcessedResultRow>(
+      'SELECT * FROM processed_result WHERE task_id=$1 ORDER BY created_at,result_id',
+      [taskId],
+    );
+    return result.rows.map(mapProcessedResultRow);
+  }
+}
+
+function mapProcessedResultRow(row: ProcessedResultRow): ProcessedResultRecord {
+  return {
+    resultId: row.result_id,
+    taskId: row.task_id,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    normalized: NormalizedResultSchema.parse(row.normalized_json),
+    output: TaskOutputSchema.parse(row.output_json),
+    facts: ResultFactsSchema.parse(row.facts_json),
+    valuable: row.valuable,
+    valueSummary: row.value_summary,
+    memoryCandidates: ResultMemoryCandidatesSchema.parse(row.memory_candidates_json),
+    createdAt: toIsoString(row.created_at),
+  };
 }
 
 function mapGoalCancellationRow(row: GoalCancellationRow): GoalCancellationRecord {

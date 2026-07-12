@@ -85,6 +85,19 @@ paths:
       responses:
         '200': { description: PostgreSQL-authoritative Task including its current plan binding }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/processed-results:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskProcessedResults
+      responses:
+        '200': { description: Normalized results, facts, value assessments and memory candidates }
+  /api/v1/processed-results/{resultId}:
+    parameters: [{ name: resultId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getProcessedResult
+      responses:
+        '200': { description: One immutable processed-result record }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/plan:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     put:

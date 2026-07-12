@@ -6,7 +6,8 @@ export type ModelStage =
   | 'workflow_planning'
   | 'execution_decision'
   | 'goal_evaluation'
-  | 'evaluation';
+  | 'evaluation'
+  | 'result_processing';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;

@@ -38,6 +38,44 @@ describe('management HTTP API contract', () => {
     await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
   });
 
+  it('exposes persisted processed-result evidence by Task', async () => {
+    const configured = operations();
+    const result = {
+      resultId: 'processed-result-1',
+      taskId: 'task-1',
+      skillId: 'skill-1',
+      skillVersion: 1,
+      normalized: {
+        data: { status: 'online' },
+        errors: [],
+        originalSize: 19,
+        contextValue: { status: 'online' },
+        contextTruncated: false,
+        summary: 'Successful result with 19 JSON characters.',
+      },
+      output: { text: 'Online.', structured: { status: 'online' } },
+      facts: [{ name: 'status', value: 'online', confidence: 1 }],
+      valuable: true,
+      valueSummary: 'Useful.',
+      memoryCandidates: [{ kind: 'fact' as const, content: 'Online.', confidence: 1 }],
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        resultProcessing: {
+          get: () => Promise.resolve(result),
+          list: () => Promise.resolve([result]),
+        },
+      },
+    });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/processed-results`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({ items: [expect.objectContaining({ valuable: true })] });
+  });
+
   it('advertises the trusted-intranet no-auth risk and returns credential-free MCP data', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const health = await fetch(`${endpoint.baseUrl}/api/v1/health`);
@@ -499,6 +537,7 @@ function operations(failServerList = false): ManagementOperations {
     goalCancellations: { cancel: unused, get: unused, list: () => Promise.resolve([]) },
     tasks: { attachPlan: unused, get: unused },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
+    resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     graph: {
       create: unused,
       delete: unused,

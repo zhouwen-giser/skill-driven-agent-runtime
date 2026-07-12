@@ -38,6 +38,7 @@ import type {
   GoalPatchRecord,
   GoalTransitionRecord,
   GoalCancellationRecord,
+  ProcessedResultRecord,
   TaskWaitPolicy,
 } from '../../domain/src/index.js';
 
@@ -73,6 +74,12 @@ export interface GoalCancellationRepository {
   ): Promise<GoalCancellationRecord>;
   find(cancellationId: string): Promise<GoalCancellationRecord | undefined>;
   listByGoal(goalId: string): Promise<readonly GoalCancellationRecord[]>;
+}
+
+export interface ProcessedResultRepository {
+  save(record: ProcessedResultRecord): Promise<void>;
+  find(resultId: string): Promise<ProcessedResultRecord | undefined>;
+  listByTask(taskId: string): Promise<readonly ProcessedResultRecord[]>;
 }
 
 export interface RuntimeRecoveryRepository {

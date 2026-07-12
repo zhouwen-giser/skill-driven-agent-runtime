@@ -17,6 +17,7 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from '../../domain/src/index.js';
+import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
 
 export interface WorkflowExecutionEvent {
@@ -605,7 +606,7 @@ async function executeNode(
         signal: callSignal,
       });
       budgetMeter.assertDuration();
-      return output(node.nodeId, value);
+      return output(node.nodeId, normalizeResultEnvelope(value));
     }
     case 'skill_call': {
       budgetMeter.reserve('skill');

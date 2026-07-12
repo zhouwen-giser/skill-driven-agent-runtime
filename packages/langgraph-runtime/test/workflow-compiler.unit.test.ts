@@ -197,7 +197,7 @@ describe('LangGraph Workflow compiler', () => {
           nodeId: 'result',
           name: 'Result',
           type: 'result',
-          value: { op: 'ref', path: ['outputs', 'mcp', 'temperature'] },
+          value: { op: 'ref', path: ['outputs', 'mcp', 'data', 'temperature'] },
         },
       ],
       [
@@ -223,7 +223,11 @@ describe('LangGraph Workflow compiler', () => {
     expect(result.result).toBe(21);
     expect(result.outputs).toMatchObject({
       llm: { answer: 42 },
-      mcp: { temperature: 21 },
+      mcp: expect.objectContaining({
+        data: { temperature: 21 },
+        errors: [],
+        contextTruncated: false,
+      }),
       skill: { skill: 'done' },
       child: { child: 'done' },
       confirm: true,

@@ -16,5 +16,6 @@ export * from './workflow-control.js';
 export * from './mcp.js';
 export * from './model-runtime.js';
 export * from './prompt.js';
+export * from './processed-result.js';
 export * from './task.js';
 export * from './task-wait-policy.js';

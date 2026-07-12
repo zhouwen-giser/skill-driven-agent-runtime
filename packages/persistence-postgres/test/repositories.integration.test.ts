@@ -11,6 +11,7 @@ import {
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
   PostgresPromptRepository,
+  PostgresProcessedResultRepository,
   PostgresWorkflowPlanRepository,
   PostgresWorkflowExecutionRepository,
   PostgresWorkflowControlRepository,
@@ -178,6 +179,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalCancellationMigration);
+  const resultProcessingMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0028_result_processing.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(resultProcessingMigration);
 });
 
 beforeEach(async () => {
@@ -1473,6 +1479,53 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(storedContext).toEqual(submitted.context);
     expect(storedTask).toEqual(submitted.task);
     expect(eventResult.rows[0]?.count).toBe('1');
+  });
+  it('persists normalized result, facts, value assessment, and memory candidates', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    await contexts.save({
+      contextId: 'context.result.db',
+      userId: 'operator',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+    });
+    await tasks.save(
+      createAgentTask({
+        taskId: 'task.result.db',
+        contextId: 'context.result.db',
+        userId: 'operator',
+        requestText: 'Inspect.',
+        requestMetadata: {},
+        timestamp: '2026-07-12T00:00:00.000Z',
+      }),
+    );
+    const results = new PostgresProcessedResultRepository(pool);
+    await results.save({
+      resultId: 'processed-result.db',
+      taskId: 'task.result.db',
+      skillId: 'skill.result.db',
+      skillVersion: 2,
+      normalized: {
+        data: { status: 'online' },
+        errors: [],
+        originalSize: 19,
+        contextValue: { status: 'online' },
+        contextTruncated: false,
+        summary: 'Successful result with 19 JSON characters.',
+      },
+      output: { text: 'Online.', structured: { status: 'online' } },
+      facts: [{ name: 'status', value: 'online', confidence: 1 }],
+      valuable: true,
+      valueSummary: 'Current state.',
+      memoryCandidates: [{ kind: 'fact', content: 'Device was online.', confidence: 0.9 }],
+      createdAt: '2026-07-12T00:00:01.000Z',
+    });
+    await expect(results.find('processed-result.db')).resolves.toMatchObject({
+      output: { text: 'Online.', structured: { status: 'online' } },
+      facts: [{ name: 'status', value: 'online', confidence: 1 }],
+      memoryCandidates: [{ kind: 'fact', confidence: 0.9 }],
+    });
+    await expect(results.listByTask('task.result.db')).resolves.toHaveLength(1);
   });
   it('atomically cancels both confirmation and input waits using the managed timeout', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

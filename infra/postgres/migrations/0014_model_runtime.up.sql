@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS model_provider (
 );
 
 CREATE TABLE IF NOT EXISTS stage_model_route (
-  stage text PRIMARY KEY CHECK (stage IN ('intent','goal','skill_authoring','skill_selection','workflow_planning','execution_decision','goal_evaluation','evaluation')),
+  stage text PRIMARY KEY CHECK (stage IN ('intent','goal','skill_authoring','skill_selection','workflow_planning','execution_decision','goal_evaluation','evaluation','result_processing')),
   provider_id text NOT NULL REFERENCES model_provider(provider_id),
   updated_at timestamptz NOT NULL
 );

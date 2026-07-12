@@ -21,6 +21,7 @@ import type {
   GoalService,
   GoalPatchService,
   GoalCancellationService,
+  ResultProcessingService,
   WorkflowRevisionService,
   TaskService,
   TaskWaitTimeoutService,
@@ -125,6 +126,7 @@ const ModelStageSchema = z.enum([
   'execution_decision',
   'goal_evaluation',
   'evaluation',
+  'result_processing',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -200,6 +202,7 @@ export interface ManagementOperations {
   readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
   readonly tasks: Pick<TaskService, 'attachPlan' | 'get'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
+  readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -403,6 +406,20 @@ export async function startManagementHttpEndpoint(
     '/api/v1/tasks/:taskId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.tasks.get(pathValue(request, 'taskId')));
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/processed-results',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.resultProcessing.list(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/processed-results/:resultId',
+    asyncRoute(async (request, response) => {
+      response.json(await options.operations.resultProcessing.get(pathValue(request, 'resultId')));
     }),
   );
   app.put(

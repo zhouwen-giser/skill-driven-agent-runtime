@@ -129,7 +129,13 @@ beforeAll(async () => {
     }),
   });
   if (evaluationPrompt.status !== 201) throw new Error('GOAL_EVALUATION_PROMPT_SETUP_FAILED');
-  for (const stage of ['intent', 'goal', 'skill_selection', 'execution_decision'] as const) {
+  for (const stage of [
+    'intent',
+    'goal',
+    'skill_selection',
+    'execution_decision',
+    'result_processing',
+  ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -1184,7 +1190,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(executed.json()).resolves.toMatchObject({
         status: 'succeeded',
         result: {
-          structuredContent: { deviceId: 'device-runtime', status: 'online' },
+          data: { structuredContent: { deviceId: 'device-runtime', status: 'online' } },
+          errors: [],
+          contextTruncated: false,
         },
         budgetUsage: { mcpCalls: 1, llmCalls: 0, cost: 1 },
         errors: {},
@@ -1404,7 +1412,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(resumed.json()).resolves.toMatchObject({
         status: 'succeeded',
         result: {
-          structuredContent: { deviceId: 'device-human-interrupt', status: 'online' },
+          data: {
+            structuredContent: { deviceId: 'device-human-interrupt', status: 'online' },
+          },
+          errors: [],
+          contextTruncated: false,
         },
       });
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
@@ -2234,6 +2246,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       $case: 'data',
       value: { status: 'online' },
     });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/processed-results`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      items: [
+        expect.objectContaining({
+          output: { text: 'Device is online.', structured: { status: 'online' } },
+          facts: [expect.objectContaining({ name: 'status', value: 'online' })],
+          valuable: true,
+          memoryCandidates: [expect.objectContaining({ kind: 'fact' })],
+        }),
+      ],
+    });
   });
 
   it('continues after stream disconnect and supports polling plus standard resubscribe', async () => {
@@ -2385,6 +2411,9 @@ async function startModelLoopback(): Promise<Server> {
         const goalContinuityRequest = body.messages?.some(
           (message) => message.content?.includes('decide_goal_continuity') === true,
         );
+        const resultProcessingRequest = body.messages?.some(
+          (message) => message.content?.includes('process_workflow_result') === true,
+        );
         const goalPatchDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('generate_goal_patch') === true,
         );
@@ -2421,6 +2450,18 @@ async function startModelLoopback(): Promise<Server> {
           respondStructured(response, {
             intent: 'execute',
             summary: 'The request requires task execution.',
+          });
+          return;
+        }
+        if (resultProcessingRequest === true) {
+          respondStructured(response, {
+            text: 'Device is online.',
+            structured: { status: 'online' },
+            keyFacts: [{ name: 'status', value: 'online', confidence: 1 }],
+            valueAssessment: { valuable: true, summary: 'Current device state is useful.' },
+            memoryCandidates: [
+              { kind: 'fact', content: 'The device was online.', confidence: 0.9 },
+            ],
           });
           return;
         }

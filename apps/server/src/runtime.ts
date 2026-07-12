@@ -14,6 +14,7 @@ import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task
 import {
   PlanPreparationProcessor,
   ResultProcessor,
+  ResultProcessingService,
   RuntimeRecoveryService,
   McpRegistryService,
   ModelRuntimeService,
@@ -79,6 +80,7 @@ import {
   PostgresGoalRepository,
   PostgresGoalPatchRepository,
   PostgresGoalCancellationRepository,
+  PostgresProcessedResultRepository,
   PostgresTaskWaitPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -209,6 +211,13 @@ export async function startServerRuntime(
     maxAttempts: 3,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
+  const resultProcessing = new ResultProcessingService({
+    model: modelRuntime,
+    processor: resultProcessor,
+    repository: new PostgresProcessedResultRepository(pool),
+    clock,
+    nextId: () => `processed-result-${randomUUID()}`,
+  });
   const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
   const skillAuthoring = new SkillAuthoringService({
     model: options.skillAuthoringModel ?? modelRuntime,
@@ -460,6 +469,7 @@ export async function startServerRuntime(
         goalCancellations,
         tasks: service,
         taskWaitTimeouts,
+        resultProcessing,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -522,8 +532,21 @@ export async function startServerRuntime(
         return skillRegistry.setEnabled(skillId, enabled);
       },
       async recordResultForSkill(taskId, skillId, candidate): Promise<void> {
-        const outputSchema = await skillRegistry.getOutputSchema(skillId);
-        await service.recordResult(taskId, { ...candidate, outputSchema }, resultProcessor);
+        const skill = await skills.findCurrentVersion(skillId);
+        if (skill?.status !== 'enabled') throw new Error('SKILL_NOT_ENABLED');
+        const processed = await resultProcessing.process({
+          taskId,
+          skillId,
+          skillVersion: skill.version,
+          outputInstruction: skill.outputInstruction,
+          outputSchema: skill.outputSchema,
+          rawResult: candidate,
+        });
+        await service.recordResult(
+          taskId,
+          { ...processed.output, outputSchema: skill.outputSchema },
+          resultProcessor,
+        );
       },
       registerMcpServer(input) {
         return mcpRegistry.register(input);
@@ -599,6 +622,7 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0025_workflow_execution_control.up.sql',
     '0026_goal_continuity.up.sql',
     '0027_goal_cancellation.up.sql',
+    '0028_result_processing.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

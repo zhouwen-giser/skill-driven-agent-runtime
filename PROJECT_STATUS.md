@@ -1,5 +1,7 @@
 # Project Status
 
+EP-04 Result Processor update (2026-07-12): approximately 82%. MCP outputs now enter downstream nodes through a normalized/trimmable domain envelope. A dedicated fixed model stage follows immutable Skill output instructions, produces paired text/structured output, and persists schema-validated facts, value assessment and memory candidates. FR-RST-001/002/003 are verified. Remaining EP-04 gaps are inference-before-input-required and complete Goal-evaluation decision/capability-gap handling.
+
 EP-04 Goal-cancellation update (2026-07-12): approximately 74%. A2A or management cancellation now controls every active in-process Workflow using immutable Skill policies, then atomically cancels the Goal and all nonterminal shared Tasks, invalidates plans, terminates residual instances and records evidence without compensation. Terminal Task state cannot be resurrected by a stale Worker. FR-GOAL-008 is verified. Remaining EP-04 gaps are inference-before-input-required and Result Processor/evaluation decision completeness.
 
 EP-04 Goal-continuity update (2026-07-12): approximately 67%. All same-context Tasks now reuse the PostgreSQL-authoritative active Goal. After terminal Goal completion, the fixed `goal` stage decides related-successor versus unrelated-new, and the new Goal plus displayable relationship evidence is atomic and queryable. FR-GOAL-001/002 are verified. Remaining EP-04 gaps are inference-before-input-required, explicit Goal cancellation and Result Processor/evaluation decision completeness.
