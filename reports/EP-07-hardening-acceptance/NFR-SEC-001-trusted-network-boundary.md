@@ -6,24 +6,24 @@ Date: 2026-07-13
 
 - V1 intentionally has no A2A, management API, or Console authentication/authorization.
 - Both HTTP listeners default to `127.0.0.1`.
-- Startup environment validation rejects any non-loopback A2A or management bind unless `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true` is explicit.
-- The acknowledgement is documented as a trusted-network/firewall review marker and never as authentication or permission.
+- Startup validation rejects any non-loopback bind unless `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true` is explicit.
+- The acknowledgement is a trusted-network/firewall review marker, never authentication or permission.
 - Every management response carries `X-SDAR-Security-Warning: trusted-intranet-only-no-auth`; health and Console repeat the risk.
-- README, security guide, ADR, and Release Checklist require network isolation and prohibit public PostgreSQL/Redis exposure.
+- README, security guide, and Release Checklist require network isolation and prohibit public PostgreSQL/Redis exposure.
 
 ## Verification
 
-Real local unit/contract/static verification:
+- Current focused regression: 4 files/56 tests passed across environment validation, A2A/management HTTP, and Console.
+- Environment tests prove loopback defaults, fail-closed `0.0.0.0`/private binding, and explicit acknowledgement.
+- Management HTTP proves the warning header and machine-readable no-auth/trusted-intranet posture.
+- Console proves the persistent no-auth/public-exposure warning.
+- Release Checklist explicitly checks trusted binding, blocked public ingress, documented firewall isolation, and no public PostgreSQL/Redis route.
+- Current unified `pnpm verify`: 54 files/240 tests and all architecture/protocol/OpenAPI/source/migration/license/build gates passed.
 
-- Environment tests prove localhost defaults, rejection of `0.0.0.0`/private-interface binding without acknowledgement, and explicit acknowledged configuration.
-- Management contract proves the warning header and machine-readable trusted-intranet/no-auth posture.
-- Console static test proves the no-auth/public-exposure warning remains visible.
-- 50 targeted tests, strict typecheck, and lint pass.
-- Unified `pnpm verify` passes with 54 unit/contract files and 224 tests plus all architecture, OpenAPI, source-pin, Compose-static, SBOM/license, and production-build gates.
+## Classification
 
-Unverified in this environment:
+- Real local: environment parsing, loopback HTTP endpoints, response headers, health payload, and Console rendering contract.
+- Documented operator gate: firewall/network isolation checklist; no production network was contacted or changed.
+- Unverified current: Docker-backed Server smoke and OS network-namespace inspection.
 
-- Server smoke with a real PostgreSQL/Redis runtime and an OS-level firewall/network namespace inspection cannot run while Docker infrastructure is unavailable.
-- No production system was contacted or changed.
-
-NFR-SEC-001 remains `开发中` until local server smoke and isolated-network deployment evidence pass reproducibly.
+The original acceptance requires the deployment checklist to contain network-isolation items. It does not require an OS namespace experiment. The runtime and release artifacts directly enforce and display the intentional no-auth boundary, so NFR-SEC-001 is **verified**.

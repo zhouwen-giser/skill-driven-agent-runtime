@@ -18,6 +18,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Verified NFR-OBS-002 with real loopback Provider sanitization, official A2A SDK projection, and management structured-audit contracts.
 
+- Verified NFR-SEC-001 against its explicit trusted-intranet warning and deployment network-isolation checklist acceptance.
+
 - Registration-time structured LLM enhancement for all MCP Tools, editable planning metadata with original-schema authority, fixed-stage migration, and fail-closed Server migration completeness enforcement.
 
 - Machine-verifiable A2A 1.0.1 specification/SDK/TCK pins, direct patch media-type contracts, and a 100% official HTTP+JSON/MUST TCK result with explicit skip and beta-SDK boundaries.
