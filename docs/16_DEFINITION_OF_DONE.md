@@ -13,7 +13,7 @@
 - [x] 开源依赖全部锁定；统一门禁验证 17 个来源 pin、288 个当前锁文件 npm 包、2 个外部服务、SBOM 和 Third-Party Notices。
 - [x] 安全风险和首版限制在 README、风险文档、health、Console 与发布清单中明确展示并由测试验证。
 - [x] README、架构、API、配置、运行、测试、故障排查、贡献和发布文档完整并互相链接。
-- [ ] 工作树干净，生产构建可生成，Git 历史和 CHANGELOG 可审计。
+- [x] 工作树干净，生产构建可生成，Git 历史和 CHANGELOG 可审计；独立 clean checkout/frozen install 门禁通过。
 
 ## 功能项完成条件
 

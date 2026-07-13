@@ -78,6 +78,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Discoveries and Surprises
 
+- The 20-Job concurrency test attached 20 temporary BullMQ completion observers to one Queue and crossed Node's default listener warning threshold. A traced focused run proved the listeners originated in `Job.waitUntilFinished`; batching only the observers at ten removed the warning while preserving concurrent execution and all assertions.
+- Clean Windows clones exposed both missing LF policy and license evidence coupled to stale/peer-specific pnpm virtual-store paths. `.gitattributes` plus lockfile-filtered, package-relative evidence made the frozen install reproducible.
 - The HTML smoke alone missed that Vite emitted root `/assets/...` URLs while Express mounted Console under `/console/`; fetching the emitted bundle is now a required smoke assertion.
 - Current real gates exposed three stale integration fixtures and one Zod-stripped E2E projection; fixing the fixtures to satisfy production constraints and retaining the asserted response field restored evidence without weakening behavior.
 
@@ -128,8 +130,9 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] `pnpm verify` (full static/unit/contract/build/integration/e2e/infra-smoke/server-console-smoke gate; machine and Markdown reports generated)
 - [x] `all traceability rows verified`
 - [x] `all AC scenarios pass` (18-scenario machine/human audit; real composed E2E/integration/browser evidence with simulated model semantics classified)
-- [ ] `clean install smoke`
-- [ ] `release checklist signed by evidence`
+- [x] `clean install smoke` (`2e398d9`: isolated clone, frozen install, 54/242 tests and production build)
+- [x] `release checklist signed by evidence`
+- [x] Final warning-free `pnpm verify` passed in 116237 ms: 54/242 static tests, 2/36 real integration, 1/41 real E2E, empty/upgrade migrations and both smoke stages.
 
 ## Idempotence and Recovery
 
@@ -143,4 +146,4 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Outcomes and Retrospective
 
-阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。
+EP-07 and the V1 baseline are complete. All Traceability rows are verified, all 18 AC scenarios pass, the full real PostgreSQL/Redis gate and local acceptance demo pass, empty/historical migration paths pass, and the release checklist is signed by machine/human evidence. Clean-checkout work found and fixed Windows line-ending and stale/nondeterministic SBOM-license evidence defects. External model semantics remain deterministic local simulation, the official A2A JavaScript SDK remains beta, and V1 intentionally retains its documented no-auth/shared-memory/no-running-task-recovery risks; none are represented as production validation.

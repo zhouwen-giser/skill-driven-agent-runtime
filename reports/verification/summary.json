@@ -1,69 +1,69 @@
 {
   "schemaVersion": 1,
   "status": "passed",
-  "commit": "ca9d9b9d3babd28816b3a2e9776e4f2b5c9d02d2",
+  "commit": "2e398d912a6d3a5dde88d54c3c57ef72d57ef171",
   "dirty": true,
   "environment": {
     "node": "v22.14.0",
     "platform": "win32",
     "architecture": "x64"
   },
-  "startedAt": "2026-07-13T16:11:49.362Z",
-  "finishedAt": "2026-07-13T16:13:41.478Z",
-  "durationMs": 112116,
+  "startedAt": "2026-07-13T16:31:19.031Z",
+  "finishedAt": "2026-07-13T16:33:15.268Z",
+  "durationMs": 116237,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-07-13T16:11:49.362Z",
-      "finishedAt": "2026-07-13T16:12:24.820Z",
-      "durationMs": 35458,
+      "startedAt": "2026-07-13T16:31:19.031Z",
+      "finishedAt": "2026-07-13T16:31:56.678Z",
+      "durationMs": 37647,
       "exitCode": 0
     },
     {
       "name": "empty-and-upgrade-migrations",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-07-13T16:12:24.820Z",
-      "finishedAt": "2026-07-13T16:12:35.250Z",
-      "durationMs": 10430,
+      "startedAt": "2026-07-13T16:31:56.679Z",
+      "finishedAt": "2026-07-13T16:32:07.805Z",
+      "durationMs": 11126,
       "exitCode": 0
     },
     {
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
       "status": "passed",
-      "startedAt": "2026-07-13T16:12:35.250Z",
-      "finishedAt": "2026-07-13T16:12:47.895Z",
-      "durationMs": 12645,
+      "startedAt": "2026-07-13T16:32:07.805Z",
+      "finishedAt": "2026-07-13T16:32:20.820Z",
+      "durationMs": 13015,
       "exitCode": 0
     },
     {
       "name": "postgres-redis-model-mcp-e2e",
       "command": "pnpm test:e2e",
       "status": "passed",
-      "startedAt": "2026-07-13T16:12:47.895Z",
-      "finishedAt": "2026-07-13T16:13:17.722Z",
-      "durationMs": 29827,
+      "startedAt": "2026-07-13T16:32:20.820Z",
+      "finishedAt": "2026-07-13T16:32:50.293Z",
+      "durationMs": 29473,
       "exitCode": 0
     },
     {
       "name": "infrastructure-smoke",
       "command": "pnpm smoke:infra",
       "status": "passed",
-      "startedAt": "2026-07-13T16:13:17.722Z",
-      "finishedAt": "2026-07-13T16:13:27.668Z",
-      "durationMs": 9946,
+      "startedAt": "2026-07-13T16:32:50.293Z",
+      "finishedAt": "2026-07-13T16:33:00.584Z",
+      "durationMs": 10291,
       "exitCode": 0
     },
     {
       "name": "server-console-smoke",
       "command": "pnpm smoke:server",
       "status": "passed",
-      "startedAt": "2026-07-13T16:13:27.668Z",
-      "finishedAt": "2026-07-13T16:13:41.478Z",
-      "durationMs": 13810,
+      "startedAt": "2026-07-13T16:33:00.584Z",
+      "finishedAt": "2026-07-13T16:33:15.268Z",
+      "durationMs": 14684,
       "exitCode": 0
     }
   ]

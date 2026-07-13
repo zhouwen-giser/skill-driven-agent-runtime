@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Signed V1 release checklist, isolated clean-checkout/frozen-install evidence, and machine/human release-posture reports.
+
 - Configuration/operations/troubleshooting and contribution guides covering environment, lifecycle, health, failure posture, secrets, backups, release evidence, and engineering rules.
 
 - Isolated empty-database and historical 0049→0053 PostgreSQL migration verification, included in the full gate with cleanup and current-constraint assertions.
@@ -23,6 +25,8 @@ All notable changes to this project are documented here. The format follows Keep
 - ADR-072 monotonic migration-ledger high-water rule, preventing legacy startup replay from regressing later constraints.
 
 ### Fixed
+
+- The 20-Job Redis concurrency test now observes completion in bounded batches, avoiding a false-positive Node EventEmitter warning from BullMQ's temporary `waitUntilFinished` listeners without reducing execution concurrency or assertions.
 
 - SBOM/license generation now filters the pnpm virtual store through the current lockfile and records package-relative license locators, excluding stale packages and peer-layout paths left by prior installs so clean-checkout evidence is deterministic.
 

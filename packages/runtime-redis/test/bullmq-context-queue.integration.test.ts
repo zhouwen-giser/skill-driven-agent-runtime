@@ -71,12 +71,14 @@ describe('BullMQ context queue', () => {
     const jobs = await Promise.all(
       [...firstIds, ...tailIds].map((taskId) => rawQueue.getJob(taskId)),
     );
-    await Promise.all(
-      jobs.map((job) => {
-        if (job === undefined) throw new Error('BULLMQ_TEN_CONTEXT_JOB_MISSING');
-        return job.waitUntilFinished(queueEvents, 5_000);
-      }),
-    );
+    for (let offset = 0; offset < jobs.length; offset += 10) {
+      await Promise.all(
+        jobs.slice(offset, offset + 10).map((job) => {
+          if (job === undefined) throw new Error('BULLMQ_TEN_CONTEXT_JOB_MISSING');
+          return job.waitUntilFinished(queueEvents, 5_000);
+        }),
+      );
+    }
     expect(active).toBe(0);
     expect(
       [...events.values()].every(

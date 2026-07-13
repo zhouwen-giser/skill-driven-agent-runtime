@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "verifiedAt": "2026-07-14T00:26:29+08:00",
+  "commit": "2e398d912a6d3a5dde88d54c3c57ef72d57ef171",
+  "checks": {
+    "knownSecretPatterns": "no matches",
+    "runtimeEndpointInventory": "loopback, example.test, schema identifiers, or operator-supplied values only",
+    "a2aAndManagementDefault": "127.0.0.1 with non-loopback fail-closed acknowledgement",
+    "postgresPublishedHost": "127.0.0.1",
+    "redisPublishedHost": "127.0.0.1",
+    "composeStaticGuard": "passed",
+    "riskWarnings": "README, operations/security docs, health, Console, HTTP headers, and release checklist"
+  },
+  "secretPatternCommand": "rg --hidden --glob !.git/** for OpenAI-style long keys, private-key headers, and AWS access-key identifiers",
+  "classification": "static repository inspection plus real local Compose smoke; no public listener or production endpoint exercised"
+}
