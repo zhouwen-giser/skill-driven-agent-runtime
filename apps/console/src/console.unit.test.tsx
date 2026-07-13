@@ -8,6 +8,7 @@ import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel } from './MemoryPanel.js';
 import { EvaluationPanel } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
+import { SystemPanel } from './SystemPanel.js';
 
 describe('operational console static accessibility contract', () => {
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
@@ -54,5 +55,14 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Simulation / Correction');
     expect(markup).toContain('Compare immutable versions');
     expect(markup).toContain('SKILL GRAPH');
+  });
+
+  it('renders credential-safe Provider, fixed-route, policy, and invocation operations', () => {
+    const markup = renderToStaticMarkup(<SystemPanel />);
+    expect(markup).toContain('Providers &amp; Stage Routes');
+    expect(markup).toContain('write-only JSON');
+    expect(markup).toContain('Automatic archive and delete remain disabled');
+    expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
+    expect(markup).not.toContain('Bearer fixture');
   });
 });

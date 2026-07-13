@@ -298,6 +298,11 @@ paths:
     get:
       operationId: getPromptEffect
       responses: { '200': { description: Invocation success/failure/duration/Token summary } }
+  /api/v1/models/providers:
+    get:
+      operationId: listModelProviders
+      description: Lists credential-free Provider configurations from PostgreSQL.
+      responses: { '200': { description: Credential-free Provider inventory } }
   /api/v1/models/providers/{providerId}:
     parameters: [{ name: providerId, in: path, required: true, schema: { type: string } }]
     put:
@@ -343,6 +348,10 @@ paths:
         }
       responses:
         { '204': { description: Configured }, '400': { $ref: '#/components/responses/Error' } }
+  /api/v1/models/routes:
+    get:
+      operationId: listModelStageRoutes
+      responses: { '200': { description: Fixed model-stage route inventory } }
   /api/v1/models/routes/{stage}:
     parameters: [{ name: stage, in: path, required: true, schema: { type: string } }]
     put:

@@ -146,6 +146,18 @@ class MemoryModelRepository implements ModelRuntimeRepository {
     const id = this.routes.get(stage);
     return Promise.resolve(id === undefined ? undefined : this.providers.get(id));
   }
+  listProviders() {
+    return Promise.resolve([...this.providers.values()].map((item) => item.configuration));
+  }
+  listStageRoutes() {
+    return Promise.resolve(
+      [...this.routes].map(([stage, providerId]) => ({
+        stage,
+        providerId,
+        updatedAt: '2026-07-11T10:00:00.000Z',
+      })),
+    );
+  }
   saveProvider(record: ModelProviderRecord) {
     this.providers.set(record.configuration.providerId, record);
     return Promise.resolve();

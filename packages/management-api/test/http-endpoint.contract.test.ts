@@ -102,6 +102,49 @@ describe('management HTTP API contract', () => {
     await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
   });
 
+  it('lists credential-safe model Providers and fixed stage routes', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        models: {
+          ...configured.models,
+          listProviders: () =>
+            Promise.resolve([
+              {
+                providerId: 'provider.local',
+                name: 'Local model',
+                kind: 'local' as const,
+                apiStyle: 'openai_chat_completions' as const,
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'runtime-model',
+                enabled: true,
+                timeoutMs: 30000,
+                createdAt: '2026-07-13T00:00:00.000Z',
+                updatedAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+          listStageRoutes: () =>
+            Promise.resolve([
+              {
+                stage: 'workflow_planning' as const,
+                providerId: 'provider.local',
+                updatedAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+    const providers = await fetch(`${endpoint.baseUrl}/api/v1/models/providers`).then((response) =>
+      response.json(),
+    );
+    expect(providers).toMatchObject({ items: [{ providerId: 'provider.local' }] });
+    expect(JSON.stringify(providers)).not.toContain('credential');
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/models/routes`).then((response) => response.json()),
+    ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
+  });
+
   it('reads and updates disabled-by-default Memory retention controls', async () => {
     const policy = {
       reviewAfterDays: 90,
@@ -1474,6 +1517,8 @@ function operations(failServerList = false): ManagementOperations {
       configureProvider: unused,
       listInvocations: () => Promise.resolve([]),
       listInvocationsByTask: () => Promise.resolve([]),
+      listProviders: () => Promise.resolve([]),
+      listStageRoutes: () => Promise.resolve([]),
       route: unused,
     },
     prompts: {

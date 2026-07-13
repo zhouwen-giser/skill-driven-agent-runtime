@@ -1794,6 +1794,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
       configuration,
       encryptedCredential: 'aes-gcm-envelope',
     });
+    await expect(repository.listProviders()).resolves.toEqual([configuration]);
+    await expect(repository.listStageRoutes()).resolves.toEqual([
+      {
+        stage: 'workflow_planning',
+        providerId: configuration.providerId,
+        updatedAt: configuration.updatedAt,
+      },
+    ]);
     await expect(repository.listInvocations('workflow_planning')).resolves.toEqual([
       expect.objectContaining({
         invocationId: 'model-invocation-db-1',

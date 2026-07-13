@@ -14,9 +14,18 @@ import { TaskPanel } from './TaskPanel.js';
 import { MemoryPanel } from './MemoryPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { EvaluationPanel } from './EvaluationPanel.js';
+import { SystemPanel } from './SystemPanel.js';
 
 type Section =
-  'overview' | 'skills' | 'mcp' | 'workflows' | 'tasks' | 'prompts' | 'memory' | 'evaluation';
+  | 'overview'
+  | 'skills'
+  | 'mcp'
+  | 'workflows'
+  | 'tasks'
+  | 'prompts'
+  | 'memory'
+  | 'evaluation'
+  | 'system';
 
 const navigation: readonly {
   readonly id: Section;
@@ -31,6 +40,7 @@ const navigation: readonly {
   { id: 'prompts', label: 'Prompts', note: 'Versions' },
   { id: 'memory', label: '长期记忆', note: 'Recall' },
   { id: 'evaluation', label: '评估分析', note: 'Quality' },
+  { id: 'system', label: 'System Config', note: 'Models' },
 ];
 
 export function App() {
@@ -91,6 +101,7 @@ function SectionView({ section }: { readonly section: Section }) {
   if (section === 'workflows') return <WorkflowPanel />;
   if (section === 'tasks') return <TaskPanel />;
   if (section === 'prompts') return <PromptPanel />;
+  if (section === 'system') return <SystemPanel />;
   return <MemoryPanel />;
 }
 
@@ -153,7 +164,10 @@ export function Analytics() {
 export function Lookup({
   section,
 }: {
-  readonly section: Exclude<Section, 'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts'>;
+  readonly section: Exclude<
+    Section,
+    'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts' | 'system'
+  >;
 }) {
   const config = useMemo(
     () =>

@@ -343,7 +343,12 @@ export interface ManagementOperations {
   readonly workflowTemplates: Pick<WorkflowTemplateService, 'listTemplates' | 'listUses'>;
   readonly models: Pick<
     ModelRuntimeService,
-    'configureProvider' | 'listInvocations' | 'listInvocationsByTask' | 'route'
+    | 'configureProvider'
+    | 'listInvocations'
+    | 'listInvocationsByTask'
+    | 'listProviders'
+    | 'listStageRoutes'
+    | 'route'
   >;
   readonly prompts: Pick<
     PromptService,
@@ -880,6 +885,12 @@ export async function startManagementHttpEndpoint(
       response.status(204).end();
     }),
   );
+  app.get(
+    '/api/v1/models/providers',
+    asyncRoute(async (_request, response) => {
+      response.json({ items: await options.operations.models.listProviders() });
+    }),
+  );
   app.put(
     '/api/v1/models/routes/:stage',
     asyncRoute(async (request, response) => {
@@ -887,6 +898,12 @@ export async function startManagementHttpEndpoint(
       const input = RouteModelStageSchema.parse(request.body);
       await options.operations.models.route(stage, input.providerId);
       response.status(204).end();
+    }),
+  );
+  app.get(
+    '/api/v1/models/routes',
+    asyncRoute(async (_request, response) => {
+      response.json({ items: await options.operations.models.listStageRoutes() });
     }),
   );
   app.get(

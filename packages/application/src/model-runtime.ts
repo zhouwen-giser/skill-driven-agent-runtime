@@ -3,6 +3,7 @@ import type {
   ModelProviderConfiguration,
   ModelStage,
   PromptVersion,
+  StageModelRoute,
 } from '../../domain/src/index.js';
 
 import type {
@@ -55,6 +56,14 @@ export class ModelRuntimeService {
       );
     }
     await this.#repository.saveStageRoute(stage, providerId, this.#clock.now());
+  }
+
+  listProviders(): Promise<readonly ModelProviderConfiguration[]> {
+    return this.#repository.listProviders();
+  }
+
+  listStageRoutes(): Promise<readonly StageModelRoute[]> {
+    return this.#repository.listStageRoutes();
   }
 
   generateStructured(

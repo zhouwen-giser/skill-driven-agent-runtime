@@ -11,6 +11,7 @@ import type {
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
+  StageModelRoute,
   PromptEffectSummary,
   PromptVersion,
   McpToolDependencyChange,
@@ -556,6 +557,8 @@ export interface ModelProviderRecord {
 export interface ModelRuntimeRepository {
   findProvider(providerId: string): Promise<ModelProviderRecord | undefined>;
   findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined>;
+  listProviders(): Promise<readonly ModelProviderConfiguration[]>;
+  listStageRoutes(): Promise<readonly StageModelRoute[]>;
   saveProvider(record: ModelProviderRecord): Promise<void>;
   saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void>;
   saveInvocation(invocation: ModelInvocationRecord): Promise<void>;

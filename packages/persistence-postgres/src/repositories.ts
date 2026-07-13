@@ -52,6 +52,7 @@ import type {
   McpToolEnhancement,
   ModelInvocationRecord,
   ModelProviderConfiguration,
+  StageModelRoute,
   ModelStage,
   PromptEffectSummary,
   PromptVersion,
@@ -2518,6 +2519,12 @@ interface ModelInvocationRow extends QueryResultRow {
   created_at: Date | string;
 }
 
+interface StageModelRouteRow extends QueryResultRow {
+  stage: ModelStage;
+  provider_id: string;
+  updated_at: Date | string;
+}
+
 export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) {
@@ -2540,6 +2547,24 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
       [stage],
     );
     return result.rows[0] === undefined ? undefined : mapModelProviderRow(result.rows[0]);
+  }
+
+  async listProviders(): Promise<readonly ModelProviderConfiguration[]> {
+    const result = await this.#pool.query<ModelProviderRow>(
+      'SELECT * FROM model_provider ORDER BY provider_id',
+    );
+    return result.rows.map((row) => mapModelProviderRow(row).configuration);
+  }
+
+  async listStageRoutes(): Promise<readonly StageModelRoute[]> {
+    const result = await this.#pool.query<StageModelRouteRow>(
+      'SELECT stage,provider_id,updated_at FROM stage_model_route ORDER BY stage',
+    );
+    return result.rows.map((row) => ({
+      stage: row.stage,
+      providerId: row.provider_id,
+      updatedAt: toIsoString(row.updated_at),
+    }));
   }
 
   async saveProvider(record: ModelProviderRecord): Promise<void> {
