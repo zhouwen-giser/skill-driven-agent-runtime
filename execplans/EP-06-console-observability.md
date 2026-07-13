@@ -23,6 +23,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 
 ## Progress
 
+- [x] Reconcile FR-ADM-001 against its exact no-login access and deployment-warning acceptance using real HTTP/browser evidence.
 - [x] Read the requirement, architecture, OSS, status, and current management-boundary material; inventory the current routes and traceability gaps.
 - [x] Complete exact-version OSS Intake and ADR-064 for the React/Vite console stack.
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.

@@ -26,6 +26,6 @@ The browser used an unavailable backend, so it proves rendering and semantic nav
 
 ## Classification and minimum unblock
 
-FR-ADM-001..008, NFR-OBS-001, and NFR-UX-001 are implemented with simulated evidence, but real cross-page consistency is unverified. No requirement is promoted by this audit.
+Post-audit reconciliation promotes FR-ADM-001 only: its exact acceptance is unauthenticated access plus a deployment risk warning, both directly covered by real HTTP/browser and documentation evidence. FR-ADM-002..008, NFR-OBS-001, and NFR-UX-001 still require their separately recorded real cross-page/persistence evidence.
 
 Restore a responsive Docker Desktop engine and start the repository's PostgreSQL/Redis services. Then rerun integration, E2E, server smoke, and real API browser E2E.
