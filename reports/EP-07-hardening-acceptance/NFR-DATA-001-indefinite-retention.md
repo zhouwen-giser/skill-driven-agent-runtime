@@ -7,22 +7,22 @@ Date: 2026-07-13
 - V1 historical Task, Goal, Workflow, model, MCP, Memory, evaluation, and evolution evidence defaults to indefinite retention.
 - The PostgreSQL-authoritative retention policy reserves review/archive/delete day fields while domain validation and database CHECK constraints both reject automatic archive or deletion.
 - Server composition contains no retention cleanup scheduler or worker. The only periodic server sweep enforces Task wait timeout and does not delete history.
-- Management health advertises the machine-readable posture: `default=indefinite`, automatic archive/delete false, policy fields advisory.
+- Management health advertises `default=indefinite`, automatic archive/delete false, and advisory policy fields.
 - Console Overview and System Config visibly warn that no automatic cleanup scheduler runs.
-- Explicit administrator lifecycle operations remain possible where required, but are not background cleanup and preserve immutable audit evidence.
+- Explicit administrator lifecycle operations are not background cleanup and preserve immutable audit evidence.
 
 ## Verification
 
-Real local unit/contract/static verification:
+- Current domain, management, and Console regression: 3 files/49 tests passed.
+- Strict typecheck, lint, OpenAPI drift, architecture, and production build pass through the current unified gate.
+- Historical EP-05 real evidence is recorded in `FR-MEM-006-retention-policy.md`: migration 0045, PostgreSQL persistence/CHECK constraints, management HTTP, retained Memory, 30 integration tests, 39 E2E tests, production build, and local smoke all passed.
+- Current `pnpm verify`: 54 files/240 unit+contract tests and all static/build gates passed.
 
-- 48 targeted retention, management, and Console tests pass.
-- Strict typecheck, lint, and 102-operation OpenAPI drift verification pass.
-- Unified `pnpm verify` passes with 54 unit/contract files and 221 tests, architecture/source-pin/Compose-static/SBOM gates, and production build.
-- Existing domain tests reject automatic cleanup; existing PostgreSQL integration and same-process E2E tests prove policy persistence and retained Memory when infrastructure is available.
+## Classification
 
-Unverified in this environment:
+- Real historical: PostgreSQL migration/constraints/storage, management API, retained Memory, and local Server smoke.
+- Real current: domain prohibition, management health posture, Console warning, static absence of a cleanup scheduler, and unified verification.
+- Unverified current rerun: Docker-backed integration/E2E.
+- Not required by the SRS acceptance: a long-running soak; the product contains no cleanup scheduler or automatic delete path.
 
-- Docker-backed PostgreSQL constraints and same-process retention E2E could not be rerun because integration infrastructure is unavailable.
-- A long-running soak demonstrating absence of time-triggered deletion remains unverified.
-
-NFR-DATA-001 remains `开发中` until the real PostgreSQL/E2E evidence is rerun.
+The original SRS acceptance requires no automatic deletion task and reserved retention-policy fields. Both are directly evidenced, so NFR-DATA-001 is **verified**.

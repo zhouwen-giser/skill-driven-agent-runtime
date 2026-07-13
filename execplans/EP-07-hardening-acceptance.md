@@ -23,6 +23,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Progress
 
+- [x] Reconcile NFR-DATA-001 against its exact no-automatic-delete/reserved-fields acceptance; historical migration/PostgreSQL/E2E and current 49-test posture evidence verify it without adding a non-baseline soak gate.
+
 - [x] Reconcile NFR-MNT-001 against its requirement-specific interface-unit-test acceptance; 6 files/57 substitution tests and the 165-file architecture guard pass, so the requirement is verified independently of Docker.
 
 - [x] Reconcile NFR-REL-001 with the completed EP-04 real queue/startup recovery evidence and mark it verified.

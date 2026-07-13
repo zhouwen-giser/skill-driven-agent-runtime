@@ -14,6 +14,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Verified NFR-MNT-001 against its interface-unit-test acceptance with executable port substitution and 165-file single-runtime architecture enforcement.
 
+- Reconciled NFR-DATA-001 with the historical real migration/PostgreSQL/E2E gate and its exact no-automatic-deletion acceptance criterion.
+
 - Registration-time structured LLM enhancement for all MCP Tools, editable planning metadata with original-schema authority, fixed-stage migration, and fail-closed Server migration completeness enforcement.
 
 - Machine-verifiable A2A 1.0.1 specification/SDK/TCK pins, direct patch media-type contracts, and a 100% official HTTP+JSON/MUST TCK result with explicit skip and beta-SDK boundaries.
