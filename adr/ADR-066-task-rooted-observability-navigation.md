@@ -12,6 +12,7 @@ FR-ADM-006 and NFR-OBS-001 require operators to move from a Task to its Goal, Wo
 
 - Use the PostgreSQL-authoritative Task as the navigation root.
 - Follow only persisted identifiers: `contextId`, `goalId`, `planId`, selected Skill identity, `task_id` on model/MCP invocations, and repository-owned result/evaluation references.
+- Task-to-Workflow/Skill and Workflow-to-owning-Task navigation uses persisted `planId`/selected Skill identity plus an exact PostgreSQL `planId` Task query. Frontend navigation state carries identifiers only.
 - Add read-only task filters for model invocations and MCP invocations, ordered Task runtime-event queries, and latest-instance trace lookup by Plan.
 - Pass the LangGraph execution ID into LLM/MCP ports. The composition root resolves the persisted instance, Plan, and bound Task before recording those calls, so ordinary Workflow calls carry `task_id` and `context_id` rather than only direct administrative calls being traceable.
 - Keep the projection compositional: existing Goal, Plan, result, evaluation, inference, and evolution APIs remain authoritative for their records.

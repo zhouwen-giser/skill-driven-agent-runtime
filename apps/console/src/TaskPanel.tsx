@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
 
-interface TaskRecord {
+export interface TaskRecord {
   readonly taskId: string;
   readonly contextId: string;
   readonly phase: string;
@@ -23,8 +23,14 @@ interface EvidenceItem {
   readonly error?: string;
 }
 
-export function TaskPanel() {
-  const [taskId, setTaskId] = useState('');
+export function TaskPanel({
+  initialTaskId,
+  onNavigate,
+}: {
+  readonly initialTaskId?: string;
+  readonly onNavigate?: (target: Readonly<{ kind: 'workflow' | 'skill'; id: string }>) => void;
+}) {
+  const [taskId, setTaskId] = useState(initialTaskId ?? '');
   const [task, setTask] = useState<TaskRecord>();
   const [evidence, setEvidence] = useState<readonly EvidenceItem[]>([]);
   const [message, setMessage] = useState<string>();
@@ -36,7 +42,7 @@ export function TaskPanel() {
   );
   const [actionText, setActionText] = useState('Confirmed from the operational console.');
 
-  async function loadTask(id: string, announce = true) {
+  const loadTask = useCallback(async (id: string, announce = true) => {
     try {
       const loaded = await managementRequest<TaskRecord>(`/api/v1/tasks/${encodeURIComponent(id)}`);
       setTask(loaded);
@@ -47,7 +53,7 @@ export function TaskPanel() {
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Task trace lookup failed.');
     }
-  }
+  }, []);
 
   async function load(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,12 +78,15 @@ export function TaskPanel() {
     void loadInventory();
   }, []);
   useEffect(() => {
+    if (initialTaskId !== undefined) void loadTask(initialTaskId);
+  }, [initialTaskId, loadTask]);
+  useEffect(() => {
     if (!live || task === undefined) return;
     const timer = window.setInterval(() => void loadTask(task.taskId, false), 2000);
     return () => {
       window.clearInterval(timer);
     };
-  }, [live, task?.taskId]);
+  }, [live, task?.taskId, loadTask]);
 
   async function submitAction(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -214,6 +223,7 @@ export function TaskPanel() {
               <small>{task.errorCode ?? 'no Task error'}</small>
             </article>
           </section>
+          <TaskRelatedNavigation task={task} onNavigate={onNavigate} />
           <section className="panel">
             <div className="panel-heading">
               <span className="eyebrow">PLAN ACTION BOUNDARY</span>
@@ -276,6 +286,42 @@ export function TaskPanel() {
         ))}
       </section>
     </div>
+  );
+}
+
+export function TaskRelatedNavigation({
+  task,
+  onNavigate,
+}: {
+  readonly task: TaskRecord;
+  readonly onNavigate:
+    ((target: Readonly<{ kind: 'workflow' | 'skill'; id: string }>) => void) | undefined;
+}) {
+  const planId = task.planId;
+  const skillId = task.selectedSkillId;
+  return (
+    <section className="action-row" aria-label="Task related objects">
+      {planId === undefined || onNavigate === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate({ kind: 'workflow', id: planId });
+          }}
+        >
+          Open Workflow · {task.planId}
+        </button>
+      )}
+      {skillId === undefined || onNavigate === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate({ kind: 'skill', id: skillId });
+          }}
+        >
+          Open Skill · {task.selectedSkillId}
+        </button>
+      )}
+    </section>
   );
 }
 

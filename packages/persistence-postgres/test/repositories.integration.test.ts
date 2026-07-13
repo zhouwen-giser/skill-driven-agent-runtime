@@ -2441,7 +2441,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.task-link.db',
     });
     await expect(
-      tasks.list({ contextId: submitted.task.contextId, phase: 'planning', limit: 10 }),
+      tasks.list({
+        contextId: submitted.task.contextId,
+        phase: 'planning',
+        planId: 'plan.task-link.db',
+        limit: 10,
+      }),
     ).resolves.toEqual([
       expect.objectContaining({ taskId: submitted.task.taskId, phase: 'planning' }),
     ]);

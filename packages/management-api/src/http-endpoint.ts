@@ -677,6 +677,8 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const contextId =
         typeof request.query['contextId'] === 'string' ? request.query['contextId'] : undefined;
+      const planId =
+        typeof request.query['planId'] === 'string' ? request.query['planId'] : undefined;
       const phase =
         request.query['phase'] === undefined
           ? undefined
@@ -691,6 +693,7 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.tasks.list({
           ...(contextId === undefined ? {} : { contextId }),
+          ...(planId === undefined ? {} : { planId }),
           ...(phase === undefined ? {} : { phase }),
           limit,
         }),

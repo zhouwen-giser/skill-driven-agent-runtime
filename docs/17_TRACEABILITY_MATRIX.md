@@ -3,6 +3,7 @@
 ## EP-06 developing evidence supplements (2026-07-13)
 
 - Acceptance gate: `reports/EP-06-console-observability/acceptance-audit-2026-07-13.md` and `.json`. `pnpm verify` and real-browser render/navigation pass; real PostgreSQL/Redis integration, API browser E2E, full E2E, and server smoke are unverified because Docker is unresponsive. No FR-ADM/NFR row is promoted by this audit.
+- NFR-UX-001: Task → Workflow/Skill and Workflow → owning Task links now use persisted identities and an exact PostgreSQL Plan query. See `reports/EP-06-console-observability/NFR-UX-001-task-workflow-skill-navigation.md`; status remains developing pending the remaining object links and real API browser E2E.
 
 - FR-ADM-002: `packages/domain/src/mcp.ts`, `packages/application/src/mcp-registry.ts`, `packages/persistence-postgres/src/repositories.ts`, migration `0050`, management contracts, console lifecycle components, and `reports/EP-06-console-observability/FR-ADM-002-mcp-console-and-audit.md`. Status remains developing until real E2E reruns.
 - FR-ADM-004: `packages/application/src/workflow-execution.ts`, `packages/persistence-postgres/src/repositories.ts`, `packages/management-api/src/http-endpoint.ts`, `apps/console/src/WorkflowPanel.tsx`, targeted unit/contract tests, and `reports/EP-06-console-observability/FR-ADM-004-workflow-dag-trace-replay.md`. Status remains developing until PostgreSQL/UI E2E and full trace linkage pass.

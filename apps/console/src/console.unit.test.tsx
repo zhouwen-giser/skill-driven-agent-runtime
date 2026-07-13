@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
-import { WorkflowPanel } from './WorkflowPanel.js';
-import { TaskPanel } from './TaskPanel.js';
+import { WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
+import { TaskPanel, TaskRelatedNavigation } from './TaskPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel } from './MemoryPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
@@ -26,6 +26,13 @@ describe('operational console static accessibility contract', () => {
     expect(markup).not.toContain('instance-1');
   });
 
+  it('renders the reverse Workflow-to-Task link from an authoritative lookup', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowTaskLink taskId="task.test" onOpenTask={() => undefined} />,
+    );
+    expect(markup).toContain('Open owning Task · task.test');
+  });
+
   it('renders a Task trace root without fabricated linked evidence', () => {
     const markup = renderToStaticMarkup(<TaskPanel />);
     expect(markup).toContain('Task ID');
@@ -34,6 +41,24 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Refresh inventory');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('renders one-click Task links to authoritative Workflow and Skill identities', () => {
+    const markup = renderToStaticMarkup(
+      <TaskRelatedNavigation
+        task={{
+          taskId: 'task.test',
+          contextId: 'context.test',
+          phase: 'planning',
+          phaseMessage: 'Planned.',
+          planId: 'plan.test',
+          selectedSkillId: 'skill.test',
+        }}
+        onNavigate={() => undefined}
+      />,
+    );
+    expect(markup).toContain('Open Workflow · plan.test');
+    expect(markup).toContain('Open Skill · skill.test');
   });
 
   it('renders Prompt, Memory, and Evaluation controls without operational fixtures', () => {

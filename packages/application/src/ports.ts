@@ -189,6 +189,7 @@ export interface AgentTaskRepository {
   list(
     query: Readonly<{
       contextId?: string;
+      planId?: string;
       phase?: AgentTask['phase'];
       limit: number;
     }>,

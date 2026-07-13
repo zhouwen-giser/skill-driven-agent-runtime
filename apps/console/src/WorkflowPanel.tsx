@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { managementRequest } from './api.js';
 
@@ -46,8 +46,14 @@ interface WorkflowTraceRecord {
   }>[];
 }
 
-export function WorkflowPanel() {
-  const [planId, setPlanId] = useState('');
+export function WorkflowPanel({
+  initialPlanId,
+  onOpenTask,
+}: {
+  readonly initialPlanId?: string;
+  readonly onOpenTask?: (taskId: string) => void;
+}) {
+  const [planId, setPlanId] = useState(initialPlanId ?? '');
   const [instanceId, setInstanceId] = useState('');
   const [newPlanId, setNewPlanId] = useState('');
   const [plan, setPlan] = useState<WorkflowPlanRecord>();
@@ -56,23 +62,34 @@ export function WorkflowPanel() {
   const [validation, setValidation] = useState<unknown>();
   const [message, setMessage] = useState<string>();
   const [replayIndex, setReplayIndex] = useState(0);
+  const [linkedTaskId, setLinkedTaskId] = useState<string>();
   const replayEvents = trace?.events.slice(0, replayIndex) ?? [];
   const nodeStates = useMemo(
     () => new Map(replayEvents.map((event) => [event.nodeId, event.eventType])),
     [replayEvents],
   );
 
-  async function loadPlan(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadPlanById(id: string) {
     await run(async () => {
       const loaded = await managementRequest<WorkflowPlanRecord>(
-        `/api/v1/workflows/plans/${encodeURIComponent(planId)}`,
+        `/api/v1/workflows/plans/${encodeURIComponent(id)}`,
       );
+      const linked = await managementRequest<{
+        readonly items: readonly Readonly<{ taskId: string }>[];
+      }>(`/api/v1/tasks?planId=${encodeURIComponent(id)}&limit=1`);
       setPlan(loaded);
+      setLinkedTaskId(linked.items[0]?.taskId);
       setEditor(loaded.definition === undefined ? '' : JSON.stringify(loaded.definition, null, 2));
       return `${loaded.planId}: plan loaded`;
     });
   }
+  async function loadPlan(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await loadPlanById(planId);
+  }
+  useEffect(() => {
+    if (initialPlanId !== undefined) void loadPlanById(initialPlanId);
+  }, [initialPlanId]);
   async function validate() {
     await run(async () => {
       const result = await managementRequest('/api/v1/workflows/validate', {
@@ -165,6 +182,7 @@ export function WorkflowPanel() {
           </form>
         </div>
         {message === undefined ? null : <p className="action-message">{message}</p>}
+        <WorkflowTaskLink taskId={linkedTaskId} onOpenTask={onOpenTask} />
       </section>
       {definition === undefined ? null : (
         <section className="workflow-grid">
@@ -297,5 +315,24 @@ export function WorkflowPanel() {
         </section>
       )}
     </div>
+  );
+}
+
+export function WorkflowTaskLink({
+  taskId,
+  onOpenTask,
+}: {
+  readonly taskId: string | undefined;
+  readonly onOpenTask: ((taskId: string) => void) | undefined;
+}) {
+  return taskId === undefined || onOpenTask === undefined ? null : (
+    <button
+      type="button"
+      onClick={() => {
+        onOpenTask(taskId);
+      }}
+    >
+      Open owning Task · {taskId}
+    </button>
   );
 }

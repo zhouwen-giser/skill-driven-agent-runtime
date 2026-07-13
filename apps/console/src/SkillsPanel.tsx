@@ -10,7 +10,7 @@ interface SkillRecord extends Record<string, unknown> {
   readonly version: number;
 }
 
-export function SkillsPanel() {
+export function SkillsPanel({ focusSkillId }: { readonly focusSkillId?: string }) {
   const [skills, setSkills] = useState<readonly SkillRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>();
@@ -65,10 +65,16 @@ export function SkillsPanel() {
         </div>
         <p>所有操作都创建或读取后端权威版本；不会绕过 Schema 验证、发布或告警规则。</p>
         {message === undefined ? null : <p className="action-message">{message}</p>}
+        {focusSkillId === undefined ? null : (
+          <p className="action-message">Linked Skill: {focusSkillId}</p>
+        )}
       </section>
       <div className="record-list">
         {skills.map((skill) => (
-          <article key={skill.skillId}>
+          <article
+            key={skill.skillId}
+            className={skill.skillId === focusSkillId ? 'linked-record' : undefined}
+          >
             <div className="record-heading">
               <div>
                 <strong>{skill.name}</strong>

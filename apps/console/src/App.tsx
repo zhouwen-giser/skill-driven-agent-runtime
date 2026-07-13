@@ -45,6 +45,15 @@ const navigation: readonly {
 
 export function App() {
   const [section, setSection] = useState<Section>('overview');
+  const [target, setTarget] = useState<
+    Readonly<{ taskId?: string; planId?: string; skillId?: string }>
+  >({});
+  function navigate(
+    next: Readonly<{ section: Section; taskId?: string; planId?: string; skillId?: string }>,
+  ) {
+    setTarget(next);
+    setSection(next.section);
+  }
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -61,6 +70,7 @@ export function App() {
               key={item.id}
               className={section === item.id ? 'nav-item active' : 'nav-item'}
               onClick={() => {
+                setTarget({});
                 setSection(item.id);
               }}
             >
@@ -86,20 +96,53 @@ export function App() {
           </span>
         </header>
         <section className="content" aria-live="polite">
-          <SectionView section={section} />
+          <SectionView section={section} target={target} onNavigate={navigate} />
         </section>
       </main>
     </div>
   );
 }
 
-function SectionView({ section }: { readonly section: Section }) {
+function SectionView({
+  section,
+  target,
+  onNavigate,
+}: {
+  readonly section: Section;
+  readonly target: Readonly<{ taskId?: string; planId?: string; skillId?: string }>;
+  readonly onNavigate: (
+    target: Readonly<{ section: Section; taskId?: string; planId?: string; skillId?: string }>,
+  ) => void;
+}) {
   if (section === 'overview') return <Overview />;
-  if (section === 'skills') return <SkillsPanel />;
+  if (section === 'skills')
+    return (
+      <SkillsPanel {...(target.skillId === undefined ? {} : { focusSkillId: target.skillId })} />
+    );
   if (section === 'mcp') return <McpPanel />;
   if (section === 'evaluation') return <EvaluationPanel />;
-  if (section === 'workflows') return <WorkflowPanel />;
-  if (section === 'tasks') return <TaskPanel />;
+  if (section === 'workflows')
+    return (
+      <WorkflowPanel
+        {...(target.planId === undefined ? {} : { initialPlanId: target.planId })}
+        onOpenTask={(taskId) => {
+          onNavigate({ section: 'tasks', taskId });
+        }}
+      />
+    );
+  if (section === 'tasks')
+    return (
+      <TaskPanel
+        {...(target.taskId === undefined ? {} : { initialTaskId: target.taskId })}
+        onNavigate={(next) => {
+          onNavigate(
+            next.kind === 'workflow'
+              ? { section: 'workflows', planId: next.id }
+              : { section: 'skills', skillId: next.id },
+          );
+        }}
+      />
+    );
   if (section === 'prompts') return <PromptPanel />;
   if (section === 'system') return <SystemPanel />;
   return <MemoryPanel />;

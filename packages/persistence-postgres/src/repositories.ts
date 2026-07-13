@@ -1825,6 +1825,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async list(
     query: Readonly<{
       contextId?: string;
+      planId?: string;
       phase?: AgentTask['phase'];
       limit: number;
     }>,
@@ -1836,9 +1837,10 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
        FROM agent_task
        WHERE ($1::text IS NULL OR context_id=$1)
          AND ($2::text IS NULL OR phase=$2)
+         AND ($4::text IS NULL OR plan_id=$4)
        ORDER BY updated_at DESC,task_id DESC
        LIMIT $3`,
-      [query.contextId ?? null, query.phase ?? null, query.limit],
+      [query.contextId ?? null, query.phase ?? null, query.limit, query.planId ?? null],
     );
     return result.rows.map(mapTaskRow);
   }

@@ -766,6 +766,10 @@ h2 {
   background: #edf7f0;
   color: #365c43;
 }
+.linked-record {
+  outline: 3px solid #4a9e68;
+  outline-offset: 2px;
+}
 .operations-dashboard article {
   min-width: 0;
 }

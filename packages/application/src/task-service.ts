@@ -184,7 +184,14 @@ export class TaskService {
     return task;
   }
 
-  list(query: Readonly<{ contextId?: string; phase?: AgentTask['phase']; limit: number }>) {
+  list(
+    query: Readonly<{
+      contextId?: string;
+      planId?: string;
+      phase?: AgentTask['phase'];
+      limit: number;
+    }>,
+  ) {
     return this.#dependencies.tasks.list(query);
   }
 

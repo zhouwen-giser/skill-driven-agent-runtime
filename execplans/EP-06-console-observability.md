@@ -36,6 +36,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Complete validated Task-wait, Memory-retention, and Skill-evolution policy controls while keeping automatic cleanup domain-disabled.
 - [x] Render real Evaluation KPIs, failure distribution, Skill-version stability, and ordered quality trends with raw evidence available for audit.
 - [x] Complete FR-ADM-008 MCP usage, model effects, capability growth, and evidence-backed advisory optimization views.
+- [x] Add exact Task → Workflow/Skill and Workflow → owning Task one-click navigation without inferred relationships.
 - [x] Run `pnpm verify` and real-browser semantic navigation/render smoke; record real, simulated, and unverified evidence without closing the EP.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 

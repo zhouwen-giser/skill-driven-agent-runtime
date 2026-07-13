@@ -119,6 +119,7 @@ describe('management HTTP API contract', () => {
                 requestMetadata: {},
                 phase: query.phase ?? 'executing',
                 phaseMessage: 'Executing.',
+                ...(query.planId === undefined ? {} : { planId: query.planId }),
                 createdAt: '2026-07-13T00:00:00.000Z',
                 updatedAt: '2026-07-13T00:01:00.000Z',
               },
@@ -127,11 +128,13 @@ describe('management HTTP API contract', () => {
       },
     });
     const response = await fetch(
-      `${endpoint.baseUrl}/api/v1/tasks?contextId=context-live&phase=executing&limit=25`,
+      `${endpoint.baseUrl}/api/v1/tasks?contextId=context-live&phase=executing&planId=plan-live&limit=25`,
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      items: [{ taskId: 'task-live', contextId: 'context-live', phase: 'executing' }],
+      items: [
+        { taskId: 'task-live', contextId: 'context-live', phase: 'executing', planId: 'plan-live' },
+      ],
     });
   });
 
