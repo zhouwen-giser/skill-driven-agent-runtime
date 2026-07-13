@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 306,
+  "package_count": 288,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -168,15 +168,6 @@
         "node_modules\\.pnpm\\@jridgewell+sourcemap-codec@1.5.5\\node_modules\\@jridgewell\\sourcemap-codec\\LICENSE"
       ],
       "repository": "git+https://github.com/jridgewell/sourcemaps.git"
-    },
-    {
-      "name": "@langchain/core",
-      "version": "1.0.6",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\@langchain+core@1.0.6\\node_modules\\@langchain\\core\\LICENSE"
-      ],
-      "repository": "git@github.com:langchain-ai/langchainjs.git"
     },
     {
       "name": "@langchain/core",
@@ -417,15 +408,6 @@
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
     },
     {
-      "name": "@types/retry",
-      "version": "0.12.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\@types+retry@0.12.0\\node_modules\\@types\\retry\\LICENSE"
-      ],
-      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
-    },
-    {
       "name": "@types/send",
       "version": "1.2.1",
       "license": "MIT",
@@ -440,15 +422,6 @@
       "license": "MIT",
       "licenseFiles": [
         "node_modules\\.pnpm\\@types+serve-static@2.2.0\\node_modules\\@types\\serve-static\\LICENSE"
-      ],
-      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
-    },
-    {
-      "name": "@types/uuid",
-      "version": "10.0.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\@types+uuid@10.0.0\\node_modules\\@types\\uuid\\LICENSE"
       ],
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
     },
@@ -669,24 +642,6 @@
       "repository": "ajv-validator/ajv"
     },
     {
-      "name": "ansi-styles",
-      "version": "4.3.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\ansi-styles@4.3.0\\node_modules\\ansi-styles\\license"
-      ],
-      "repository": "chalk/ansi-styles"
-    },
-    {
-      "name": "ansi-styles",
-      "version": "5.2.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\ansi-styles@5.2.0\\node_modules\\ansi-styles\\license"
-      ],
-      "repository": "chalk/ansi-styles"
-    },
-    {
       "name": "assertion-error",
       "version": "2.0.1",
       "license": "MIT",
@@ -768,15 +723,6 @@
       "repository": "git+https://github.com/ljharb/call-bound.git"
     },
     {
-      "name": "camelcase",
-      "version": "6.3.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\camelcase@6.3.0\\node_modules\\camelcase\\license"
-      ],
-      "repository": "sindresorhus/camelcase"
-    },
-    {
       "name": "chai",
       "version": "6.2.2",
       "license": "MIT",
@@ -786,15 +732,6 @@
       "repository": "https://github.com/chaijs/chai"
     },
     {
-      "name": "chalk",
-      "version": "4.1.2",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\chalk@4.1.2\\node_modules\\chalk\\license"
-      ],
-      "repository": "chalk/chalk"
-    },
-    {
       "name": "cluster-key-slot",
       "version": "1.1.2",
       "license": "Apache-2.0",
@@ -802,33 +739,6 @@
         "node_modules\\.pnpm\\cluster-key-slot@1.1.2\\node_modules\\cluster-key-slot\\LICENSE"
       ],
       "repository": "git+https://github.com/Salakar/cluster-key-slot.git"
-    },
-    {
-      "name": "color-convert",
-      "version": "2.0.1",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\color-convert@2.0.1\\node_modules\\color-convert\\LICENSE"
-      ],
-      "repository": "Qix-/color-convert"
-    },
-    {
-      "name": "color-name",
-      "version": "1.1.4",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\color-name@1.1.4\\node_modules\\color-name\\LICENSE"
-      ],
-      "repository": "git@github.com:colorjs/color-name.git"
-    },
-    {
-      "name": "console-table-printer",
-      "version": "2.16.1",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\console-table-printer@2.16.1\\node_modules\\console-table-printer\\LICENSE"
-      ],
-      "repository": "git+https://github.com/console-table-printer/console-table-printer.git"
     },
     {
       "name": "content-disposition",
@@ -928,15 +838,6 @@
         "node_modules\\.pnpm\\debug@4.4.3\\node_modules\\debug\\LICENSE"
       ],
       "repository": "git://github.com/debug-js/debug.git"
-    },
-    {
-      "name": "decamelize",
-      "version": "1.2.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\decamelize@1.2.0\\node_modules\\decamelize\\license"
-      ],
-      "repository": "sindresorhus/decamelize"
     },
     {
       "name": "deep-is",
@@ -1378,15 +1279,6 @@
       "repository": "git+https://github.com/ljharb/gopd.git"
     },
     {
-      "name": "has-flag",
-      "version": "4.0.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\has-flag@4.0.0\\node_modules\\has-flag\\license"
-      ],
-      "repository": "sindresorhus/has-flag"
-    },
-    {
       "name": "has-symbols",
       "version": "1.1.0",
       "license": "MIT",
@@ -1604,13 +1496,6 @@
       "license": "MIT",
       "licenseFiles": [],
       "repository": "git+https://github.com/jaredwray/keyv.git"
-    },
-    {
-      "name": "langsmith",
-      "version": "0.3.87",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "git+https://github.com/langchain-ai/langsmith-sdk.git"
     },
     {
       "name": "langsmith",
@@ -1922,15 +1807,6 @@
         "node_modules\\.pnpm\\p-queue@9.3.1\\node_modules\\p-queue\\license"
       ],
       "repository": "sindresorhus/p-queue"
-    },
-    {
-      "name": "p-retry",
-      "version": "4.6.2",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\p-retry@4.6.2\\node_modules\\p-retry\\license"
-      ],
-      "repository": "sindresorhus/p-retry"
     },
     {
       "name": "p-retry",
@@ -2253,15 +2129,6 @@
       "repository": "floatdrop/require-from-string"
     },
     {
-      "name": "retry",
-      "version": "0.13.1",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\retry@0.13.1\\node_modules\\retry\\License"
-      ],
-      "repository": "git://github.com/tim-kos/node-retry.git"
-    },
-    {
       "name": "rolldown",
       "version": "1.1.5",
       "license": "MIT",
@@ -2397,15 +2264,6 @@
       "repository": "git+https://github.com/emilbayes/siginfo.git"
     },
     {
-      "name": "simple-wcswidth",
-      "version": "1.1.2",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\simple-wcswidth@1.1.2\\node_modules\\simple-wcswidth\\LICENSE"
-      ],
-      "repository": "git@github.com:console-table-printer/simple-wcswidth.git"
-    },
-    {
       "name": "source-map-js",
       "version": "1.2.1",
       "license": "BSD-3-Clause",
@@ -2456,15 +2314,6 @@
         "node_modules\\.pnpm\\std-env@4.2.0\\node_modules\\std-env\\LICENCE"
       ],
       "repository": "unjs/std-env"
-    },
-    {
-      "name": "supports-color",
-      "version": "7.2.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\supports-color@7.2.0\\node_modules\\supports-color\\license"
-      ],
-      "repository": "chalk/supports-color"
     },
     {
       "name": "tinybench",
@@ -2600,15 +2449,6 @@
         "node_modules\\.pnpm\\uri-js@4.4.1\\node_modules\\uri-js\\LICENSE"
       ],
       "repository": "http://github.com/garycourt/uri-js"
-    },
-    {
-      "name": "uuid",
-      "version": "10.0.0",
-      "license": "MIT",
-      "licenseFiles": [
-        "node_modules\\.pnpm\\uuid@10.0.0\\node_modules\\uuid\\LICENSE.md"
-      ],
-      "repository": "git+https://github.com/uuidjs/uuid.git"
     },
     {
       "name": "uuid",

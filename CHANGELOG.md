@@ -24,6 +24,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Fixed
 
+- SBOM/license generation now filters the pnpm virtual store through the current lockfile, excluding stale packages left by prior installs and making clean-checkout evidence deterministic.
+
 - Clean Windows checkouts now retain the repository LF formatting baseline through `.gitattributes`, so the frozen-install verification is independent of global `core.autocrlf` settings.
 
 - Local Compose now publishes PostgreSQL and Redis only on `127.0.0.1`; the infrastructure verifier rejects non-loopback datastore port publishing.

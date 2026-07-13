@@ -7,7 +7,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 - pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
 - Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
 
-## npm packages (306)
+## npm packages (288)
 
 | Package | License | Packaged license/notice files |
 | --- | --- | --- |
@@ -30,7 +30,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@humanwhocodes/retry@0.4.3` | Apache-2.0 | `node_modules\.pnpm\@humanwhocodes+retry@0.4.3\node_modules\@humanwhocodes\retry\LICENSE` |
 | `@ioredis/commands@1.5.1` | MIT | `node_modules\.pnpm\@ioredis+commands@1.5.1\node_modules\@ioredis\commands\LICENSE` |
 | `@jridgewell/sourcemap-codec@1.5.5` | MIT | `node_modules\.pnpm\@jridgewell+sourcemap-codec@1.5.5\node_modules\@jridgewell\sourcemap-codec\LICENSE` |
-| `@langchain/core@1.0.6` | MIT | `node_modules\.pnpm\@langchain+core@1.0.6\node_modules\@langchain\core\LICENSE` |
 | `@langchain/core@1.2.2` | MIT | `node_modules\.pnpm\@langchain+core@1.2.2\node_modules\@langchain\core\LICENSE` |
 | `@langchain/langgraph-checkpoint@1.1.3` | MIT | `node_modules\.pnpm\@langchain+langgraph-checkpoint@1.1.3_@langchain+core@1.0.6\node_modules\@langchain\langgraph-checkpoint\LICENSE` |
 | `@langchain/langgraph-sdk@1.9.25` | MIT | `node_modules\.pnpm\@langchain+langgraph-sdk@1.9.25_@langchain+core@1.0.6\node_modules\@langchain\langgraph-sdk\LICENSE` |
@@ -58,10 +57,8 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@types/range-parser@1.2.7` | MIT | `node_modules\.pnpm\@types+range-parser@1.2.7\node_modules\@types\range-parser\LICENSE` |
 | `@types/react-dom@19.2.3` | MIT | `node_modules\.pnpm\@types+react-dom@19.2.3_@types+react@19.2.17\node_modules\@types\react-dom\LICENSE` |
 | `@types/react@19.2.17` | MIT | `node_modules\.pnpm\@types+react@19.2.17\node_modules\@types\react\LICENSE` |
-| `@types/retry@0.12.0` | MIT | `node_modules\.pnpm\@types+retry@0.12.0\node_modules\@types\retry\LICENSE` |
 | `@types/send@1.2.1` | MIT | `node_modules\.pnpm\@types+send@1.2.1\node_modules\@types\send\LICENSE` |
 | `@types/serve-static@2.2.0` | MIT | `node_modules\.pnpm\@types+serve-static@2.2.0\node_modules\@types\serve-static\LICENSE` |
-| `@types/uuid@10.0.0` | MIT | `node_modules\.pnpm\@types+uuid@10.0.0\node_modules\@types\uuid\LICENSE` |
 | `@typescript-eslint/eslint-plugin@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+eslint-p_048dae3d28a8ac5f465992702a969dac\node_modules\@typescript-eslint\eslint-plugin\LICENSE` |
 | `@typescript-eslint/parser@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+parser@8_41c5dc80ed7edb82c8deefb03824e1d4\node_modules\@typescript-eslint\parser\LICENSE` |
 | `@typescript-eslint/project-service@8.63.0` | MIT | `node_modules\.pnpm\@typescript-eslint+project-service@8.63.0_typescript@6.0.3\node_modules\@typescript-eslint\project-service\LICENSE` |
@@ -86,8 +83,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `ajv-formats@3.0.1` | MIT | `node_modules\.pnpm\ajv-formats@3.0.1_ajv@8.20.0\node_modules\ajv-formats\LICENSE` |
 | `ajv@6.15.0` | MIT | `node_modules\.pnpm\ajv@6.15.0\node_modules\ajv\LICENSE` |
 | `ajv@8.20.0` | MIT | `node_modules\.pnpm\ajv@8.20.0\node_modules\ajv\LICENSE` |
-| `ansi-styles@4.3.0` | MIT | `node_modules\.pnpm\ansi-styles@4.3.0\node_modules\ansi-styles\license` |
-| `ansi-styles@5.2.0` | MIT | `node_modules\.pnpm\ansi-styles@5.2.0\node_modules\ansi-styles\license` |
 | `assertion-error@2.0.1` | MIT | `node_modules\.pnpm\assertion-error@2.0.1\node_modules\assertion-error\LICENSE` |
 | `balanced-match@4.0.4` | MIT | `node_modules\.pnpm\balanced-match@4.0.4\node_modules\balanced-match\LICENSE.md` |
 | `base64-js@1.5.1` | MIT | `node_modules\.pnpm\base64-js@1.5.1\node_modules\base64-js\LICENSE` |
@@ -97,13 +92,8 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `bytes@3.1.2` | MIT | `node_modules\.pnpm\bytes@3.1.2\node_modules\bytes\LICENSE` |
 | `call-bind-apply-helpers@1.0.2` | MIT | `node_modules\.pnpm\call-bind-apply-helpers@1.0.2\node_modules\call-bind-apply-helpers\LICENSE` |
 | `call-bound@1.0.4` | MIT | `node_modules\.pnpm\call-bound@1.0.4\node_modules\call-bound\LICENSE` |
-| `camelcase@6.3.0` | MIT | `node_modules\.pnpm\camelcase@6.3.0\node_modules\camelcase\license` |
 | `chai@6.2.2` | MIT | `node_modules\.pnpm\chai@6.2.2\node_modules\chai\LICENSE` |
-| `chalk@4.1.2` | MIT | `node_modules\.pnpm\chalk@4.1.2\node_modules\chalk\license` |
 | `cluster-key-slot@1.1.2` | Apache-2.0 | `node_modules\.pnpm\cluster-key-slot@1.1.2\node_modules\cluster-key-slot\LICENSE` |
-| `color-convert@2.0.1` | MIT | `node_modules\.pnpm\color-convert@2.0.1\node_modules\color-convert\LICENSE` |
-| `color-name@1.1.4` | MIT | `node_modules\.pnpm\color-name@1.1.4\node_modules\color-name\LICENSE` |
-| `console-table-printer@2.16.1` | MIT | `node_modules\.pnpm\console-table-printer@2.16.1\node_modules\console-table-printer\LICENSE` |
 | `content-disposition@1.1.0` | MIT | `node_modules\.pnpm\content-disposition@1.1.0\node_modules\content-disposition\LICENSE` |
 | `content-type@1.0.5` | MIT | `node_modules\.pnpm\content-type@1.0.5\node_modules\content-type\LICENSE` |
 | `content-type@2.0.0` | MIT | `node_modules\.pnpm\content-type@2.0.0\node_modules\content-type\LICENSE` |
@@ -115,7 +105,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `cross-spawn@7.0.6` | MIT | `node_modules\.pnpm\cross-spawn@7.0.6\node_modules\cross-spawn\LICENSE` |
 | `csstype@3.2.3` | MIT | `node_modules\.pnpm\csstype@3.2.3\node_modules\csstype\LICENSE` |
 | `debug@4.4.3` | MIT | `node_modules\.pnpm\debug@4.4.3\node_modules\debug\LICENSE` |
-| `decamelize@1.2.0` | MIT | `node_modules\.pnpm\decamelize@1.2.0\node_modules\decamelize\license` |
 | `deep-is@0.1.4` | MIT | `node_modules\.pnpm\deep-is@0.1.4\node_modules\deep-is\LICENSE` |
 | `denque@2.1.0` | Apache-2.0 | `node_modules\.pnpm\denque@2.1.0\node_modules\denque\LICENSE` |
 | `depd@2.0.0` | MIT | `node_modules\.pnpm\depd@2.0.0\node_modules\depd\LICENSE` |
@@ -165,7 +154,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `get-proto@1.0.1` | MIT | `node_modules\.pnpm\get-proto@1.0.1\node_modules\get-proto\LICENSE` |
 | `glob-parent@6.0.2` | ISC | `node_modules\.pnpm\glob-parent@6.0.2\node_modules\glob-parent\LICENSE` |
 | `gopd@1.2.0` | MIT | `node_modules\.pnpm\gopd@1.2.0\node_modules\gopd\LICENSE` |
-| `has-flag@4.0.0` | MIT | `node_modules\.pnpm\has-flag@4.0.0\node_modules\has-flag\license` |
 | `has-symbols@1.1.0` | MIT | `node_modules\.pnpm\has-symbols@1.1.0\node_modules\has-symbols\LICENSE` |
 | `hasown@2.0.4` | MIT | `node_modules\.pnpm\hasown@2.0.4\node_modules\hasown\LICENSE` |
 | `hono@4.12.28` | MIT | `node_modules\.pnpm\hono@4.12.28\node_modules\hono\LICENSE` |
@@ -191,7 +179,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `json-schema-typed@8.0.2` | BSD-2-Clause | `node_modules\.pnpm\json-schema-typed@8.0.2\node_modules\json-schema-typed\LICENSE.md` |
 | `json-stable-stringify-without-jsonify@1.0.1` | MIT | `node_modules\.pnpm\json-stable-stringify-without-jsonify@1.0.1\node_modules\json-stable-stringify-without-jsonify\LICENSE` |
 | `keyv@4.5.4` | MIT | not found |
-| `langsmith@0.3.87` | MIT | not found |
 | `langsmith@0.8.1` | MIT | not found |
 | `levn@0.4.1` | MIT | `node_modules\.pnpm\levn@0.4.1\node_modules\levn\LICENSE` |
 | `lightningcss-win32-x64-msvc@1.32.0` | MPL-2.0 | `node_modules\.pnpm\lightningcss-win32-x64-msvc@1.32.0\node_modules\lightningcss-win32-x64-msvc\LICENSE` |
@@ -227,7 +214,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `p-locate@5.0.0` | MIT | `node_modules\.pnpm\p-locate@5.0.0\node_modules\p-locate\license` |
 | `p-queue@6.6.2` | MIT | `node_modules\.pnpm\p-queue@6.6.2\node_modules\p-queue\license` |
 | `p-queue@9.3.1` | MIT | `node_modules\.pnpm\p-queue@9.3.1\node_modules\p-queue\license` |
-| `p-retry@4.6.2` | MIT | `node_modules\.pnpm\p-retry@4.6.2\node_modules\p-retry\license` |
 | `p-retry@7.1.1` | MIT | `node_modules\.pnpm\p-retry@7.1.1\node_modules\p-retry\license` |
 | `p-timeout@3.2.0` | MIT | `node_modules\.pnpm\p-timeout@3.2.0\node_modules\p-timeout\license` |
 | `p-timeout@7.0.1` | MIT | `node_modules\.pnpm\p-timeout@7.0.1\node_modules\p-timeout\license` |
@@ -264,7 +250,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `redis-errors@1.2.0` | MIT | `node_modules\.pnpm\redis-errors@1.2.0\node_modules\redis-errors\LICENSE` |
 | `redis-parser@3.0.0` | MIT | `node_modules\.pnpm\redis-parser@3.0.0\node_modules\redis-parser\LICENSE` |
 | `require-from-string@2.0.2` | MIT | `node_modules\.pnpm\require-from-string@2.0.2\node_modules\require-from-string\license` |
-| `retry@0.13.1` | MIT | `node_modules\.pnpm\retry@0.13.1\node_modules\retry\License` |
 | `rolldown@1.1.5` | MIT | `node_modules\.pnpm\rolldown@1.1.5\node_modules\rolldown\LICENSE` |
 | `router@2.2.0` | MIT | `node_modules\.pnpm\router@2.2.0\node_modules\router\LICENSE` |
 | `safer-buffer@2.1.2` | MIT | `node_modules\.pnpm\safer-buffer@2.1.2\node_modules\safer-buffer\LICENSE` |
@@ -280,14 +265,12 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `side-channel-weakmap@1.0.2` | MIT | `node_modules\.pnpm\side-channel-weakmap@1.0.2\node_modules\side-channel-weakmap\LICENSE` |
 | `side-channel@1.1.1` | MIT | `node_modules\.pnpm\side-channel@1.1.1\node_modules\side-channel\LICENSE` |
 | `siginfo@2.0.0` | ISC | `node_modules\.pnpm\siginfo@2.0.0\node_modules\siginfo\LICENSE` |
-| `simple-wcswidth@1.1.2` | MIT | `node_modules\.pnpm\simple-wcswidth@1.1.2\node_modules\simple-wcswidth\LICENSE` |
 | `source-map-js@1.2.1` | BSD-3-Clause | `node_modules\.pnpm\source-map-js@1.2.1\node_modules\source-map-js\LICENSE` |
 | `split2@4.2.0` | ISC | `node_modules\.pnpm\split2@4.2.0\node_modules\split2\LICENSE` |
 | `stackback@0.0.2` | MIT | not found |
 | `standard-as-callback@2.1.0` | MIT | `node_modules\.pnpm\standard-as-callback@2.1.0\node_modules\standard-as-callback\LICENSE` |
 | `statuses@2.0.2` | MIT | `node_modules\.pnpm\statuses@2.0.2\node_modules\statuses\LICENSE` |
 | `std-env@4.2.0` | MIT | `node_modules\.pnpm\std-env@4.2.0\node_modules\std-env\LICENCE` |
-| `supports-color@7.2.0` | MIT | `node_modules\.pnpm\supports-color@7.2.0\node_modules\supports-color\license` |
 | `tinybench@2.9.0` | MIT | `node_modules\.pnpm\tinybench@2.9.0\node_modules\tinybench\LICENSE` |
 | `tinyexec@1.2.4` | MIT | `node_modules\.pnpm\tinyexec@1.2.4\node_modules\tinyexec\LICENSE` |
 | `tinyglobby@0.2.17` | MIT | `node_modules\.pnpm\tinyglobby@0.2.17\node_modules\tinyglobby\LICENSE` |
@@ -303,7 +286,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `undici-types@8.3.0` | MIT | `node_modules\.pnpm\undici-types@8.3.0\node_modules\undici-types\LICENSE` |
 | `unpipe@1.0.0` | MIT | `node_modules\.pnpm\unpipe@1.0.0\node_modules\unpipe\LICENSE` |
 | `uri-js@4.4.1` | BSD-2-Clause | `node_modules\.pnpm\uri-js@4.4.1\node_modules\uri-js\LICENSE` |
-| `uuid@10.0.0` | MIT | `node_modules\.pnpm\uuid@10.0.0\node_modules\uuid\LICENSE.md` |
 | `uuid@11.1.1` | MIT | `node_modules\.pnpm\uuid@11.1.1\node_modules\uuid\LICENSE.md` |
 | `vary@1.1.2` | MIT | `node_modules\.pnpm\vary@1.1.2\node_modules\vary\LICENSE` |
 | `vite@8.1.4` | MIT | `node_modules\.pnpm\vite@8.1.4_@types+node@26.1.1_esbuild@0.28.1_tsx@4.23.0\node_modules\vite\LICENSE.md` |

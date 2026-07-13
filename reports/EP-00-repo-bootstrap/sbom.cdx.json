@@ -394,26 +394,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@langchain%2Fcore@1.0.6",
-      "name": "@langchain/core",
-      "version": "1.0.6",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git@github.com:langchain-ai/langchainjs.git"
-        }
-      ],
-      "purl": "pkg:npm/@langchain%2Fcore@1.0.6"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/@langchain%2Fcore@1.2.2",
       "name": "@langchain/core",
       "version": "1.2.2",
@@ -948,26 +928,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@types%2Fretry@0.12.0",
-      "name": "@types/retry",
-      "version": "0.12.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
-        }
-      ],
-      "purl": "pkg:npm/@types%2Fretry@0.12.0"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/@types%2Fsend@1.2.1",
       "name": "@types/send",
       "version": "1.2.1",
@@ -1005,26 +965,6 @@
         }
       ],
       "purl": "pkg:npm/@types%2Fserve-static@2.2.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/@types%2Fuuid@10.0.0",
-      "name": "@types/uuid",
-      "version": "10.0.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
-        }
-      ],
-      "purl": "pkg:npm/@types%2Fuuid@10.0.0"
     },
     {
       "type": "library",
@@ -1508,46 +1448,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/ansi-styles@4.3.0",
-      "name": "ansi-styles",
-      "version": "4.3.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "chalk/ansi-styles"
-        }
-      ],
-      "purl": "pkg:npm/ansi-styles@4.3.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/ansi-styles@5.2.0",
-      "name": "ansi-styles",
-      "version": "5.2.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "chalk/ansi-styles"
-        }
-      ],
-      "purl": "pkg:npm/ansi-styles@5.2.0"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/assertion-error@2.0.1",
       "name": "assertion-error",
       "version": "2.0.1",
@@ -1728,26 +1628,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/camelcase@6.3.0",
-      "name": "camelcase",
-      "version": "6.3.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "sindresorhus/camelcase"
-        }
-      ],
-      "purl": "pkg:npm/camelcase@6.3.0"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/chai@6.2.2",
       "name": "chai",
       "version": "6.2.2",
@@ -1768,26 +1648,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/chalk@4.1.2",
-      "name": "chalk",
-      "version": "4.1.2",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "chalk/chalk"
-        }
-      ],
-      "purl": "pkg:npm/chalk@4.1.2"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/cluster-key-slot@1.1.2",
       "name": "cluster-key-slot",
       "version": "1.1.2",
@@ -1805,66 +1665,6 @@
         }
       ],
       "purl": "pkg:npm/cluster-key-slot@1.1.2"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/color-convert@2.0.1",
-      "name": "color-convert",
-      "version": "2.0.1",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "Qix-/color-convert"
-        }
-      ],
-      "purl": "pkg:npm/color-convert@2.0.1"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/color-name@1.1.4",
-      "name": "color-name",
-      "version": "1.1.4",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git@github.com:colorjs/color-name.git"
-        }
-      ],
-      "purl": "pkg:npm/color-name@1.1.4"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/console-table-printer@2.16.1",
-      "name": "console-table-printer",
-      "version": "2.16.1",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/console-table-printer/console-table-printer.git"
-        }
-      ],
-      "purl": "pkg:npm/console-table-printer@2.16.1"
     },
     {
       "type": "library",
@@ -2085,26 +1885,6 @@
         }
       ],
       "purl": "pkg:npm/debug@4.4.3"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/decamelize@1.2.0",
-      "name": "decamelize",
-      "version": "1.2.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "sindresorhus/decamelize"
-        }
-      ],
-      "purl": "pkg:npm/decamelize@1.2.0"
     },
     {
       "type": "library",
@@ -3088,26 +2868,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/has-flag@4.0.0",
-      "name": "has-flag",
-      "version": "4.0.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "sindresorhus/has-flag"
-        }
-      ],
-      "purl": "pkg:npm/has-flag@4.0.0"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/has-symbols@1.1.0",
       "name": "has-symbols",
       "version": "1.1.0",
@@ -3605,26 +3365,6 @@
         }
       ],
       "purl": "pkg:npm/keyv@4.5.4"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/langsmith@0.3.87",
-      "name": "langsmith",
-      "version": "0.3.87",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/langchain-ai/langsmith-sdk.git"
-        }
-      ],
-      "purl": "pkg:npm/langsmith@0.3.87"
     },
     {
       "type": "library",
@@ -4325,26 +4065,6 @@
         }
       ],
       "purl": "pkg:npm/p-queue@9.3.1"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/p-retry@4.6.2",
-      "name": "p-retry",
-      "version": "4.6.2",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "sindresorhus/p-retry"
-        }
-      ],
-      "purl": "pkg:npm/p-retry@4.6.2"
     },
     {
       "type": "library",
@@ -5068,26 +4788,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/retry@0.13.1",
-      "name": "retry",
-      "version": "0.13.1",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git://github.com/tim-kos/node-retry.git"
-        }
-      ],
-      "purl": "pkg:npm/retry@0.13.1"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/rolldown@1.1.5",
       "name": "rolldown",
       "version": "1.1.5",
@@ -5388,26 +5088,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/simple-wcswidth@1.1.2",
-      "name": "simple-wcswidth",
-      "version": "1.1.2",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git@github.com:console-table-printer/simple-wcswidth.git"
-        }
-      ],
-      "purl": "pkg:npm/simple-wcswidth@1.1.2"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/source-map-js@1.2.1",
       "name": "source-map-js",
       "version": "1.2.1",
@@ -5525,26 +5205,6 @@
         }
       ],
       "purl": "pkg:npm/std-env@4.2.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/supports-color@7.2.0",
-      "name": "supports-color",
-      "version": "7.2.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "chalk/supports-color"
-        }
-      ],
-      "purl": "pkg:npm/supports-color@7.2.0"
     },
     {
       "type": "library",
@@ -5845,26 +5505,6 @@
         }
       ],
       "purl": "pkg:npm/uri-js@4.4.1"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/uuid@10.0.0",
-      "name": "uuid",
-      "version": "10.0.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/uuidjs/uuid.git"
-        }
-      ],
-      "purl": "pkg:npm/uuid@10.0.0"
     },
     {
       "type": "library",

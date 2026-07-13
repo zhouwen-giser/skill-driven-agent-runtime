@@ -7,6 +7,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pnpmStore = path.join(root, 'node_modules', '.pnpm');
 const outputDir = path.join(root, 'reports', 'EP-00-repo-bootstrap');
 const checkOnly = process.argv.includes('--check');
+const activePackageKeys = parsePackageKeys(
+  await readFile(path.join(root, 'pnpm-lock.yaml'), 'utf8'),
+);
 
 const packages = new Map();
 for (const storeEntry of await readdir(pnpmStore, { withFileTypes: true })) {
@@ -40,6 +43,7 @@ async function collectPackage(packageDir) {
   }
   if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') return;
   const key = `${manifest.name}@${manifest.version}`;
+  if (!activePackageKeys.has(key)) return;
   if (packages.has(key)) return;
   const license = normalizeLicense(manifest.license);
   const files = await readdir(packageDir);
@@ -67,6 +71,27 @@ function normalizeRepository(value) {
     return value.url;
   }
   return undefined;
+}
+
+function parsePackageKeys(lockfile) {
+  const packagesStart = lockfile.indexOf('\npackages:\n');
+  const snapshotsStart = lockfile.indexOf('\nsnapshots:\n');
+  if (packagesStart < 0 || snapshotsStart <= packagesStart) {
+    throw new Error('PNPM_LOCK_PACKAGES_MISSING');
+  }
+
+  const keys = new Set();
+  for (const line of lockfile.slice(packagesStart, snapshotsStart).split(/\r?\n/u)) {
+    const match = /^  (\S.*):$/u.exec(line);
+    if (match === null) continue;
+    let key = match[1];
+    if (key.startsWith("'") && key.endsWith("'")) {
+      key = key.slice(1, -1).replaceAll("''", "'");
+    }
+    keys.add(key.replace(/\(.+$/u, ''));
+  }
+  if (keys.size === 0) throw new Error('PNPM_LOCK_PACKAGES_EMPTY');
+  return keys;
 }
 
 const packageList = [...packages.values()].sort((left, right) =>
