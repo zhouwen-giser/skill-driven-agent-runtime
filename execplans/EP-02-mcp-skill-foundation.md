@@ -183,7 +183,8 @@ Decision: ADR-012 uses a second listener inside the same process so management D
 - [x] Atomically persist dependency warnings for current enabled SkillVersions on Tool removal/schema change without changing Skill status.
 - [x] Validate/edit Tool enhancement metadata and preserve it across refresh by Tool name.
 - [x] Verify V1 repeated calls are not deduplicated or protected by idempotency keys.
-- [ ] Expose these records through management API/console and add LLM generation/decision ports.
+- [x] Expose these records through management API/console and add bounded LLM generation/decision ports.
+- [x] Reconcile FR-MCP-011 with the historical real PostgreSQL warning transaction and current management/Console display evidence.
 
 Discovery: PostgreSQL inferred a reused polymorphic warning parameter as text; explicit parameter casts are required in the INSERT-SELECT. The failing transaction rolled back cleanly and the regression is covered by the real repository test.
 

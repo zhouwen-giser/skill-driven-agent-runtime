@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Reconciled FR-MCP-011 with historical real PostgreSQL dependency-warning evidence and current no-auto-disable management/Console boundaries.
+
 - Exact Skill-to-Task PostgreSQL inventory navigation and Task-to-MCP-Tool focus, closing two NFR-UX-001 identifier-chain gaps with executable click evidence.
 
 - Reconciled NFR-PERF-001 with historical real BullMQ serialization and a deterministic ten-context no-crossover concurrency regression.
