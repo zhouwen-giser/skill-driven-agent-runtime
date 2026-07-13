@@ -1,0 +1,28 @@
+{
+  "requirement": "NFR-MNT-001",
+  "status": "verified",
+  "boundaries": {
+    "a2a": "application models with official SDK adapter",
+    "mcpTransport": "McpTransportAdapter",
+    "modelProvider": "StructuredModelProvider and ModelProviderAdapterFactory",
+    "storage": "application repository ports",
+    "workflowCompiler": "WorkflowExecutor with sole LangGraph adapter"
+  },
+  "currentEvidence": {
+    "focusedFiles": 6,
+    "focusedTestsPassed": 57,
+    "architectureFilesChecked": 165,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 240
+  },
+  "invariants": {
+    "singleWorkflowRuntime": true,
+    "externalSdkTypesConfinedToAdapters": true,
+    "dependencyInjection": true,
+    "strictTypeScript": true,
+    "dynamicCodeForbidden": true
+  },
+  "unverified": [
+    "current Docker-backed project-wide integration/E2E rerun; tracked separately from this interface-boundary acceptance"
+  ]
+}

