@@ -42,7 +42,12 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] NFR-OBS-001 audit closed the indirect-only Plan-confirmation and Goal-Patch links with migration 0052, persisted Task/time correlation, 65 targeted tests, and a classified acceptance report.
 - [x] NFR-OBS-001 unified `pnpm verify` passed with 54 files/225 tests and all static/build gates; bounded probes still found PostgreSQL and Redis unreachable, so real persistence/E2E stays unverified.
 
+- [x] NFR-MNT-001 audit mapped all five required replaceable boundaries and expanded the architecture guard to the Server composition root and dependency manifest; 164 source files pass.
+- [x] NFR-MNT-001 unified `pnpm verify` passed after guard expansion with 54 files/225 tests and all static/build gates.
+
 ## Discoveries and Surprises
+
+- The prior guard correctly isolated package imports but did not scan the production Server composition root or fail on a newly declared second workflow-runtime dependency.
 
 - Plan confirmation previously persisted only a mutable status, and Goal Patch used a triggering Task only inside its transaction. Neither was sufficient for historical Task-rooted correlation after later revisions.
 
@@ -63,6 +68,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - ADR-011/018 明确 MCP 与 Model 共用 composition-owned AES-256-GCM Cipher，数据库与管理边界均不持有明文。
 
 - ADR-066 now requires persisted Plan confirmation Task/time and Goal Patch triggering Task identity; legacy rows keep explicit unknown optional values rather than inferred links.
+
+- ADR-068 makes the existing modular-monolith decisions executable: composition may instantiate infrastructure, but Domain/Application remain port-owned and only LangGraph.js may execute Workflows.
 
 ## Implementation Steps
 
