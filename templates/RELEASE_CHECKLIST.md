@@ -6,7 +6,7 @@
 - [x] All AC reports pass. Evidence: `reports/EP-07-hardening-acceptance/V1-ACCEPTANCE-AUDIT.{md,json}`.
 - [x] Traceability Matrix has no gaps. Evidence: all rows are `已验证`; `pnpm verify:acceptance` passes.
 - [x] Docker/local start and smoke test pass. Evidence: `V1-LOCAL-DEMO`, full verification, infra and Server/Console smoke reports.
-- [x] SBOM, licenses and THIRD_PARTY_NOTICES complete. Evidence: 17 source pins, 288 current-lockfile npm packages, two external services, and `verify:licenses` pass.
+- [x] Project `LICENSE`/`NOTICE`, SBOM, dependency licenses and THIRD_PARTY_NOTICES complete. Evidence: Apache-2.0 project metadata, 17 source pins, 288 current-lockfile npm packages, two external services, `verify:project-license` and `verify:licenses` pass.
 - [x] No secret or production endpoint in repository. Evidence: `V1-RELEASE-POSTURE.{md,json}`.
 - [x] Risk warnings and limitations visible. Evidence: README, security/operations docs, health, Console and HTTP contracts.
 - [x] A2A and Management listeners bind to loopback or an explicitly reviewed trusted interface; public ingress is blocked. Evidence: environment unit tests and NFR-SEC-001 report.

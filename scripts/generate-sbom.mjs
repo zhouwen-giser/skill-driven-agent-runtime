@@ -151,6 +151,7 @@ const sbom = `${JSON.stringify(
         type: 'application',
         name: 'skill-driven-agent-runtime',
         version: '0.0.0',
+        licenses: [{ license: { id: 'Apache-2.0' } }],
       },
     },
     components,

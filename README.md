@@ -90,4 +90,10 @@ Useful focused commands include `pnpm test:unit`, `pnpm test:integration`, `pnpm
 - [Contributing](CONTRIBUTING.md)
 - [Release checklist](templates/RELEASE_CHECKLIST.md)
 
+## License
+
+Copyright 2026 zhouwen. Licensed under the [Apache License 2.0](LICENSE).
+Third-party licenses and attribution notices are recorded in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 The original SRS in `source/Agent通用模板Server需求规格说明书_V1.0.docx` remains authoritative. See `AGENTS.md` for engineering invariants and `PLANS.md`/`execplans/` for living execution plans.

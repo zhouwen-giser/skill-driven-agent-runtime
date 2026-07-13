@@ -24,3 +24,7 @@ Update the traceability matrix, active ExecPlan, ADRs where appropriate, `PROJEC
 ## Pull-request evidence
 
 Describe affected requirement IDs, implementation files, test files, exact commands/results, migrations and rollback notes, risk changes, and any real/simulated/unverified boundaries. A green unit suite alone is not release evidence.
+
+## Contribution license
+
+Unless explicitly stated otherwise, an intentionally submitted contribution is provided under the project's [Apache License 2.0](LICENSE), consistent with Section 5 of that license. Mark material that is not intended as a contribution explicitly and do not submit code you lack authority to license.
