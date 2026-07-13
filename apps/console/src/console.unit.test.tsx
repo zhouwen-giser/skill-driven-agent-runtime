@@ -2,7 +2,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
-import { WorkflowEventDuration, WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
+import {
+  applyVisualWorkflowEdit,
+  parseVisualWorkflowDefinition,
+  WorkflowEventDuration,
+  WorkflowPanel,
+  WorkflowTaskLink,
+} from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
   TaskEvidenceNavigation,
@@ -34,6 +40,47 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Instance ID');
     expect(markup).not.toContain('plan-1');
     expect(markup).not.toContain('instance-1');
+  });
+
+  it('edits Workflow topology as restricted data while preserving node configuration', () => {
+    const original = JSON.stringify({
+      workflowDefinitionId: 'workflow.test',
+      version: 1,
+      goalId: 'goal.test',
+      goalVersion: 1,
+      entryNodeId: 'node.a',
+      exitNodeIds: ['node.b'],
+      nodes: [
+        { nodeId: 'node.a', name: 'Start', type: 'llm', configuration: { prompt: 'safe' } },
+        { nodeId: 'node.b', name: 'Finish', type: 'result' },
+      ],
+      edges: [{ sourceNodeId: 'node.a', targetNodeId: 'node.b' }],
+    });
+    const renamed = applyVisualWorkflowEdit(original, {
+      kind: 'rename_node',
+      nodeId: 'node.a',
+      name: 'Reviewed start',
+    });
+    const withEdge = applyVisualWorkflowEdit(renamed, { kind: 'add_edge' });
+    const edited = applyVisualWorkflowEdit(withEdge, {
+      kind: 'update_edge',
+      edgeIndex: 1,
+      field: 'outcome',
+      value: 'approved',
+    });
+    const parsed: unknown = JSON.parse(edited);
+    expect(parsed).toMatchObject({
+      nodes: [
+        {
+          name: 'Reviewed start',
+          configuration: { prompt: 'safe' },
+        },
+        { name: 'Finish' },
+      ],
+      edges: [{}, { outcome: 'approved' }],
+    });
+    expect(parseVisualWorkflowDefinition(edited)?.edges).toHaveLength(2);
+    expect(parseVisualWorkflowDefinition('{')).toBeUndefined();
   });
 
   it('renders the reverse Workflow-to-Task link from an authoritative lookup', () => {

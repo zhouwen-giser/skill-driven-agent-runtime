@@ -47,6 +47,127 @@ interface WorkflowTraceRecord {
   }>[];
 }
 
+type VisualWorkflowEdit =
+  | Readonly<{ kind: 'rename_node'; nodeId: string; name: string }>
+  | Readonly<{ kind: 'set_entry'; nodeId: string }>
+  | Readonly<{ kind: 'toggle_exit'; nodeId: string }>
+  | Readonly<{
+      kind: 'update_edge';
+      edgeIndex: number;
+      field: 'sourceNodeId' | 'targetNodeId' | 'outcome';
+      value: string;
+    }>
+  | Readonly<{ kind: 'add_edge' }>
+  | Readonly<{ kind: 'remove_edge'; edgeIndex: number }>;
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function parseVisualWorkflowDefinition(
+  editor: string,
+): WorkflowDefinitionRecord | undefined {
+  try {
+    const value: unknown = JSON.parse(editor);
+    if (!isObject(value) || !Array.isArray(value.nodes) || !Array.isArray(value.edges))
+      return undefined;
+    const nodes = value.nodes.filter(
+      (node): node is Record<string, unknown> =>
+        isObject(node) &&
+        typeof node.nodeId === 'string' &&
+        typeof node.name === 'string' &&
+        typeof node.type === 'string',
+    );
+    const edges = value.edges.filter(
+      (edge): edge is Record<string, unknown> =>
+        isObject(edge) &&
+        typeof edge.sourceNodeId === 'string' &&
+        typeof edge.targetNodeId === 'string',
+    );
+    if (
+      nodes.length !== value.nodes.length ||
+      edges.length !== value.edges.length ||
+      typeof value.workflowDefinitionId !== 'string' ||
+      typeof value.version !== 'number' ||
+      typeof value.goalId !== 'string' ||
+      typeof value.goalVersion !== 'number' ||
+      typeof value.entryNodeId !== 'string' ||
+      !Array.isArray(value.exitNodeIds) ||
+      !value.exitNodeIds.every((item) => typeof item === 'string')
+    ) {
+      return undefined;
+    }
+    return {
+      workflowDefinitionId: value.workflowDefinitionId,
+      version: value.version,
+      goalId: value.goalId,
+      goalVersion: value.goalVersion,
+      entryNodeId: value.entryNodeId,
+      exitNodeIds: value.exitNodeIds,
+      nodes: nodes.map((node) => ({
+        nodeId: String(node.nodeId),
+        name: String(node.name),
+        type: String(node.type),
+      })),
+      edges: edges.map((edge) => ({
+        sourceNodeId: String(edge.sourceNodeId),
+        targetNodeId: String(edge.targetNodeId),
+        ...(typeof edge.outcome === 'string' ? { outcome: edge.outcome } : {}),
+      })),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function applyVisualWorkflowEdit(editor: string, edit: VisualWorkflowEdit): string {
+  const value: unknown = JSON.parse(editor);
+  if (!isObject(value) || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) {
+    throw new Error('WORKFLOW_VISUAL_EDITOR_INVALID_DSL');
+  }
+  const rawNodes = value.nodes as unknown[];
+  const rawEdges = value.edges as unknown[];
+  const nodes: unknown[] = rawNodes.map((node) => (isObject(node) ? { ...node } : node));
+  let edges: unknown[] = rawEdges.map((edge) => (isObject(edge) ? { ...edge } : edge));
+  const result: Record<string, unknown> = { ...value, nodes, edges };
+
+  if (edit.kind === 'rename_node') {
+    result.nodes = nodes.map((node) =>
+      isObject(node) && node.nodeId === edit.nodeId ? { ...node, name: edit.name } : node,
+    );
+  } else if (edit.kind === 'set_entry') {
+    result.entryNodeId = edit.nodeId;
+  } else if (edit.kind === 'toggle_exit') {
+    const exits = Array.isArray(value.exitNodeIds)
+      ? (value.exitNodeIds as unknown[]).filter((item): item is string => typeof item === 'string')
+      : [];
+    result.exitNodeIds = exits.includes(edit.nodeId)
+      ? exits.filter((nodeId) => nodeId !== edit.nodeId)
+      : [...exits, edit.nodeId];
+  } else if (edit.kind === 'update_edge') {
+    edges = edges.map((edge, index) => {
+      if (index !== edit.edgeIndex || !isObject(edge)) return edge;
+      if (edit.field === 'outcome' && edit.value === '') {
+        const remaining = { ...edge };
+        delete remaining.outcome;
+        return remaining;
+      }
+      return { ...edge, [edit.field]: edit.value };
+    });
+    result.edges = edges;
+  } else if (edit.kind === 'remove_edge') {
+    result.edges = edges.filter((_edge, index) => index !== edit.edgeIndex);
+  } else {
+    const nodeIds = nodes
+      .filter(isObject)
+      .map((node) => node.nodeId)
+      .filter((nodeId): nodeId is string => typeof nodeId === 'string');
+    if (nodeIds.length < 2) throw new Error('WORKFLOW_VISUAL_EDITOR_REQUIRES_TWO_NODES');
+    result.edges = [...edges, { sourceNodeId: nodeIds[0], targetNodeId: nodeIds[1] }];
+  }
+  return JSON.stringify(result, null, 2);
+}
+
 export function WorkflowEventDuration({ durationMs }: { readonly durationMs: number | undefined }) {
   return durationMs === undefined ? null : <small>Node duration · {durationMs} ms</small>;
 }
@@ -73,6 +194,7 @@ export function WorkflowPanel({
     () => new Map(replayEvents.map((event) => [event.nodeId, event.eventType])),
     [replayEvents],
   );
+  const visualDefinition = useMemo(() => parseVisualWorkflowDefinition(editor), [editor]);
 
   async function loadPlanById(id: string) {
     await run(async () => {
@@ -147,7 +269,8 @@ export function WorkflowPanel({
     }
   }
 
-  const definition = plan?.definition;
+  const definition = visualDefinition ?? plan?.definition;
+  const visualEditingEnabled = visualDefinition !== undefined;
   return (
     <div className="stack">
       <section className="panel">
@@ -203,7 +326,11 @@ export function WorkflowPanel({
                 {definition.nodes.length} nodes / {definition.edges.length} edges
               </span>
             </div>
-            <div className="dag-nodes">
+            <div className="visual-editor-note">
+              Visual edits update the restricted DSL draft only. Validate and create an immutable
+              revision before confirmation.
+            </div>
+            <div className="dag-nodes" aria-label="Visual Workflow editor">
               {definition.nodes.map((node, index) => (
                 <article
                   key={node.nodeId}
@@ -211,23 +338,146 @@ export function WorkflowPanel({
                   style={{ '--node-order': index } as React.CSSProperties}
                 >
                   <small>{node.type}</small>
-                  <strong>{node.name}</strong>
+                  <label>
+                    Node name
+                    <input
+                      aria-label={`Node ${node.nodeId} name`}
+                      disabled={!visualEditingEnabled}
+                      value={node.name}
+                      onChange={(event) => {
+                        setEditor(
+                          applyVisualWorkflowEdit(editor, {
+                            kind: 'rename_node',
+                            nodeId: node.nodeId,
+                            name: event.target.value,
+                          }),
+                        );
+                      }}
+                    />
+                  </label>
                   <code>{node.nodeId}</code>
-                  {definition.entryNodeId === node.nodeId ? <span>ENTRY</span> : null}
-                  {definition.exitNodeIds.includes(node.nodeId) ? <span>EXIT</span> : null}
+                  <label className="node-marker">
+                    <input
+                      type="radio"
+                      disabled={!visualEditingEnabled}
+                      name="workflow-entry"
+                      checked={definition.entryNodeId === node.nodeId}
+                      onChange={() => {
+                        setEditor(
+                          applyVisualWorkflowEdit(editor, {
+                            kind: 'set_entry',
+                            nodeId: node.nodeId,
+                          }),
+                        );
+                      }}
+                    />
+                    ENTRY
+                  </label>
+                  <label className="node-marker">
+                    <input
+                      type="checkbox"
+                      disabled={!visualEditingEnabled}
+                      checked={definition.exitNodeIds.includes(node.nodeId)}
+                      onChange={() => {
+                        setEditor(
+                          applyVisualWorkflowEdit(editor, {
+                            kind: 'toggle_exit',
+                            nodeId: node.nodeId,
+                          }),
+                        );
+                      }}
+                    />
+                    EXIT
+                  </label>
                 </article>
               ))}
             </div>
             <div className="edge-list" aria-label="Workflow edges">
               {definition.edges.map((edge, index) => (
                 <div key={`${edge.sourceNodeId}-${edge.targetNodeId}-${String(index)}`}>
-                  <code>{edge.sourceNodeId}</code>
+                  <select
+                    aria-label={`Edge ${String(index + 1)} source`}
+                    disabled={!visualEditingEnabled}
+                    value={edge.sourceNodeId}
+                    onChange={(event) => {
+                      setEditor(
+                        applyVisualWorkflowEdit(editor, {
+                          kind: 'update_edge',
+                          edgeIndex: index,
+                          field: 'sourceNodeId',
+                          value: event.target.value,
+                        }),
+                      );
+                    }}
+                  >
+                    {definition.nodes.map((node) => (
+                      <option key={node.nodeId} value={node.nodeId}>
+                        {node.nodeId}
+                      </option>
+                    ))}
+                  </select>
                   <b>→</b>
-                  <code>{edge.targetNodeId}</code>
-                  <span>{edge.outcome ?? 'default'}</span>
+                  <select
+                    aria-label={`Edge ${String(index + 1)} target`}
+                    disabled={!visualEditingEnabled}
+                    value={edge.targetNodeId}
+                    onChange={(event) => {
+                      setEditor(
+                        applyVisualWorkflowEdit(editor, {
+                          kind: 'update_edge',
+                          edgeIndex: index,
+                          field: 'targetNodeId',
+                          value: event.target.value,
+                        }),
+                      );
+                    }}
+                  >
+                    {definition.nodes.map((node) => (
+                      <option key={node.nodeId} value={node.nodeId}>
+                        {node.nodeId}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label={`Edge ${String(index + 1)} outcome`}
+                    disabled={!visualEditingEnabled}
+                    placeholder="default outcome"
+                    value={edge.outcome ?? ''}
+                    onChange={(event) => {
+                      setEditor(
+                        applyVisualWorkflowEdit(editor, {
+                          kind: 'update_edge',
+                          edgeIndex: index,
+                          field: 'outcome',
+                          value: event.target.value,
+                        }),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!visualEditingEnabled}
+                    aria-label={`Remove edge ${String(index + 1)}`}
+                    onClick={() => {
+                      setEditor(
+                        applyVisualWorkflowEdit(editor, { kind: 'remove_edge', edgeIndex: index }),
+                      );
+                    }}
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              disabled={!visualEditingEnabled || definition.nodes.length < 2}
+              onClick={() => {
+                setEditor(applyVisualWorkflowEdit(editor, { kind: 'add_edge' }));
+              }}
+            >
+              Add edge
+            </button>
           </div>
           <div className="panel editor-panel">
             <span className="eyebrow">RESTRICTED JSON DSL</span>

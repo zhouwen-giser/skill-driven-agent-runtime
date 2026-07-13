@@ -320,6 +320,13 @@ h2 {
 .dag-board {
   min-width: 0;
 }
+.visual-editor-note {
+  padding: 10px 12px;
+  border-left: 3px solid #c6983d;
+  background: #fff7e7;
+  color: #625535;
+  font-size: 12px;
+}
 .dag-nodes {
   display: grid;
   grid-template-columns: repeat(3, minmax(130px, 1fr));
@@ -355,6 +362,23 @@ h2 {
   color: #7c8881;
   font-size: 10px;
 }
+.dag-node label {
+  display: grid;
+  gap: 4px;
+  color: #617269;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.dag-node label input:not([type='radio']):not([type='checkbox']) {
+  width: 100%;
+  min-width: 0;
+}
+.dag-node .node-marker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
 .dag-node span {
   align-self: start;
   padding: 3px 6px;
@@ -379,11 +403,16 @@ h2 {
 }
 .edge-list div {
   display: grid;
-  grid-template-columns: 1fr 24px 1fr auto;
+  grid-template-columns: minmax(90px, 1fr) 24px minmax(90px, 1fr) minmax(90px, 0.7fr) auto;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
   background: #edf1ed;
+}
+.edge-list select,
+.edge-list input {
+  min-width: 0;
+  width: 100%;
 }
 .edge-list b {
   text-align: center;

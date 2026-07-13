@@ -26,6 +26,6 @@ The browser used an unavailable backend, so it proves rendering and semantic nav
 
 ## Classification and minimum unblock
 
-Post-audit reconciliation promotes FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-005, FR-ADM-006, FR-ADM-007, and FR-ADM-008. FR-ADM-006 combines historical real Task/context/Goal/model/MCP/event/result/evaluation/error flows with current navigation/filter contracts. FR-ADM-004, NFR-OBS-001, and NFR-UX-001 still require their separately recorded evidence.
+Post-audit reconciliation promotes FR-ADM-001 through FR-ADM-008. FR-ADM-004 combines historical real PostgreSQL/Redis/management/model/MCP/LangGraph administrator revision, confirmation, execution, and ordered-event evidence with the current repository-owned visual topology editor, restricted DSL, trace projection, and replay regression. NFR-OBS-001 and NFR-UX-001 still require their separately recorded Docker-backed/browser evidence, and EP-06 remains not accepted.
 
 Restore a responsive Docker Desktop engine and start the repository's PostgreSQL/Redis services. Then rerun integration, E2E, server smoke, and real API browser E2E.

@@ -30,6 +30,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Reconcile FR-ADM-008 against real analytics E2E and current complete dashboard/API projections.
 - [x] Reconcile FR-ADM-003 by mapping every Skill Studio control to verified owning lifecycle E2E and current Console/API wiring.
 - [x] Reconcile FR-ADM-006 against real Task-rooted execution evidence plus current query/navigation/filter projections.
+- [x] Reconcile FR-ADM-004 against historical real immutable revision/execution/event evidence and close the missing repository-owned visual topology editor.
 - [x] Read the requirement, architecture, OSS, status, and current management-boundary material; inventory the current routes and traceability gaps.
 - [x] Complete exact-version OSS Intake and ADR-064 for the React/Vite console stack.
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.
@@ -72,6 +73,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - Provider and stage-route writes existed without readable inventories. Credential-free PostgreSQL projections now close that gap without exposing encrypted headers or creating frontend state.
 - A Task identifier lookup was insufficient for operations. The new bounded inventory makes traces discoverable; refresh re-queries authoritative projections and never mutates execution.
 - The original SRS audit exposed that aggregate KPIs alone did not complete FR-ADM-008. ADR-063 now includes exact Task-linked MCP/model effects, observed capability growth, and advisory optimization suggestions.
+- The original Workflow workbench rendered a DAG but edited only JSON, so it did not satisfy the separate visual-editing clause. Repository-owned node/entry/exit/edge controls now edit the same restricted draft and remain behind validation plus immutable revision.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
@@ -81,6 +83,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - The console is mounted at `/console` by the existing management listener. Vite is development/build tooling, not another production process.
 - The repository will implement the Workflow DAG UI itself instead of adding a second workflow or third-party console runtime.
 - DAG edits always use the existing `WorkflowRevisionService.reviseAdmin` boundary and therefore supersede rather than mutate a Plan; validation remains read-only and replay never invokes LangGraph.
+- Visual topology controls never own an executable graph. They preserve node-specific fields in canonical JSON and cannot persist, confirm, or execute without the existing explicit management operations defined by ADR-025.
 - ADR-066 makes Task the observability navigation root and prohibits timestamp/name inference or frontend-owned relationship state.
 - ADR-018 remains authoritative for Provider ownership, encryption, fixed routing, and no fallback; the new read projections do not require another ADR.
 
@@ -116,5 +119,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 ## Outcomes and Retrospective
 
 2026-07-13 acceptance audit: functional delivery is complete but the milestone remains open. `pnpm verify` and real-browser render/navigation smoke pass. Docker is unresponsive; PostgreSQL/Redis integration, real API browser E2E, full E2E, server smoke, and trace consistency are unverified. See `reports/EP-06-console-observability/acceptance-audit-2026-07-13.{md,json}`.
+
+2026-07-13 FR-ADM-004 reconciliation: historical real PostgreSQL/Redis/management/model/MCP/LangGraph evidence proves administrator revision, confirmation, execution, and ordered node events. Current visual-editor, revision, execution, management, and console regression passes 4 files/63 tests; unified `pnpm verify` passes 54 files/242 tests. FR-ADM-004 is verified, while latest real-API browser and Docker-backed repetition remain open for EP acceptance.
 
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。
