@@ -26,5 +26,8 @@
 ## Pending
 
 - Real browser interaction E2E and current Docker-backed reruns remain unavailable.
-- The requirement remains developing until those interactions and bidirectional navigation are reproducibly verified.
+- Latest real-browser interaction repetition remains unavailable, but it is no longer treated as absence of the already real lifecycle evidence.
 
+## Acceptance reconciliation — 2026-07-13
+
+FR-ADM-003 is verified. Real Skill evidence maps every required operation: FR-SKL-001..003 and FR-EVO-008 cover draft/Schema generation/edit/publication; FR-SKL-006/007 cover immutable comparison/rollback/enable/disable; FR-SKL-009 covers all six graph relations; FR-EVO-005..007 cover simulation and correction/revalidation; FR-EVO-009 covers warning-only quality evidence. Each owning row has real PostgreSQL/management/E2E evidence. Current authoring/registry/evolution/management/Console regression passes 5 files/60 tests; unified `pnpm verify` passes 54 files/241 tests.

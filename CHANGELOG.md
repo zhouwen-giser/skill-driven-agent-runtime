@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Reconciled FR-ADM-003 by mapping every Skill Studio operation to its verified real Skill/evolution lifecycle plus current API/Console wiring.
+
 - Reconciled FR-ADM-008 with real PostgreSQL/MCP/model analytics E2E and current complete operations-dashboard projections.
 
 - Reconciled FR-ADM-007 with real management/model/PostgreSQL Memory lifecycle E2E and current Console controls.
