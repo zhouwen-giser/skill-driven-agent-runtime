@@ -408,6 +408,77 @@ describe('LangGraph Workflow compiler', () => {
     },
   );
 
+  it.each([
+    ['retry', 'mcp'],
+    ['change_arguments', 'changed'],
+    ['alternative_tool', 'alternative'],
+    ['invoke_skill', 'skill'],
+  ] as const)(
+    'executes the bounded %s recovery selected by the LLM',
+    async (action, targetNodeId) => {
+      const callMcpTool = vi
+        .fn()
+        .mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'MCP_OFFLINE' }))
+        .mockResolvedValue({ recovered: true });
+      const executeSkill = vi.fn().mockResolvedValue({ recovered: true });
+      const decideExecutionError = vi.fn().mockResolvedValue({
+        strategy: 'goto',
+        summary: `Use ${action}.`,
+        recoveryAction: action,
+        targetNodeId,
+      });
+      const runtime = ports({ callMcpTool, executeSkill, decideExecutionError });
+      const result = await compileWorkflow(
+        recoveryDefinition({ action, targetNodeId, maxAttempts: 1 }),
+        'confirmed',
+        runtime,
+      ).invoke({}, budget, costs);
+
+      expect(result.status).toBe('succeeded');
+      expect(result.recoveryCounts).toEqual({ [`handler:${action}:${targetNodeId}`]: 1 });
+      expect(decideExecutionError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowedStrategies: ['terminate', 'goto'],
+          allowedRecoveryOptions: [
+            expect.objectContaining({ action, targetNodeId, maxAttempts: 1 }),
+          ],
+        }),
+      );
+      if (action === 'invoke_skill') expect(executeSkill).toHaveBeenCalledTimes(1);
+      else expect(callMcpTool).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('removes an exhausted recovery from the LLM choices and terminates without an unbounded retry', async () => {
+    const callMcpTool = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error('offline'), { code: 'MCP_OFFLINE' }));
+    const decideExecutionError = vi
+      .fn()
+      .mockResolvedValueOnce({
+        strategy: 'goto',
+        summary: 'Retry once.',
+        recoveryAction: 'retry',
+        targetNodeId: 'mcp',
+      })
+      .mockResolvedValueOnce({ strategy: 'terminate', summary: 'Retry budget exhausted.' });
+    const result = await compileWorkflow(
+      recoveryDefinition({ action: 'retry', targetNodeId: 'mcp', maxAttempts: 1 }),
+      'confirmed',
+      ports({ callMcpTool, decideExecutionError }),
+    ).invoke({}, budget, costs);
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      recoveryCounts: { 'handler:retry:mcp': 1 },
+    });
+    expect(callMcpTool).toHaveBeenCalledTimes(2);
+    expect(decideExecutionError).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ allowedStrategies: ['terminate'], allowedRecoveryOptions: [] }),
+    );
+  });
+
   it('rejects ambiguous static routing instead of guessing execution order', () => {
     expect(() =>
       compileWorkflow(
@@ -515,3 +586,76 @@ describe('LangGraph Workflow compiler', () => {
     expect(executeLlm).not.toHaveBeenCalled();
   });
 });
+
+function recoveryDefinition(option: {
+  readonly action: 'retry' | 'change_arguments' | 'alternative_tool' | 'invoke_skill';
+  readonly targetNodeId: string;
+  readonly maxAttempts: number;
+}): WorkflowDefinition {
+  return definition(
+    [
+      {
+        nodeId: 'mcp',
+        name: 'Primary Tool',
+        type: 'mcp_tool',
+        tool: { serverId: 'server', toolName: 'primary' },
+        arguments: { mode: 'original' },
+      },
+      {
+        nodeId: 'handler',
+        name: 'Bounded recovery',
+        type: 'error_handler',
+        handledNodeId: 'mcp',
+        strategy: 'goto',
+        recoveryOptions: [{ ...option, description: `Use ${option.action}.` }],
+      },
+      ...(option.targetNodeId === 'changed'
+        ? [
+            {
+              nodeId: 'changed',
+              name: 'Changed arguments',
+              type: 'mcp_tool' as const,
+              tool: { serverId: 'server', toolName: 'primary' },
+              arguments: { mode: 'fallback' },
+            },
+          ]
+        : []),
+      ...(option.targetNodeId === 'alternative'
+        ? [
+            {
+              nodeId: 'alternative',
+              name: 'Alternative Tool',
+              type: 'mcp_tool' as const,
+              tool: { serverId: 'server', toolName: 'secondary' },
+              arguments: { mode: 'fallback' },
+            },
+          ]
+        : []),
+      ...(option.targetNodeId === 'skill'
+        ? [
+            {
+              nodeId: 'skill',
+              name: 'Recovery Skill',
+              type: 'skill_call' as const,
+              skillId: 'skill.recovery',
+              input: { reason: 'tool-failure' },
+            },
+          ]
+        : []),
+      {
+        nodeId: 'result',
+        name: 'Result',
+        type: 'result',
+        value: { op: 'literal', value: 'recovered' },
+      },
+    ],
+    [
+      { sourceNodeId: 'mcp', targetNodeId: 'result' },
+      ...(option.targetNodeId === 'mcp'
+        ? []
+        : [{ sourceNodeId: option.targetNodeId, targetNodeId: 'result' }]),
+    ],
+    'mcp',
+    ['result'],
+  );
+}

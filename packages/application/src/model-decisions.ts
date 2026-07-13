@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { WorkflowRecoveryOption } from '../../domain/src/index.js';
 
 import type { SkillSelectionDecider, StructuredModelProvider } from './ports.js';
 import type { MemoryService } from './memory-service.js';
@@ -71,7 +72,14 @@ const skillSelectionResponseSchema = {
   },
 } as const;
 const ExceptionDecisionSchema = z
-  .object({ strategy: z.enum(['terminate', 'continue', 'goto']), summary: z.string().min(1) })
+  .object({
+    strategy: z.enum(['terminate', 'continue', 'goto']),
+    summary: z.string().min(1),
+    recoveryAction: z
+      .enum(['retry', 'change_arguments', 'alternative_tool', 'invoke_skill'])
+      .optional(),
+    targetNodeId: z.string().min(1).optional(),
+  })
   .strict();
 const exceptionResponseSchema = {
   type: 'object',
@@ -80,6 +88,10 @@ const exceptionResponseSchema = {
   properties: {
     strategy: { enum: ['terminate', 'continue', 'goto'] },
     summary: { type: 'string', minLength: 1 },
+    recoveryAction: {
+      enum: ['retry', 'change_arguments', 'alternative_tool', 'invoke_skill'],
+    },
+    targetNodeId: { type: 'string', minLength: 1 },
   },
 } as const;
 
@@ -212,6 +224,7 @@ export interface ExecutionExceptionDecisionInput {
   readonly error: Readonly<{ code: string; message: string }>;
   readonly allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[];
   readonly gotoNodeId?: string;
+  readonly allowedRecoveryOptions?: readonly WorkflowRecoveryOption[];
 }
 
 export class StructuredExecutionExceptionDecider {
@@ -244,6 +257,23 @@ export class StructuredExecutionExceptionDecider {
         'EXECUTION_EXCEPTION_STRATEGY_INVALID',
         'The model selected an exception strategy outside the constrained choices.',
       );
+    if (input.allowedRecoveryOptions !== undefined && decision.strategy === 'goto') {
+      if (
+        !input.allowedRecoveryOptions.some(
+          (option) =>
+            option.action === decision.recoveryAction &&
+            option.targetNodeId === decision.targetNodeId,
+        )
+      )
+        throw new ModelDecisionError(
+          'EXECUTION_EXCEPTION_RECOVERY_INVALID',
+          'The model selected a recovery action outside the immutable bounded choices.',
+        );
+    } else if (decision.recoveryAction !== undefined || decision.targetNodeId !== undefined)
+      throw new ModelDecisionError(
+        'EXECUTION_EXCEPTION_RECOVERY_INVALID',
+        'Recovery fields are allowed only for a constrained goto decision.',
+      );
     return decision;
   }
 }
@@ -261,9 +291,15 @@ function toMemoryContext(hits: Awaited<ReturnType<MemoryService['searchForStage'
 }
 
 export class ModelDecisionError extends Error {
-  readonly code: 'EXECUTION_EXCEPTION_STRATEGY_INVALID' | 'GOAL_CLARIFICATION_SHAPE_INVALID';
+  readonly code:
+    | 'EXECUTION_EXCEPTION_STRATEGY_INVALID'
+    | 'EXECUTION_EXCEPTION_RECOVERY_INVALID'
+    | 'GOAL_CLARIFICATION_SHAPE_INVALID';
   constructor(
-    code: 'EXECUTION_EXCEPTION_STRATEGY_INVALID' | 'GOAL_CLARIFICATION_SHAPE_INVALID',
+    code:
+      | 'EXECUTION_EXCEPTION_STRATEGY_INVALID'
+      | 'EXECUTION_EXCEPTION_RECOVERY_INVALID'
+      | 'GOAL_CLARIFICATION_SHAPE_INVALID',
     message: string,
   ) {
     super(message);

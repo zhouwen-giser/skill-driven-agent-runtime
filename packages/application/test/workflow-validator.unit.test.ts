@@ -70,7 +70,149 @@ describe('WorkflowValidator', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
+
+  it('accepts all bounded MCP recovery semantics when every target is prevalidated', async () => {
+    const result = await validator().validate(recoveryWorkflow());
+
+    expect(result.valid).toBe(true);
+    expect(
+      result.definition?.nodes.find((node) => node.type === 'error_handler')?.recoveryOptions,
+    ).toHaveLength(4);
+  });
+
+  it('rejects recovery semantics that do not match their immutable target node', async () => {
+    const source = recoveryWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'error_handler'
+          ? {
+              ...node,
+              recoveryOptions: node.recoveryOptions.map((option) =>
+                option.action === 'change_arguments'
+                  ? { ...option, targetNodeId: 'alternative' }
+                  : option,
+              ),
+            }
+          : node,
+      ),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'WORKFLOW_RECOVERY_ACTION_INVALID' }),
+      ]),
+    );
+  });
+
+  it('does not treat reordered object keys as changed Tool arguments', async () => {
+    const source = recoveryWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool' && node.nodeId === 'changed'
+          ? { ...node, arguments: { region: 'east', deviceId: 'device-1' } }
+          : node.type === 'mcp_tool' && node.nodeId === 'tool'
+            ? { ...node, arguments: { deviceId: 'device-1', region: 'east' } }
+            : node,
+      ),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'WORKFLOW_RECOVERY_ACTION_INVALID' }),
+      ]),
+    );
+  });
 });
+
+function recoveryWorkflow() {
+  return {
+    workflowDefinitionId: 'workflow.recovery',
+    version: 1,
+    goalId: 'goal.recovery',
+    goalVersion: 1,
+    entryNodeId: 'tool',
+    exitNodeIds: ['result'],
+    nodes: [
+      {
+        nodeId: 'tool',
+        name: 'Primary Tool',
+        type: 'mcp_tool' as const,
+        tool: { serverId: 'mcp.devices', toolName: 'device_status' },
+        arguments: { deviceId: 'device-1' },
+      },
+      {
+        nodeId: 'handler',
+        name: 'Bounded recovery',
+        type: 'error_handler' as const,
+        handledNodeId: 'tool',
+        strategy: 'goto' as const,
+        recoveryOptions: [
+          {
+            action: 'retry' as const,
+            targetNodeId: 'tool',
+            description: 'Retry the original call once.',
+            maxAttempts: 1,
+          },
+          {
+            action: 'change_arguments' as const,
+            targetNodeId: 'changed',
+            description: 'Use a different validated device ID.',
+            maxAttempts: 1,
+          },
+          {
+            action: 'alternative_tool' as const,
+            targetNodeId: 'alternative',
+            description: 'Use the registered fallback Tool.',
+            maxAttempts: 1,
+          },
+          {
+            action: 'invoke_skill' as const,
+            targetNodeId: 'skill',
+            description: 'Use the enabled recovery Skill.',
+            maxAttempts: 1,
+          },
+        ],
+      },
+      {
+        nodeId: 'changed',
+        name: 'Changed arguments',
+        type: 'mcp_tool' as const,
+        tool: { serverId: 'mcp.devices', toolName: 'device_status' },
+        arguments: { deviceId: 'device-2' },
+      },
+      {
+        nodeId: 'alternative',
+        name: 'Alternative Tool',
+        type: 'mcp_tool' as const,
+        tool: { serverId: 'mcp.devices', toolName: 'device_fallback' },
+        arguments: { deviceId: 'device-1' },
+      },
+      {
+        nodeId: 'skill',
+        name: 'Recovery Skill',
+        type: 'skill_call' as const,
+        skillId: 'skill.device',
+        input: { deviceId: 'device-1' },
+      },
+      {
+        nodeId: 'result',
+        name: 'Result',
+        type: 'result' as const,
+        value: { op: 'literal' as const, value: 'recovered' },
+      },
+    ],
+    edges: [
+      { sourceNodeId: 'tool', targetNodeId: 'result' },
+      { sourceNodeId: 'changed', targetNodeId: 'result' },
+      { sourceNodeId: 'alternative', targetNodeId: 'result' },
+      { sourceNodeId: 'skill', targetNodeId: 'result' },
+    ],
+  };
+}
 
 function validator() {
   return new WorkflowValidator({
@@ -80,7 +222,7 @@ function validator() {
         Promise.resolve({
           type: 'object',
           required: ['deviceId'],
-          properties: { deviceId: { type: 'string' } },
+          properties: { deviceId: { type: 'string' }, region: { type: 'string' } },
           additionalProperties: false,
         }),
     },

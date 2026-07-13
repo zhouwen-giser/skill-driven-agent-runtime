@@ -22,6 +22,8 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Progress
 
+- [x] 2026-07-13: add bounded semantic MCP exception recovery across the domain DSL, validator, fixed LLM decision stage, and immutable LangGraph compiler, with deterministic replay counters and examples.
+
 - [x] 2026-07-13: implement fixed-stage structured LLM generation for all six MCP Tool enhancement fields, preserve edits on refresh, and project metadata into Workflow planning without changing schema authority.
 - [x] 2026-07-13: add migration 0053 and make the static infrastructure gate reject omitted Server migrations or missing rollback pairs; this exposed and fixed prior 0050–0052 startup omissions.
 - [ ] 2026-07-13: rerun PostgreSQL/Redis/Mock MCP/model integration and E2E; Docker Engine is readable but all container start operations hang and the 180-second smoke timed out.
@@ -39,12 +41,16 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Discoveries and Surprises
 
+- The earlier generic `goto` exception decision was replayable but could not prove the five FR-MCP-012 semantics. Predeclared typed targets preserve LLM final choice without permitting runtime graph or argument mutation.
+
 - Server startup applied migrations only through 0049 even though repository tests had applied 0050–0052 directly. Static migration completeness is now part of the unified gate.
 - A readable Docker Engine is not sufficient evidence of runnable infrastructure: Compose and direct container start mutations hang while `docker version` and `docker ps` succeed.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
 ## Decision Log
+
+- ADR-071 supersedes ADR-027's generic exception choice set for semantic MCP recovery: the LLM selects only an unexhausted prevalidated action/target and LangGraph records the bounded route attempt.
 
 - ADR-070 adds the application-owned Tool enhancer and fixed `tool_enhancement` stage; model output remains data, registration fails atomically, and the original MCP input schema remains authoritative.
 
@@ -61,6 +67,10 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 7. 运行完整验证并修复全部失败。
 
 ## Validation
+
+- [x] `MCP bounded exception recovery unit/schema contract tests`
+
+- [x] `pnpm verify` (54 files/240 tests; all static, architecture, protocol-baseline, migration, license and production-build gates passed)
 
 - [ ] `MCP integration tests`
 - [ ] `invalid Skill schema registration fails`

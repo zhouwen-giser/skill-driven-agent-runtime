@@ -1,6 +1,6 @@
 # Workflow DSL 规格基线
 
-正式机器 Schema 位于 `schemas/workflow.schema.json`。
+正式机器 Schema 位于 `schemas/workflow-dsl.schema.json`。
 
 ## 设计目标
 
@@ -57,3 +57,9 @@
 ## 自动修正
 
 校验失败时，将结构化错误反馈给原规划模型，在配置次数内生成新修订。自动修正只处理计划生成阶段；最终通过校验的版本作为待确认/已确认计划，不重复请求确认。
+
+## MCP 异常恢复
+
+`error_handler.recoveryOptions` 可声明四类有界恢复：`retry`、`change_arguments`、`alternative_tool`、`invoke_skill`。每个选项必须引用已存在且已校验的节点，并声明 1 到 10 的 `maxAttempts`。改参只能引用同一 Tool 的另一组已通过 Schema 校验的参数，替代 Tool 必须引用不同的已注册 Tool，调用 Skill 必须引用已启用且输入有效的 `skill_call`。
+
+执行异常阶段的 LLM 只能从尚未耗尽的选项和终止中选择，输出的动作与目标必须精确匹配候选。编译后的 LangGraph 只沿不可变图路由并记录恢复计数；LLM 不能即时构造参数、节点或 Tool。完整示例见 `examples/workflow-mcp-recovery.json`。

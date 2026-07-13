@@ -20,6 +20,16 @@ interface WorkflowNodeBase {
   readonly name: string;
 }
 
+export type WorkflowRecoveryAction =
+  'retry' | 'change_arguments' | 'alternative_tool' | 'invoke_skill';
+
+export interface WorkflowRecoveryOption {
+  readonly action: WorkflowRecoveryAction;
+  readonly targetNodeId: string;
+  readonly description: string;
+  readonly maxAttempts: number;
+}
+
 export type WorkflowNode =
   | (WorkflowNodeBase & Readonly<{ type: 'llm'; instruction: string; responseSchema: unknown }>)
   | (WorkflowNodeBase & Readonly<{ type: 'mcp_tool'; tool: ToolReference; arguments: unknown }>)
@@ -42,6 +52,7 @@ export type WorkflowNode =
         handledNodeId: string;
         strategy: 'terminate' | 'continue' | 'goto';
         gotoNodeId?: string | undefined;
+        recoveryOptions?: readonly WorkflowRecoveryOption[] | undefined;
       }>)
   | (WorkflowNodeBase & Readonly<{ type: 'skill_call'; skillId: string; input: unknown }>);
 

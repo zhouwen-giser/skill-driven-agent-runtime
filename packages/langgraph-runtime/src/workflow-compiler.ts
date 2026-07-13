@@ -16,6 +16,7 @@ import type {
   WorkflowDefinition,
   WorkflowEdge,
   WorkflowNode,
+  WorkflowRecoveryOption,
 } from '../../domain/src/index.js';
 import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
@@ -74,8 +75,16 @@ export interface WorkflowRuntimePorts {
       error: Readonly<{ code: string; message: string }>;
       allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[];
       gotoNodeId?: string;
+      allowedRecoveryOptions?: readonly WorkflowRecoveryOption[];
     }>,
-  ) => Promise<Readonly<{ strategy: 'terminate' | 'continue' | 'goto'; summary: string }>>;
+  ) => Promise<
+    Readonly<{
+      strategy: 'terminate' | 'continue' | 'goto';
+      summary: string;
+      recoveryAction?: WorkflowRecoveryOption['action'] | undefined;
+      targetNodeId?: string | undefined;
+    }>
+  >;
   readonly now: () => string;
   readonly nowMilliseconds: () => number;
 }
@@ -93,6 +102,7 @@ export interface WorkflowExecutionResult {
   readonly outputs: Readonly<Record<string, unknown>>;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
   readonly loopCounts: Readonly<Record<string, number>>;
+  readonly recoveryCounts: Readonly<Record<string, number>>;
   readonly events: readonly WorkflowExecutionEvent[];
   readonly budgetUsage: WorkflowBudgetUsage;
   readonly terminationReason?: WorkflowBudgetTerminationReason;
@@ -111,6 +121,7 @@ interface WorkflowExecutionState {
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
   readonly routes: Readonly<Record<string, string>>;
   readonly loopCounts: Readonly<Record<string, number>>;
+  readonly recoveryCounts: Readonly<Record<string, number>>;
   readonly events: readonly WorkflowExecutionEvent[];
   readonly result?: unknown;
   readonly failed: boolean;
@@ -132,6 +143,10 @@ const ExecutionState = Annotation.Root({
     default: () => ({}),
   }),
   loopCounts: Annotation<Readonly<Record<string, number>>>({
+    reducer: (left, right) => ({ ...left, ...right }),
+    default: () => ({}),
+  }),
+  recoveryCounts: Annotation<Readonly<Record<string, number>>>({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
@@ -266,6 +281,7 @@ export function compileWorkflow(
       outputs: state.outputs,
       errors: state.errors,
       loopCounts: state.loopCounts,
+      recoveryCounts: state.recoveryCounts,
       events: state.events.slice(previousEventCount),
       budgetUsage: requiredRuntimeContext(
         runtimeContexts,
@@ -297,6 +313,7 @@ export function compileWorkflow(
             errors: {},
             routes: {},
             loopCounts: {},
+            recoveryCounts: {},
             events: [],
             failed: false,
           },
@@ -335,6 +352,7 @@ export function compileWorkflow(
           outputs: {},
           errors: { budget: { code: error.code, message: error.message } },
           loopCounts: {},
+          recoveryCounts: {},
           events: [],
           budgetUsage: budgetMeter.snapshot(),
           terminationReason: error.reason,
@@ -718,15 +736,27 @@ async function executeNode(
           'WORKFLOW_HANDLER_WITHOUT_ERROR',
           'Error handler ran without its handled error.',
         );
+      const configuredRecoveryOptions = node.recoveryOptions ?? [];
+      const availableRecoveryOptions = configuredRecoveryOptions.filter(
+        (option) =>
+          (state.recoveryCounts[recoveryKey(node.nodeId, option)] ?? 0) < option.maxAttempts,
+      );
       const allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[] =
-        node.gotoNodeId === undefined
-          ? ['terminate', 'continue']
-          : ['terminate', 'continue', 'goto'];
+        configuredRecoveryOptions.length > 0
+          ? availableRecoveryOptions.length > 0
+            ? ['terminate', 'goto']
+            : ['terminate']
+          : node.gotoNodeId === undefined
+            ? ['terminate', 'continue']
+            : ['terminate', 'continue', 'goto'];
       const decision = await ports.decideExecutionError({
         handledNodeId: node.handledNodeId,
         error: handledError,
         allowedStrategies,
         ...(node.gotoNodeId === undefined ? {} : { gotoNodeId: node.gotoNodeId }),
+        ...(configuredRecoveryOptions.length === 0
+          ? {}
+          : { allowedRecoveryOptions: availableRecoveryOptions }),
       });
       if (!allowedStrategies.includes(decision.strategy))
         throw new WorkflowCompilerError(
@@ -740,6 +770,24 @@ async function executeNode(
           routes: { [node.nodeId]: END },
         };
       if (decision.strategy === 'goto') {
+        if (configuredRecoveryOptions.length > 0) {
+          const recovery = availableRecoveryOptions.find(
+            (option) =>
+              option.action === decision.recoveryAction &&
+              option.targetNodeId === decision.targetNodeId,
+          );
+          if (recovery === undefined)
+            throw new WorkflowCompilerError(
+              'WORKFLOW_ERROR_DECISION_INVALID',
+              'Execution error decision selected an unavailable recovery action.',
+            );
+          const key = recoveryKey(node.nodeId, recovery);
+          return {
+            outputs: { [node.nodeId]: decision },
+            recoveryCounts: { [key]: (state.recoveryCounts[key] ?? 0) + 1 },
+            routes: { [node.nodeId]: recovery.targetNodeId },
+          };
+        }
         if (node.gotoNodeId === undefined)
           throw new WorkflowCompilerError(
             'WORKFLOW_DEFINITION_INVALID',
@@ -791,8 +839,14 @@ function routeTargetIds(
   const targets = new Set(outgoing.map((edge) => edge.targetNodeId));
   if (node.type === 'loop') targets.add(node.bodyEntryNodeId);
   if (node.type === 'error_handler' && node.gotoNodeId !== undefined) targets.add(node.gotoNodeId);
+  if (node.type === 'error_handler')
+    for (const option of node.recoveryOptions ?? []) targets.add(option.targetNodeId);
   if (handler !== undefined) targets.add(handler.nodeId);
   return [...targets];
+}
+
+function recoveryKey(nodeId: string, option: WorkflowRecoveryOption): string {
+  return `${nodeId}:${option.action}:${option.targetNodeId}`;
 }
 
 function requiresConditionalRouting(
@@ -816,6 +870,25 @@ function assertCompilable(definition: WorkflowDefinition): void {
       'A node may have only one error handler.',
     );
   for (const node of definition.nodes) {
+    if (node.type === 'error_handler' && node.recoveryOptions !== undefined) {
+      const recoveryKeys = node.recoveryOptions.map(
+        (option) => `${option.action}:${option.targetNodeId}`,
+      );
+      if (
+        node.strategy !== 'goto' ||
+        node.gotoNodeId !== undefined ||
+        recoveryKeys.length === 0 ||
+        new Set(recoveryKeys).size !== recoveryKeys.length ||
+        node.recoveryOptions.some(
+          (option) =>
+            !ids.has(option.targetNodeId) || option.maxAttempts < 1 || option.maxAttempts > 10,
+        )
+      )
+        throw new WorkflowCompilerError(
+          'WORKFLOW_DEFINITION_INVALID',
+          `Error handler ${node.nodeId} has invalid bounded recovery options.`,
+        );
+    }
     const outgoing = definition.edges.filter((edge) => edge.sourceNodeId === node.nodeId);
     if (
       node.type !== 'parallel' &&

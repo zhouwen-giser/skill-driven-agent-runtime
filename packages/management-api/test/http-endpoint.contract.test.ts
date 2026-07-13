@@ -78,6 +78,43 @@ describe('management HTTP API contract', () => {
     expect(JSON.stringify(payload)).not.toContain('Bearer');
   });
 
+  it('exposes persisted MCP dependency warnings for management display', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        mcp: {
+          ...operations().mcp,
+          listDependencyWarnings: (serverId) =>
+            Promise.resolve([
+              {
+                warningId: 'warning-1',
+                serverId,
+                skillId: 'skill.device',
+                skillVersion: 2,
+                toolName: 'device_status',
+                toolRevision: 3,
+                reason: 'schema_changed' as const,
+                message: 'The enabled Skill may require review.',
+                createdAt: '2026-07-13T00:00:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/warnings`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          serverId: 'mcp.devices',
+          skillId: 'skill.device',
+          reason: 'schema_changed',
+        }),
+      ],
+    });
+  });
+
   it('reads and updates the unified Task wait timeout', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {

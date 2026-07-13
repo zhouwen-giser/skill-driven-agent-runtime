@@ -56,5 +56,23 @@ describe('Workflow DSL JSON Schema contract', () => {
         ],
       }).valid,
     ).toBe(false);
+
+    const recoveryExample = JSON.parse(
+      await readFile(
+        new URL('../../../examples/workflow-mcp-recovery.json', import.meta.url),
+        'utf8',
+      ),
+    ) as { nodes: { type: string; recoveryOptions?: { maxAttempts: number }[] }[] };
+    expect(validator.validate(schema, recoveryExample).valid).toBe(true);
+    const recoveryHandler = recoveryExample.nodes.find((node) => node.type === 'error_handler');
+    if (recoveryHandler?.recoveryOptions === undefined)
+      throw new Error('Recovery example is missing its error handler options.');
+    const [firstRecovery, ...remainingRecoveries] = recoveryHandler.recoveryOptions;
+    if (firstRecovery === undefined) throw new Error('Recovery example has no recovery options.');
+    recoveryHandler.recoveryOptions = [
+      { ...firstRecovery, maxAttempts: 11 },
+      ...remainingRecoveries,
+    ];
+    expect(validator.validate(schema, recoveryExample).valid).toBe(false);
   });
 });

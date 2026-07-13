@@ -1,0 +1,83 @@
+{
+  "workflowDefinitionId": "workflow.device-recovery",
+  "version": 1,
+  "goalId": "goal.device-status",
+  "goalVersion": 1,
+  "entryNodeId": "primary",
+  "exitNodeIds": ["result"],
+  "nodes": [
+    {
+      "nodeId": "primary",
+      "name": "Read device status",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "device_status" },
+      "arguments": { "deviceId": "device-1" }
+    },
+    {
+      "nodeId": "recover",
+      "name": "Choose bounded recovery",
+      "type": "error_handler",
+      "handledNodeId": "primary",
+      "strategy": "goto",
+      "recoveryOptions": [
+        {
+          "action": "retry",
+          "targetNodeId": "primary",
+          "description": "Retry the original call once.",
+          "maxAttempts": 1
+        },
+        {
+          "action": "change_arguments",
+          "targetNodeId": "changed",
+          "description": "Use the prevalidated backup device ID.",
+          "maxAttempts": 1
+        },
+        {
+          "action": "alternative_tool",
+          "targetNodeId": "fallback",
+          "description": "Use the registered fallback Tool.",
+          "maxAttempts": 1
+        },
+        {
+          "action": "invoke_skill",
+          "targetNodeId": "skill",
+          "description": "Use the enabled recovery Skill.",
+          "maxAttempts": 1
+        }
+      ]
+    },
+    {
+      "nodeId": "changed",
+      "name": "Read backup device",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "device_status" },
+      "arguments": { "deviceId": "device-2" }
+    },
+    {
+      "nodeId": "fallback",
+      "name": "Read cached status",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "cached_device_status" },
+      "arguments": { "deviceId": "device-1" }
+    },
+    {
+      "nodeId": "skill",
+      "name": "Recover device status",
+      "type": "skill_call",
+      "skillId": "skill.device-recovery",
+      "input": { "deviceId": "device-1" }
+    },
+    {
+      "nodeId": "result",
+      "name": "Return result",
+      "type": "result",
+      "value": { "op": "literal", "value": "completed" }
+    }
+  ],
+  "edges": [
+    { "sourceNodeId": "primary", "targetNodeId": "result" },
+    { "sourceNodeId": "changed", "targetNodeId": "result" },
+    { "sourceNodeId": "fallback", "targetNodeId": "result" },
+    { "sourceNodeId": "skill", "targetNodeId": "result" }
+  ]
+}

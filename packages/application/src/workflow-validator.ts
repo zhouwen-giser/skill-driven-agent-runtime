@@ -80,6 +80,20 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       handledNodeId: Identifier,
       strategy: z.enum(['terminate', 'continue', 'goto']),
       gotoNodeId: Identifier.optional(),
+      recoveryOptions: z
+        .array(
+          z
+            .object({
+              action: z.enum(['retry', 'change_arguments', 'alternative_tool', 'invoke_skill']),
+              targetNodeId: Identifier,
+              description: z.string().min(1),
+              maxAttempts: z.number().int().min(1).max(10),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(20)
+        .optional(),
     })
     .strict(),
   z
@@ -174,7 +188,8 @@ export class WorkflowValidator {
           'Edge endpoint does not exist.',
         );
     }
-    for (const node of definition.nodes) validateNodeReferences(node, ids, errors);
+    for (const node of definition.nodes)
+      validateNodeReferences(node, definition.nodes, ids, errors);
     validateConditionEdges(definition.nodes, definition.edges, errors);
     validateReachability(definition, ids, errors);
     return errors.length === 0 ? { valid: true, errors, definition } : { valid: false, errors };
@@ -237,6 +252,7 @@ export class WorkflowValidator {
 
 function validateNodeReferences(
   node: WorkflowNode,
+  nodes: readonly WorkflowNode[],
   ids: Set<string>,
   errors: { code: string; path: string; message: string }[],
 ) {
@@ -264,7 +280,11 @@ function validateNodeReferences(
         `nodes.${node.nodeId}.handledNodeId`,
         'Handled node does not exist.',
       );
-    if (node.strategy === 'goto' && (node.gotoNodeId === undefined || !ids.has(node.gotoNodeId)))
+    if (
+      node.strategy === 'goto' &&
+      node.recoveryOptions === undefined &&
+      (node.gotoNodeId === undefined || !ids.has(node.gotoNodeId))
+    )
       add(
         errors,
         'WORKFLOW_NODE_REFERENCE_INVALID',
@@ -278,7 +298,89 @@ function validateNodeReferences(
         `nodes.${node.nodeId}.gotoNodeId`,
         'gotoNodeId is allowed only for goto strategy.',
       );
+    if (node.recoveryOptions !== undefined) {
+      if (node.strategy !== 'goto' || node.gotoNodeId !== undefined)
+        add(
+          errors,
+          'WORKFLOW_HANDLER_INVALID',
+          `nodes.${node.nodeId}.recoveryOptions`,
+          'Recovery options require goto strategy and replace the singular gotoNodeId.',
+        );
+      const handled = nodes.find((candidate) => candidate.nodeId === node.handledNodeId);
+      if (handled?.type !== 'mcp_tool')
+        add(
+          errors,
+          'WORKFLOW_RECOVERY_ACTION_INVALID',
+          `nodes.${node.nodeId}.handledNodeId`,
+          'MCP recovery options require an mcp_tool handled node.',
+        );
+      const keys = new Set<string>();
+      for (const option of node.recoveryOptions) {
+        const path = `nodes.${node.nodeId}.recoveryOptions.${option.action}`;
+        const key = `${option.action}:${option.targetNodeId}`;
+        if (keys.has(key))
+          add(errors, 'WORKFLOW_RECOVERY_ACTION_INVALID', path, 'Recovery option is duplicated.');
+        keys.add(key);
+        const target = nodes.find((candidate) => candidate.nodeId === option.targetNodeId);
+        if (target === undefined) {
+          add(errors, 'WORKFLOW_NODE_REFERENCE_INVALID', path, 'Recovery target does not exist.');
+          continue;
+        }
+        if (option.action === 'retry' && target.nodeId !== node.handledNodeId)
+          add(
+            errors,
+            'WORKFLOW_RECOVERY_ACTION_INVALID',
+            path,
+            'Retry must target the handled node.',
+          );
+        if (option.action === 'change_arguments') {
+          if (
+            handled?.type !== 'mcp_tool' ||
+            target.type !== 'mcp_tool' ||
+            target.tool.serverId !== handled.tool.serverId ||
+            target.tool.toolName !== handled.tool.toolName ||
+            stableStringify(target.arguments) === stableStringify(handled.arguments)
+          )
+            add(
+              errors,
+              'WORKFLOW_RECOVERY_ACTION_INVALID',
+              path,
+              'Argument change must target the same Tool with different prevalidated arguments.',
+            );
+        }
+        if (
+          option.action === 'alternative_tool' &&
+          (handled?.type !== 'mcp_tool' ||
+            target.type !== 'mcp_tool' ||
+            (target.tool.serverId === handled.tool.serverId &&
+              target.tool.toolName === handled.tool.toolName))
+        )
+          add(
+            errors,
+            'WORKFLOW_RECOVERY_ACTION_INVALID',
+            path,
+            'Alternative Tool must target a different registered mcp_tool node.',
+          );
+        if (option.action === 'invoke_skill' && target.type !== 'skill_call')
+          add(
+            errors,
+            'WORKFLOW_RECOVERY_ACTION_INVALID',
+            path,
+            'Skill recovery must target a skill_call node.',
+          );
+      }
+    }
   }
+}
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Readonly<Record<string, unknown>>).sort(
+      ([left], [right]) => left.localeCompare(right),
+    );
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 function validateConditionEdges(
   nodes: readonly WorkflowNode[],
@@ -317,6 +419,13 @@ function validateReachability(
         reached.add(node.nodeId);
         changed = true;
       }
+    for (const node of definition.nodes)
+      if (node.type === 'error_handler' && reached.has(node.nodeId))
+        for (const option of node.recoveryOptions ?? [])
+          if (!reached.has(option.targetNodeId)) {
+            reached.add(option.targetNodeId);
+            changed = true;
+          }
     for (const edge of definition.edges)
       if (reached.has(edge.sourceNodeId) && !reached.has(edge.targetNodeId)) {
         reached.add(edge.targetNodeId);

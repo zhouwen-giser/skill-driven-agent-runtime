@@ -118,6 +118,51 @@ describe('structured LLM final decisions', () => {
     expect(model.calls[0]?.stage).toBe('execution_decision');
     expect(model.calls[0]?.instruction).toContain('memory-failure');
   });
+
+  it('accepts only a recovery action and target predeclared by the immutable Workflow', async () => {
+    const allowedRecoveryOptions = [
+      {
+        action: 'alternative_tool' as const,
+        targetNodeId: 'fallback',
+        description: 'Use the registered fallback Tool.',
+        maxAttempts: 1,
+      },
+    ];
+    const validModel = new SequenceModel([
+      {
+        strategy: 'goto',
+        summary: 'Use the validated fallback.',
+        recoveryAction: 'alternative_tool',
+        targetNodeId: 'fallback',
+      },
+    ]);
+    await expect(
+      new StructuredExecutionExceptionDecider(validModel).decide({
+        handledNodeId: 'tool',
+        error: { code: 'MCP_OFFLINE', message: 'Tool is offline.' },
+        allowedStrategies: ['terminate', 'goto'],
+        allowedRecoveryOptions,
+      }),
+    ).resolves.toMatchObject({ recoveryAction: 'alternative_tool', targetNodeId: 'fallback' });
+    expect(validModel.calls[0]?.instruction).toContain('alternative_tool');
+
+    const inventedModel = new SequenceModel([
+      {
+        strategy: 'goto',
+        summary: 'Invent another route.',
+        recoveryAction: 'alternative_tool',
+        targetNodeId: 'unregistered',
+      },
+    ]);
+    await expect(
+      new StructuredExecutionExceptionDecider(inventedModel).decide({
+        handledNodeId: 'tool',
+        error: { code: 'MCP_OFFLINE', message: 'Tool is offline.' },
+        allowedStrategies: ['terminate', 'goto'],
+        allowedRecoveryOptions,
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_EXCEPTION_RECOVERY_INVALID' });
+  });
 });
 
 class SequenceModel implements StructuredModelProvider {
