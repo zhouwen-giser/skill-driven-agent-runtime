@@ -22,6 +22,8 @@ FR-A2A-001, FR-A2A-002, FR-A2A-003, FR-A2A-004, FR-A2A-005, FR-A2A-006, FR-A2A-0
 
 ## Progress
 
+- [x] 2026-07-13: reconcile FR-A2A-012 with the later source-governed publication E2E; management draft visibility, bypass rejection, and post-publication Agent Card projection are verified.
+
 - [x] 2026-07-11 20:21 +08:00 Production e2e now proves stream disconnect does not stop TaskService/BullMQ work, polling reaches INPUT_REQUIRED, standard resubscribe returns a Task snapshot, and active streams do not block shutdown. FR-A2A-001/004/005 moved to verified; e2e 5/5 passed.
 
 - [x] 2026-07-11 20:15 +08:00 Added ADR-009 and Ajv 8.20.0 intake/pin, isolated JSON Schema adapter, application Result Processor, authoritative completion and A2A dual text/data artifact projection. Unit 21 and real e2e 4 passed; SkillVersion schema lookup remains EP-02.

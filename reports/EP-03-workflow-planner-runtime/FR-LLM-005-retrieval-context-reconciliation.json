@@ -1,0 +1,24 @@
+{
+  "requirement": "FR-LLM-005",
+  "status": "verified",
+  "evidence": {
+    "skillMetadataPgvector": "real",
+    "historicalExperienceMemoryPgvector": "real",
+    "longTermMemoryPgvector": "real",
+    "fixedLlmFinalDecision": "real",
+    "selectionAndModelAuditVisibility": "real",
+    "externalSemanticQuality": "simulated"
+  },
+  "historicalGate": {
+    "integration": { "passed": 29, "failed": 0 },
+    "e2e": { "passed": 37, "failed": 0 },
+    "build": "passed",
+    "smoke": "passed"
+  },
+  "currentRegression": {
+    "files": 8,
+    "tests": { "passed": 69, "failed": 0 },
+    "unifiedVerify": { "files": 54, "passed": 240, "failed": 0 }
+  },
+  "unverified": ["production-provider semantic ranking quality"]
+}

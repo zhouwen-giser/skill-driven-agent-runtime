@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Bounded semantic MCP exception recovery for retry, prevalidated changed arguments, alternative Tools, enabled Skills, or termination, with immutable LangGraph routing and replay counters.
 
+- Reconciled FR-A2A-012 and FR-LLM-005 against later real PostgreSQL/pgvector, A2A, management, model-audit, and dynamic Agent Card evidence; both stale rows are now verified.
+
 - Registration-time structured LLM enhancement for all MCP Tools, editable planning metadata with original-schema authority, fixed-stage migration, and fail-closed Server migration completeness enforcement.
 
 - Machine-verifiable A2A 1.0.1 specification/SDK/TCK pins, direct patch media-type contracts, and a 100% official HTTP+JSON/MUST TCK result with explicit skip and beta-SDK boundaries.

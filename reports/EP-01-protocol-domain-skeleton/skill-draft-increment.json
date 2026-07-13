@@ -1,11 +1,15 @@
 {
   "requirement": "FR-A2A-012",
-  "status": "partial",
+  "status": "verified",
   "realVerification": [
     "A2A metadata maps only explicit create/update Skill actions",
     "domain SkillDraft status is always draft",
     "PostgreSQL persistence occurs before BullMQ enqueue",
-    "draft is absent from dynamic Agent Card"
+    "draft is absent from dynamic Agent Card",
+    "management HTTP reads the persisted draft",
+    "generic a2a_draft authoring bypass is rejected",
+    "dedicated management publication records publisher and SkillVersion",
+    "dynamic Agent Card exposes the Skill only after publication"
   ],
   "results": {
     "unit": { "passed": 18, "failed": 0 },
@@ -13,5 +17,13 @@
     "contract": { "passed": 13, "failed": 0 },
     "e2e": { "passed": 3, "failed": 0 }
   },
-  "unverified": ["management API/console draft visibility"]
+  "laterGate": {
+    "unit": { "passed": 136, "failed": 0 },
+    "integration": { "passed": 29, "failed": 0 },
+    "contract": { "passed": 39, "failed": 0 },
+    "e2e": { "passed": 35, "failed": 0 },
+    "build": "passed",
+    "smoke": "passed"
+  },
+  "unverified": ["publisher identity authenticity under the no-auth V1 baseline"]
 }

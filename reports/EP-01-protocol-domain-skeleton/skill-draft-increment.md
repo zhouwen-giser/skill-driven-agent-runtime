@@ -9,4 +9,4 @@ Real verification:
 - contract: 13 passed
 - e2e: 3 passed; draft persistence and Agent Card exclusion verified over HTTP
 
-FR-A2A-012 remains in development because management API/console draft visibility belongs to EP-06 and is not yet implemented.
+This original EP-01 limitation was closed by the later source-governed publication increment. See `FR-A2A-012-draft-management-reconciliation.md`: management draft read/publication, bypass rejection, and dynamic Agent Card behavior have real integration/contract/E2E evidence, so FR-A2A-012 is verified.

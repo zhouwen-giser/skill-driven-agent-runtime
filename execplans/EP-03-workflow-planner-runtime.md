@@ -23,6 +23,8 @@ FR-LLM-001, FR-LLM-002, FR-LLM-003, FR-LLM-004, FR-LLM-005, FR-LLM-006, FR-LLM-0
 
 ## Progress
 
+- [x] 2026-07-13: reconcile FR-LLM-005 with EP-05 stage-specific PostgreSQL/pgvector Memory evidence; Skill metadata, historical Experience Memory, long-term Memory, audit visibility, and LLM final-choice boundaries are verified.
+
 - [ ] 读取材料并记录当前代码状态。
 - [ ] 将具体文件、接口和步骤补充到本计划。
 - [ ] 完成实现增量。
