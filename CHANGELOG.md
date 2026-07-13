@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Reconciled NFR-PERF-001 with historical real BullMQ serialization and a deterministic ten-context no-crossover concurrency regression.
+
 - Reconciled NFR-SEC-002 with historical real PostgreSQL/same-process MCP and Model encryption evidence plus the exact no-plaintext/environment-master-key acceptance criterion.
 
 - Bounded semantic MCP exception recovery for retry, prevalidated changed arguments, alternative Tools, enabled Skills, or termination, with immutable LangGraph routing and replay counters.
