@@ -26,6 +26,6 @@ The browser used an unavailable backend, so it proves rendering and semantic nav
 
 ## Classification and minimum unblock
 
-Post-audit reconciliation promotes FR-ADM-001 only: its exact acceptance is unauthenticated access plus a deployment risk warning, both directly covered by real HTTP/browser and documentation evidence. FR-ADM-002..008, NFR-OBS-001, and NFR-UX-001 still require their separately recorded real cross-page/persistence evidence.
+Post-audit reconciliation promotes FR-ADM-001 and FR-ADM-002. FR-ADM-001's exact acceptance is unauthenticated access plus a deployment risk warning. FR-ADM-002 combines historical real same-process MCP lifecycle with the 31-test PostgreSQL/Redis operation-log gate and current management/Console contracts. FR-ADM-003..008, NFR-OBS-001, and NFR-UX-001 still require their separately recorded evidence.
 
 Restore a responsive Docker Desktop engine and start the repository's PostgreSQL/Redis services. Then rerun integration, E2E, server smoke, and real API browser E2E.

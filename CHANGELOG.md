@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Reconciled FR-ADM-002 with historical real MCP lifecycle and 31-test PostgreSQL/Redis operation-log evidence plus current management/Console contracts.
+
 - Verified FR-ADM-001 against its exact unauthenticated-access and trusted-intranet deployment-warning acceptance, including real browser render/navigation evidence.
 
 - Reconciled FR-MCP-011 with historical real PostgreSQL dependency-warning evidence and current no-auto-disable management/Console boundaries.

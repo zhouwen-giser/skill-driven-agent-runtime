@@ -1,0 +1,27 @@
+{
+  "requirement": "FR-ADM-002",
+  "status": "verified",
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 57,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "historicalRealEvidence": {
+    "mcpSameProcessLifecycle": true,
+    "postgresRedisIntegrationTestsPassed": 31,
+    "migration0050Applied": true,
+    "operationLogSurvivesServerDeletion": true
+  },
+  "acceptance": {
+    "register": true,
+    "delete": true,
+    "manualRefresh": true,
+    "healthCheck": true,
+    "toolInventory": true,
+    "credentialUpdate": true,
+    "metadataEdit": true,
+    "operationLogAvailable": true
+  },
+  "unverified": ["latest real-API browser repetition of the complete Console scenario"]
+}

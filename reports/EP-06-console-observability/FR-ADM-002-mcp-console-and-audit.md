@@ -25,3 +25,9 @@ The real same-process E2E scenario was extended to assert ordered lifecycle oper
 - Application owns safe summaries and successful-operation recording.
 - PostgreSQL is authoritative; Redis and React store no audit truth.
 - Management API returns read-only evidence; React calls only documented APIs.
+
+## Acceptance reconciliation — 2026-07-13
+
+The exact SRS acceptance is that complete MCP CRUD and operation logs are available. Historical real evidence combines EP-02 same-process MCP register/discover/call/delete lifecycle with EP-06's 31-test PostgreSQL/Redis gate for migration 0050, credential rotation, health, refresh, metadata, deletion, and append-only logs that remain after Server deletion. Current application/management/Console regression passes 3 files/57 tests, and unified `pnpm verify` passes 54 files/241 tests.
+
+FR-ADM-002 is verified. The unexecuted latest same-process browser scenario remains a release/whole-console regression gap, but it is not absence of the already real CRUD and operation-log acceptance evidence.
