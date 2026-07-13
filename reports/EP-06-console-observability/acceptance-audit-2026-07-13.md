@@ -26,6 +26,6 @@ The browser used an unavailable backend, so it proves rendering and semantic nav
 
 ## Classification and minimum unblock
 
-Post-audit reconciliation promotes FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-005, FR-ADM-007, and FR-ADM-008. FR-ADM-003 aggregates real owning evidence for every Skill Studio lifecycle operation and current API/Console wiring. FR-ADM-004, FR-ADM-006, NFR-OBS-001, and NFR-UX-001 still require their separately recorded evidence.
+Post-audit reconciliation promotes FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-005, FR-ADM-006, FR-ADM-007, and FR-ADM-008. FR-ADM-006 combines historical real Task/context/Goal/model/MCP/event/result/evaluation/error flows with current navigation/filter contracts. FR-ADM-004, NFR-OBS-001, and NFR-UX-001 still require their separately recorded evidence.
 
 Restore a responsive Docker Desktop engine and start the repository's PostgreSQL/Redis services. Then rerun integration, E2E, server smoke, and real API browser E2E.

@@ -19,4 +19,8 @@
 ## Pending
 
 - Real PostgreSQL assertions are implemented for event/model/MCP/Plan queries but cannot be rerun while local Docker container start remains hung.
-- Full bidirectional navigation, session inventory, live refresh, and real browser E2E remain open. FR-ADM-006 and NFR-OBS-001 stay developing.
+- Latest browser repetition and migration-0052 extended correlation remain open for NFR-OBS-001/NFR-UX-001.
+
+## Acceptance reconciliation — 2026-07-13
+
+FR-ADM-006 is verified. Historical real EP-04/05 A2A/PostgreSQL/LangGraph/MCP/model flows retrieve Task/context/Goal, model and MCP calls, ordered runtime events, processed results, five-component evaluation, and persisted error states. Current Task/workflow/management/Console regression passes 4 files/69 tests and directly covers identifier navigation, bounded filters, and read-only refresh; unified `pnpm verify` passes 54 files/241 tests. Migration 0052's extra Plan-confirmation/Goal-Patch fields remain an NFR-OBS-001 enhancement, not a missing FR-ADM-006 query class.

@@ -29,6 +29,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Reconcile FR-ADM-007 against real Memory status/replacement/source E2E and current Console/API contracts.
 - [x] Reconcile FR-ADM-008 against real analytics E2E and current complete dashboard/API projections.
 - [x] Reconcile FR-ADM-003 by mapping every Skill Studio control to verified owning lifecycle E2E and current Console/API wiring.
+- [x] Reconcile FR-ADM-006 against real Task-rooted execution evidence plus current query/navigation/filter projections.
 - [x] Read the requirement, architecture, OSS, status, and current management-boundary material; inventory the current routes and traceability gaps.
 - [x] Complete exact-version OSS Intake and ADR-064 for the React/Vite console stack.
 - [x] Build the first strict-TypeScript console increment and serve its production assets from the same management process.
