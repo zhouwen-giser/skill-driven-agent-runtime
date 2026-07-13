@@ -1,5 +1,13 @@
 # 开发与验收 Demo 场景
 
+一条命令执行全部场景：
+
+```powershell
+pnpm demo:acceptance
+```
+
+该命令构建 Server/Console，启动 PostgreSQL、Redis、Mock Model、Mock MCP 与同进程 Runtime，运行 `apps/example-a2a-client` 和完整 E2E 场景，结束后停止容器。快速基础闭环可运行 `pnpm demo:local`。
+
 ## Demo 1：只读分析主链路
 
 用户请求“查询当前设备并生成状态报告”。Agent 匹配 Skill，生成计划，等待确认，调用两个 Mock MCP 查询工具，输出文本和结构化报告，Goal 达成。

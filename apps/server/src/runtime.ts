@@ -504,6 +504,20 @@ export async function startServerRuntime(
       nextPlanId: () => `plan-goal-patch-${randomUUID()}`,
     },
   });
+  const backgroundExecutions = new Set<Promise<void>>();
+  const backgroundExecutionErrors: unknown[] = [];
+  const trackBackgroundExecution = (execution: Promise<void>): void => {
+    backgroundExecutions.add(execution);
+    void execution.then(
+      () => {
+        backgroundExecutions.delete(execution);
+      },
+      (error: unknown) => {
+        backgroundExecutions.delete(execution);
+        backgroundExecutionErrors.push(error);
+      },
+    );
+  };
   const service = new TaskService({
     contexts,
     tasks,
@@ -531,7 +545,7 @@ export async function startServerRuntime(
         const goalId = task.goalId;
         const goalVersion = task.goalVersion;
         const selectedSkillIds = task.selectedSkillId === undefined ? [] : [task.selectedSkillId];
-        void (async () => {
+        const execution = (async () => {
           const controlId = `control-task-${task.taskId}`;
           try {
             const existing = await workflowController.get(controlId);
@@ -572,6 +586,7 @@ export async function startServerRuntime(
               : 'TASK_EXECUTION_FAILED';
           await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
         });
+        trackBackgroundExecution(execution);
         return Promise.resolve();
       },
       async reviseNaturalLanguage(task, instruction) {
@@ -1119,10 +1134,17 @@ export async function startServerRuntime(
         clearInterval(waitSweepTimer);
         await a2a.close();
         await startedManagement.close();
-        await mcpTransport.close();
         await worker.close();
         await queue.close();
+        await Promise.allSettled([...backgroundExecutions]);
+        await mcpTransport.close();
         await pool.end();
+        if (backgroundExecutionErrors.length > 0) {
+          throw new AggregateError(
+            backgroundExecutionErrors,
+            'One or more tracked background executions failed during runtime shutdown.',
+          );
+        }
       },
     };
   } catch (error: unknown) {
@@ -1140,7 +1162,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()

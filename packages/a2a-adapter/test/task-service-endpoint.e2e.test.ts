@@ -5,6 +5,7 @@ import { SendMessageRequest, type Task, TaskState } from '@a2a-js/sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
+import { runExampleA2AClient } from '../../../apps/example-a2a-client/src/client.js';
 import { startServerRuntime, type ServerRuntimeHandle } from '../../../apps/server/src/runtime.js';
 import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import { startMcpLoopbackServer } from '../../mcp-adapter/src/index.js';
@@ -3010,6 +3011,41 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
       expect((await readAgentCard()).skills.map((skill) => skill.id)).toEqual(cardBefore);
     } finally {
+      await mockMcp.close();
+    }
+  });
+
+  it('runs the documented example A2A client through plan confirmation and Mock MCP', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.example.${randomUUID()}`;
+    let registered = false;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Example MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      registered = true;
+      const consoleHtml = await fetch(`${runtime.management.baseUrl}/console/`);
+      expect(consoleHtml.status).toBe(200);
+      expect(await consoleHtml.text()).toContain('/console/assets/');
+
+      const result = await runExampleA2AClient({
+        baseUrl: runtime.a2a.baseUrl,
+        text: `Read the device with TEMPORARY_TOOL:${serverId}/device_status`,
+      });
+      expect(result.states).toContain(TaskState.TASK_STATE_INPUT_REQUIRED);
+      expect(result.finalState).toBe(TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listMcpInvocations(serverId)).resolves.toHaveLength(1);
+      await waitForTemporarySkillStatus(result.taskId, 'expired');
+    } finally {
+      if (registered) await runtime.deleteMcpServer(serverId);
       await mockMcp.close();
     }
   });

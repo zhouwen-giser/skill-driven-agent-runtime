@@ -26,3 +26,4 @@ Migration files remain forward-only and ordered. A missing ledger entry below th
 - Real PostgreSQL integration: 2 files / 36 tests passed.
 - Real PostgreSQL/Redis/model/MCP end-to-end: 1 file / 40 tests passed.
 - `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify` passed.
+- `pnpm verify:migrations` creates isolated databases, proves a complete empty-schema migration and a historical 0049-to-0053 upgrade, checks the 0053 ledger row and current `tool_enhancement` constraint, then removes both databases.

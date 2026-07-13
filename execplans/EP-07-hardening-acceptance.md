@@ -17,11 +17,18 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [ ] performance/concurrency and timeout tests
 - [ ] security and prompt-injection tests
 - [ ] migration and disaster behavior tests
-- [ ] complete docs and troubleshooting
-- [ ] SBOM/notices/license scan
-- [ ] all AC reports and release package
+- [x] complete docs and troubleshooting
+- [x] SBOM/notices/license scan
+- [x] all AC reports and release evidence package
 
 ## Progress
+
+- [x] Add `pnpm verify:migrations` to the full gate and pass isolated empty-database plus historical 0049-to-0053 upgrade checks, including the 0053 ledger and current model-stage constraint.
+
+- [x] Add and execute `pnpm demo:local` plus `pnpm demo:acceptance`; the latter builds and runs all 41 E2E scenarios with PostgreSQL, Redis, Mock Model, Mock MCP, Server, Console bundle, and the documented example A2A Client.
+- [x] Fix graceful Runtime shutdown to wait for tracked confirmed-Task background controls before closing MCP/PostgreSQL; the demo first reproduced the pool-after-end defect and now passes without unhandled rejection.
+- [x] Replace the task-package README with product quickstart, verification, safety, endpoint, demo, architecture, and operations guidance.
+- [x] Execute the previously pending real Redis single-attempt Worker assertion as part of the 2-file/36-test integration gate.
 
 - [x] Run the recovered real gate: integration 2 files/36, E2E 1 file/40, infrastructure smoke, Server/Console-bundle smoke, and unified 54 files/242 all pass.
 - [x] Promote NFR-PERF-002, NFR-OBS-001, and NFR-UX-001 with current PostgreSQL/Redis/E2E/browser evidence; all matrix rows are now verified.
@@ -39,7 +46,7 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] Add the missing NFR-REL-002 real-Redis Worker exception assertion for one processor call, one attempt, and retained failure.
 - [x] Run unified `pnpm verify` with 54 files/240 tests and all static/build gates passing.
 - [x] Reconcile NFR-REL-002 against its exact no-whole-Task-retry/no-duplicate-side-effect acceptance using historical real single-attempt Redis, startup failure, MCP no-replay, and exactly-one model-failure evidence.
-- [ ] Execute the new NFR-REL-002 Redis assertion; Docker container mutations remain unavailable.
+- [x] Execute the new NFR-REL-002 Redis assertion in the recovered real integration gate.
 
 - [x] 读取 SRS、Definition of Done、追踪矩阵、架构/领域基线并记录当前证据缺口。
 - [x] 将 NFR-PERF-002 节点耗时持久化增量补充到计划、ADR 和验收报告。
@@ -118,9 +125,9 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Validation
 
-- [ ] `pnpm verify`
-- [ ] `all traceability rows verified`
-- [ ] `all AC e2e pass`
+- [x] `pnpm verify` (full static/unit/contract/build/integration/e2e/infra-smoke/server-console-smoke gate; machine and Markdown reports generated)
+- [x] `all traceability rows verified`
+- [x] `all AC scenarios pass` (18-scenario machine/human audit; real composed E2E/integration/browser evidence with simulated model semantics classified)
 - [ ] `clean install smoke`
 - [ ] `release checklist signed by evidence`
 

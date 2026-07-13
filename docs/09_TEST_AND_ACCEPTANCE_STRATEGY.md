@@ -44,6 +44,8 @@ pnpm smoke
 pnpm verify
 ```
 
+`pnpm verify` 是完整统一门禁：依次执行静态检查、unit/contract、架构与协议基线、生产构建、真实 PostgreSQL/Redis integration、真实 PostgreSQL/Redis/Mock Model/Mock MCP E2E、基础设施 smoke 和 Server/Console-bundle smoke。命令无论成功或失败都写入 `reports/verification/summary.json` 与 `summary.md`。
+
 ## 测试替身
 
 - Deterministic Model Provider：按 fixture 输出意图、Skill、Workflow、评估和修正结果。

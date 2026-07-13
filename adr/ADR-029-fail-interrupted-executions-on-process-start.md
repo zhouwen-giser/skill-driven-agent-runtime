@@ -12,9 +12,11 @@ Accepted on 2026-07-12.
 - Queued and planning/confirmation-waiting Tasks are not failed by startup recovery. Their BullMQ jobs remain Redis-authoritative and may be dispatched after restart.
 - BullMQ job attempts remain exactly one, stalled-job retries are disabled, and failed jobs remain inspectable rather than being removed.
 - Recovery is idempotent: after the first transaction, subsequent starts update zero interrupted records.
+- Graceful process shutdown is distinct from crash recovery. The composition root tracks every fire-and-forget confirmed-Task control execution, closes ingress first, waits for active Worker and tracked execution promises, then closes MCP transport and PostgreSQL. A tracked failure is surfaced as an aggregate shutdown error rather than swallowed.
 
 ## Consequences
 
 - Running work is deliberately sacrificed for side-effect safety, matching the accepted V1 limitation.
 - PostgreSQL and Task projections expose a stable failure instead of leaving indefinitely running state.
 - FR-EXE-008/009/010 have complementary PostgreSQL and real Redis integration evidence.
+- The documented one-command example client exposed and now guards the graceful-shutdown ordering: a completed Task may still be writing evaluation/evolution evidence, so the pool cannot close merely because the external Task state is terminal.

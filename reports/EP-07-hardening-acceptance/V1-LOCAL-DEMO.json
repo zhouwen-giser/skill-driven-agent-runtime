@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "date": "2026-07-13",
+  "command": "pnpm demo:acceptance",
+  "components": [
+    "PostgreSQL/pgvector",
+    "Redis/BullMQ",
+    "deterministic Mock Model",
+    "Mock MCP",
+    "single-process Server",
+    "production Console bundle",
+    "official-SDK example A2A Client"
+  ],
+  "e2e": {
+    "files": 1,
+    "passed": 41,
+    "failed": 0,
+    "durationSeconds": 21.27
+  },
+  "exampleClient": {
+    "streamedInputRequired": true,
+    "confirmedPlan": true,
+    "mcpInvocations": 1,
+    "finalState": "completed"
+  },
+  "classification": {
+    "real": ["protocols", "persistence", "queue", "LangGraph", "MCP transport", "Console bundle"],
+    "simulated": ["model semantics", "embedding semantics", "evaluation semantics"],
+    "unverified": []
+  }
+}

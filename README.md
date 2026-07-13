@@ -1,50 +1,93 @@
-# Skill-Driven Agent Runtime — Codex Goal 项目任务包
+# Skill-Driven Agent Runtime V1.0
 
-版本：V1.0  
-需求基线日期：2026-07-11
+A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
 
-本任务包用于让 Codex Goal 模式在一个空仓库或新建工作树中，自主完成 **Skill-Driven Agent Runtime** 的设计、编码、测试、文档与验收。
+## Safety baseline
 
-## 任务包内容
+V1 has **no authentication, authorization, or tenant isolation**. A2A, management API, and Console must remain on localhost or a firewall-isolated trusted intranet. PostgreSQL and Redis must never have public routes. Non-loopback listeners fail closed unless the operator explicitly acknowledges the risk; that acknowledgement does not add authentication.
 
-- `CODEX_GOAL_PROMPT.md`：可直接粘贴到 `/goal` 的总目标。
-- `AGENTS.md`：Codex 每次进入仓库都会读取的长期工程约束。
-- `PLANS.md`：长任务 ExecPlan 编制与维护规范。
-- `execplans/`：从仓库初始化到最终验收的 8 个阶段计划。
-- `docs/`：需求、架构、领域模型、协议、数据、测试、风险和开源复用材料。
-- `schemas/`：Skill、Workflow DSL、运行事件、记忆和评估报告的起始 JSON Schema。
-- `examples/`：Skill、Workflow、A2A 与 MCP Mock 示例。
-- `.agents/skills/`：给 Codex 使用的仓库级工程技能。
-- `templates/`：ADR、测试报告、开源引入和发布检查模板。
-- `third_party/`：开源项目引入清单和版本锁定模板。
-- `source/`：原始需求规格说明书与架构图。
+## Prerequisites
 
-## 推荐使用方式
+- Node.js 20.19 or newer (the verified environment uses Node 22.14)
+- pnpm 11.7
+- Docker Desktop / Docker Engine with Compose
 
-1. 将本目录内容复制到新 Git 仓库根目录。
-2. 在隔离容器、虚拟机或专用工作树中启动 Codex。
-3. 先执行 `/plan`，要求 Codex阅读 `README.md`、`AGENTS.md`、`PLANS.md` 和 `execplans/EP-00-repo-bootstrap.md`。
-4. 审阅计划后，将 `CODEX_GOAL_PROMPT.md` 中代码块内容粘贴给 `/goal`。
-5. 通过 `PROJECT_STATUS.md` 和测试报告查看阶段进展；只有验收矩阵全部有证据时才允许完成 Goal。
+Install the exact lockfile:
 
-详细操作见 `QUICK_START_CODEX.md`。
+```powershell
+pnpm install --frozen-lockfile
+```
 
-## 权威资料顺序
+## One-command local acceptance demo
 
-发生冲突时按以下顺序裁决：
+```powershell
+pnpm demo:acceptance
+```
 
-1. `source/Agent通用模板Server需求规格说明书_V1.0.docx`
-2. `docs/01_REQUIREMENTS_BASELINE.md` 与 `docs/17_TRACEABILITY_MATRIX.md`
-3. 已批准 ADR
-4. 当前 ExecPlan
-5. 其他说明、示例和参考项目
+This builds the Server and Console, starts PostgreSQL/pgvector and Redis, starts the deterministic Mock Model and Mock MCP services inside the E2E harness, runs the documented A2A example client, and executes all composed acceptance flows: plan confirmation, streaming, Skill composition, pause/resume, Goal Patch, outer replanning, Memory, Evaluation, and Skill simulation/evolution. It stops local containers after the run. Model semantics are deterministic simulation; protocols, persistence, LangGraph execution, queueing, Console bundle, and API paths are real local components.
 
-## 重要边界
+For the short basic task/confirmation/MCP demo:
 
-本项目不是把八个 Agent 框架拼接成一个系统。唯一工作流运行时是 LangGraph.js；A2A 与 MCP 使用官方 SDK；Goal、Skill、Workflow DSL、评估与演化是自研核心。其他开源项目以源码研究、接口借鉴和 UI 参考为主，任何源码复制都必须先完成许可证与来源登记。
+```powershell
+pnpm demo:local
+```
 
-## V1 运行安全警告
+## Run the Server and Console locally
 
-V1 的 A2A、管理 API 和 Console **没有认证、授权或租户隔离**，只能运行于 localhost 或具备防火墙隔离的可信内网，禁止直接暴露公网。监听地址默认 `127.0.0.1`；配置任何非 loopback A2A/管理地址时，进程会拒绝启动，除非运维人员在完成网络隔离审查后显式设置 `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true`。该变量只是风险确认，不提供任何认证能力。
+Start infrastructure:
 
-PostgreSQL 与 Redis 不得具有公网路由。发布前必须逐项完成 [Release Checklist](templates/RELEASE_CHECKLIST.md)。
+```powershell
+docker compose up -d --wait postgres redis
+```
+
+Set the required local-only master key and start the single process:
+
+```powershell
+$env:SDAR_MASTER_KEY_BASE64='MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY='
+pnpm build
+pnpm start:server
+```
+
+Default endpoints:
+
+- A2A Agent Card: `http://127.0.0.1:9999/.well-known/agent-card.json`
+- A2A HTTP endpoint: `http://127.0.0.1:9999/a2a`
+- Management health: `http://127.0.0.1:9998/api/v1/health`
+- Console: `http://127.0.0.1:9998/console/`
+
+The standalone example client can target a configured running Server:
+
+```powershell
+pnpm demo:client -- "Complete the local example task."
+```
+
+## Verification
+
+```powershell
+pnpm verify
+```
+
+The unified gate runs format, lint, strict typecheck, unit, integration, contract, E2E, architecture, A2A compatibility, OpenAPI drift, source/license/SBOM, production build, infrastructure smoke, and Server/Console-bundle smoke. It writes:
+
+- `reports/verification/summary.json`
+- `reports/verification/summary.md`
+
+Useful focused commands include `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contract`, `pnpm test:e2e`, `pnpm smoke`, and `pnpm verify:acceptance`.
+
+## Architecture and operations
+
+- [Architecture baseline](docs/02_ARCHITECTURE_BASELINE.md)
+- [Workflow DSL](docs/05_WORKFLOW_DSL_SPEC.md)
+- [API and protocol contracts](docs/06_API_AND_PROTOCOL_CONTRACTS.md)
+- [Storage schema](docs/07_DATA_STORAGE_SCHEMA.md)
+- [Security and risks](docs/08_SECURITY_AND_RISK.md)
+- [Test and acceptance strategy](docs/09_TEST_AND_ACCEPTANCE_STRATEGY.md)
+- [Demo scenarios](docs/15_DEMO_SCENARIOS.md)
+- [Definition of Done](docs/16_DEFINITION_OF_DONE.md)
+- [Traceability matrix](docs/17_TRACEABILITY_MATRIX.md)
+- [Known assumptions and gaps](docs/18_KNOWN_ASSUMPTIONS_AND_GAPS.md)
+- [Configuration, operations, and troubleshooting](docs/20_CONFIGURATION_OPERATIONS_TROUBLESHOOTING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release checklist](templates/RELEASE_CHECKLIST.md)
+
+The original SRS in `source/Agent通用模板Server需求规格说明书_V1.0.docx` remains authoritative. See `AGENTS.md` for engineering invariants and `PLANS.md`/`execplans/` for living execution plans.

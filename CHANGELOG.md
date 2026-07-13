@@ -6,11 +6,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Configuration/operations/troubleshooting and contribution guides covering environment, lifecycle, health, failure posture, secrets, backups, release evidence, and engineering rules.
+
+- Isolated empty-database and historical 0049→0053 PostgreSQL migration verification, included in the full gate with cleanup and current-constraint assertions.
+
+- `pnpm demo:local` and `pnpm demo:acceptance`, plus a documented official-SDK A2A example client that streams a task, confirms its plan, polls to completion, and is exercised against Mock MCP.
+- Product-oriented README quickstart, local endpoints, complete verification, safety posture, and architecture/operations links.
+
+- Human and machine V1 acceptance audits mapping all AC-01..18 scenarios to the current full-gate evidence, plus a static verifier for exact scenario coverage and evidence classification.
+
+- A true full `pnpm verify` orchestrator covering static/unit/contract/build, real integration, real E2E, infrastructure smoke, and Server/Console-bundle smoke, with machine-readable and Markdown summaries under `reports/verification/`.
+- A documented `pnpm smoke` aggregate command.
+
 - Current real PostgreSQL/Redis integration (2 files/36), full E2E (1 file/40), infrastructure smoke, Server/Console-bundle smoke, and unified 54-file/242-test gate; promoted FR-MCP-008, FR-MCP-012, NFR-PERF-002, NFR-OBS-001, and NFR-UX-001 with real evidence.
 - Real production-Console browser navigation evidence for Task/Goal/Workflow/Skill/MCP/model/Memory/Evaluation associations and reverse Task links.
 - ADR-072 monotonic migration-ledger high-water rule, preventing legacy startup replay from regressing later constraints.
 
 ### Fixed
+
+- Graceful Runtime shutdown now waits for tracked confirmed-Task background controls before closing MCP transport and PostgreSQL, preventing pool-after-end failures after externally terminal Tasks.
 
 - Console production assets now use the `/console/` base served by Express; Server smoke fetches the emitted JavaScript bundle and checks the trusted-intranet warning marker.
 - Integration fixtures now satisfy current Task phase and Goal/Plan/model-invocation foreign-key constraints without weakening them.
