@@ -184,6 +184,10 @@ export class TaskService {
     return task;
   }
 
+  list(query: Readonly<{ contextId?: string; phase?: AgentTask['phase']; limit: number }>) {
+    return this.#dependencies.tasks.list(query);
+  }
+
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
     if (command.action === 'cancel_goal') {

@@ -292,6 +292,9 @@ class MemoryTasks {
   findByPlanId(planId: string) {
     return Promise.resolve(this.value?.planId === planId ? this.value : undefined);
   }
+  list() {
+    return Promise.resolve(this.value === undefined ? [] : [this.value]);
+  }
   save(value: AgentTask) {
     this.value = value;
     return Promise.resolve();

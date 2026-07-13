@@ -42,6 +42,23 @@ import type {
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
+const AgentTaskPhaseSchema = z.enum([
+  'queued',
+  'context_loading',
+  'goal_deliberation',
+  'skill_resolution',
+  'planning',
+  'awaiting_plan_confirmation',
+  'awaiting_user_input',
+  'paused',
+  'executing',
+  'evaluating',
+  'capability_gap',
+  'completed',
+  'canceled',
+  'failed',
+  'invalidated',
+]);
 const EvolutionPolicySchema = z.object({ successThreshold: z.number().int().min(2) });
 const MemoryRetentionPolicySchema = z.object({
   reviewAfterDays: z.number().int().positive(),
@@ -287,7 +304,7 @@ export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
-  readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get'>;
+  readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get' | 'list'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly taskQuality: Pick<TaskQualityEvaluationService, 'getByTask'>;
@@ -653,6 +670,31 @@ export async function startManagementHttpEndpoint(
           pathValue(request, 'controlId'),
         ),
       );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks',
+    asyncRoute(async (request, response) => {
+      const contextId =
+        typeof request.query['contextId'] === 'string' ? request.query['contextId'] : undefined;
+      const phase =
+        request.query['phase'] === undefined
+          ? undefined
+          : AgentTaskPhaseSchema.parse(request.query['phase']);
+      const limit = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .default(50)
+        .parse(request.query['limit']);
+      response.json({
+        items: await options.operations.tasks.list({
+          ...(contextId === undefined ? {} : { contextId }),
+          ...(phase === undefined ? {} : { phase }),
+          limit,
+        }),
+      });
     }),
   );
   app.get(

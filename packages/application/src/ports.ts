@@ -186,6 +186,13 @@ export interface GoalEvaluator {
 export interface AgentTaskRepository {
   findById(taskId: string): Promise<AgentTask | undefined>;
   findByPlanId(planId: string): Promise<AgentTask | undefined>;
+  list(
+    query: Readonly<{
+      contextId?: string;
+      phase?: AgentTask['phase'];
+      limit: number;
+    }>,
+  ): Promise<readonly AgentTask[]>;
   save(task: AgentTask): Promise<void>;
 }
 

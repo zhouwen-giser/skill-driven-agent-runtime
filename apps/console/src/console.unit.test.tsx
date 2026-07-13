@@ -30,6 +30,8 @@ describe('operational console static accessibility contract', () => {
     const markup = renderToStaticMarkup(<TaskPanel />);
     expect(markup).toContain('Task ID');
     expect(markup).toContain('CORRELATED TRACE ROOT');
+    expect(markup).toContain('POSTGRESQL TASK INVENTORY');
+    expect(markup).toContain('Refresh inventory');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
   });

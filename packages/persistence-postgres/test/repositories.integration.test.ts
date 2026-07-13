@@ -2419,6 +2419,11 @@ describe('PostgreSQL protocol-domain repositories', () => {
       taskId: submitted.task.taskId,
       planId: 'plan.task-link.db',
     });
+    await expect(
+      tasks.list({ contextId: submitted.task.contextId, phase: 'planning', limit: 10 }),
+    ).resolves.toEqual([
+      expect.objectContaining({ taskId: submitted.task.taskId, phase: 'planning' }),
+    ]);
   });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {
     const contexts = new PostgresConversationContextRepository(pool);

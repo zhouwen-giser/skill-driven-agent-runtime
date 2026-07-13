@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
 
@@ -28,25 +28,56 @@ export function TaskPanel() {
   const [task, setTask] = useState<TaskRecord>();
   const [evidence, setEvidence] = useState<readonly EvidenceItem[]>([]);
   const [message, setMessage] = useState<string>();
+  const [inventory, setInventory] = useState<readonly TaskRecord[]>([]);
+  const [filters, setFilters] = useState({ contextId: '', phase: '' });
+  const [live, setLive] = useState(false);
   const [action, setAction] = useState<'confirm_plan' | 'reject_plan' | 'revise_plan'>(
     'confirm_plan',
   );
   const [actionText, setActionText] = useState('Confirmed from the operational console.');
 
-  async function load(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadTask(id: string, announce = true) {
     try {
-      const loaded = await managementRequest<TaskRecord>(
-        `/api/v1/tasks/${encodeURIComponent(taskId)}`,
-      );
+      const loaded = await managementRequest<TaskRecord>(`/api/v1/tasks/${encodeURIComponent(id)}`);
       setTask(loaded);
       const links = taskEvidenceLinks(loaded);
       setEvidence(await Promise.all(links.map(loadEvidence)));
-      setMessage(`${loaded.taskId}: ${String(links.length)} linked evidence queries completed.`);
+      if (announce)
+        setMessage(`${loaded.taskId}: ${String(links.length)} linked evidence queries completed.`);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Task trace lookup failed.');
     }
   }
+
+  async function load(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await loadTask(taskId);
+  }
+
+  async function loadInventory() {
+    try {
+      const params = new URLSearchParams({ limit: '50' });
+      if (filters.contextId !== '') params.set('contextId', filters.contextId);
+      if (filters.phase !== '') params.set('phase', filters.phase);
+      const result = await managementRequest<{ readonly items: readonly TaskRecord[] }>(
+        `/api/v1/tasks?${params.toString()}`,
+      );
+      setInventory(result.items);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Task inventory failed.');
+    }
+  }
+
+  useEffect(() => {
+    void loadInventory();
+  }, []);
+  useEffect(() => {
+    if (!live || task === undefined) return;
+    const timer = window.setInterval(() => void loadTask(task.taskId, false), 2000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [live, task?.taskId]);
 
   async function submitAction(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,6 +122,63 @@ export function TaskPanel() {
         </form>
         {message === undefined ? null : <p className="action-message">{message}</p>}
       </section>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="eyebrow">POSTGRESQL TASK INVENTORY</span>
+            <h2>Recent Tasks</h2>
+          </div>
+          <button type="button" onClick={() => void loadInventory()}>
+            Refresh inventory
+          </button>
+        </div>
+        <form
+          className="filter-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void loadInventory();
+          }}
+        >
+          <label>
+            contextId
+            <input
+              value={filters.contextId}
+              onChange={(event) => {
+                setFilters({ ...filters, contextId: event.target.value });
+              }}
+            />
+          </label>
+          <label>
+            phase
+            <input
+              value={filters.phase}
+              onChange={(event) => {
+                setFilters({ ...filters, phase: event.target.value });
+              }}
+              placeholder="executing"
+            />
+          </label>
+          <button type="submit">Apply filters</button>
+        </form>
+        <div className="version-list">
+          {inventory.map((item) => (
+            <button
+              key={item.taskId}
+              type="button"
+              onClick={() => {
+                setTaskId(item.taskId);
+                void loadTask(item.taskId);
+              }}
+            >
+              <strong>{item.taskId}</strong>
+              <span>
+                {item.phase} · {item.contextId}
+              </span>
+            </button>
+          ))}
+          {inventory.length === 0 ? <p>No matching Task records.</p> : null}
+        </div>
+      </section>
       {task === undefined ? null : (
         <>
           <section className="trace-identity">
@@ -127,7 +215,19 @@ export function TaskPanel() {
             </article>
           </section>
           <section className="panel">
-            <span className="eyebrow">PLAN ACTION BOUNDARY</span>
+            <div className="panel-heading">
+              <span className="eyebrow">PLAN ACTION BOUNDARY</span>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={live}
+                  onChange={(event) => {
+                    setLive(event.target.checked);
+                  }}
+                />{' '}
+                Live trace · 2s
+              </label>
+            </div>
             <form className="task-action" onSubmit={(event) => void submitAction(event)}>
               <label>
                 Action

@@ -298,6 +298,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     findById: (taskId) => Promise.resolve(tasks.get(taskId)),
     findByPlanId: (planId) =>
       Promise.resolve([...tasks.values()].find((task) => task.planId === planId)),
+    list: () => Promise.resolve([...tasks.values()]),
     save: (task) => {
       tasks.set(task.taskId, task);
       operations.push(`task.save:${task.taskId}:${task.phase}`);

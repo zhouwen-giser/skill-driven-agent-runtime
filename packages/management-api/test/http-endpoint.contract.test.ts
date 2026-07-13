@@ -102,6 +102,39 @@ describe('management HTTP API contract', () => {
     await expect(update.json()).resolves.toMatchObject({ timeoutSeconds: 60 });
   });
 
+  it('lists Tasks with bounded PostgreSQL query filters', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: {
+          ...configured.tasks,
+          list: (query) =>
+            Promise.resolve([
+              {
+                taskId: 'task-live',
+                contextId: query.contextId ?? 'context-live',
+                userId: 'anonymous',
+                requestText: 'Operate runtime.',
+                requestMetadata: {},
+                phase: query.phase ?? 'executing',
+                phaseMessage: 'Executing.',
+                createdAt: '2026-07-13T00:00:00.000Z',
+                updatedAt: '2026-07-13T00:01:00.000Z',
+              },
+            ]),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks?contextId=context-live&phase=executing&limit=25`,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [{ taskId: 'task-live', contextId: 'context-live', phase: 'executing' }],
+    });
+  });
+
   it('lists credential-safe model Providers and fixed stage routes', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -1457,7 +1490,7 @@ function operations(failServerList = false): ManagementOperations {
     goals: { create: unused, get: unused, history: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     goalCancellations: { cancel: unused, get: unused, list: () => Promise.resolve([]) },
-    tasks: { attachPlan: unused, followUp: unused, get: unused },
+    tasks: { attachPlan: unused, followUp: unused, get: unused, list: () => Promise.resolve([]) },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     taskQuality: { getByTask: unused },

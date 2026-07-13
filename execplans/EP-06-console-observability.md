@@ -17,8 +17,8 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] complete management OpenAPI
 - [ ] React console navigation and real CRUD
 - [x] workflow DAG editor and validation
-- [ ] live task/node/LLM/MCP trace
-- [ ] version diff and execution replay
+- [x] live task/node/LLM/MCP trace
+- [x] version diff and execution replay
 - [ ] metrics dashboards and warnings
 
 ## Progress
@@ -32,6 +32,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Add real Prompt version/effect controls, source-linked Memory lifecycle management, and filtered Evaluation/Skill-warning operations.
 - [x] Complete the Skill Studio control surface for constrained authoring, definition edits, draft publication, simulation/correction, lifecycle, diff, warnings, and graph relations.
 - [x] Add credential-safe Provider and fixed-stage route inventories plus real system-policy, evolution-trigger, and model-invocation operations to the console.
+- [x] Add a filterable PostgreSQL Task inventory and optional two-second refresh of every Task-linked trace projection.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -53,6 +54,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - Prompt, Memory, and Evaluation application APIs were already authoritative; dedicated console panels now expose them without adding frontend persistence or static operational records.
 - The Skill backend lifecycle was broad but fragmented across routes. `SkillStudio` composes those existing boundaries while preserving every validation/publication gate.
 - Provider and stage-route writes existed without readable inventories. Credential-free PostgreSQL projections now close that gap without exposing encrypted headers or creating frontend state.
+- A Task identifier lookup was insufficient for operations. The new bounded inventory makes traces discoverable; refresh re-queries authoritative projections and never mutates execution.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 

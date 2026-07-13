@@ -1787,6 +1787,27 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     return row === undefined ? undefined : mapTaskRow(row);
   }
 
+  async list(
+    query: Readonly<{
+      contextId?: string;
+      phase?: AgentTask['phase'];
+      limit: number;
+    }>,
+  ): Promise<readonly AgentTask[]> {
+    const result = await this.#pool.query<TaskRow>(
+      `SELECT task_id, context_id, user_id, request_text, request_metadata,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
+       FROM agent_task
+       WHERE ($1::text IS NULL OR context_id=$1)
+         AND ($2::text IS NULL OR phase=$2)
+       ORDER BY updated_at DESC,task_id DESC
+       LIMIT $3`,
+      [query.contextId ?? null, query.phase ?? null, query.limit],
+    );
+    return result.rows.map(mapTaskRow);
+  }
+
   async save(task: AgentTask): Promise<void> {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
