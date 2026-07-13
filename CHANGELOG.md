@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Independent Goal-to-Task-history navigation using an exact management filter over persisted `agent_task.goal_id`.
+
 - Bidirectional Task/MCP/model/Evaluation links and explicit Memory-source-to-Task navigation using persisted identifiers only.
 
 - Exact one-click Task-to-Workflow/Skill and Workflow-to-owning-Task navigation backed by persisted identifiers and a PostgreSQL `planId` Task query.

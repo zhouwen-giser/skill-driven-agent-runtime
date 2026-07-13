@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
 import { WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
-import { TaskEvidenceNavigation, TaskPanel, TaskRelatedNavigation } from './TaskPanel.js';
+import {
+  GoalTaskNavigation,
+  TaskEvidenceNavigation,
+  TaskPanel,
+  TaskRelatedNavigation,
+} from './TaskPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel, MemorySourceNavigation } from './MemoryPanel.js';
 import { McpPanel } from './McpPanel.js';
@@ -41,8 +46,16 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('CORRELATED TRACE ROOT');
     expect(markup).toContain('POSTGRESQL TASK INVENTORY');
     expect(markup).toContain('Refresh inventory');
+    expect(markup).toContain('Goal ID');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('renders a Goal-to-Task-history entry from an authoritative Goal identity', () => {
+    const markup = renderToStaticMarkup(
+      <GoalTaskNavigation goalId="goal.test" onExploreGoal={() => undefined} />,
+    );
+    expect(markup).toContain('Explore Goal Tasks · goal.test');
   });
 
   it('renders one-click Task links to authoritative Workflow and Skill identities', () => {

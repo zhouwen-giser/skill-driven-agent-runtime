@@ -12,6 +12,7 @@ paths:
       parameters:
         - { name: contextId, in: query, required: false, schema: { type: string } }
         - { name: planId, in: query, required: false, schema: { type: string } }
+        - { name: goalId, in: query, required: false, schema: { type: string } }
         - { name: phase, in: query, required: false, schema: { type: string } }
         - {
             name: limit,

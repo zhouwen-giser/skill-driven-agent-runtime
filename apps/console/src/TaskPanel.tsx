@@ -27,6 +27,26 @@ export type RelatedTarget = Readonly<{
   id: string;
   secondary?: string;
 }>;
+type TaskFilters = Readonly<{ contextId: string; goalId: string; phase: string }>;
+
+export function GoalTaskNavigation({
+  goalId,
+  onExploreGoal,
+}: {
+  readonly goalId: string;
+  readonly onExploreGoal: (goalId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onExploreGoal(goalId);
+      }}
+    >
+      Explore Goal Tasks · {goalId}
+    </button>
+  );
+}
 
 export function TaskPanel({
   initialTaskId,
@@ -40,7 +60,7 @@ export function TaskPanel({
   const [evidence, setEvidence] = useState<readonly EvidenceItem[]>([]);
   const [message, setMessage] = useState<string>();
   const [inventory, setInventory] = useState<readonly TaskRecord[]>([]);
-  const [filters, setFilters] = useState({ contextId: '', phase: '' });
+  const [filters, setFilters] = useState<TaskFilters>({ contextId: '', goalId: '', phase: '' });
   const [live, setLive] = useState(false);
   const [action, setAction] = useState<'confirm_plan' | 'reject_plan' | 'revise_plan'>(
     'confirm_plan',
@@ -65,11 +85,12 @@ export function TaskPanel({
     await loadTask(taskId);
   }
 
-  async function loadInventory() {
+  async function loadInventory(nextFilters: TaskFilters = filters) {
     try {
       const params = new URLSearchParams({ limit: '50' });
-      if (filters.contextId !== '') params.set('contextId', filters.contextId);
-      if (filters.phase !== '') params.set('phase', filters.phase);
+      if (nextFilters.contextId !== '') params.set('contextId', nextFilters.contextId);
+      if (nextFilters.goalId !== '') params.set('goalId', nextFilters.goalId);
+      if (nextFilters.phase !== '') params.set('phase', nextFilters.phase);
       const result = await managementRequest<{ readonly items: readonly TaskRecord[] }>(
         `/api/v1/tasks?${params.toString()}`,
       );
@@ -163,6 +184,15 @@ export function TaskPanel({
             />
           </label>
           <label>
+            Goal ID
+            <input
+              value={filters.goalId}
+              onChange={(event) => {
+                setFilters({ ...filters, goalId: event.target.value });
+              }}
+            />
+          </label>
+          <label>
             phase
             <input
               value={filters.phase}
@@ -228,6 +258,18 @@ export function TaskPanel({
               <small>{task.errorCode ?? 'no Task error'}</small>
             </article>
           </section>
+          {task.goalId === undefined ? null : (
+            <section className="panel">
+              <GoalTaskNavigation
+                goalId={task.goalId}
+                onExploreGoal={(goalId) => {
+                  const nextFilters = { contextId: '', goalId, phase: '' };
+                  setFilters(nextFilters);
+                  void loadInventory(nextFilters);
+                }}
+              />
+            </section>
+          )}
           <TaskRelatedNavigation task={task} onNavigate={onNavigate} />
           <TaskEvidenceNavigation task={task} evidence={evidence} onNavigate={onNavigate} />
           <section className="panel">

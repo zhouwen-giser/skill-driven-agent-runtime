@@ -679,6 +679,8 @@ export async function startManagementHttpEndpoint(
         typeof request.query['contextId'] === 'string' ? request.query['contextId'] : undefined;
       const planId =
         typeof request.query['planId'] === 'string' ? request.query['planId'] : undefined;
+      const goalId =
+        typeof request.query['goalId'] === 'string' ? request.query['goalId'] : undefined;
       const phase =
         request.query['phase'] === undefined
           ? undefined
@@ -694,6 +696,7 @@ export async function startManagementHttpEndpoint(
         items: await options.operations.tasks.list({
           ...(contextId === undefined ? {} : { contextId }),
           ...(planId === undefined ? {} : { planId }),
+          ...(goalId === undefined ? {} : { goalId }),
           ...(phase === undefined ? {} : { phase }),
           limit,
         }),

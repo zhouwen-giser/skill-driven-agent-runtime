@@ -2435,6 +2435,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       phase: 'planning',
       phaseMessage: 'Planning.',
       planId: 'plan.task-link.db',
+      goalId: 'goal.task-link.db',
+      goalVersion: 1,
     });
     await expect(tasks.findByPlanId('plan.task-link.db')).resolves.toMatchObject({
       taskId: submitted.task.taskId,
@@ -2445,10 +2447,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
         contextId: submitted.task.contextId,
         phase: 'planning',
         planId: 'plan.task-link.db',
+        goalId: 'goal.task-link.db',
         limit: 10,
       }),
     ).resolves.toEqual([
-      expect.objectContaining({ taskId: submitted.task.taskId, phase: 'planning' }),
+      expect.objectContaining({
+        taskId: submitted.task.taskId,
+        phase: 'planning',
+        goalId: 'goal.task-link.db',
+      }),
     ]);
   });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {
