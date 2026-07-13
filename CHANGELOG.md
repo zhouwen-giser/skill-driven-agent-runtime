@@ -24,6 +24,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Fixed
 
+- Local Compose now publishes PostgreSQL and Redis only on `127.0.0.1`; the infrastructure verifier rejects non-loopback datastore port publishing.
+
 - Graceful Runtime shutdown now waits for tracked confirmed-Task background controls before closing MCP transport and PostgreSQL, preventing pool-after-end failures after externally terminal Tasks.
 
 - Console production assets now use the `/console/` base served by Express; Server smoke fetches the emitted JavaScript bundle and checks the trusted-intranet warning marker.

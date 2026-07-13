@@ -29,6 +29,8 @@ pnpm start:server
 
 Stop the process gracefully, then run `docker compose stop postgres redis`. Graceful shutdown closes ingress, drains the Worker and tracked Task controls, then closes MCP transport and PostgreSQL. An abrupt process failure intentionally fails running Tasks/instances on the next start and never resumes or retries them. Queued BullMQ jobs remain eligible for dispatch.
 
+The repository Compose file publishes PostgreSQL and Redis only on `127.0.0.1`; do not remove the loopback host binding or create a public route.
+
 ## Health and evidence
 
 - `GET http://127.0.0.1:9998/api/v1/health`

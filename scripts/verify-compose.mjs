@@ -10,6 +10,8 @@ const requiredFragments = [
   'healthcheck:',
   './infra/postgres/init:/docker-entrypoint-initdb.d:ro',
   "restart: 'no'",
+  "'127.0.0.1:${SDAR_POSTGRES_PORT:-54329}:5432'",
+  "'127.0.0.1:${SDAR_REDIS_PORT:-56379}:6379'",
 ];
 
 for (const fragment of requiredFragments) {
@@ -20,6 +22,20 @@ for (const fragment of requiredFragments) {
 
 if (/image:\s+[^\n]+:(latest|main|master)\b/u.test(compose)) {
   throw new Error('COMPOSE_MUTABLE_IMAGE_TAG');
+}
+
+for (const containerPort of ['5432', '6379']) {
+  const publishedPort = compose
+    .split(/\r?\n/u)
+    .find(
+      (line) =>
+        new RegExp(String.raw`^\s*-\s*.+:${containerPort}['"]?\s*$`, 'u').test(line) &&
+        !line.includes(`'127.0.0.1:`) &&
+        !line.includes(`"127.0.0.1:`),
+    );
+  if (publishedPort !== undefined) {
+    throw new Error(`COMPOSE_PUBLIC_DATASTORE_PORT: ${containerPort}`);
+  }
 }
 
 const migration = await readFile(
@@ -50,9 +66,7 @@ for (const fragment of [
 }
 
 const runtime = await readFile(new URL('../apps/server/src/runtime.ts', import.meta.url), 'utf8');
-const migrationEntries = await readdir(
-  new URL('../infra/postgres/migrations/', import.meta.url),
-);
+const migrationEntries = await readdir(new URL('../infra/postgres/migrations/', import.meta.url));
 const upMigrations = migrationEntries.filter((name) => name.endsWith('.up.sql')).sort();
 for (const name of upMigrations) {
   if (!runtime.includes(`'${name}'`)) {

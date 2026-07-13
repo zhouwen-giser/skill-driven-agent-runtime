@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${SDAR_POSTGRES_USER:-sdar}
       POSTGRES_PASSWORD: ${SDAR_POSTGRES_PASSWORD:-sdar_local_only}
     ports:
-      - '${SDAR_POSTGRES_PORT:-54329}:5432'
+      - '127.0.0.1:${SDAR_POSTGRES_PORT:-54329}:5432'
     volumes:
       - sdar-postgres-data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -35,7 +35,7 @@ services:
       - '60'
       - '1'
     ports:
-      - '${SDAR_REDIS_PORT:-56379}:6379'
+      - '127.0.0.1:${SDAR_REDIS_PORT:-56379}:6379'
     volumes:
       - sdar-redis-data:/data
     healthcheck:
