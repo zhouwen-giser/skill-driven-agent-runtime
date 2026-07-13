@@ -405,7 +405,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             status: z.string(),
             promptId: z.string().optional(),
             promptVersion: z.number().optional(),
+            request: z.unknown(),
             rawResponse: z.unknown().optional(),
+            structuredResult: z.unknown().optional(),
             inputTokens: z.number().optional(),
             outputTokens: z.number().optional(),
           }),
@@ -419,11 +421,17 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         status: 'succeeded',
         promptId: 'prompt.skill-authoring.e2e',
         promptVersion: initialPromptVersion,
+        request: expect.objectContaining({
+          instruction: expect.stringContaining('Inspect one device by identifier'),
+        }),
+        rawResponse: expect.objectContaining({ content: expect.any(String) }),
+        structuredResult: expect.objectContaining({ name: expect.any(String) }),
         inputTokens: 9,
         outputTokens: 4,
       }),
     );
     expect(JSON.stringify(audits)).not.toContain('e2e-only');
+    expect(JSON.stringify(audits)).not.toMatch(/private_reasoning|"reasoning"/u);
   });
 
   it('routes an other-vendor Provider through the non-OpenAI Messages adapter', async () => {

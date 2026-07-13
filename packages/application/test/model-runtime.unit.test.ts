@@ -37,6 +37,13 @@ describe('ModelRuntimeService', () => {
       providerId: 'provider-primary',
       model: 'model-a',
       status: 'succeeded',
+      promptId: 'prompt-skill_authoring',
+      promptVersion: 1,
+      request: {
+        instruction: 'System policy. Create a Skill.',
+        responseSchema: { type: 'object' },
+        correctionErrors: [],
+      },
       rawResponse: { visible: 'raw response' },
       structuredResult: { schema: 'valid' },
       inputTokens: 7,

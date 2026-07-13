@@ -13,6 +13,7 @@ Accepted on 2026-07-12.
 - Execution exception decisions are constrained to `terminate`/`continue` and, when the immutable graph provides a target, `goto`. The model cannot create nodes, choose an unregistered Tool, or escape the compiled graph.
 - A failed fixed-stage decision marks Task preparation failed and is rethrown for queue observability. No alternate model or rule fallback is attempted.
 - Only displayable summaries and structured outputs are stored. Private model reasoning is neither requested nor persisted.
+- Provider adapters parse only the displayable text block and normalized usage metadata. Vendor thinking/reasoning/signature blocks and undeclared top-level fields are discarded before the Application audit boundary.
 
 ## Consequences
 

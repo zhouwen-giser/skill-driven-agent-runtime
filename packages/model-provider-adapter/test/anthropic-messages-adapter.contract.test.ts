@@ -33,8 +33,12 @@ describe('non-OpenAI Messages model adapter contract', () => {
           JSON.stringify({
             id: 'message-vendor-1',
             model: 'vendor-model',
-            content: [{ type: 'text', text: '{"decision":"accepted"}' }],
+            content: [
+              { type: 'thinking', thinking: 'must not cross adapter', signature: 'private' },
+              { type: 'text', text: '{"decision":"accepted"}' },
+            ],
             usage: { input_tokens: 13, output_tokens: 4 },
+            private_reasoning: 'must not cross adapter',
           }),
         );
       });
@@ -73,6 +77,7 @@ describe('non-OpenAI Messages model adapter contract', () => {
       inputTokens: 13,
       outputTokens: 4,
     });
+    expect(JSON.stringify(result.rawResponse)).not.toMatch(/thinking|reasoning|signature/u);
     expect(observed).toMatchObject({
       url: '/v1/messages',
       headers: {

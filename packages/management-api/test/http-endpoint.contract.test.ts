@@ -1027,8 +1027,12 @@ describe('management HTTP API contract', () => {
                 providerId: 'provider-1',
                 model: 'model-1',
                 operation: 'structured_generation' as const,
-                request: {},
+                promptId: 'prompt-goal',
+                promptVersion: 3,
+                request: { instruction: 'Displayable rendered prompt.' },
                 context: {},
+                rawResponse: { content: '{"decision":"continue"}' },
+                structuredResult: { decision: 'continue', decisionSummary: 'Proceed.' },
                 durationMs: 5,
                 status: 'succeeded' as const,
                 createdAt: '2026-07-13T00:00:00.000Z',
@@ -1078,7 +1082,18 @@ describe('management HTTP API contract', () => {
       ),
     ]);
     expect(events).toMatchObject({ items: [{ taskId: 'task-linked' }] });
-    expect(models).toMatchObject({ items: [{ taskId: 'task-linked' }] });
+    expect(models).toMatchObject({
+      items: [
+        {
+          taskId: 'task-linked',
+          promptId: 'prompt-goal',
+          promptVersion: 3,
+          request: { instruction: 'Displayable rendered prompt.' },
+          rawResponse: { content: '{"decision":"continue"}' },
+          structuredResult: { decisionSummary: 'Proceed.' },
+        },
+      ],
+    });
     expect(mcp).toMatchObject({ items: [{ taskId: 'task-linked' }] });
     expect(trace).toMatchObject({ instance: { planId: 'plan-linked' }, events: [] });
   });

@@ -6,7 +6,7 @@ import { ModelAdapterError } from './openai-compatible-adapter.js';
 const MessagesResponseSchema = z.object({
   id: z.string().optional(),
   model: z.string().optional(),
-  content: z.array(z.object({ type: z.literal('text'), text: z.string() })).min(1),
+  content: z.array(z.unknown()).min(1),
   usage: z
     .object({
       input_tokens: z.number().int().nonnegative().optional(),
@@ -14,6 +14,7 @@ const MessagesResponseSchema = z.object({
     })
     .optional(),
 });
+const DisplayableTextBlockSchema = z.object({ type: z.literal('text'), text: z.string() });
 
 export class AnthropicMessagesModelAdapter implements ModelTransportAdapter {
   async generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
@@ -46,7 +47,9 @@ export class AnthropicMessagesModelAdapter implements ModelTransportAdapter {
     const parsed = MessagesResponseSchema.safeParse(response);
     if (!parsed.success)
       throw new ModelAdapterError('MODEL_RESPONSE_INVALID', 'Messages response shape is invalid.');
-    const content = parsed.data.content[0]?.text;
+    const content = parsed.data.content
+      .map((block) => DisplayableTextBlockSchema.safeParse(block))
+      .find((block) => block.success)?.data.text;
     if (content === undefined)
       throw new ModelAdapterError('MODEL_RESPONSE_INVALID', 'Structured content is missing.');
     let structuredResult: unknown;

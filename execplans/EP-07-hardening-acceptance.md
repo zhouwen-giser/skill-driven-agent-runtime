@@ -28,14 +28,18 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] 在唯一 LangGraph Runtime 计时并贯通领域事件、PostgreSQL、管理 Trace 和 Console 回放。
 - [x] 完成目标单元/静态 Console 测试与统一 `pnpm verify`；PostgreSQL 集成命令无输出并在 64 秒后超时，仍未验证。
 - [x] 更新 NFR-PERF-002 Traceability、PROJECT_STATUS、ADR、验收报告和 CHANGELOG。
+- [x] 加固 NFR-OBS-002：两个 Provider Adapter 丢弃私有推理块，A2A 仅投影必要摘要，管理端保留 Prompt/净化原始响应/结构化决策审计。
+- [x] 为 NFR-OBS-002 运行 48 个目标测试和统一 `pnpm verify`（53 文件/220 测试及全部静态/构建门禁）。
 
 ## Discoveries and Surprises
 
 - Model/MCP 已拥有显式耗时，Workflow 节点只有开始/终止时间戳；仅在前端推算无法满足 PostgreSQL 权威和可复现证据要求。
+- Anthropic 扩展思考响应可在 displayable text 前包含 thinking/signature block；原严格数组 Schema 会拒绝整个响应。现在允许未知内容块进入 Adapter 局部解析，但仅验证后的 text block 能跨越 Adapter 边界。
 
 ## Decision Log
 
 - ADR-067 规定节点耗时由唯一 LangGraph 编译器测量、领域事件拥有、PostgreSQL 持久化，Console 不自行推算。
+- ADR-027 的私有推理边界扩展到 Provider content block：管理审计保留可展示原始响应而不保留 vendor thinking/signature。
 
 ## Implementation Steps
 
