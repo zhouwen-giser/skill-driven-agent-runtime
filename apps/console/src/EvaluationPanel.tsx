@@ -59,9 +59,15 @@ interface AnalyticsSnapshot {
   }>[];
 }
 
-export function EvaluationPanel() {
+export function EvaluationPanel({
+  initialSkillId,
+  onOpenTask,
+}: {
+  readonly initialSkillId?: string;
+  readonly onOpenTask?: (taskId: string) => void;
+}) {
   const [filters, setFilters] = useState({
-    skillId: '',
+    skillId: initialSkillId ?? '',
     skillVersion: '',
     providerId: '',
     model: '',
@@ -116,7 +122,12 @@ export function EvaluationPanel() {
         </form>
         {message === undefined ? null : <p className="action-message">{message}</p>}
       </section>
-      {analytics === undefined ? null : <OperationsDashboard analytics={analytics} />}
+      {analytics === undefined ? null : (
+        <OperationsDashboard
+          analytics={analytics}
+          {...(onOpenTask === undefined ? {} : { onOpenTask })}
+        />
+      )}
       <section className="analytics-grid">
         <article>
           <span>ANALYTICS</span>
@@ -138,7 +149,13 @@ export function EvaluationPanel() {
   );
 }
 
-export function OperationsDashboard({ analytics }: { readonly analytics: AnalyticsSnapshot }) {
+export function OperationsDashboard({
+  analytics,
+  onOpenTask,
+}: {
+  readonly analytics: AnalyticsSnapshot;
+  readonly onOpenTask?: (taskId: string) => void;
+}) {
   const largestFailure = Math.max(1, ...analytics.failureTypes.map((item) => item.count));
   return (
     <>
@@ -229,6 +246,16 @@ export function OperationsDashboard({ analytics }: { readonly analytics: Analyti
                     {item.status}
                   </span>
                   <code>{item.taskId}</code>
+                  {onOpenTask === undefined ? null : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenTask(item.taskId);
+                      }}
+                    >
+                      Open Task
+                    </button>
+                  )}
                 </li>
               ))}
             </ol>

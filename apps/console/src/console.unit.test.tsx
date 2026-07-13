@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
 import { WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
-import { TaskPanel, TaskRelatedNavigation } from './TaskPanel.js';
+import { TaskEvidenceNavigation, TaskPanel, TaskRelatedNavigation } from './TaskPanel.js';
 import { PromptPanel } from './PromptPanel.js';
-import { MemoryPanel } from './MemoryPanel.js';
+import { MemoryPanel, MemorySourceNavigation } from './MemoryPanel.js';
+import { McpPanel } from './McpPanel.js';
+import { SystemPanel } from './SystemPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
-import { SystemPanel } from './SystemPanel.js';
+import { TaskReferenceLinks } from './RelatedLinks.js';
 
 describe('operational console static accessibility contract', () => {
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
@@ -61,6 +63,58 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Open Skill · skill.test');
   });
 
+  it('renders one-click Task evidence links to MCP, model, and filtered Evaluation', () => {
+    const markup = renderToStaticMarkup(
+      <TaskEvidenceNavigation
+        task={{
+          taskId: 'task.test',
+          contextId: 'context.test',
+          phase: 'completed',
+          phaseMessage: 'Done.',
+          selectedSkillId: 'skill.test',
+        }}
+        evidence={[
+          {
+            key: 'mcp',
+            label: 'MCP',
+            endpoint: '/mcp',
+            value: { items: [{ serverId: 'mcp.test' }] },
+          },
+          {
+            key: 'models',
+            label: 'Models',
+            endpoint: '/models',
+            value: { items: [{ providerId: 'provider.test', model: 'model.test' }] },
+          },
+        ]}
+        onNavigate={() => undefined}
+      />,
+    );
+    expect(markup).toContain('Open MCP Server · mcp.test');
+    expect(markup).toContain('Open Model · provider.test / model.test');
+    expect(markup).toContain('Open Evaluation · skill.test');
+  });
+
+  it('renders focused MCP/model/Evaluation destinations and Memory source Task links', () => {
+    const markup = [
+      <McpPanel key="mcp" focusServerId="mcp.test" />,
+      <SystemPanel key="system" focusProviderId="provider.test" focusModel="model.test" />,
+      <EvaluationPanel key="evaluation" initialSkillId="skill.test" />,
+      <MemorySourceNavigation
+        key="memory"
+        value={{ sourceRefs: ['task:task.test', 'processed-result:result.test'] }}
+        onOpenTask={() => undefined}
+      />,
+    ]
+      .map((item) => renderToStaticMarkup(item))
+      .join('');
+    expect(markup).toContain('Linked MCP Server: mcp.test');
+    expect(markup).toContain('Linked model Provider: provider.test / model.test');
+    expect(markup).toContain('value="skill.test"');
+    expect(markup).toContain('Open source Task · task.test');
+    expect(markup).not.toContain('Open source Task · result.test');
+  });
+
   it('renders Prompt, Memory, and Evaluation controls without operational fixtures', () => {
     const markup = [
       <PromptPanel key="prompt" />,
@@ -102,6 +156,7 @@ describe('operational console static accessibility contract', () => {
   it('renders operational evaluation KPIs, failure bars, stability, and quality trend', () => {
     const markup = renderToStaticMarkup(
       <OperationsDashboard
+        onOpenTask={() => undefined}
         analytics={{
           sampleCount: 3,
           successCount: 2,
@@ -182,5 +237,17 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('CAPABILITY GROWTH');
     expect(markup).toContain('AUTOMATIC OPTIMIZATION SUGGESTIONS');
     expect(markup).toContain('Raw analytics evidence');
+    expect(markup).toContain('Open Task');
+  });
+
+  it('renders reverse MCP/model invocation links from persisted taskId fields', () => {
+    const markup = renderToStaticMarkup(
+      <TaskReferenceLinks
+        value={{ items: [{ taskId: 'task.two' }, { taskId: 'task.one' }] }}
+        onOpenTask={() => undefined}
+      />,
+    );
+    expect(markup).toContain('Open related Task · task.one');
+    expect(markup).toContain('Open related Task · task.two');
   });
 });

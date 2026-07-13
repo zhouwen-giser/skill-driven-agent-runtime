@@ -15,20 +15,25 @@ export interface TaskRecord {
   readonly temporarySkillId?: string;
   readonly errorCode?: string;
 }
-interface EvidenceItem {
+export interface EvidenceItem {
   readonly key: string;
   readonly label: string;
   readonly endpoint: string;
   readonly value: unknown;
   readonly error?: string;
 }
+export type RelatedTarget = Readonly<{
+  kind: 'evaluation' | 'mcp' | 'model' | 'skill' | 'workflow';
+  id: string;
+  secondary?: string;
+}>;
 
 export function TaskPanel({
   initialTaskId,
   onNavigate,
 }: {
   readonly initialTaskId?: string;
-  readonly onNavigate?: (target: Readonly<{ kind: 'workflow' | 'skill'; id: string }>) => void;
+  readonly onNavigate?: (target: RelatedTarget) => void;
 }) {
   const [taskId, setTaskId] = useState(initialTaskId ?? '');
   const [task, setTask] = useState<TaskRecord>();
@@ -224,6 +229,7 @@ export function TaskPanel({
             </article>
           </section>
           <TaskRelatedNavigation task={task} onNavigate={onNavigate} />
+          <TaskEvidenceNavigation task={task} evidence={evidence} onNavigate={onNavigate} />
           <section className="panel">
             <div className="panel-heading">
               <span className="eyebrow">PLAN ACTION BOUNDARY</span>
@@ -294,8 +300,7 @@ export function TaskRelatedNavigation({
   onNavigate,
 }: {
   readonly task: TaskRecord;
-  readonly onNavigate:
-    ((target: Readonly<{ kind: 'workflow' | 'skill'; id: string }>) => void) | undefined;
+  readonly onNavigate: ((target: RelatedTarget) => void) | undefined;
 }) {
   const planId = task.planId;
   const skillId = task.selectedSkillId;
@@ -323,6 +328,81 @@ export function TaskRelatedNavigation({
       )}
     </section>
   );
+}
+
+export function TaskEvidenceNavigation({
+  task,
+  evidence,
+  onNavigate,
+}: {
+  readonly task: TaskRecord;
+  readonly evidence: readonly EvidenceItem[];
+  readonly onNavigate: ((target: RelatedTarget) => void) | undefined;
+}) {
+  if (onNavigate === undefined) return null;
+  const mcp = firstEvidenceIdentity(evidence, 'mcp', ['serverId']);
+  const model = firstEvidenceIdentity(evidence, 'models', ['providerId', 'model']);
+  const skillId = task.selectedSkillId;
+  return (
+    <section className="action-row" aria-label="Task evidence navigation">
+      {mcp === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate({ kind: 'mcp', id: mcp[0] });
+          }}
+        >
+          Open MCP Server · {mcp[0]}
+        </button>
+      )}
+      {model === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate({
+              kind: 'model',
+              id: model[0],
+              ...(model[1] === undefined ? {} : { secondary: model[1] }),
+            });
+          }}
+        >
+          Open Model · {model.join(' / ')}
+        </button>
+      )}
+      {skillId === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate({ kind: 'evaluation', id: skillId });
+          }}
+        >
+          Open Evaluation · {skillId}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function firstEvidenceIdentity(
+  evidence: readonly EvidenceItem[],
+  key: string,
+  fields: readonly string[],
+): readonly [string, ...string[]] | undefined {
+  const value = evidence.find((item) => item.key === key)?.value;
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('items' in value) ||
+    !Array.isArray(value.items)
+  )
+    return undefined;
+  const first: unknown = value.items[0];
+  if (typeof first !== 'object' || first === null) return undefined;
+  const record = first as Readonly<Record<string, unknown>>;
+  const values = fields.flatMap((field) =>
+    typeof record[field] === 'string' ? [record[field]] : [],
+  );
+  return values.length === 0 ? undefined : (values as [string, ...string[]]);
 }
 
 function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value'>[] {

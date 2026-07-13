@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
+import { TaskReferenceLinks } from './RelatedLinks.js';
 
 const stages = [
   'intent',
@@ -43,7 +44,15 @@ interface EvolutionPolicy {
   readonly updatedAt: string;
 }
 
-export function SystemPanel() {
+export function SystemPanel({
+  focusProviderId,
+  focusModel,
+  onOpenTask,
+}: {
+  readonly focusProviderId?: string;
+  readonly focusModel?: string;
+  readonly onOpenTask?: (taskId: string) => void;
+}) {
   const [providers, setProviders] = useState<readonly Provider[]>([]);
   const [routes, setRoutes] = useState<unknown[]>([]);
   const [invocations, setInvocations] = useState<unknown[]>([]);
@@ -189,6 +198,12 @@ export function SystemPanel() {
             Refresh real data
           </button>
         </div>
+        {focusProviderId === undefined ? null : (
+          <p className="action-message">
+            Linked model Provider: {focusProviderId}
+            {focusModel === undefined ? '' : ` / ${focusModel}`}
+          </p>
+        )}
         <form className="filter-form" onSubmit={(event) => void saveProvider(event)}>
           {(['providerId', 'name', 'baseUrl', 'model', 'timeoutMs'] as const).map((key) => (
             <label key={key}>
@@ -378,6 +393,7 @@ export function SystemPanel() {
         </article>
         <article>
           <span>SANITIZED MODEL INVOCATIONS</span>
+          <TaskReferenceLinks value={invocations} onOpenTask={onOpenTask} />
           <pre>{JSON.stringify(invocations, null, 2)}</pre>
         </article>
       </section>

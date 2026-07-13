@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
+import { TaskReferenceLinks } from './RelatedLinks.js';
 
 type McpView = 'tools' | 'operations' | 'invocations' | 'warnings';
 interface McpServerRecord extends Record<string, unknown> {
@@ -11,7 +12,13 @@ interface McpServerRecord extends Record<string, unknown> {
   readonly toolRevision: number;
 }
 
-export function McpPanel() {
+export function McpPanel({
+  focusServerId,
+  onOpenTask,
+}: {
+  readonly focusServerId?: string;
+  readonly onOpenTask?: (taskId: string) => void;
+}) {
   const [servers, setServers] = useState<readonly McpServerRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>();
@@ -127,6 +134,9 @@ export function McpPanel() {
             {loading ? 'LOADING' : 'CONNECTED'}
           </span>
         </div>
+        {focusServerId === undefined ? null : (
+          <p className="action-message">Linked MCP Server: {focusServerId}</p>
+        )}
         <form className="admin-form" onSubmit={(event) => void register(event)}>
           <label>
             Server ID
@@ -175,7 +185,10 @@ export function McpPanel() {
       </section>
       <div className="record-list">
         {servers.map((server) => (
-          <article key={server.serverId}>
+          <article
+            key={server.serverId}
+            className={server.serverId === focusServerId ? 'linked-record' : undefined}
+          >
             <div className="record-heading">
               <div>
                 <strong>{server.name}</strong>
@@ -231,6 +244,7 @@ export function McpPanel() {
       </div>
       {detail === undefined ? null : (
         <section className="panel">
+          <TaskReferenceLinks value={detail} onOpenTask={onOpenTask} />
           <pre className="result">{JSON.stringify(detail, null, 2)}</pre>
           {selectedServer === undefined ? null : (
             <form

@@ -11,7 +11,7 @@ const memoryTypes = [
   'prompt_learning',
 ] as const;
 
-export function MemoryPanel() {
+export function MemoryPanel({ onOpenTask }: { readonly onOpenTask?: (taskId: string) => void }) {
   const [query, setQuery] = useState('');
   const [memoryId, setMemoryId] = useState('');
   const [result, setResult] = useState<unknown>();
@@ -192,11 +192,62 @@ export function MemoryPanel() {
           ))}
         </div>
         {result === undefined ? null : (
-          <pre className="result">{JSON.stringify(result, null, 2)}</pre>
+          <>
+            <MemorySourceNavigation value={result} onOpenTask={onOpenTask} />
+            <pre className="result">{JSON.stringify(result, null, 2)}</pre>
+          </>
         )}
       </section>
     </div>
   );
+}
+
+export function MemorySourceNavigation({
+  value,
+  onOpenTask,
+}: {
+  readonly value: unknown;
+  readonly onOpenTask: ((taskId: string) => void) | undefined;
+}) {
+  if (onOpenTask === undefined) return null;
+  const taskIds = memoryTaskIds(value);
+  return (
+    <div className="action-row" aria-label="Memory source Tasks">
+      {taskIds.map((taskId) => (
+        <button
+          type="button"
+          key={taskId}
+          onClick={() => {
+            onOpenTask(taskId);
+          }}
+        >
+          Open source Task · {taskId}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function memoryTaskIds(value: unknown): readonly string[] {
+  const records: unknown[] = [value];
+  if (typeof value === 'object' && value !== null && 'items' in value && Array.isArray(value.items))
+    for (const item of value.items as unknown[]) records.push(item);
+  const refs = new Set<string>();
+  for (const record of records) {
+    const item =
+      typeof record === 'object' && record !== null && 'item' in record ? record.item : record;
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      !('sourceRefs' in item) ||
+      !Array.isArray(item.sourceRefs)
+    )
+      continue;
+    for (const source of item.sourceRefs)
+      if (typeof source === 'string' && source.startsWith('task:') && source.length > 5)
+        refs.add(source.slice(5));
+  }
+  return [...refs].sort();
 }
 
 function memoryPayload(

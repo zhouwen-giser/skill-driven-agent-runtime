@@ -46,10 +46,25 @@ const navigation: readonly {
 export function App() {
   const [section, setSection] = useState<Section>('overview');
   const [target, setTarget] = useState<
-    Readonly<{ taskId?: string; planId?: string; skillId?: string }>
+    Readonly<{
+      taskId?: string;
+      planId?: string;
+      skillId?: string;
+      serverId?: string;
+      providerId?: string;
+      model?: string;
+    }>
   >({});
   function navigate(
-    next: Readonly<{ section: Section; taskId?: string; planId?: string; skillId?: string }>,
+    next: Readonly<{
+      section: Section;
+      taskId?: string;
+      planId?: string;
+      skillId?: string;
+      serverId?: string;
+      providerId?: string;
+      model?: string;
+    }>,
   ) {
     setTarget(next);
     setSection(next.section);
@@ -109,9 +124,24 @@ function SectionView({
   onNavigate,
 }: {
   readonly section: Section;
-  readonly target: Readonly<{ taskId?: string; planId?: string; skillId?: string }>;
+  readonly target: Readonly<{
+    taskId?: string;
+    planId?: string;
+    skillId?: string;
+    serverId?: string;
+    providerId?: string;
+    model?: string;
+  }>;
   readonly onNavigate: (
-    target: Readonly<{ section: Section; taskId?: string; planId?: string; skillId?: string }>,
+    target: Readonly<{
+      section: Section;
+      taskId?: string;
+      planId?: string;
+      skillId?: string;
+      serverId?: string;
+      providerId?: string;
+      model?: string;
+    }>,
   ) => void;
 }) {
   if (section === 'overview') return <Overview />;
@@ -119,8 +149,24 @@ function SectionView({
     return (
       <SkillsPanel {...(target.skillId === undefined ? {} : { focusSkillId: target.skillId })} />
     );
-  if (section === 'mcp') return <McpPanel />;
-  if (section === 'evaluation') return <EvaluationPanel />;
+  if (section === 'mcp')
+    return (
+      <McpPanel
+        {...(target.serverId === undefined ? {} : { focusServerId: target.serverId })}
+        onOpenTask={(taskId) => {
+          onNavigate({ section: 'tasks', taskId });
+        }}
+      />
+    );
+  if (section === 'evaluation')
+    return (
+      <EvaluationPanel
+        {...(target.skillId === undefined ? {} : { initialSkillId: target.skillId })}
+        onOpenTask={(taskId) => {
+          onNavigate({ section: 'tasks', taskId });
+        }}
+      />
+    );
   if (section === 'workflows')
     return (
       <WorkflowPanel
@@ -138,14 +184,39 @@ function SectionView({
           onNavigate(
             next.kind === 'workflow'
               ? { section: 'workflows', planId: next.id }
-              : { section: 'skills', skillId: next.id },
+              : next.kind === 'skill'
+                ? { section: 'skills', skillId: next.id }
+                : next.kind === 'mcp'
+                  ? { section: 'mcp', serverId: next.id }
+                  : next.kind === 'model'
+                    ? {
+                        section: 'system',
+                        providerId: next.id,
+                        ...(next.secondary === undefined ? {} : { model: next.secondary }),
+                      }
+                    : { section: 'evaluation', skillId: next.id },
           );
         }}
       />
     );
   if (section === 'prompts') return <PromptPanel />;
-  if (section === 'system') return <SystemPanel />;
-  return <MemoryPanel />;
+  if (section === 'system')
+    return (
+      <SystemPanel
+        {...(target.providerId === undefined ? {} : { focusProviderId: target.providerId })}
+        {...(target.model === undefined ? {} : { focusModel: target.model })}
+        onOpenTask={(taskId) => {
+          onNavigate({ section: 'tasks', taskId });
+        }}
+      />
+    );
+  return (
+    <MemoryPanel
+      onOpenTask={(taskId) => {
+        onNavigate({ section: 'tasks', taskId });
+      }}
+    />
+  );
 }
 
 function Overview() {
