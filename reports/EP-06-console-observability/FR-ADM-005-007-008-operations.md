@@ -16,6 +16,8 @@ Acceptance reconciliation (2026-07-13): FR-ADM-005 is verified. EP-03 ran real P
 - Read a Memory and immutable status transitions; supersede with an explicit replacement/reason or invalidate with an actor/reason.
 - Persistently display the accepted V1 risk that anonymous Memory is shared without user isolation.
 
+Acceptance reconciliation (2026-07-13): FR-ADM-007 is verified. FR-MEM-004's real management/model/PostgreSQL E2E covers source-linked read/search, transactional supersede, unchanged historical content, replacement links, transition audit, invalidation, and active-only retrieval (29 integration, 37 E2E, build, smoke). Current Memory/management/Console regression passes 3 files/55 tests; unified `pnpm verify` passes 54 files/241 tests.
+
 ## FR-ADM-008 Evaluation operations
 
 - Filter PostgreSQL analytics by Skill, SkillVersion, provider, model, MCP Server, and Tool.
