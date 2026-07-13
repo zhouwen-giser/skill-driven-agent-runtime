@@ -24,7 +24,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Fixed
 
-- SBOM/license generation now filters the pnpm virtual store through the current lockfile, excluding stale packages left by prior installs and making clean-checkout evidence deterministic.
+- SBOM/license generation now filters the pnpm virtual store through the current lockfile and records package-relative license locators, excluding stale packages and peer-layout paths left by prior installs so clean-checkout evidence is deterministic.
 
 - Clean Windows checkouts now retain the repository LF formatting baseline through `.gitattributes`, so the frozen-install verification is independent of global `core.autocrlf` settings.
 

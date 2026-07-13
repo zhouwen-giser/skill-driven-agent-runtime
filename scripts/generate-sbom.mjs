@@ -52,7 +52,7 @@ async function collectPackage(packageDir) {
     name: manifest.name,
     version: manifest.version,
     license,
-    licenseFiles: licenseFiles.map((file) => path.relative(root, path.join(packageDir, file))),
+    licenseFiles: licenseFiles.map((file) => `${key}/${file}`),
     repository: normalizeRepository(manifest.repository),
   });
 }
@@ -177,7 +177,7 @@ const licenseJson = `${JSON.stringify(
 
 const notices = `# Third-Party Notices
 
-Generated from the exact pnpm lockfile installation for the EP-00 baseline. This file is not legal advice. Package license texts remain available at the recorded installed paths and must be bundled or reproduced as required for a release artifact.
+Generated from the exact pnpm lockfile installation for the EP-00 baseline. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
 
 ## External services
 
