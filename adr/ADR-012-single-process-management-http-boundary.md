@@ -14,6 +14,7 @@ The operational console requires real management APIs while A2A routing remains 
 - `packages/management-api` owns Express and Zod HTTP DTOs. Core modules do not import Express types.
 - Routes call SkillRegistry and McpRegistry services and never mutate projections directly.
 - Every response carries `X-SDAR-Security-Warning: trusted-intranet-only-no-auth`; health output repeats the risk.
+- Both listeners default to loopback. A non-loopback A2A or management host fails environment validation unless the operator explicitly sets `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true` after establishing trusted-network isolation. The acknowledgement is a startup guard, not authentication or authorization.
 - MCP lists never include encrypted credentials. Unexpected errors become generic 500 envelopes without driver messages.
 - `schemas/management-api.openapi.yaml` documents the initial API; contract and real e2e tests verify it.
 

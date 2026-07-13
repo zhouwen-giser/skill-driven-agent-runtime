@@ -42,3 +42,9 @@
 ## 重要边界
 
 本项目不是把八个 Agent 框架拼接成一个系统。唯一工作流运行时是 LangGraph.js；A2A 与 MCP 使用官方 SDK；Goal、Skill、Workflow DSL、评估与演化是自研核心。其他开源项目以源码研究、接口借鉴和 UI 参考为主，任何源码复制都必须先完成许可证与来源登记。
+
+## V1 运行安全警告
+
+V1 的 A2A、管理 API 和 Console **没有认证、授权或租户隔离**，只能运行于 localhost 或具备防火墙隔离的可信内网，禁止直接暴露公网。监听地址默认 `127.0.0.1`；配置任何非 loopback A2A/管理地址时，进程会拒绝启动，除非运维人员在完成网络隔离审查后显式设置 `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true`。该变量只是风险确认，不提供任何认证能力。
+
+PostgreSQL 与 Redis 不得具有公网路由。发布前必须逐项完成 [Release Checklist](templates/RELEASE_CHECKLIST.md)。

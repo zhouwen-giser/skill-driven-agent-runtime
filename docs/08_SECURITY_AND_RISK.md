@@ -15,6 +15,7 @@
 ## 即使首版不做权限，也必须具备的安全控制
 
 - 网络绑定默认 localhost 或明确配置的可信网卡；
+- 非 loopback A2A/管理绑定默认拒绝启动；仅在已验证防火墙/可信网段后显式设置 `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true`。该确认不提供认证，也不允许公网暴露；
 - CORS 默认关闭或限定管理端来源；
 - 数据库和 Redis 不暴露公网；
 - 凭据加密与日志脱敏；

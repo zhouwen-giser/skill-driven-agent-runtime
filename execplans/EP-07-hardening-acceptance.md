@@ -34,6 +34,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] 为 NFR-DATA-001 运行 48 个目标测试和统一 `pnpm verify`（54 文件/221 测试及全部静态/构建门禁）。
 - [x] 为 NFR-PERF-001 固化 Worker 默认并发 10，并证明十个 context 并发、每个 context 的后继操作严格串行且状态不交叉。
 - [x] 为 NFR-PERF-001 运行统一 `pnpm verify`（54 文件/222 测试）；隔离 Redis 集成无输出并在 49 秒后超时，保持未验证。
+- [x] 为 NFR-SEC-001 增加非 loopback 默认拒绝、显式可信网络确认、README/安全文档/发布清单隔离检查和 50 个目标测试。
+- [x] 为 NFR-SEC-001 运行统一 `pnpm verify`（54 文件/224 测试及全部静态/构建门禁）。
 
 ## Discoveries and Surprises
 
@@ -41,6 +43,7 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - Anthropic 扩展思考响应可在 displayable text 前包含 thinking/signature block；原严格数组 Schema 会拒绝整个响应。现在允许未知内容块进入 Adapter 局部解析，但仅验证后的 text block 能跨越 Adapter 边界。
 - 现有唯一服务端定时器是 Task 等待超时 sweep，不执行历史清理；保留天数字段是规划元数据，不能触发归档或删除。
 - Worker 并发限制和 context 串行是两个独立约束：前者限制全局活动 Job，后者在并发槽内阻止同 context 应用处理重叠。
+- 默认 localhost 不足以防止运维误配；非 loopback 配置必须在启动前显式确认，但该确认绝不冒充认证或放宽“禁止公网”基线。
 
 ## Decision Log
 
@@ -48,6 +51,7 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - ADR-027 的私有推理边界扩展到 Provider content block：管理审计保留可展示原始响应而不保留 vendor thinking/signature。
 - ADR-059 的禁止自动清理决策扩展为明确的全历史数据运行姿态，通过 health 和 Console 暴露；显式管理生命周期操作不等同于后台保留清理。
 - ADR-005 明确 BullMQ 默认并发 10 与进程内 `context_id` 串行器的组合；串行器不拥有任务状态。
+- ADR-012 增加监听地址 fail-closed 规则；可信网卡仍需显式风险确认和发布清单网络隔离证据。
 
 ## Implementation Steps
 
