@@ -514,7 +514,7 @@ export async function startServerRuntime(
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        await workflowExecution.confirm(task.planId);
+        await workflowExecution.confirm(task.planId, task.taskId);
       },
       executeConfirmed(task) {
         if (
@@ -927,7 +927,7 @@ export async function startServerRuntime(
             `TASK_PLAN_SKILL_TOOL_POLICY_INVALID:${JSON.stringify(toolPolicyViolations)}`,
           );
         if (skill?.runtimePolicy.autoConfirmPlan === true)
-          await workflowExecution.confirm(plan.planId);
+          await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
           autoConfirmed: skill?.runtimePolicy.autoConfirmPlan === true,

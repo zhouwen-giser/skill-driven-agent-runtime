@@ -341,6 +341,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(workflowNodeDurationMigration);
+  const goalPatchTaskCorrelationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0052_observability_correlation.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(goalPatchTaskCorrelationMigration);
 });
 
 beforeEach(async () => {
@@ -627,10 +635,11 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ['plan.db'],
     );
     expect(attempts.rows[0]?.count).toBe(2);
-    await repository.confirmPlan('plan.db');
+    await repository.confirmPlan('plan.db', { confirmedAt: '2026-07-12T00:02:00.000Z' });
     await expect(repository.findConfirmedDefinition('workflow.db', 1)).resolves.toMatchObject({
       planId: 'plan.db',
       confirmationStatus: 'confirmed',
+      confirmedAt: '2026-07-12T00:02:00.000Z',
     });
     const templates = new PostgresWorkflowTemplateRepository(pool);
     const template = {
@@ -1661,6 +1670,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
       updatedAt: beforeGoal.updatedAt,
     });
     await goals.save(beforeGoal);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const triggeringTask = bindTaskGoal(
+      createAgentTask({
+        taskId: 'task.patch.db',
+        contextId: beforeGoal.contextId,
+        userId: 'operator',
+        requestText: 'Also record temperature.',
+        requestMetadata: {},
+        timestamp: beforeGoal.createdAt,
+      }),
+      { goalId: beforeGoal.goalId, goalVersion: 1, timestamp: beforeGoal.createdAt },
+    );
+    await tasks.save(triggeringTask);
     await plans.savePlan({
       planId: 'plan.patch.db',
       goalId: beforeGoal.goalId,
@@ -1682,9 +1704,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
         ],
         edges: [],
       },
-      confirmationStatus: 'confirmed',
+      confirmationStatus: 'awaiting_confirmation',
       attemptCount: 1,
       createdAt: beforeGoal.createdAt,
+    });
+    await plans.confirmPlan('plan.patch.db', {
+      taskId: triggeringTask.taskId,
+      confirmedAt: '2026-07-12T00:00:00.500Z',
     });
     await executions.saveInstance({
       instanceId: 'instance.patch.db',
@@ -1717,20 +1743,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
     };
 
     await expect(
-      patches.apply({
-        patchId: 'patch.db',
-        goalId: beforeGoal.goalId,
-        fromVersion: 1,
-        toVersion: 2,
-        instruction: 'Also record temperature.',
-        changes: { successCriteria: afterGoal.successCriteria },
-        decisionSummary: 'Temperature is now required.',
-        compensationWarnings: ['No automatic compensation was attempted.'],
-        newPlanId: 'plan.patch.db.v2',
-        beforeGoal,
-        afterGoal,
-        createdAt: afterGoal.updatedAt,
-      }),
+      patches.apply(
+        {
+          patchId: 'patch.db',
+          goalId: beforeGoal.goalId,
+          fromVersion: 1,
+          toVersion: 2,
+          instruction: 'Also record temperature.',
+          changes: { successCriteria: afterGoal.successCriteria },
+          decisionSummary: 'Temperature is now required.',
+          compensationWarnings: ['No automatic compensation was attempted.'],
+          newPlanId: 'plan.patch.db.v2',
+          beforeGoal,
+          afterGoal,
+          createdAt: afterGoal.updatedAt,
+        },
+        triggeringTask.taskId,
+      ),
     ).resolves.toMatchObject({
       invalidatedPlanIds: ['plan.patch.db'],
       invalidatedInstanceIds: ['instance.patch.db'],
@@ -1741,13 +1770,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await expect(plans.findPlan('plan.patch.db')).resolves.toMatchObject({
       confirmationStatus: 'invalidated',
+      confirmationTaskId: triggeringTask.taskId,
+      confirmedAt: '2026-07-12T00:00:00.500Z',
     });
     await expect(executions.findInstance('instance.patch.db')).resolves.toMatchObject({
       status: 'invalidated',
       errors: { goalPatch: { code: 'GOAL_PATCH_INVALIDATED' } },
     });
     await expect(patches.listByGoal(beforeGoal.goalId)).resolves.toEqual([
-      expect.objectContaining({ patchId: 'patch.db', fromVersion: 1, toVersion: 2 }),
+      expect.objectContaining({
+        patchId: 'patch.db',
+        triggeringTaskId: triggeringTask.taskId,
+        fromVersion: 1,
+        toVersion: 2,
+      }),
     ]);
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
@@ -2724,6 +2760,44 @@ describe('PostgreSQL protocol-domain repositories', () => {
        WHERE table_name='workflow_node_event' AND column_name='duration_ms'`,
     );
     expect(restored.rows[0]?.count).toBe('1');
+  });
+
+  it('rolls back and reapplies the observability-correlation migration', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0052_observability_correlation.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0052_observability_correlation.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.columns
+         WHERE table_name='goal_patch' AND column_name='triggering_task_id'`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='goal_patch' AND column_name='triggering_task_id'`,
+    );
+    expect(restored.rows[0]?.count).toBe('1');
+    const confirmationColumns = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='workflow_plan'
+         AND column_name IN ('confirmation_task_id','confirmed_at')`,
+    );
+    expect(confirmationColumns.rows[0]?.count).toBe('2');
   });
 });
 

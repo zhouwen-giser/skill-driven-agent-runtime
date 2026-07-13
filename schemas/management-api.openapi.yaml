@@ -213,7 +213,10 @@ paths:
     post:
       operationId: confirmWorkflowPlan
       responses:
-        '200': { description: Confirmed immutable Workflow plan }
+        '200':
+          {
+            description: Confirmed immutable Workflow plan with persisted confirmation timestamp and optional triggering Task identity,
+          }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/plans/{planId}/execute:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
@@ -268,7 +271,14 @@ paths:
     get:
       operationId: getWorkflowPlan
       responses:
-        '200': { description: Immutable plan, revision lineage and confirmation status }
+        '200':
+          {
+            description: Immutable plan,
+            revision lineage,
+            confirmation status,
+            timestamp,
+            and optional triggering Task identity,
+          }
         '404': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/plans/{planId}/trace:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]

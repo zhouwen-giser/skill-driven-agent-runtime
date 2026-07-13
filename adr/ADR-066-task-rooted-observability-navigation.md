@@ -12,6 +12,8 @@ FR-ADM-006 and NFR-OBS-001 require operators to move from a Task to its Goal, Wo
 
 - Use the PostgreSQL-authoritative Task as the navigation root.
 - Follow only persisted identifiers: `contextId`, `goalId`, `planId`, selected Skill identity, `task_id` on model/MCP invocations, and repository-owned result/evaluation references.
+- Persist `confirmationTaskId` and `confirmedAt` when a Task confirms a plan. A direct management confirmation has no fabricated Task owner and is identified by its persisted `planId` and `confirmedAt`.
+- Persist the optional `triggeringTaskId` on each Goal Patch. The Patch already owns `goalId`, old/new Goal versions, invalidated Plan/instance IDs, and the new Plan ID; the triggering Task closes the remaining Task-rooted correlation gap.
 - Task-to-Workflow/Skill and Workflow-to-owning-Task navigation uses persisted `planId`/selected Skill identity plus an exact PostgreSQL `planId` Task query. Frontend navigation state carries identifiers only.
 - Goal-to-Task-history navigation uses an exact PostgreSQL `goalId` Task query over `agent_task.goal_id`; it does not infer Goal membership from context, time, or display text.
 - Task-to-MCP/model/Evaluation links consume invocation and selected-Skill identities. Reverse links consume persisted invocation/quality `taskId` or explicit Memory `task:` source references; non-Task source references are never treated as Tasks.
@@ -24,3 +26,5 @@ FR-ADM-006 and NFR-OBS-001 require operators to move from a Task to its Goal, Wo
 ## Consequences
 
 The console gains deterministic cross-resource navigation without a duplicate denormalized trace store. Query indexes and retention continue to follow their owning tables. A later global search/list page may reuse these filters, but it must not infer links outside persisted identifiers.
+
+Legacy Plan confirmations and Goal Patches created before migration 0052 retain unknown optional correlation fields. New runtime writes always persist a confirmation timestamp; Task-mediated confirmation and Goal Patch paths persist their Task identity.

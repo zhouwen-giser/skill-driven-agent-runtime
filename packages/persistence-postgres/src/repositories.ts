@@ -695,6 +695,7 @@ export class PostgresGoalRepository implements GoalRepository {
 interface GoalPatchRow extends QueryResultRow {
   patch_id: string;
   goal_id: string;
+  triggering_task_id: string | null;
   from_version: number;
   to_version: number;
   instruction: string;
@@ -794,18 +795,20 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
       );
       const completed: GoalPatchRecord = {
         ...record,
+        ...(triggeringTaskId === undefined ? {} : { triggeringTaskId }),
         invalidatedPlanIds: plans.rows.map((row) => row.plan_id),
         invalidatedInstanceIds: instances.rows.map((row) => row.instance_id),
       };
       await client.query(
         `INSERT INTO goal_patch(
-           patch_id,goal_id,from_version,to_version,instruction,changes_json,decision_summary,
+           patch_id,goal_id,triggering_task_id,from_version,to_version,instruction,changes_json,decision_summary,
            compensation_warnings_json,invalidated_plan_ids_json,invalidated_instance_ids_json,
            new_plan_id,before_goal_json,after_goal_json,created_at)
-         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14)`,
+         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14::jsonb,$15)`,
         [
           completed.patchId,
           completed.goalId,
+          completed.triggeringTaskId ?? null,
           completed.fromVersion,
           completed.toVersion,
           completed.instruction,
@@ -1751,6 +1754,7 @@ function mapGoalPatchRow(row: GoalPatchRow): GoalPatchRecord {
   return {
     patchId: row.patch_id,
     goalId: row.goal_id,
+    ...(row.triggering_task_id === null ? {} : { triggeringTaskId: row.triggering_task_id }),
     fromVersion: row.from_version,
     toVersion: row.to_version,
     instruction: row.instruction,
@@ -2866,6 +2870,8 @@ interface WorkflowPlanRow extends QueryResultRow {
   source_plan_id: string | null;
   revision_kind: NonNullable<WorkflowPlanRecord['revisionKind']> | null;
   confirmation_status: WorkflowPlanRecord['confirmationStatus'];
+  confirmation_task_id: string | null;
+  confirmed_at: Date | string | null;
   attempt_count: number;
   created_at: Date | string;
 }
@@ -3054,6 +3060,10 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       ...(row.source_plan_id === null ? {} : { sourcePlanId: row.source_plan_id }),
       ...(row.revision_kind === null ? {} : { revisionKind: row.revision_kind }),
       confirmationStatus: row.confirmation_status,
+      ...(row.confirmation_task_id === null
+        ? {}
+        : { confirmationTaskId: row.confirmation_task_id }),
+      ...(row.confirmed_at === null ? {} : { confirmedAt: toIsoString(row.confirmed_at) }),
       attemptCount: row.attempt_count,
       createdAt: toIsoString(row.created_at),
     };
@@ -3073,11 +3083,14 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     const row = result.rows[0];
     return row === undefined ? undefined : mapWorkflowPlanRow(row);
   }
-  async confirmPlan(planId: string): Promise<void> {
+  async confirmPlan(
+    planId: string,
+    correlation: Readonly<{ taskId?: string; confirmedAt: string }>,
+  ): Promise<void> {
     const result = await this.#pool.query(
-      `UPDATE workflow_plan SET confirmation_status='confirmed'
+      `UPDATE workflow_plan SET confirmation_status='confirmed',confirmation_task_id=$2,confirmed_at=$3
        WHERE plan_id=$1 AND definition_json IS NOT NULL AND confirmation_status='awaiting_confirmation'`,
-      [planId],
+      [planId, correlation.taskId ?? null, correlation.confirmedAt],
     );
     if (result.rowCount !== 1) throw new Error('WORKFLOW_PLAN_CONFIRMATION_FAILED');
   }
@@ -3768,6 +3781,8 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.source_plan_id === null ? {} : { sourcePlanId: row.source_plan_id }),
     ...(row.revision_kind === null ? {} : { revisionKind: row.revision_kind }),
     confirmationStatus: row.confirmation_status,
+    ...(row.confirmation_task_id === null ? {} : { confirmationTaskId: row.confirmation_task_id }),
+    ...(row.confirmed_at === null ? {} : { confirmedAt: toIsoString(row.confirmed_at) }),
     attemptCount: row.attempt_count,
     createdAt: toIsoString(row.created_at),
   };

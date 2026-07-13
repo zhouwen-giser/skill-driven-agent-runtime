@@ -83,6 +83,8 @@ export interface WorkflowPlanRecord {
     'auto_correction' | 'natural_language' | 'admin_dsl' | 'admin_dag' | 'replan';
   readonly confirmationStatus:
     'awaiting_confirmation' | 'confirmed' | 'failed' | 'superseded' | 'invalidated';
+  readonly confirmationTaskId?: string;
+  readonly confirmedAt?: string;
   readonly attemptCount: number;
   readonly createdAt: string;
 }

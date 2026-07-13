@@ -500,7 +500,10 @@ export interface WorkflowPlanRepository {
     workflowDefinitionId: string,
     workflowVersion: number,
   ): Promise<WorkflowPlanRecord | undefined>;
-  confirmPlan(planId: string): Promise<void>;
+  confirmPlan(
+    planId: string,
+    correlation: Readonly<{ taskId?: string; confirmedAt: string }>,
+  ): Promise<void>;
   saveAttempt(attempt: WorkflowPlanAttempt): Promise<void>;
   savePlan(plan: WorkflowPlanRecord): Promise<void>;
   savePlanAndSupersede(plan: WorkflowPlanRecord, sourcePlanId: string): Promise<void>;

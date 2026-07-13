@@ -391,7 +391,7 @@ export class WorkflowControllerService {
         if (node.type === 'skill_call') autoConfirmSkillIds.add(node.skillId);
       const autoConfirm =
         replacement === undefined && (await this.#allSkillsAutoConfirm([...autoConfirmSkillIds]));
-      if (autoConfirm) await this.#execution.confirm(nextPlan.planId);
+      if (autoConfirm) await this.#execution.confirm(nextPlan.planId, control.taskId);
       if (replacement !== undefined && control.taskId !== undefined)
         await this.#taskOutcomes?.reportReplacementPlan(control.taskId, {
           planId: nextPlan.planId,

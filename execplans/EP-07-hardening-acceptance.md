@@ -39,7 +39,12 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] 为 NFR-SEC-002 统一 MCP/Model 环境主密钥 Cipher 注入，并用生产 Cipher 定义数据库无明文/可认证解密集成断言。
 - [x] 为 NFR-SEC-002 运行统一 `pnpm verify`（54 文件/224 测试及全部静态/构建门禁）。
 
+- [x] NFR-OBS-001 audit closed the indirect-only Plan-confirmation and Goal-Patch links with migration 0052, persisted Task/time correlation, 65 targeted tests, and a classified acceptance report.
+- [x] NFR-OBS-001 unified `pnpm verify` passed with 54 files/225 tests and all static/build gates; bounded probes still found PostgreSQL and Redis unreachable, so real persistence/E2E stays unverified.
+
 ## Discoveries and Surprises
+
+- Plan confirmation previously persisted only a mutable status, and Goal Patch used a triggering Task only inside its transaction. Neither was sufficient for historical Task-rooted correlation after later revisions.
 
 - Model/MCP 已拥有显式耗时，Workflow 节点只有开始/终止时间戳；仅在前端推算无法满足 PostgreSQL 权威和可复现证据要求。
 - Anthropic 扩展思考响应可在 displayable text 前包含 thinking/signature block；原严格数组 Schema 会拒绝整个响应。现在允许未知内容块进入 Adapter 局部解析，但仅验证后的 text block 能跨越 Adapter 边界。
@@ -56,6 +61,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - ADR-005 明确 BullMQ 默认并发 10 与进程内 `context_id` 串行器的组合；串行器不拥有任务状态。
 - ADR-012 增加监听地址 fail-closed 规则；可信网卡仍需显式风险确认和发布清单网络隔离证据。
 - ADR-011/018 明确 MCP 与 Model 共用 composition-owned AES-256-GCM Cipher，数据库与管理边界均不持有明文。
+
+- ADR-066 now requires persisted Plan confirmation Task/time and Goal Patch triggering Task identity; legacy rows keep explicit unknown optional values rather than inferred links.
 
 ## Implementation Steps
 

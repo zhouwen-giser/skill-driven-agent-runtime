@@ -42,6 +42,23 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('persists the confirmation timestamp and triggering Task identity', async () => {
+    const awaiting = { ...validPlan, confirmationStatus: 'awaiting_confirmation' as const };
+    const plans = new MemoryPlans([awaiting]);
+    const service = createService(plans, new MemoryExecutions(), { execute: vi.fn() });
+
+    await expect(service.confirm(awaiting.planId, 'task-confirmation')).resolves.toMatchObject({
+      planId: awaiting.planId,
+      confirmationStatus: 'confirmed',
+      confirmationTaskId: 'task-confirmation',
+      confirmedAt: '2026-07-12T00:00:00.000Z',
+    });
+    await expect(plans.findPlan(awaiting.planId)).resolves.toMatchObject({
+      confirmationTaskId: 'task-confirmation',
+      confirmedAt: '2026-07-12T00:00:00.000Z',
+    });
+  });
+
   it('returns the authoritative instance with ordered displayable node events', async () => {
     const instances = new MemoryExecutions();
     const instance: WorkflowInstance = {
@@ -527,9 +544,21 @@ class MemoryPlans implements WorkflowPlanRepository {
       ),
     );
   }
-  confirmPlan(id: string) {
+  confirmPlan(id: string, correlation?: Readonly<{ taskId?: string; confirmedAt: string }>) {
     const plan = this.plans.get(id);
-    if (plan !== undefined) this.plans.set(id, { ...plan, confirmationStatus: 'confirmed' });
+    if (plan !== undefined)
+      this.plans.set(id, {
+        ...plan,
+        confirmationStatus: 'confirmed',
+        ...(correlation === undefined
+          ? {}
+          : {
+              confirmedAt: correlation.confirmedAt,
+              ...(correlation.taskId === undefined
+                ? {}
+                : { confirmationTaskId: correlation.taskId }),
+            }),
+      });
     return Promise.resolve();
   }
   saveAttempt() {

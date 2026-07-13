@@ -47,7 +47,7 @@ export class WorkflowExecutionService {
     this.#systemBudgetDefaults = resolveWorkflowBudgetLimits(dependencies.systemBudgetDefaults, []);
   }
 
-  async confirm(planId: string): Promise<WorkflowPlanRecord> {
+  async confirm(planId: string, taskId?: string): Promise<WorkflowPlanRecord> {
     const plan = await this.#requirePlan(planId);
     if (plan.definition === undefined || plan.confirmationStatus === 'failed')
       throw new WorkflowExecutionError(
@@ -55,8 +55,17 @@ export class WorkflowExecutionService {
         'Failed or definition-less plan cannot be confirmed.',
       );
     if (plan.confirmationStatus === 'confirmed') return plan;
-    await this.#plans.confirmPlan(planId);
-    return { ...plan, confirmationStatus: 'confirmed' };
+    const confirmedAt = this.#clock.now();
+    await this.#plans.confirmPlan(planId, {
+      confirmedAt,
+      ...(taskId === undefined ? {} : { taskId }),
+    });
+    return {
+      ...plan,
+      confirmationStatus: 'confirmed',
+      confirmedAt,
+      ...(taskId === undefined ? {} : { confirmationTaskId: taskId }),
+    };
   }
 
   get(instanceId: string): Promise<WorkflowInstance | undefined> {

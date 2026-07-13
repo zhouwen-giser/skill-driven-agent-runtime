@@ -10,6 +10,7 @@ export interface GoalPatchChanges {
 export interface GoalPatchRecord {
   readonly patchId: string;
   readonly goalId: string;
+  readonly triggeringTaskId?: string;
   readonly fromVersion: number;
   readonly toVersion: number;
   readonly instruction: string;

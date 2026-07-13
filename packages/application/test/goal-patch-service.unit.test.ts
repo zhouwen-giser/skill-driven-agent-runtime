@@ -85,9 +85,10 @@ describe('GoalPatchService', () => {
         savePlanAndSupersede: () => Promise.resolve(),
       },
       patches: {
-        apply: (record) => {
+        apply: (record, triggeringTaskId) => {
           persisted = {
             ...record,
+            ...(triggeringTaskId === undefined ? {} : { triggeringTaskId }),
             invalidatedPlanIds: ['plan-1'],
             invalidatedInstanceIds: ['instance-1'],
           };
@@ -132,6 +133,7 @@ describe('GoalPatchService', () => {
       fromVersion: 1,
       toVersion: 2,
       newPlanId: 'plan-2',
+      triggeringTaskId: 'task-1',
       compensationWarnings: [expect.stringContaining('no automatic compensation')],
     });
     expect(planning[0]).toMatchObject({

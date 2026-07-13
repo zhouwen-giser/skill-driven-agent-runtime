@@ -864,6 +864,7 @@ describe('management HTTP API contract', () => {
         goalId: 'goal-1',
         goalVersion: 1,
         confirmationStatus: 'confirmed' as const,
+        confirmedAt: '2026-07-12T00:00:01.000Z',
         attemptCount: 1,
         createdAt: '2026-07-12T00:00:00.000Z',
       });
@@ -900,6 +901,7 @@ describe('management HTTP API contract', () => {
     await expect(confirmation.json()).resolves.toMatchObject({
       planId: 'plan-1',
       confirmationStatus: 'confirmed',
+      confirmedAt: '2026-07-12T00:00:01.000Z',
     });
     const execution = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/execute`, {
       method: 'POST',
@@ -1207,6 +1209,7 @@ describe('management HTTP API contract', () => {
     const patch = {
       patchId: 'patch-1',
       goalId: 'goal-1',
+      triggeringTaskId: 'task-1',
       fromVersion: 1,
       toVersion: 2,
       instruction: 'Add temperature.',
@@ -1233,11 +1236,16 @@ describe('management HTTP API contract', () => {
     const response = await fetch(`${endpoint.baseUrl}/api/v1/goals/goal-1/patches`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sourcePlanId: 'plan-1', instruction: 'Add temperature.' }),
+      body: JSON.stringify({
+        sourcePlanId: 'plan-1',
+        instruction: 'Add temperature.',
+        taskId: 'task-1',
+      }),
     });
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       patchId: 'patch-1',
+      triggeringTaskId: 'task-1',
       toVersion: 2,
       newPlanId: 'plan-2',
     });
