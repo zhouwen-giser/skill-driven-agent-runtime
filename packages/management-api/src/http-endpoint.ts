@@ -223,6 +223,7 @@ const SkillQualityObservationSchema = z.object({
 const ModelStageSchema = z.enum([
   'intent',
   'goal',
+  'tool_enhancement',
   'skill_authoring',
   'skill_selection',
   'workflow_planning',

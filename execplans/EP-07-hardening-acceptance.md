@@ -51,6 +51,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Discoveries and Surprises
 
+- The Server migration runner stopped at 0049 even though repository integration setup included 0050–0052. The infrastructure static gate now compares every migration file to the runtime startup list and requires a rollback pair.
+
 - The prior guard correctly isolated package imports but did not scan the production Server composition root or fail on a newly declared second workflow-runtime dependency.
 
 - The original SRS mixes A2A 1.0.0 and 1.0.1. The normalized baseline's stricter 1.0.1 target is defensible because patch versions still negotiate as wire `1.0`; the pinned TCK embeds 1.0.0, so direct media-type contracts are required to close the patch-specific gap.

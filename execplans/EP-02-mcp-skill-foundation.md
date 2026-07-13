@@ -22,6 +22,11 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Progress
 
+- [x] 2026-07-13: implement fixed-stage structured LLM generation for all six MCP Tool enhancement fields, preserve edits on refresh, and project metadata into Workflow planning without changing schema authority.
+- [x] 2026-07-13: add migration 0053 and make the static infrastructure gate reject omitted Server migrations or missing rollback pairs; this exposed and fixed prior 0050–0052 startup omissions.
+- [ ] 2026-07-13: rerun PostgreSQL/Redis/Mock MCP/model integration and E2E; Docker Engine is readable but all container start operations hang and the 180-second smoke timed out.
+- [x] 2026-07-13: unified `pnpm verify` passes with 54 files/230 tests, 165-file architecture enforcement, 52 migration pairs, and production builds.
+
 - [x] 2026-07-12: verify global formal-Skill reuse across distinct user identities and replace direct `skill_call` model invocation with an independent LangGraph child plan/instance that records the actual current SkillVersion and evaluation summary.
 - [x] 2026-07-12: reconcile provisional FR-SKL evidence against completed EP-03/04 paths and enforce selected-Skill required/forbidden Tool policy after planning and before execution.
 - [x] 2026-07-12: persist Task selection identity and complete real failed-instance to enabled-alternative plan to mandatory reconfirmation to replacement execution.
@@ -34,9 +39,14 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Discoveries and Surprises
 
+- Server startup applied migrations only through 0049 even though repository tests had applied 0050–0052 directly. Static migration completeness is now part of the unified gate.
+- A readable Docker Engine is not sufficient evidence of runnable infrastructure: Compose and direct container start mutations hang while `docker version` and `docker ps` succeed.
+
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
 ## Decision Log
+
+- ADR-070 adds the application-owned Tool enhancer and fixed `tool_enhancement` stage; model output remains data, registration fails atomically, and the original MCP input schema remains authoritative.
 
 执行期间持续追加；重大决定另建 ADR。
 

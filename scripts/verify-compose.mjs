@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import process from 'node:process';
 import { URL } from 'node:url';
 
@@ -49,4 +49,21 @@ for (const fragment of [
   }
 }
 
-process.stdout.write('Compose and PostgreSQL bootstrap baseline verified.\n');
+const runtime = await readFile(new URL('../apps/server/src/runtime.ts', import.meta.url), 'utf8');
+const migrationEntries = await readdir(
+  new URL('../infra/postgres/migrations/', import.meta.url),
+);
+const upMigrations = migrationEntries.filter((name) => name.endsWith('.up.sql')).sort();
+for (const name of upMigrations) {
+  if (!runtime.includes(`'${name}'`)) {
+    throw new Error(`SERVER_RUNTIME_MIGRATION_MISSING: ${name}`);
+  }
+  const down = name.replace(/\.up\.sql$/u, '.down.sql');
+  if (!migrationEntries.includes(down)) {
+    throw new Error(`POSTGRES_ROLLBACK_MISSING: ${down}`);
+  }
+}
+
+process.stdout.write(
+  `Compose, PostgreSQL bootstrap, and ${String(upMigrations.length)} runtime migrations verified.\n`,
+);

@@ -19,6 +19,8 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  StructuredMcpToolEnhancer,
+  buildMcpToolPlanningMetadata,
   ModelRuntimeService,
   PromptService,
   SkillGraphService,
@@ -374,6 +376,7 @@ export async function startServerRuntime(
     transport: mcpTransport,
     cipher: secretCipher,
     schemas: schemaValidator,
+    enhancer: new StructuredMcpToolEnhancer(modelRuntime),
     clock,
     ids: {
       nextInvocationId: () => `mcp-invocation-${randomUUID()}`,
@@ -878,6 +881,14 @@ export async function startServerRuntime(
             : await temporarySkillRepository.find(input.temporarySkillId);
         if (skill?.status !== 'enabled' && temporary?.status !== 'active')
           throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
+        const toolPlanningMetadata =
+          skill === undefined
+            ? undefined
+            : await buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
+                (await mcpRepository.listTools(reference.serverId)).find(
+                  (tool) => tool.toolName === reference.toolName,
+                ),
+              );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
         const plan = await workflowPlanner.plan({
           planId,
@@ -911,6 +922,7 @@ export async function startServerRuntime(
                     version: skill.version,
                     description: skill.description,
                     toolPolicy: skill.toolPolicy,
+                    toolPlanningMetadata,
                     workflowGuidance: skill.workflowGuidance,
                     outputSchema: skill.outputSchema,
                   },
@@ -1178,6 +1190,10 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0047_implicit_feedback.up.sql',
     '0048_evaluation_influence.up.sql',
     '0049_evaluation_analytics.up.sql',
+    '0050_mcp_management_operation.up.sql',
+    '0051_workflow_node_duration.up.sql',
+    '0052_observability_correlation.up.sql',
+    '0053_mcp_tool_enhancement_stage.up.sql',
   ]) {
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),

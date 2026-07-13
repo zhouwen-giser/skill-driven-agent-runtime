@@ -30,6 +30,7 @@ export * from './goal-patch-service.js';
 export * from './workflow-revision.js';
 export * from './workflow-template.js';
 export * from './mcp-registry.js';
+export * from './mcp-tool-enhancer.js';
 export * from './model-runtime.js';
 export * from './memory-service.js';
 export * from './memory-retention.js';

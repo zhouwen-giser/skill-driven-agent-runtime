@@ -136,6 +136,7 @@ beforeAll(async () => {
   for (const stage of [
     'intent',
     'goal',
+    'tool_enhancement',
     'skill_selection',
     'execution_decision',
     'result_processing',
@@ -195,6 +196,17 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'device_status',
         'slow_probe',
       ]);
+      expect(registration.tools).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            toolName: 'device_status',
+            enhancement: expect.objectContaining({
+              purpose: 'Use the registered MCP Tool safely.',
+              tags: ['mcp', 'generated'],
+            }),
+          }),
+        ]),
+      );
       const enhancementResponse = await fetch(
         `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/tools/device_status/enhancement`,
         {
@@ -3874,6 +3886,9 @@ async function startModelLoopback(): Promise<Server> {
         const resultProcessingRequest = body.messages?.some(
           (message) => message.content?.includes('process_workflow_result') === true,
         );
+        const toolEnhancementRequest = body.messages?.some(
+          (message) => message.content?.includes('enhance_mcp_tool_metadata') === true,
+        );
         const memoryRefinementRequest = body.messages?.some(
           (message) => message.content?.includes('refine_memory') === true,
         );
@@ -3974,6 +3989,17 @@ async function startModelLoopback(): Promise<Server> {
             memoryCandidates: [
               { kind: 'fact', content: 'The device was online.', confidence: 0.9 },
             ],
+          });
+          return;
+        }
+        if (toolEnhancementRequest === true) {
+          respondStructured(response, {
+            purpose: 'Use the registered MCP Tool safely.',
+            scenarios: ['task execution'],
+            constraints: ['Follow the original input schema.'],
+            returnDescription: 'The Tool result described by its registered contract.',
+            commonErrors: ['Remote Tool failure'],
+            tags: ['mcp', 'generated'],
           });
           return;
         }

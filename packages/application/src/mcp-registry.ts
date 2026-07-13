@@ -17,6 +17,7 @@ import type {
   McpTransportAdapter,
   SecretCipher,
 } from './ports.js';
+import type { McpToolEnhancer } from './mcp-tool-enhancer.js';
 
 export interface RegisterMcpServerInput {
   readonly serverId: string;
@@ -53,6 +54,7 @@ export class McpRegistryService {
   readonly #cipher: SecretCipher;
   readonly #schemas: JsonSchemaValidator;
   readonly #clock: Clock;
+  readonly #enhancer: McpToolEnhancer;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
   constructor(
@@ -61,6 +63,7 @@ export class McpRegistryService {
       transport: McpTransportAdapter;
       cipher: SecretCipher;
       schemas: JsonSchemaValidator;
+      enhancer: McpToolEnhancer;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
     }>,
@@ -69,6 +72,7 @@ export class McpRegistryService {
     this.#transport = dependencies.transport;
     this.#cipher = dependencies.cipher;
     this.#schemas = dependencies.schemas;
+    this.#enhancer = dependencies.enhancer;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
@@ -109,12 +113,8 @@ export class McpRegistryService {
       updatedAt: timestamp,
     });
     const headers = this.#cipher.decrypt(record.encryptedCredential);
-    const discoveredTools = await this.#discover(server, headers, timestamp);
-    const previousByName = new Map(previous.map((tool) => [tool.toolName, tool]));
-    const tools = discoveredTools.map((tool) => {
-      const enhancement = previousByName.get(tool.toolName)?.enhancement;
-      return enhancement === undefined ? tool : { ...tool, enhancement };
-    });
+    const discoveredTools = await this.#discover(server, headers, timestamp, previous);
+    const tools = discoveredTools;
     const dependencyWarnings = compareTools(previous, tools);
     await this.#repository.saveServerAndReplaceTools(
       { server, encryptedCredential: record.encryptedCredential },
@@ -327,9 +327,10 @@ export class McpRegistryService {
     server: McpServer,
     headers: Readonly<Record<string, string>>,
     timestamp: string,
+    previous: readonly McpTool[] = [],
   ): Promise<readonly McpTool[]> {
     const discovered = await this.#transport.discover({ endpoint: server.endpoint, headers });
-    return discovered.map((tool) => {
+    const registered = discovered.map((tool) => {
       const schema = this.#schemas.checkSchema(tool.inputSchema);
       if (!schema.valid) {
         throw new McpRegistryError(
@@ -347,6 +348,16 @@ export class McpRegistryService {
         discoveredAt: timestamp,
       });
     });
+    const previousByName = new Map(previous.map((tool) => [tool.toolName, tool]));
+    return Promise.all(
+      registered.map(async (tool) => {
+        const existing = previousByName.get(tool.toolName)?.enhancement;
+        return {
+          ...tool,
+          enhancement: existing ?? (await this.#enhancer.enhance(tool)),
+        };
+      }),
+    );
   }
 
   async #requireServer(serverId: string) {

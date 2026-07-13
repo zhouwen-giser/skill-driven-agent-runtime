@@ -349,6 +349,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalPatchTaskCorrelationMigration);
+  const mcpToolEnhancementStageMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(mcpToolEnhancementStageMigration);
 });
 
 beforeEach(async () => {
@@ -1848,14 +1856,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
     };
     await repository.saveProvider({ configuration, encryptedCredential });
     await repository.saveStageRoute(
-      'workflow_planning',
+      'tool_enhancement',
       configuration.providerId,
       configuration.updatedAt,
     );
     await repository.saveInvocation({
       invocationId: 'model-invocation-db-1',
       taskId: 'task-db',
-      stage: 'workflow_planning',
+      stage: 'tool_enhancement',
       providerId: configuration.providerId,
       model: configuration.model,
       operation: 'structured_generation',
@@ -1870,19 +1878,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: configuration.createdAt,
     });
 
-    await expect(repository.findProviderForStage('workflow_planning')).resolves.toEqual({
+    await expect(repository.findProviderForStage('tool_enhancement')).resolves.toEqual({
       configuration,
       encryptedCredential,
     });
     await expect(repository.listProviders()).resolves.toEqual([configuration]);
     await expect(repository.listStageRoutes()).resolves.toEqual([
       {
-        stage: 'workflow_planning',
+        stage: 'tool_enhancement',
         providerId: configuration.providerId,
         updatedAt: configuration.updatedAt,
       },
     ]);
-    await expect(repository.listInvocations('workflow_planning')).resolves.toEqual([
+    await expect(repository.listInvocations('tool_enhancement')).resolves.toEqual([
       expect.objectContaining({
         invocationId: 'model-invocation-db-1',
         inputTokens: 11,
@@ -2799,7 +2807,40 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     expect(confirmationColumns.rows[0]?.count).toBe('2');
   });
+
+  it('rolls back and reapplies the MCP Tool enhancement model stage', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      expect(await stageRouteConstraint()).not.toContain('tool_enhancement');
+    } finally {
+      await pool.query(up);
+    }
+    expect(await stageRouteConstraint()).toContain('tool_enhancement');
+  });
 });
+
+async function stageRouteConstraint(): Promise<string> {
+  const result = await pool.query<{ definition: string }>(
+    `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+     WHERE conrelid='stage_model_route'::regclass AND contype='c'`,
+  );
+  return result.rows.map((row) => row.definition).join('\n');
+}
 
 function sequenceIds(): Readonly<{ nextId(kind: 'context' | 'task' | 'event'): string }> {
   const counters = { context: 0, task: 0, event: 0 };

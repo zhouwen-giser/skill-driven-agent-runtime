@@ -5,6 +5,7 @@ import { managementRequest } from './api.js';
 const stages = [
   'intent',
   'goal',
+  'tool_enhancement',
   'skill_authoring',
   'skill_selection',
   'workflow_planning',
