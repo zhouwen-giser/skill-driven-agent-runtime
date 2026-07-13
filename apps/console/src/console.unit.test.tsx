@@ -23,6 +23,8 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('aria-label="主导航"');
     expect(markup).toContain('trusted-intranet-only-no-auth');
     expect(markup).toContain('Do not expose publicly');
+    expect(markup).toContain('DATA RETENTION BASELINE');
+    expect(markup).toContain('V1 runs no cleanup scheduler');
   });
 
   it('renders labeled real-record lookups without static Workflow records', () => {

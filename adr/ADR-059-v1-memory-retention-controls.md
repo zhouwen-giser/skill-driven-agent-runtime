@@ -16,6 +16,7 @@ FR-MEM-006 requires V1 to retain historical data automatically while reserving a
 - V1 rejects either automatic flag set to true with `MEMORY_AUTOMATIC_CLEANUP_FORBIDDEN`. PostgreSQL CHECK constraints independently enforce the same invariant.
 - Expose GET/PUT management routes. Do not add a scheduler, archive worker, delete query or physical cleanup implementation.
 - Retain direct reads, status history and all Memory rows regardless of policy changes.
+- The management health posture and Console explicitly state that V1 historical Task, Goal, Workflow, model, MCP, Memory, evaluation, and evolution evidence defaults to indefinite retention and that no automatic archive/delete scheduler exists. Explicit lifecycle operations such as deleting a current MCP registration do not constitute background retention cleanup and preserve their immutable operation audit.
 
 ## Consequences
 

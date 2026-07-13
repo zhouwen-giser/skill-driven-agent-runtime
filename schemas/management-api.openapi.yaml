@@ -403,7 +403,12 @@ paths:
     get:
       operationId: getHealth
       responses:
-        '200': { description: Health and deployment risk marker }
+        '200':
+          {
+            description: Health,
+            deployment risk marker,
+            and indefinite/no-automatic-cleanup V1 retention posture,
+          }
   /api/v1/mcp/invocations:
     get:
       operationId: listTaskMcpInvocations

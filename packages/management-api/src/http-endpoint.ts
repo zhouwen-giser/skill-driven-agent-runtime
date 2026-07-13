@@ -411,7 +411,17 @@ export async function startManagementHttpEndpoint(
     next();
   });
   app.get('/api/v1/health', (_request, response) => {
-    response.json({ status: 'ok', authentication: 'none', deployment: 'trusted-intranet-only' });
+    response.json({
+      status: 'ok',
+      authentication: 'none',
+      deployment: 'trusted-intranet-only',
+      historicalDataRetention: {
+        default: 'indefinite',
+        automaticArchive: false,
+        automaticDelete: false,
+        policyFieldsAreAdvisory: true,
+      },
+    });
   });
   app.post(
     '/api/v1/memories',

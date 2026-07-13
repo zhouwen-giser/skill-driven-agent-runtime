@@ -243,6 +243,16 @@ function Overview() {
         <strong>{health.data?.warning ?? 'trusted-intranet-only-no-auth'}</strong>
         <p>V1 不提供认证、授权或租户隔离。部署必须实施网络隔离。</p>
       </div>
+      <div className="panel warning-panel">
+        <span>DATA RETENTION BASELINE</span>
+        <strong>
+          Historical data: {health.data?.historicalDataRetention?.default ?? 'indefinite'}
+        </strong>
+        <p>
+          Automatic archive and deletion are OFF. Retention-day fields are advisory only; V1 runs no
+          cleanup scheduler.
+        </p>
+      </div>
     </>
   );
 }

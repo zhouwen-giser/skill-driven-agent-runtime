@@ -501,6 +501,12 @@ describe('management HTTP API contract', () => {
       status: 'ok',
       authentication: 'none',
       deployment: 'trusted-intranet-only',
+      historicalDataRetention: {
+        default: 'indefinite',
+        automaticArchive: false,
+        automaticDelete: false,
+        policyFieldsAreAdvisory: true,
+      },
     });
 
     const response = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers`);

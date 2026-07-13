@@ -24,6 +24,12 @@ export async function managementRequest<T>(path: string, init?: RequestInit): Pr
 export interface HealthPayload {
   readonly status: string;
   readonly warning: string;
+  readonly historicalDataRetention?: Readonly<{
+    default: 'indefinite';
+    automaticArchive: false;
+    automaticDelete: false;
+    policyFieldsAreAdvisory: true;
+  }>;
 }
 
 export interface SkillSummary {

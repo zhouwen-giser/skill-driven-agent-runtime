@@ -15,7 +15,7 @@ const server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
   stdio: 'inherit',
   env: {
     ...process.env,
-    SDAR_MCP_MASTER_KEY_BASE64: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+    SDAR_MASTER_KEY_BASE64: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
   },
 });
 try {
