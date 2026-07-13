@@ -15,6 +15,81 @@ afterEach(async () => {
 });
 
 describe('BullMQ context queue', () => {
+  it('runs ten contexts concurrently without overlapping tails from the same context', async () => {
+    const queueName = `sdar-ten-contexts-${String(Date.now())}`;
+    const queue = new BullMqContextTaskQueue({ connection, queueName });
+    const rawQueue = new Queue(queueName, { connection });
+    const queueEvents = new QueueEvents(queueName, { connection });
+    resources.push(queueEvents, rawQueue, queue);
+    let active = 0;
+    let maximumActive = 0;
+    let releaseFirstWave: () => void = () => undefined;
+    const firstWaveBlocked = new Promise<void>((resolve) => {
+      releaseFirstWave = resolve;
+    });
+    const events = new Map<string, string[]>();
+    const worker = new BullMqContextWorker({
+      connection,
+      queueName,
+      concurrency: 20,
+      processor: {
+        process: async ({ taskId, contextId }) => {
+          active += 1;
+          maximumActive = Math.max(maximumActive, active);
+          const contextEvents = events.get(contextId) ?? [];
+          contextEvents.push(`${taskId}:start`);
+          events.set(contextId, contextEvents);
+          if (taskId.endsWith('-first')) await firstWaveBlocked;
+          contextEvents.push(`${taskId}:end`);
+          active -= 1;
+        },
+      },
+    });
+    resources.unshift(worker);
+    worker.start();
+
+    const firstIds = Array.from({ length: 10 }, (_, index) => `task-${String(index)}-first`);
+    await Promise.all(
+      firstIds.map((taskId, index) =>
+        queue.enqueue({ taskId, contextId: `context-${String(index)}` }),
+      ),
+    );
+    await waitFor(() => active === 10);
+    const tailIds = Array.from({ length: 10 }, (_, index) => `task-${String(index)}-tail`);
+    await Promise.all(
+      tailIds.map((taskId, index) =>
+        queue.enqueue({ taskId, contextId: `context-${String(index)}` }),
+      ),
+    );
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 25);
+    });
+    expect(maximumActive).toBe(10);
+    expect([...events.values()].every((value) => value.length === 1)).toBe(true);
+    releaseFirstWave();
+
+    const jobs = await Promise.all(
+      [...firstIds, ...tailIds].map((taskId) => rawQueue.getJob(taskId)),
+    );
+    await Promise.all(
+      jobs.map((job) => {
+        if (job === undefined) throw new Error('BULLMQ_TEN_CONTEXT_JOB_MISSING');
+        return job.waitUntilFinished(queueEvents, 5_000);
+      }),
+    );
+    expect(active).toBe(0);
+    expect(
+      [...events.values()].every(
+        (value) =>
+          value.length === 4 &&
+          value[0]?.endsWith('-first:start') === true &&
+          value[1]?.endsWith('-first:end') === true &&
+          value[2]?.endsWith('-tail:start') === true &&
+          value[3]?.endsWith('-tail:end') === true,
+      ),
+    ).toBe(true);
+  });
+
   it('keeps one context strictly serial while different contexts overlap', async () => {
     const queueName = `sdar-context-serial-${String(Date.now())}`;
     const queue = new BullMqContextTaskQueue({ connection, queueName });

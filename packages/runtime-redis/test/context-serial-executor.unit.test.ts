@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { ContextSerialExecutor } from '../src/index.js';
+import { ContextSerialExecutor, DEFAULT_CONTEXT_WORKER_CONCURRENCY } from '../src/index.js';
 
 describe('ContextSerialExecutor', () => {
   it('serializes operations for one context while allowing another context to progress', async () => {
@@ -32,5 +32,53 @@ describe('ContextSerialExecutor', () => {
     releaseFirst();
     await Promise.all([first, second]);
     expect(events).toEqual(['a1:start', 'b1:start', 'b1:end', 'a1:end', 'a2:start', 'a2:end']);
+  });
+
+  it('supports ten active contexts without cross-context state while serializing each tail', async () => {
+    expect(DEFAULT_CONTEXT_WORKER_CONCURRENCY).toBe(10);
+    const executor = new ContextSerialExecutor();
+    const activeByContext = new Map<string, number>();
+    const events = new Map<string, string[]>();
+    let active = 0;
+    let maximumActive = 0;
+    let releaseFirstWave: () => void = () => undefined;
+    const firstWaveBlocked = new Promise<void>((resolve) => {
+      releaseFirstWave = resolve;
+    });
+
+    const operations = Array.from({ length: 10 }, (_, index) => {
+      const contextId = `context-${String(index)}`;
+      events.set(contextId, []);
+      const run = (sequence: number, block: boolean) =>
+        executor.run(contextId, async () => {
+          const contextActive = (activeByContext.get(contextId) ?? 0) + 1;
+          activeByContext.set(contextId, contextActive);
+          expect(contextActive).toBe(1);
+          active += 1;
+          maximumActive = Math.max(maximumActive, active);
+          events.get(contextId)?.push(`${String(sequence)}:start`);
+          if (block) await firstWaveBlocked;
+          events.get(contextId)?.push(`${String(sequence)}:end`);
+          active -= 1;
+          activeByContext.set(contextId, contextActive - 1);
+          return `${contextId}:${String(sequence)}`;
+        });
+      return [run(1, true), run(2, false)] as const;
+    });
+
+    await vi.waitFor(() => {
+      expect(active).toBe(10);
+    });
+    expect(maximumActive).toBe(10);
+    expect([...events.values()].every((value) => value.length === 1)).toBe(true);
+    releaseFirstWave();
+    const results = await Promise.all(operations.flat());
+
+    expect(new Set(results)).toHaveLength(20);
+    expect(active).toBe(0);
+    expect([...activeByContext.values()].every((value) => value === 0)).toBe(true);
+    expect(
+      [...events.values()].every((value) => value.join(',') === '1:start,1:end,2:start,2:end'),
+    ).toBe(true);
   });
 });

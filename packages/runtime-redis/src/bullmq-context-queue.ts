@@ -9,6 +9,7 @@ const ContextTaskJobSchema = z.object({
   contextId: z.string().min(1),
 });
 type ContextTaskJob = z.infer<typeof ContextTaskJobSchema>;
+export const DEFAULT_CONTEXT_WORKER_CONCURRENCY = 10;
 
 export interface RedisConnectionConfig {
   readonly host: string;
@@ -73,7 +74,7 @@ export class BullMqContextWorker {
       },
       {
         connection: toConnectionOptions(options.connection),
-        concurrency: options.concurrency ?? 10,
+        concurrency: options.concurrency ?? DEFAULT_CONTEXT_WORKER_CONCURRENCY,
         maxStalledCount: 0,
         autorun: false,
       },

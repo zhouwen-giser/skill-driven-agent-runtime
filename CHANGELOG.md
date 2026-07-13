@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Explicit ten-Job BullMQ default concurrency with deterministic ten-context overlap and strict same-context tail-isolation evidence.
+
 - Machine-readable management health and Console warnings for indefinite V1 historical retention, advisory retention fields, and disabled automatic cleanup.
 
 - Cross-boundary private-reasoning protection for OpenAI-compatible/Anthropic Provider responses, necessary-summary-only A2A projection, and displayable management audit evidence.

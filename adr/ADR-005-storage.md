@@ -11,6 +11,8 @@
 
 PostgreSQL 为系统记录，Redis 仅运行态、队列和缓存。
 
+BullMQ Worker 默认最多并行处理 10 个 Job；进入应用处理前以 `context_id` 通过进程内串行器排队。同一 context 同时最多一个操作，不同 context 可占用并发槽。PostgreSQL 仍是任务和 Goal 状态的权威来源。
+
 ## 理由
 
 满足查询、向量检索和单机任务调度。
