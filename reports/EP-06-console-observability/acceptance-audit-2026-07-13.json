@@ -1,0 +1,16 @@
+{
+  "ep": "EP-06",
+  "date": "2026-07-13",
+  "verdict": "not_accepted",
+  "real": {
+    "pnpmVerify": { "status": "passed", "testFiles": 53, "tests": 212, "managementOperations": 102 },
+    "browserRender": { "status": "passed", "backend": "unavailable", "pages": ["overview", "tasks", "workflows", "system", "evaluation"], "browserErrors": 0 }
+  },
+  "simulated": ["management_contracts", "react_ssr_accessibility", "unit_trace_and_analytics"],
+  "unverified": ["postgres_integration", "redis_integration", "e2e", "server_smoke", "real_api_browser_e2e"],
+  "blocker": {
+    "code": "DOCKER_ENGINE_UNRESPONSIVE",
+    "evidence": ["Docker service calls timed out without output", "PostgreSQL 127.0.0.1:54329 unavailable", "Redis 127.0.0.1:56379 unavailable", "29 PostgreSQL tests did not start; 2 Redis tests failed"],
+    "minimumUnblock": "Restore Docker Desktop, start compose PostgreSQL/Redis, then rerun integration, E2E, server smoke, and real API browser E2E."
+  }
+}

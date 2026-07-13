@@ -35,6 +35,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Add a filterable PostgreSQL Task inventory and optional two-second refresh of every Task-linked trace projection.
 - [x] Complete validated Task-wait, Memory-retention, and Skill-evolution policy controls while keeping automatic cleanup domain-disabled.
 - [x] Render real Evaluation KPIs, failure distribution, Skill-version stability, and ordered quality trends with raw evidence available for audit.
+- [x] Run `pnpm verify` and real-browser semantic navigation/render smoke; record real, simulated, and unverified evidence without closing the EP.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -84,8 +85,8 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 ## Validation
 
 - [ ] `UI e2e using real APIs`
-- [ ] `no static mock data in production build`
-- [ ] `accessibility smoke`
+- [x] `no static mock data in production build`
+- [x] `accessibility smoke` (real browser render/navigation; backend unavailable)
 - [ ] `trace and replay data consistency`
 
 ## Idempotence and Recovery
@@ -99,5 +100,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 将报告保存到 `reports/EP-06-console-observability/`，并在 Traceability Matrix 中引用。
 
 ## Outcomes and Retrospective
+
+2026-07-13 acceptance audit: functional delivery is complete but the milestone remains open. `pnpm verify` and real-browser render/navigation smoke pass. Docker is unresponsive; PostgreSQL/Redis integration, real API browser E2E, full E2E, server smoke, and trace consistency are unverified. See `reports/EP-06-console-observability/acceptance-audit-2026-07-13.{md,json}`.
 
 阶段完成后记录实际交付、未完成项、技术债、性能数据和对后续阶段的影响。
