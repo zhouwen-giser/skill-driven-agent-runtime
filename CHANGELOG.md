@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Current real PostgreSQL/Redis integration (2 files/36), full E2E (1 file/40), infrastructure smoke, Server/Console-bundle smoke, and unified 54-file/242-test gate; promoted FR-MCP-008, FR-MCP-012, NFR-PERF-002, NFR-OBS-001, and NFR-UX-001 with real evidence.
+- Real production-Console browser navigation evidence for Task/Goal/Workflow/Skill/MCP/model/Memory/Evaluation associations and reverse Task links.
+- ADR-072 monotonic migration-ledger high-water rule, preventing legacy startup replay from regressing later constraints.
+
+### Fixed
+
+- Console production assets now use the `/console/` base served by Express; Server smoke fetches the emitted JavaScript bundle and checks the trusted-intranet warning marker.
+- Integration fixtures now satisfy current Task phase and Goal/Plan/model-invocation foreign-key constraints without weakening them.
+- E2E MCP registration parsing retains generated enhancement metadata before asserting the production response.
+
 - Reconciled NFR-REL-002 with historical real single-attempt Redis/BullMQ, startup-failure, MCP no-replay, and exactly-one model-failure evidence against the exact no-duplicate-side-effect acceptance.
 
 - Repository-owned Workflow visual topology editing with data-only node, entry/exit, and edge controls; reconciled FR-ADM-004 against historical real immutable revision/execution/event evidence and current 54-file/242-test gate.

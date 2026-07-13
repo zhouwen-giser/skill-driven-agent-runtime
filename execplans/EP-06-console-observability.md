@@ -23,6 +23,9 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 
 ## Progress
 
+- [x] 2026-07-13: execute real production-Console browser navigation against the management API/PostgreSQL for Task/Goal/Workflow/Skill/MCP/model/Memory/Evaluation and reverse Task links; NFR-UX-001 is verified.
+- [x] 2026-07-13: fix the production `/console/` asset base exposed by the browser and extend Server smoke to fetch the emitted JavaScript bundle.
+
 - [x] Reconcile FR-ADM-001 against its exact no-login access and deployment-warning acceptance using real HTTP/browser evidence.
 - [x] Reconcile FR-ADM-002 against real MCP lifecycle plus PostgreSQL operation-log evidence and current Console/API contracts.
 - [x] Reconcile FR-ADM-005 against real Prompt version/publication/effect E2E and current Console/API contracts.

@@ -55,6 +55,15 @@ const connectionString =
 const pool = new Pool({ connectionString, max: 4 });
 
 beforeAll(async () => {
+  const ledger = await pool.query<{ exists: boolean }>(
+    "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
+  );
+  if (ledger.rows[0]?.exists === true) {
+    const latest = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+    );
+    if (latest.rows[0]?.applied === true) return;
+  }
   const migration = await readFile(
     new URL('../../../infra/postgres/migrations/0002_protocol_domain.up.sql', import.meta.url),
     'utf8',
@@ -1679,15 +1688,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await goals.save(beforeGoal);
     const tasks = new PostgresAgentTaskRepository(pool);
+    const queuedTriggeringTask = createAgentTask({
+      taskId: 'task.patch.db',
+      contextId: beforeGoal.contextId,
+      userId: 'operator',
+      requestText: 'Also record temperature.',
+      requestMetadata: {},
+      timestamp: beforeGoal.createdAt,
+    });
+    const loadingTriggeringTask = transitionTask(
+      queuedTriggeringTask,
+      'context_loading',
+      'Loading context.',
+      beforeGoal.createdAt,
+    );
     const triggeringTask = bindTaskGoal(
-      createAgentTask({
-        taskId: 'task.patch.db',
-        contextId: beforeGoal.contextId,
-        userId: 'operator',
-        requestText: 'Also record temperature.',
-        requestMetadata: {},
-        timestamp: beforeGoal.createdAt,
-      }),
+      transitionTask(
+        loadingTriggeringTask,
+        'goal_deliberation',
+        'Deliberating Goal.',
+        beforeGoal.createdAt,
+      ),
       { goalId: beforeGoal.goalId, goalVersion: 1, timestamp: beforeGoal.createdAt },
     );
     await tasks.save(triggeringTask);
@@ -1839,6 +1860,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
   it('persists encrypted Model Providers, fixed stage routes, and displayable invocation audits', async () => {
     const repository = new PostgresModelRuntimeRepository(pool);
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
     const cipher = new Aes256GcmSecretCipher(randomBytes(32).toString('base64'));
     const modelCredential = { Authorization: 'Bearer model-db-secret' };
     const encryptedCredential = cipher.encrypt(modelCredential);
@@ -1854,6 +1877,22 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: '2026-07-11T10:00:00.000Z',
       updatedAt: '2026-07-11T10:00:00.000Z',
     };
+    await contexts.save({
+      contextId: 'context.model.db',
+      userId: 'operator',
+      createdAt: configuration.createdAt,
+      updatedAt: configuration.updatedAt,
+    });
+    await tasks.save(
+      createAgentTask({
+        taskId: 'task-db',
+        contextId: 'context.model.db',
+        userId: 'operator',
+        requestText: 'Invoke the configured model.',
+        requestMetadata: {},
+        timestamp: configuration.createdAt,
+      }),
+    );
     await repository.saveProvider({ configuration, encryptedCredential });
     await repository.saveStageRoute(
       'tool_enhancement',
@@ -2501,6 +2540,45 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(events.listByTask(submitted.task.taskId)).resolves.toEqual([
       expect.objectContaining({ taskId: submitted.task.taskId, eventType: 'task.created' }),
     ]);
+    const goals = new PostgresGoalRepository(pool);
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    await goals.save({
+      goalId: 'goal.task-link.db',
+      contextId: submitted.task.contextId,
+      version: 1,
+      title: 'Task link Goal',
+      description: 'Provide authoritative Task query links.',
+      constraints: [],
+      successCriteria: ['Task links are queryable.'],
+      status: 'active',
+      createdAt: submitted.task.createdAt,
+      updatedAt: submitted.task.updatedAt,
+    });
+    await plans.savePlan({
+      planId: 'plan.task-link.db',
+      goalId: 'goal.task-link.db',
+      goalVersion: 1,
+      definition: {
+        workflowDefinitionId: 'workflow.task-link.db',
+        version: 1,
+        goalId: 'goal.task-link.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: 'done' },
+          },
+        ],
+        edges: [],
+      },
+      confirmationStatus: 'awaiting_confirmation',
+      attemptCount: 1,
+      createdAt: submitted.task.createdAt,
+    });
     await tasks.save({
       ...submitted.task,
       phase: 'planning',

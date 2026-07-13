@@ -18,9 +18,11 @@ Real local verification:
 - strict typecheck, lint, format check, architecture boundary verification, and production build pass.
 - Unified `pnpm verify` passes: 53 unit/contract files with 219 tests, 160-file architecture guard, 102 management OpenAPI operations, 17 OSS source pins, Compose/bootstrap static checks, SBOM/license verification, and production build.
 
-Implemented but currently unverified:
+Current real verification:
 
-- PostgreSQL repository persistence and migration rollback/reapply assertions are present in `packages/persistence-postgres/test/repositories.integration.test.ts`. `pnpm test:integration` produced no output and timed out after 64 seconds because the local Docker/PostgreSQL/Redis services remain unavailable.
-- Full real-API browser and end-to-end timing correlation remains unverified.
+- `pnpm test:integration`: 2 files/36 tests passed, including PostgreSQL duration persistence and migration rollback/reapply.
+- `pnpm test:e2e`: 1 file/40 tests passed against PostgreSQL, Redis, loopback model, Mock MCP, and the sole LangGraph runtime.
+- The real in-app Console loaded the persisted Workflow trace through the management API; terminal node events carried nonnegative `durationMs` values (13 ms and 0 ms in the sampled execution).
+- `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify` passed; unit/contract is 54 files/242 tests.
 
-NFR-PERF-002 remains `开发中` until the PostgreSQL assertion and real end-to-end trace are reproducibly executed.
+NFR-PERF-002 is `已验证`.

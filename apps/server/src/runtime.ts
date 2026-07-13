@@ -1141,6 +1141,17 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
+    version text PRIMARY KEY,
+    applied_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  const ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const highestAppliedSequence = Math.max(
+    0,
+    ...ledger.rows
+      .map((row) => Number.parseInt(row.version.slice(0, 4), 10))
+      .filter(Number.isFinite),
+  );
   for (const name of [
     '0002_protocol_domain.up.sql',
     '0003_external_task_projection.up.sql',
@@ -1195,6 +1206,8 @@ async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0052_observability_correlation.up.sql',
     '0053_mcp_tool_enhancement_stage.up.sql',
   ]) {
+    const sequence = Number.parseInt(name.slice(0, 4), 10);
+    if (sequence <= highestAppliedSequence) continue;
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
       'utf8',

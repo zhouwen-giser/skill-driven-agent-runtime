@@ -21,6 +21,10 @@ No relationship is inferred from time, names, or frontend state. ADR-066 remains
 - The Skill/Tool correction passes strict typecheck and 3 files/59 tests. Its focused test executes the Skill-to-Task click callback and asserts the exact Skill identity, while SSR asserts exact Tool focus.
 - Unified `pnpm verify` passes 54 files/241 tests, 165-file architecture enforcement, 102 management operations, migration/source/license gates, and production builds.
 - format, lint, strict typecheck, architecture, 102-operation OpenAPI drift, and production build passed.
-- The PostgreSQL `planId`, `goalId`, and `skillId` query assertions are implemented but the latest regression is unexecuted while Docker remains unavailable.
+- Current `pnpm test:integration` passes 2 files/36 tests, including exact PostgreSQL `planId`, `goalId`, and `skillId` filters.
+- Current `pnpm test:e2e` passes 1 file/40 tests against PostgreSQL, Redis, loopback model, Mock MCP, A2A, management API, and LangGraph.
+- Real in-app browser execution against `http://127.0.0.1:9998/console/` verified Task↔Workflow, Task↔Skill, Task↔MCP invocation, Task↔model invocation, Task↔Evaluation, Goal→Task inventory, and explicit Memory `task:` source→Task navigation. All target panels reloaded authoritative API records.
+- Browser execution exposed an actual deployment defect: Vite emitted `/assets/...` while Express served the application under `/console/`. The production base is now `/console/`, and Server smoke fetches both the HTML and emitted bundle and asserts the trusted-intranet warning marker.
+- `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify` passed; unit/contract is 54 files/242 tests.
 
-The required association paths are functionally implemented. NFR-UX-001 remains developing until real-browser API navigation is reproducibly verified.
+The required one-click association paths are implemented and reproducibly exercised with real API/PostgreSQL data. NFR-UX-001 is **verified**.

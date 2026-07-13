@@ -20,7 +20,10 @@ MCP registration now generates purpose, scenarios, constraints, return descripti
 - `pnpm test`: 54 files, 230 tests passed.
 - `node scripts/verify-compose.mjs`: 52 runtime migrations verified.
 - `pnpm verify`: 54 files/230 tests, 165-file architecture guard, OpenAPI/source/Compose-static/SBOM gates, strict typecheck, and production Server/Console builds passed.
+- Current real `pnpm test:integration`: 2 files/36 tests passed against PostgreSQL/pgvector and Redis.
+- Current real `pnpm test:e2e`: 1 file/40 tests passed against PostgreSQL, Redis, loopback model, and Mock MCP, including persisted six-field automatic Tool enhancement.
+- Current `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify`: passed; the unified unit/contract gate is now 54 files/242 tests.
 
 ## Evidence classification
 
-Structured model orchestration, normalization, persistence-port handoff, planning projection, management contract, and migration completeness are locally executed deterministic evidence. The production loopback model/MCP/PostgreSQL/Redis E2E and PostgreSQL migration/rollback assertion are implemented but not executed in this increment: Docker reports a live engine, yet `compose up`, direct container start, and the repository infrastructure smoke all hang; the 180-second smoke command timed out and both test ports remain closed. FR-MCP-008 therefore remains **developing**, not verified, until integration and E2E rerun.
+The structured model path, normalization, persistence, planning projection, management contract, real PostgreSQL/Redis/loopback-model/Mock-MCP E2E, infrastructure smoke, Server smoke, and unified static/build gates are all currently reproducible. The E2E response parser was corrected to retain the optional enhancement object before asserting it, so the test now observes the production response rather than a Zod-stripped projection. FR-MCP-008 is **verified**.

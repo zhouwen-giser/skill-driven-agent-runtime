@@ -190,7 +190,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'trusted-intranet-only-no-auth',
       );
       const registration = z
-        .object({ tools: z.array(z.object({ toolName: z.string() })) })
+        .object({
+          tools: z.array(
+            z.object({
+              toolName: z.string(),
+              enhancement: z.object({ purpose: z.string(), tags: z.array(z.string()) }).optional(),
+            }),
+          ),
+        })
         .parse(await registrationResponse.json());
       expect(registration.tools.map((tool) => tool.toolName)).toEqual([
         'device_status',

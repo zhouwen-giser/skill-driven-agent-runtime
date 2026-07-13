@@ -19,9 +19,12 @@ Failed MCP calls now enter the fixed structured LLM exception stage with only th
 - `pnpm exec vitest run packages/json-schema-adapter/test/workflow-dsl-schema.contract.test.ts`: 1 contract test passed.
 - `pnpm typecheck`: passed.
 - `pnpm verify`: 54 files/240 unit+contract tests, 165-file architecture guard, A2A compatibility baseline, 102 management operations, 17 OSS pins, 52 migration pairs, SBOM/license checks, and Server/Console production builds passed.
+- Current real `pnpm test:integration`: 2 files/36 tests passed.
+- Current real `pnpm test:e2e`: 1 file/40 tests passed, including immutable LangGraph recovery, bounded option exhaustion, argument validation, and no replay across pause/resume.
+- Current `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify`: passed; unit/contract is 54 files/242 tests.
 
 The targeted runtime suite executes all four recovery actions and termination, proves a retry option disappears after its one permitted attempt, and verifies an invented model target fails closed. The schema/validator tests prove semantic target constraints and the strict JSON DSL shape.
 
 ## Evidence classification
 
-The DSL, model-decision, compiler, boundedness, and replay-counter evidence is real deterministic local execution. No tests were skipped or weakened; no placeholder decision, dynamic code, SDK-domain leakage, new `any`, or secret-bearing field was added. Historical PostgreSQL MCP invocation audit and same-process E2E tests already exist, but this increment could not rerun Docker-backed PostgreSQL/Redis/Mock MCP/model paths because container mutations hang while the engine remains readable. FR-MCP-012 therefore remains **developing**, not verified, until those real integration and E2E gates rerun with the new recovery DSL.
+The DSL, model-decision, compiler, boundedness, replay counters, PostgreSQL audit, Redis coordination, loopback model, and Mock MCP paths are current real executions. No test was skipped or weakened; no placeholder decision, dynamic code, SDK-domain leakage, new `any`, or secret-bearing field was added. FR-MCP-012 is **verified**.

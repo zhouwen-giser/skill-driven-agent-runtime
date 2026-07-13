@@ -28,11 +28,12 @@ The Console Task panel consumes those exact management queries for Task events, 
 - Management contracts prove Task-filtered event/model/MCP queries, Plan trace, persisted Plan confirmation time, and Goal Patch triggering Task projection.
 - The migration is additive, idempotent, and has rollback/reapply assertions.
 
-## Defined but not executed in this environment
+## Current real environment evidence
 
-- PostgreSQL integration assertions persist and reload Plan confirmation Task/time and Goal Patch triggering Task identity, including retention after Goal Patch invalidates the old Plan.
-- Migration rollback/reapply verifies both Workflow Plan confirmation columns and the Goal Patch Task column.
-- The complete local A2A/management E2E remains unavailable because PostgreSQL/Redis Docker services do not start in the current environment.
-- A current bounded TCP probe reported both `127.0.0.1:54329` PostgreSQL and `127.0.0.1:56379` Redis unreachable.
+- `pnpm test:integration`: 2 files/36 tests passed, including Plan confirmation Task/time, Goal Patch triggering Task, and rollback/reapply assertions.
+- `pnpm test:e2e`: 1 file/40 tests passed against PostgreSQL, Redis, loopback model, Mock MCP, A2A, management API, and LangGraph.
+- A real browser opened a completed Task and loaded 12 correlated queries. The same persisted Task identity navigated to Workflow, MCP Tool, model Provider/model, and Evaluation; Workflow/MCP/model/Evaluation views exposed reverse Task navigation.
+- The sampled trace displayed exact Task/context/Goal/Plan IDs, ordered Task events, processed result, five-component quality report, model and MCP invocation IDs, Goal evolution, immutable Workflow instance, and ordered node events.
+- `pnpm smoke:infra`, `pnpm smoke:server`, and unified `pnpm verify` passed; unit/contract is 54 files/242 tests.
 
-NFR-OBS-001 therefore remains **developing**, not verified, until the real PostgreSQL integration suite and real API/browser E2E execute successfully.
+NFR-OBS-001 is **verified**.

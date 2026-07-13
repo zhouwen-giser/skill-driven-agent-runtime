@@ -23,6 +23,10 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Progress
 
+- [x] Run the recovered real gate: integration 2 files/36, E2E 1 file/40, infrastructure smoke, Server/Console-bundle smoke, and unified 54 files/242 all pass.
+- [x] Promote NFR-PERF-002, NFR-OBS-001, and NFR-UX-001 with current PostgreSQL/Redis/E2E/browser evidence; all matrix rows are now verified.
+- [x] Record ADR-072 for monotonic runtime migration application after the real repetition exposed a schema-regression risk.
+
 - [x] Reconcile NFR-SEC-001 against its exact warning/checklist acceptance; 4 files/56 tests plus explicit firewall/no-public-route release checks verify it without inventing an OS namespace gate.
 
 - [x] Reconcile NFR-OBS-002 against its exact no-hidden-reasoning acceptance; 6 files/63 Provider/A2A/management/Console tests directly verify the boundary without requiring Docker.
@@ -67,6 +71,9 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Discoveries and Surprises
 
+- The HTML smoke alone missed that Vite emitted root `/assets/...` URLs while Express mounted Console under `/console/`; fetching the emitted bundle is now a required smoke assertion.
+- Current real gates exposed three stale integration fixtures and one Zod-stripped E2E projection; fixing the fixtures to satisfy production constraints and retaining the asserted response field restored evidence without weakening behavior.
+
 - The Server migration runner stopped at 0049 even though repository integration setup included 0050–0052. The infrastructure static gate now compares every migration file to the runtime startup list and requires a rollback pair.
 
 - The prior guard correctly isolated package imports but did not scan the production Server composition root or fail on a newly declared second workflow-runtime dependency.
@@ -83,6 +90,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - 模型与 MCP 原先各自从同一字符串构造 Cipher；统一为 composition-owned 实例可清晰证明主密钥只来自环境且两个领域服务执行相同加密策略。
 
 ## Decision Log
+
+- ADR-072 defines monotonic startup migration application for legacy ledgers; explicit rollback remains separate from startup.
 
 - ADR-067 规定节点耗时由唯一 LangGraph 编译器测量、领域事件拥有、PostgreSQL 持久化，Console 不自行推算。
 - ADR-027 的私有推理边界扩展到 Provider content block：管理审计保留可展示原始响应而不保留 vendor thinking/signature。

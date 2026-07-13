@@ -23,6 +23,13 @@ try {
   if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
     throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
   }
+  const consoleHtml = await requestBody('http://127.0.0.1:9998/console/');
+  const consoleScript = consoleHtml.match(/src="(\/console\/assets\/[^"]+\.js)"/u)?.[1];
+  if (consoleScript === undefined) throw new Error('SERVER_SMOKE_CONSOLE_SCRIPT_PATH_INVALID');
+  const consoleBundle = await requestBody(`http://127.0.0.1:9998${consoleScript}`);
+  if (!consoleBundle.includes('trusted-intranet-only-no-auth')) {
+    throw new Error('SERVER_SMOKE_CONSOLE_BUNDLE_INVALID');
+  }
   const skillId = `skill.server-smoke.${String(Date.now())}`;
   const registrationStatus = await postJson('http://127.0.0.1:9998/api/v1/skills', {
     skillId,
@@ -46,7 +53,7 @@ try {
     throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
   }
   process.stdout.write(
-    'Server build smoke passed: Agent Card and trusted-intranet management API are reachable.\n',
+    'Server build smoke passed: Agent Card, Console bundle, and trusted-intranet management API are reachable.\n',
   );
 } finally {
   server.kill();

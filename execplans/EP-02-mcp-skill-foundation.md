@@ -22,6 +22,9 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Progress
 
+- [x] 2026-07-13: rerun real PostgreSQL/Redis/loopback-model/Mock-MCP gates: integration 2 files/36, E2E 1 file/40, infrastructure and Server smoke, and unified 54 files/242 all pass; FR-MCP-008 and FR-MCP-012 are verified.
+- [x] 2026-07-13: fix legacy migration replay with ADR-072 after real startup exposed migration 0028 narrowing the already-applied 0053 stage constraint.
+
 - [x] 2026-07-13: add bounded semantic MCP exception recovery across the domain DSL, validator, fixed LLM decision stage, and immutable LangGraph compiler, with deterministic replay counters and examples.
 
 - [x] 2026-07-13: implement fixed-stage structured LLM generation for all six MCP Tool enhancement fields, preserve edits on refresh, and project metadata into Workflow planning without changing schema authority.
@@ -41,6 +44,8 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 
 ## Discoveries and Surprises
 
+- An idempotent historical migration is not necessarily safe to replay after a later migration: `DROP CONSTRAINT` plus recreation can regress the current schema even when all DDL uses existence guards.
+
 - The earlier generic `goto` exception decision was replayable but could not prove the five FR-MCP-012 semantics. Predeclared typed targets preserve LLM final choice without permitting runtime graph or argument mutation.
 
 - Server startup applied migrations only through 0049 even though repository tests had applied 0050–0052 directly. Static migration completeness is now part of the unified gate.
@@ -49,6 +54,8 @@ FR-SKL-001, FR-SKL-002, FR-SKL-003, FR-SKL-004, FR-SKL-005, FR-SKL-006, FR-SKL-0
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 
 ## Decision Log
+
+- ADR-072 makes the runtime migration ledger monotonic by its highest applied sequence; startup never replays an older migration beneath that high-water mark.
 
 - ADR-071 supersedes ADR-027's generic exception choice set for semantic MCP recovery: the LLM selects only an unexhausted prevalidated action/target and LangGraph records the bounded route attempt.
 
