@@ -6,7 +6,7 @@ import { WorkflowPanel } from './WorkflowPanel.js';
 import { TaskPanel } from './TaskPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel } from './MemoryPanel.js';
-import { EvaluationPanel } from './EvaluationPanel.js';
+import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
 import { SystemPanel } from './SystemPanel.js';
 
@@ -47,6 +47,8 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Prompt Lifecycle');
     expect(markup).toContain('anonymous shared');
     expect(markup).toContain('warning-only policy');
+    expect(markup).toContain('FILTERED OPERATING METRICS');
+    expect(markup).not.toContain('66.67%');
     expect(markup).not.toContain('prompt-1');
     expect(markup).not.toContain('memory-1');
   });
@@ -70,5 +72,48 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Automatic archive and delete remain disabled');
     expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
     expect(markup).not.toContain('Bearer fixture');
+  });
+
+  it('renders operational evaluation KPIs, failure bars, stability, and quality trend', () => {
+    const markup = renderToStaticMarkup(
+      <OperationsDashboard
+        analytics={{
+          sampleCount: 3,
+          successCount: 2,
+          successRate: 2 / 3,
+          averageDurationMs: 200,
+          totalCost: 9,
+          averageCost: 3,
+          failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+          versionStability: [
+            {
+              skillId: 'skill.test',
+              skillVersion: 2,
+              sampleCount: 3,
+              successRate: 2 / 3,
+              averageQuality: 0.8,
+              qualityDeviation: 0.1,
+              stabilityScore: 0.6,
+            },
+          ],
+          qualityTrend: [
+            {
+              reportId: 'report.test',
+              taskId: 'task.test',
+              instanceId: 'instance.test',
+              score: 0.8,
+              status: 'passed',
+              createdAt: '2026-07-13T00:00:00.000Z',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(markup).toContain('Success rate');
+    expect(markup).toContain('FAILURE TYPES');
+    expect(markup).toContain('MCP_TIMEOUT');
+    expect(markup).toContain('VERSION STABILITY');
+    expect(markup).toContain('QUALITY TREND');
+    expect(markup).toContain('Raw analytics evidence');
   });
 });

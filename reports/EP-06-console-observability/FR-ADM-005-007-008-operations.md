@@ -30,5 +30,8 @@
 
 - Real browser interaction E2E remains open.
 - Docker-backed reruns remain unavailable while local stopped containers cannot start.
-- Model comparison and capability-growth/optimization dashboards need richer composed views before FR-ADM-008 can be verified.
+- Cross-page browser verification remains required before FR-ADM-008 can be verified.
 
+## Evaluation dashboard follow-up (2026-07-13)
+
+`apps/console/src/EvaluationPanel.tsx` now renders the PostgreSQL-backed analytics snapshot as operational KPIs, failure distribution, Skill-version stability, and ordered quality trend. It preserves expandable raw evidence and explicit empty states. `pnpm exec vitest run apps/console/src/console.unit.test.tsx packages/application/test/evaluation-analytics.unit.test.ts packages/management-api/test/http-endpoint.contract.test.ts` passed 42 tests; format, lint, typecheck, and production build passed. Browser E2E remains unverified.

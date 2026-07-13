@@ -766,6 +766,58 @@ h2 {
   background: #edf7f0;
   color: #365c43;
 }
+.operations-dashboard article {
+  min-width: 0;
+}
+.metric-bar {
+  margin-top: 16px;
+}
+.metric-bar > div,
+.quality-trend li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.metric-bar meter,
+.quality-trend meter {
+  width: 100%;
+  accent-color: #4a9e68;
+}
+.data-table {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+.data-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) repeat(3, minmax(70px, 1fr));
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #dbe3dd;
+  font-variant-numeric: tabular-nums;
+}
+.data-row.header {
+  color: #5f6c64;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.quality-trend {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.quality-trend li {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(120px, 2fr) 60px 90px minmax(120px, 1fr);
+  padding: 10px 0;
+  border-bottom: 1px solid #dbe3dd;
+  font-variant-numeric: tabular-nums;
+}
+.quality-trend time,
+.quality-trend code {
+  color: #66736b;
+  font-size: 11px;
+}
 .panel > p {
   color: #66736b;
   line-height: 1.6;
@@ -851,6 +903,10 @@ h2 {
   .evidence-grid,
   .task-action {
     grid-template-columns: 1fr;
+  }
+  .quality-trend li,
+  .data-row {
+    grid-template-columns: 1fr 1fr;
   }
   .dag-nodes {
     grid-template-columns: 1fr 1fr;
