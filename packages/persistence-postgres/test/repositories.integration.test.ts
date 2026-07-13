@@ -331,6 +331,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(mcpManagementOperationMigration);
+  const workflowNodeDurationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0051_workflow_node_duration.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(workflowNodeDurationMigration);
 });
 
 beforeEach(async () => {
@@ -851,6 +859,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         nodeId: 'result',
         eventType: 'node_succeeded',
         timestamp: '2026-07-12T00:01:02.000Z',
+        durationMs: 1000,
         summary: 'result node succeeded.',
       },
     ]);
@@ -879,7 +888,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(executions.countNodeEvents('instance.db')).resolves.toBe(2);
     await expect(executions.listNodeEvents('instance.db')).resolves.toEqual([
       expect.objectContaining({ sequence: 1, nodeId: 'result', eventType: 'node_started' }),
-      expect.objectContaining({ sequence: 2, nodeId: 'result', eventType: 'node_succeeded' }),
+      expect.objectContaining({
+        sequence: 2,
+        nodeId: 'result',
+        eventType: 'node_succeeded',
+        durationMs: 1000,
+      }),
     ]);
     await executions.saveInstance({
       ...running,
@@ -896,13 +910,17 @@ describe('PostgreSQL protocol-domain repositories', () => {
       budgetLimits: { maxDurationSeconds: 60, maxLlmCalls: 10, maxMcpCalls: 10 },
       budgetUsage: { replanCount: 0, llmCalls: 0, mcpCalls: 0, cost: 0 },
     });
-    const events = await pool.query<{ sequence: number; event_type: string }>(
-      'SELECT sequence,event_type FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence',
+    const events = await pool.query<{
+      sequence: number;
+      event_type: string;
+      duration_ms: number | null;
+    }>(
+      'SELECT sequence,event_type,duration_ms FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence',
       ['instance.db'],
     );
     expect(events.rows).toEqual([
-      { sequence: 1, event_type: 'node_started' },
-      { sequence: 2, event_type: 'node_succeeded' },
+      { sequence: 1, event_type: 'node_started', duration_ms: null },
+      { sequence: 2, event_type: 'node_succeeded', duration_ms: 1000 },
     ]);
   });
   it('persists an independently traceable Skill-call child Workflow and actual Skill version', async () => {
@@ -2665,6 +2683,38 @@ describe('PostgreSQL protocol-domain repositories', () => {
       "SELECT count(*)::text AS count FROM schema_migration WHERE version = '0002_protocol_domain'",
     );
     expect(marker.rows[0]?.count).toBe('1');
+  });
+
+  it('rolls back and reapplies the Workflow node-duration migration', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0051_workflow_node_duration.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0051_workflow_node_duration.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.columns
+         WHERE table_name='workflow_node_event' AND column_name='duration_ms'`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='workflow_node_event' AND column_name='duration_ms'`,
+    );
+    expect(restored.rows[0]?.count).toBe('1');
   });
 });
 

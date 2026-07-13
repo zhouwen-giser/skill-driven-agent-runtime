@@ -544,6 +544,7 @@ export interface WorkflowExecutor {
         nodeId: string;
         type: 'node_started' | 'node_succeeded' | 'node_failed';
         timestamp: string;
+        durationMs?: number;
         summary: string;
       }>[];
       pendingConfirmation?: WorkflowInstance['pendingConfirmation'];

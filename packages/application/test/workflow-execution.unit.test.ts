@@ -85,6 +85,7 @@ describe('Workflow execution application service', () => {
         nodeId: 'result',
         eventType: 'node_succeeded',
         timestamp: '2026-07-13T00:00:02.000Z',
+        durationMs: 2000,
         summary: 'result succeeded.',
       },
     ]);
@@ -118,6 +119,7 @@ describe('Workflow execution application service', () => {
           nodeId: 'result',
           type: 'node_succeeded',
           timestamp: '2026-07-12T00:00:02.000Z',
+          durationMs: 1000,
           summary: 'result node succeeded.',
         },
       ],
@@ -135,7 +137,7 @@ describe('Workflow execution application service', () => {
     ]);
     expect(instances.events).toMatchObject([
       { sequence: 1, nodeId: 'result', eventType: 'node_started' },
-      { sequence: 2, nodeId: 'result', eventType: 'node_succeeded' },
+      { sequence: 2, nodeId: 'result', eventType: 'node_succeeded', durationMs: 1000 },
     ]);
   });
 

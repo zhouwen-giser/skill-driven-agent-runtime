@@ -259,7 +259,7 @@ paths:
     parameters: [{ name: instanceId, in: path, required: true, schema: { type: string } }]
     get:
       operationId: getWorkflowInstanceTrace
-      description: Returns the immutable instance snapshot and ordered displayable node-event summaries.
+      description: Returns the immutable instance snapshot and ordered displayable node-event summaries, including persisted terminal-node duration when available.
       responses:
         '200': { description: Workflow instance and ordered node events for trace and replay }
         '404': { $ref: '#/components/responses/Error' }

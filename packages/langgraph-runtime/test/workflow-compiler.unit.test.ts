@@ -232,9 +232,13 @@ describe('LangGraph Workflow compiler', () => {
       child: { child: 'done' },
       confirm: true,
     });
+    const succeededEvents = [...interrupted.events, ...result.events].filter(
+      (event) => event.type === 'node_succeeded',
+    );
+    expect(succeededEvents).toHaveLength(6);
     expect(
-      [...interrupted.events, ...result.events].filter((event) => event.type === 'node_succeeded'),
-    ).toHaveLength(6);
+      succeededEvents.every((event) => event.durationMs !== undefined && event.durationMs >= 0),
+    ).toBe(true);
     expect(compiled.definition).not.toBe(source);
     expect(Object.isFrozen(compiled.definition)).toBe(true);
     expect(runtime.callMcpTool).toHaveBeenCalledWith(

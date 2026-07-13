@@ -23,19 +23,19 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Progress
 
-- [ ] 读取材料并记录当前代码状态。
-- [ ] 将具体文件、接口和步骤补充到本计划。
-- [ ] 完成实现增量。
-- [ ] 完成测试与验证。
-- [ ] 更新 Traceability Matrix、PROJECT_STATUS、ADR 和 Outcomes。
+- [x] 读取 SRS、Definition of Done、追踪矩阵、架构/领域基线并记录当前证据缺口。
+- [x] 将 NFR-PERF-002 节点耗时持久化增量补充到计划、ADR 和验收报告。
+- [x] 在唯一 LangGraph Runtime 计时并贯通领域事件、PostgreSQL、管理 Trace 和 Console 回放。
+- [x] 完成目标单元/静态 Console 测试与统一 `pnpm verify`；PostgreSQL 集成命令无输出并在 64 秒后超时，仍未验证。
+- [x] 更新 NFR-PERF-002 Traceability、PROJECT_STATUS、ADR、验收报告和 CHANGELOG。
 
 ## Discoveries and Surprises
 
-执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
+- Model/MCP 已拥有显式耗时，Workflow 节点只有开始/终止时间戳；仅在前端推算无法满足 PostgreSQL 权威和可复现证据要求。
 
 ## Decision Log
 
-执行期间持续追加；重大决定另建 ADR。
+- ADR-067 规定节点耗时由唯一 LangGraph 编译器测量、领域事件拥有、PostgreSQL 持久化，Console 不自行推算。
 
 ## Implementation Steps
 

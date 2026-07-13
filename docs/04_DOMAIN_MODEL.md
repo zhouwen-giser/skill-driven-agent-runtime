@@ -32,6 +32,7 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - Definition 是已校验 DSL 和计划版本。
 - Instance 是一次编译执行，引用 Goal 版本和实际 Skill 版本。
 - 当前执行图不可变；重新规划产生新的 Definition/Instance。
+- WorkflowNodeEvent 持久化节点开始/终止事件；终止事件保存单调时钟测得的非负 `durationMs`，供管理 Trace 定位慢节点。
 
 ### Task
 

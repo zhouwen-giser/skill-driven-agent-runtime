@@ -413,6 +413,7 @@ export class WorkflowExecutionService {
       nodeId: string;
       type: WorkflowNodeEvent['eventType'];
       timestamp: string;
+      durationMs?: number;
       summary: string;
     }>[],
     startingSequence: number,
@@ -424,6 +425,7 @@ export class WorkflowExecutionService {
       nodeId: event.nodeId,
       eventType: event.type,
       timestamp: event.timestamp,
+      ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
       summary: event.summary,
     }));
   }

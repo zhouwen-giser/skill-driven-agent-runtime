@@ -980,9 +980,10 @@ describe('management HTTP API contract', () => {
                   instanceId,
                   sequence: 1,
                   nodeId: 'start',
-                  eventType: 'node_started' as const,
-                  timestamp: '2026-07-13T00:00:00.000Z',
-                  summary: 'start node started.',
+                  eventType: 'node_succeeded' as const,
+                  timestamp: '2026-07-13T00:00:00.125Z',
+                  durationMs: 125,
+                  summary: 'start node succeeded.',
                 },
               ],
             }),
@@ -993,7 +994,7 @@ describe('management HTTP API contract', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       instance: { instanceId: 'instance-trace', status: 'succeeded' },
-      events: [{ sequence: 1, nodeId: 'start', eventType: 'node_started' }],
+      events: [{ sequence: 1, nodeId: 'start', eventType: 'node_succeeded', durationMs: 125 }],
     });
   });
 

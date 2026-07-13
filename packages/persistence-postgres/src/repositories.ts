@@ -3176,6 +3176,7 @@ interface WorkflowNodeEventRow extends QueryResultRow {
   node_id: string;
   event_type: WorkflowNodeEvent['eventType'];
   event_timestamp: Date | string;
+  duration_ms: number | null;
   summary: string;
 }
 
@@ -3304,7 +3305,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
 
   async listNodeEvents(instanceId: string): Promise<readonly WorkflowNodeEvent[]> {
     const result = await this.#pool.query<WorkflowNodeEventRow>(
-      `SELECT event_id, instance_id, sequence, node_id, event_type, event_timestamp, summary
+      `SELECT event_id, instance_id, sequence, node_id, event_type, event_timestamp, duration_ms, summary
        FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence, event_id`,
       [instanceId],
     );
@@ -3315,6 +3316,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       nodeId: row.node_id,
       eventType: row.event_type,
       timestamp: toIsoString(row.event_timestamp),
+      ...(row.duration_ms === null ? {} : { durationMs: row.duration_ms }),
       summary: row.summary,
     }));
   }
@@ -3427,8 +3429,8 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       for (const event of events)
         await client.query(
           `INSERT INTO workflow_node_event(
-             event_id,instance_id,sequence,node_id,event_type,event_timestamp,summary)
-           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+             event_id,instance_id,sequence,node_id,event_type,event_timestamp,duration_ms,summary)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
           [
             event.eventId,
             event.instanceId,
@@ -3436,6 +3438,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
             event.nodeId,
             event.eventType,
             event.timestamp,
+            event.durationMs ?? null,
             event.summary,
           ],
         );

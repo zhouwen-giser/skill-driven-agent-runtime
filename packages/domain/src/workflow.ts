@@ -119,5 +119,6 @@ export interface WorkflowNodeEvent {
   readonly nodeId: string;
   readonly eventType: 'node_started' | 'node_succeeded' | 'node_failed';
   readonly timestamp: string;
+  readonly durationMs?: number;
   readonly summary: string;
 }

@@ -24,6 +24,7 @@ export interface WorkflowExecutionEvent {
   readonly nodeId: string;
   readonly type: 'node_started' | 'node_succeeded' | 'node_failed';
   readonly timestamp: string;
+  readonly durationMs?: number;
   readonly summary: string;
 }
 
@@ -526,6 +527,7 @@ function createNodeAction(
       context.budgetMeter.resume();
     }
     context.budgetMeter.assertDuration();
+    const startedAtMilliseconds = ports.nowMilliseconds();
     const started: WorkflowExecutionEvent = {
       nodeId: node.nodeId,
       type: 'node_started',
@@ -548,6 +550,7 @@ function createNodeAction(
             nodeId: node.nodeId,
             type: 'node_succeeded',
             timestamp: ports.now(),
+            durationMs: Math.max(0, ports.nowMilliseconds() - startedAtMilliseconds),
             summary: `${node.type} node succeeded.`,
           },
         ],
@@ -565,6 +568,7 @@ function createNodeAction(
             nodeId: node.nodeId,
             type: 'node_failed',
             timestamp: ports.now(),
+            durationMs: Math.max(0, ports.nowMilliseconds() - startedAtMilliseconds),
             summary: `${node.type} node failed with ${errorCode(error)}.`,
           },
         ],

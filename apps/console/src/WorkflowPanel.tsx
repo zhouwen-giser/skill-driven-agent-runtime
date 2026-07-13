@@ -42,8 +42,13 @@ interface WorkflowTraceRecord {
     nodeId: string;
     eventType: string;
     timestamp: string;
+    durationMs?: number;
     summary: string;
   }>[];
+}
+
+export function WorkflowEventDuration({ durationMs }: { readonly durationMs: number | undefined }) {
+  return durationMs === undefined ? null : <small>Node duration · {durationMs} ms</small>;
 }
 
 export function WorkflowPanel({
@@ -297,6 +302,7 @@ export function WorkflowPanel({
                     {event.nodeId} · {event.eventType}
                   </strong>
                   <small>{event.timestamp}</small>
+                  <WorkflowEventDuration durationMs={event.durationMs} />
                   <p>{event.summary}</p>
                 </div>
               </li>

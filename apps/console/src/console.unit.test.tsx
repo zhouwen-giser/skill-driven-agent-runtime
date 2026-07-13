@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { App } from './App.js';
-import { WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
+import { WorkflowEventDuration, WorkflowPanel, WorkflowTaskLink } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
   TaskEvidenceNavigation,
@@ -38,6 +38,11 @@ describe('operational console static accessibility contract', () => {
       <WorkflowTaskLink taskId="task.test" onOpenTask={() => undefined} />,
     );
     expect(markup).toContain('Open owning Task · task.test');
+  });
+
+  it('renders persisted Workflow node duration in the execution replay', () => {
+    const markup = renderToStaticMarkup(<WorkflowEventDuration durationMs={125} />);
+    expect(markup).toContain('Node duration · 125 ms');
   });
 
   it('renders a Task trace root without fabricated linked evidence', () => {
