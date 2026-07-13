@@ -15,7 +15,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 ## Deliverables
 
 - [x] complete management OpenAPI
-- [ ] React console navigation and real CRUD
+- [x] React console navigation and real CRUD
 - [x] workflow DAG editor and validation
 - [x] live task/node/LLM/MCP trace
 - [x] version diff and execution replay
@@ -33,6 +33,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Complete the Skill Studio control surface for constrained authoring, definition edits, draft publication, simulation/correction, lifecycle, diff, warnings, and graph relations.
 - [x] Add credential-safe Provider and fixed-stage route inventories plus real system-policy, evolution-trigger, and model-invocation operations to the console.
 - [x] Add a filterable PostgreSQL Task inventory and optional two-second refresh of every Task-linked trace projection.
+- [x] Complete validated Task-wait, Memory-retention, and Skill-evolution policy controls while keeping automatic cleanup domain-disabled.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。

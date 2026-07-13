@@ -63,6 +63,10 @@ describe('operational console static accessibility contract', () => {
     const markup = renderToStaticMarkup(<SystemPanel />);
     expect(markup).toContain('Providers &amp; Stage Routes');
     expect(markup).toContain('write-only JSON');
+    expect(markup).toContain('Update wait policy');
+    expect(markup).toContain('Update retention values');
+    expect(markup).toContain('Update evolution threshold');
+    expect(markup).toContain('Automatic archive: OFF');
     expect(markup).toContain('Automatic archive and delete remain disabled');
     expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
     expect(markup).not.toContain('Bearer fixture');

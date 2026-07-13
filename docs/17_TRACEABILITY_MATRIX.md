@@ -9,6 +9,7 @@
 - FR-ADM-003: `apps/console/src/SkillsPanel.tsx`, `SkillStudio.tsx`, console static tests, and `reports/EP-06-console-observability/FR-ADM-003-skill-studio.md`, backed by existing Skill authoring/registry/graph/evolution implementation and tests. Status remains developing pending browser E2E and full bidirectional navigation.
 - FR-ADM-008: `packages/application/src/model-runtime.ts`, `packages/persistence-postgres/src/repositories.ts`, `packages/management-api/src/http-endpoint.ts`, `apps/console/src/SystemPanel.tsx`, OpenAPI/contract/static-console tests, and `reports/EP-06-console-observability/FR-ADM-008-system-model-operations.md`. Credential-free Provider and fixed-route projections plus system-policy/model-audit operations are implemented; status remains developing pending real PostgreSQL/browser E2E and the full EP gate.
 - FR-ADM-006 / NFR-OBS-001: `TaskService.list`, the bounded PostgreSQL Task query, `/api/v1/tasks`, and `apps/console/src/TaskPanel.tsx` now make real traces discoverable and optionally refresh all Task-linked evidence every two seconds. See `reports/EP-06-console-observability/FR-ADM-006-live-task-inventory.md`; status remains developing pending real PostgreSQL/browser E2E and the full EP gate.
+- FR-ADM-008: `apps/console/src/SystemPanel.tsx` now updates wait, retention, and evolution policies through validated existing APIs, with automatic Memory lifecycle flags fixed to false. Targeted management/static-console tests pass; real browser/Docker evidence remains open.
 
 Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已实现待验证 / 已验证 / 阻塞。
 

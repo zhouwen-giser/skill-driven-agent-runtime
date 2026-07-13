@@ -26,6 +26,22 @@ interface Provider {
   readonly enabled: boolean;
   readonly timeoutMs: number;
 }
+interface TaskWaitPolicy {
+  readonly timeoutSeconds: number;
+  readonly updatedAt: string;
+}
+interface MemoryRetentionPolicy {
+  readonly reviewAfterDays: number;
+  readonly archiveAfterDays: number | null;
+  readonly deleteAfterDays: number | null;
+  readonly automaticArchiveEnabled: false;
+  readonly automaticDeleteEnabled: false;
+  readonly updatedAt: string;
+}
+interface EvolutionPolicy {
+  readonly successThreshold: number;
+  readonly updatedAt: string;
+}
 
 export function SystemPanel() {
   const [providers, setProviders] = useState<readonly Provider[]>([]);
@@ -33,6 +49,13 @@ export function SystemPanel() {
   const [invocations, setInvocations] = useState<unknown[]>([]);
   const [policies, setPolicies] = useState<Record<string, unknown>>({});
   const [triggers, setTriggers] = useState<unknown[]>([]);
+  const [waitSeconds, setWaitSeconds] = useState('300');
+  const [retention, setRetention] = useState({
+    reviewAfterDays: '90',
+    archiveAfterDays: '365',
+    deleteAfterDays: '730',
+  });
+  const [successThreshold, setSuccessThreshold] = useState('2');
   const [message, setMessage] = useState('Loading authoritative configuration…');
   const [provider, setProvider] = useState({
     providerId: '',
@@ -53,15 +76,24 @@ export function SystemPanel() {
           managementRequest<Inventory<Provider>>('/api/v1/models/providers'),
           managementRequest<Inventory<unknown>>('/api/v1/models/routes'),
           managementRequest<Inventory<unknown>>('/api/v1/models/invocations'),
-          managementRequest<unknown>('/api/v1/system/task-wait-policy'),
-          managementRequest<unknown>('/api/v1/system/memory-retention-policy'),
-          managementRequest<unknown>('/api/v1/system/evolution-policy'),
+          managementRequest<TaskWaitPolicy>('/api/v1/system/task-wait-policy'),
+          managementRequest<MemoryRetentionPolicy>('/api/v1/system/memory-retention-policy'),
+          managementRequest<EvolutionPolicy>('/api/v1/system/evolution-policy'),
           managementRequest<Inventory<unknown>>('/api/v1/evolution-triggers'),
         ]);
       setProviders(providerData.items);
       setRoutes([...routeData.items]);
       setInvocations([...invocationData.items]);
       setPolicies({ taskWait: wait, memoryRetention: retention, evolution });
+      setWaitSeconds(String(wait.timeoutSeconds));
+      setRetention({
+        reviewAfterDays: String(retention.reviewAfterDays),
+        archiveAfterDays:
+          retention.archiveAfterDays === null ? '' : String(retention.archiveAfterDays),
+        deleteAfterDays:
+          retention.deleteAfterDays === null ? '' : String(retention.deleteAfterDays),
+      });
+      setSuccessThreshold(String(evolution.successThreshold));
       setTriggers([...triggerData.items]);
       setMessage('PostgreSQL configuration and audit evidence loaded.');
     } catch (error: unknown) {
@@ -105,6 +137,38 @@ export function SystemPanel() {
       setMessage('Fixed stage route updated. Runtime fallback remains disabled.');
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Route update failed.');
+    }
+  }
+
+  async function savePolicy(kind: 'wait' | 'retention' | 'evolution') {
+    try {
+      if (kind === 'wait')
+        await managementRequest('/api/v1/system/task-wait-policy', {
+          method: 'PUT',
+          body: JSON.stringify({ timeoutSeconds: Number(waitSeconds) }),
+        });
+      if (kind === 'retention')
+        await managementRequest('/api/v1/system/memory-retention-policy', {
+          method: 'PUT',
+          body: JSON.stringify({
+            reviewAfterDays: Number(retention.reviewAfterDays),
+            archiveAfterDays:
+              retention.archiveAfterDays === '' ? null : Number(retention.archiveAfterDays),
+            deleteAfterDays:
+              retention.deleteAfterDays === '' ? null : Number(retention.deleteAfterDays),
+            automaticArchiveEnabled: false,
+            automaticDeleteEnabled: false,
+          }),
+        });
+      if (kind === 'evolution')
+        await managementRequest('/api/v1/system/evolution-policy', {
+          method: 'PUT',
+          body: JSON.stringify({ successThreshold: Number(successThreshold) }),
+        });
+      await refresh();
+      setMessage(`${kind} policy updated through the authoritative service.`);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Policy update failed.');
     }
   }
 
@@ -202,6 +266,99 @@ export function SystemPanel() {
         </form>
         <p className="action-message">{message}</p>
       </section>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="eyebrow">RUNTIME POLICY CONTROLS</span>
+            <h2>Wait, Retention &amp; Evolution</h2>
+          </div>
+        </div>
+        <div className="analytics-grid">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void savePolicy('wait');
+            }}
+          >
+            <label>
+              Task wait timeout (seconds)
+              <input
+                type="number"
+                min="1"
+                required
+                value={waitSeconds}
+                onChange={(event) => {
+                  setWaitSeconds(event.target.value);
+                }}
+              />
+            </label>
+            <button type="submit">Update wait policy</button>
+          </form>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void savePolicy('retention');
+            }}
+          >
+            <label>
+              Review after days
+              <input
+                type="number"
+                min="1"
+                required
+                value={retention.reviewAfterDays}
+                onChange={(event) => {
+                  setRetention({ ...retention, reviewAfterDays: event.target.value });
+                }}
+              />
+            </label>
+            <label>
+              Archive after days
+              <input
+                type="number"
+                min="1"
+                value={retention.archiveAfterDays}
+                onChange={(event) => {
+                  setRetention({ ...retention, archiveAfterDays: event.target.value });
+                }}
+              />
+            </label>
+            <label>
+              Delete after days
+              <input
+                type="number"
+                min="1"
+                value={retention.deleteAfterDays}
+                onChange={(event) => {
+                  setRetention({ ...retention, deleteAfterDays: event.target.value });
+                }}
+              />
+            </label>
+            <p>Automatic archive: OFF · Automatic delete: OFF</p>
+            <button type="submit">Update retention values</button>
+          </form>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void savePolicy('evolution');
+            }}
+          >
+            <label>
+              Successful experiences required
+              <input
+                type="number"
+                min="2"
+                required
+                value={successThreshold}
+                onChange={(event) => {
+                  setSuccessThreshold(event.target.value);
+                }}
+              />
+            </label>
+            <button type="submit">Update evolution threshold</button>
+          </form>
+        </div>
+      </section>
       <section className="analytics-grid">
         <article>
           <span>CREDENTIAL-SAFE PROVIDERS</span>
@@ -228,7 +385,7 @@ export function SystemPanel() {
         <span>RETENTION SAFETY</span>
         <strong>Automatic archive and delete remain disabled in V1.</strong>
         <p>
-          Policy values are visible here; lifecycle changes require the explicit management API.
+          Retention values can be changed, but automatic lifecycle actions remain domain-disabled.
         </p>
       </section>
     </div>

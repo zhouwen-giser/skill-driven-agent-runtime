@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Validated operational controls for Task wait timeout, Memory retention values, and Skill evolution threshold, preserving the V1 prohibition on automatic Memory cleanup.
+
 - Filterable PostgreSQL Task inventory and optional two-second refresh of the complete Task-rooted Goal/Workflow/model/MCP/evaluation trace in the operational console.
 
 - Credential-safe model Provider and fixed-stage route inventory APIs plus operational console views for encrypted Provider configuration, routing, system policies, evolution triggers, and sanitized model invocation audits.
