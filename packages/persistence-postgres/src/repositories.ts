@@ -1831,6 +1831,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       contextId?: string;
       goalId?: string;
       planId?: string;
+      skillId?: string;
       phase?: AgentTask['phase'];
       limit: number;
     }>,
@@ -1844,6 +1845,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          AND ($2::text IS NULL OR phase=$2)
          AND ($4::text IS NULL OR plan_id=$4)
          AND ($5::text IS NULL OR goal_id=$5)
+         AND ($6::text IS NULL OR selected_skill_id=$6)
        ORDER BY updated_at DESC,task_id DESC
        LIMIT $3`,
       [
@@ -1852,6 +1854,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         query.limit,
         query.planId ?? null,
         query.goalId ?? null,
+        query.skillId ?? null,
       ],
     );
     return result.rows.map(mapTaskRow);

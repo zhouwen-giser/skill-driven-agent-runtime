@@ -51,6 +51,7 @@ export function App() {
       planId?: string;
       skillId?: string;
       serverId?: string;
+      toolName?: string;
       providerId?: string;
       model?: string;
     }>
@@ -62,6 +63,7 @@ export function App() {
       planId?: string;
       skillId?: string;
       serverId?: string;
+      toolName?: string;
       providerId?: string;
       model?: string;
     }>,
@@ -129,6 +131,7 @@ function SectionView({
     planId?: string;
     skillId?: string;
     serverId?: string;
+    toolName?: string;
     providerId?: string;
     model?: string;
   }>;
@@ -139,6 +142,7 @@ function SectionView({
       planId?: string;
       skillId?: string;
       serverId?: string;
+      toolName?: string;
       providerId?: string;
       model?: string;
     }>,
@@ -147,12 +151,18 @@ function SectionView({
   if (section === 'overview') return <Overview />;
   if (section === 'skills')
     return (
-      <SkillsPanel {...(target.skillId === undefined ? {} : { focusSkillId: target.skillId })} />
+      <SkillsPanel
+        {...(target.skillId === undefined ? {} : { focusSkillId: target.skillId })}
+        onExploreTasks={(skillId) => {
+          onNavigate({ section: 'tasks', skillId });
+        }}
+      />
     );
   if (section === 'mcp')
     return (
       <McpPanel
         {...(target.serverId === undefined ? {} : { focusServerId: target.serverId })}
+        {...(target.toolName === undefined ? {} : { focusToolName: target.toolName })}
         onOpenTask={(taskId) => {
           onNavigate({ section: 'tasks', taskId });
         }}
@@ -180,6 +190,7 @@ function SectionView({
     return (
       <TaskPanel
         {...(target.taskId === undefined ? {} : { initialTaskId: target.taskId })}
+        {...(target.skillId === undefined ? {} : { initialSkillId: target.skillId })}
         onNavigate={(next) => {
           onNavigate(
             next.kind === 'workflow'
@@ -187,7 +198,11 @@ function SectionView({
               : next.kind === 'skill'
                 ? { section: 'skills', skillId: next.id }
                 : next.kind === 'mcp'
-                  ? { section: 'mcp', serverId: next.id }
+                  ? {
+                      section: 'mcp',
+                      serverId: next.id,
+                      ...(next.secondary === undefined ? {} : { toolName: next.secondary }),
+                    }
                   : next.kind === 'model'
                     ? {
                         section: 'system',

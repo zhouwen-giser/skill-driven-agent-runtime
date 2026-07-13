@@ -39,6 +39,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Add exact Task → Workflow/Skill and Workflow → owning Task one-click navigation without inferred relationships.
 - [x] Add Task ↔ MCP/model/Evaluation and Memory-source → Task navigation from persisted invocation, quality, and source identities.
 - [x] Add an independent Goal → Task-history entry using the exact persisted `agent_task.goal_id` association.
+- [x] Close the Skill-to-Task and exact Task-to-MCP-Tool navigation gaps with a `selected_skill_id` Task filter and `serverId`/`toolName` focus state.
 - [x] Reconcile every FR-ADM traceability row with current implementation, tests, reports, and explicit unverified E2E evidence.
 - [x] Run `pnpm verify` and real-browser semantic navigation/render smoke; record real, simulated, and unverified evidence without closing the EP.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.

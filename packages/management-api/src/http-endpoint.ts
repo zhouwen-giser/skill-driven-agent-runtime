@@ -692,6 +692,8 @@ export async function startManagementHttpEndpoint(
         typeof request.query['planId'] === 'string' ? request.query['planId'] : undefined;
       const goalId =
         typeof request.query['goalId'] === 'string' ? request.query['goalId'] : undefined;
+      const skillId =
+        typeof request.query['skillId'] === 'string' ? request.query['skillId'] : undefined;
       const phase =
         request.query['phase'] === undefined
           ? undefined
@@ -708,6 +710,7 @@ export async function startManagementHttpEndpoint(
           ...(contextId === undefined ? {} : { contextId }),
           ...(planId === undefined ? {} : { planId }),
           ...(goalId === undefined ? {} : { goalId }),
+          ...(skillId === undefined ? {} : { skillId }),
           ...(phase === undefined ? {} : { phase }),
           limit,
         }),

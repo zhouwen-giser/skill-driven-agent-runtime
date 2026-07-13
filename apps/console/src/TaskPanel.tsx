@@ -27,7 +27,12 @@ export type RelatedTarget = Readonly<{
   id: string;
   secondary?: string;
 }>;
-type TaskFilters = Readonly<{ contextId: string; goalId: string; phase: string }>;
+type TaskFilters = Readonly<{
+  contextId: string;
+  goalId: string;
+  skillId: string;
+  phase: string;
+}>;
 
 export function GoalTaskNavigation({
   goalId,
@@ -50,9 +55,11 @@ export function GoalTaskNavigation({
 
 export function TaskPanel({
   initialTaskId,
+  initialSkillId,
   onNavigate,
 }: {
   readonly initialTaskId?: string;
+  readonly initialSkillId?: string;
   readonly onNavigate?: (target: RelatedTarget) => void;
 }) {
   const [taskId, setTaskId] = useState(initialTaskId ?? '');
@@ -60,7 +67,12 @@ export function TaskPanel({
   const [evidence, setEvidence] = useState<readonly EvidenceItem[]>([]);
   const [message, setMessage] = useState<string>();
   const [inventory, setInventory] = useState<readonly TaskRecord[]>([]);
-  const [filters, setFilters] = useState<TaskFilters>({ contextId: '', goalId: '', phase: '' });
+  const [filters, setFilters] = useState<TaskFilters>({
+    contextId: '',
+    goalId: '',
+    skillId: initialSkillId ?? '',
+    phase: '',
+  });
   const [live, setLive] = useState(false);
   const [action, setAction] = useState<'confirm_plan' | 'reject_plan' | 'revise_plan'>(
     'confirm_plan',
@@ -90,6 +102,7 @@ export function TaskPanel({
       const params = new URLSearchParams({ limit: '50' });
       if (nextFilters.contextId !== '') params.set('contextId', nextFilters.contextId);
       if (nextFilters.goalId !== '') params.set('goalId', nextFilters.goalId);
+      if (nextFilters.skillId !== '') params.set('skillId', nextFilters.skillId);
       if (nextFilters.phase !== '') params.set('phase', nextFilters.phase);
       const result = await managementRequest<{ readonly items: readonly TaskRecord[] }>(
         `/api/v1/tasks?${params.toString()}`,
@@ -106,6 +119,12 @@ export function TaskPanel({
   useEffect(() => {
     if (initialTaskId !== undefined) void loadTask(initialTaskId);
   }, [initialTaskId, loadTask]);
+  useEffect(() => {
+    if (initialSkillId === undefined) return;
+    const nextFilters = { contextId: '', goalId: '', skillId: initialSkillId, phase: '' };
+    setFilters(nextFilters);
+    void loadInventory(nextFilters);
+  }, [initialSkillId]);
   useEffect(() => {
     if (!live || task === undefined) return;
     const timer = window.setInterval(() => void loadTask(task.taskId, false), 2000);
@@ -193,6 +212,15 @@ export function TaskPanel({
             />
           </label>
           <label>
+            Skill ID
+            <input
+              value={filters.skillId}
+              onChange={(event) => {
+                setFilters({ ...filters, skillId: event.target.value });
+              }}
+            />
+          </label>
+          <label>
             phase
             <input
               value={filters.phase}
@@ -263,7 +291,7 @@ export function TaskPanel({
               <GoalTaskNavigation
                 goalId={task.goalId}
                 onExploreGoal={(goalId) => {
-                  const nextFilters = { contextId: '', goalId, phase: '' };
+                  const nextFilters = { contextId: '', goalId, skillId: '', phase: '' };
                   setFilters(nextFilters);
                   void loadInventory(nextFilters);
                 }}
@@ -382,7 +410,7 @@ export function TaskEvidenceNavigation({
   readonly onNavigate: ((target: RelatedTarget) => void) | undefined;
 }) {
   if (onNavigate === undefined) return null;
-  const mcp = firstEvidenceIdentity(evidence, 'mcp', ['serverId']);
+  const mcp = firstEvidenceIdentity(evidence, 'mcp', ['serverId', 'toolName']);
   const model = firstEvidenceIdentity(evidence, 'models', ['providerId', 'model']);
   const skillId = task.selectedSkillId;
   return (
@@ -391,10 +419,14 @@ export function TaskEvidenceNavigation({
         <button
           type="button"
           onClick={() => {
-            onNavigate({ kind: 'mcp', id: mcp[0] });
+            onNavigate({
+              kind: 'mcp',
+              id: mcp[0],
+              ...(mcp[1] === undefined ? {} : { secondary: mcp[1] }),
+            });
           }}
         >
-          Open MCP Server · {mcp[0]}
+          Open MCP Tool · {mcp.join(' / ')}
         </button>
       )}
       {model === undefined ? null : (

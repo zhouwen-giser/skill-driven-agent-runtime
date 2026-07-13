@@ -15,6 +15,7 @@ import { McpPanel } from './McpPanel.js';
 import { SystemPanel } from './SystemPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
+import { openRelatedSkillTasks, SkillTaskNavigation } from './SkillsPanel.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
 describe('operational console static accessibility contract', () => {
@@ -98,7 +99,7 @@ describe('operational console static accessibility contract', () => {
             key: 'mcp',
             label: 'MCP',
             endpoint: '/mcp',
-            value: { items: [{ serverId: 'mcp.test' }] },
+            value: { items: [{ serverId: 'mcp.test', toolName: 'read' }] },
           },
           {
             key: 'models',
@@ -110,14 +111,14 @@ describe('operational console static accessibility contract', () => {
         onNavigate={() => undefined}
       />,
     );
-    expect(markup).toContain('Open MCP Server · mcp.test');
+    expect(markup).toContain('Open MCP Tool · mcp.test / read');
     expect(markup).toContain('Open Model · provider.test / model.test');
     expect(markup).toContain('Open Evaluation · skill.test');
   });
 
   it('renders focused MCP/model/Evaluation destinations and Memory source Task links', () => {
     const markup = [
-      <McpPanel key="mcp" focusServerId="mcp.test" />,
+      <McpPanel key="mcp" focusServerId="mcp.test" focusToolName="read" />,
       <SystemPanel key="system" focusProviderId="provider.test" focusModel="model.test" />,
       <EvaluationPanel key="evaluation" initialSkillId="skill.test" />,
       <MemorySourceNavigation
@@ -128,11 +129,23 @@ describe('operational console static accessibility contract', () => {
     ]
       .map((item) => renderToStaticMarkup(item))
       .join('');
-    expect(markup).toContain('Linked MCP Server: mcp.test');
+    expect(markup).toContain('Linked MCP Tool: mcp.test / read');
     expect(markup).toContain('Linked model Provider: provider.test / model.test');
     expect(markup).toContain('value="skill.test"');
     expect(markup).toContain('Open source Task · task.test');
     expect(markup).not.toContain('Open source Task · result.test');
+  });
+
+  it('executes the one-click Skill-to-Task callback with the authoritative Skill identity', () => {
+    const opened: string[] = [];
+    const element = SkillTaskNavigation({
+      skillId: 'skill.test',
+      onExploreTasks: (skillId) => opened.push(skillId),
+    });
+    if (element === null) throw new Error('SKILL_TASK_NAVIGATION_MISSING');
+    openRelatedSkillTasks('skill.test', (skillId) => opened.push(skillId));
+    expect(opened).toEqual(['skill.test']);
+    expect(renderToStaticMarkup(element)).toContain('Open related Tasks · skill.test');
   });
 
   it('renders Prompt, Memory, and Evaluation controls without operational fixtures', () => {

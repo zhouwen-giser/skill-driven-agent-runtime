@@ -191,6 +191,7 @@ export interface AgentTaskRepository {
       contextId?: string;
       goalId?: string;
       planId?: string;
+      skillId?: string;
       phase?: AgentTask['phase'];
       limit: number;
     }>,

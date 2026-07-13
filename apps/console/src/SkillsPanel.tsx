@@ -10,7 +10,13 @@ interface SkillRecord extends Record<string, unknown> {
   readonly version: number;
 }
 
-export function SkillsPanel({ focusSkillId }: { readonly focusSkillId?: string }) {
+export function SkillsPanel({
+  focusSkillId,
+  onExploreTasks,
+}: {
+  readonly focusSkillId?: string;
+  readonly onExploreTasks?: (skillId: string) => void;
+}) {
   const [skills, setSkills] = useState<readonly SkillRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>();
@@ -66,7 +72,10 @@ export function SkillsPanel({ focusSkillId }: { readonly focusSkillId?: string }
         <p>所有操作都创建或读取后端权威版本；不会绕过 Schema 验证、发布或告警规则。</p>
         {message === undefined ? null : <p className="action-message">{message}</p>}
         {focusSkillId === undefined ? null : (
-          <p className="action-message">Linked Skill: {focusSkillId}</p>
+          <div className="action-row">
+            <p className="action-message">Linked Skill: {focusSkillId}</p>
+            <SkillTaskNavigation skillId={focusSkillId} onExploreTasks={onExploreTasks} />
+          </div>
         )}
       </section>
       <div className="record-list">
@@ -118,4 +127,30 @@ export function SkillsPanel({ focusSkillId }: { readonly focusSkillId?: string }
       <SkillStudio onRegistryChanged={() => void reload()} />
     </div>
   );
+}
+
+export function SkillTaskNavigation({
+  skillId,
+  onExploreTasks,
+}: {
+  readonly skillId: string;
+  readonly onExploreTasks: ((skillId: string) => void) | undefined;
+}) {
+  return onExploreTasks === undefined ? null : (
+    <button
+      type="button"
+      onClick={() => {
+        openRelatedSkillTasks(skillId, onExploreTasks);
+      }}
+    >
+      Open related Tasks · {skillId}
+    </button>
+  );
+}
+
+export function openRelatedSkillTasks(
+  skillId: string,
+  onExploreTasks: (skillId: string) => void,
+): void {
+  onExploreTasks(skillId);
 }

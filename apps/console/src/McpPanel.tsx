@@ -14,9 +14,11 @@ interface McpServerRecord extends Record<string, unknown> {
 
 export function McpPanel({
   focusServerId,
+  focusToolName,
   onOpenTask,
 }: {
   readonly focusServerId?: string;
+  readonly focusToolName?: string;
   readonly onOpenTask?: (taskId: string) => void;
 }) {
   const [servers, setServers] = useState<readonly McpServerRecord[]>([]);
@@ -135,7 +137,10 @@ export function McpPanel({
           </span>
         </div>
         {focusServerId === undefined ? null : (
-          <p className="action-message">Linked MCP Server: {focusServerId}</p>
+          <p className="action-message">
+            Linked MCP {focusToolName === undefined ? 'Server' : 'Tool'}: {focusServerId}
+            {focusToolName === undefined ? '' : ` / ${focusToolName}`}
+          </p>
         )}
         <form className="admin-form" onSubmit={(event) => void register(event)}>
           <label>

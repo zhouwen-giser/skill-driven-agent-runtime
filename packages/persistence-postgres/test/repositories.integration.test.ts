@@ -2508,6 +2508,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.task-link.db',
       goalId: 'goal.task-link.db',
       goalVersion: 1,
+      selectedSkillId: 'skill.task-link.db',
+      selectedSkillVersion: 1,
     });
     await expect(tasks.findByPlanId('plan.task-link.db')).resolves.toMatchObject({
       taskId: submitted.task.taskId,
@@ -2519,6 +2521,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         phase: 'planning',
         planId: 'plan.task-link.db',
         goalId: 'goal.task-link.db',
+        skillId: 'skill.task-link.db',
         limit: 10,
       }),
     ).resolves.toEqual([
@@ -2526,6 +2529,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskId: submitted.task.taskId,
         phase: 'planning',
         goalId: 'goal.task-link.db',
+        selectedSkillId: 'skill.task-link.db',
       }),
     ]);
   });
