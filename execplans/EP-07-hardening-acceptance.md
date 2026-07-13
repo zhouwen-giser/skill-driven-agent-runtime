@@ -23,6 +23,11 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Progress
 
+- [x] Reconcile NFR-REL-001 with the completed EP-04 real queue/startup recovery evidence and mark it verified.
+- [x] Add the missing NFR-REL-002 real-Redis Worker exception assertion for one processor call, one attempt, and retained failure.
+- [x] Run unified `pnpm verify` with 54 files/240 tests and all static/build gates passing.
+- [ ] Execute the new NFR-REL-002 Redis assertion; Docker container mutations remain unavailable.
+
 - [x] 读取 SRS、Definition of Done、追踪矩阵、架构/领域基线并记录当前证据缺口。
 - [x] 将 NFR-PERF-002 节点耗时持久化增量补充到计划、ADR 和验收报告。
 - [x] 在唯一 LangGraph Runtime 计时并贯通领域事件、PostgreSQL、管理 Trace 和 Console 回放。

@@ -167,6 +167,41 @@ describe('BullMQ context queue', () => {
     expect(observed).toEqual(['queued-1']);
     expect(job.opts.attempts).toBe(1);
   });
+
+  it('retains a failed Worker job and never retries the whole Task', async () => {
+    const queueName = `sdar-worker-failure-${String(Date.now())}`;
+    const queue = new BullMqContextTaskQueue({ connection, queueName });
+    const rawQueue = new Queue(queueName, { connection });
+    const queueEvents = new QueueEvents(queueName, { connection });
+    let processorCalls = 0;
+    const worker = new BullMqContextWorker({
+      connection,
+      queueName,
+      processor: {
+        process: () => {
+          processorCalls += 1;
+          return Promise.reject(new Error('worker failed after a side effect'));
+        },
+      },
+    });
+    resources.push(worker, queueEvents, rawQueue, queue);
+
+    await queue.enqueue({ taskId: 'failed-once', contextId: 'context-failure' });
+    const job = await rawQueue.getJob('failed-once');
+    if (job === undefined) throw new Error('BULLMQ_FAILED_JOB_MISSING');
+    worker.start();
+    await expect(job.waitUntilFinished(queueEvents, 5_000)).rejects.toThrow(
+      'worker failed after a side effect',
+    );
+    await waitFor(() => processorCalls === 1);
+    const failedJob = await rawQueue.getJob('failed-once');
+    if (failedJob === undefined) throw new Error('BULLMQ_FAILED_JOB_NOT_RETAINED');
+
+    expect(processorCalls).toBe(1);
+    expect(failedJob.opts.attempts).toBe(1);
+    expect(failedJob.attemptsMade).toBe(1);
+    await expect(failedJob.getState()).resolves.toBe('failed');
+  });
 });
 
 async function waitFor(predicate: () => boolean): Promise<void> {
