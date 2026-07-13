@@ -36,7 +36,7 @@ beforeAll(async () => {
   runtime = await startServerRuntime({
     postgresUrl,
     redis,
-    mcpMasterKeyBase64: randomBytes(32).toString('base64'),
+    masterKeyBase64: randomBytes(32).toString('base64'),
     queueName,
     applyMigrations: true,
     skillSelection: {

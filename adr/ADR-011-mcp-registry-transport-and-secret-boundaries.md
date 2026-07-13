@@ -16,6 +16,7 @@ EP-02 requires runtime registration of remote MCP Servers, manual Tool refresh, 
 - Registration discovers once; explicit refresh atomically replaces PostgreSQL Tool definitions.
 - Invocation reloads the current Tool and validates against its untouched original input schema before network I/O.
 - Credential headers use AES-256-GCM with a 32-byte base64 environment master key. Only IV/tag/ciphertext envelopes are persisted.
+- The same composition-owned cipher serves MCP and Model credentials; service/repository interfaces carry only authenticated ciphertext envelopes, while plaintext exists only for the immediate outbound transport call.
 - MCP draft-07 and SDAR 2020-12 JSON Schema dialects are explicitly supported; unknown dialects are rejected.
 - Removed or schema-changed Tools atomically produce persistent warnings for affected current enabled SkillVersions without disabling them.
 - Every attempted remote call persists arguments, displayable result or stable error summary, status, task/context correlation, timestamps and duration. Schema-rejected inputs are not represented as remote calls.

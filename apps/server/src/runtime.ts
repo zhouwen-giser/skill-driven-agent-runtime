@@ -119,7 +119,7 @@ import {
 export interface ServerRuntimeOptions {
   readonly postgresUrl: string;
   readonly redis: RedisConnectionConfig;
-  readonly mcpMasterKeyBase64: string;
+  readonly masterKeyBase64: string;
   readonly queueName?: string;
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
@@ -200,6 +200,7 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
   const implicitFeedback = new ImplicitFeedbackService({
     repository: new PostgresImplicitFeedbackRepository(pool),
     clock,
@@ -246,7 +247,7 @@ export async function startServerRuntime(
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter(),
-    cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
+    cipher: secretCipher,
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
@@ -371,7 +372,7 @@ export async function startServerRuntime(
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
     transport: mcpTransport,
-    cipher: new Aes256GcmSecretCipher(options.mcpMasterKeyBase64),
+    cipher: secretCipher,
     schemas: schemaValidator,
     clock,
     ids: {

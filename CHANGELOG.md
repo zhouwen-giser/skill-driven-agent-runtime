@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Unified environment-owned AES-256-GCM Cipher injection for MCP and Model credentials with real-cipher database plaintext-rejection assertions.
+
 - Fail-closed non-loopback A2A/management binding validation with explicit no-auth trusted-network acknowledgement and release network-isolation checks.
 
 - Explicit ten-Job BullMQ default concurrency with deterministic ten-context overlap and strict same-context tail-isolation evidence.

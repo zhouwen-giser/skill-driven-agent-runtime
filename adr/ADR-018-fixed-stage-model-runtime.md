@@ -10,6 +10,7 @@ Accepted on 2026-07-12.
 - Core code uses protocol-neutral model ports. OpenAI-compatible/local HTTP DTOs remain in `model-provider-adapter`.
 - A stage resolves exactly one enabled Provider. Timeout, transport failure, invalid response, or disabled configuration fails the operation; no fallback lookup exists.
 - Credentials are AES-256-GCM encrypted and never copied into requests, raw response audit, errors, or management output.
+- The single-process composition creates one `SecretCipher` from `SDAR_MASTER_KEY_BASE64` and injects it into both Model and MCP services. The master key is environment-only and is never part of a repository record.
 - Audits retain request/context, sanitized displayable raw response, structured result, model, token counts, duration, status, and error. Adapter parsing discards reasoning/private fields.
 - Structured generation requests strict JSON Schema output. Returned JSON remains untrusted and is revalidated by the consuming application service.
 

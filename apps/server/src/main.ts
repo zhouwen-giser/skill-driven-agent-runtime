@@ -7,7 +7,7 @@ const environment = loadServerEnvironment();
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
-  mcpMasterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
+  masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   applyMigrations: true,
   a2aHost: environment.SDAR_A2A_HOST,
   a2aPort: environment.SDAR_A2A_PORT,
