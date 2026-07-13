@@ -642,6 +642,70 @@ h2 {
   color: #fff;
   padding: 10px 15px;
 }
+.skill-studio {
+  display: grid;
+  gap: 18px;
+}
+.studio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.studio-grid h3 {
+  margin: 7px 0 16px;
+  font-family: Georgia, serif;
+  font-size: 22px;
+}
+.wide-card {
+  grid-column: 1 / -1;
+}
+.code-editor,
+.mini-form textarea {
+  width: 100%;
+  min-height: 160px;
+  border: 1px solid #aeb9b1;
+  background: #111916;
+  color: #cfe3d5;
+  padding: 12px;
+  font:
+    10px/1.5 ui-monospace,
+    monospace;
+}
+.studio-grid form > button,
+.mini-form > button {
+  margin-top: 10px;
+  border: 0;
+  background: #22563a;
+  color: #fff;
+  padding: 10px 14px;
+}
+.mini-form,
+.graph-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.mini-form label,
+.graph-form label {
+  color: #59675f;
+  font-size: 11px;
+}
+.mini-form input,
+.mini-form select,
+.graph-form input,
+.graph-form select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #aeb9b1;
+  padding: 9px;
+  background: #fff;
+}
+.mini-form textarea,
+.mini-form .action-row,
+.graph-form .action-row {
+  grid-column: 1 / -1;
+}
 .admin-form button,
 .action-row button {
   border: 1px solid #9eaaa2;
@@ -770,6 +834,14 @@ h2 {
   }
   .filter-form {
     grid-template-columns: 1fr;
+  }
+  .studio-grid,
+  .mini-form,
+  .graph-form {
+    grid-template-columns: 1fr;
+  }
+  .wide-card {
+    grid-column: auto;
   }
   .split-lookup,
   .workflow-grid {

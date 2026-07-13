@@ -30,6 +30,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Deliver a repository-owned Workflow DAG/DSL workbench, immutable revision/confirmation actions, and ordered instance-node replay.
 - [x] Add Task-rooted deterministic navigation to Goal/Plan/Workflow/events/results/evaluation/model/MCP evidence using persisted identifiers only.
 - [x] Add real Prompt version/effect controls, source-linked Memory lifecycle management, and filtered Evaluation/Skill-warning operations.
+- [x] Complete the Skill Studio control surface for constrained authoring, definition edits, draft publication, simulation/correction, lifecycle, diff, warnings, and graph relations.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
 - [ ] 读取材料并记录当前代码状态。
@@ -49,6 +50,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - Workflow node events were persisted but not readable through management operations. `WorkflowExecutionService.trace` now joins the immutable instance with ordered displayable events; the console stores only replay position and editor text.
 - Model and MCP APIs previously supported stage-wide or Server-wide reads only. Task filters and Plan-to-latest-instance lookup now provide deterministic links without a second trace store.
 - Prompt, Memory, and Evaluation application APIs were already authoritative; dedicated console panels now expose them without adding frontend persistence or static operational records.
+- The Skill backend lifecycle was broad but fragmented across routes. `SkillStudio` composes those existing boundaries while preserving every validation/publication gate.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 

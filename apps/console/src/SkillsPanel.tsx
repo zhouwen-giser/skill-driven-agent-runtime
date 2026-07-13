@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { managementRequest } from './api.js';
+import { SkillStudio } from './SkillStudio.js';
 
 interface SkillRecord extends Record<string, unknown> {
   readonly skillId: string;
@@ -108,6 +109,7 @@ export function SkillsPanel() {
           <pre className="result">{JSON.stringify(detail, null, 2)}</pre>
         </section>
       )}
+      <SkillStudio onRegistryChanged={() => void reload()} />
     </div>
   );
 }

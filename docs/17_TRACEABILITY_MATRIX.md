@@ -6,6 +6,7 @@
 - FR-ADM-004: `packages/application/src/workflow-execution.ts`, `packages/persistence-postgres/src/repositories.ts`, `packages/management-api/src/http-endpoint.ts`, `apps/console/src/WorkflowPanel.tsx`, targeted unit/contract tests, and `reports/EP-06-console-observability/FR-ADM-004-workflow-dag-trace-replay.md`. Status remains developing until PostgreSQL/UI E2E and full trace linkage pass.
 - FR-ADM-006 / NFR-OBS-001: task-filtered PostgreSQL queries, `packages/management-api/src/http-endpoint.ts`, `apps/console/src/TaskPanel.tsx`, targeted unit/contract tests, ADR-066, and `reports/EP-06-console-observability/FR-ADM-006-task-correlated-trace.md`. Status remains developing until real integration/UI E2E, live refresh, inventory, and bidirectional navigation pass.
 - FR-ADM-005 / FR-ADM-007 / FR-ADM-008: `apps/console/src/PromptPanel.tsx`, `MemoryPanel.tsx`, `EvaluationPanel.tsx`, static console tests, and `reports/EP-06-console-observability/FR-ADM-005-007-008-operations.md`, backed by the existing Prompt/Memory/Evaluation application and API evidence. Status remains developing pending browser E2E and the remaining composed analytics views.
+- FR-ADM-003: `apps/console/src/SkillsPanel.tsx`, `SkillStudio.tsx`, console static tests, and `reports/EP-06-console-observability/FR-ADM-003-skill-studio.md`, backed by existing Skill authoring/registry/graph/evolution implementation and tests. Status remains developing pending browser E2E and full bidirectional navigation.
 
 Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已实现待验证 / 已验证 / 阻塞。
 

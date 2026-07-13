@@ -7,6 +7,7 @@ import { TaskPanel } from './TaskPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel } from './MemoryPanel.js';
 import { EvaluationPanel } from './EvaluationPanel.js';
+import { SkillStudio } from './SkillStudio.js';
 
 describe('operational console static accessibility contract', () => {
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
@@ -45,5 +46,13 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('warning-only policy');
     expect(markup).not.toContain('prompt-1');
     expect(markup).not.toContain('memory-1');
+  });
+
+  it('renders the complete Skill authoring, simulation, version, and graph control surface', () => {
+    const markup = renderToStaticMarkup(<SkillStudio onRegistryChanged={() => undefined} />);
+    expect(markup).toContain('Generate Schemas and validate');
+    expect(markup).toContain('Simulation / Correction');
+    expect(markup).toContain('Compare immutable versions');
+    expect(markup).toContain('SKILL GRAPH');
   });
 });
