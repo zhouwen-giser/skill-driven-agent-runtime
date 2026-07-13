@@ -82,7 +82,7 @@ function parsePackageKeys(lockfile) {
 
   const keys = new Set();
   for (const line of lockfile.slice(packagesStart, snapshotsStart).split(/\r?\n/u)) {
-    const match = /^  (\S.*):$/u.exec(line);
+    const match = /^ {2}(\S.*):$/u.exec(line);
     if (match === null) continue;
     let key = match[1];
     if (key.startsWith("'") && key.endsWith("'")) {
