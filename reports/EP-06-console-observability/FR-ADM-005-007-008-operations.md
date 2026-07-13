@@ -7,6 +7,8 @@
 - Explicitly publish, rollback, or disable through existing application boundaries.
 - The console does not synthesize candidates or change current pointers locally.
 
+Acceptance reconciliation (2026-07-13): FR-ADM-005 is verified. EP-03 ran real PostgreSQL, management HTTP, local model HTTP, invocation audit, effect queries, and same-process E2E proving candidate isolation, publication, new-version routing, and traceable effects (15 integration, 12 E2E, build, smoke). Current Prompt/management/Console regression passes 3 files/52 tests; unified `pnpm verify` passes 54 files/241 tests.
+
 ## FR-ADM-007 Memory lifecycle
 
 - Search globally active Memory through the semantic retrieval API.

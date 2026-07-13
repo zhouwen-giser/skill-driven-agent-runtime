@@ -1,0 +1,27 @@
+{
+  "requirement": "FR-ADM-005",
+  "status": "verified",
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 52,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "historicalRealEvidence": {
+    "postgres": true,
+    "managementHttp": true,
+    "localModelHttp": true,
+    "integrationTestsPassed": 15,
+    "e2eTestsPassed": 12,
+    "productionSmoke": true
+  },
+  "acceptance": {
+    "immutableVersions": true,
+    "inactiveCandidateIsolation": true,
+    "publish": true,
+    "rollback": true,
+    "effectComparison": true,
+    "changesTraceable": true
+  },
+  "unverified": ["latest real-API browser repetition of Prompt controls"]
+}
