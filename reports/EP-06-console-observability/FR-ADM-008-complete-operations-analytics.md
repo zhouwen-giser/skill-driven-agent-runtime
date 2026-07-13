@@ -16,3 +16,7 @@ Suggestions are advisory read models only. They cannot disable Skills, publish v
 - `pnpm exec vitest run packages/application/test/evaluation-analytics.unit.test.ts packages/management-api/test/http-endpoint.contract.test.ts apps/console/src/console.unit.test.tsx` — 42 passed.
 - format, lint, strict typecheck, architecture, 102-operation OpenAPI drift, and production build passed.
 - The PostgreSQL integration assertion now includes exact Task-linked MCP/model audits but remains unexecuted while Docker services are unavailable.
+
+## Acceptance reconciliation
+
+FR-ADM-008 is verified. Historical FR-EVAL-004 evidence ran 31 PostgreSQL integration and 40 real E2E tests plus build/smoke, including two-round MCP execution, model/Tool filters, success, duration, cost, failure, Skill stability, and quality trend. Current 3-file/51-test regression verifies MCP/model groupings, capability growth, evidence-counted advisory suggestions, management projection, and dashboard rendering. Unified `pnpm verify` passes 54 files/241 tests. The newer all-fields-in-one PostgreSQL assertion remains an unexecuted regression refinement, not a missing metric path.

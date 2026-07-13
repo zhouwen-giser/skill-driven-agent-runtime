@@ -1,0 +1,28 @@
+{
+  "requirement": "FR-ADM-008",
+  "status": "verified",
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 51,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "historicalRealEvidence": {
+    "postgresIntegrationTestsPassed": 31,
+    "e2eTestsPassed": 40,
+    "twoRoundMcpExecution": true,
+    "modelAndToolFiltering": true,
+    "productionSmoke": true
+  },
+  "acceptance": {
+    "skillEffect": true,
+    "versionTrend": true,
+    "mcpUsage": true,
+    "modelEffect": true,
+    "capabilityGrowth": true,
+    "optimizationSuggestions": true,
+    "dashboardDisplaysKeyMetrics": true,
+    "suggestionsAreAdvisoryOnly": true
+  },
+  "unverified": ["latest all-fields-in-one PostgreSQL assertion and browser repetition"]
+}
