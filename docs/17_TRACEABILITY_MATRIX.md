@@ -13,6 +13,7 @@
 - FR-ADM-006 / NFR-OBS-001: `TaskService.list`, the bounded PostgreSQL Task query, `/api/v1/tasks`, and `apps/console/src/TaskPanel.tsx` now make real traces discoverable and optionally refresh all Task-linked evidence every two seconds. See `reports/EP-06-console-observability/FR-ADM-006-live-task-inventory.md`; status remains developing pending real PostgreSQL/browser E2E and the full EP gate.
 - FR-ADM-008: `apps/console/src/SystemPanel.tsx` now updates wait, retention, and evolution policies through validated existing APIs, with automatic Memory lifecycle flags fixed to false. Targeted management/static-console tests pass; real browser/Docker evidence remains open.
 - FR-ADM-007 / FR-ADM-008: `apps/console/src/EvaluationPanel.tsx` maps the authoritative analytics snapshot to success/duration/cost KPIs, failure bars, Skill-version stability, and ordered quality trends, with raw evidence retained. Targeted analytics/management/static-console tests pass; browser E2E remains open.
+- FR-ADM-008 correction: `packages/domain/src/evaluation-analytics.ts`, `packages/application/src/evaluation-analytics.ts`, `packages/persistence-postgres/src/repositories.ts`, and `apps/console/src/EvaluationPanel.tsx` now add exact Task-linked MCP usage/model effects, immutable Skill-version capability growth, and evidence-counted advisory suggestions. See `reports/EP-06-console-observability/FR-ADM-008-complete-operations-analytics.md`; real PostgreSQL/browser E2E remains open.
 
 Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已实现待验证 / 已验证 / 阻塞。
 

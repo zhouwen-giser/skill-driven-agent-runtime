@@ -72,6 +72,7 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - Aggregates immutable Experience, Workflow budget/error, model invocation, Tool, SkillVersion, and quality-report evidence.
 - Supports Skill/version/provider/model/Server/Tool filters while PostgreSQL remains authoritative.
 - Contains success, duration, cost, failure, version-stability, and ordered quality-trend projections.
+- Contains Task-linked model effects, MCP usage, observed Skill-version capability growth, and evidence-counted advisory optimization suggestions. Suggestions are read models only and cannot change runtime state.
 
 ## 不变量
 

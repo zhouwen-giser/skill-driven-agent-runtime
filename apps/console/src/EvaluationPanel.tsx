@@ -10,6 +10,21 @@ interface AnalyticsSnapshot {
   readonly totalCost: number;
   readonly averageCost: number;
   readonly failureTypes: readonly Readonly<{ code: string; count: number }>[];
+  readonly mcpUsage: readonly Readonly<{
+    serverId: string;
+    toolName: string;
+    invocationCount: number;
+    successRate: number;
+    averageDurationMs: number;
+  }>[];
+  readonly modelEffects: readonly Readonly<{
+    providerId: string;
+    model: string;
+    invocationCount: number;
+    successRate: number;
+    averageDurationMs: number;
+    averageTokens: number;
+  }>[];
   readonly versionStability: readonly Readonly<{
     skillId: string;
     skillVersion: number;
@@ -26,6 +41,21 @@ interface AnalyticsSnapshot {
     score: number;
     status: string;
     createdAt: string;
+  }>[];
+  readonly capabilityGrowth: readonly Readonly<{
+    skillId: string;
+    observedVersions: number;
+    firstVersion: number;
+    latestVersion: number;
+    sampleCount: number;
+    successfulSamples: number;
+  }>[];
+  readonly optimizationSuggestions: readonly Readonly<{
+    code: string;
+    severity: string;
+    target: string;
+    summary: string;
+    evidenceCount: number;
   }>[];
 }
 
@@ -204,12 +234,99 @@ export function OperationsDashboard({ analytics }: { readonly analytics: Analyti
             </ol>
           )}
         </article>
+        <EvidenceTable
+          title="MCP USAGE"
+          empty="No MCP invocations."
+          headers={['Tool', 'Calls', 'Success', 'Avg ms']}
+          rows={analytics.mcpUsage.map((item) => [
+            `${item.serverId}.${item.toolName}`,
+            String(item.invocationCount),
+            percent(item.successRate),
+            formatNumber(item.averageDurationMs),
+          ])}
+        />
+        <EvidenceTable
+          title="MODEL EFFECTS"
+          empty="No model invocations."
+          headers={['Provider / Model', 'Calls', 'Success', 'Avg tokens']}
+          rows={analytics.modelEffects.map((item) => [
+            `${item.providerId} / ${item.model}`,
+            String(item.invocationCount),
+            percent(item.successRate),
+            formatNumber(item.averageTokens),
+          ])}
+        />
+        <EvidenceTable
+          title="CAPABILITY GROWTH"
+          empty="No Skill-version evidence."
+          headers={['Skill', 'Versions', 'Latest', 'Successes']}
+          rows={analytics.capabilityGrowth.map((item) => [
+            item.skillId,
+            String(item.observedVersions),
+            `v${String(item.latestVersion)}`,
+            `${String(item.successfulSamples)}/${String(item.sampleCount)}`,
+          ])}
+        />
+        <article>
+          <span>AUTOMATIC OPTIMIZATION SUGGESTIONS</span>
+          {analytics.optimizationSuggestions.length === 0 ? (
+            <p>No evidence-backed suggestions.</p>
+          ) : (
+            <ul className="suggestion-list">
+              {analytics.optimizationSuggestions.map((item) => (
+                <li key={`${item.code}-${item.target}`}>
+                  <strong>{item.target}</strong>
+                  <p>{item.summary}</p>
+                  <small>
+                    {item.code} · {item.evidenceCount} evidence records · advisory only
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
       </section>
       <details className="panel">
         <summary>Raw analytics evidence</summary>
         <pre>{JSON.stringify(analytics, null, 2)}</pre>
       </details>
     </>
+  );
+}
+
+function EvidenceTable({
+  title,
+  empty,
+  headers,
+  rows,
+}: {
+  readonly title: string;
+  readonly empty: string;
+  readonly headers: readonly string[];
+  readonly rows: readonly (readonly string[])[];
+}) {
+  return (
+    <article>
+      <span>{title}</span>
+      {rows.length === 0 ? (
+        <p>{empty}</p>
+      ) : (
+        <div className="data-table" role="table">
+          <div className="data-row header" role="row">
+            {headers.map((header) => (
+              <span key={header}>{header}</span>
+            ))}
+          </div>
+          {rows.map((row) => (
+            <div className="data-row" role="row" key={row.join('\0')}>
+              {row.map((value, index) => (
+                <span key={`${String(index)}-${value}`}>{value}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
   );
 }
 

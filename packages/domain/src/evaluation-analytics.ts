@@ -17,6 +17,20 @@ export interface EvaluationAnalyticsSample {
   readonly instanceId: string;
   readonly skillVersions: WorkflowInstance['skillVersions'];
   readonly tools: readonly ToolReference[];
+  readonly mcpInvocations: readonly Readonly<{
+    serverId: string;
+    toolName: string;
+    status: 'succeeded' | 'failed' | 'canceled';
+    durationMs: number;
+  }>[];
+  readonly modelInvocations: readonly Readonly<{
+    providerId: string;
+    model: string;
+    status: 'succeeded' | 'failed';
+    durationMs: number;
+    inputTokens: number;
+    outputTokens: number;
+  }>[];
   readonly successful: boolean;
   readonly durationMs: number;
   readonly cost: number;
@@ -36,6 +50,21 @@ export interface EvaluationAnalyticsSnapshot {
   readonly totalCost: number;
   readonly averageCost: number;
   readonly failureTypes: readonly Readonly<{ code: string; count: number }>[];
+  readonly mcpUsage: readonly Readonly<{
+    serverId: string;
+    toolName: string;
+    invocationCount: number;
+    successRate: number;
+    averageDurationMs: number;
+  }>[];
+  readonly modelEffects: readonly Readonly<{
+    providerId: string;
+    model: string;
+    invocationCount: number;
+    successRate: number;
+    averageDurationMs: number;
+    averageTokens: number;
+  }>[];
   readonly versionStability: readonly Readonly<{
     skillId: string;
     skillVersion: number;
@@ -53,5 +82,20 @@ export interface EvaluationAnalyticsSnapshot {
     score: number;
     status: TaskQualityReport['status'];
     createdAt: string;
+  }>[];
+  readonly capabilityGrowth: readonly Readonly<{
+    skillId: string;
+    observedVersions: number;
+    firstVersion: number;
+    latestVersion: number;
+    sampleCount: number;
+    successfulSamples: number;
+  }>[];
+  readonly optimizationSuggestions: readonly Readonly<{
+    code: 'review_failure' | 'review_model' | 'review_skill_version' | 'review_tool';
+    severity: 'warning';
+    target: string;
+    summary: string;
+    evidenceCount: number;
   }>[];
 }

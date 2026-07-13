@@ -18,6 +18,9 @@ export class EvaluationAnalyticsService {
     const successCount = samples.filter((sample) => sample.successful).length;
     const totalDuration = samples.reduce((sum, sample) => sum + sample.durationMs, 0);
     const totalCost = samples.reduce((sum, sample) => sum + sample.cost, 0);
+    const mcpUsageSnapshot = mcpUsage(samples);
+    const modelEffectSnapshot = modelEffects(samples);
+    const stabilitySnapshot = versionStability(samples);
     return {
       filters,
       sampleCount,
@@ -27,7 +30,9 @@ export class EvaluationAnalyticsService {
       totalCost,
       averageCost: ratio(totalCost, sampleCount),
       failureTypes: failureTypes(samples),
-      versionStability: versionStability(samples),
+      mcpUsage: mcpUsageSnapshot,
+      modelEffects: modelEffectSnapshot,
+      versionStability: stabilitySnapshot,
       qualityTrend: samples
         .flatMap((sample) =>
           sample.qualityReport === undefined
@@ -49,8 +54,159 @@ export class EvaluationAnalyticsService {
             left.createdAt.localeCompare(right.createdAt) ||
             left.reportId.localeCompare(right.reportId),
         ),
+      capabilityGrowth: capabilityGrowth(samples),
+      optimizationSuggestions: optimizationSuggestions(
+        failureTypes(samples),
+        mcpUsageSnapshot,
+        modelEffectSnapshot,
+        stabilitySnapshot,
+      ),
     };
   }
+}
+
+function mcpUsage(samples: readonly EvaluationAnalyticsSample[]) {
+  const groups = new Map<string, EvaluationAnalyticsSample['mcpInvocations']>();
+  for (const invocation of samples.flatMap((sample) => sample.mcpInvocations)) {
+    const key = `${invocation.serverId}\0${invocation.toolName}`;
+    groups.set(key, [...(groups.get(key) ?? []), invocation]);
+  }
+  return [...groups.entries()]
+    .map(([key, invocations]) => {
+      const [serverId = '', toolName = ''] = key.split('\0');
+      return {
+        serverId,
+        toolName,
+        invocationCount: invocations.length,
+        successRate: ratio(
+          invocations.filter((item) => item.status === 'succeeded').length,
+          invocations.length,
+        ),
+        averageDurationMs: ratio(
+          invocations.reduce((sum, item) => sum + item.durationMs, 0),
+          invocations.length,
+        ),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.invocationCount - left.invocationCount ||
+        left.serverId.localeCompare(right.serverId) ||
+        left.toolName.localeCompare(right.toolName),
+    );
+}
+
+function modelEffects(samples: readonly EvaluationAnalyticsSample[]) {
+  const groups = new Map<string, EvaluationAnalyticsSample['modelInvocations']>();
+  for (const invocation of samples.flatMap((sample) => sample.modelInvocations)) {
+    const key = `${invocation.providerId}\0${invocation.model}`;
+    groups.set(key, [...(groups.get(key) ?? []), invocation]);
+  }
+  return [...groups.entries()]
+    .map(([key, invocations]) => {
+      const [providerId = '', model = ''] = key.split('\0');
+      return {
+        providerId,
+        model,
+        invocationCount: invocations.length,
+        successRate: ratio(
+          invocations.filter((item) => item.status === 'succeeded').length,
+          invocations.length,
+        ),
+        averageDurationMs: ratio(
+          invocations.reduce((sum, item) => sum + item.durationMs, 0),
+          invocations.length,
+        ),
+        averageTokens: ratio(
+          invocations.reduce((sum, item) => sum + item.inputTokens + item.outputTokens, 0),
+          invocations.length,
+        ),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.invocationCount - left.invocationCount ||
+        left.providerId.localeCompare(right.providerId) ||
+        left.model.localeCompare(right.model),
+    );
+}
+
+function capabilityGrowth(samples: readonly EvaluationAnalyticsSample[]) {
+  const groups = new Map<
+    string,
+    { versions: Set<number>; samples: Set<string>; successes: Set<string> }
+  >();
+  for (const sample of samples)
+    for (const skill of sample.skillVersions) {
+      const group = groups.get(skill.skillId) ?? {
+        versions: new Set<number>(),
+        samples: new Set<string>(),
+        successes: new Set<string>(),
+      };
+      group.versions.add(skill.version);
+      group.samples.add(sample.experienceId);
+      if (sample.successful) group.successes.add(sample.experienceId);
+      groups.set(skill.skillId, group);
+    }
+  return [...groups.entries()]
+    .map(([skillId, group]) => {
+      const versions = [...group.versions].sort((a, b) => a - b);
+      return {
+        skillId,
+        observedVersions: versions.length,
+        firstVersion: versions[0] ?? 0,
+        latestVersion: versions.at(-1) ?? 0,
+        sampleCount: group.samples.size,
+        successfulSamples: group.successes.size,
+      };
+    })
+    .sort((left, right) => left.skillId.localeCompare(right.skillId));
+}
+
+function optimizationSuggestions(
+  failures: ReturnType<typeof failureTypes>,
+  tools: ReturnType<typeof mcpUsage>,
+  models: ReturnType<typeof modelEffects>,
+  versions: ReturnType<typeof versionStability>,
+) {
+  return [
+    ...failures
+      .filter((item) => item.count > 0)
+      .map((item) => ({
+        code: 'review_failure' as const,
+        severity: 'warning' as const,
+        target: item.code,
+        summary: `Review repeated failure ${item.code}.`,
+        evidenceCount: item.count,
+      })),
+    ...tools
+      .filter((item) => item.successRate < 0.8)
+      .map((item) => ({
+        code: 'review_tool' as const,
+        severity: 'warning' as const,
+        target: `${item.serverId}.${item.toolName}`,
+        summary: 'Review Tool reliability or Skill Tool selection.',
+        evidenceCount: item.invocationCount,
+      })),
+    ...models
+      .filter((item) => item.successRate < 0.8)
+      .map((item) => ({
+        code: 'review_model' as const,
+        severity: 'warning' as const,
+        target: `${item.providerId}/${item.model}`,
+        summary: 'Review fixed-stage model configuration and Prompt evidence.',
+        evidenceCount: item.invocationCount,
+      })),
+    ...versions
+      .filter((item) => item.stabilityScore < 0.5)
+      .map((item) => ({
+        code: 'review_skill_version' as const,
+        severity: 'warning' as const,
+        target: `${item.skillId}@${String(item.skillVersion)}`,
+        summary: 'Review or correct the unstable Skill version; do not disable automatically.',
+        evidenceCount: item.sampleCount,
+      })),
+  ];
 }
 
 function validateFilters(filters: EvaluationAnalyticsFilter): void {

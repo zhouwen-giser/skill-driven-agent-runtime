@@ -17,6 +17,8 @@ FR-EVAL-004 requires management visibility of success rate, latency, call cost, 
 - Filter Tool evidence through the actual Tool references stored on Experience. Skill version and Tool name require their parent Skill/Server identity.
 - Aggregate on demand from PostgreSQL through an Evaluation-domain service. Do not create Redis counters, frontend-owned metrics, or a second source of truth.
 - Expose one read-only management endpoint with Skill, version, provider, model, server, and Tool filters. The later console consumes this same endpoint.
+- Join exact Task-linked model and MCP invocation audits into each sample, then publish provider/model and Server/Tool success, volume, latency, and Token projections.
+- Derive capability growth from observed immutable Skill versions and successful Experience counts. Generate advisory-only optimization suggestions from failure, Tool, model, and unstable-version thresholds; suggestions never mutate, disable, publish, or reroute runtime state.
 
 ## Consequences
 

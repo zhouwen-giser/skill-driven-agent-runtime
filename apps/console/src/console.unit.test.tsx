@@ -85,6 +85,25 @@ describe('operational console static accessibility contract', () => {
           totalCost: 9,
           averageCost: 3,
           failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+          mcpUsage: [
+            {
+              serverId: 'mcp.test',
+              toolName: 'read',
+              invocationCount: 2,
+              successRate: 0.5,
+              averageDurationMs: 40,
+            },
+          ],
+          modelEffects: [
+            {
+              providerId: 'provider.test',
+              model: 'model.test',
+              invocationCount: 2,
+              successRate: 0.5,
+              averageDurationMs: 20,
+              averageTokens: 30,
+            },
+          ],
           versionStability: [
             {
               skillId: 'skill.test',
@@ -106,6 +125,25 @@ describe('operational console static accessibility contract', () => {
               createdAt: '2026-07-13T00:00:00.000Z',
             },
           ],
+          capabilityGrowth: [
+            {
+              skillId: 'skill.test',
+              observedVersions: 2,
+              firstVersion: 1,
+              latestVersion: 2,
+              sampleCount: 3,
+              successfulSamples: 2,
+            },
+          ],
+          optimizationSuggestions: [
+            {
+              code: 'review_tool',
+              severity: 'warning',
+              target: 'mcp.test.read',
+              summary: 'Review Tool reliability.',
+              evidenceCount: 2,
+            },
+          ],
         }}
       />,
     );
@@ -114,6 +152,10 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('MCP_TIMEOUT');
     expect(markup).toContain('VERSION STABILITY');
     expect(markup).toContain('QUALITY TREND');
+    expect(markup).toContain('MCP USAGE');
+    expect(markup).toContain('MODEL EFFECTS');
+    expect(markup).toContain('CAPABILITY GROWTH');
+    expect(markup).toContain('AUTOMATIC OPTIMIZATION SUGGESTIONS');
     expect(markup).toContain('Raw analytics evidence');
   });
 });

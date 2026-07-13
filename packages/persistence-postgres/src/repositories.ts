@@ -1200,6 +1200,8 @@ interface EvaluationAnalyticsRow extends QueryResultRow {
   instance_id: string;
   skill_versions_json: unknown;
   tools_json: unknown;
+  mcp_invocations_json: unknown;
+  model_invocations_json: unknown;
   successful: boolean;
   duration_ms: number;
   budget_usage_json: unknown;
@@ -1218,6 +1220,28 @@ const AnalyticsSkillVersionsSchema = z.array(
 const AnalyticsToolsSchema = z.array(
   z.object({ serverId: z.string(), toolName: z.string() }).strict(),
 );
+const AnalyticsMcpInvocationsSchema = z.array(
+  z
+    .object({
+      serverId: z.string(),
+      toolName: z.string(),
+      status: z.enum(['succeeded', 'failed', 'canceled']),
+      durationMs: z.number().nonnegative(),
+    })
+    .strict(),
+);
+const AnalyticsModelInvocationsSchema = z.array(
+  z
+    .object({
+      providerId: z.string(),
+      model: z.string(),
+      status: z.enum(['succeeded', 'failed']),
+      durationMs: z.number().nonnegative(),
+      inputTokens: z.number().nonnegative(),
+      outputTokens: z.number().nonnegative(),
+    })
+    .strict(),
+);
 const AnalyticsBudgetSchema = z.looseObject({ cost: z.number().nonnegative() });
 const AnalyticsErrorsSchema = z.record(
   z.string(),
@@ -1232,6 +1256,15 @@ export class PostgresEvaluationAnalyticsRepository implements EvaluationAnalytic
   async query(filters: EvaluationAnalyticsFilter): Promise<readonly EvaluationAnalyticsSample[]> {
     const result = await this.#pool.query<EvaluationAnalyticsRow>(
       `SELECT ee.experience_id,ee.task_id,ee.instance_id,ee.skill_versions_json,ee.tools_json,
+              COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                'serverId',m.server_id,'toolName',m.tool_name,'status',m.status,'durationMs',m.duration_ms)
+                ORDER BY m.started_at,m.invocation_id)
+                FROM mcp_invocation m WHERE m.task_id=ee.task_id),'[]'::jsonb) mcp_invocations_json,
+              COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                'providerId',mi.provider_id,'model',mi.model,'status',mi.status,'durationMs',mi.duration_ms,
+                'inputTokens',COALESCE(mi.input_tokens,0),'outputTokens',COALESCE(mi.output_tokens,0))
+                ORDER BY mi.created_at,mi.invocation_id)
+                FROM model_invocation mi WHERE mi.task_id=ee.task_id),'[]'::jsonb) model_invocations_json,
               ee.successful,ee.duration_ms,wi.budget_usage_json,wi.errors_json,
               ee.evaluation_json->>'decision' evaluation_decision,
               qr.report_id,qr.task_id report_task_id,qr.overall_score,qr.status quality_status,
@@ -1271,6 +1304,8 @@ export class PostgresEvaluationAnalyticsRepository implements EvaluationAnalytic
         instanceId: row.instance_id,
         skillVersions: AnalyticsSkillVersionsSchema.parse(row.skill_versions_json),
         tools: AnalyticsToolsSchema.parse(row.tools_json),
+        mcpInvocations: AnalyticsMcpInvocationsSchema.parse(row.mcp_invocations_json),
+        modelInvocations: AnalyticsModelInvocationsSchema.parse(row.model_invocations_json),
         successful: row.successful,
         durationMs: row.duration_ms,
         cost: AnalyticsBudgetSchema.parse(row.budget_usage_json).cost,

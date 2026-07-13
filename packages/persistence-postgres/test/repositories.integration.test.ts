@@ -1341,6 +1341,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
       workflowDisposition: 'rejected_low_quality',
       promptDisposition: 'not_required',
     });
+    const mcpRuntime = new PostgresMcpRegistryRepository(pool);
+    await mcpRuntime.saveInvocation({
+      invocationId: 'mcp-invocation.analytics.db',
+      taskId: task.taskId,
+      contextId: task.contextId,
+      serverId: 'mcp.history',
+      toolName: 'replay',
+      arguments: {},
+      result: { replayed: true },
+      status: 'succeeded',
+      startedAt: '2026-07-12T00:00:02.000Z',
+      completedAt: '2026-07-12T00:00:02.010Z',
+      durationMs: 10,
+    });
     const modelRuntime = new PostgresModelRuntimeRepository(pool);
     await modelRuntime.saveProvider({
       configuration: {
@@ -1386,6 +1400,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
         durationMs: 1000,
         cost: 0,
         failureCodes: ['goal_evaluation:replace_skill'],
+        mcpInvocations: [expect.objectContaining({ serverId: 'mcp.history', toolName: 'replay' })],
+        modelInvocations: [
+          expect.objectContaining({
+            providerId: 'provider.analytics.db',
+            model: 'model.analytics.db',
+          }),
+        ],
         qualityReport: expect.objectContaining({ reportId: 'quality.control.db' }),
       }),
     ]);

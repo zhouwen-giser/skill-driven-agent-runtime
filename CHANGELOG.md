@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- PostgreSQL-derived MCP usage, model effects, Skill capability growth, and evidence-counted advisory optimization suggestions for the complete FR-ADM-008 dashboard.
+
 - Machine-readable and human-readable EP-06 acceptance audit classifying unified verification and browser rendering as real, contract/SSR coverage as simulated, and Docker-backed gates as unverified.
 
 - Operational Evaluation dashboard for real success, duration, cost, failure distribution, Skill-version stability, and ordered quality-trend evidence.

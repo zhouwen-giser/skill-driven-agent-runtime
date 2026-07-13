@@ -35,6 +35,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - [x] Add a filterable PostgreSQL Task inventory and optional two-second refresh of every Task-linked trace projection.
 - [x] Complete validated Task-wait, Memory-retention, and Skill-evolution policy controls while keeping automatic cleanup domain-disabled.
 - [x] Render real Evaluation KPIs, failure distribution, Skill-version stability, and ordered quality trends with raw evidence available for audit.
+- [x] Complete FR-ADM-008 MCP usage, model effects, capability growth, and evidence-backed advisory optimization views.
 - [x] Run `pnpm verify` and real-browser semantic navigation/render smoke; record real, simulated, and unverified evidence without closing the EP.
 - [ ] Complete real CRUD, DAG editing, trace/replay, linked navigation, dashboards, and accessibility evidence.
 
@@ -58,6 +59,7 @@ FR-ADM-001, FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-005, FR-ADM-006, FR-ADM-0
 - The Skill backend lifecycle was broad but fragmented across routes. `SkillStudio` composes those existing boundaries while preserving every validation/publication gate.
 - Provider and stage-route writes existed without readable inventories. Credential-free PostgreSQL projections now close that gap without exposing encrypted headers or creating frontend state.
 - A Task identifier lookup was insufficient for operations. The new bounded inventory makes traces discoverable; refresh re-queries authoritative projections and never mutates execution.
+- The original SRS audit exposed that aggregate KPIs alone did not complete FR-ADM-008. ADR-063 now includes exact Task-linked MCP/model effects, observed capability growth, and advisory optimization suggestions.
 
 执行期间持续追加，包含 SDK 实际行为、失败测试和与原假设不同之处。
 

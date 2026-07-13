@@ -4,6 +4,8 @@
 
 Not accepted. All planned console functionality is implemented, but EP-06 cannot close until real PostgreSQL/Redis integration, real API browser E2E, full E2E, and server smoke pass.
 
+Post-audit correction: the original SRS exposed missing FR-ADM-008 MCP usage, model effects, capability growth, and optimization suggestions. These are now implemented and targeted gates pass; their PostgreSQL integration remains unverified, so the verdict is unchanged.
+
 ## Real verification
 
 - `pnpm verify` passed: format, lint, strict typecheck, 53 unit/contract files with 212 tests, architecture boundaries, 102-operation OpenAPI drift, 17 OSS pins, Compose/PostgreSQL static bootstrap, SBOM/licenses for 306 npm packages and two external services, and production backend/console build.

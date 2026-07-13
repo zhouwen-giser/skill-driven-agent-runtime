@@ -442,6 +442,8 @@ describe('management HTTP API contract', () => {
               totalCost: 4,
               averageCost: 2,
               failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+              mcpUsage: [],
+              modelEffects: [],
               versionStability: [
                 {
                   skillId: 'skill-1',
@@ -454,6 +456,8 @@ describe('management HTTP API contract', () => {
                 },
               ],
               qualityTrend: [],
+              capabilityGrowth: [],
+              optimizationSuggestions: [],
             }),
         },
       },

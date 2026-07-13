@@ -19,6 +19,25 @@ describe('EvaluationAnalyticsService', () => {
       totalCost: 9,
       averageCost: 3,
       failureTypes: [{ code: 'MCP_TIMEOUT', count: 1 }],
+      mcpUsage: [
+        {
+          serverId: 'mcp-1',
+          toolName: 'read',
+          invocationCount: 3,
+          successRate: 0.666667,
+          averageDurationMs: 20,
+        },
+      ],
+      modelEffects: [
+        {
+          providerId: 'provider-1',
+          model: 'model-a',
+          invocationCount: 3,
+          successRate: 0.666667,
+          averageDurationMs: 10,
+          averageTokens: 15,
+        },
+      ],
       versionStability: [
         {
           skillId: 'skill-1',
@@ -43,6 +62,46 @@ describe('EvaluationAnalyticsService', () => {
         expect.objectContaining({ reportId: 'report-1', score: 0.9 }),
         expect.objectContaining({ reportId: 'report-2', score: 0.3 }),
         expect.objectContaining({ reportId: 'report-3', score: 0.8 }),
+      ],
+      capabilityGrowth: [
+        {
+          skillId: 'skill-1',
+          observedVersions: 2,
+          firstVersion: 1,
+          latestVersion: 2,
+          sampleCount: 3,
+          successfulSamples: 2,
+        },
+      ],
+      optimizationSuggestions: [
+        {
+          code: 'review_failure',
+          severity: 'warning',
+          target: 'MCP_TIMEOUT',
+          summary: 'Review repeated failure MCP_TIMEOUT.',
+          evidenceCount: 1,
+        },
+        {
+          code: 'review_tool',
+          severity: 'warning',
+          target: 'mcp-1.read',
+          summary: 'Review Tool reliability or Skill Tool selection.',
+          evidenceCount: 3,
+        },
+        {
+          code: 'review_model',
+          severity: 'warning',
+          target: 'provider-1/model-a',
+          summary: 'Review fixed-stage model configuration and Prompt evidence.',
+          evidenceCount: 3,
+        },
+        {
+          code: 'review_skill_version',
+          severity: 'warning',
+          target: 'skill-1@1',
+          summary: 'Review or correct the unstable Skill version; do not disable automatically.',
+          evidenceCount: 2,
+        },
       ],
     });
     expect(repository.filters).toEqual({ skillId: 'skill-1' });
@@ -97,6 +156,24 @@ function sample(
     instanceId: `instance-${id}`,
     skillVersions: [{ skillId: 'skill-1', version }],
     tools: [{ serverId: 'mcp-1', toolName: 'read' }],
+    mcpInvocations: [
+      {
+        serverId: 'mcp-1',
+        toolName: 'read',
+        status: successful ? 'succeeded' : 'failed',
+        durationMs: 20,
+      },
+    ],
+    modelInvocations: [
+      {
+        providerId: 'provider-1',
+        model: 'model-a',
+        status: successful ? 'succeeded' : 'failed',
+        durationMs: 10,
+        inputTokens: 10,
+        outputTokens: 5,
+      },
+    ],
     successful,
     durationMs,
     cost,
