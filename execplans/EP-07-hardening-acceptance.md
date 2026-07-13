@@ -61,6 +61,7 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] NFR-COMP-001 now pins the A2A v1.0.1 specification, official JavaScript SDK beta, and official TCK commits in a machine-readable baseline and unified verification gate.
 - [x] Production HTTP contracts cover `application/a2a+json` and legacy `application/json`; the official HTTP+JSON/MUST TCK passes 74 tests with 0 failures/errors and 161 explicit scope skips.
 - [x] NFR-COMP-001 unified `pnpm verify` passed with 54 files/227 tests and every static/build gate.
+- [x] NFR-SEC-002 reconciled against historical real PostgreSQL/same-process MCP and Model credential flows plus the current 5-file/50-test AES-GCM, environment-key, and disclosure-boundary regression.
 
 ## Discoveries and Surprises
 
