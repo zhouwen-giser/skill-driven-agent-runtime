@@ -23,6 +23,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 
 ## Progress
 
+- [x] Reconcile NFR-OBS-002 against its exact no-hidden-reasoning acceptance; 6 files/63 Provider/A2A/management/Console tests directly verify the boundary without requiring Docker.
+
 - [x] Reconcile NFR-DATA-001 against its exact no-automatic-delete/reserved-fields acceptance; historical migration/PostgreSQL/E2E and current 49-test posture evidence verify it without adding a non-baseline soak gate.
 
 - [x] Reconcile NFR-MNT-001 against its requirement-specific interface-unit-test acceptance; 6 files/57 substitution tests and the 165-file architecture guard pass, so the requirement is verified independently of Docker.
