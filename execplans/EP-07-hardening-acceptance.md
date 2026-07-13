@@ -45,9 +45,15 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] NFR-MNT-001 audit mapped all five required replaceable boundaries and expanded the architecture guard to the Server composition root and dependency manifest; 164 source files pass.
 - [x] NFR-MNT-001 unified `pnpm verify` passed after guard expansion with 54 files/225 tests and all static/build gates.
 
+- [x] NFR-COMP-001 now pins the A2A v1.0.1 specification, official JavaScript SDK beta, and official TCK commits in a machine-readable baseline and unified verification gate.
+- [x] Production HTTP contracts cover `application/a2a+json` and legacy `application/json`; the official HTTP+JSON/MUST TCK passes 74 tests with 0 failures/errors and 161 explicit scope skips.
+- [x] NFR-COMP-001 unified `pnpm verify` passed with 54 files/227 tests and every static/build gate.
+
 ## Discoveries and Surprises
 
 - The prior guard correctly isolated package imports but did not scan the production Server composition root or fail on a newly declared second workflow-runtime dependency.
+
+- The original SRS mixes A2A 1.0.0 and 1.0.1. The normalized baseline's stricter 1.0.1 target is defensible because patch versions still negotiate as wire `1.0`; the pinned TCK embeds 1.0.0, so direct media-type contracts are required to close the patch-specific gap.
 
 - Plan confirmation previously persisted only a mutable status, and Goal Patch used a triggering Task only inside its transaction. Neither was sufficient for historical Task-rooted correlation after later revisions.
 
@@ -70,6 +76,8 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - ADR-066 now requires persisted Plan confirmation Task/time and Goal Patch triggering Task identity; legacy rows keep explicit unknown optional values rather than inferred links.
 
 - ADR-068 makes the existing modular-monolith decisions executable: composition may instantiate infrastructure, but Domain/Application remain port-owned and only LangGraph.js may execute Workflows.
+
+- ADR-069 fixes the normative A2A v1.0.1 commit, wire 1.0 semantics, exact official SDK beta/TCK commits, and honest HTTP+JSON-only evidence classification.
 
 ## Implementation Steps
 

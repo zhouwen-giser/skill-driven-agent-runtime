@@ -1,10 +1,10 @@
 {
   "summary": {
-    "timestamp": "2026-07-12T00:14:32.187484+00:00",
+    "timestamp": "2026-07-13T13:32:47.167744+00:00",
     "sut_url": "http://127.0.0.1:9999",
     "spec_version": "",
-    "overall_compatibility": "88.7%",
-    "must_compatibility": "88.7%",
+    "overall_compatibility": "100.0%",
+    "must_compatibility": "100.0%",
     "should_compatibility": "100.0%",
     "may_compatibility": "100.0%"
   },
@@ -418,15 +418,13 @@
     },
     "STREAM-ORDER-002": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_events_broadcast_to_all_streams[grpc]",
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_events_broadcast_to_all_streams[http_json]",
@@ -435,15 +433,13 @@
     },
     "STREAM-ORDER-003": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_streams_receive_same_events_in_order[grpc]",
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_streams_receive_same_events_in_order[http_json]",
@@ -452,15 +448,13 @@
     },
     "STREAM-ORDER-004": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_closing_one_stream_does_not_affect_others[grpc]",
         "tests/compatibility/core_operations/test_multi_stream.py::TestMultiStreamOrdering::test_closing_one_stream_does_not_affect_others[http_json]",
@@ -936,15 +930,13 @@
     },
     "CORE-HIST-002": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_task_history.py::TestHistoryLengthLimit::test_get_task_history_does_not_exceed_limit[grpc]",
         "tests/compatibility/core_operations/test_task_history.py::TestHistoryLengthLimit::test_get_task_history_does_not_exceed_limit[http_json]",
@@ -968,15 +960,13 @@
     },
     "CORE-CANCEL-001": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestCancelTask::test_cancel_task_returns_updated_state[grpc]",
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestCancelTask::test_cancel_task_returns_updated_state[http_json]",
@@ -1015,15 +1005,13 @@
     },
     "CORE-MULTI-005": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestMultiTurn::test_infer_context_from_task[grpc]",
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestMultiTurn::test_infer_context_from_task[http_json]",
@@ -1047,15 +1035,13 @@
     },
     "STREAM-SUB-002": {
       "level": "MUST",
-      "status": "FAIL",
+      "status": "PASS",
       "transports": {
         "grpc": "SKIPPED",
         "jsonrpc": "SKIPPED",
-        "http_json": "FAIL"
+        "http_json": "PASS"
       },
-      "errors": [
-        "('C:\\\\Users\\\\zhouw\\\\AppData\\\\Local\\\\Temp\\\\sdar-a2a-tck-tooling\\\\a2a-tck\\\\tests\\\\compatibility\\\\_task_helpers.py', 98, \"Skipped: Expected task state 'TASK_STATE_INPUT_REQUIRED' but got 'TASK_STATE_COMPLETED'\")"
-      ],
+      "errors": [],
       "test_ids": [
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_terminates_at_terminal_state[grpc]",
         "tests/compatibility/core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_terminates_at_terminal_state[http_json]",
@@ -1559,8 +1545,8 @@
     },
     "http_json": {
       "total": 88,
-      "passed": 67,
-      "failed": 7,
+      "passed": 74,
+      "failed": 0,
       "skipped": 14
     }
   },

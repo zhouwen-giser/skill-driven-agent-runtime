@@ -52,6 +52,7 @@ export async function startA2AHttpEndpoint(
   );
   app.use('/a2a', (request, response, next) => {
     const contentType = request.headers['content-type']?.toLowerCase() ?? '';
+    const prefersA2aJson = contentType.startsWith('application/a2a+json');
     if (
       (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') &&
       !contentType.startsWith('application/json') &&
@@ -78,7 +79,9 @@ export async function startA2AHttpEndpoint(
     response.setHeader = (name, value) =>
       setHeader(
         name,
-        name.toLowerCase() === 'content-type' && String(value).startsWith('application/a2a+json')
+        name.toLowerCase() === 'content-type' &&
+          String(value).startsWith('application/a2a+json') &&
+          !prefersA2aJson
           ? 'application/json; charset=utf-8'
           : value,
       );

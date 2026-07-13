@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "spec": {
+    "version": "1.0.1",
+    "wireVersion": "1.0",
+    "tag": "v1.0.1",
+    "commit": "3303592588e388e62e0f69f701af531d2f4e3991",
+    "repository": "https://github.com/a2aproject/A2A"
+  },
+  "sdk": {
+    "package": "@a2a-js/sdk",
+    "version": "1.0.0-beta.0",
+    "commit": "a005d2a118d3c1552ce6ea86b2917f2a9f56fea9",
+    "stability": "beta"
+  },
+  "tck": {
+    "repository": "https://github.com/a2aproject/a2a-tck",
+    "commit": "5996b79f9cefa6fc390980e383e358a66fb9e49e",
+    "transport": "http_json",
+    "level": "must",
+    "report": "reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/compatibility.json",
+    "junit": "reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/junitreport.xml"
+  }
+}

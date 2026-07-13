@@ -12,6 +12,8 @@ import {
 import { startA2AHttpEndpoint } from '../../../packages/a2a-adapter/src/http-endpoint.js';
 
 /** Protocol-only TCK SUT. It is never used by the SDAR production composition root. */
+const taskContexts = new Map<string, string>();
+const taskHistory = new Map<string, Message[]>();
 const executor: AgentExecutor = {
   execute(request: RequestContext, bus: ExecutionEventBus): Promise<void> {
     if (request.userMessage.messageId.includes('message-response')) {
@@ -22,6 +24,35 @@ const executor: AgentExecutor = {
             contextId: request.contextId,
             role: 'ROLE_AGENT',
             parts: [{ text: 'Direct message response', mediaType: 'text/plain' }],
+          }),
+        ),
+      );
+      bus.finished();
+      return Promise.resolve();
+    }
+    taskContexts.set(request.taskId, request.contextId);
+    const history = [...(taskHistory.get(request.taskId) ?? []), request.userMessage];
+    taskHistory.set(request.taskId, history);
+    const waitsForInput = request.userMessage.messageId.includes('input-required');
+    if (waitsForInput) {
+      bus.publish(
+        AgentEvent.task(
+          Task.fromJSON({
+            id: request.taskId,
+            contextId: request.contextId,
+            status: {
+              state: TaskState.TASK_STATE_INPUT_REQUIRED,
+              timestamp: new Date().toISOString(),
+              message: {
+                messageId: `${request.taskId}:input-required`,
+                taskId: request.taskId,
+                contextId: request.contextId,
+                role: 'ROLE_AGENT',
+                parts: [{ text: 'Additional input is required.', mediaType: 'text/plain' }],
+              },
+            },
+            artifacts: [],
+            history: history.map((message) => Message.toJSON(message)),
           }),
         ),
       );
@@ -39,7 +70,7 @@ const executor: AgentExecutor = {
             timestamp: new Date().toISOString(),
           },
           artifacts: [Artifact.toJSON(artifact)],
-          history: [Message.toJSON(request.userMessage)],
+          history: history.map((message) => Message.toJSON(message)),
         }),
       ),
     );
@@ -47,14 +78,15 @@ const executor: AgentExecutor = {
     return Promise.resolve();
   },
   cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
+    const contextId = taskContexts.get(taskId) ?? `context-${taskId}`;
     bus.publish(
       AgentEvent.task(
         Task.fromJSON({
           id: taskId,
-          contextId: `context-${taskId}`,
+          contextId,
           status: { state: TaskState.TASK_STATE_CANCELED, timestamp: new Date().toISOString() },
           artifacts: [],
-          history: [],
+          history: (taskHistory.get(taskId) ?? []).map((message) => Message.toJSON(message)),
         }),
       ),
     );

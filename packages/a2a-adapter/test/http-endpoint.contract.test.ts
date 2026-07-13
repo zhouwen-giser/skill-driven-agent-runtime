@@ -1,4 +1,4 @@
-import { TaskState } from '@a2a-js/sdk';
+import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -27,6 +27,37 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
 
     const queried = await handle.client.getTask({ tenant: '', id: result.id });
     expect(queried.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+  });
+
+  it('preserves the A2A 1.0.1 media type when the client requests it', async () => {
+    handle = await startA2aHttpSpike();
+    const response = await fetch(`${handle.baseUrl}/a2a/v1/message:send`, {
+      method: 'POST',
+      headers: {
+        'A2A-Version': '1.0',
+        'content-type': 'application/a2a+json',
+      },
+      body: JSON.stringify(SendMessageRequest.toJSON(createProbeRequest())),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toMatch(/^application\/a2a\+json\b/u);
+    await expect(response.json()).resolves.toHaveProperty('task.id');
+  });
+
+  it('retains application/json compatibility for the pinned HTTP+JSON TCK', async () => {
+    handle = await startA2aHttpSpike();
+    const response = await fetch(`${handle.baseUrl}/a2a/v1/message:send`, {
+      method: 'POST',
+      headers: {
+        'A2A-Version': '1.0',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(SendMessageRequest.toJSON(createProbeRequest())),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toMatch(/^application\/json\b/u);
   });
 
   it('streams the standard task lifecycle without custom states', async () => {

@@ -5,7 +5,7 @@
 - [ ] 全部需求在 Traceability Matrix 中状态为“已验证”。
 - [ ] 全部 AC 场景通过。
 - [ ] `pnpm verify` 通过且生成报告。
-- [ ] A2A 1.0.1 契约有可复现测试证据。
+- [x] A2A 1.0.1 契约有可复现测试证据（ADR-069、`pnpm verify:a2a-baseline`、官方 HTTP+JSON/MUST TCK 与 patch-delta 合约）。
 - [ ] PostgreSQL/Redis/MCP/Server/Console 可一键本地启动。
 - [ ] Agent Card 动态 Skill、计划确认、流式、Goal、Skill、Workflow、记忆、评估和演化均不是静态 Mock。
 - [ ] 控制台所有 P0 页面连接真实管理 API。

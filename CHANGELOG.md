@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Machine-verifiable A2A 1.0.1 specification/SDK/TCK pins, direct patch media-type contracts, and a 100% official HTTP+JSON/MUST TCK result with explicit skip and beta-SDK boundaries.
+
 - Expanded architecture enforcement across package source and the Server composition root, including fail-closed rejection of known second workflow runtimes.
 
 - Task-rooted Plan-confirmation and Goal-Patch correlation with persisted confirmation Task/time, triggering Task identity, additive migration 0052, and full-chain observability evidence.

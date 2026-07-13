@@ -1,20 +1,15 @@
-import { once } from 'node:events';
-import { createServer, type Server as HttpServer } from 'node:http';
-
 import { Message, SendMessageRequest, Task, TaskState, type StreamResponse } from '@a2a-js/sdk';
-import { ClientFactory, type Client } from '@a2a-js/sdk/client';
+import { type Client } from '@a2a-js/sdk/client';
 import {
   AgentEvent,
-  DefaultRequestHandler,
   InMemoryTaskStore,
   type AgentExecutor,
   type ExecutionEventBus,
   type RequestContext,
 } from '@a2a-js/sdk/server';
-import { UserBuilder, agentCardHandler, restHandler } from '@a2a-js/sdk/server/express';
-import express from 'express';
 
-import { buildAgentCard, buildStatusUpdate } from './compatibility.js';
+import { buildStatusUpdate } from './compatibility.js';
+import { startA2AHttpEndpoint } from './http-endpoint.js';
 
 export interface A2aHttpSpikeHandle {
   readonly baseUrl: string;
@@ -29,32 +24,6 @@ export interface A2aHttpSpikeOptions {
 export async function startA2aHttpSpike(
   options: A2aHttpSpikeOptions = {},
 ): Promise<A2aHttpSpikeHandle> {
-  const app = express();
-  app.use(express.json());
-  const httpServer = createServer(app);
-  httpServer.listen(0, '127.0.0.1');
-  await once(httpServer, 'listening');
-
-  const address = httpServer.address();
-  if (address === null || typeof address === 'string') {
-    await closeHttpServer(httpServer);
-    throw new Error('A2A_SPIKE_ADDRESS_UNAVAILABLE');
-  }
-
-  const baseUrl = `http://127.0.0.1:${String(address.port)}`;
-  const endpoint = `${baseUrl}/a2a`;
-  const card = buildAgentCard(
-    [
-      {
-        id: 'skill.echo',
-        name: 'Echo',
-        description: 'Deterministic A2A protocol compatibility probe.',
-        tags: ['test', 'read-only'],
-      },
-    ],
-    endpoint,
-  );
-
   const contextByTask = new Map<string, string>();
   const executor: AgentExecutor = {
     async execute(requestContext: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
@@ -111,18 +80,18 @@ export async function startA2aHttpSpike(
     },
   };
 
-  const requestHandler = new DefaultRequestHandler(card, new InMemoryTaskStore(), executor);
-  app.use('/.well-known/agent-card.json', agentCardHandler({ agentCardProvider: requestHandler }));
-  app.use('/a2a', restHandler({ requestHandler, userBuilder: UserBuilder.noAuthentication }));
-
-  const client = await new ClientFactory().createFromUrl(baseUrl);
-  return {
-    baseUrl,
-    client,
-    async close(): Promise<void> {
-      await closeHttpServer(httpServer);
-    },
-  };
+  return startA2AHttpEndpoint({
+    executor,
+    taskStore: new InMemoryTaskStore(),
+    skills: [
+      {
+        id: 'skill.echo',
+        name: 'Echo',
+        description: 'Deterministic A2A protocol compatibility probe.',
+        tags: ['test', 'read-only'],
+      },
+    ],
+  });
 }
 
 export function createProbeRequest(): SendMessageRequest {
@@ -141,12 +110,6 @@ export function createProbeRequest(): SendMessageRequest {
 
 export function streamPayloadCase(event: StreamResponse): string | undefined {
   return event.payload?.$case;
-}
-
-async function closeHttpServer(server: HttpServer): Promise<void> {
-  if (!server.listening) return;
-  server.close();
-  await once(server, 'close');
 }
 
 async function delay(milliseconds: number): Promise<void> {
