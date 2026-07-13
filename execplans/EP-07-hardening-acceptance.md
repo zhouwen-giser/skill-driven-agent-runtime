@@ -34,6 +34,7 @@ NFR-PERF-001, NFR-PERF-002, NFR-REL-001, NFR-REL-002, NFR-SEC-001, NFR-SEC-002, 
 - [x] Reconcile NFR-REL-001 with the completed EP-04 real queue/startup recovery evidence and mark it verified.
 - [x] Add the missing NFR-REL-002 real-Redis Worker exception assertion for one processor call, one attempt, and retained failure.
 - [x] Run unified `pnpm verify` with 54 files/240 tests and all static/build gates passing.
+- [x] Reconcile NFR-REL-002 against its exact no-whole-Task-retry/no-duplicate-side-effect acceptance using historical real single-attempt Redis, startup failure, MCP no-replay, and exactly-one model-failure evidence.
 - [ ] Execute the new NFR-REL-002 Redis assertion; Docker container mutations remain unavailable.
 
 - [x] 读取 SRS、Definition of Done、追踪矩阵、架构/领域基线并记录当前证据缺口。
