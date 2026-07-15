@@ -271,15 +271,45 @@ describe('McpRegistryService', () => {
     });
 
     await expect(
-      service.call('mcp.devices', 'device_status', { deviceId: 'device-1' }),
+      service.call('mcp.devices', 'device_status', { deviceId: 'device-1' }, undefined, {
+        executionContext: { mode: 'simulation', simulationId: 'simulation-failure-1' },
+      }),
     ).rejects.toThrow('remote unavailable');
     expect(repository.invocations).toEqual([
       expect.objectContaining({
         status: 'failed',
         errorCode: 'MCP_CALL_FAILED',
         errorMessage: 'remote unavailable',
+        executionMode: 'simulation',
+        simulationId: 'simulation-failure-1',
       }),
     ]);
+  });
+
+  it('strips duplicate legacy reserved credential Headers before writing canonical values', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    const service = createService(repository, transport, new DeterministicEnhancer(), {
+      Authorization: 'Bearer legacy',
+      'x-sdar-execution-mode': 'forged-lower',
+      'X-SDAR-Execution-Mode': 'forged-canonical',
+      'X-SDAR-Simulation-Id': 'forged-id',
+    });
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: { Authorization: 'Bearer legacy' },
+    });
+    await service.call('mcp.devices', 'device_status', { deviceId: 'device-1' }, undefined, {
+      executionContext: { mode: 'simulation', simulationId: 'simulation-authoritative-1' },
+    });
+
+    expect(transport.callInputs[0]?.headers).toEqual({
+      Authorization: 'Bearer legacy',
+      'X-SDAR-Execution-Mode': 'simulation',
+      'X-SDAR-Simulation-Id': 'simulation-authoritative-1',
+    });
   });
 
   it('does not deduplicate repeated side-effect Tool calls in V1', async () => {
@@ -343,6 +373,7 @@ function createService(
   repository: McpRegistryRepository,
   transport: McpTransportAdapter,
   enhancer: McpToolEnhancer = new DeterministicEnhancer(),
+  decryptedHeaders?: Readonly<Record<string, string>>,
 ) {
   let invocationSequence = 0;
   let managementOperationSequence = 0;
@@ -353,7 +384,8 @@ function createService(
     enhancer,
     cipher: {
       encrypt: (secret) => secret['Authorization'] ?? 'none',
-      decrypt: (encrypted) => (encrypted === 'none' ? {} : { Authorization: encrypted }),
+      decrypt: (encrypted) =>
+        decryptedHeaders ?? (encrypted === 'none' ? {} : { Authorization: encrypted }),
     },
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
     ids: {

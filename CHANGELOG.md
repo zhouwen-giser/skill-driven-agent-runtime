@@ -22,6 +22,18 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Unit, contract, real PostgreSQL migration/audit and real Skill Evolution E2E evidence prove live omission, simulation/replay Headers, stable IDs, child inheritance, credential merging/conflict rejection and sanitized invocation audit.
 
+## [1.0.4-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Non-live simulation identities are limited to 256 visible ASCII characters before they can become an HTTP Header value.
+- Duplicate case variants of reserved Headers in legacy decrypted credentials are stripped before canonical runtime values are written.
+- Non-live transport failures retain execution mode and stable identity in sanitized invocation audit.
+
+### Verification
+
+- Regression evidence covers paused/resumed context retention, repeated stable-ID MCP session reuse, legacy Header conflict normalization and final 276 unit/contract, 42 integration and 42 E2E gates.
+
 ## [1.0.3] - 2026-07-15
 
 ### Added

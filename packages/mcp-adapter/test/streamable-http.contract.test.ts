@@ -56,7 +56,7 @@ describe('official MCP Streamable HTTP transport', () => {
   it('delivers runtime-owned simulation Headers to the real MCP HTTP server', async () => {
     server = await startMcpLoopbackServer();
     adapter = new StreamableHttpMcpAdapter();
-    await adapter.call({
+    const input = {
       endpoint: server.endpoint.toString(),
       headers: {
         Authorization: 'Bearer secret',
@@ -65,8 +65,14 @@ describe('official MCP Streamable HTTP transport', () => {
       },
       toolName: 'device_status',
       arguments: { deviceId: 'device-42' },
-      executionContext: { mode: 'simulation', simulationId: 'simulation-real-1' },
-    });
+      executionContext: { mode: 'simulation' as const, simulationId: 'simulation-real-1' },
+    };
+    await expect(adapter.call(input)).resolves.toEqual(
+      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
+    await expect(adapter.call(input)).resolves.toEqual(
+      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
 
     expect(server.receivedHeaders).toContainEqual(
       expect.objectContaining({

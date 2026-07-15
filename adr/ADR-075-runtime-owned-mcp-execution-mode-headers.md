@@ -12,7 +12,7 @@ Execution mode crosses the domain, LangGraph, child Workflow, Skill-call, MCP re
 
 ## Decision
 
-- The domain owns immutable `RuntimeExecutionContext` data with modes `live`, `simulation` and `historical-replay`. Non-live contexts require a non-empty stable `simulationId`; live contexts cannot carry one.
+- The domain owns immutable `RuntimeExecutionContext` data with modes `live`, `simulation` and `historical-replay`. Non-live contexts require a stable `simulationId` of at most 256 visible ASCII characters so it is safe as an HTTP Header value; live contexts cannot carry one.
 - `WorkflowExecutor` and LangGraph runtime contexts carry this value explicitly. MCP, nested Subworkflow and `skill_call` ports receive the same context, and paused execution preserves it for resume.
 - Skill Evolution derives stable identities from candidate/case and candidate/historical-experience identities. Random Workflow execution IDs do not determine the wire identity.
 - `McpRegistryService` owns the reserved `X-SDAR-Execution-Mode` and `X-SDAR-Simulation-Id` Headers. Credential configuration with either name is rejected case-insensitively. Decrypted legacy credentials are stripped of reserved names, then the runtime writes canonical non-live Headers last. Live calls send neither Header.

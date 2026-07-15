@@ -77,7 +77,18 @@ describe('LangGraph Workflow compiler', () => {
       'confirmed',
       ports({ executeLlm, callMcpTool }),
     );
-    const executing = compiled.invoke({}, budget, costs, undefined, 'execution.pause');
+    const executionContext = {
+      mode: 'historical-replay' as const,
+      simulationId: 'replay-paused-1',
+    };
+    const executing = compiled.invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      'execution.pause',
+      executionContext,
+    );
     await vi.waitFor(() => {
       expect(executeLlm).toHaveBeenCalledTimes(1);
     });
@@ -93,6 +104,7 @@ describe('LangGraph Workflow compiler', () => {
     });
     expect(executeLlm).toHaveBeenCalledTimes(1);
     expect(callMcpTool).toHaveBeenCalledTimes(1);
+    expect(callMcpTool).toHaveBeenCalledWith(expect.objectContaining({ executionContext }));
   });
 
   it('cancels after the active node without starting any subsequent node', async () => {
