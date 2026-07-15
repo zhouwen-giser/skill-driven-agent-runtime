@@ -2,8 +2,7 @@ name: sdar
 
 services:
   postgres:
-    image: pgvector/pgvector@sha256:da864cc9983d6a346c39c55c8c5250d752a9b573bbac06b1c3ad5d72f20f5be6
-    platform: linux/amd64
+    image: pgvector/pgvector:pg17-trixie
     environment:
       POSTGRES_DB: ${SDAR_POSTGRES_DB:-sdar}
       POSTGRES_USER: ${SDAR_POSTGRES_USER:-sdar}
@@ -23,8 +22,7 @@ services:
     networks: [sdar-local]
 
   redis:
-    image: redis@sha256:e762b8716f68d0de494b9fecc5a598db03e24206d3266725dd5521ca2c8b18a3
-    platform: linux/amd64
+    image: redis:latest
     command:
       - redis-server
       - --appendonly
