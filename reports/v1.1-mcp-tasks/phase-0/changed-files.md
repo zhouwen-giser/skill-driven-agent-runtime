@@ -19,3 +19,5 @@ Planned Phase 0 scope:
 - clean baseline `reports/verification/summary.{json,md}`
 
 No application, domain, adapter, database migration, API or Console implementation file is changed in this phase.
+
+Publication evidence additionally includes `phase-0/draft-pr-body.md`, used verbatim for Draft PR #2.

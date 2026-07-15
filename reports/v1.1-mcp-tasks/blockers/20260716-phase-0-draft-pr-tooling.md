@@ -1,5 +1,7 @@
 # v1.1 Phase 0 Draft PR Tooling Blocker
 
+Status: resolved on 2026-07-16.
+
 ## Context
 
 - Phase: 0
@@ -31,3 +33,10 @@ No PR was fabricated through an unreviewed REST credential path, and the Draft w
 ## Minimum resolution
 
 Install GitHub CLI, run `gh auth login` for `github.com` if needed, and make `gh --version` plus `gh auth status` succeed in this shell. Codex can then create the Draft PR from `feature/v1.1-mcp-tasks` to `release/v1.0-hardening`, record its URL, close this blocker and start Phase 1.
+
+## Resolution evidence
+
+- `gh version 2.96.0` succeeded.
+- `gh auth status` confirmed active account `zhouwen-giser` with repository/workflow scope.
+- Draft PR `https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/2` is open with base `release/v1.0-hardening`, head `feature/v1.1-mcp-tasks`, and `isDraft=true`.
+- Head `c9069a6a0a6066f76b05fa4c251aed736369c2fd` was pushed before PR creation.

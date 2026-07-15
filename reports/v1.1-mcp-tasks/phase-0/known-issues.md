@@ -7,6 +7,6 @@
 5. Hardening v1.0.5–v1.0.13 is not yet merged. Phase 4 and final Phase 6 have hard dependencies.
 6. The requested reference filename `SDAR_v1.1_MCP_Tasks_升级方案.md` is absent; the frozen `升级设计文档.md` is treated as its corresponding source and the assumption is recorded.
 7. DOCX visual rendering was unavailable because `soffice` is not installed. Structural extraction completed; no DOCX artifact is modified by this phase.
-8. Phase commit `5dfef3b` and its push succeeded. Draft PR creation is blocked because GitHub CLI is not installed; the GitHub publish skill requires `gh --version` and authenticated `gh auth status` before PR creation.
+8. Resolved: GitHub CLI 2.96.0 is installed/authenticated and Draft PR #2 is open against `release/v1.0-hardening`.
 
-Continuation after Phase 0 is allowed only if item 8 is resolved. Items 1–7 are explicit staged constraints, not permission to claim completion.
+Phase 0 is complete. Items 1–7 are explicit staged constraints for later phases, not permission to claim final completion.
