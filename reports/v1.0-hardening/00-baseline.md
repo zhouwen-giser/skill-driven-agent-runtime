@@ -2,6 +2,7 @@
 
 - Status: **blocked**
 - Captured at: `2026-07-10T17:22:01+08:00`
+- Last rechecked at: `2026-07-15T12:35:08+08:00`
 - Branch: `release/v1.0-hardening`
 - Baseline commit: `7c2fea66687624743f286d9c8cb23b54e5a36036`
 - Node: `v22.23.1`
@@ -9,7 +10,34 @@
 - Package version: `0.0.0`
 - Latest forward migration: `0053_mcp_tool_enhancement_stage.up.sql`
 
-## Gate result
+## Resume attempt on 2026-07-15
+
+The release-age blocker has cleared: `pnpm install --frozen-lockfile` passed and verified all 348 lockfile entries against the active supply-chain policy.
+
+`pnpm verify` then executed the current baseline at commit `3653aef34162312f38cb5aa40a62033d9f747847`. The static gate reached and passed:
+
+- formatting;
+- lint and strict TypeScript typecheck;
+- 54 unit/contract test files and 242 tests;
+- the 165-file architecture boundary check;
+- A2A 1.0.1 baseline/TCK evidence (74 applicable passed, 161 scoped skips, 0 failures/errors);
+- 102 management OpenAPI operations;
+- 18 acceptance scenarios;
+- 17 pinned OSS sources.
+
+The unchanged baseline then failed inside `pnpm verify:bootstrap` before build and all Docker-backed gates:
+
+```text
+Error: COMPOSE_BASELINE_MISSING: pgvector/pgvector@sha256:
+```
+
+Root cause: commit `d2b851bfe141973a2c089d815e21262ae31ced14` changed `compose.yaml` from pinned image digests plus `platform: linux/amd64` to `pgvector/pgvector:pg17-trixie` and `redis:latest`, but did not update `scripts/verify-compose.mjs`. The accepted verifier still requires both digest pins and the platform declaration, and separately rejects mutable tags such as `redis:latest`. This is a pre-existing baseline inconsistency, not a Runtime Hardening change.
+
+Docker Engine 29.6.1 and Docker Compose 5.3.1 are now installed, but the current user is not a member of the `docker` group and cannot access `/var/run/docker.sock`. Rootless setup also cannot proceed because `uidmap` requires sudo installation.
+
+The generated current failure evidence is stored in `reports/verification/summary.md` and `reports/verification/summary.json`.
+
+## Initial gate result on 2026-07-10
 
 Both required baseline commands failed before any test gate ran:
 
@@ -51,6 +79,6 @@ The task package explicitly requires stopping when the unmodified baseline fails
 
 Minimum conditions to resume:
 
-1. Re-run after the 24-hour release-age window has elapsed for both pinned packages (the later observed publication time implies no earlier than `2026-07-11T01:24:56+08:00`, subject to registry metadata and local clock).
-2. Provide a working Docker Engine and Docker Compose CLI to this environment.
-3. Re-run `pnpm install --frozen-lockfile` and `pnpm verify` without changing the baseline; proceed only if both pass.
+1. Reconcile `compose.yaml` with the accepted reproducible-image verifier in a baseline repair outside v1.0.1. The current `redis:latest` cannot satisfy the existing supply-chain rule.
+2. Add user `zhouwen` to the `docker` group (or otherwise provide non-root access to the Docker daemon) and start a fresh login/session.
+3. Re-run `pnpm install --frozen-lockfile` and `pnpm verify` on the repaired baseline; proceed only if both pass.

@@ -1,14 +1,18 @@
 {
   "status": "blocked",
   "capturedAt": "2026-07-10T17:22:01+08:00",
+  "lastCheckedAt": "2026-07-15T12:35:08+08:00",
   "branch": "release/v1.0-hardening",
   "baselineCommit": "7c2fea66687624743f286d9c8cb23b54e5a36036",
   "environment": {
     "node": "v22.23.1",
     "pnpm": "11.7.0",
     "docker": {
-      "available": false,
-      "error": "docker: command not found",
+      "available": true,
+      "clientVersion": "29.6.1",
+      "composeVersion": "5.3.1",
+      "daemonAccessible": false,
+      "error": "permission denied while trying to connect to /var/run/docker.sock",
       "alternativeRuntimeAvailable": false,
       "nonInteractiveSudoAvailable": false,
       "aptCandidates": [
@@ -60,6 +64,21 @@
       "exitCode": 1,
       "stage": "dependency-status-install",
       "testsExecuted": false
+    },
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "executedAt": "2026-07-15T12:34:00+08:00",
+      "exitCode": 0,
+      "stage": "supply-chain-policy",
+      "verifiedLockfileEntries": 348
+    },
+    {
+      "command": "pnpm verify",
+      "executedAt": "2026-07-15T12:34:35+08:00",
+      "exitCode": 1,
+      "stage": "static-unit-contract-build/verify-compose",
+      "testFilesPassed": 54,
+      "testsPassed": 242
     }
   ],
   "failures": [
@@ -79,15 +98,33 @@
       "code": "DOCKER_EXECUTABLE_UNAVAILABLE",
       "message": "docker: command not found",
       "observedBy": "docker --version"
+    },
+    {
+      "code": "COMPOSE_BASELINE_MISSING",
+      "message": "pgvector/pgvector@sha256:",
+      "introducedBy": "d2b851bfe141973a2c089d815e21262ae31ced14",
+      "currentComposeImages": [
+        "pgvector/pgvector:pg17-trixie",
+        "redis:latest"
+      ]
+    },
+    {
+      "code": "DOCKER_DAEMON_PERMISSION_DENIED",
+      "message": "Current user is not a member of docker group",
+      "socket": "/var/run/docker.sock"
     }
   ],
   "policyChangesMade": false,
   "lockfileChangesMade": false,
   "implementationStarted": false,
   "resumeConditions": [
-    "Both pinned packages satisfy the configured minimum release age",
-    "Docker Engine and Docker Compose CLI are available",
+    "Reconcile compose.yaml with the accepted pinned-image verifier outside v1.0.1",
+    "Grant user zhouwen access to the Docker daemon and start a fresh session",
     "pnpm install --frozen-lockfile passes",
     "pnpm verify passes"
+  ],
+  "resolvedBlockers": [
+    "Both pinned packages now satisfy the configured minimum release age",
+    "Docker Engine and Docker Compose CLI are installed"
   ]
 }
