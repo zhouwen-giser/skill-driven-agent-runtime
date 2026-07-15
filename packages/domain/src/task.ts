@@ -177,7 +177,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   skill_resolution: ['planning', 'capability_gap', 'canceled', 'failed'],
   planning: ['awaiting_plan_confirmation', 'executing', 'canceled', 'failed'],
   awaiting_plan_confirmation: ['planning', 'executing', 'canceled', 'failed'],
-  awaiting_user_input: ['goal_deliberation', 'canceled', 'failed'],
+  awaiting_user_input: ['goal_deliberation', 'planning', 'executing', 'canceled', 'failed'],
   paused: ['executing', 'planning', 'canceled', 'failed'],
   executing: [
     'paused',

@@ -39,6 +39,21 @@
 
 禁止 JavaScript 字符串表达式、模板执行、`eval`、`Function`、动态 import 和脚本节点。
 
+## 运行时数据绑定
+
+`llm.context`、`mcp_tool.arguments`、`skill_call.input` 和 `subworkflow.input` 接受递归 JSON 值。任何位置都可使用受限引用：
+
+```json
+{
+  "deviceId": { "op": "ref", "path": ["input", "deviceId"] },
+  "commandId": { "op": "ref", "path": ["nodes", "control", "commandId"] }
+}
+```
+
+路径只能由标识符片段组成，根节点白名单为 `input`、`nodes`（`outputs` 的别名）、`outputs`、`errors`、`loopCounts` 和 `result`。数组下标使用十进制路径片段，例如 `["nodes", "query", "samples", "0"]`。不支持 JSONPath、字符串插值或 JavaScript 表达式。
+
+LangGraph Runtime 在每个节点执行前递归解析引用，复制并冻结得到的 JSON 快照。缺失路径以稳定的 `WORKFLOW_BINDING_REFERENCE_MISSING` 失败；非 JSON 或非有限数字以 `WORKFLOW_BINDING_VALUE_INVALID` 失败；解析后的模板或引用值最大深度为 64，超过时以 `WORKFLOW_BINDING_DEPTH_EXCEEDED` 失败。解析后的 MCP 参数和 Skill 输入仍必须通过其当前 Schema，才会进入外部调用或子 Skill。完整链式示例见 `examples/workflow-runtime-binding.json`。
+
 ## 必须校验
 
 1. JSON Schema；

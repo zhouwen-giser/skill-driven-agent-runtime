@@ -21,7 +21,7 @@
       "repository": "https://github.com/cfworker/cfworker"
     },
     {
-      "name": "@esbuild/win32-x64",
+      "name": "@esbuild/linux-x64",
       "version": "0.28.1",
       "license": "MIT",
       "licenseFiles": [],
@@ -223,7 +223,7 @@
       "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
     },
     {
-      "name": "@msgpackr-extract/msgpackr-extract-win32-x64",
+      "name": "@msgpackr-extract/msgpackr-extract-linux-x64",
       "version": "3.0.4",
       "license": "MIT",
       "licenseFiles": [],
@@ -239,7 +239,7 @@
       "repository": "git+https://github.com/oxc-project/oxc.git"
     },
     {
-      "name": "@rolldown/binding-win32-x64-msvc",
+      "name": "@rolldown/binding-linux-x64-gnu",
       "version": "1.1.5",
       "license": "MIT",
       "licenseFiles": [],
@@ -1514,11 +1514,11 @@
       "repository": "git://github.com/gkz/levn.git"
     },
     {
-      "name": "lightningcss-win32-x64-msvc",
+      "name": "lightningcss-linux-x64-gnu",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "licenseFiles": [
-        "lightningcss-win32-x64-msvc@1.32.0/LICENSE"
+        "lightningcss-linux-x64-gnu@1.32.0/LICENSE"
       ],
       "repository": "https://github.com/parcel-bundler/lightningcss.git"
     },

@@ -1,20 +1,17 @@
-import { spawnSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
 import pg from 'pg';
 
+import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+
 const { Pool } = pg;
 const root = process.cwd();
 const databases = ['sdar_verify_empty', 'sdar_verify_upgrade'];
 
 try {
-  run(
-    'docker',
-    ['compose', '-f', 'compose.yaml', 'up', '-d', '--wait', 'postgres', 'redis'],
-    180_000,
-  );
+  startInfrastructure(root);
   const { applyRuntimeMigrations } = await import(
     `../dist/apps/server/src/runtime.js?migration-check=${String(Date.now())}`
   );
@@ -62,7 +59,9 @@ try {
   } finally {
     await upgradePool.end();
   }
-  process.stdout.write('Migration path verified from empty database and historical 0049 baseline.\n');
+  process.stdout.write(
+    'Migration path verified from empty database and historical 0049 baseline.\n',
+  );
 } finally {
   const admin = databasePool('sdar');
   try {
@@ -77,7 +76,7 @@ try {
     // The primary failure remains authoritative when infrastructure never became reachable.
   } finally {
     await admin.end().catch(() => undefined);
-    run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);
+    stopInfrastructure(root);
   }
 }
 
@@ -89,22 +88,30 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0053_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0056_MISSING:${label}`);
+  const continuationTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
+  );
+  if (continuationTables.rows[0]?.count !== 3)
+    throw new Error(`MIGRATION_TASK_INPUT_TABLES_MISSING:${label}`);
+  const executionColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')",
+  );
+  if (executionColumns.rows[0]?.count !== 2)
+    throw new Error(`MIGRATION_MCP_EXECUTION_CONTEXT_MISSING:${label}`);
+  const historyKey = await pool.query(
+    "SELECT string_agg(a.attname,',' ORDER BY key_position.ordinality) AS columns FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS key_position(attnum,ordinality) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=key_position.attnum WHERE c.conname='skill_call_workflow_pkey' GROUP BY c.oid",
+  );
+  if (historyKey.rows[0]?.columns !== 'call_id') {
+    throw new Error(`MIGRATION_SKILL_CALL_HISTORY_KEY_STALE:${label}`);
+  }
   const constraint = await pool.query(
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='stage_model_route_stage_check'",
   );
   const definition = constraint.rows[0]?.definition;
   if (typeof definition !== 'string' || !definition.includes('tool_enhancement')) {
     throw new Error(`MIGRATION_STAGE_CONSTRAINT_STALE:${label}`);
-  }
-}
-
-function run(command, args, timeout, ignoreFailure = false) {
-  const result = spawnSync(command, args, { cwd: root, env: process.env, stdio: 'inherit', timeout });
-  if (result.error !== undefined && !ignoreFailure) throw result.error;
-  if (result.status !== 0 && !ignoreFailure) {
-    throw new Error(`MIGRATION_VERIFY_COMMAND_FAILED:${command} ${args.join(' ')}`);
   }
 }

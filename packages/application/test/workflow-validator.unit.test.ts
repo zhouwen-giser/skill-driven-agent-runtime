@@ -126,6 +126,45 @@ describe('WorkflowValidator', () => {
       ]),
     );
   });
+
+  it('defers current MCP and Skill schemas for structurally valid runtime bindings', async () => {
+    const source = validWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool'
+          ? {
+              ...node,
+              arguments: { deviceId: { op: 'ref' as const, path: ['input', 'deviceId'] } },
+            }
+          : node.type === 'skill_call'
+            ? {
+                ...node,
+                input: { deviceId: { op: 'ref' as const, path: ['nodes', 'tool', 'deviceId'] } },
+              }
+            : node,
+      ),
+    });
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects malformed reserved references before catalog validation', async () => {
+    const source = validWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool'
+          ? { ...node, arguments: { op: 'ref', path: ['input'], extra: true } }
+          : node,
+      ),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'WORKFLOW_SCHEMA_INVALID' })]),
+    );
+  });
 });
 
 function recoveryWorkflow() {
@@ -311,6 +350,7 @@ function validWorkflow() {
         type: 'subworkflow' as const,
         workflowDefinitionId: 'workflow.child',
         workflowVersion: 1,
+        input: { op: 'ref' as const, path: ['input'] },
       },
       {
         nodeId: 'loop',

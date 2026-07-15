@@ -46,9 +46,40 @@ describe('official MCP Streamable HTTP transport', () => {
       headers: {},
       toolName: 'device_status',
       arguments: { deviceId: 'device-42' },
+      executionContext: { mode: 'live' },
     });
     expect(result).toEqual(
       expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
+  });
+
+  it('delivers runtime-owned simulation Headers to the real MCP HTTP server', async () => {
+    server = await startMcpLoopbackServer();
+    adapter = new StreamableHttpMcpAdapter();
+    const input = {
+      endpoint: server.endpoint.toString(),
+      headers: {
+        Authorization: 'Bearer secret',
+        'X-SDAR-Execution-Mode': 'simulation',
+        'X-SDAR-Simulation-Id': 'simulation-real-1',
+      },
+      toolName: 'device_status',
+      arguments: { deviceId: 'device-42' },
+      executionContext: { mode: 'simulation' as const, simulationId: 'simulation-real-1' },
+    };
+    await expect(adapter.call(input)).resolves.toEqual(
+      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
+    await expect(adapter.call(input)).resolves.toEqual(
+      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
+    );
+
+    expect(server.receivedHeaders).toContainEqual(
+      expect.objectContaining({
+        authorization: 'Bearer secret',
+        'x-sdar-execution-mode': 'simulation',
+        'x-sdar-simulation-id': 'simulation-real-1',
+      }),
     );
   });
 

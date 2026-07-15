@@ -1,5 +1,9 @@
 import type { WorkflowExecutor } from '../../application/src/ports.js';
-import type { WorkflowBudgetLimits, WorkflowDefinition } from '../../domain/src/index.js';
+import type {
+  RuntimeExecutionContext,
+  WorkflowBudgetLimits,
+  WorkflowDefinition,
+} from '../../domain/src/index.js';
 import {
   compileWorkflow,
   WorkflowCompilerError,
@@ -23,10 +27,18 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
     executionId?: string,
+    executionContext?: RuntimeExecutionContext,
   ) {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     if (executionId !== undefined) this.#executions.set(executionId, compiled);
-    const result = await compiled.invoke(input, budgetLimits, this.#callCosts, signal, executionId);
+    const result = await compiled.invoke(
+      input,
+      budgetLimits,
+      this.#callCosts,
+      signal,
+      executionId,
+      executionContext,
+    );
     if (executionId !== undefined && result.status !== 'paused')
       this.#executions.delete(executionId);
     return mapResult(result);

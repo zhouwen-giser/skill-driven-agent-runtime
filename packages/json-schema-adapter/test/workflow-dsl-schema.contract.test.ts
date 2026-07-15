@@ -75,4 +75,89 @@ describe('Workflow DSL JSON Schema contract', () => {
     ];
     expect(validator.validate(schema, recoveryExample).valid).toBe(false);
   });
+
+  it('accepts recursive data bindings and rejects malformed or ambiguous references', async () => {
+    const schema = JSON.parse(
+      await readFile(new URL('../../../schemas/workflow-dsl.schema.json', import.meta.url), 'utf8'),
+    ) as unknown;
+    const validator = new AjvJsonSchemaValidator();
+    const base = {
+      workflowDefinitionId: 'workflow.binding',
+      version: 1,
+      goalId: 'goal.binding',
+      goalVersion: 1,
+      entryNodeId: 'llm',
+      exitNodeIds: ['sub'],
+      nodes: [
+        {
+          nodeId: 'llm',
+          name: 'Structure input',
+          type: 'llm',
+          instruction: 'Structure the input.',
+          context: {
+            deviceId: { op: 'ref', path: ['input', 'deviceId'] },
+            samples: [{ op: 'ref', path: ['input', 'samples', '0'] }],
+          },
+          responseSchema: { type: 'object' },
+        },
+        {
+          nodeId: 'tool',
+          name: 'Read device',
+          type: 'mcp_tool',
+          tool: { serverId: 'mcp.devices', toolName: 'device_status' },
+          arguments: { deviceId: { op: 'ref', path: ['nodes', 'llm', 'deviceId'] } },
+        },
+        {
+          nodeId: 'skill',
+          name: 'Apply Skill',
+          type: 'skill_call',
+          skillId: 'skill.device',
+          input: { payload: { op: 'ref', path: ['outputs', 'tool'] } },
+        },
+        {
+          nodeId: 'sub',
+          name: 'Run child',
+          type: 'subworkflow',
+          workflowDefinitionId: 'workflow.child',
+          workflowVersion: 1,
+          input: { op: 'ref', path: ['nodes', 'skill'] },
+        },
+      ],
+      edges: [
+        { sourceNodeId: 'llm', targetNodeId: 'tool' },
+        { sourceNodeId: 'tool', targetNodeId: 'skill' },
+        { sourceNodeId: 'skill', targetNodeId: 'sub' },
+      ],
+    };
+
+    expect(validator.validate(schema, base).valid).toBe(true);
+    for (const argumentsValue of [
+      { op: 'ref', path: ['input'], extra: 'ambiguous' },
+      { op: 'ref', path: [] },
+      { op: 'ref', path: ['input', '$.deviceId'] },
+    ]) {
+      const candidate = structuredClone(base) as unknown as {
+        nodes: Record<string, unknown>[];
+      };
+      const toolNode = candidate.nodes[1];
+      if (toolNode === undefined) throw new Error('BINDING_TOOL_FIXTURE_MISSING');
+      toolNode['arguments'] = argumentsValue;
+      expect(validator.validate(schema, candidate).valid).toBe(false);
+    }
+    const missingInput = structuredClone(base) as unknown as {
+      nodes: Record<string, unknown>[];
+    };
+    const subworkflowNode = missingInput.nodes[3];
+    if (subworkflowNode === undefined) throw new Error('BINDING_SUBWORKFLOW_FIXTURE_MISSING');
+    delete subworkflowNode['input'];
+    expect(validator.validate(schema, missingInput).valid).toBe(false);
+
+    const runtimeBindingExample = JSON.parse(
+      await readFile(
+        new URL('../../../examples/workflow-runtime-binding.json', import.meta.url),
+        'utf8',
+      ),
+    ) as unknown;
+    expect(validator.validate(schema, runtimeBindingExample)).toEqual({ valid: true, errors: [] });
+  });
 });

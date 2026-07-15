@@ -50,7 +50,12 @@ export class WorkflowControllerService {
           instance: WorkflowInstance,
           evaluation: GoalEvaluationResult,
         ): Promise<unknown>;
-        requestInput(taskId: string, question: string): Promise<unknown>;
+        requestInput(
+          taskId: string,
+          question: string,
+          controlId: string,
+          controlRoundIndex: number,
+        ): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
           taskId: string,
@@ -61,6 +66,15 @@ export class WorkflowControllerService {
             planId: string;
             skillId: string;
             skillVersion: number;
+            summary: string;
+          }>,
+        ): Promise<unknown>;
+        reportInputContinuationPlan(
+          taskId: string,
+          input: Readonly<{
+            planId: string;
+            goalId: string;
+            goalVersion: number;
             summary: string;
           }>,
         ): Promise<unknown>;
@@ -93,7 +107,12 @@ export class WorkflowControllerService {
           instance: WorkflowInstance,
           evaluation: GoalEvaluationResult,
         ): Promise<unknown>;
-        requestInput(taskId: string, question: string): Promise<unknown>;
+        requestInput(
+          taskId: string,
+          question: string,
+          controlId: string,
+          controlRoundIndex: number,
+        ): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
           taskId: string,
@@ -104,6 +123,15 @@ export class WorkflowControllerService {
             planId: string;
             skillId: string;
             skillVersion: number;
+            summary: string;
+          }>,
+        ): Promise<unknown>;
+        reportInputContinuationPlan(
+          taskId: string,
+          input: Readonly<{
+            planId: string;
+            goalId: string;
+            goalVersion: number;
             summary: string;
           }>,
         ): Promise<unknown>;
@@ -184,6 +212,90 @@ export class WorkflowControllerService {
     const running = { ...control, status: 'running' as const, updatedAt: this.#clock.now() };
     await this.#controls.save(running);
     return this.#advanceOrFail(running);
+  }
+
+  async continueAfterInput(
+    input: Readonly<{
+      controlId: string;
+      taskId: string;
+      inputRequestId: string;
+      controlRoundIndex: number;
+      content: unknown;
+    }>,
+  ): Promise<WorkflowControlRecord> {
+    const control = await this.#requireControl(input.controlId);
+    if (control.status !== 'awaiting_input')
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_NOT_AWAITING_INPUT',
+        'Workflow control is not awaiting supplementary input.',
+      );
+    if (control.taskId !== input.taskId)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_INPUT_TASK_MISMATCH',
+        'Supplementary input belongs to another Task.',
+      );
+    if (input.controlRoundIndex !== control.roundCount - 1)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_INPUT_ROUND_MISMATCH',
+        'Supplementary input is not associated with the waiting control round.',
+      );
+    const sourcePlan = await this.#plans.findPlan(control.currentPlanId);
+    if (sourcePlan?.definition === undefined)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_INPUT_SOURCE_PLAN_INVALID',
+        'The waiting control source plan is unavailable.',
+      );
+    const nextReplanCount = control.replanCount + 1;
+    const nextPlan = await this.#planner.plan({
+      planId: this.#ids.nextPlanId(control.controlId, nextReplanCount),
+      workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
+      workflowVersion: sourcePlan.definition.version + 1,
+      goalId: control.goalId,
+      goalVersion: control.goalVersion,
+      sourcePlanId: sourcePlan.planId,
+      revisionKind: 'replan',
+      supersedeSourcePlan: true,
+      planningInstruction: JSON.stringify({
+        operation: 'workflow_control_continue_after_input',
+        workflowIdentity: {
+          workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
+          version: sourcePlan.definition.version + 1,
+          goalId: control.goalId,
+          goalVersion: control.goalVersion,
+        },
+        instruction: control.planningInstruction,
+        sourceDefinition: sourcePlan.definition,
+        inputRequestId: input.inputRequestId,
+        sourceRoundIndex: input.controlRoundIndex,
+        supplementaryInput: input.content,
+      }),
+    });
+    if (nextPlan.definition === undefined)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_INPUT_PLAN_INVALID',
+        'Supplementary input did not produce a valid next plan.',
+      );
+    const continued: WorkflowControlRecord = {
+      ...control,
+      status: 'awaiting_confirmation',
+      currentPlanId: nextPlan.planId,
+      input: mergeSupplementaryInput(control.input, input.inputRequestId, input.content),
+      replanCount: nextReplanCount,
+      updatedAt: this.#clock.now(),
+    };
+    await this.#controls.save(continued);
+    if (this.#taskOutcomes === undefined)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+        'Input-continuation Task projection is unavailable.',
+      );
+    await this.#taskOutcomes.reportInputContinuationPlan(input.taskId, {
+      planId: nextPlan.planId,
+      goalId: control.goalId,
+      goalVersion: control.goalVersion,
+      summary: `Supplementary input for control round ${String(input.controlRoundIndex)} produced a new plan.`,
+    });
+    return continued;
   }
 
   get(controlId: string): Promise<WorkflowControlRecord> {
@@ -306,7 +418,12 @@ export class WorkflowControllerService {
               'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
               'Input-required Task projection is unavailable.',
             );
-          await this.#taskOutcomes.requestInput(control.taskId, evaluation.question);
+          await this.#taskOutcomes.requestInput(
+            control.taskId,
+            evaluation.question,
+            control.controlId,
+            control.roundCount,
+          );
         }
         if (evaluation.decision === 'capability_gap' && control.taskId !== undefined) {
           if (this.#taskOutcomes === undefined)
@@ -444,11 +561,34 @@ export class WorkflowControllerService {
   }
 }
 
+function mergeSupplementaryInput(
+  current: unknown,
+  inputRequestId: string,
+  content: unknown,
+): unknown {
+  const existing =
+    typeof current === 'object' && current !== null && !Array.isArray(current)
+      ? (current as Readonly<Record<string, unknown>>)
+      : { originalInput: current };
+  const prior: readonly unknown[] = Array.isArray(existing['supplementaryInputs'])
+    ? (existing['supplementaryInputs'] as readonly unknown[])
+    : [];
+  return {
+    ...existing,
+    supplementaryInputs: [...prior, { inputRequestId, content }],
+  };
+}
+
 export type WorkflowControllerErrorCode =
   | 'WORKFLOW_CONTROL_ALREADY_EXISTS'
   | 'WORKFLOW_CONTROL_GOAL_INVALID'
   | 'WORKFLOW_CONTROL_INITIAL_PLAN_INVALID'
   | 'WORKFLOW_CONTROL_NOT_AWAITING_CONFIRMATION'
+  | 'WORKFLOW_CONTROL_NOT_AWAITING_INPUT'
+  | 'WORKFLOW_CONTROL_INPUT_TASK_MISMATCH'
+  | 'WORKFLOW_CONTROL_INPUT_ROUND_MISMATCH'
+  | 'WORKFLOW_CONTROL_INPUT_SOURCE_PLAN_INVALID'
+  | 'WORKFLOW_CONTROL_INPUT_PLAN_INVALID'
   | 'WORKFLOW_CONTROL_NOT_FOUND'
   | 'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE'
   | 'WORKFLOW_CONTROL_PLAN_NOT_CONFIRMED';

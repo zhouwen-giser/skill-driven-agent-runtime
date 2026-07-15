@@ -13,7 +13,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | --- | --- | --- |
 | `@a2a-js/sdk@1.0.0-beta.0` | Apache-2.0 | `@a2a-js/sdk@1.0.0-beta.0/LICENSE` |
 | `@cfworker/json-schema@4.1.1` | MIT | not found |
-| `@esbuild/win32-x64@0.28.1` | MIT | not found |
+| `@esbuild/linux-x64@0.28.1` | MIT | not found |
 | `@eslint-community/eslint-utils@4.9.1` | MIT | `@eslint-community/eslint-utils@4.9.1/LICENSE` |
 | `@eslint-community/regexpp@4.12.2` | MIT | `@eslint-community/regexpp@4.12.2/LICENSE` |
 | `@eslint/config-array@0.23.5` | Apache-2.0 | `@eslint/config-array@0.23.5/LICENSE` |
@@ -36,9 +36,9 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@langchain/langgraph@1.4.7` | MIT | `@langchain/langgraph@1.4.7/LICENSE` |
 | `@langchain/protocol@0.0.18` | MIT | `@langchain/protocol@0.0.18/LICENSE` |
 | `@modelcontextprotocol/sdk@1.29.0` | MIT | `@modelcontextprotocol/sdk@1.29.0/LICENSE` |
-| `@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4` | MIT | not found |
+| `@msgpackr-extract/msgpackr-extract-linux-x64@3.0.4` | MIT | not found |
 | `@oxc-project/types@0.139.0` | MIT | `@oxc-project/types@0.139.0/LICENSE` |
-| `@rolldown/binding-win32-x64-msvc@1.1.5` | MIT | not found |
+| `@rolldown/binding-linux-x64-gnu@1.1.5` | MIT | not found |
 | `@rolldown/pluginutils@1.0.1` | MIT | `@rolldown/pluginutils@1.0.1/LICENSE` |
 | `@standard-schema/spec@1.1.0` | MIT | `@standard-schema/spec@1.1.0/LICENSE` |
 | `@types/body-parser@1.19.6` | MIT | `@types/body-parser@1.19.6/LICENSE` |
@@ -181,7 +181,7 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `keyv@4.5.4` | MIT | not found |
 | `langsmith@0.8.1` | MIT | not found |
 | `levn@0.4.1` | MIT | `levn@0.4.1/LICENSE` |
-| `lightningcss-win32-x64-msvc@1.32.0` | MPL-2.0 | `lightningcss-win32-x64-msvc@1.32.0/LICENSE` |
+| `lightningcss-linux-x64-gnu@1.32.0` | MPL-2.0 | `lightningcss-linux-x64-gnu@1.32.0/LICENSE` |
 | `lightningcss@1.32.0` | MPL-2.0 | `lightningcss@1.32.0/LICENSE` |
 | `locate-path@6.0.0` | MIT | `locate-path@6.0.0/license` |
 | `lodash.defaults@4.2.0` | MIT | `lodash.defaults@4.2.0/LICENSE` |

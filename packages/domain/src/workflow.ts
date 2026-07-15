@@ -15,6 +15,19 @@ export type WorkflowExpression =
       right: WorkflowExpression;
     }>;
 
+export interface WorkflowBoundObject {
+  readonly [key: string]: WorkflowBoundValue;
+}
+
+export type WorkflowBoundValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly WorkflowBoundValue[]
+  | WorkflowBoundObject
+  | Readonly<{ op: 'ref'; path: readonly string[] }>;
+
 interface WorkflowNodeBase {
   readonly nodeId: string;
   readonly name: string;
@@ -31,8 +44,15 @@ export interface WorkflowRecoveryOption {
 }
 
 export type WorkflowNode =
-  | (WorkflowNodeBase & Readonly<{ type: 'llm'; instruction: string; responseSchema: unknown }>)
-  | (WorkflowNodeBase & Readonly<{ type: 'mcp_tool'; tool: ToolReference; arguments: unknown }>)
+  | (WorkflowNodeBase &
+      Readonly<{
+        type: 'llm';
+        instruction: string;
+        context?: WorkflowBoundValue | undefined;
+        responseSchema: unknown;
+      }>)
+  | (WorkflowNodeBase &
+      Readonly<{ type: 'mcp_tool'; tool: ToolReference; arguments: WorkflowBoundValue }>)
   | (WorkflowNodeBase & Readonly<{ type: 'result'; value: WorkflowExpression }>)
   | (WorkflowNodeBase & Readonly<{ type: 'condition'; expression: WorkflowExpression }>)
   | (WorkflowNodeBase & Readonly<{ type: 'parallel'; branchEntryNodeIds: readonly string[] }>)
@@ -44,7 +64,12 @@ export type WorkflowNode =
         maxIterations: number;
       }>)
   | (WorkflowNodeBase &
-      Readonly<{ type: 'subworkflow'; workflowDefinitionId: string; workflowVersion: number }>)
+      Readonly<{
+        type: 'subworkflow';
+        workflowDefinitionId: string;
+        workflowVersion: number;
+        input: WorkflowBoundValue;
+      }>)
   | (WorkflowNodeBase & Readonly<{ type: 'human_confirmation'; prompt: string }>)
   | (WorkflowNodeBase &
       Readonly<{
@@ -54,7 +79,8 @@ export type WorkflowNode =
         gotoNodeId?: string | undefined;
         recoveryOptions?: readonly WorkflowRecoveryOption[] | undefined;
       }>)
-  | (WorkflowNodeBase & Readonly<{ type: 'skill_call'; skillId: string; input: unknown }>);
+  | (WorkflowNodeBase &
+      Readonly<{ type: 'skill_call'; skillId: string; input: WorkflowBoundValue }>);
 
 export interface WorkflowEdge {
   readonly sourceNodeId: string;

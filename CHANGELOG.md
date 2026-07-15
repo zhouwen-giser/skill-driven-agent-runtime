@@ -4,6 +4,123 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-15
+
+### Added
+
+- Domain-owned live/simulation/historical-replay execution context with stable non-live identity.
+- Runtime-owned `X-SDAR-Execution-Mode` and `X-SDAR-Simulation-Id` Headers for simulation and historical replay MCP calls.
+- Migration 0056 invocation audit fields for execution mode and simulation identity.
+
+### Changed
+
+- LangGraph MCP, Subworkflow and `skill_call` boundaries explicitly inherit execution context, including paused/resumed execution.
+- Credential configuration rejects reserved Header names case-insensitively; runtime sanitization strips legacy conflicts and writes canonical reserved Headers last.
+- The official-SDK loopback Mock MCP supports multiple isolated Streamable HTTP sessions so live and non-live Header sets are verified concurrently.
+
+### Verification
+
+- Unit, contract, real PostgreSQL migration/audit and real Skill Evolution E2E evidence prove live omission, simulation/replay Headers, stable IDs, child inheritance, credential merging/conflict rejection and sanitized invocation audit.
+
+## [1.0.4-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Non-live simulation identities are limited to 256 visible ASCII characters before they can become an HTTP Header value.
+- Duplicate case variants of reserved Headers in legacy decrypted credentials are stripped before canonical runtime values are written.
+- Non-live transport failures retain execution mode and stable identity in sanitized invocation audit.
+
+### Verification
+
+- Regression evidence covers paused/resumed context retention, repeated stable-ID MCP session reuse, legacy Header conflict normalization and final 276 unit/contract, 42 integration and 42 E2E gates.
+
+## [1.0.3] - 2026-07-15
+
+### Added
+
+- Durable Task input requests, responses and initial/input-response execution attempts in PostgreSQL, including exact Goal-control round linkage.
+- Attempt-aware BullMQ Jobs with one-attempt execution and BullMQ-safe composite Task/attempt identity.
+- `WorkflowControllerService.continueAfterInput` for a fresh, unconfirmed plan after Goal Evaluation requests more input.
+
+### Changed
+
+- `provide_input` now answers the original waiting request, queues continuation on the original Task/Context, and immediately projects working state.
+- Goal deliberation uses persisted supplementary answers; Workflow controls merge the same data into execution input without replaying completed Workflow instances.
+
+### Verification
+
+- Unit, real PostgreSQL restart, real Redis serialization/job-identity, and real A2A/MCP tests cover both recovery paths and prove the supplied value reaches subsequent MCP arguments.
+
+## [1.0.3-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Supplementary-input answer, response, continuation attempt and Task phase projection now commit in one PostgreSQL transaction.
+- Durable queued attempts are reconciled to BullMQ at startup and on a bounded interval; terminal stale Redis Jobs can be replaced only while PostgreSQL still records the attempt as queued.
+- Startup recovery marks interrupted running attempts failed with `PROCESS_EXECUTION_LOST` and never redispatches running or failed attempts.
+- Supplementary input larger than 64,000 characters is rejected before any answer or continuation-attempt write.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` gate passed without Docker lifecycle operations: 270 unit/contract tests, 41 real PostgreSQL/Redis integration tests, 42 real E2E tests, both migration paths, production builds and both smoke stages.
+
+## [1.0.2] - 2026-07-15
+
+### Added
+
+- Real planned child Workflows for `skill_call`, using the current Skill definition, current MCP planning metadata, normal Workflow validation, independent plan/instance persistence and the sole LangGraph runtime.
+- Bounded Skill-call ancestry with stable cycle and maximum-depth errors.
+
+### Changed
+
+- Child results must pass the executed Skill version's output schema; failed, canceled or invalid children propagate to the parent instead of returning a model-fabricated success.
+- Child Skill Tool policy is enforced against its own child Workflow, while parent Workflows retain child version and budget evidence.
+
+### Known issues at feature tag
+
+- Nested confirmation policy will be finalized in v1.0.5.
+- Repeated execution of the same parent `skill_call` node retains only the latest linkage under the current persistence key; the v1.0.2 bug-fixed audit covers this case.
+
+## [1.0.2-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Repeated entry into the same parent `skill_call` node now persists append-only call history keyed by `call_id`; latest-call lookup remains deterministic.
+- Child outputs must be finite JSON and no larger than 64,000 serialized characters before entering parent Workflow state.
+- Integration bootstrap now advances an existing migration ledger monotonically instead of replaying older constraint migrations.
+
+### Verification
+
+- Migration 0054 passes empty and historical-0049 upgrade paths, rollback/reapply, and real PostgreSQL repeated-parent-node repository tests.
+- Unit and real E2E evidence retain child failure/cancellation propagation, plan-save failure, recursion/depth rejection, real MCP audit and output validation.
+
+## [1.0.1] - 2026-07-15
+
+### Added
+
+- Recursive Workflow runtime data binding for initial input, node outputs, errors, loop counts, and result state, including immutable execution snapshots and stable missing-reference errors.
+- Dynamic `llm.context`, MCP arguments, Skill input, and Subworkflow input in the public Workflow DSL.
+
+### Changed
+
+- MCP and Skill business-schema checks are deferred for dynamic templates and enforced again after runtime resolution against the current registered schema.
+- Subworkflows receive their resolved node input instead of the parent Workflow's original input.
+
+### Known issues at feature tag
+
+- No known correctness issue. Bindings intentionally support finite JSON data and restricted path segments only; JSONPath, string interpolation, and executable expressions remain unsupported.
+
+## [1.0.1-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Bounded recursive template and referenced-value traversal at 64 levels with a stable depth error, preventing stack exhaustion on pathological runtime values.
+- Missing optional `result` state now reports the stable missing-reference code, and error messages include an unambiguous JSON path for node IDs containing dots.
+
+### Verification
+
+- Boundary regression covers the maximum accepted depth, template and referenced-output overflow, missing result, dotted node IDs, error objects, null/empty arrays, immutable snapshots, parallel joins and live Schema rejection.
+
 ### Added
 
 - Apache License 2.0 project licensing for copyright holder zhouwen, including canonical `LICENSE`, project `NOTICE`, package metadata, README disclosure, and license-ledger documentation.
@@ -27,6 +144,8 @@ All notable changes to this project are documented here. The format follows Keep
 - ADR-072 monotonic migration-ledger high-water rule, preventing legacy startup replay from regressing later constraints.
 
 ### Fixed
+
+- Runtime-hardening baseline verification can reuse operator-managed loopback PostgreSQL/Redis without issuing Docker lifecycle commands; Compose images are again pinned by immutable OCI digest, and the external-infrastructure mode is recorded in verification evidence.
 
 - The 20-Job Redis concurrency test now observes completion in bounded batches, avoiding a false-positive Node EventEmitter warning from BullMQ's temporary `waitUntilFinished` listeners without reducing execution concurrency or assertions.
 

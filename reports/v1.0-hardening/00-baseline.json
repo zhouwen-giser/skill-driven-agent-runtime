@@ -1,0 +1,139 @@
+{
+  "status": "passed",
+  "capturedAt": "2026-07-10T17:22:01+08:00",
+  "lastCheckedAt": "2026-07-15T12:50:26+08:00",
+  "branch": "release/v1.0-hardening",
+  "baselineCommit": "7c2fea66687624743f286d9c8cb23b54e5a36036",
+  "acceptedBaselineCommit": "bc4b44a7c8187d8d5e3f589f7bb9490a67cf0ad6",
+  "environment": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "docker": {
+      "available": true,
+      "clientVersion": "29.6.1",
+      "composeVersion": "5.3.1",
+      "daemonAccessible": false,
+      "error": "permission denied while trying to connect to /var/run/docker.sock",
+      "alternativeRuntimeAvailable": false,
+      "nonInteractiveSudoAvailable": false,
+      "aptCandidates": [
+        "docker.io",
+        "docker-compose-v2"
+      ]
+    },
+    "postgresql": "unverified",
+    "redis": "unverified"
+  },
+  "repository": {
+    "packageVersion": "0.0.0",
+    "latestForwardMigration": "0053_mcp_tool_enhancement_stage.up.sql",
+    "managementOpenApiOperationCount": 102,
+    "workflowDslSchema": "schemas/workflow-dsl.schema.json",
+    "workflowNodeKinds": [
+      "llm",
+      "mcp_tool",
+      "result",
+      "condition",
+      "parallel",
+      "loop",
+      "subworkflow",
+      "human_confirmation",
+      "error_handler",
+      "skill_call"
+    ]
+  },
+  "testInventory": {
+    "sourceTestFiles": 57,
+    "lexicalTestDeclarations": 301,
+    "executedTestCount": 0,
+    "historicalCheckedInEvidence": {
+      "commit": "663bd1929932c0749d9ce56f22a96a186a2b47a3",
+      "files": 54,
+      "tests": 242,
+      "classification": "historical-not-current-baseline"
+    }
+  },
+  "commands": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 1,
+      "stage": "supply-chain-policy",
+      "testsExecuted": false
+    },
+    {
+      "command": "pnpm verify",
+      "exitCode": 1,
+      "stage": "dependency-status-install",
+      "testsExecuted": false
+    },
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "executedAt": "2026-07-15T12:34:00+08:00",
+      "exitCode": 0,
+      "stage": "supply-chain-policy",
+      "verifiedLockfileEntries": 348
+    },
+    {
+      "command": "pnpm verify",
+      "executedAt": "2026-07-15T12:34:35+08:00",
+      "exitCode": 1,
+      "stage": "static-unit-contract-build/verify-compose",
+      "testFilesPassed": 54,
+      "testsPassed": 242
+    }
+  ],
+  "failures": [
+    {
+      "code": "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION",
+      "package": "langsmith@0.8.1",
+      "publishedAt": "2026-07-09T17:24:56.000Z",
+      "observedCutoff": "2026-07-09T09:20:02.908Z"
+    },
+    {
+      "code": "ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION",
+      "package": "prettier@3.9.5",
+      "publishedAt": "2026-07-09T16:17:00.997Z",
+      "observedCutoff": "2026-07-09T09:20:02.908Z"
+    },
+    {
+      "code": "DOCKER_EXECUTABLE_UNAVAILABLE",
+      "message": "docker: command not found",
+      "observedBy": "docker --version"
+    },
+    {
+      "code": "COMPOSE_BASELINE_MISSING",
+      "message": "pgvector/pgvector@sha256:",
+      "introducedBy": "d2b851bfe141973a2c089d815e21262ae31ced14",
+      "currentComposeImages": [
+        "pgvector/pgvector:pg17-trixie",
+        "redis:latest"
+      ]
+    },
+    {
+      "code": "DOCKER_DAEMON_PERMISSION_DENIED",
+      "message": "Current user is not a member of docker group",
+      "socket": "/var/run/docker.sock"
+    }
+  ],
+  "policyChangesMade": false,
+  "lockfileChangesMade": false,
+  "implementationStarted": false,
+  "resumeConditions": [],
+  "acceptedGate": {
+    "command": "pnpm verify",
+    "exitCode": 0,
+    "durationMs": 74065,
+    "infrastructureMode": "operator-managed",
+    "unitAndContract": { "files": 54, "tests": 242 },
+    "integration": { "files": 2, "tests": 36 },
+    "e2e": { "files": 1, "tests": 41 },
+    "migrationPaths": ["empty", "upgrade-from-0049"],
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed",
+    "dockerLifecycleCommandsInvoked": false
+  },
+  "resolvedBlockers": [
+    "Both pinned packages now satisfy the configured minimum release age",
+    "Docker Engine and Docker Compose CLI are installed"
+  ]
+}

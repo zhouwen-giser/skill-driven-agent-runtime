@@ -64,6 +64,10 @@ import type {
   ProcessedResultRecord,
   TaskWaitPolicy,
   TaskQualityReport,
+  TaskInputRequest,
+  TaskInputResponse,
+  RuntimeExecutionContext,
+  TaskExecutionAttempt,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -167,7 +171,7 @@ export interface GoalInputInferenceRepository {
 export interface RuntimeRecoveryRepository {
   failInterrupted(
     timestamp: string,
-  ): Promise<Readonly<{ tasks: number; workflowInstances: number }>>;
+  ): Promise<Readonly<{ tasks: number; workflowInstances: number; taskAttempts: number }>>;
 }
 
 export interface WorkflowControlRepository {
@@ -197,6 +201,40 @@ export interface AgentTaskRepository {
     }>,
   ): Promise<readonly AgentTask[]>;
   save(task: AgentTask): Promise<void>;
+}
+
+export interface TaskInputRepository {
+  createRequest(request: TaskInputRequest): Promise<void>;
+  findRequest(inputRequestId: string): Promise<TaskInputRequest | undefined>;
+  findPendingByTask(taskId: string): Promise<TaskInputRequest | undefined>;
+  cancelPending(
+    taskId: string,
+    status: Extract<TaskInputRequest['status'], 'expired' | 'canceled'>,
+  ): Promise<void>;
+  listResponses(taskId: string): Promise<readonly TaskInputResponse[]>;
+  createInitialAttempt(attempt: TaskExecutionAttempt): Promise<void>;
+  answerAndCreateAttempt(
+    input: Readonly<{
+      inputRequestId: string;
+      taskId: string;
+      response: TaskInputResponse;
+      attempt: TaskExecutionAttempt;
+      answeredAt: string;
+      continuationPhase: Extract<AgentTask['phase'], 'goal_deliberation' | 'planning'>;
+      phaseMessage: string;
+    }>,
+  ): Promise<AgentTask>;
+  listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]>;
+  findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined>;
+  findResponseForAttempt(
+    attemptId: string,
+  ): Promise<Readonly<{ request: TaskInputRequest; response: TaskInputResponse }> | undefined>;
+  updateAttempt(
+    attemptId: string,
+    status: Exclude<TaskExecutionAttempt['status'], 'queued'>,
+    timestamp: string,
+    errorCode?: string,
+  ): Promise<void>;
 }
 
 export interface TaskWaitPolicyRepository {
@@ -415,6 +453,7 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
       signal?: AbortSignal;
     }>,
   ): Promise<unknown>;
@@ -537,6 +576,7 @@ export interface WorkflowExecutor {
     budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
     executionId?: string,
+    executionContext?: RuntimeExecutionContext,
   ): Promise<
     Readonly<{
       status: 'paused' | 'succeeded' | 'failed' | 'canceled';
@@ -624,7 +664,14 @@ export interface ModelTransportAdapter {
 }
 
 export interface ContextTaskQueue {
-  enqueue(input: Readonly<{ taskId: string; contextId: string }>): Promise<void>;
+  enqueue(
+    input: Readonly<{
+      taskId: string;
+      contextId: string;
+      attemptId: string;
+      mode: 'initial' | 'continue_after_input';
+    }>,
+  ): Promise<void>;
 }
 
 export interface RuntimeEventPublisher {
@@ -650,5 +697,7 @@ export interface Clock {
 }
 
 export interface IdentifierGenerator {
-  nextId(kind: 'context' | 'task' | 'event'): string;
+  nextId(
+    kind: 'context' | 'task' | 'event' | 'input-request' | 'input-response' | 'attempt',
+  ): string;
 }

@@ -77,7 +77,18 @@ describe('LangGraph Workflow compiler', () => {
       'confirmed',
       ports({ executeLlm, callMcpTool }),
     );
-    const executing = compiled.invoke({}, budget, costs, undefined, 'execution.pause');
+    const executionContext = {
+      mode: 'historical-replay' as const,
+      simulationId: 'replay-paused-1',
+    };
+    const executing = compiled.invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      'execution.pause',
+      executionContext,
+    );
     await vi.waitFor(() => {
       expect(executeLlm).toHaveBeenCalledTimes(1);
     });
@@ -93,6 +104,7 @@ describe('LangGraph Workflow compiler', () => {
     });
     expect(executeLlm).toHaveBeenCalledTimes(1);
     expect(callMcpTool).toHaveBeenCalledTimes(1);
+    expect(callMcpTool).toHaveBeenCalledWith(expect.objectContaining({ executionContext }));
   });
 
   it('cancels after the active node without starting any subsequent node', async () => {
@@ -191,6 +203,7 @@ describe('LangGraph Workflow compiler', () => {
           type: 'subworkflow',
           workflowDefinitionId: 'workflow.child',
           workflowVersion: 2,
+          input: { op: 'ref', path: ['input'] },
         },
         { nodeId: 'confirm', name: 'Confirm', type: 'human_confirmation', prompt: 'Continue?' },
         {
@@ -212,7 +225,18 @@ describe('LangGraph Workflow compiler', () => {
       ['result'],
     );
     const compiled = compileWorkflow(source, 'confirmed', runtime);
-    const interrupted = await compiled.invoke({ request: 'weather' }, budget, costs);
+    const executionContext = {
+      mode: 'simulation' as const,
+      simulationId: 'simulation-workflow-1',
+    };
+    const interrupted = await compiled.invoke(
+      { request: 'weather' },
+      budget,
+      costs,
+      undefined,
+      'workflow.compiler',
+      executionContext,
+    );
     expect(interrupted).toMatchObject({
       status: 'paused',
       pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
@@ -247,10 +271,253 @@ describe('LangGraph Workflow compiler', () => {
         tool: { serverId: 'weather', toolName: 'current' },
         arguments: { city: 'Shanghai' },
         signal: expect.any(AbortSignal),
+        executionContext,
       }),
     );
     expect(runtime.callMcpTool).toHaveBeenCalledTimes(1);
+    expect(runtime.executeSkill).toHaveBeenCalledWith(
+      expect.objectContaining({ executionContext }),
+    );
+    expect(runtime.executeSubworkflow).toHaveBeenCalledWith(
+      expect.objectContaining({ executionContext }),
+    );
     expect(runtime.requestHumanConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('binds initial and upstream data into immutable LLM, MCP, Skill and subworkflow snapshots', async () => {
+    const originalArguments = {
+      deviceId: { op: 'ref' as const, path: ['input', 'deviceId'] },
+      target: { op: 'ref' as const, path: ['outputs', 'llm', 'target'] },
+      samples: [3, { op: 'ref' as const, path: ['outputs', 'llm', 'samples', '1'] }],
+    };
+    const executeLlm = vi
+      .fn()
+      .mockResolvedValueOnce({ target: 21, samples: [5, 8] })
+      .mockResolvedValueOnce({ summary: 'accepted' });
+    const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      expect(Object.isFrozen(input.arguments)).toBe(true);
+      return Promise.resolve({ commandId: 'command-1' });
+    });
+    const executeSkill = vi.fn().mockResolvedValue({ commandId: 'command-1', accepted: true });
+    const executeSubworkflow = vi.fn().mockResolvedValue({ verified: true });
+    const runtime = ports({ executeLlm, callMcpTool, executeSkill, executeSubworkflow });
+    const compiled = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'llm',
+            name: 'Resolve target',
+            type: 'llm',
+            instruction: 'Resolve the target.',
+            context: {
+              request: { op: 'ref', path: ['input', 'request'] },
+              nullable: null,
+            },
+            responseSchema: { type: 'object' },
+          },
+          {
+            nodeId: 'mcp',
+            name: 'Control',
+            type: 'mcp_tool',
+            tool: { serverId: 'devices', toolName: 'control' },
+            arguments: originalArguments,
+          },
+          {
+            nodeId: 'skill',
+            name: 'Verify Skill',
+            type: 'skill_call',
+            skillId: 'verify',
+            input: {
+              commandId: { op: 'ref', path: ['outputs', 'mcp', 'data', 'commandId'] },
+            },
+          },
+          {
+            nodeId: 'summary',
+            name: 'Summarize execution',
+            type: 'llm',
+            instruction: 'Summarize the execution.',
+            context: {
+              commandId: { op: 'ref', path: ['nodes', 'mcp', 'data', 'commandId'] },
+              accepted: { op: 'ref', path: ['nodes', 'skill', 'accepted'] },
+            },
+            responseSchema: { type: 'object' },
+          },
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'subworkflow',
+            workflowDefinitionId: 'workflow.child',
+            workflowVersion: 1,
+            input: { op: 'ref', path: ['nodes', 'skill'] },
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'ref', path: ['outputs', 'child', 'verified'] },
+          },
+        ],
+        [
+          { sourceNodeId: 'llm', targetNodeId: 'mcp' },
+          { sourceNodeId: 'mcp', targetNodeId: 'skill' },
+          { sourceNodeId: 'skill', targetNodeId: 'summary' },
+          { sourceNodeId: 'summary', targetNodeId: 'child' },
+          { sourceNodeId: 'child', targetNodeId: 'result' },
+        ],
+        'llm',
+        ['result'],
+      ),
+      'confirmed',
+      runtime,
+    );
+
+    await expect(
+      compiled.invoke({ deviceId: 'device-1', request: 'set temperature' }, budget, costs),
+    ).resolves.toMatchObject({ status: 'succeeded', result: true });
+    expect(executeLlm).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        instruction: 'Resolve the target.',
+        context: { request: 'set temperature', nullable: null },
+      }),
+    );
+    expect(executeLlm).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        instruction: 'Summarize the execution.',
+        context: { commandId: 'command-1', accepted: true },
+      }),
+    );
+    expect(callMcpTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        arguments: { deviceId: 'device-1', target: 21, samples: [3, 8] },
+      }),
+    );
+    expect(executeSkill).toHaveBeenCalledWith(
+      expect.objectContaining({ input: { commandId: 'command-1' } }),
+    );
+    expect(executeSubworkflow).toHaveBeenCalledWith(
+      expect.objectContaining({ input: { commandId: 'command-1', accepted: true } }),
+    );
+    expect(originalArguments).toEqual({
+      deviceId: { op: 'ref', path: ['input', 'deviceId'] },
+      target: { op: 'ref', path: ['outputs', 'llm', 'target'] },
+      samples: [3, { op: 'ref', path: ['outputs', 'llm', 'samples', '1'] }],
+    });
+  });
+
+  it('binds merged parallel outputs before invoking the convergence node', async () => {
+    const callMcpTool = vi.fn().mockResolvedValue({ joined: true });
+    const runtime = ports({ callMcpTool });
+    await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['left', 'right'],
+          },
+          { nodeId: 'left', name: 'Left', type: 'llm', instruction: 'left', responseSchema: true },
+          { nodeId: 'right', name: 'Right', type: 'skill_call', skillId: 'right', input: {} },
+          {
+            nodeId: 'join',
+            name: 'Join',
+            type: 'mcp_tool',
+            tool: { serverId: 'join', toolName: 'combine' },
+            arguments: {
+              left: { op: 'ref', path: ['outputs', 'left', 'answer'] },
+              right: { op: 'ref', path: ['outputs', 'right', 'skill'] },
+            },
+          },
+        ],
+        [
+          { sourceNodeId: 'left', targetNodeId: 'join' },
+          { sourceNodeId: 'right', targetNodeId: 'join' },
+        ],
+        'parallel',
+        ['join'],
+      ),
+      'confirmed',
+      runtime,
+    ).invoke({}, budget, costs);
+
+    expect(callMcpTool).toHaveBeenCalledWith(
+      expect.objectContaining({ arguments: { left: 42, right: 'done' } }),
+    );
+  });
+
+  it('resolves the current loop count for every repeated body invocation', async () => {
+    const iterations: number[] = [];
+    const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      iterations.push((input.arguments as { iteration: number }).iteration);
+      return Promise.resolve({ ok: true });
+    });
+    await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'loop',
+            name: 'Loop',
+            type: 'loop',
+            condition: { op: 'literal', value: true },
+            bodyEntryNodeId: 'body',
+            maxIterations: 3,
+          },
+          {
+            nodeId: 'body',
+            name: 'Body',
+            type: 'mcp_tool',
+            tool: { serverId: 'loop', toolName: 'step' },
+            arguments: { iteration: { op: 'ref', path: ['loopCounts', 'loop'] } },
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'ref', path: ['loopCounts', 'loop'] },
+          },
+        ],
+        [
+          { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' },
+          { sourceNodeId: 'body', targetNodeId: 'loop' },
+        ],
+        'loop',
+        ['result'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    ).invoke({}, budget, costs);
+
+    expect(iterations).toEqual([1, 2, 3]);
+  });
+
+  it('surfaces runtime Schema rejection after dynamic MCP argument resolution', async () => {
+    const schemaError = Object.assign(new Error('Resolved MCP input failed current schema.'), {
+      code: 'MCP_ARGUMENT_SCHEMA_MISMATCH',
+    });
+    const compiled = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'mcp',
+            name: 'MCP',
+            type: 'mcp_tool',
+            tool: { serverId: 'devices', toolName: 'query' },
+            arguments: { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
+          },
+        ],
+        [],
+        'mcp',
+        ['mcp'],
+      ),
+      'confirmed',
+      ports({ callMcpTool: vi.fn().mockRejectedValue(schemaError) }),
+    );
+
+    await expect(compiled.invoke({ deviceId: 42 }, budget, costs)).rejects.toMatchObject({
+      code: 'MCP_ARGUMENT_SCHEMA_MISMATCH',
+    });
   });
 
   it('routes conditions and enforces an explicit loop bound in the immutable graph', async () => {

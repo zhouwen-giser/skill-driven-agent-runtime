@@ -1,5 +1,6 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
+import type { RuntimeExecutionMode } from './runtime-execution.js';
 
 export type McpTransportKind = 'streamable_http';
 export type McpServerStatus = 'enabled' | 'disabled' | 'unreachable';
@@ -56,6 +57,8 @@ export interface McpInvocation {
   readonly invocationId: string;
   readonly taskId?: string;
   readonly contextId?: string;
+  readonly executionMode: RuntimeExecutionMode;
+  readonly simulationId?: string;
   readonly serverId: string;
   readonly toolName: string;
   readonly arguments: Readonly<Record<string, unknown>>;

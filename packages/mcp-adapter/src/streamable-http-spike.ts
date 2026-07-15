@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { createServer, type Server as HttpServer } from 'node:http';
+import { createServer, type IncomingHttpHeaders, type Server as HttpServer } from 'node:http';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -19,6 +19,7 @@ export interface McpSpikeHandle {
 export interface McpLoopbackServerHandle {
   readonly endpoint: URL;
   readonly cancellationObserved: Promise<boolean>;
+  readonly receivedHeaders: readonly Readonly<IncomingHttpHeaders>[];
   close(): Promise<void>;
 }
 
@@ -39,11 +40,79 @@ export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
 }
 
 export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle> {
+  const receivedHeaders: Readonly<IncomingHttpHeaders>[] = [];
   let reportCancellation: (observed: boolean) => void = () => undefined;
   const cancellationObserved = new Promise<boolean>((resolve) => {
     reportCancellation = resolve;
   });
-  const mcpServer = new McpServer({ name: 'sdar-mock-mcp', version: '0.0.0' });
+  const sessions = new Map<
+    string,
+    Readonly<{ server: McpServer; transport: StreamableHTTPServerTransport }>
+  >();
+  const servers = new Set<McpServer>();
+  const createMcpServer = () => {
+    const mcpServer = new McpServer({ name: 'sdar-mock-mcp', version: '0.0.0' });
+    servers.add(mcpServer);
+    registerTools(mcpServer, reportCancellation);
+    return mcpServer;
+  };
+
+  const httpServer = createServer((request, response) => {
+    receivedHeaders.push({ ...request.headers });
+    void (async () => {
+      const sessionId = request.headers['mcp-session-id'];
+      const existing = typeof sessionId === 'string' ? sessions.get(sessionId) : undefined;
+      if (existing !== undefined) {
+        await existing.transport.handleRequest(request, response);
+        return;
+      }
+      if (sessionId !== undefined) {
+        response.statusCode = 400;
+        response.end('Unknown MCP session');
+        return;
+      }
+      const server = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: randomUUID,
+        onsessioninitialized: (initializedSessionId) => {
+          sessions.set(initializedSessionId, { server, transport });
+        },
+      });
+      await server.connect(asSdkTransport(transport));
+      await transport.handleRequest(request, response);
+    })().catch((error: unknown) => {
+      if (response.headersSent) return;
+      response.statusCode = 500;
+      response.end(error instanceof Error ? error.message : 'Unknown MCP transport error');
+    });
+  });
+  httpServer.listen(0, '127.0.0.1');
+  await once(httpServer, 'listening');
+
+  const address = httpServer.address();
+  if (address === null || typeof address === 'string') {
+    await closeHttpServer(httpServer);
+    throw new Error('MCP_SPIKE_ADDRESS_UNAVAILABLE');
+  }
+
+  const endpoint = new URL(`http://127.0.0.1:${String(address.port)}/mcp`);
+  return {
+    endpoint,
+    cancellationObserved,
+    receivedHeaders,
+    async close(): Promise<void> {
+      await Promise.allSettled([...servers].map((server) => server.close()));
+      sessions.clear();
+      servers.clear();
+      await closeHttpServer(httpServer);
+    },
+  };
+}
+
+function registerTools(
+  mcpServer: McpServer,
+  reportCancellation: (observed: boolean) => void,
+): void {
   mcpServer.registerTool(
     'device_status',
     {
@@ -87,34 +156,6 @@ export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle>
       return { content: [{ type: 'text', text: 'canceled' }], isError: true };
     },
   );
-
-  const serverTransport = new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
-  await mcpServer.connect(asSdkTransport(serverTransport));
-
-  const httpServer = createServer((request, response) => {
-    void serverTransport.handleRequest(request, response).catch((error: unknown) => {
-      response.statusCode = 500;
-      response.end(error instanceof Error ? error.message : 'Unknown MCP transport error');
-    });
-  });
-  httpServer.listen(0, '127.0.0.1');
-  await once(httpServer, 'listening');
-
-  const address = httpServer.address();
-  if (address === null || typeof address === 'string') {
-    await closeHttpServer(httpServer);
-    throw new Error('MCP_SPIKE_ADDRESS_UNAVAILABLE');
-  }
-
-  const endpoint = new URL(`http://127.0.0.1:${String(address.port)}/mcp`);
-  return {
-    endpoint,
-    cancellationObserved,
-    async close(): Promise<void> {
-      await mcpServer.close();
-      await closeHttpServer(httpServer);
-    },
-  };
 }
 
 // SDK 1.29.0's concrete transports declare optional callback properties as `T | undefined`,

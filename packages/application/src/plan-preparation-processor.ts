@@ -13,6 +13,7 @@ import type {
   Clock,
   IdentifierGenerator,
   RuntimeEventPublisher,
+  TaskInputRepository,
 } from './ports.js';
 import type { GoalService } from './goal-service.js';
 import type { StructuredTaskDecisionService } from './model-decisions.js';
@@ -42,6 +43,26 @@ export interface PlanPreparationProcessorDependencies {
   readonly nextGoalId: () => string;
   readonly nextGoalTransitionId: () => string;
   readonly inputInference: Pick<GoalInputInferenceService, 'resolve'>;
+  readonly taskInputs: Pick<
+    TaskInputRepository,
+    'findAttempt' | 'findResponseForAttempt' | 'listResponses' | 'updateAttempt'
+  >;
+  readonly requestTaskInput: (
+    taskId: string,
+    question: string,
+    origin: Readonly<{ source: 'goal_deliberation' }>,
+  ) => Promise<unknown>;
+  readonly workflowContinuation: Readonly<{
+    continueAfterInput(
+      input: Readonly<{
+        taskId: string;
+        inputRequestId: string;
+        controlId?: string;
+        controlRoundIndex?: number;
+        content: unknown;
+      }>,
+    ): Promise<unknown>;
+  }>;
   readonly taskPlanning: Readonly<{
     prepare(
       input: Readonly<{
@@ -54,7 +75,9 @@ export interface PlanPreparationProcessorDependencies {
         temporarySkillId?: string;
       }>,
     ): Promise<Readonly<{ planId: string; autoConfirmed: boolean }>>;
-    executeAuto(input: Readonly<{ taskId: string; planId: string }>): Promise<void>;
+    executeAuto(
+      input: Readonly<{ taskId: string; planId: string; executionInput: unknown }>,
+    ): Promise<void>;
   }>;
 }
 
@@ -66,14 +89,48 @@ export class PlanPreparationProcessor {
     this.#dependencies = dependencies;
   }
 
-  async process(input: Readonly<{ taskId: string; contextId: string }>): Promise<void> {
+  async process(
+    input: Readonly<{
+      taskId: string;
+      contextId: string;
+      attemptId: string;
+      mode: 'initial' | 'continue_after_input';
+    }>,
+  ): Promise<void> {
     const task = await this.#dependencies.tasks.findById(input.taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${input.taskId} was not found.`);
     if (task.contextId !== input.contextId) throw new Error('TASK_CONTEXT_MISMATCH');
+    const attempt = await this.#dependencies.taskInputs.findAttempt(input.attemptId);
+    if (
+      attempt?.taskId !== input.taskId ||
+      attempt.contextId !== input.contextId ||
+      attempt.status !== 'queued' ||
+      (input.mode === 'initial'
+        ? attempt.reason !== 'initial'
+        : attempt.reason !== 'input_response')
+    )
+      throw new Error('TASK_EXECUTION_ATTEMPT_INVALID');
+    await this.#dependencies.taskInputs.updateAttempt(
+      input.attemptId,
+      'running',
+      this.#dependencies.clock.now(),
+    );
     try {
-      await this.#prepare(task);
+      if (input.mode === 'initial') await this.#prepare(task);
+      else await this.#continueAfterInput(task, input.attemptId);
+      await this.#dependencies.taskInputs.updateAttempt(
+        input.attemptId,
+        'completed',
+        this.#dependencies.clock.now(),
+      );
     } catch (error: unknown) {
+      await this.#dependencies.taskInputs.updateAttempt(
+        input.attemptId,
+        'failed',
+        this.#dependencies.clock.now(),
+        errorCode(error),
+      );
       const latest = (await this.#dependencies.tasks.findById(task.taskId)) ?? task;
       if (!['failed', 'canceled', 'completed'].includes(latest.phase))
         await this.#transition(
@@ -96,23 +153,51 @@ export class PlanPreparationProcessor {
       'goal_deliberation',
       `LLM intent ${intent.intent}: ${intent.summary}`,
     );
+    await this.#deliberateAndPlan(task, task.requestText);
+  }
+
+  async #continueAfterInput(task: AgentTask, attemptId: string): Promise<void> {
+    const continuation = await this.#dependencies.taskInputs.findResponseForAttempt(attemptId);
+    if (continuation === undefined) throw new Error('TASK_INPUT_CONTINUATION_NOT_FOUND');
+    if (continuation.request.taskId !== task.taskId)
+      throw new Error('TASK_INPUT_CONTINUATION_TASK_MISMATCH');
+    if (continuation.request.source !== 'goal_deliberation') {
+      await this.#dependencies.workflowContinuation.continueAfterInput({
+        taskId: task.taskId,
+        inputRequestId: continuation.request.inputRequestId,
+        ...(continuation.request.controlId === undefined
+          ? {}
+          : { controlId: continuation.request.controlId }),
+        ...(continuation.request.controlRoundIndex === undefined
+          ? {}
+          : { controlRoundIndex: continuation.request.controlRoundIndex }),
+        content: continuation.response.content,
+      });
+      return;
+    }
+    const responses = await this.#dependencies.taskInputs.listResponses(task.taskId);
+    await this.#deliberateAndPlan(task, effectiveRequestText(task.requestText, responses));
+  }
+
+  async #deliberateAndPlan(taskAtDeliberation: AgentTask, requestText: string): Promise<void> {
+    let task = taskAtDeliberation;
     let goal = await this.#dependencies.goals.findActiveByContextId(task.contextId);
     let goalSummary = 'Continuing the active Goal for this context.';
     if (goal === undefined) {
       let goalDecision = await this.#dependencies.decisions.formulateGoal({
-        requestText: task.requestText,
+        requestText,
       });
       if (goalDecision.requiresInput) {
         const inference = await this.#dependencies.inputInference.resolve({
           taskId: task.taskId,
           contextId: task.contextId,
-          requestText: task.requestText,
+          requestText,
         });
         if (inference.outcome === 'input_required') {
-          await this.#transition(
-            task,
-            'awaiting_user_input',
+          await this.#dependencies.requestTaskInput(
+            task.taskId,
             inference.clarificationQuestion ?? 'Additional Goal input is required.',
+            { source: 'goal_deliberation' },
           );
           return;
         }
@@ -127,7 +212,7 @@ export class PlanPreparationProcessor {
         previousGoal === undefined
           ? undefined
           : await this.#dependencies.decisions.decideGoalContinuity({
-              requestText: task.requestText,
+              requestText,
               previousGoal: {
                 goalId: previousGoal.goalId,
                 title: previousGoal.title,
@@ -159,7 +244,7 @@ export class PlanPreparationProcessor {
                 toGoalId: nextGoalId,
                 relationship: continuity.relationship,
                 decisionSummary: continuity.decisionSummary,
-                requestText: task.requestText,
+                requestText,
                 createdAt: this.#dependencies.clock.now(),
               },
             }),
@@ -228,7 +313,19 @@ export class PlanPreparationProcessor {
     await this.#dependencies.taskPlanning.executeAuto({
       taskId: task.taskId,
       planId: prepared.planId,
+      executionInput: await this.#executionInput(task.taskId, task.requestText),
     });
+  }
+
+  async #executionInput(taskId: string, requestText: string): Promise<unknown> {
+    const responses = await this.#dependencies.taskInputs.listResponses(taskId);
+    return {
+      requestText,
+      supplementaryInputs: responses.map((response) => ({
+        inputRequestId: response.inputRequestId,
+        content: response.content,
+      })),
+    };
   }
 
   async #transition(task: AgentTask, phase: TaskPhase, message: string): Promise<AgentTask> {
@@ -245,6 +342,19 @@ export class PlanPreparationProcessor {
     });
     return next;
   }
+}
+
+function effectiveRequestText(
+  requestText: string,
+  responses: readonly Readonly<{ inputRequestId: string; content: unknown }>[],
+): string {
+  if (responses.length === 0) return requestText;
+  return `${requestText}\n\nSupplementary inputs:\n${responses
+    .map(
+      (response) =>
+        `- ${response.inputRequestId}: ${typeof response.content === 'string' ? response.content : JSON.stringify(response.content)}`,
+    )
+    .join('\n')}`;
 }
 
 function errorCode(error: unknown): string {

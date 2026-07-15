@@ -278,6 +278,7 @@ describe('Workflow execution application service', () => {
         planId: 'plan-1',
         input: {},
         skillIds: ['skill-tight'],
+        executionContext: { mode: 'simulation', simulationId: 'simulation-budget-1' },
       }),
     ).resolves.toMatchObject({
       status: 'failed',
@@ -291,6 +292,7 @@ describe('Workflow execution application service', () => {
       expect.objectContaining({ maxMcpCalls: 0, maxCost: 5 }),
       undefined,
       'instance-budget',
+      { mode: 'simulation', simulationId: 'simulation-budget-1' },
     );
   });
 
@@ -337,6 +339,83 @@ describe('Workflow execution application service', () => {
       }),
     ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION' });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('defers a referenced child Skill Tool policy to its independently executed child Workflow', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      status: 'succeeded',
+      result: { status: 'online' },
+      errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 0, cost: 0 },
+      events: [],
+    });
+    const childSkill = {
+      skillId: 'skill-child-policy',
+      version: 2,
+      name: 'Child policy',
+      summary: 'Child policy',
+      description: 'Child policy.',
+      capabilities: [],
+      workflowGuidance: '',
+      outputInstruction: '',
+      inputSchema: true,
+      outputSchema: true,
+      toolPolicy: {
+        required: [{ serverId: 'mcp.device', toolName: 'read' }],
+        optional: [],
+        forbidden: [],
+      },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled' as const,
+      sourceKind: 'admin' as const,
+      validationPassed: true,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    const childPlan: WorkflowPlanRecord = {
+      ...validPlan,
+      planId: 'plan-parent-child-policy',
+      definition: {
+        workflowDefinitionId: 'workflow-parent-child-policy',
+        version: 1,
+        goalId: validPlan.goalId,
+        goalVersion: validPlan.goalVersion,
+        entryNodeId: 'child',
+        exitNodeIds: ['child'],
+        nodes: [
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'skill_call',
+            skillId: childSkill.skillId,
+            input: {},
+          },
+        ],
+        edges: [],
+      },
+    };
+    const skills: SkillRepository = {
+      ...disabledSkills,
+      findCurrentVersion: (skillId) =>
+        Promise.resolve(skillId === childSkill.skillId ? childSkill : undefined),
+    };
+    const service = createService(
+      new MemoryPlans([childPlan]),
+      new MemoryExecutions(),
+      { execute },
+      skills,
+    );
+
+    await expect(
+      service.execute({
+        instanceId: 'instance-parent-child-policy',
+        planId: childPlan.planId,
+        input: {},
+      }),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      skillVersions: [{ skillId: childSkill.skillId, version: childSkill.version }],
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it('requires replanning after the resolved Skill pause threshold is exceeded', async () => {
@@ -497,7 +576,7 @@ function createService(
         exists: () => Promise.resolve(false),
         getInputSchema: () => Promise.resolve(undefined),
       },
-      skills: disabledSkills,
+      skills,
       schemas: {
         checkSchema: () => ({ valid: true, errors: [] }),
         validate: () => ({ valid: true, errors: [] }),

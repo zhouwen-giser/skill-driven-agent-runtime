@@ -61,8 +61,8 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@esbuild%2Fwin32-x64@0.28.1",
-      "name": "@esbuild/win32-x64",
+      "bom-ref": "pkg:npm/@esbuild%2Flinux-x64@0.28.1",
+      "name": "@esbuild/linux-x64",
       "version": "0.28.1",
       "licenses": [
         {
@@ -77,7 +77,7 @@
           "url": "git+https://github.com/evanw/esbuild.git"
         }
       ],
-      "purl": "pkg:npm/@esbuild%2Fwin32-x64@0.28.1"
+      "purl": "pkg:npm/@esbuild%2Flinux-x64@0.28.1"
     },
     {
       "type": "library",
@@ -515,8 +515,8 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-win32-x64@3.0.4",
-      "name": "@msgpackr-extract/msgpackr-extract-win32-x64",
+      "bom-ref": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-linux-x64@3.0.4",
+      "name": "@msgpackr-extract/msgpackr-extract-linux-x64",
       "version": "3.0.4",
       "licenses": [
         {
@@ -531,7 +531,7 @@
           "url": "http://github.com/kriszyp/msgpackr-extract"
         }
       ],
-      "purl": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-win32-x64@3.0.4"
+      "purl": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-linux-x64@3.0.4"
     },
     {
       "type": "library",
@@ -555,8 +555,8 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@rolldown%2Fbinding-win32-x64-msvc@1.1.5",
-      "name": "@rolldown/binding-win32-x64-msvc",
+      "bom-ref": "pkg:npm/@rolldown%2Fbinding-linux-x64-gnu@1.1.5",
+      "name": "@rolldown/binding-linux-x64-gnu",
       "version": "1.1.5",
       "licenses": [
         {
@@ -571,7 +571,7 @@
           "url": "git+https://github.com/rolldown/rolldown.git"
         }
       ],
-      "purl": "pkg:npm/@rolldown%2Fbinding-win32-x64-msvc@1.1.5"
+      "purl": "pkg:npm/@rolldown%2Fbinding-linux-x64-gnu@1.1.5"
     },
     {
       "type": "library",
@@ -3415,8 +3415,8 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/lightningcss-win32-x64-msvc@1.32.0",
-      "name": "lightningcss-win32-x64-msvc",
+      "bom-ref": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0",
+      "name": "lightningcss-linux-x64-gnu",
       "version": "1.32.0",
       "licenses": [
         {
@@ -3431,7 +3431,7 @@
           "url": "https://github.com/parcel-bundler/lightningcss.git"
         }
       ],
-      "purl": "pkg:npm/lightningcss-win32-x64-msvc@1.32.0"
+      "purl": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0"
     },
     {
       "type": "library",

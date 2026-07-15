@@ -39,7 +39,14 @@ import type {
   SkillCallWorkflowRepository,
   EvolutionExperienceRepository,
   EvolutionPolicyRepository,
+  TaskInputRepository,
 } from '../../application/src/index.js';
+import {
+  DomainError,
+  type TaskExecutionAttempt,
+  type TaskInputRequest,
+  type TaskInputResponse,
+} from '../../domain/src/index.js';
 import type {
   AgentTask,
   ConversationContext,
@@ -252,6 +259,40 @@ interface TaskRow extends QueryResultRow {
   error_code: string | null;
   created_at: Date | string;
   updated_at: Date | string;
+}
+
+interface TaskInputRequestRow extends QueryResultRow {
+  input_request_id: string;
+  task_id: string;
+  context_id: string;
+  source: TaskInputRequest['source'];
+  question: string;
+  status: TaskInputRequest['status'];
+  control_id: string | null;
+  control_round_index: number | null;
+  created_at: Date | string;
+  answered_at: Date | string | null;
+}
+
+interface TaskInputResponseRow extends QueryResultRow {
+  input_response_id: string;
+  input_request_id: string;
+  task_id: string;
+  content_json: unknown;
+  created_at: Date | string;
+}
+
+interface TaskExecutionAttemptRow extends QueryResultRow {
+  attempt_id: string;
+  task_id: string;
+  context_id: string;
+  reason: TaskExecutionAttempt['reason'];
+  status: TaskExecutionAttempt['status'];
+  input_request_id: string | null;
+  created_at: Date | string;
+  started_at: Date | string | null;
+  completed_at: Date | string | null;
+  error_code: string | null;
 }
 
 interface ProjectionRow extends QueryResultRow {
@@ -484,6 +525,8 @@ interface McpInvocationRow extends QueryResultRow {
   invocation_id: string;
   task_id: string | null;
   context_id: string | null;
+  execution_mode: McpInvocation['executionMode'];
+  simulation_id: string | null;
   server_id: string;
   tool_name: string;
   arguments_json: Record<string, unknown>;
@@ -567,8 +610,18 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          WHERE status IN ('running','paused')`,
         [timestamp],
       );
+      const attempts = await client.query(
+        `UPDATE task_execution_attempt
+         SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
+         WHERE status='running'`,
+        [timestamp],
+      );
       await client.query('COMMIT');
-      return { tasks: tasks.rowCount ?? 0, workflowInstances: instances.rowCount ?? 0 };
+      return {
+        tasks: tasks.rowCount ?? 0,
+        workflowInstances: instances.rowCount ?? 0,
+        taskAttempts: attempts.rowCount ?? 0,
+      };
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -1913,6 +1966,277 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   }
 }
 
+export class PostgresTaskInputRepository implements TaskInputRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async createRequest(request: TaskInputRequest): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO task_input_request(
+         input_request_id,task_id,context_id,source,question,status,control_id,
+         control_round_index,created_at,answered_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        request.inputRequestId,
+        request.taskId,
+        request.contextId,
+        request.source,
+        request.question,
+        request.status,
+        request.controlId ?? null,
+        request.controlRoundIndex ?? null,
+        request.createdAt,
+        request.answeredAt ?? null,
+      ],
+    );
+  }
+
+  async findRequest(inputRequestId: string): Promise<TaskInputRequest | undefined> {
+    const result = await this.#pool.query<TaskInputRequestRow>(
+      'SELECT * FROM task_input_request WHERE input_request_id=$1',
+      [inputRequestId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTaskInputRequestRow(result.rows[0]);
+  }
+
+  async findPendingByTask(taskId: string): Promise<TaskInputRequest | undefined> {
+    const result = await this.#pool.query<TaskInputRequestRow>(
+      `SELECT * FROM task_input_request
+       WHERE task_id=$1 AND status='waiting' ORDER BY created_at DESC,input_request_id DESC LIMIT 1`,
+      [taskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTaskInputRequestRow(result.rows[0]);
+  }
+
+  async cancelPending(taskId: string, status: 'expired' | 'canceled'): Promise<void> {
+    await this.#pool.query(
+      `UPDATE task_input_request SET status=$2
+       WHERE task_id=$1 AND status='waiting'`,
+      [taskId, status],
+    );
+  }
+
+  async listResponses(taskId: string): Promise<readonly TaskInputResponse[]> {
+    const result = await this.#pool.query<TaskInputResponseRow>(
+      'SELECT * FROM task_input_response WHERE task_id=$1 ORDER BY created_at,input_response_id',
+      [taskId],
+    );
+    return result.rows.map(mapTaskInputResponseRow);
+  }
+
+  async createInitialAttempt(attempt: TaskExecutionAttempt): Promise<void> {
+    await this.#insertAttempt(this.#pool, attempt);
+  }
+
+  async answerAndCreateAttempt(
+    input: Readonly<{
+      inputRequestId: string;
+      taskId: string;
+      response: TaskInputResponse;
+      attempt: TaskExecutionAttempt;
+      answeredAt: string;
+      continuationPhase: 'goal_deliberation' | 'planning';
+      phaseMessage: string;
+    }>,
+  ): Promise<AgentTask> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const selected = await client.query<TaskInputRequestRow>(
+        'SELECT * FROM task_input_request WHERE input_request_id=$1 FOR UPDATE',
+        [input.inputRequestId],
+      );
+      const request = selected.rows[0];
+      if (request === undefined)
+        throw new DomainError(
+          'TASK_INPUT_REQUEST_NOT_FOUND',
+          'The supplementary input request was not found.',
+        );
+      if (request.task_id !== input.taskId)
+        throw new DomainError(
+          'TASK_INPUT_REQUEST_TASK_MISMATCH',
+          'The supplementary input request belongs to another Task.',
+        );
+      if (request.status !== 'waiting')
+        throw new DomainError(
+          'TASK_INPUT_REQUEST_NOT_WAITING',
+          `The supplementary input request is ${request.status}.`,
+        );
+      const continuedTask = await client.query<TaskRow>(
+        `UPDATE agent_task
+         SET phase=$2,phase_message=$3,updated_at=$4,error_code=NULL
+         WHERE task_id=$1 AND phase='awaiting_user_input'
+         RETURNING *`,
+        [input.taskId, input.continuationPhase, input.phaseMessage, input.answeredAt],
+      );
+      const taskRow = continuedTask.rows[0];
+      if (taskRow === undefined)
+        throw new DomainError(
+          'TASK_INPUT_REQUEST_NOT_WAITING',
+          'The Task is no longer awaiting supplementary input.',
+        );
+      await client.query(
+        `UPDATE task_input_request SET status='answered',answered_at=$2
+         WHERE input_request_id=$1`,
+        [input.inputRequestId, input.answeredAt],
+      );
+      await client.query(
+        `INSERT INTO task_input_response(
+           input_response_id,input_request_id,task_id,content_json,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5)`,
+        [
+          input.response.inputResponseId,
+          input.response.inputRequestId,
+          input.response.taskId,
+          JSON.stringify(input.response.content),
+          input.response.createdAt,
+        ],
+      );
+      await this.#insertAttempt(client, input.attempt);
+      await client.query('COMMIT');
+      return mapTaskRow(taskRow);
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]> {
+    const result = await this.#pool.query<TaskExecutionAttemptRow>(
+      `SELECT * FROM task_execution_attempt
+       WHERE status='queued'
+       ORDER BY created_at,attempt_id
+       LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapTaskExecutionAttemptRow);
+  }
+
+  async findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined> {
+    const result = await this.#pool.query<TaskExecutionAttemptRow>(
+      'SELECT * FROM task_execution_attempt WHERE attempt_id=$1',
+      [attemptId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTaskExecutionAttemptRow(result.rows[0]);
+  }
+
+  async findResponseForAttempt(attemptId: string) {
+    const result = await this.#pool.query<TaskInputRequestRow & TaskInputResponseRow>(
+      `SELECT request.*,response.input_response_id,response.content_json,response.created_at AS response_created_at
+       FROM task_execution_attempt AS attempt
+       JOIN task_input_request AS request ON request.input_request_id=attempt.input_request_id
+       JOIN task_input_response AS response ON response.input_request_id=request.input_request_id
+       WHERE attempt.attempt_id=$1`,
+      [attemptId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      request: mapTaskInputRequestRow(row),
+      response: {
+        inputResponseId: row.input_response_id,
+        inputRequestId: row.input_request_id,
+        taskId: row.task_id,
+        content: row.content_json,
+        createdAt: toIsoString(
+          (row as unknown as Readonly<{ response_created_at: Date | string }>).response_created_at,
+        ),
+      },
+    };
+  }
+
+  async updateAttempt(
+    attemptId: string,
+    status: Exclude<TaskExecutionAttempt['status'], 'queued'>,
+    timestamp: string,
+    errorCode?: string,
+  ): Promise<void> {
+    const result = await this.#pool.query(
+      `UPDATE task_execution_attempt SET
+         status=$2,
+         started_at=CASE WHEN $2='running' THEN $3 ELSE COALESCE(started_at,$3) END,
+         completed_at=CASE WHEN $2 IN ('completed','failed') THEN $3 ELSE NULL END,
+         error_code=$4
+       WHERE attempt_id=$1 AND (
+         (status='queued' AND $2 IN ('running','failed')) OR
+         (status='running' AND $2 IN ('completed','failed')) OR
+         status=$2
+       )`,
+      [attemptId, status, timestamp, errorCode ?? null],
+    );
+    if (result.rowCount === 0) throw new Error('TASK_ATTEMPT_TRANSITION_INVALID');
+  }
+
+  async #insertAttempt(
+    client: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+    attempt: TaskExecutionAttempt,
+  ) {
+    await client.query(
+      `INSERT INTO task_execution_attempt(
+         attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
+         started_at,completed_at,error_code)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        attempt.attemptId,
+        attempt.taskId,
+        attempt.contextId,
+        attempt.reason,
+        attempt.status,
+        attempt.inputRequestId ?? null,
+        attempt.createdAt,
+        attempt.startedAt ?? null,
+        attempt.completedAt ?? null,
+        attempt.errorCode ?? null,
+      ],
+    );
+  }
+}
+
+function mapTaskInputRequestRow(row: TaskInputRequestRow): TaskInputRequest {
+  return {
+    inputRequestId: row.input_request_id,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    source: row.source,
+    question: row.question,
+    status: row.status,
+    ...(row.control_id === null ? {} : { controlId: row.control_id }),
+    ...(row.control_round_index === null ? {} : { controlRoundIndex: row.control_round_index }),
+    createdAt: toIsoString(row.created_at),
+    ...(row.answered_at === null ? {} : { answeredAt: toIsoString(row.answered_at) }),
+  };
+}
+
+function mapTaskInputResponseRow(row: TaskInputResponseRow): TaskInputResponse {
+  return {
+    inputResponseId: row.input_response_id,
+    inputRequestId: row.input_request_id,
+    taskId: row.task_id,
+    content: row.content_json,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapTaskExecutionAttemptRow(row: TaskExecutionAttemptRow): TaskExecutionAttempt {
+  return {
+    attemptId: row.attempt_id,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    reason: row.reason,
+    status: row.status,
+    ...(row.input_request_id === null ? {} : { inputRequestId: row.input_request_id }),
+    createdAt: toIsoString(row.created_at),
+    ...(row.started_at === null ? {} : { startedAt: toIsoString(row.started_at) }),
+    ...(row.completed_at === null ? {} : { completedAt: toIsoString(row.completed_at) }),
+    ...(row.error_code === null ? {} : { errorCode: row.error_code }),
+  };
+}
+
 interface ImplicitFeedbackRow extends QueryResultRow {
   feedback_id: string;
   kind: ImplicitFeedbackRecord['kind'];
@@ -2006,6 +2330,9 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
            error_code='TASK_WAIT_TIMEOUT',updated_at=$2
          WHERE phase IN ('awaiting_plan_confirmation','awaiting_user_input') AND updated_at <= $1
          RETURNING *
+       ), input_requests AS (
+         UPDATE task_input_request SET status='expired'
+         WHERE task_id IN (SELECT task_id FROM expired) AND status='waiting'
        ), events AS (
          INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
          SELECT concat('event-wait-timeout-',task_id,'-',extract(epoch from $2::timestamptz)::bigint),
@@ -3231,6 +3558,7 @@ const PendingConfirmationSchema = z
   .strict();
 
 interface SkillCallWorkflowRow extends QueryResultRow {
+  call_id: string;
   parent_instance_id: string;
   parent_node_id: string;
   child_instance_id: string;
@@ -3252,14 +3580,11 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   async save(record: SkillCallWorkflowRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_call_workflow(
-         parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
+         call_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
          status,evaluation_summary,created_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT(parent_instance_id,parent_node_id) DO UPDATE SET
-         child_instance_id=EXCLUDED.child_instance_id,child_plan_id=EXCLUDED.child_plan_id,
-         skill_id=EXCLUDED.skill_id,skill_version=EXCLUDED.skill_version,status=EXCLUDED.status,
-         evaluation_summary=EXCLUDED.evaluation_summary,completed_at=EXCLUDED.completed_at`,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
+        record.callId,
         record.parentInstanceId,
         record.parentNodeId,
         record.childInstanceId,
@@ -3276,7 +3601,9 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
   async find(parentInstanceId: string, parentNodeId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
-      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 AND parent_node_id=$2`,
+      `SELECT * FROM skill_call_workflow
+       WHERE parent_instance_id=$1 AND parent_node_id=$2
+       ORDER BY created_at DESC,completed_at DESC,call_id DESC LIMIT 1`,
       [parentInstanceId, parentNodeId],
     );
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
@@ -3284,7 +3611,8 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
   async listByParent(parentInstanceId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
-      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id`,
+      `SELECT * FROM skill_call_workflow
+       WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id,call_id`,
       [parentInstanceId],
     );
     return result.rows.map(mapSkillCallWorkflow);
@@ -3293,6 +3621,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
 function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
   return {
+    callId: row.call_id,
     parentInstanceId: row.parent_instance_id,
     parentNodeId: row.parent_node_id,
     childInstanceId: row.child_instance_id,
@@ -3533,6 +3862,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
        VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15)
        ON CONFLICT(control_id) DO UPDATE SET
          status=EXCLUDED.status,current_plan_id=EXCLUDED.current_plan_id,
+         input_json=EXCLUDED.input_json,
          round_count=EXCLUDED.round_count,replan_count=EXCLUDED.replan_count,
          final_instance_id=EXCLUDED.final_instance_id,updated_at=EXCLUDED.updated_at`,
       [
@@ -4198,13 +4528,15 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async saveInvocation(invocation: McpInvocation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO mcp_invocation
-         (invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
+         (invocation_id, task_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
           result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
         invocation.contextId ?? null,
+        invocation.executionMode,
+        invocation.simulationId ?? null,
         invocation.serverId,
         invocation.toolName,
         JSON.stringify(invocation.arguments),
@@ -4222,7 +4554,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
     );
@@ -4232,7 +4564,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
     );
@@ -4739,6 +5071,8 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     invocationId: row.invocation_id,
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
     ...(row.context_id === null ? {} : { contextId: row.context_id }),
+    executionMode: row.execution_mode,
+    ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     serverId: row.server_id,
     toolName: row.tool_name,
     arguments: row.arguments_json,

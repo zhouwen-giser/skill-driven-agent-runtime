@@ -1,0 +1,59 @@
+{
+  "workflowDefinitionId": "workflow.device-control-binding",
+  "version": 1,
+  "goalId": "goal.device-control",
+  "goalVersion": 1,
+  "entryNodeId": "query",
+  "exitNodeIds": ["result"],
+  "nodes": [
+    {
+      "nodeId": "query",
+      "name": "Query device state",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "query_device_state" },
+      "arguments": { "deviceId": { "op": "ref", "path": ["input", "deviceId"] } }
+    },
+    {
+      "nodeId": "control",
+      "name": "Control device",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "control_device" },
+      "arguments": {
+        "deviceId": { "op": "ref", "path": ["input", "deviceId"] },
+        "target": { "op": "ref", "path": ["input", "target"] },
+        "observedState": { "op": "ref", "path": ["nodes", "query", "structuredContent"] }
+      }
+    },
+    {
+      "nodeId": "status",
+      "name": "Query command status",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "query_command_status" },
+      "arguments": {
+        "commandId": { "op": "ref", "path": ["nodes", "control", "commandId"] }
+      }
+    },
+    {
+      "nodeId": "verify",
+      "name": "Verify device state",
+      "type": "mcp_tool",
+      "tool": { "serverId": "mcp.devices", "toolName": "verify_device_state" },
+      "arguments": {
+        "deviceId": { "op": "ref", "path": ["input", "deviceId"] },
+        "command": { "op": "ref", "path": ["nodes", "status"] }
+      }
+    },
+    {
+      "nodeId": "result",
+      "name": "Return verification",
+      "type": "result",
+      "value": { "op": "ref", "path": ["nodes", "verify"] }
+    }
+  ],
+  "edges": [
+    { "sourceNodeId": "query", "targetNodeId": "control" },
+    { "sourceNodeId": "control", "targetNodeId": "status" },
+    { "sourceNodeId": "status", "targetNodeId": "verify" },
+    { "sourceNodeId": "verify", "targetNodeId": "result" }
+  ]
+}

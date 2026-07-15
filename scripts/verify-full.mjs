@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
+import { reuseExistingInfrastructure } from './lib/infrastructure.mjs';
+
 const root = process.cwd();
 const reportDirectory = resolve(root, 'reports', 'verification');
 const startedAt = new Date();
@@ -60,6 +62,7 @@ const summary = {
     node: process.version,
     platform: process.platform,
     architecture: process.arch,
+    infrastructureMode: reuseExistingInfrastructure ? 'operator-managed' : 'self-managed-compose',
   },
   startedAt: startedAt.toISOString(),
   finishedAt: finishedAt.toISOString(),
@@ -92,6 +95,7 @@ function renderMarkdown(summaryValue) {
     `- Finished: ${summaryValue.finishedAt}`,
     `- Duration: ${String(summaryValue.durationMs)} ms`,
     `- Environment: Node ${summaryValue.environment.node}, ${summaryValue.environment.platform}/${summaryValue.environment.architecture}`,
+    `- Infrastructure mode: ${summaryValue.environment.infrastructureMode}`,
     '',
     '| Gate | Command | Result | Duration |',
     '| --- | --- | --- | ---: |',

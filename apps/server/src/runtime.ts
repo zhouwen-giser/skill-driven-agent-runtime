@@ -28,6 +28,7 @@ import {
   SkillSelectionService,
   SkillQualityService,
   SkillCallWorkflowService,
+  nextSkillCallAncestry,
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
@@ -51,6 +52,7 @@ import {
   GoalInputInferenceService,
   WorkflowRevisionService,
   TaskService,
+  TaskAttemptDispatchService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
   EvaluationInfluenceService,
@@ -109,6 +111,7 @@ import {
   PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
+  PostgresTaskInputRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
@@ -136,6 +139,7 @@ export interface ServerRuntimeOptions {
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
+  readonly taskAttemptDispatchIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -189,6 +193,7 @@ export async function startServerRuntime(
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
   const tasks = new PostgresAgentTaskRepository(pool);
+  const taskInputs = new PostgresTaskInputRepository(pool);
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
@@ -233,6 +238,8 @@ export async function startServerRuntime(
     repository: new PostgresRuntimeRecoveryRepository(pool),
     clock,
   }).failInterruptedExecutions();
+  const taskAttemptDispatch = new TaskAttemptDispatchService({ attempts: taskInputs, queue });
+  await taskAttemptDispatch.dispatchQueued();
   const workflowBudgetDefaults = options.workflowBudgetDefaults ?? {
     maxReplans: 3,
     maxDurationSeconds: 300,
@@ -387,13 +394,17 @@ export async function startServerRuntime(
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
+  const skillCallAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
-    async executeLlm({ executionId, instruction, responseSchema }) {
+    async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
       return modelRuntime.generateStructured({
         stage: 'execution_decision',
-        instruction,
+        instruction:
+          context === undefined
+            ? instruction
+            : JSON.stringify({ instruction, dynamicContext: context }),
         responseSchema,
         correctionErrors: [],
         ...(task === undefined
@@ -401,7 +412,7 @@ export async function startServerRuntime(
           : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
       });
     },
-    async callMcpTool({ executionId, tool, arguments: arguments_, signal }) {
+    async callMcpTool({ executionId, tool, arguments: arguments_, signal, executionContext }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
@@ -410,23 +421,42 @@ export async function startServerRuntime(
         tool.toolName,
         arguments_,
         signal,
-        task === undefined ? {} : { taskId: task.taskId, contextId: task.contextId },
+        task === undefined
+          ? { executionContext }
+          : { taskId: task.taskId, contextId: task.contextId, executionContext },
       );
     },
-    async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
+    async executeSkill({
+      skillId,
+      input,
+      parentExecutionId,
+      parentNodeId,
+      signal,
+      executionContext,
+    }) {
       const parent = await workflowInstances.findInstance(parentExecutionId);
       if (parent === undefined) throw new Error('WORKFLOW_PARENT_INSTANCE_NOT_FOUND');
-      return skillCallWorkflowService.execute({
-        skillId,
-        value: input,
-        parentInstanceId: parentExecutionId,
-        parentNodeId,
-        parentGoalId: parent.goalId,
-        parentGoalVersion: parent.goalVersion,
-        ...(signal === undefined ? {} : { signal }),
-      });
+      const ancestry = nextSkillCallAncestry(skillCallAncestry.getStore() ?? [], skillId);
+      return skillCallAncestry.run(ancestry, () =>
+        skillCallWorkflowService.execute({
+          skillId,
+          value: input,
+          parentInstanceId: parentExecutionId,
+          parentNodeId,
+          parentGoalId: parent.goalId,
+          parentGoalVersion: parent.goalVersion,
+          executionContext,
+          ...(signal === undefined ? {} : { signal }),
+        }),
+      );
     },
-    async executeSubworkflow({ workflowDefinitionId, workflowVersion, parentInput, signal }) {
+    async executeSubworkflow({
+      workflowDefinitionId,
+      workflowVersion,
+      input,
+      signal,
+      executionContext,
+    }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
       const ancestry = workflowAncestry.getStore() ?? [];
       if (ancestry.includes(key) || ancestry.length >= 16)
@@ -444,7 +474,7 @@ export async function startServerRuntime(
         const outcome = await new LangGraphWorkflowExecutor(
           workflowPorts,
           workflowCallCosts,
-        ).execute(definition, parentInput, workflowBudgetDefaults, signal);
+        ).execute(definition, input, workflowBudgetDefaults, signal, undefined, executionContext);
         if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
         return outcome.result;
       });
@@ -470,9 +500,17 @@ export async function startServerRuntime(
   });
   const skillCallWorkflowService = new SkillCallWorkflowService({
     skills,
-    plans: workflowPlans,
+    planner: workflowPlanner,
+    validator: workflowValidator,
     execution: workflowExecution,
     records: skillCallWorkflows,
+    schemas: schemaValidator,
+    loadToolPlanningMetadata: (skill) =>
+      buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
+        (await mcpRepository.listTools(reference.serverId)).find(
+          (tool) => tool.toolName === reference.toolName,
+        ),
+      ),
     clock,
     nextId: randomUUID,
   });
@@ -523,6 +561,7 @@ export async function startServerRuntime(
     tasks,
     events,
     skillDrafts,
+    taskInputs,
     queue,
     clock,
     ids,
@@ -569,7 +608,7 @@ export async function startServerRuntime(
             goalVersion,
             taskId: task.taskId,
             initialPlanId: planId,
-            input: { requestText: task.requestText },
+            input: await service.executionInput(task.taskId),
             skillIds: selectedSkillIds,
             planningInstruction: JSON.stringify({
               operation: 'task_outer_replan',
@@ -638,7 +677,12 @@ export async function startServerRuntime(
     memories,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
-      requestInput: (taskId, question) => service.requestInput(taskId, question),
+      requestInput: (taskId, question, controlId, controlRoundIndex) =>
+        service.requestInput(taskId, question, {
+          source: 'goal_evaluation',
+          controlId,
+          controlRoundIndex,
+        }),
       reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
       async prepareSkillReplacement(taskId) {
         if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
@@ -656,6 +700,8 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
+      reportInputContinuationPlan: (taskId, input) =>
+        service.awaitInputContinuationConfirmation(taskId, input),
       async reportAchieved(taskId, instance, evaluation) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
@@ -774,7 +820,7 @@ export async function startServerRuntime(
     skills: skillRegistry,
     experiences: new PostgresEvolutionExperienceRepository(pool),
     runner: {
-      async run({ proposedSkill, case_ }) {
+      async run({ proposedSkill, case_, executionContext }) {
         const tool = proposedSkill.tools[0];
         if (tool === undefined)
           return { passed: false, summary: 'No Tool is available for simulation.' };
@@ -790,6 +836,7 @@ export async function startServerRuntime(
         try {
           await mcpRegistry.call(tool.serverId, tool.toolName, case_.input, undefined, {
             contextId: `skill-evolution:${proposedSkill.skillId}`,
+            executionContext,
           });
           return {
             passed: case_.expectedOutcome === 'success',
@@ -808,7 +855,7 @@ export async function startServerRuntime(
           };
         }
       },
-      async replay({ experience }) {
+      async replay({ experience, executionContext }) {
         try {
           const outcome = await langGraphExecutor.execute(
             experience.workflow,
@@ -816,6 +863,7 @@ export async function startServerRuntime(
             workflowBudgetDefaults,
             undefined,
             `evolution-replay-${experience.experienceId}-${randomUUID()}`,
+            executionContext,
           );
           return {
             succeeded: outcome.status === 'succeeded',
@@ -884,6 +932,21 @@ export async function startServerRuntime(
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
+    taskInputs,
+    requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
+    workflowContinuation: {
+      continueAfterInput(input) {
+        if (input.controlId === undefined || input.controlRoundIndex === undefined)
+          throw new Error('TASK_INPUT_WORKFLOW_CONTROL_ASSOCIATION_REQUIRED');
+        return workflowController.continueAfterInput({
+          controlId: input.controlId,
+          taskId: input.taskId,
+          inputRequestId: input.inputRequestId,
+          controlRoundIndex: input.controlRoundIndex,
+          content: input.content,
+        });
+      },
+    },
     taskPlanning: {
       async prepare(input) {
         const skill =
@@ -975,7 +1038,7 @@ export async function startServerRuntime(
           goalVersion: task.goalVersion,
           taskId: task.taskId,
           initialPlanId: input.planId,
-          input: { requestText: task.requestText },
+          input: input.executionInput,
           skillIds: [task.selectedSkillId],
           planningInstruction: JSON.stringify({
             operation: 'task_outer_replan',
@@ -993,6 +1056,22 @@ export async function startServerRuntime(
     });
   }, options.taskWaitSweepIntervalMs ?? 1000);
   waitSweepTimer.unref();
+  let attemptDispatchRunning = false;
+  const attemptDispatchTimer = setInterval(() => {
+    if (attemptDispatchRunning) return;
+    attemptDispatchRunning = true;
+    void taskAttemptDispatch
+      .dispatchQueued()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'task_attempt_dispatch.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        attemptDispatchRunning = false;
+      });
+  }, options.taskAttemptDispatchIntervalMs ?? 1000);
+  attemptDispatchTimer.unref();
   const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
   worker.start();
   let management: ManagementHttpEndpointHandle | undefined;
@@ -1132,6 +1211,7 @@ export async function startServerRuntime(
       },
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
+        clearInterval(attemptDispatchTimer);
         await a2a.close();
         await startedManagement.close();
         await worker.close();
@@ -1149,6 +1229,7 @@ export async function startServerRuntime(
     };
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
+    clearInterval(attemptDispatchTimer);
     await management?.close();
     await mcpTransport.close();
     await worker.close();
@@ -1227,6 +1308,9 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0051_workflow_node_duration.up.sql',
     '0052_observability_correlation.up.sql',
     '0053_mcp_tool_enhancement_stage.up.sql',
+    '0054_skill_call_history.up.sql',
+    '0055_task_input_continuation.up.sql',
+    '0056_mcp_execution_mode.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;
