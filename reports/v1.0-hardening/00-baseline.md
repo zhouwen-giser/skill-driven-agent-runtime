@@ -1,10 +1,11 @@
 # SDAR v1.0 Runtime Hardening Baseline
 
-- Status: **blocked**
+- Status: **passed**
 - Captured at: `2026-07-10T17:22:01+08:00`
-- Last rechecked at: `2026-07-15T12:35:08+08:00`
+- Last rechecked at: `2026-07-15T12:50:26+08:00`
 - Branch: `release/v1.0-hardening`
-- Baseline commit: `7c2fea66687624743f286d9c8cb23b54e5a36036`
+- Initial baseline commit: `7c2fea66687624743f286d9c8cb23b54e5a36036`
+- Accepted baseline commit: `bc4b44a7c8187d8d5e3f589f7bb9490a67cf0ad6`
 - Node: `v22.23.1`
 - pnpm: `11.7.0` (repository package manager: `pnpm@11.7.0`)
 - Package version: `0.0.0`
@@ -36,6 +37,24 @@ Root cause: commit `d2b851bfe141973a2c089d815e21262ae31ced14` changed `compose.y
 Docker Engine 29.6.1 and Docker Compose 5.3.1 are now installed, but the current user is not a member of the `docker` group and cannot access `/var/run/docker.sock`. Rootless setup also cannot proceed because `uidmap` requires sudo installation.
 
 The generated current failure evidence is stored in `reports/verification/summary.md` and `reports/verification/summary.json`.
+
+## Accepted baseline on 2026-07-15
+
+After the baseline-only repair commit `bc4b44a7c8187d8d5e3f589f7bb9490a67cf0ad6`, the clean unified gate passed in operator-managed infrastructure mode:
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| frozen install / supply-chain policy | passed | 348 lockfile entries verified |
+| static, unit, contract, architecture, protocol and build | passed | 54 files / 242 tests; 165-file architecture gate; A2A/OpenAPI/AC/source/license/SBOM gates |
+| empty and 0049→current migration paths | passed | temporary `sdar_verify_empty` and `sdar_verify_upgrade` databases created, verified and removed |
+| PostgreSQL/Redis integration | passed | 2 files / 36 tests |
+| PostgreSQL/Redis/Mock Model/Mock MCP E2E | passed | 1 file / 41 tests |
+| infrastructure smoke | passed | pgvector 0.8.5, bootstrap migration and Redis read/write |
+| Server/Console smoke | passed | Agent Card, production Console bundle and trusted-intranet management API |
+
+Command: `pnpm verify`. Result: exit code 0, duration 74065 ms. Machine and Markdown summaries are in `reports/verification/summary.json` and `reports/verification/summary.md`.
+
+The operator-managed mode connected to the real PostgreSQL/Redis services on loopback and did not invoke Docker lifecycle commands. Static Compose policy verification still proved immutable image digests, `linux/amd64`, loopback-only ports, health checks, bootstrap and migration coverage. Docker daemon/config execution is therefore explicitly deferred, not misclassified as executed.
 
 ## Initial gate result on 2026-07-10
 
@@ -73,12 +92,6 @@ The checked-in `reports/verification/summary.md` is historical evidence for comm
 - Current node kinds: `llm`, `mcp_tool`, `result`, `condition`, `parallel`, `loop`, `subworkflow`, `human_confirmation`, `error_handler`, and `skill_call`.
 - Expressions are restricted to literals, references, boolean/comparison operators, and `not`; arbitrary JavaScript is not part of the DSL.
 
-## Blocking conclusion
+## Acceptance conclusion
 
-The task package explicitly requires stopping when the unmodified baseline fails. No v1.0.1 implementation, feature commit, or tag is permitted from this state.
-
-Minimum conditions to resume:
-
-1. Reconcile `compose.yaml` with the accepted reproducible-image verifier in a baseline repair outside v1.0.1. The current `redis:latest` cannot satisfy the existing supply-chain rule.
-2. Add user `zhouwen` to the `docker` group (or otherwise provide non-root access to the Docker daemon) and start a fresh login/session.
-3. Re-run `pnpm install --frozen-lockfile` and `pnpm verify` on the repaired baseline; proceed only if both pass.
+The task package baseline stop condition is cleared. Runtime Hardening may proceed from accepted baseline commit `bc4b44a7c8187d8d5e3f589f7bb9490a67cf0ad6`. Earlier blocked attempts remain above as historical evidence and must not be confused with the accepted run.

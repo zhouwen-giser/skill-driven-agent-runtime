@@ -1,9 +1,10 @@
 {
-  "status": "blocked",
+  "status": "passed",
   "capturedAt": "2026-07-10T17:22:01+08:00",
-  "lastCheckedAt": "2026-07-15T12:35:08+08:00",
+  "lastCheckedAt": "2026-07-15T12:50:26+08:00",
   "branch": "release/v1.0-hardening",
   "baselineCommit": "7c2fea66687624743f286d9c8cb23b54e5a36036",
+  "acceptedBaselineCommit": "bc4b44a7c8187d8d5e3f589f7bb9490a67cf0ad6",
   "environment": {
     "node": "v22.23.1",
     "pnpm": "11.7.0",
@@ -117,12 +118,20 @@
   "policyChangesMade": false,
   "lockfileChangesMade": false,
   "implementationStarted": false,
-  "resumeConditions": [
-    "Reconcile compose.yaml with the accepted pinned-image verifier outside v1.0.1",
-    "Grant user zhouwen access to the Docker daemon and start a fresh session",
-    "pnpm install --frozen-lockfile passes",
-    "pnpm verify passes"
-  ],
+  "resumeConditions": [],
+  "acceptedGate": {
+    "command": "pnpm verify",
+    "exitCode": 0,
+    "durationMs": 74065,
+    "infrastructureMode": "operator-managed",
+    "unitAndContract": { "files": 54, "tests": 242 },
+    "integration": { "files": 2, "tests": 36 },
+    "e2e": { "files": 1, "tests": 41 },
+    "migrationPaths": ["empty", "upgrade-from-0049"],
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed",
+    "dockerLifecycleCommandsInvoked": false
+  },
   "resolvedBlockers": [
     "Both pinned packages now satisfy the configured minimum release age",
     "Docker Engine and Docker Compose CLI are installed"
