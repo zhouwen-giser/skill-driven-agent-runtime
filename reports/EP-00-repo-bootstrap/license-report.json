@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 288,
+  "package_count": 284,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -19,13 +19,6 @@
       "license": "MIT",
       "licenseFiles": [],
       "repository": "https://github.com/cfworker/cfworker"
-    },
-    {
-      "name": "@esbuild/linux-x64",
-      "version": "0.28.1",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "git+https://github.com/evanw/esbuild.git"
     },
     {
       "name": "@eslint-community/eslint-utils",
@@ -223,13 +216,6 @@
       "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
     },
     {
-      "name": "@msgpackr-extract/msgpackr-extract-linux-x64",
-      "version": "3.0.4",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "http://github.com/kriszyp/msgpackr-extract"
-    },
-    {
       "name": "@oxc-project/types",
       "version": "0.139.0",
       "license": "MIT",
@@ -237,13 +223,6 @@
         "@oxc-project/types@0.139.0/LICENSE"
       ],
       "repository": "git+https://github.com/oxc-project/oxc.git"
-    },
-    {
-      "name": "@rolldown/binding-linux-x64-gnu",
-      "version": "1.1.5",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "git+https://github.com/rolldown/rolldown.git"
     },
     {
       "name": "@rolldown/pluginutils",
@@ -1512,15 +1491,6 @@
         "levn@0.4.1/LICENSE"
       ],
       "repository": "git://github.com/gkz/levn.git"
-    },
-    {
-      "name": "lightningcss-linux-x64-gnu",
-      "version": "1.32.0",
-      "license": "MPL-2.0",
-      "licenseFiles": [
-        "lightningcss-linux-x64-gnu@1.32.0/LICENSE"
-      ],
-      "repository": "https://github.com/parcel-bundler/lightningcss.git"
     },
     {
       "name": "lightningcss",

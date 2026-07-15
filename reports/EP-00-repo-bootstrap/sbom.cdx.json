@@ -8,7 +8,7 @@
     "component": {
       "type": "application",
       "name": "skill-driven-agent-runtime",
-      "version": "0.0.0",
+      "version": "1.0.4",
       "licenses": [
         {
           "license": {
@@ -58,26 +58,6 @@
         }
       ],
       "purl": "pkg:npm/@cfworker%2Fjson-schema@4.1.1"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/@esbuild%2Flinux-x64@0.28.1",
-      "name": "@esbuild/linux-x64",
-      "version": "0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/evanw/esbuild.git"
-        }
-      ],
-      "purl": "pkg:npm/@esbuild%2Flinux-x64@0.28.1"
     },
     {
       "type": "library",
@@ -515,26 +495,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-linux-x64@3.0.4",
-      "name": "@msgpackr-extract/msgpackr-extract-linux-x64",
-      "version": "3.0.4",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "http://github.com/kriszyp/msgpackr-extract"
-        }
-      ],
-      "purl": "pkg:npm/@msgpackr-extract%2Fmsgpackr-extract-linux-x64@3.0.4"
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:npm/@oxc-project%2Ftypes@0.139.0",
       "name": "@oxc-project/types",
       "version": "0.139.0",
@@ -552,26 +512,6 @@
         }
       ],
       "purl": "pkg:npm/@oxc-project%2Ftypes@0.139.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/@rolldown%2Fbinding-linux-x64-gnu@1.1.5",
-      "name": "@rolldown/binding-linux-x64-gnu",
-      "version": "1.1.5",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/rolldown/rolldown.git"
-        }
-      ],
-      "purl": "pkg:npm/@rolldown%2Fbinding-linux-x64-gnu@1.1.5"
     },
     {
       "type": "library",
@@ -3412,26 +3352,6 @@
         }
       ],
       "purl": "pkg:npm/levn@0.4.1"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0",
-      "name": "lightningcss-linux-x64-gnu",
-      "version": "1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "id": "MPL-2.0"
-          }
-        }
-      ],
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/parcel-bundler/lightningcss.git"
-        }
-      ],
-      "purl": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0"
     },
     {
       "type": "library",

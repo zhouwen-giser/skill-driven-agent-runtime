@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+### Fixed
+
+- Portable SBOM/license evidence now excludes host-specific optional native leaf packages in favor of their cross-platform wrappers and records the current package version, so frozen verification is reproducible on Windows and Linux.
+- PostgreSQL integration bootstrap now advances an existing `0053_mcp_tool_enhancement_stage` ledger monotonically through released migrations `0054`–`0056` instead of replaying older constraint migrations.
+
 ## [1.0.4] - 2026-07-15
 
 ### Added

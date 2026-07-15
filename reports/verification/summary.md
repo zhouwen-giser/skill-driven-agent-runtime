@@ -1,18 +1,18 @@
 # Verification Summary
 
 - Status: **passed**
-- Commit: `c25e92b2043b8b426bdfa9316a0cc76a078c8098` (dirty working tree)
-- Started: 2026-07-15T09:07:11.305Z
-- Finished: 2026-07-15T09:08:30.531Z
-- Duration: 79226 ms
-- Environment: Node v22.23.1, linux/x64
-- Infrastructure mode: operator-managed
+- Commit: `0c439574ca84bb4f29c0032321254c0d2fd767da` (dirty working tree)
+- Started: 2026-07-15T17:59:49.111Z
+- Finished: 2026-07-15T18:01:49.646Z
+- Duration: 120535 ms
+- Environment: Node v22.14.0, win32/x64
+- Infrastructure mode: self-managed-compose
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 43907 ms |
-| empty-and-upgrade-migrations | `pnpm verify:migrations` | passed | 2483 ms |
-| postgres-redis-integration | `pnpm test:integration` | passed | 3771 ms |
-| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | passed | 22011 ms |
-| infrastructure-smoke | `pnpm smoke:infra` | passed | 563 ms |
-| server-console-smoke | `pnpm smoke:server` | passed | 6491 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 39712 ms |
+| empty-and-upgrade-migrations | `pnpm verify:migrations` | passed | 11278 ms |
+| postgres-redis-integration | `pnpm test:integration` | passed | 13682 ms |
+| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | passed | 31625 ms |
+| infrastructure-smoke | `pnpm smoke:infra` | passed | 9286 ms |
+| server-console-smoke | `pnpm smoke:server` | passed | 14951 ms |

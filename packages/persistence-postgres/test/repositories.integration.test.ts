@@ -96,6 +96,23 @@ beforeAll(async () => {
       }
       return;
     }
+    const previousToolEnhancement = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+    );
+    if (previousToolEnhancement.rows[0]?.applied === true) {
+      for (const migrationName of [
+        '0054_skill_call_history.up.sql',
+        '0055_task_input_continuation.up.sql',
+        '0056_mcp_execution_mode.up.sql',
+      ]) {
+        const forward = await readFile(
+          new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
+          'utf8',
+        );
+        await pool.query(forward);
+      }
+      return;
+    }
   }
   const migration = await readFile(
     new URL('../../../infra/postgres/migrations/0002_protocol_domain.up.sql', import.meta.url),

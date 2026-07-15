@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pnpmStore = path.join(root, 'node_modules', '.pnpm');
 const outputDir = path.join(root, 'reports', 'EP-00-repo-bootstrap');
 const checkOnly = process.argv.includes('--check');
+const projectManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const activePackageKeys = parsePackageKeys(
   await readFile(path.join(root, 'pnpm-lock.yaml'), 'utf8'),
 );
@@ -42,6 +43,11 @@ async function collectPackage(packageDir) {
     return;
   }
   if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') return;
+  // Optional native leaf packages vary by the host used for a frozen install. The
+  // portable source-distribution SBOM records their cross-platform wrapper package
+  // instead, whose license and dependency declaration cover the selected binary.
+  // This keeps the checked-in evidence identical on Linux, macOS, and Windows.
+  if (Array.isArray(manifest.os) || Array.isArray(manifest.cpu)) return;
   const key = `${manifest.name}@${manifest.version}`;
   if (!activePackageKeys.has(key)) return;
   if (packages.has(key)) return;
@@ -150,7 +156,7 @@ const sbom = `${JSON.stringify(
       component: {
         type: 'application',
         name: 'skill-driven-agent-runtime',
-        version: '0.0.0',
+        version: projectManifest.version,
         licenses: [{ license: { id: 'Apache-2.0' } }],
       },
     },
@@ -178,7 +184,7 @@ const licenseJson = `${JSON.stringify(
 
 const notices = `# Third-Party Notices
 
-Generated from the exact pnpm lockfile installation for the EP-00 baseline. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+Generated from the exact pnpm lockfile installation for the EP-00 baseline. Host-specific optional native leaf packages are represented by their portable wrapper packages so this source-distribution evidence is reproducible across operating systems. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
 
 ## External services
 
