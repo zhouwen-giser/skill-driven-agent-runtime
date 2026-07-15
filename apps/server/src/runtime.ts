@@ -388,12 +388,15 @@ export async function startServerRuntime(
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
-    async executeLlm({ executionId, instruction, responseSchema }) {
+    async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
       return modelRuntime.generateStructured({
         stage: 'execution_decision',
-        instruction,
+        instruction:
+          context === undefined
+            ? instruction
+            : JSON.stringify({ instruction, dynamicContext: context }),
         responseSchema,
         correctionErrors: [],
         ...(task === undefined
@@ -426,7 +429,7 @@ export async function startServerRuntime(
         ...(signal === undefined ? {} : { signal }),
       });
     },
-    async executeSubworkflow({ workflowDefinitionId, workflowVersion, parentInput, signal }) {
+    async executeSubworkflow({ workflowDefinitionId, workflowVersion, input, signal }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
       const ancestry = workflowAncestry.getStore() ?? [];
       if (ancestry.includes(key) || ancestry.length >= 16)
@@ -444,7 +447,7 @@ export async function startServerRuntime(
         const outcome = await new LangGraphWorkflowExecutor(
           workflowPorts,
           workflowCallCosts,
-        ).execute(definition, parentInput, workflowBudgetDefaults, signal);
+        ).execute(definition, input, workflowBudgetDefaults, signal);
         if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
         return outcome.result;
       });
@@ -473,6 +476,7 @@ export async function startServerRuntime(
     plans: workflowPlans,
     execution: workflowExecution,
     records: skillCallWorkflows,
+    schemas: schemaValidator,
     clock,
     nextId: randomUUID,
   });

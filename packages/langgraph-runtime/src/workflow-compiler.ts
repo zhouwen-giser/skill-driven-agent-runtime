@@ -19,6 +19,7 @@ import type {
   WorkflowRecoveryOption,
 } from '../../domain/src/index.js';
 import { normalizeResultEnvelope } from '../../domain/src/index.js';
+import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
 
 export interface WorkflowExecutionEvent {
@@ -34,6 +35,7 @@ export interface WorkflowRuntimePorts {
     input: Readonly<{
       executionId: string;
       instruction: string;
+      context?: unknown;
       responseSchema: unknown;
       signal?: AbortSignal;
     }>,
@@ -59,7 +61,7 @@ export interface WorkflowRuntimePorts {
     input: Readonly<{
       workflowDefinitionId: string;
       workflowVersion: number;
-      parentInput: unknown;
+      input: unknown;
       signal?: AbortSignal;
     }>,
   ) => Promise<unknown>;
@@ -615,9 +617,12 @@ async function executeNode(
     case 'llm': {
       budgetMeter.reserve('llm');
       const callSignal = budgetMeter.signal(signal);
+      const dynamicContext =
+        node.context === undefined ? undefined : resolveWorkflowBoundValue(node.context, state);
       const value = await ports.executeLlm({
         executionId: state.executionId,
         instruction: node.instruction,
+        ...(dynamicContext === undefined ? {} : { context: dynamicContext }),
         responseSchema: node.responseSchema,
         signal: callSignal,
       });
@@ -627,10 +632,11 @@ async function executeNode(
     case 'mcp_tool': {
       budgetMeter.reserve('mcp');
       const callSignal = budgetMeter.signal(signal);
+      const argumentsSnapshot = resolveWorkflowBoundValue(node.arguments, state);
       const value = await ports.callMcpTool({
         executionId: state.executionId,
         tool: node.tool,
-        arguments: node.arguments,
+        arguments: argumentsSnapshot,
         signal: callSignal,
       });
       budgetMeter.assertDuration();
@@ -639,9 +645,10 @@ async function executeNode(
     case 'skill_call': {
       budgetMeter.reserve('skill');
       const callSignal = budgetMeter.signal(signal);
+      const inputSnapshot = resolveWorkflowBoundValue(node.input, state);
       const value = await ports.executeSkill({
         skillId: node.skillId,
-        input: node.input,
+        input: inputSnapshot,
         parentExecutionId: state.executionId,
         parentNodeId: node.nodeId,
         signal: callSignal,
@@ -652,10 +659,11 @@ async function executeNode(
     case 'subworkflow': {
       budgetMeter.reserve('subworkflow');
       const callSignal = budgetMeter.signal(signal);
+      const inputSnapshot = resolveWorkflowBoundValue(node.input, state);
       const value = await ports.executeSubworkflow({
         workflowDefinitionId: node.workflowDefinitionId,
         workflowVersion: node.workflowVersion,
-        parentInput: state.input,
+        input: inputSnapshot,
         signal: callSignal,
       });
       budgetMeter.assertDuration();

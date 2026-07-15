@@ -22,7 +22,13 @@ let workflowPlanningCalls = 0;
 let controlEvaluationCalls = 0;
 let replacementEvaluationCalls = 0;
 let mcpWorkflowTarget:
-  | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
+  | Readonly<{
+      serverId: string;
+      workflowId: string;
+      workflowVersion: number;
+      goalId: string;
+      bindDeviceIdFromInput?: boolean;
+    }>
   | undefined;
 let taskWorkflowTarget:
   Readonly<{ workflowId: string; goalId: string; goalVersion: number }> | undefined;
@@ -1504,13 +1510,19 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
-  it('blocks an unconfirmed plan then executes its compiled LangGraph against a real MCP server', async () => {
+  it('binds Workflow input into a real MCP call only after plan confirmation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.execution.${randomUUID()}`;
     const planId = `plan.execution.${randomUUID()}`;
     const workflowId = `workflow.execution.${randomUUID()}`;
     const goalId = `goal.execution.${randomUUID()}`;
-    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    mcpWorkflowTarget = {
+      serverId,
+      workflowId,
+      workflowVersion: 1,
+      goalId,
+      bindDeviceIdFromInput: true,
+    };
     try {
       const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
         method: 'POST',
@@ -1563,7 +1575,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ instanceId: `instance-${randomUUID()}`, input: {} }),
+          body: JSON.stringify({
+            instanceId: `instance-${randomUUID()}`,
+            input: { deviceId: 'device-runtime' },
+          }),
         },
       );
       expect(executed.status).toBe(201);
@@ -4728,7 +4743,10 @@ async function startModelLoopback(): Promise<Server> {
                 name: 'Read device',
                 type: 'mcp_tool',
                 tool: { serverId: target.serverId, toolName: 'device_status' },
-                arguments: { deviceId: 'device-runtime' },
+                arguments:
+                  target.bindDeviceIdFromInput === true
+                    ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                    : { deviceId: 'device-runtime' },
               },
               {
                 nodeId: 'result',

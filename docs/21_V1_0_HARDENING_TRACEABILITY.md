@@ -8,7 +8,7 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 
 | Version | Problem / target                      | Design decision | Implementation | Migration | Tests   | Feature commit / tag | Bug-fixed commit / tag | Gate                        | Known limitations                       | Status  |
 | ------- | ------------------------------------- | --------------- | -------------- | --------- | ------- | -------------------- | ---------------------- | --------------------------- | --------------------------------------- | ------- |
-| v1.0.1  | Workflow runtime data binding         | pending         | pending        | pending   | pending | pending              | pending                | pending                     | pending                                 | pending |
+| v1.0.1  | Workflow runtime data binding         | domain-owned bound value; LangGraph-only resolver; boundary revalidation | `packages/domain/src/workflow.ts`; `packages/langgraph-runtime/src/bound-value-resolver.ts`; compiler/application/runtime wiring | none | unit+contract+Workflow E2E | this feature commit / `v1.0.1` | pending | format, lint, typecheck, architecture, 196 unit, 57 contract, 41 E2E passed | finite JSON and restricted path segments only | feature gate passed |
 | v1.0.2  | real `skill_call` child workflows     | pending         | pending        | pending   | pending | pending              | pending                | pending                     | nested confirmation finalized in v1.0.5 | pending |
 | v1.0.3  | A2A input-required continuation       | pending         | pending        | pending   | pending | pending              | pending                | full `pnpm verify` required | pending                                 | pending |
 | v1.0.4  | simulation/replay MCP headers         | pending         | pending        | pending   | pending | pending              | pending                | pending                     | MCP Server enforcement remains external | pending |
@@ -34,3 +34,10 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 | `pnpm smoke:infra`               | passed; pgvector 0.8.5 and Redis read/write                        | real PostgreSQL/Redis                                   |
 | `pnpm smoke:server`              | passed                                                             | real Server/Console bundle over loopback                |
 | `pnpm verify`                    | passed in 74065 ms at `bc4b44a`                                    | aggregate of the above                                  |
+
+## v1.0.1 Feature Evidence
+
+- Design: recursive `WorkflowBoundValue` templates use only exact `{ "op": "ref", "path": [...] }` references. The resolver accepts the six documented state roots, makes detached frozen snapshots, and never evaluates source or JSONPath.
+- Runtime: LLM context, MCP arguments, Skill input and Subworkflow input resolve immediately before their node call. MCP and Skill values then pass the current registered schema boundary.
+- Tests: `bound-value-resolver.unit.test.ts`, `workflow-compiler.unit.test.ts`, `workflow-validator.unit.test.ts`, `skill-call-workflow.unit.test.ts`, `workflow-dsl-schema.contract.test.ts`, and the real MCP execution scenario in `task-service-endpoint.e2e.test.ts`.
+- Migration: none; Workflow definitions already persist as JSON and this increment changes validated DSL/runtime semantics without new authoritative columns.

@@ -4,7 +4,16 @@
   "title": "SDAR Workflow DSL",
   "type": "object",
   "additionalProperties": false,
-  "required": ["workflowDefinitionId", "version", "goalId", "goalVersion", "entryNodeId", "exitNodeIds", "nodes", "edges"],
+  "required": [
+    "workflowDefinitionId",
+    "version",
+    "goalId",
+    "goalVersion",
+    "entryNodeId",
+    "exitNodeIds",
+    "nodes",
+    "edges"
+  ],
   "properties": {
     "workflowDefinitionId": { "$ref": "#/$defs/id" },
     "version": { "type": "integer", "minimum": 1 },
@@ -17,29 +26,268 @@
   },
   "$defs": {
     "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$" },
+    "boundValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/$defs/boundValue" } },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "path"],
+          "properties": {
+            "op": { "const": "ref" },
+            "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "not": {
+            "required": ["op", "path"],
+            "properties": { "op": { "const": "ref" } }
+          },
+          "additionalProperties": { "$ref": "#/$defs/boundValue" }
+        }
+      ]
+    },
     "expression": {
       "oneOf": [
-        { "type": "object", "additionalProperties": false, "required": ["op", "value"], "properties": { "op": { "const": "literal" }, "value": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] } } },
-        { "type": "object", "additionalProperties": false, "required": ["op", "path"], "properties": { "op": { "const": "ref" }, "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } } } },
-        { "type": "object", "additionalProperties": false, "required": ["op", "operand"], "properties": { "op": { "const": "not" }, "operand": { "$ref": "#/$defs/expression" } } },
-        { "type": "object", "additionalProperties": false, "required": ["op", "left", "right"], "properties": { "op": { "enum": ["eq", "ne", "lt", "lte", "gt", "gte", "and", "or"] }, "left": { "$ref": "#/$defs/expression" }, "right": { "$ref": "#/$defs/expression" } } }
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "value"],
+          "properties": {
+            "op": { "const": "literal" },
+            "value": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" },
+                { "type": "null" }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "path"],
+          "properties": {
+            "op": { "const": "ref" },
+            "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "operand"],
+          "properties": { "op": { "const": "not" }, "operand": { "$ref": "#/$defs/expression" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": { "enum": ["eq", "ne", "lt", "lte", "gt", "gte", "and", "or"] },
+            "left": { "$ref": "#/$defs/expression" },
+            "right": { "$ref": "#/$defs/expression" }
+          }
+        }
       ]
     },
-    "base": { "type": "object", "required": ["nodeId", "name", "type"], "properties": { "nodeId": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "type": { "type": "string" } } },
+    "base": {
+      "type": "object",
+      "required": ["nodeId", "name", "type"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" }
+      }
+    },
     "node": {
       "oneOf": [
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "instruction", "responseSchema"], "properties": { "type": { "const": "llm" }, "instruction": { "type": "string" }, "responseSchema": {} } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "tool", "arguments"], "properties": { "type": { "const": "mcp_tool" }, "tool": { "type": "object", "required": ["serverId", "toolName"], "properties": { "serverId": { "$ref": "#/$defs/id" }, "toolName": { "$ref": "#/$defs/id" } } }, "arguments": {} } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "value"], "properties": { "type": { "const": "result" }, "value": { "$ref": "#/$defs/expression" } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "expression"], "properties": { "type": { "const": "condition" }, "expression": { "$ref": "#/$defs/expression" } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "branchEntryNodeIds"], "properties": { "type": { "const": "parallel" }, "branchEntryNodeIds": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/id" } } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "condition", "bodyEntryNodeId", "maxIterations"], "properties": { "type": { "const": "loop" }, "condition": { "$ref": "#/$defs/expression" }, "bodyEntryNodeId": { "$ref": "#/$defs/id" }, "maxIterations": { "type": "integer", "minimum": 1, "maximum": 100 } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "workflowDefinitionId", "workflowVersion"], "properties": { "type": { "const": "subworkflow" }, "workflowDefinitionId": { "$ref": "#/$defs/id" }, "workflowVersion": { "type": "integer", "minimum": 1 } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "prompt"], "properties": { "type": { "const": "human_confirmation" }, "prompt": { "type": "string" } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "handledNodeId", "strategy"], "properties": { "type": { "const": "error_handler" }, "handledNodeId": { "$ref": "#/$defs/id" }, "strategy": { "enum": ["terminate", "continue", "goto"] }, "gotoNodeId": { "$ref": "#/$defs/id" }, "recoveryOptions": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "type": "object", "additionalProperties": false, "required": ["action", "targetNodeId", "description", "maxAttempts"], "properties": { "action": { "enum": ["retry", "change_arguments", "alternative_tool", "invoke_skill"] }, "targetNodeId": { "$ref": "#/$defs/id" }, "description": { "type": "string", "minLength": 1 }, "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 } } } } } }] },
-        { "allOf": [{ "$ref": "#/$defs/base" }, { "type": "object", "required": ["type", "skillId", "input"], "properties": { "type": { "const": "skill_call" }, "skillId": { "$ref": "#/$defs/id" }, "input": {} } }] }
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "instruction", "responseSchema"],
+              "properties": {
+                "type": { "const": "llm" },
+                "instruction": { "type": "string" },
+                "context": { "$ref": "#/$defs/boundValue" },
+                "responseSchema": {}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "tool", "arguments"],
+              "properties": {
+                "type": { "const": "mcp_tool" },
+                "tool": {
+                  "type": "object",
+                  "required": ["serverId", "toolName"],
+                  "properties": {
+                    "serverId": { "$ref": "#/$defs/id" },
+                    "toolName": { "$ref": "#/$defs/id" }
+                  }
+                },
+                "arguments": { "$ref": "#/$defs/boundValue" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "value"],
+              "properties": {
+                "type": { "const": "result" },
+                "value": { "$ref": "#/$defs/expression" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "expression"],
+              "properties": {
+                "type": { "const": "condition" },
+                "expression": { "$ref": "#/$defs/expression" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "branchEntryNodeIds"],
+              "properties": {
+                "type": { "const": "parallel" },
+                "branchEntryNodeIds": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": { "$ref": "#/$defs/id" }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "condition", "bodyEntryNodeId", "maxIterations"],
+              "properties": {
+                "type": { "const": "loop" },
+                "condition": { "$ref": "#/$defs/expression" },
+                "bodyEntryNodeId": { "$ref": "#/$defs/id" },
+                "maxIterations": { "type": "integer", "minimum": 1, "maximum": 100 }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "workflowDefinitionId", "workflowVersion", "input"],
+              "properties": {
+                "type": { "const": "subworkflow" },
+                "workflowDefinitionId": { "$ref": "#/$defs/id" },
+                "workflowVersion": { "type": "integer", "minimum": 1 },
+                "input": { "$ref": "#/$defs/boundValue" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "prompt"],
+              "properties": {
+                "type": { "const": "human_confirmation" },
+                "prompt": { "type": "string" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "handledNodeId", "strategy"],
+              "properties": {
+                "type": { "const": "error_handler" },
+                "handledNodeId": { "$ref": "#/$defs/id" },
+                "strategy": { "enum": ["terminate", "continue", "goto"] },
+                "gotoNodeId": { "$ref": "#/$defs/id" },
+                "recoveryOptions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["action", "targetNodeId", "description", "maxAttempts"],
+                    "properties": {
+                      "action": {
+                        "enum": ["retry", "change_arguments", "alternative_tool", "invoke_skill"]
+                      },
+                      "targetNodeId": { "$ref": "#/$defs/id" },
+                      "description": { "type": "string", "minLength": 1 },
+                      "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/base" },
+            {
+              "type": "object",
+              "required": ["type", "skillId", "input"],
+              "properties": {
+                "type": { "const": "skill_call" },
+                "skillId": { "$ref": "#/$defs/id" },
+                "input": { "$ref": "#/$defs/boundValue" }
+              }
+            }
+          ]
+        }
       ]
     },
-    "edge": { "type": "object", "additionalProperties": false, "required": ["sourceNodeId", "targetNodeId"], "properties": { "sourceNodeId": { "$ref": "#/$defs/id" }, "targetNodeId": { "$ref": "#/$defs/id" }, "outcome": { "enum": ["default", "true", "false", "success", "failure", "loop", "done"] } } }
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceNodeId", "targetNodeId"],
+      "properties": {
+        "sourceNodeId": { "$ref": "#/$defs/id" },
+        "targetNodeId": { "$ref": "#/$defs/id" },
+        "outcome": { "enum": ["default", "true", "false", "success", "failure", "loop", "done"] }
+      }
+    }
   }
 }

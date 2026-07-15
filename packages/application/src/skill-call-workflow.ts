@@ -2,6 +2,7 @@ import type { WorkflowPlanRecord } from '../../domain/src/index.js';
 
 import type {
   Clock,
+  JsonSchemaValidator,
   SkillCallWorkflowRepository,
   SkillRepository,
   WorkflowPlanRepository,
@@ -15,6 +16,7 @@ export class SkillCallWorkflowService {
   readonly #records: SkillCallWorkflowRepository;
   readonly #clock: Clock;
   readonly #nextId: () => string;
+  readonly #schemas: JsonSchemaValidator;
 
   constructor(
     dependencies: Readonly<{
@@ -22,6 +24,7 @@ export class SkillCallWorkflowService {
       plans: WorkflowPlanRepository;
       execution: Pick<WorkflowExecutionService, 'execute'>;
       records: SkillCallWorkflowRepository;
+      schemas: JsonSchemaValidator;
       clock: Clock;
       nextId: () => string;
     }>,
@@ -30,6 +33,7 @@ export class SkillCallWorkflowService {
     this.#plans = dependencies.plans;
     this.#execution = dependencies.execution;
     this.#records = dependencies.records;
+    this.#schemas = dependencies.schemas;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
   }
@@ -47,6 +51,12 @@ export class SkillCallWorkflowService {
   ): Promise<unknown> {
     const skill = await this.#skills.findCurrentVersion(input.skillId);
     if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
+    const inputValidation = this.#schemas.validate(skill.inputSchema, input.value);
+    if (!inputValidation.valid)
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_INPUT_INVALID',
+        `Resolved input does not satisfy ${skill.skillId}@${String(skill.version)}: ${inputValidation.errors.join('; ')}`,
+      );
     const callId = this.#nextId();
     const childPlanId = `plan-skill-call-${callId}`;
     const childInstanceId = `instance-skill-call-${callId}`;
@@ -114,5 +124,15 @@ export class SkillCallWorkflowService {
     });
     if (child.status !== 'succeeded') throw new Error('WORKFLOW_SKILL_CHILD_FAILED');
     return child.result;
+  }
+}
+
+export class SkillCallWorkflowError extends Error {
+  readonly code: 'WORKFLOW_SKILL_INPUT_INVALID';
+
+  constructor(code: 'WORKFLOW_SKILL_INPUT_INVALID', message: string) {
+    super(message);
+    this.name = 'SkillCallWorkflowError';
+    this.code = code;
   }
 }

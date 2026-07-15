@@ -73,7 +73,7 @@ Invariants for every increment:
 ## Progress
 
 - [x] 2026-07-15 12:50 Baseline-only repair committed as `bc4b44a`; immutable Compose pins restored, `.env` recreated locally, operator-managed infrastructure mode added, and clean `pnpm verify` passed.
-- [ ] Complete v1.0.1 feature increment, report, commit, annotated tag and push.
+- [ ] 2026-07-15 13:15 v1.0.1 feature gate passed (196 unit, 57 contract, 41 Workflow E2E); create the feature commit, annotated tag and push.
 - [ ] Complete v1.0.1 bug-fixed review/evidence, commit, annotated tag and push.
 - [ ] Complete v1.0.2 feature and bug-fixed increments.
 - [ ] Complete v1.0.3 feature and bug-fixed increments; run full gate.
@@ -89,12 +89,14 @@ Invariants for every increment:
 - 2026-07-15: the release-age issue cleared, but main had merged a tag-only Compose change inconsistent with the accepted immutable-image verifier and containing `redis:latest`.
 - 2026-07-15: the operator started real PostgreSQL/Redis but requested no further Docker operations. The baseline repair introduced explicit operator-managed infrastructure reuse; real migrations/integration/E2E/smoke execute through loopback ports while Docker lifecycle commands remain disabled.
 - 2026-07-15: E2E must run after the production Console build because the documented-client scenario verifies `/console/` assets.
+- 2026-07-15: TypeScript 6 rejects a recursive type alias routed directly through `Readonly<Record<...>>`; an explicit `WorkflowBoundObject` interface preserves the task-package data model and strict typing.
 
 ## Decision Log
 
 - 2026-07-15: keep immutable OCI digest pins and `linux/amd64`; do not weaken the supply-chain verifier to accept mutable tags.
 - 2026-07-15: external infrastructure reuse is a verification/operations concern, not domain state. No ADR is required because default self-managed Compose behavior and all runtime authority boundaries are unchanged.
 - 2026-07-15: use one ExecPlan for all thirteen versions because the task package mandates strict ordering and cross-version dependencies; each version still has separate reports, commits and tags.
+- 2026-07-15: `WorkflowBoundValue` is owned by the Workflow domain and resolved only inside the sole LangGraph Runtime. Planning validates the restricted template shape, while current MCP/Skill business schemas are enforced after resolution at their existing application boundaries. This preserves ADR-001/004/042 and requires no new ADR.
 
 ## Implementation Steps
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type {
+  WorkflowBoundValue,
   WorkflowDefinition,
   WorkflowExpression,
   WorkflowNode,
@@ -25,6 +26,23 @@ const ExpressionSchema: z.ZodType<WorkflowExpression> = z.lazy(() =>
     ),
   ]),
 );
+const BoundScalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const BoundReferenceSchema = z
+  .object({ op: z.literal('ref'), path: z.array(Identifier).min(1) })
+  .strict();
+const BoundValueSchema: z.ZodType<WorkflowBoundValue> = z.lazy(() =>
+  z.union([
+    BoundScalarSchema,
+    z.array(BoundValueSchema),
+    BoundReferenceSchema,
+    z
+      .record(z.string(), BoundValueSchema)
+      .refine(
+        (value) => value['op'] !== 'ref' || !Array.isArray(value['path']),
+        'The object shape { op: "ref", path: [...] } is reserved for an exact Workflow binding reference.',
+      ),
+  ]),
+);
 const BaseNode = { nodeId: Identifier, name: z.string().min(1) };
 const JsonSchemaValue = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
@@ -33,6 +51,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       ...BaseNode,
       type: z.literal('llm'),
       instruction: z.string().min(1),
+      context: BoundValueSchema.optional(),
       responseSchema: JsonSchemaValue,
     })
     .strict(),
@@ -41,7 +60,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       ...BaseNode,
       type: z.literal('mcp_tool'),
       tool: z.object({ serverId: Identifier, toolName: Identifier }).strict(),
-      arguments: z.unknown(),
+      arguments: BoundValueSchema,
     })
     .strict(),
   z.object({ ...BaseNode, type: z.literal('result'), value: ExpressionSchema }).strict(),
@@ -68,6 +87,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('subworkflow'),
       workflowDefinitionId: Identifier,
       workflowVersion: z.number().int().positive(),
+      input: BoundValueSchema,
     })
     .strict(),
   z
@@ -97,7 +117,12 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
     })
     .strict(),
   z
-    .object({ ...BaseNode, type: z.literal('skill_call'), skillId: Identifier, input: z.unknown() })
+    .object({
+      ...BaseNode,
+      type: z.literal('skill_call'),
+      skillId: Identifier,
+      input: BoundValueSchema,
+    })
     .strict(),
 ]);
 const WorkflowSchema: z.ZodType<WorkflowDefinition> = z
@@ -218,7 +243,9 @@ export class WorkflowValidator {
           'Registered MCP Tool was not found.',
         );
       else {
-        const result = this.#schemas.validate(schema, node.arguments);
+        const result = containsWorkflowBindingReference(node.arguments)
+          ? { valid: true, errors: [] }
+          : this.#schemas.validate(schema, node.arguments);
         if (!result.valid)
           add(
             errors,
@@ -237,7 +264,9 @@ export class WorkflowValidator {
           'Current enabled Skill was not found.',
         );
       else {
-        const result = this.#schemas.validate(skill.inputSchema, node.input);
+        const result = containsWorkflowBindingReference(node.input)
+          ? { valid: true, errors: [] }
+          : this.#schemas.validate(skill.inputSchema, node.input);
         if (!result.valid)
           add(
             errors,
@@ -248,6 +277,14 @@ export class WorkflowValidator {
       }
     }
   }
+}
+
+function containsWorkflowBindingReference(value: WorkflowBoundValue): boolean {
+  if (Array.isArray(value)) return value.some(containsWorkflowBindingReference);
+  if (value === null || typeof value !== 'object') return false;
+  const record = value as Readonly<Record<string, WorkflowBoundValue>>;
+  if (record['op'] === 'ref' && Array.isArray(record['path'])) return true;
+  return Object.values(record).some(containsWorkflowBindingReference);
 }
 
 function validateNodeReferences(

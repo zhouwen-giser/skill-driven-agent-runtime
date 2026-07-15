@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSkillVersion } from '../../domain/src/index.js';
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import { SkillCallWorkflowService } from '../src/skill-call-workflow.js';
 
 describe('SkillCallWorkflowService', () => {
@@ -15,7 +16,12 @@ describe('SkillCallWorkflowService', () => {
       capabilities: ['child'],
       workflowGuidance: 'Return status.',
       outputInstruction: 'Return status.',
-      inputSchema: { type: 'object' },
+      inputSchema: {
+        type: 'object',
+        required: ['deviceId'],
+        properties: { deviceId: { type: 'string' } },
+        additionalProperties: false,
+      },
       outputSchema: { type: 'object', required: ['status'] },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
@@ -56,6 +62,7 @@ describe('SkillCallWorkflowService', () => {
       plans: { savePlan } as never,
       execution: { execute },
       records: { save: saveRecord } as never,
+      schemas: new AjvJsonSchemaValidator(),
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
       nextId: () => 'id-1',
     });
@@ -85,5 +92,25 @@ describe('SkillCallWorkflowService', () => {
         status: 'succeeded',
       }),
     );
+
+    savePlan.mockClear();
+    execute.mockClear();
+    saveRecord.mockClear();
+    await expect(
+      service.execute({
+        skillId: skill.skillId,
+        value: { deviceId: 42 },
+        parentInstanceId: 'instance-parent',
+        parentNodeId: 'child',
+        parentGoalId: 'goal-1',
+        parentGoalVersion: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: 'WORKFLOW_SKILL_INPUT_INVALID',
+      message: expect.stringContaining('skill.child@3'),
+    });
+    expect(savePlan).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(saveRecord).not.toHaveBeenCalled();
   });
 });

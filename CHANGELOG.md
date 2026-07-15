@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-15
+
+### Added
+
+- Recursive Workflow runtime data binding for initial input, node outputs, errors, loop counts, and result state, including immutable execution snapshots and stable missing-reference errors.
+- Dynamic `llm.context`, MCP arguments, Skill input, and Subworkflow input in the public Workflow DSL.
+
+### Changed
+
+- MCP and Skill business-schema checks are deferred for dynamic templates and enforced again after runtime resolution against the current registered schema.
+- Subworkflows receive their resolved node input instead of the parent Workflow's original input.
+
+### Known issues at feature tag
+
+- No known correctness issue. Bindings intentionally support finite JSON data and restricted path segments only; JSONPath, string interpolation, and executable expressions remain unsupported.
+
 ### Added
 
 - Apache License 2.0 project licensing for copyright holder zhouwen, including canonical `LICENSE`, project `NOTICE`, package metadata, README disclosure, and license-ledger documentation.
