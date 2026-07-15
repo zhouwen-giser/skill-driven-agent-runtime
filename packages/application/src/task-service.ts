@@ -64,6 +64,8 @@ export interface TaskFollowUpCommand {
   readonly inputRequestId?: string;
 }
 
+export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
+
 export interface TaskServiceDependencies {
   readonly contexts: ConversationContextRepository;
   readonly tasks: AgentTaskRepository;
@@ -161,22 +163,12 @@ export class TaskService {
       timestamp,
       summary: summarizeMessage(command.messageText),
     });
-    try {
-      await this.#dependencies.queue.enqueue({
-        taskId: task.taskId,
-        contextId: task.contextId,
-        attemptId: attempt.attemptId,
-        mode: 'initial',
-      });
-    } catch (error: unknown) {
-      await this.#dependencies.taskInputs.updateAttempt(
-        attempt.attemptId,
-        'failed',
-        this.#dependencies.clock.now(),
-        'TASK_ATTEMPT_ENQUEUE_FAILED',
-      );
-      throw error;
-    }
+    await this.#dependencies.queue.enqueue({
+      taskId: task.taskId,
+      contextId: task.contextId,
+      attemptId: attempt.attemptId,
+      mode: 'initial',
+    });
 
     return { task, context, createdContext: existing === undefined };
   }
@@ -567,6 +559,11 @@ export class TaskService {
         'TASK_INPUT_NOT_PENDING',
         'Task is not waiting for supplementary input.',
       );
+    if (command.messageText.length > MAX_TASK_INPUT_RESPONSE_CHARACTERS)
+      throw new TaskApplicationError(
+        'TASK_INPUT_RESPONSE_TOO_LARGE',
+        `Supplementary input exceeds ${String(MAX_TASK_INPUT_RESPONSE_CHARACTERS)} characters.`,
+      );
     const pending =
       command.inputRequestId === undefined
         ? await this.#dependencies.taskInputs.findPendingByTask(task.taskId)
@@ -595,7 +592,8 @@ export class TaskService {
       inputRequestId: pending.inputRequestId,
       createdAt: timestamp,
     });
-    await this.#dependencies.taskInputs.answerAndCreateAttempt({
+    const phaseMessage = 'Supplementary input saved; continuation queued.';
+    task = await this.#dependencies.taskInputs.answerAndCreateAttempt({
       inputRequestId: pending.inputRequestId,
       taskId: task.taskId,
       response: {
@@ -607,12 +605,17 @@ export class TaskService {
       },
       attempt,
       answeredAt: timestamp,
+      continuationPhase: pending.source === 'goal_deliberation' ? 'goal_deliberation' : 'planning',
+      phaseMessage,
     });
-    task = await this.#saveTransition(
-      task,
-      pending.source === 'goal_deliberation' ? 'goal_deliberation' : 'planning',
-      'Supplementary input saved; continuation queued.',
-    );
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: task.taskId,
+      contextId: task.contextId,
+      eventType: 'task.phase_changed',
+      timestamp,
+      summary: phaseMessage,
+    });
     try {
       await this.#dependencies.queue.enqueue({
         taskId: task.taskId,
@@ -620,14 +623,8 @@ export class TaskService {
         attemptId: attempt.attemptId,
         mode: 'continue_after_input',
       });
-    } catch (error: unknown) {
-      await this.#dependencies.taskInputs.updateAttempt(
-        attempt.attemptId,
-        'failed',
-        this.#dependencies.clock.now(),
-        'TASK_ATTEMPT_ENQUEUE_FAILED',
-      );
-      throw error;
+    } catch {
+      // The durable queued attempt is reconciled by TaskAttemptDispatchService.
     }
     return task;
   }
@@ -639,6 +636,7 @@ export type TaskApplicationErrorCode =
   | 'TASK_INPUT_NOT_PENDING'
   | 'TASK_INPUT_TASK_MISMATCH'
   | 'TASK_INPUT_ALREADY_RESOLVED'
+  | 'TASK_INPUT_RESPONSE_TOO_LARGE'
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
   | 'TASK_PLAN_NOT_ATTACHED';
 

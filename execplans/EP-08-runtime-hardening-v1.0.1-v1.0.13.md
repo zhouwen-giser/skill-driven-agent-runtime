@@ -77,7 +77,8 @@ Invariants for every increment:
 - [x] 2026-07-15 13:28 v1.0.1 bug-fixed commit `6417a6f` and annotated `v1.0.1-bug-fixed` tag pushed after the complete focused gate passed.
 - [x] 2026-07-15 13:44 v1.0.2 feature commit `0e3122c` and annotated `v1.0.2` tag pushed after 204 unit, 57 contract, 36 integration and 41 E2E tests passed.
 - [x] 2026-07-15 13:54 v1.0.2 bug-fixed commit `4ca15f0` and annotated `v1.0.2-bug-fixed` tag pushed after 206 unit, 57 contract, 37 integration, 41 E2E, build and migration paths passed.
-- [ ] 2026-07-15 16:01 v1.0.3 feature gate passed (211 unit, 57 contract, 40 integration, 42 E2E, architecture and migration paths); create feature commit, annotated tag and push, then complete bug-fixed audit/full gate.
+- [x] 2026-07-15 16:01 v1.0.3 feature commit `c25e92b` and annotated `v1.0.3` tag published after 211 unit, 57 contract, 40 integration, 42 E2E, architecture and migration paths passed.
+- [ ] 2026-07-15 17:02 v1.0.3 bug-fixed audit closed the durable-dispatch window and bounded responses at 64,000 characters; full operator-managed `pnpm verify` passed 271 unit+contract, 41 integration, 42 E2E, migrations, builds and smoke. Publish the bug-fixed commit/tag.
 - [ ] Complete v1.0.4–v1.0.6 in order; run full gate at v1.0.6-bug-fixed.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
@@ -95,6 +96,8 @@ Invariants for every increment:
 - 2026-07-15: ADR-042's independent child instance existed, but its child plan was a single deterministic LLM node. v1.0.2 therefore supersedes it with ADR-073 and the existing normal planner; the first real MCP E2E exposed that child Tool policy must be scoped to the child graph rather than the parent `skill_call` graph.
 - 2026-07-15: the v1.0.2 bug-fixed integration run exposed a test-bootstrap violation of ADR-072: an existing 0053 ledger attempted to replay 0002–0053 when 0054 was absent. The bootstrap now applies only the next forward migration, matching production monotonic behavior.
 - 2026-07-15: BullMQ 5 rejects `:` in custom Job IDs. v1.0.3 keeps the required Task/attempt composite identity using URI-encoded segments and a BullMQ-safe `~` separator; real Redis proves an old completed Job does not suppress continuation.
+- 2026-07-15: v1.0.3 feature audit found that PostgreSQL answer/attempt persistence could commit before Task projection or Redis enqueue. The bug-fixed design makes the Task phase part of the same PostgreSQL transaction and treats queued attempts as durable dispatch records; startup/periodic reconciliation can replace terminal stale Redis Jobs, while running/failed attempts remain non-recoverable and never retry.
+- 2026-07-15: the first required `pnpm verify` invocation was blocked before gates because the shell default pnpm store differed from the Snap store recorded in `node_modules/.modules.yaml`. Pointing pnpm at that existing store required no dependency changes and the full gate then passed; verification remained operator-managed with Docker lifecycle disabled.
 - 2026-07-15: continuation binding paths use string path segments (`"0"`) like the public DSL; numeric array indices are rejected at validation rather than reaching runtime. Both real MCP E2E paths assert the supplied value, preventing state-only false positives.
 
 ## Decision Log

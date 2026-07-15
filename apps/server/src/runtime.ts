@@ -52,6 +52,7 @@ import {
   GoalInputInferenceService,
   WorkflowRevisionService,
   TaskService,
+  TaskAttemptDispatchService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
   EvaluationInfluenceService,
@@ -138,6 +139,7 @@ export interface ServerRuntimeOptions {
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
+  readonly taskAttemptDispatchIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -236,6 +238,8 @@ export async function startServerRuntime(
     repository: new PostgresRuntimeRecoveryRepository(pool),
     clock,
   }).failInterruptedExecutions();
+  const taskAttemptDispatch = new TaskAttemptDispatchService({ attempts: taskInputs, queue });
+  await taskAttemptDispatch.dispatchQueued();
   const workflowBudgetDefaults = options.workflowBudgetDefaults ?? {
     maxReplans: 3,
     maxDurationSeconds: 300,
@@ -1034,6 +1038,22 @@ export async function startServerRuntime(
     });
   }, options.taskWaitSweepIntervalMs ?? 1000);
   waitSweepTimer.unref();
+  let attemptDispatchRunning = false;
+  const attemptDispatchTimer = setInterval(() => {
+    if (attemptDispatchRunning) return;
+    attemptDispatchRunning = true;
+    void taskAttemptDispatch
+      .dispatchQueued()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'task_attempt_dispatch.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        attemptDispatchRunning = false;
+      });
+  }, options.taskAttemptDispatchIntervalMs ?? 1000);
+  attemptDispatchTimer.unref();
   const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
   worker.start();
   let management: ManagementHttpEndpointHandle | undefined;
@@ -1173,6 +1193,7 @@ export async function startServerRuntime(
       },
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
+        clearInterval(attemptDispatchTimer);
         await a2a.close();
         await startedManagement.close();
         await worker.close();
@@ -1190,6 +1211,7 @@ export async function startServerRuntime(
     };
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
+    clearInterval(attemptDispatchTimer);
     await management?.close();
     await mcpTransport.close();
     await worker.close();

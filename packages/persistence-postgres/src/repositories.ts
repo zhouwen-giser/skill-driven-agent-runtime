@@ -608,8 +608,18 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          WHERE status IN ('running','paused')`,
         [timestamp],
       );
+      const attempts = await client.query(
+        `UPDATE task_execution_attempt
+         SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
+         WHERE status='running'`,
+        [timestamp],
+      );
       await client.query('COMMIT');
-      return { tasks: tasks.rowCount ?? 0, workflowInstances: instances.rowCount ?? 0 };
+      return {
+        tasks: tasks.rowCount ?? 0,
+        workflowInstances: instances.rowCount ?? 0,
+        taskAttempts: attempts.rowCount ?? 0,
+      };
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -2026,8 +2036,10 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
+      continuationPhase: 'goal_deliberation' | 'planning';
+      phaseMessage: string;
     }>,
-  ): Promise<void> {
+  ): Promise<AgentTask> {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -2051,6 +2063,19 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
           'TASK_INPUT_REQUEST_NOT_WAITING',
           `The supplementary input request is ${request.status}.`,
         );
+      const continuedTask = await client.query<TaskRow>(
+        `UPDATE agent_task
+         SET phase=$2,phase_message=$3,updated_at=$4,error_code=NULL
+         WHERE task_id=$1 AND phase='awaiting_user_input'
+         RETURNING *`,
+        [input.taskId, input.continuationPhase, input.phaseMessage, input.answeredAt],
+      );
+      const taskRow = continuedTask.rows[0];
+      if (taskRow === undefined)
+        throw new DomainError(
+          'TASK_INPUT_REQUEST_NOT_WAITING',
+          'The Task is no longer awaiting supplementary input.',
+        );
       await client.query(
         `UPDATE task_input_request SET status='answered',answered_at=$2
          WHERE input_request_id=$1`,
@@ -2070,12 +2095,24 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       );
       await this.#insertAttempt(client, input.attempt);
       await client.query('COMMIT');
+      return mapTaskRow(taskRow);
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  async listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]> {
+    const result = await this.#pool.query<TaskExecutionAttemptRow>(
+      `SELECT * FROM task_execution_attempt
+       WHERE status='queued'
+       ORDER BY created_at,attempt_id
+       LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapTaskExecutionAttemptRow);
   }
 
   async findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined> {

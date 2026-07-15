@@ -46,6 +46,7 @@ import {
 import {
   bindTaskGoal,
   createAgentTask,
+  createTaskExecutionAttempt,
   createTaskInputRequest,
   createSkillVersion,
   recordTaskCapabilityGap,
@@ -1141,6 +1142,17 @@ describe('PostgreSQL protocol-domain repositories', () => {
       task = transitionTask(task, phase, phase, '2026-07-12T00:00:01.000Z');
     const tasks = new PostgresAgentTaskRepository(pool);
     await tasks.save(task);
+    const taskInputs = new PostgresTaskInputRepository(pool);
+    await taskInputs.createInitialAttempt(
+      createTaskExecutionAttempt({
+        attemptId: 'attempt.interrupted.db',
+        taskId: task.taskId,
+        contextId: task.contextId,
+        reason: 'initial',
+        createdAt: '2026-07-12T00:00:00.000Z',
+      }),
+    );
+    await taskInputs.updateAttempt('attempt.interrupted.db', 'running', '2026-07-12T00:00:01.000Z');
     const plans = new PostgresWorkflowPlanRepository(pool);
     await plans.savePlan({
       planId: 'plan.interrupted.db',
@@ -1193,7 +1205,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
 
     await expect(
       new PostgresRuntimeRecoveryRepository(pool).failInterrupted('2026-07-12T00:01:00.000Z'),
-    ).resolves.toEqual({ tasks: 1, workflowInstances: 1 });
+    ).resolves.toEqual({ tasks: 1, workflowInstances: 1, taskAttempts: 1 });
     await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
       phase: 'failed',
       errorCode: 'PROCESS_EXECUTION_LOST',
@@ -1201,6 +1213,11 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(executions.findInstance('instance.interrupted.db')).resolves.toMatchObject({
       status: 'failed',
       errors: { runtime: { code: 'PROCESS_EXECUTION_LOST' } },
+      completedAt: '2026-07-12T00:01:00.000Z',
+    });
+    await expect(taskInputs.findAttempt('attempt.interrupted.db')).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: 'PROCESS_EXECUTION_LOST',
       completedAt: '2026-07-12T00:01:00.000Z',
     });
   });
@@ -2728,6 +2745,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
       reason: 'input_response',
       status: 'queued',
       inputRequestId: pending.inputRequestId,
+    });
+    await expect(taskInputs.listQueuedAttempts(10)).resolves.toEqual([
+      expect.objectContaining({ attemptId: 'attempt-1', reason: 'initial' }),
+      expect.objectContaining({ attemptId: 'attempt-2', reason: 'input_response' }),
+    ]);
+    await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
+      phase: 'goal_deliberation',
+      phaseMessage: 'Supplementary input saved; continuation queued.',
     });
   });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {

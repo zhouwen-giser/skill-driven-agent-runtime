@@ -170,7 +170,7 @@ export interface GoalInputInferenceRepository {
 export interface RuntimeRecoveryRepository {
   failInterrupted(
     timestamp: string,
-  ): Promise<Readonly<{ tasks: number; workflowInstances: number }>>;
+  ): Promise<Readonly<{ tasks: number; workflowInstances: number; taskAttempts: number }>>;
 }
 
 export interface WorkflowControlRepository {
@@ -219,8 +219,11 @@ export interface TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
+      continuationPhase: Extract<AgentTask['phase'], 'goal_deliberation' | 'planning'>;
+      phaseMessage: string;
     }>,
-  ): Promise<void>;
+  ): Promise<AgentTask>;
+  listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]>;
   findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined>;
   findResponseForAttempt(
     attemptId: string,

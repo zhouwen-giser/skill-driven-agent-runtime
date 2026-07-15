@@ -41,8 +41,15 @@ export class BullMqContextTaskQueue implements ContextTaskQueue {
 
   async enqueue(input: ContextTaskJob): Promise<void> {
     const job = ContextTaskJobSchema.parse(input);
+    const jobId = contextTaskJobId(job.taskId, job.attemptId);
+    const existing = await this.#queue.getJob(jobId);
+    if (existing !== undefined) {
+      const state = await existing.getState();
+      if (state !== 'completed' && state !== 'failed') return;
+      await existing.remove();
+    }
     await this.#queue.add('task', job, {
-      jobId: contextTaskJobId(job.taskId, job.attemptId),
+      jobId,
       attempts: 1,
       removeOnComplete: false,
       removeOnFail: false,

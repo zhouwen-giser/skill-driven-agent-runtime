@@ -246,6 +246,40 @@ describe('BullMQ context queue', () => {
       'attempt-input-response:continue_after_input',
     ]);
   });
+
+  it('replaces a terminal stale job when PostgreSQL still owns a queued attempt', async () => {
+    const queueName = `sdar-stale-attempt-${String(Date.now())}`;
+    const queue = new BullMqContextTaskQueue({ connection, queueName });
+    const rawQueue = new Queue(queueName, { connection });
+    const queueEvents = new QueueEvents(queueName, { connection });
+    let processorCalls = 0;
+    const worker = new BullMqContextWorker({
+      connection,
+      queueName,
+      processor: {
+        process: () => {
+          processorCalls += 1;
+          return Promise.resolve();
+        },
+      },
+    });
+    resources.push(worker, queueEvents, rawQueue, queue);
+    worker.start();
+    const input = jobInput('stale-job', 'context-stale');
+    await queue.enqueue(input);
+    const first = await rawQueue.getJob(jobId('stale-job'));
+    if (first === undefined) throw new Error('BULLMQ_STALE_JOB_MISSING');
+    await first.waitUntilFinished(queueEvents, 5_000);
+
+    await queue.enqueue(input);
+    await waitFor(() => processorCalls === 2);
+    const replacement = await rawQueue.getJob(jobId('stale-job'));
+    if (replacement === undefined) throw new Error('BULLMQ_REPLACEMENT_JOB_MISSING');
+    await replacement.waitUntilFinished(queueEvents, 5_000);
+
+    expect(processorCalls).toBe(2);
+    expect(replacement.opts.attempts).toBe(1);
+  });
 });
 
 function jobInput(taskId: string, contextId: string) {

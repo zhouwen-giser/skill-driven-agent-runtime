@@ -21,6 +21,19 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Unit, real PostgreSQL restart, real Redis serialization/job-identity, and real A2A/MCP tests cover both recovery paths and prove the supplied value reaches subsequent MCP arguments.
 
+## [1.0.3-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Supplementary-input answer, response, continuation attempt and Task phase projection now commit in one PostgreSQL transaction.
+- Durable queued attempts are reconciled to BullMQ at startup and on a bounded interval; terminal stale Redis Jobs can be replaced only while PostgreSQL still records the attempt as queued.
+- Startup recovery marks interrupted running attempts failed with `PROCESS_EXECUTION_LOST` and never redispatches running or failed attempts.
+- Supplementary input larger than 64,000 characters is rejected before any answer or continuation-attempt write.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` gate passed without Docker lifecycle operations: 270 unit/contract tests, 41 real PostgreSQL/Redis integration tests, 42 real E2E tests, both migration paths, production builds and both smoke stages.
+
 ## [1.0.2] - 2026-07-15
 
 ### Added

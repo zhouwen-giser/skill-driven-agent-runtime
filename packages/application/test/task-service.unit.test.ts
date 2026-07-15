@@ -12,6 +12,7 @@ import {
 } from '../../domain/src/index.js';
 import {
   ANONYMOUS_USER_ID,
+  MAX_TASK_INPUT_RESPONSE_CHARACTERS,
   TaskService,
   type AgentTaskRepository,
   type ContextTaskQueue,
@@ -131,6 +132,59 @@ describe('TaskService', () => {
         messageText: 'device-17 again',
       }),
     ).rejects.toMatchObject({ code: 'TASK_INPUT_NOT_PENDING' });
+  });
+
+  it('keeps an accepted continuation attempt queued when immediate Redis dispatch fails', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect it.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of ['context_loading', 'goal_deliberation'] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    await harness.service.requestInput(task.taskId, 'Which device?', {
+      source: 'goal_deliberation',
+    });
+    const request = [...harness.inputRequests.values()][0];
+    if (request === undefined) throw new Error('INPUT_REQUEST_MISSING');
+    harness.queue.enqueue = () => Promise.reject(new Error('REDIS_UNAVAILABLE'));
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'provide_input',
+        inputRequestId: request.inputRequestId,
+        messageText: 'device-17',
+      }),
+    ).resolves.toMatchObject({ phase: 'goal_deliberation' });
+    expect([...harness.attempts.values()].at(-1)).toMatchObject({
+      reason: 'input_response',
+      status: 'queued',
+    });
+  });
+
+  it('rejects oversized supplementary input before answering or creating an attempt', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect it.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of ['context_loading', 'goal_deliberation'] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    await harness.service.requestInput(task.taskId, 'Which device?', {
+      source: 'goal_deliberation',
+    });
+    const request = [...harness.inputRequests.values()][0];
+    if (request === undefined) throw new Error('INPUT_REQUEST_MISSING');
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'provide_input',
+        inputRequestId: request.inputRequestId,
+        messageText: 'x'.repeat(MAX_TASK_INPUT_RESPONSE_CHARACTERS + 1),
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INPUT_RESPONSE_TOO_LARGE' });
+    expect(harness.inputRequests.get(request.inputRequestId)).toMatchObject({ status: 'waiting' });
+    expect([...harness.attempts.values()]).toHaveLength(1);
   });
 
   it('rejects input for an expired request and for a request owned by another Task', async () => {
@@ -391,6 +445,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
   inputRequests: Map<string, TaskInputRequest>;
   inputResponses: Map<string, TaskInputResponse>;
   attempts: Map<string, TaskExecutionAttempt>;
+  queue: ContextTaskQueue;
 }> {
   const contexts = new Map<string, ConversationContext>();
   const tasks = new Map<string, AgentTask>();
@@ -473,6 +528,15 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       const request = inputRequests.get(input.inputRequestId);
       if (request?.status !== 'waiting')
         return Promise.reject(new Error('TASK_INPUT_REQUEST_NOT_WAITING'));
+      const task = tasks.get(input.taskId);
+      if (task?.phase !== 'awaiting_user_input')
+        return Promise.reject(new Error('TASK_INPUT_REQUEST_NOT_WAITING'));
+      const continued = transitionTask(
+        task,
+        input.continuationPhase,
+        input.phaseMessage,
+        input.answeredAt,
+      );
       inputRequests.set(input.inputRequestId, {
         ...request,
         status: 'answered',
@@ -480,8 +544,13 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       });
       inputResponses.set(input.response.inputResponseId, input.response);
       attempts.set(input.attempt.attemptId, input.attempt);
-      return Promise.resolve();
+      tasks.set(input.taskId, continued);
+      return Promise.resolve(continued);
     },
+    listQueuedAttempts: (limit) =>
+      Promise.resolve(
+        [...attempts.values()].filter((attempt) => attempt.status === 'queued').slice(0, limit),
+      ),
     findAttempt: (attemptId) => Promise.resolve(attempts.get(attemptId)),
     findResponseForAttempt: () => Promise.resolve(undefined),
     updateAttempt: (attemptId, status, updatedAt, errorCode) => {
@@ -545,5 +614,6 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     inputRequests,
     inputResponses,
     attempts,
+    queue,
   };
 }
