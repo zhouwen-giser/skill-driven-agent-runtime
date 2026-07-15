@@ -5,5 +5,6 @@ No known P0/P1 correctness defect at the feature gate.
 Intentional limits:
 
 - Bound values are finite JSON only.
+- Resolved templates and referenced values have a maximum nesting depth of 64.
 - Reference paths use explicit identifier or array-index segments; JSONPath, string interpolation and executable expressions are unsupported.
 - Missing references fail the executing node instead of producing `undefined` or silently applying a default.

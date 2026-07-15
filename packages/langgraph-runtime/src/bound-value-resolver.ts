@@ -1,5 +1,7 @@
 import type { WorkflowBoundObject, WorkflowBoundValue } from '../../domain/src/index.js';
 
+const MAX_WORKFLOW_BINDING_DEPTH = 64;
+
 export interface WorkflowBindingContext {
   readonly input: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
@@ -18,25 +20,32 @@ export function resolveWorkflowBoundValue(
 function resolveTemplate(
   template: WorkflowBoundValue,
   context: WorkflowBindingContext,
+  depth = 0,
 ): WorkflowBoundValue {
-  if (isReference(template)) return cloneJsonValue(resolveReference(template.path, context));
-  if (isBoundArray(template)) return template.map((item) => resolveTemplate(item, context));
+  assertBindingDepth(depth);
+  if (isReference(template)) return cloneJsonValue(resolveReference(template.path, context), depth);
+  if (isBoundArray(template))
+    return template.map((item) => resolveTemplate(item, context, depth + 1));
   if (isBoundObject(template))
     return Object.fromEntries(
-      Object.entries(template).map(([key, value]) => [key, resolveTemplate(value, context)]),
+      Object.entries(template).map(([key, value]) => [
+        key,
+        resolveTemplate(value, context, depth + 1),
+      ]),
     );
   return requireJsonScalar(template);
 }
 
 function resolveReference(path: readonly string[], context: WorkflowBindingContext): unknown {
-  let current: unknown = {
+  const roots: Record<string, unknown> = {
     input: context.input,
     nodes: context.outputs,
     outputs: context.outputs,
     errors: context.errors,
     loopCounts: context.loopCounts,
-    result: context.result,
   };
+  if (context.result !== undefined) roots['result'] = context.result;
+  let current: unknown = roots;
   for (const [index, segment] of path.entries()) {
     if (isUnknownArray(current)) {
       if (!/^(0|[1-9]\d*)$/u.test(segment) || Number(segment) >= current.length)
@@ -51,11 +60,12 @@ function resolveReference(path: readonly string[], context: WorkflowBindingConte
   return current;
 }
 
-function cloneJsonValue(value: unknown): WorkflowBoundValue {
-  if (isUnknownArray(value)) return value.map(cloneJsonValue);
+function cloneJsonValue(value: unknown, depth: number): WorkflowBoundValue {
+  assertBindingDepth(depth);
+  if (isUnknownArray(value)) return value.map((item) => cloneJsonValue(item, depth + 1));
   if (isUnknownRecord(value))
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, cloneJsonValue(item)]),
+      Object.entries(value).map(([key, item]) => [key, cloneJsonValue(item, depth + 1)]),
     );
   return requireJsonScalar(value);
 }
@@ -118,7 +128,15 @@ function missingReference(
 ): WorkflowBindingError {
   return new WorkflowBindingError(
     'WORKFLOW_BINDING_REFERENCE_MISSING',
-    `Workflow binding reference ${path.join('.')} does not exist at segment ${String(index)} (${segment}).`,
+    `Workflow binding reference ${path.join('.')} (${JSON.stringify(path)}) does not exist at segment ${String(index)} (${JSON.stringify(segment)}).`,
+  );
+}
+
+function assertBindingDepth(depth: number): void {
+  if (depth <= MAX_WORKFLOW_BINDING_DEPTH) return;
+  throw new WorkflowBindingError(
+    'WORKFLOW_BINDING_DEPTH_EXCEEDED',
+    `Workflow binding exceeds the maximum depth of ${String(MAX_WORKFLOW_BINDING_DEPTH)}.`,
   );
 }
 
@@ -135,7 +153,9 @@ function deepFreeze<T extends WorkflowBoundValue>(value: T): T {
 }
 
 export type WorkflowBindingErrorCode =
-  'WORKFLOW_BINDING_REFERENCE_MISSING' | 'WORKFLOW_BINDING_VALUE_INVALID';
+  | 'WORKFLOW_BINDING_REFERENCE_MISSING'
+  | 'WORKFLOW_BINDING_VALUE_INVALID'
+  | 'WORKFLOW_BINDING_DEPTH_EXCEEDED';
 
 export class WorkflowBindingError extends Error {
   readonly code: WorkflowBindingErrorCode;

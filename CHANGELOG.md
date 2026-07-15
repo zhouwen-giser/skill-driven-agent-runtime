@@ -20,6 +20,17 @@ All notable changes to this project are documented here. The format follows Keep
 
 - No known correctness issue. Bindings intentionally support finite JSON data and restricted path segments only; JSONPath, string interpolation, and executable expressions remain unsupported.
 
+## [1.0.1-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Bounded recursive template and referenced-value traversal at 64 levels with a stable depth error, preventing stack exhaustion on pathological runtime values.
+- Missing optional `result` state now reports the stable missing-reference code, and error messages include an unambiguous JSON path for node IDs containing dots.
+
+### Verification
+
+- Boundary regression covers the maximum accepted depth, template and referenced-output overflow, missing result, dotted node IDs, error objects, null/empty arrays, immutable snapshots, parallel joins and live Schema rejection.
+
 ### Added
 
 - Apache License 2.0 project licensing for copyright holder zhouwen, including canonical `LICENSE`, project `NOTICE`, package metadata, README disclosure, and license-ledger documentation.

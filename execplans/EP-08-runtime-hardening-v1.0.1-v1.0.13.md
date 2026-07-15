@@ -73,8 +73,8 @@ Invariants for every increment:
 ## Progress
 
 - [x] 2026-07-15 12:50 Baseline-only repair committed as `bc4b44a`; immutable Compose pins restored, `.env` recreated locally, operator-managed infrastructure mode added, and clean `pnpm verify` passed.
-- [ ] 2026-07-15 13:15 v1.0.1 feature gate passed (196 unit, 57 contract, 41 Workflow E2E); create the feature commit, annotated tag and push.
-- [ ] Complete v1.0.1 bug-fixed review/evidence, commit, annotated tag and push.
+- [x] 2026-07-15 13:17 v1.0.1 feature commit `34c48a8` and annotated `v1.0.1` tag pushed after 196 unit, 57 contract and 41 Workflow E2E tests passed.
+- [ ] 2026-07-15 13:27 v1.0.1 bug-fixed gate passed (197 unit, 57 contract, 41 Workflow E2E); create the bug-fixed commit, annotated tag and push.
 - [ ] Complete v1.0.2 feature and bug-fixed increments.
 - [ ] Complete v1.0.3 feature and bug-fixed increments; run full gate.
 - [ ] Complete v1.0.4–v1.0.6 in order; run full gate at v1.0.6-bug-fixed.
@@ -90,6 +90,7 @@ Invariants for every increment:
 - 2026-07-15: the operator started real PostgreSQL/Redis but requested no further Docker operations. The baseline repair introduced explicit operator-managed infrastructure reuse; real migrations/integration/E2E/smoke execute through loopback ports while Docker lifecycle commands remain disabled.
 - 2026-07-15: E2E must run after the production Console build because the documented-client scenario verifies `/console/` assets.
 - 2026-07-15: TypeScript 6 rejects a recursive type alias routed directly through `Readonly<Record<...>>`; an explicit `WorkflowBoundObject` interface preserves the task-package data model and strict typing.
+- 2026-07-15: referenced values originate at validated protocol boundaries in production, but the runtime port remains `unknown`; bounding both template traversal and detached cloning prevents a malformed or cyclic adapter value from exhausting the JavaScript stack.
 
 ## Decision Log
 

@@ -76,6 +76,22 @@ describe('Workflow bound-value resolver', () => {
         { input: {}, outputs: { items: [1] }, errors: {}, loopCounts: {} },
       ),
     ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_REFERENCE_MISSING' }));
+    expect(() =>
+      resolveWorkflowBoundValue(
+        { op: 'ref', path: ['result'] },
+        { input: {}, outputs: {}, errors: {}, loopCounts: {} },
+      ),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_REFERENCE_MISSING' }));
+    expect(() =>
+      resolveWorkflowBoundValue(
+        { op: 'ref', path: ['outputs', 'node.with.dot', 'missing'] },
+        { input: {}, outputs: { 'node.with.dot': {} }, errors: {}, loopCounts: {} },
+      ),
+    ).toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining('["outputs","node.with.dot","missing"]'),
+      }),
+    );
   });
 
   it('rejects non-JSON and non-finite referenced values', () => {
@@ -86,5 +102,46 @@ describe('Workflow bound-value resolver', () => {
           { input: {}, outputs: { invalid }, errors: {}, loopCounts: {} },
         ),
       ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_VALUE_INVALID' }));
+  });
+
+  it('supports deep bounded JSON while rejecting unbounded template and referenced recursion', () => {
+    let allowedTemplate: Parameters<typeof resolveWorkflowBoundValue>[0] = null;
+    for (let index = 0; index < 64; index += 1) allowedTemplate = { nested: allowedTemplate };
+    expect(() =>
+      resolveWorkflowBoundValue(allowedTemplate, {
+        input: {},
+        outputs: {},
+        errors: {},
+        loopCounts: {},
+      }),
+    ).not.toThrow();
+
+    const tooDeepTemplate = { nested: allowedTemplate };
+    expect(() =>
+      resolveWorkflowBoundValue(tooDeepTemplate, {
+        input: {},
+        outputs: {},
+        errors: {},
+        loopCounts: {},
+      }),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_DEPTH_EXCEEDED' }));
+
+    let tooDeepOutput: unknown = null;
+    for (let index = 0; index < 65; index += 1) tooDeepOutput = { nested: tooDeepOutput };
+    expect(() =>
+      resolveWorkflowBoundValue(
+        { op: 'ref', path: ['outputs', 'deep'] },
+        { input: {}, outputs: { deep: tooDeepOutput }, errors: {}, loopCounts: {} },
+      ),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_DEPTH_EXCEEDED' }));
+
+    const cyclicOutput: { self?: unknown } = {};
+    cyclicOutput.self = cyclicOutput;
+    expect(() =>
+      resolveWorkflowBoundValue(
+        { op: 'ref', path: ['outputs', 'cyclic'] },
+        { input: {}, outputs: { cyclic: cyclicOutput }, errors: {}, loopCounts: {} },
+      ),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_DEPTH_EXCEEDED' }));
   });
 });
