@@ -8,14 +8,20 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, ADR-076–080, repository/symbol/hardening maps and clean baseline evidence.
 - Exact Apache-2.0 official `modelcontextprotocol/ext-tasks` commit and schema-blob Intake as a reference contract; no new runtime dependency or copied source is introduced in Phase 0.
+- Phase 1 domain-owned immediate/remote result union, five-state remote Task snapshots, protocol capability/revision records, bounded attributed Tasks Schema, and `tasks/get`/`tasks/update`/`tasks/cancel` adapter operations.
+- Real modern HTTP Mock Provider contract modes `sync_success`, `async_success`, `rejected_without_task` plus malformed/undeclared negative fixtures.
 
 ### Changed
 
 - MCP TypeScript SDK Intake now records the exact MIT license hash and forbids its legacy experimental `tasks/result`/`tasks/list` surface as the v1.1 contract; future extension requests remain isolated behind the existing adapter.
+- ADR-081 replaces the disproven SDK 1.29.0 extension-client path with exact official `@modelcontextprotocol/client@2.0.0-beta.4` automatic negotiation and a temporary adapter-only method/result/Header bridge. Legacy SDK 1.29.0 remains only as the loopback Server fixture.
+- Synchronous MCP `isError=true` results remain immediate but are audited as `failed/MCP_TOOL_BUSINESS_REJECTION`, never as success and never with a remote Task ID.
+- SBOM/license evidence now includes 286 npm packages and the attributed Apache-2.0 ext-tasks Schema adaptation.
+- Phase 1 unified verification passes 283 unit/contract tests, 42 real PostgreSQL/Redis integration tests, 42 real E2E tests, 55 migrations, production builds and both local smoke stages.
 
 ### Known limitations
 
-- MCP Tasks behavior is still unimplemented/unverified. Final v1.1 acceptance cannot start until `v1.0.13-bug-fixed` and its complete migration chain are merged.
+- Phase 1 protocol behavior is verified; durable bindings/polling, availability/timing, external continuation, input/cancel lifecycle, management UI and final acceptance remain incomplete. Final v1.1 acceptance cannot start until `v1.0.13-bug-fixed` and its complete migration chain are merged.
 
 ### Fixed
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   McpDependencyWarning,
   McpInvocation,
+  McpInvocationOutcome,
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
@@ -173,14 +174,17 @@ describe('McpRegistryService', () => {
         taskId: 'task-1',
         contextId: 'context-1',
       }),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({
+      kind: 'immediate',
+      result: { content: [], structuredContent: { ok: true }, isError: false },
+    });
     expect(transport.calls).toBe(1);
     expect(repository.invocations).toEqual([
       expect.objectContaining({
         invocationId: 'invocation-1',
         status: 'succeeded',
         arguments: { deviceId: 'device-1' },
-        result: { ok: true },
+        result: { content: [], structuredContent: { ok: true }, isError: false },
         executionMode: 'live',
       }),
     ]);
@@ -333,6 +337,42 @@ describe('McpRegistryService', () => {
     ]);
   });
 
+  it('records an immediate isError result as a business rejection without a remote Task ID', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    transport.outcome = {
+      kind: 'immediate',
+      result: {
+        content: [{ type: 'text', text: 'resource unavailable' }],
+        structuredContent: { outcome: 'admission_rejected' },
+        isError: true,
+      },
+    };
+    const service = createService(repository, transport);
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: {},
+    });
+
+    const outcome = await service.call('mcp.devices', 'device_status', {
+      deviceId: 'device-1',
+    });
+    expect(outcome).toEqual(transport.outcome);
+    expect(repository.invocations).toEqual([
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
+        result: expect.objectContaining({
+          isError: true,
+          structuredContent: { outcome: 'admission_rejected' },
+        }),
+      }),
+    ]);
+    expect(JSON.stringify(repository.invocations)).not.toContain('remoteTaskId');
+  });
+
   it('validates rotated credentials remotely and persists health status without refreshing Tools', async () => {
     const repository = new MemoryMcpRepository();
     const transport = new ChangingTransport();
@@ -419,6 +459,10 @@ class ChangingTransport implements McpTransportAdapter {
   pingFailure: Error | undefined;
   lastPingHeaders: Readonly<Record<string, string>> | undefined;
   invalidSchema = false;
+  outcome: McpInvocationOutcome = {
+    kind: 'immediate',
+    result: { content: [], structuredContent: { ok: true }, isError: false },
+  };
   callInputs: Parameters<McpTransportAdapter['call']>[0][] = [];
   discover() {
     this.discoveries += 1;
@@ -438,7 +482,24 @@ class ChangingTransport implements McpTransportAdapter {
     this.callInputs.push(input);
     this.calls += 1;
     if (this.failure !== undefined) return Promise.reject(this.failure);
-    return Promise.resolve({ ok: true });
+    return Promise.resolve(this.outcome);
+  }
+  capabilities() {
+    return Promise.resolve({
+      protocolEra: 'legacy' as const,
+      protocolRevision: '2025-11-25',
+      tasksExtension: false,
+      tasksSchemaRevision: 'test-schema',
+    });
+  }
+  getTask() {
+    return Promise.reject(new Error('No remote Tasks in this unit transport.'));
+  }
+  updateTask() {
+    return Promise.reject(new Error('No remote Tasks in this unit transport.'));
+  }
+  cancelTask() {
+    return Promise.reject(new Error('No remote Tasks in this unit transport.'));
   }
   disconnect() {
     return Promise.resolve();

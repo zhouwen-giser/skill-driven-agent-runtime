@@ -5,6 +5,7 @@ import {
   createMcpTool,
   createMcpToolEnhancement,
   type McpInvocation,
+  type McpInvocationOutcome,
   type McpManagementOperation,
   type McpManagementOperationType,
   type McpServer,
@@ -146,7 +147,7 @@ export class McpRegistryService {
     arguments_: Readonly<Record<string, unknown>>,
     signal?: AbortSignal,
     context: McpCallContext = {},
-  ): Promise<unknown> {
+  ): Promise<McpInvocationOutcome> {
     const record = await this.#requireServer(serverId);
     const tool = (await this.#repository.listTools(serverId)).find(
       (item) => item.toolName === toolName,
@@ -166,9 +167,9 @@ export class McpRegistryService {
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
     );
-    let result: unknown;
+    let outcome: McpInvocationOutcome;
     try {
-      result = await this.#transport.call({
+      outcome = await this.#transport.call({
         endpoint: record.server.endpoint,
         headers: executionHeaders(
           this.#cipher.decrypt(record.encryptedCredential),
@@ -199,6 +200,9 @@ export class McpRegistryService {
       throw error;
     }
     const completedAt = this.#clock.now();
+    const invocationResult =
+      outcome.kind === 'immediate' ? outcome.result : { remoteTask: outcome.task };
+    const businessRejected = outcome.kind === 'immediate' && outcome.result.isError;
     await this.#repository.saveInvocation(
       invocationRecord({
         invocationId,
@@ -206,13 +210,19 @@ export class McpRegistryService {
         serverId,
         toolName,
         arguments: arguments_,
-        result,
-        status: 'succeeded',
+        result: invocationResult,
+        status: businessRejected ? 'failed' : 'succeeded',
+        ...(businessRejected
+          ? {
+              errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
+              errorMessage: 'MCP Tool returned an immediate isError result.',
+            }
+          : {}),
         startedAt,
         completedAt,
       }),
     );
-    return result;
+    return outcome;
   }
 
   async delete(serverId: string): Promise<void> {

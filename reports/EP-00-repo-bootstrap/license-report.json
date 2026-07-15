@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 284,
+  "package_count": 286,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -205,6 +205,24 @@
       "licenseFiles": [
         "@langchain/protocol@0.0.18/LICENSE"
       ]
+    },
+    {
+      "name": "@modelcontextprotocol/client",
+      "version": "2.0.0-beta.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "@modelcontextprotocol/client@2.0.0-beta.4/LICENSE"
+      ],
+      "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+    },
+    {
+      "name": "@modelcontextprotocol/core",
+      "version": "2.0.0-beta.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "@modelcontextprotocol/core@2.0.0-beta.4/LICENSE"
+      ],
+      "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
     },
     {
       "name": "@modelcontextprotocol/sdk",
@@ -2548,6 +2566,16 @@
       "name": "redis",
       "version": "8.2.7-alpine3.22",
       "license": "AGPL-3.0-only"
+    }
+  ],
+  "adapted_sources": [
+    {
+      "name": "modelcontextprotocol/ext-tasks",
+      "commit": "8966bea9c4f4e6d71060cc8284a539086e9e234f",
+      "schema_blob": "2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc",
+      "license": "Apache-2.0",
+      "modified_by": "zhouwen",
+      "local_file": "packages/mcp-adapter/src/mcp-tasks-contract.ts"
     }
   ]
 }

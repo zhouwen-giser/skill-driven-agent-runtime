@@ -1,13 +1,17 @@
 # Third-Party Notices
 
-Generated from the exact pnpm lockfile installation for the EP-00 baseline. Host-specific optional native leaf packages are represented by their portable wrapper packages so this source-distribution evidence is reproducible across operating systems. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+Generated from the exact pnpm lockfile installation and pinned adapted sources. Host-specific optional native leaf packages are represented by their portable wrapper packages so this source-distribution evidence is reproducible across operating systems. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+
+## Adapted protocol source
+
+- modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 
 ## External services
 
 - pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
 - Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
 
-## npm packages (284)
+## npm packages (286)
 
 | Package | License | Packaged license/notice files |
 | --- | --- | --- |
@@ -34,6 +38,8 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. Host
 | `@langchain/langgraph-sdk@1.9.25` | MIT | `@langchain/langgraph-sdk@1.9.25/LICENSE` |
 | `@langchain/langgraph@1.4.7` | MIT | `@langchain/langgraph@1.4.7/LICENSE` |
 | `@langchain/protocol@0.0.18` | MIT | `@langchain/protocol@0.0.18/LICENSE` |
+| `@modelcontextprotocol/client@2.0.0-beta.4` | MIT | `@modelcontextprotocol/client@2.0.0-beta.4/LICENSE` |
+| `@modelcontextprotocol/core@2.0.0-beta.4` | MIT | `@modelcontextprotocol/core@2.0.0-beta.4/LICENSE` |
 | `@modelcontextprotocol/sdk@1.29.0` | MIT | `@modelcontextprotocol/sdk@1.29.0/LICENSE` |
 | `@oxc-project/types@0.139.0` | MIT | `@oxc-project/types@0.139.0/LICENSE` |
 | `@rolldown/pluginutils@1.0.1` | MIT | `@rolldown/pluginutils@1.0.1/LICENSE` |

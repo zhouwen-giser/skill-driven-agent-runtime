@@ -63,7 +63,11 @@ import {
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
 } from '../../../packages/application/src/index.js';
-import type { SkillVersion, WorkflowBudgetLimits } from '../../../packages/domain/src/index.js';
+import type {
+  McpInvocationOutcome,
+  SkillVersion,
+  WorkflowBudgetLimits,
+} from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
@@ -416,14 +420,16 @@ export async function startServerRuntime(
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
-      return mcpRegistry.call(
-        tool.serverId,
-        tool.toolName,
-        arguments_,
-        signal,
-        task === undefined
-          ? { executionContext }
-          : { taskId: task.taskId, contextId: task.contextId, executionContext },
+      return unwrapMcpInvocationOutcome(
+        await mcpRegistry.call(
+          tool.serverId,
+          tool.toolName,
+          arguments_,
+          signal,
+          task === undefined
+            ? { executionContext }
+            : { taskId: task.taskId, contextId: task.contextId, executionContext },
+        ),
       );
     },
     async executeSkill({
@@ -1188,8 +1194,10 @@ export async function startServerRuntime(
       refreshMcpServer(serverId) {
         return mcpRegistry.refresh(serverId);
       },
-      callMcpTool(serverId, toolName, arguments_, signal, context) {
-        return mcpRegistry.call(serverId, toolName, arguments_, signal, context);
+      async callMcpTool(serverId, toolName, arguments_, signal, context) {
+        return unwrapMcpInvocationOutcome(
+          await mcpRegistry.call(serverId, toolName, arguments_, signal, context),
+        );
       },
       deleteMcpServer(serverId) {
         return mcpRegistry.delete(serverId);
@@ -1241,6 +1249,22 @@ export async function startServerRuntime(
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unwrapMcpInvocationOutcome(outcome: McpInvocationOutcome): unknown {
+  if (outcome.kind === 'immediate') return outcome.result;
+  throw new RemoteMcpTaskPhaseNotConnectedError(outcome.task.remoteTaskId);
+}
+
+class RemoteMcpTaskPhaseNotConnectedError extends Error {
+  readonly code = 'MCP_REMOTE_TASK_PHASE_NOT_CONNECTED';
+
+  constructor(remoteTaskId: string) {
+    super(
+      `Remote MCP Task ${remoteTaskId} was accepted before the Phase 4 continuation is active.`,
+    );
+    this.name = 'RemoteMcpTaskPhaseNotConnectedError';
+  }
 }
 
 export async function applyRuntimeMigrations(pool: Pool): Promise<void> {

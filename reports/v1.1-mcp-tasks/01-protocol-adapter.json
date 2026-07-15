@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "phase": 1,
+  "status": "passed",
+  "branch": "feature/v1.1-mcp-tasks",
+  "startingCommit": "53f025a15396bf429a1e71f38e3d1465f6845dfa",
+  "scope": [
+    "FR-MCPT-001",
+    "FR-MCPT-002",
+    "FR-MCPT-003-schema-only",
+    "NFR-MCPT-001-protocol-boundary",
+    "NFR-MCPT-004-protocol-correlation",
+    "AC-MCPT-01",
+    "AC-MCPT-02-protocol-only",
+    "AC-MCPT-03-fallback-only",
+    "AC-MCPT-10-rejection-only"
+  ],
+  "pins": {
+    "mcpClient": {
+      "package": "@modelcontextprotocol/client",
+      "version": "2.0.0-beta.4",
+      "annotatedTagObject": "5aa0a82829f83b6b62a8ce41531921b34180ff84",
+      "commit": "e81758caed29f6568ce8873f7f9a3bd65b017d9c"
+    },
+    "legacyMcpServerFixture": {
+      "package": "@modelcontextprotocol/sdk",
+      "version": "1.29.0",
+      "commit": "e12cbd7078db388152f6e839abdbe09ba01f3f32"
+    },
+    "tasksExtension": {
+      "repository": "modelcontextprotocol/ext-tasks",
+      "commit": "8966bea9c4f4e6d71060cc8284a539086e9e234f",
+      "schemaTsBlob": "2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc",
+      "schemaJsonBlob": "d6ccaff7e3fb2131b5d752dd8b6f34096e58e976"
+    },
+    "testedNegotiatedProtocolRevision": "2026-07-28",
+    "extensionDraftRevision": "2026-06-30"
+  },
+  "implementation": [
+    "packages/domain/src/mcp-task.ts",
+    "packages/application/src/ports.ts",
+    "packages/application/src/mcp-registry.ts",
+    "packages/mcp-adapter/src/mcp-tasks-contract.ts",
+    "packages/mcp-adapter/src/mcp-tasks-transport-bridge.ts",
+    "packages/mcp-adapter/src/mcp-tasks-mock-provider.ts",
+    "packages/mcp-adapter/src/streamable-http-adapter.ts",
+    "apps/server/src/runtime.ts",
+    "scripts/check-architecture.mjs"
+  ],
+  "tests": [
+    "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+    "packages/application/test/mcp-registry.unit.test.ts"
+  ],
+  "verification": {
+    "commands": [
+      {
+        "command": "pnpm verify:bootstrap",
+        "status": "passed",
+        "files": 57,
+        "tests": 283,
+        "unitTests": 219,
+        "contractTests": 64
+      },
+      {
+        "command": "pnpm evidence:licenses && pnpm verify:licenses && pnpm verify:sources",
+        "status": "passed",
+        "npmPackages": 286,
+        "sourcePins": 19
+      },
+      {
+        "command": "pnpm verify",
+        "status": "passed",
+        "startedAt": "2026-07-15T23:48:58.655Z",
+        "finishedAt": "2026-07-15T23:50:54.103Z",
+        "durationMs": 115448,
+        "dirty": true,
+        "integrationTests": 42,
+        "e2eTests": 42,
+        "runtimeMigrations": 55,
+        "infrastructureSmoke": "passed",
+        "serverConsoleSmoke": "passed"
+      }
+    ],
+    "focusedAdapterContracts": 11,
+    "architectureFiles": 176
+  },
+  "classification": {
+    "real": [
+      "Official @modelcontextprotocol/client v2 beta Client and Streamable HTTP transport negotiated the modern protocol against a real loopback HTTP endpoint.",
+      "Official @modelcontextprotocol/sdk v1 Server exercised automatic legacy fallback without Tasks capability.",
+      "Exact external method names, payloads, Mcp-Name/Mcp-Method headers, capability declaration, tested protocol revision, and frozen Schema validation were asserted on the HTTP wire."
+    ],
+    "simulated": [
+      "The loopback Provider business behavior is deterministic: sync_success, async_success, rejected_without_task, malformed task IDs, unknown task status, and unknown task fields.",
+      "No external production MCP Provider or production credentials were used."
+    ],
+    "unverified": [
+      "Durable remote-task bindings, ordered observations, BullMQ polling, startup reconciliation, and PostgreSQL/Redis recovery are Phase 2.",
+      "Availability/timing, external continuation, input/cancellation lifecycle, management UI, all 16 acceptance scenarios, and final release integration are Phases 3-6."
+    ]
+  },
+  "limitations": [
+    "The exact beta.4/extension-draft combination is contract-tested; compatibility with other beta or protocol revisions is not claimed.",
+    "The temporary result/method/header bridge is confined to packages/mcp-adapter and emits the frozen external wire contract.",
+    "apps/server deliberately rejects remote_task outcomes with MCP_REMOTE_TASK_PHASE_NOT_CONNECTED until Phase 4 connects durable continuation; ordinary immediate Tool behavior remains operational."
+  ]
+}

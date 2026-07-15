@@ -1,6 +1,6 @@
 # SDAR v1.1 MCP Tasks 规范化设计
 
-状态：Phase 0 冻结；实现与验收尚未完成<br>
+状态：Phase 1 协议边界已验证；Phase 2–6 实现与最终验收尚未完成<br>
 日期：2026-07-16<br>
 执行计划：`execplans/EP-09-v1.1-mcp-tasks.md`
 
@@ -10,7 +10,8 @@
 
 协议来源冻结为：
 
-- `@modelcontextprotocol/sdk@1.29.0`，tag `v1.29.0` commit `e12cbd7078db388152f6e839abdbe09ba01f3f32`，仅用于已锁定的 Streamable HTTP 与低层请求边界；
+- `@modelcontextprotocol/client@2.0.0-beta.4`，annotated tag object `5aa0a82829f83b6b62a8ce41531921b34180ff84` 指向 commit `e81758caed29f6568ce8873f7f9a3bd65b017d9c`，仅在 MCP Adapter 内用于 extension-era 协商、Streamable HTTP 与 legacy fallback；
+- `@modelcontextprotocol/sdk@1.29.0`，tag `v1.29.0` commit `e12cbd7078db388152f6e839abdbe09ba01f3f32`，迁移期只保留现有 legacy loopback Server fixture；
 - 官方 `modelcontextprotocol/ext-tasks` commit `8966bea9c4f4e6d71060cc8284a539086e9e234f`；
 - `schema/draft/schema.json` blob `d6ccaff7e3fb2131b5d752dd8b6f34096e58e976`；
 - `schema/draft/schema.ts` blob `2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc`；
@@ -81,12 +82,12 @@ interface McpTasksClientPort {
   update(
     remoteTaskId: string,
     responses: Readonly<Record<string, unknown>>,
-  ): Promise<RemoteTaskSnapshot>;
-  cancel(remoteTaskId: string): Promise<RemoteTaskSnapshot>;
+  ): Promise<RemoteTaskOperationAck>;
+  cancel(remoteTaskId: string): Promise<RemoteTaskOperationAck>;
 }
 ```
 
-Adapter 验证能力、方法、`resultType`、Headers、Task ID、状态与内容。普通 Server 无扩展能力时保持同步行为；`mode=require_task` 却返回同步结果时产生稳定契约错误。同步 `CallToolResult.isError=true` 是业务错误，不是成功结果，也不创建 Binding。
+Adapter 验证协商协议修订、能力、方法、`resultType`、Headers、Task ID、状态与内容。普通 Server 无扩展能力时保持同步行为；legacy `2025-11-25` 连接不得启用扩展。`mode=require_task` 却返回同步结果时产生稳定契约错误。同步 `CallToolResult.isError=true` 是业务错误，不是成功结果，也不创建 Binding。`tasks/update`/`tasks/cancel` 的 ack 不是状态证明，权威状态只能由后续 `tasks/get` 给出。
 
 ## 6. 持久模型
 

@@ -15,5 +15,6 @@
 | ADR-078 | Task availability、预测/预约和 Provider 时间合同严格分离 |
 | ADR-079 | 远程等待使用持久 continuation，不使用 LangGraph interrupt/resume |
 | ADR-080 | v1.1 使用 0100+，受支持升级必须等待完整 v1.0.13 迁移链 |
+| ADR-081 | MCP extension era 使用精确官方 v2 beta Client，v1 仅保留 legacy Server fixture |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

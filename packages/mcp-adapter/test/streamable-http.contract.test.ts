@@ -1,24 +1,32 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  MCP_TASKS_EXTENSION_ID,
+  MCP_TASKS_SCHEMA_REVISION,
+  MCP_TASKS_TESTED_PROTOCOL_REVISION,
+  startMcpTasksMockProvider,
   startMcpLoopbackServer,
   startMcpStreamableHttpSpike,
   type McpLoopbackServerHandle,
   type McpSpikeHandle,
-} from '../src/streamable-http-spike.js';
-import { StreamableHttpMcpAdapter } from '../src/streamable-http-adapter.js';
+  type McpTasksMockProviderHandle,
+  StreamableHttpMcpAdapter,
+} from '../src/index.js';
 
 describe('official MCP Streamable HTTP transport', () => {
   let handle: McpSpikeHandle | undefined;
   let server: McpLoopbackServerHandle | undefined;
+  let tasksProvider: McpTasksMockProviderHandle | undefined;
   let adapter: StreamableHttpMcpAdapter | undefined;
 
   afterEach(async () => {
     await handle?.close();
     await adapter?.close();
     await server?.close();
+    await tasksProvider?.close();
     handle = undefined;
     server = undefined;
+    tasksProvider = undefined;
     adapter = undefined;
   });
 
@@ -48,9 +56,21 @@ describe('official MCP Streamable HTTP transport', () => {
       arguments: { deviceId: 'device-42' },
       executionContext: { mode: 'live' },
     });
-    expect(result).toEqual(
-      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
-    );
+    expect(result).toEqual({
+      kind: 'immediate',
+      result: expect.objectContaining({
+        structuredContent: { deviceId: 'device-42', status: 'online' },
+        isError: false,
+      }),
+    });
+    await expect(
+      adapter.capabilities({ endpoint: server.endpoint.toString(), headers: {} }),
+    ).resolves.toEqual({
+      protocolEra: 'legacy',
+      protocolRevision: '2025-11-25',
+      tasksExtension: false,
+      tasksSchemaRevision: MCP_TASKS_SCHEMA_REVISION,
+    });
   });
 
   it('delivers runtime-owned simulation Headers to the real MCP HTTP server', async () => {
@@ -67,12 +87,18 @@ describe('official MCP Streamable HTTP transport', () => {
       arguments: { deviceId: 'device-42' },
       executionContext: { mode: 'simulation' as const, simulationId: 'simulation-real-1' },
     };
-    await expect(adapter.call(input)).resolves.toEqual(
-      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
-    );
-    await expect(adapter.call(input)).resolves.toEqual(
-      expect.objectContaining({ structuredContent: { deviceId: 'device-42', status: 'online' } }),
-    );
+    await expect(adapter.call(input)).resolves.toEqual({
+      kind: 'immediate',
+      result: expect.objectContaining({
+        structuredContent: { deviceId: 'device-42', status: 'online' },
+      }),
+    });
+    await expect(adapter.call(input)).resolves.toEqual({
+      kind: 'immediate',
+      result: expect.objectContaining({
+        structuredContent: { deviceId: 'device-42', status: 'online' },
+      }),
+    });
 
     expect(server.receivedHeaders).toContainEqual(
       expect.objectContaining({
@@ -91,6 +117,155 @@ describe('official MCP Streamable HTTP transport', () => {
       arguments: { deviceId: '' },
     });
     expect(result.isError).toBe(true);
+  });
+
+  it('negotiates the frozen Tasks extension and executes call/get/update/cancel over real HTTP', async () => {
+    tasksProvider = await startMcpTasksMockProvider();
+    adapter = new StreamableHttpMcpAdapter();
+    const endpoint = tasksProvider.endpoint.toString();
+    const headers = {
+      Authorization: 'Bearer task-secret',
+      'X-SDAR-Execution-Mode': 'historical-replay',
+      'X-SDAR-Simulation-Id': 'replay-task-1',
+    };
+
+    await expect(adapter.capabilities({ endpoint, headers })).resolves.toEqual({
+      protocolEra: 'modern',
+      protocolRevision: MCP_TASKS_TESTED_PROTOCOL_REVISION,
+      tasksExtension: true,
+      tasksSchemaRevision: MCP_TASKS_SCHEMA_REVISION,
+    });
+    await expect(
+      adapter.call({
+        endpoint,
+        headers,
+        toolName: 'sync_success',
+        arguments: {},
+        executionContext: { mode: 'historical-replay', simulationId: 'replay-task-1' },
+      }),
+    ).resolves.toEqual({
+      kind: 'immediate',
+      result: expect.objectContaining({
+        structuredContent: { status: 'sync_complete' },
+        isError: false,
+      }),
+    });
+    const accepted = await adapter.call({
+      endpoint,
+      headers,
+      toolName: 'async_success',
+      arguments: {},
+      executionContext: { mode: 'historical-replay', simulationId: 'replay-task-1' },
+    });
+    expect(accepted).toEqual({
+      kind: 'remote_task',
+      task: expect.objectContaining({
+        remoteTaskId: 'remote-task-0000000000000001',
+        status: 'working',
+      }),
+    });
+    const remoteTaskId =
+      accepted.kind === 'remote_task' ? accepted.task.remoteTaskId : 'unreachable';
+    await expect(adapter.getTask({ endpoint, headers, remoteTaskId })).resolves.toEqual(
+      expect.objectContaining({
+        remoteTaskId,
+        status: 'completed',
+        protocolRevision: MCP_TASKS_TESTED_PROTOCOL_REVISION,
+        result: expect.objectContaining({ structuredContent: { status: 'remote_complete' } }),
+      }),
+    );
+    await expect(
+      adapter.updateTask({
+        endpoint,
+        headers,
+        remoteTaskId,
+        inputResponses: { approval: { action: 'accept', content: { approved: true } } },
+      }),
+    ).resolves.toEqual({
+      acknowledged: true,
+      protocolRevision: MCP_TASKS_TESTED_PROTOCOL_REVISION,
+    });
+    await expect(adapter.cancelTask({ endpoint, headers, remoteTaskId })).resolves.toEqual({
+      acknowledged: true,
+      protocolRevision: MCP_TASKS_TESTED_PROTOCOL_REVISION,
+    });
+
+    const discover = tasksProvider.requests.find((request) => request.method === 'server/discover');
+    expect(discover?.params).toEqual(
+      expect.objectContaining({
+        _meta: expect.objectContaining({
+          'io.modelcontextprotocol/clientCapabilities': expect.objectContaining({
+            extensions: { [MCP_TASKS_EXTENSION_ID]: {} },
+          }),
+        }),
+      }),
+    );
+    for (const request of tasksProvider.requests.filter((item) =>
+      item.method.startsWith('tasks/'),
+    )) {
+      expect(request.headers).toEqual(
+        expect.objectContaining({
+          authorization: 'Bearer task-secret',
+          'x-sdar-execution-mode': 'historical-replay',
+          'x-sdar-simulation-id': 'replay-task-1',
+          'mcp-method': request.method,
+          'mcp-name': remoteTaskId,
+        }),
+      );
+      expect(request.params).toEqual(expect.objectContaining({ taskId: remoteTaskId }));
+    }
+  });
+
+  it('rejects Task results from a Provider that did not declare the extension', async () => {
+    tasksProvider = await startMcpTasksMockProvider({ declareTasks: false });
+    adapter = new StreamableHttpMcpAdapter();
+    const endpoint = tasksProvider.endpoint.toString();
+    await expect(
+      adapter.call({
+        endpoint,
+        headers: {},
+        toolName: 'async_success',
+        arguments: {},
+        executionContext: { mode: 'live' },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_CAPABILITY_REQUIRED' });
+  });
+
+  it.each(['malformed_task_id', 'unknown_task_status', 'unknown_task_field'])(
+    'fails closed for malformed Task response %s',
+    async (toolName) => {
+      tasksProvider = await startMcpTasksMockProvider();
+      adapter = new StreamableHttpMcpAdapter();
+      await expect(
+        adapter.call({
+          endpoint: tasksProvider.endpoint.toString(),
+          headers: {},
+          toolName,
+          arguments: {},
+          executionContext: { mode: 'live' },
+        }),
+      ).rejects.toMatchObject({ code: 'MCP_TASK_RESPONSE_INVALID' });
+    },
+  );
+
+  it('keeps a synchronous business rejection immediate and creates no remote Task ID', async () => {
+    tasksProvider = await startMcpTasksMockProvider();
+    adapter = new StreamableHttpMcpAdapter();
+    const outcome = await adapter.call({
+      endpoint: tasksProvider.endpoint.toString(),
+      headers: {},
+      toolName: 'rejected_without_task',
+      arguments: {},
+      executionContext: { mode: 'live' },
+    });
+    expect(outcome).toEqual({
+      kind: 'immediate',
+      result: expect.objectContaining({
+        isError: true,
+        structuredContent: expect.objectContaining({ outcome: 'admission_rejected' }),
+      }),
+    });
+    expect(JSON.stringify(outcome)).not.toContain('remoteTaskId');
   });
 
   it('propagates client cancellation to the remote Tool AbortSignal', async () => {

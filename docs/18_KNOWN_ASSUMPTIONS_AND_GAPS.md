@@ -30,7 +30,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 ## v1.1 MCP Tasks Phase 0 冻结项
 
 - 2026-07-16：实施包引用的 `SDAR_v1.1_MCP_Tasks_升级方案.md` 不存在；仓库中 byte-frozen 的 `SDAR_v1.1_MCP_Tasks_升级设计文档.md` 与实施包内容匹配并作为对应设计输入。规范化实现设计写入 `docs/22_V1_1_MCP_TASKS_DESIGN.md`，未修改需求基线。
-- 2026-07-16：所需 `tasks/get`、`tasks/update`、`tasks/cancel` 是官方 `io.modelcontextprotocol/tasks` extension 的形状，而 SDK 1.29.0 高层 `experimental.tasks` 是旧版 `tasks/result`、`tasks/list` 形状。ADR-076 锁定 SDK transport + adapter low-level request；该兼容性必须在 Phase 1 loopback 合约中真实验证。
+- 2026-07-16：所需 `tasks/get`、`tasks/update`、`tasks/cancel` 是官方 `io.modelcontextprotocol/tasks` extension 的形状，而 SDK 1.29.0 高层 `experimental.tasks` 是旧版 `tasks/result`、`tasks/list` 形状。Phase 1 Spike 进一步证明 v1 只协商到 `2025-11-25`，官方扩展禁止在该 legacy 协议启用，因此 ADR-081 覆盖 ADR-076 的客户端版本决策：生产 Adapter 精确使用官方 v2 beta.4 自动协商；v1 仅保留 legacy loopback Server fixture。
+- 2026-07-16：官方 v2 beta.4 的 modern fixture 标注 `2026-07-28`，冻结 extension draft 标注 `2026-06-30`，且 SDK 未内建该扩展。实现必须保存协商修订并用本地冻结 Schema 做 exact-combination 合约测试；不得声称未测试 beta 或协议修订兼容。
+- 2026-07-16：Phase 1 将远程 Task ID 限制为 1–512 个 visible ASCII 字符。该限制同时满足冻结 Schema 的非空标识语义、`Mcp-Name` Header 安全和有界输入要求；更宽字符集只有在上游 extension 明确编码规则并通过新的 Intake/ADR/契约门禁后才能接受。
+- 2026-07-16：可执行 Spike 证明 beta.4 codec 会先于显式 Schema 拒绝 `resultType=task`，并把 `tasks/get`/`tasks/cancel` 当作 modern era 已删除的旧核心方法；transport 也不会从 `taskId` 派生 `Mcp-Name`。ADR-081 允许且仅允许 Adapter 内的临时 method/result/Header bridge；loopback 必须证明外部 wire 仍是官方方法、原始 payload 与精确 routing Headers。
 - 2026-07-16：官方 extension 无 tag，当前为 draft/incubating source。锁定 commit `8966bea9c4f4e6d71060cc8284a539086e9e234f` 及两个 schema blobs；未通过新的 Intake/ADR/契约门禁不得漂移。
 - 2026-07-16：当前领域只有 MCP `serverId`，没有独立 `providerId` 权威来源。v1.1 以 `serverId` 表示 Provider authority；外部 wire 文档中的 provider 概念在持久化/领域中映射到 `serverId`，避免重复身份。
 - 2026-07-16：远程绑定必须使用稳定 `workflowNodeRunId`，不能只用 DSL `nodeId`，否则循环、重试或同节点多次运行会别名。

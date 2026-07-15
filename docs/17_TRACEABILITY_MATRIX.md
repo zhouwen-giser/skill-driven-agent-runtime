@@ -155,13 +155,13 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 
 ## SDAR v1.1 MCP Tasks Addendum
 
-本节是 `docs/22_V1_1_MCP_TASKS_DESIGN.md` 的增量追踪，不改写 V1.0 基线。Phase 0 仅冻结设计，因此以下状态均为“未实现”；只有真实实现、测试命令和报告齐全后才能逐行改为“已验证”。
+本节是 `docs/22_V1_1_MCP_TASKS_DESIGN.md` 的增量追踪，不改写 V1.0 基线。Phase 0 冻结设计；后续只在对应实现、测试命令和报告齐全时更新状态。跨阶段需求在所有组成部分完成前保持“部分验证”。
 
 | Requirement | Phase | Status | Planned implementation authority | Planned tests/evidence |
 | --- | --- | --- | --- | --- |
-| FR-MCPT-001 | 1 | 未实现 | `packages/mcp-adapter`; application Tasks port; ADR-076 | extension schema + official-SDK loopback contract |
-| FR-MCPT-002 | 1 | 未实现 | MCP domain union; `McpRegistryService`; adapter | immediate/error/remote union unit+contract+E2E |
-| FR-MCPT-003 | 1–2 | 未实现 | remote Task domain; observation repository | schema/state reduction/PostgreSQL tests |
+| FR-MCPT-001 | 1 | 已验证 | `packages/domain/src/mcp-task.ts`; `packages/application/src/ports.ts`; `packages/mcp-adapter/src/{streamable-http-adapter,mcp-tasks-contract,mcp-tasks-transport-bridge}.ts`; ADR-076/081 | `packages/mcp-adapter/test/streamable-http.contract.test.ts`; real official v2 Client/Streamable HTTP modern loopback + official v1 legacy fallback; `pnpm verify:bootstrap`（57 files/283 tests）和 `reports/v1.1-mcp-tasks/01-protocol-adapter.{json,md}` |
+| FR-MCPT-002 | 1 | 已验证 | `packages/domain/src/mcp-task.ts`; `packages/application/src/mcp-registry.ts`; `packages/mcp-adapter/src/mcp-tasks-contract.ts` | `packages/application/test/mcp-registry.unit.test.ts`; `packages/mcp-adapter/test/streamable-http.contract.test.ts`; immediate success、`isError` rejection、remote handle、unknown/malformed fail closed；同上 Phase 1 report |
+| FR-MCPT-003 | 1–2 | 部分验证（Phase 1 Schema） | `packages/domain/src/mcp-task.ts`; `packages/mcp-adapter/src/mcp-tasks-contract.ts`; Phase 2 observation repository pending | 五态 discriminated Schema、status-specific payload 和 unknown status 合约已过；有序 PostgreSQL observation/reduction 尚待 Phase 2 |
 | FR-MCPT-004 | 2 | 未实现 | binding domain/repository/migration 0100+; ADR-077/080 | PG uniqueness/lineage/restart E2E |
 | FR-MCPT-005 | 2 | 未实现 | Redis poll scheduler/worker/reconciler | Redis+PG duplicate/lost/stale job integration |
 | FR-MCPT-006 | 2 | 未实现 | poll failure policy and observations | unreachable/backoff/recovery clock tests |
@@ -173,23 +173,23 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | FR-MCPT-012 | 5 | 未实现 | remote input link; Task input service; `tasks/update` | A2A input to same remote Task E2E |
 | FR-MCPT-013 | 5 | 未实现 | cancel request/ack/observation state | success/unreachable/race contract+E2E |
 | FR-MCPT-014 | 5–6 | 未实现 | management API/OpenAPI/Console real projections/actions | API contract, Console unit/browser E2E, smoke |
-| NFR-MCPT-001 | 1–6 | 未实现 | bounded schemas, sanitization, architecture gates | malformed/depth/size/secret/error tests |
+| NFR-MCPT-001 | 1–6 | 部分验证（Phase 1 protocol boundary） | `packages/mcp-adapter/src/mcp-tasks-contract.ts`; `packages/mcp-adapter/src/mcp-tasks-transport-bridge.ts`; `scripts/check-architecture.mjs` | strict top-level Schema、ID/time/integer/JSON bytes/depth/entry/string bounds、unknown field/status、SDK isolation 已过 11 个 adapter contracts 与 architecture gate；持久快照/API 清洗待后续阶段 |
 | NFR-MCPT-002 | 2–6 | 未实现 | context queue + idempotent repositories/controls | concurrent/duplicate/process failure tests |
 | NFR-MCPT-003 | 2,4,6 | 未实现 | PostgreSQL binding/snapshot + Redis reconciler | real process/Redis restart E2E |
-| NFR-MCPT-004 | 2–6 | 未实现 | binding/observation/control/event/API/Console correlation | trace query/API/UI E2E and acceptance report |
+| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1 invocation/protocol） | `packages/application/src/mcp-registry.ts`; `packages/mcp-adapter/src/streamable-http-adapter.ts`; 后续 binding/observation/API/Console pending | invocation 保留 immediate/remote 结构，adapter 暴露实际 protocol/schema revision；完整相关查询和 UI E2E 待 Phase 2–6 |
 
 | Acceptance | Phase | Status | Planned evidence |
 | --- | --- | --- | --- |
-| AC-MCPT-01 | 1 | 未实现 | synchronous success/error regression, zero binding |
-| AC-MCPT-02 | 1–2 | 未实现 | negotiated Task creation, headers, binding and trace |
-| AC-MCPT-03 | 1 | 未实现 | unsupported fallback and require-task fail-closed |
+| AC-MCPT-01 | 1 | 已验证 | real legacy/modern HTTP `sync_success`；application `isError=true` 记录 `failed/MCP_TOOL_BUSINESS_REJECTION` 且无 remote ID；`pnpm test:unit` + `pnpm test:contract`；Phase 1 report |
+| AC-MCPT-02 | 1–2 | 部分验证（Phase 1 protocol） | real modern negotiation、Task handle、exact method/name Headers、get/update/cancel 和 revision 已过；durable binding/trace 待 Phase 2 |
+| AC-MCPT-03 | 1,3 | 部分验证（Phase 1 fallback） | legacy ordinary Tool fallback 与 undeclared Provider Task rejection 已过；DSL `require_task` mismatch 待 Phase 3 |
 | AC-MCPT-04 | 2,4 | 未实现 | working→completed poll/continue/output/terminal |
 | AC-MCPT-05 | 2,4 | 未实现 | pause/resume observation without Graph continuation |
 | AC-MCPT-06 | 5 | 未实现 | A2A input→tasks/update without Goal replan |
 | AC-MCPT-07 | 5 | 未实现 | cancel request/ack/provider-cancelled sequence |
 | AC-MCPT-08 | 5 | 未实现 | unreachable cancellation uncertainty |
 | AC-MCPT-09 | 3–5 | 未实现 | restricted risk/confirmation/pre-call refresh/accept |
-| AC-MCPT-10 | 1,5 | 未实现 | admission rejected, no binding, error handler |
+| AC-MCPT-10 | 1,5 | 部分验证（Phase 1 rejection） | real `rejected_without_task` 保持 immediate `isError=true`、invocation 非成功且无 remote ID；Workflow structured error handler 待 Phase 5 |
 | AC-MCPT-11 | 3,5 | 未实现 | Provider-reported start-window-missed |
 | AC-MCPT-12 | 3,5 | 未实现 | Provider-reported deadline-reached after isolation |
 | AC-MCPT-13 | 2 | 未实现 | provider unreachable backoff/no fake terminal/recovery |

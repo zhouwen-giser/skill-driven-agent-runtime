@@ -41,7 +41,7 @@ flowchart TB
 | Workflow Planner     | 根据 Goal/Skill/记忆生成 DSL             | 执行任意代码                 |
 | DSL Validator        | 结构、引用、Schema、预算、循环安全       | 业务推理                     |
 | LangGraph Compiler   | 把合法 DSL 编译为 StateGraph             | 决定 Goal 是否达成           |
-| MCP Adapter          | Tool 发现、Schema、调用、结果封装        | Skill 选择                   |
+| MCP Adapter          | Tool/Task 发现、协议协商、Schema、调用、结果封装与 SDK 隔离 | Skill 选择、远程 Task 领域权威 |
 | Result Processor     | 标准化、摘要、事实提取、记忆候选         | 直接发布 Skill               |
 | Evaluation/Evolution | 多评估器、经验聚类、Skill 模拟验证       | 绕过发布/版本规则            |
 | Console              | 管理和可视化真实运行数据                 | 自建另一套执行状态           |

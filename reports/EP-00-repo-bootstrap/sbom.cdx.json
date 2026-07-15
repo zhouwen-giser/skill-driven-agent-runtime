@@ -475,6 +475,46 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:npm/@modelcontextprotocol%2Fclient@2.0.0-beta.4",
+      "name": "@modelcontextprotocol/client",
+      "version": "2.0.0-beta.4",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+        }
+      ],
+      "purl": "pkg:npm/@modelcontextprotocol%2Fclient@2.0.0-beta.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/@modelcontextprotocol%2Fcore@2.0.0-beta.4",
+      "name": "@modelcontextprotocol/core",
+      "version": "2.0.0-beta.4",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+        }
+      ],
+      "purl": "pkg:npm/@modelcontextprotocol%2Fcore@2.0.0-beta.4"
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:npm/@modelcontextprotocol%2Fsdk@1.29.0",
       "name": "@modelcontextprotocol/sdk",
       "version": "1.29.0",
@@ -5692,6 +5732,32 @@
         }
       ],
       "purl": "pkg:npm/zod@4.4.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f",
+      "name": "modelcontextprotocol/ext-tasks",
+      "version": "8966bea9c4f4e6d71060cc8284a539086e9e234f",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "72d9dae54a96d7b2c9acd13338d3407b7413d5d04076bf82ef0724007742df75"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/modelcontextprotocol/ext-tasks"
+        }
+      ],
+      "purl": "pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f"
     },
     {
       "type": "container",

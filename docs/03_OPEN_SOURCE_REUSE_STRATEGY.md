@@ -21,7 +21,7 @@
 
 - `@langchain/langgraph`
 - `@a2a-js/sdk` 的经验证 v1.0 beta/后续稳定版本
-- `@modelcontextprotocol/sdk`
+- `@modelcontextprotocol/client@2.0.0-beta.4`（extension-era 生产 Client）与迁移期 legacy Server fixture `@modelcontextprotocol/sdk@1.29.0`，均只在 MCP Adapter
 - BullMQ、Redis client、PostgreSQL driver、pgvector/ORM
 - Ajv/Zod、OpenTelemetry API、Web server 与前端基础库
 
@@ -37,6 +37,6 @@
 ## 兼容性 Spike 必做项
 
 - A2A JavaScript SDK 的 v1.0 支持、Agent Card、JSON-RPC/REST、流式、Task Store、取消和状态映射。
-- MCP Streamable HTTP client 的连接、发现、调用、取消、超时和错误。
+- MCP Streamable HTTP client 的连接、发现、调用、取消、超时和错误。v1.1 Spike 由 ADR-081 固化：v1 不能启用 extension；v2 beta.4 自动协商可用，但 SEP-2663 的 method/result/Header 缺口必须由 Adapter 内临时 bridge 和精确 wire 合约覆盖。
 - LangGraph.js 动态 DSL 编译、并行、循环、子图和运行时事件。
 - Redis Checkpoint 需求与本项目“运行中故障不恢复”策略的适配。

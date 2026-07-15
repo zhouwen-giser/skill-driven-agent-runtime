@@ -8,6 +8,10 @@ import type {
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
+  McpInvocationOutcome,
+  McpProtocolCapabilities,
+  RemoteTaskOperationAck,
+  RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
@@ -456,7 +460,38 @@ export interface McpTransportAdapter {
       executionContext: RuntimeExecutionContext;
       signal?: AbortSignal;
     }>,
-  ): Promise<unknown>;
+  ): Promise<McpInvocationOutcome>;
+  capabilities(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+    }>,
+  ): Promise<McpProtocolCapabilities>;
+  getTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskSnapshot>;
+  updateTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+  cancelTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
   disconnect(
     input: Readonly<{
       endpoint: string;
