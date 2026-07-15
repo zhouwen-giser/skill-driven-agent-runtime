@@ -60,9 +60,23 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const previous = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+    );
+    if (previous.rows[0]?.applied === true) {
+      const forward = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0054_skill_call_history.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(forward);
+      return;
+    }
   }
   const migration = await readFile(
     new URL('../../../infra/postgres/migrations/0002_protocol_domain.up.sql', import.meta.url),
@@ -366,6 +380,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(mcpToolEnhancementStageMigration);
+  const skillCallHistoryMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0054_skill_call_history.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(skillCallHistoryMigration);
 });
 
 beforeEach(async () => {
@@ -994,6 +1013,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     for (const [planId, workflowId] of [
       ['plan.parent.db', 'workflow.parent.db'],
       ['plan.child.db', 'workflow.child.db'],
+      ['plan.child-second.db', 'workflow.child-second.db'],
     ] as const)
       await plans.savePlan({
         planId,
@@ -1033,8 +1053,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await executions.saveInstance(
       instance('instance.child.db', 'plan.child.db', 'workflow.child.db'),
     );
+    await executions.saveInstance(
+      instance('instance.child-second.db', 'plan.child-second.db', 'workflow.child-second.db'),
+    );
     const repository = new PostgresSkillCallWorkflowRepository(pool);
     await repository.save({
+      callId: 'skill-call.db.1',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
       childInstanceId: 'instance.child.db',
@@ -1046,14 +1070,38 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: '2026-07-12T00:00:01.000Z',
       completedAt: '2026-07-12T00:00:02.000Z',
     });
+    await repository.save({
+      callId: 'skill-call.db.2',
+      parentInstanceId: 'instance.parent.db',
+      parentNodeId: 'child',
+      childInstanceId: 'instance.child-second.db',
+      childPlanId: 'plan.child-second.db',
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      status: 'succeeded',
+      evaluationSummary: 'Repeated output Schema passed.',
+      createdAt: '2026-07-12T00:00:03.000Z',
+      completedAt: '2026-07-12T00:00:04.000Z',
+    });
     await expect(repository.listByParent('instance.parent.db')).resolves.toEqual([
       expect.objectContaining({
+        callId: 'skill-call.db.1',
         childInstanceId: 'instance.child.db',
         skillId: 'skill.child.db',
         skillVersion: 1,
         evaluationSummary: 'Output Schema passed.',
       }),
+      expect.objectContaining({
+        callId: 'skill-call.db.2',
+        childInstanceId: 'instance.child-second.db',
+        parentNodeId: 'child',
+        evaluationSummary: 'Repeated output Schema passed.',
+      }),
     ]);
+    await expect(repository.find('instance.parent.db', 'child')).resolves.toMatchObject({
+      callId: 'skill-call.db.2',
+      childInstanceId: 'instance.child-second.db',
+    });
   });
 
   it('atomically fails interrupted Tasks and Workflow instances without reconstructing execution', async () => {
@@ -2912,6 +2960,35 @@ describe('PostgreSQL protocol-domain repositories', () => {
       await pool.query(up);
     }
     expect(await stageRouteConstraint()).toContain('tool_enhancement');
+  });
+
+  it('rolls back and reapplies append-only Skill call history', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0054_skill_call_history.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL('../../../infra/postgres/migrations/0054_skill_call_history.up.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.columns
+         WHERE table_name='skill_call_workflow' AND column_name='call_id'`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='skill_call_workflow' AND column_name='call_id'`,
+    );
+    expect(restored.rows[0]?.count).toBe('1');
   });
 });
 

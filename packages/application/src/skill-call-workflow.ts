@@ -12,6 +12,7 @@ import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
 
 export const MAX_SKILL_CALL_DEPTH = 8;
+export const MAX_SKILL_CHILD_RESULT_CHARACTERS = 64_000;
 
 export class SkillCallWorkflowService {
   readonly #skills: SkillRepository;
@@ -107,6 +108,7 @@ export class SkillCallWorkflowService {
     });
     if (child.status !== 'succeeded') {
       await this.#records.save({
+        callId,
         parentInstanceId: input.parentInstanceId,
         parentNodeId: input.parentNodeId,
         childInstanceId,
@@ -126,9 +128,30 @@ export class SkillCallWorkflowService {
       );
     }
 
+    const resultSize = jsonSize(child.result);
+    if (resultSize > MAX_SKILL_CHILD_RESULT_CHARACTERS) {
+      await this.#records.save({
+        callId,
+        parentInstanceId: input.parentInstanceId,
+        parentNodeId: input.parentNodeId,
+        childInstanceId,
+        childPlanId,
+        skillId: skill.skillId,
+        skillVersion: skill.version,
+        status: 'failed',
+        evaluationSummary: `Skill output contained ${String(resultSize)} JSON characters, exceeding the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
+        createdAt,
+        completedAt: child.completedAt ?? this.#clock.now(),
+      });
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_OUTPUT_TOO_LARGE',
+        `Child result exceeds the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
+      );
+    }
     const outputValidation = this.#schemas.validate(skill.outputSchema, child.result);
     if (!outputValidation.valid) {
       await this.#records.save({
+        callId,
         parentInstanceId: input.parentInstanceId,
         parentNodeId: input.parentNodeId,
         childInstanceId,
@@ -147,6 +170,7 @@ export class SkillCallWorkflowService {
     }
 
     await this.#records.save({
+      callId,
       parentInstanceId: input.parentInstanceId,
       parentNodeId: input.parentNodeId,
       childInstanceId,
@@ -231,9 +255,55 @@ function childPlanningInstruction(
   });
 }
 
+function jsonSize(value: unknown): number {
+  const pending: { value: unknown; leave?: object }[] = [{ value }];
+  const active = new WeakSet();
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (entry === undefined) continue;
+    if (entry.leave !== undefined) {
+      active.delete(entry.leave);
+      continue;
+    }
+    const current = entry.value;
+    if (
+      current === null ||
+      typeof current === 'string' ||
+      typeof current === 'boolean' ||
+      (typeof current === 'number' && Number.isFinite(current))
+    )
+      continue;
+    if (typeof current !== 'object') throw invalidJsonOutput();
+    if (active.has(current)) throw invalidJsonOutput();
+    active.add(current);
+    pending.push({ value: null, leave: current });
+    if (isUnknownArray(current)) {
+      for (const item of current) pending.push({ value: item });
+      continue;
+    }
+    const prototype = Reflect.getPrototypeOf(current);
+    if (prototype !== Object.prototype && prototype !== null) throw invalidJsonOutput();
+    for (const item of Object.values(current as Readonly<Record<string, unknown>>))
+      pending.push({ value: item });
+  }
+  return JSON.stringify(value).length;
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+function invalidJsonOutput(): SkillCallWorkflowError {
+  return new SkillCallWorkflowError(
+    'WORKFLOW_SKILL_OUTPUT_INVALID',
+    'Child result is not finite JSON data.',
+  );
+}
+
 export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_INPUT_INVALID'
   | 'WORKFLOW_SKILL_OUTPUT_INVALID'
+  | 'WORKFLOW_SKILL_OUTPUT_TOO_LARGE'
   | 'WORKFLOW_SKILL_CHILD_PLAN_INVALID'
   | 'WORKFLOW_SKILL_CHILD_FAILED'
   | 'WORKFLOW_SKILL_CHILD_CANCELED'

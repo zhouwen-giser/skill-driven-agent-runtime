@@ -12,5 +12,6 @@
 - `packages/application/test/workflow-execution.unit.test.ts`
 - `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`
 - ADR-042 status, ADR-073, version/CHANGELOG/status/ExecPlan, traceability and release reports.
+- Bug-fixed: `packages/domain/src/skill-call-workflow.ts`, PostgreSQL repository/tests, runtime migration list, migration verifier, storage documentation and migration `0054_skill_call_history` up/down.
 
-Migration: none in the feature increment.
+Migration: none in the feature increment; bug-fixed adds `0054_skill_call_history` with rollback notes.

@@ -21,6 +21,19 @@ All notable changes to this project are documented here. The format follows Keep
 - Nested confirmation policy will be finalized in v1.0.5.
 - Repeated execution of the same parent `skill_call` node retains only the latest linkage under the current persistence key; the v1.0.2 bug-fixed audit covers this case.
 
+## [1.0.2-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Repeated entry into the same parent `skill_call` node now persists append-only call history keyed by `call_id`; latest-call lookup remains deterministic.
+- Child outputs must be finite JSON and no larger than 64,000 serialized characters before entering parent Workflow state.
+- Integration bootstrap now advances an existing migration ledger monotonically instead of replaying older constraint migrations.
+
+### Verification
+
+- Migration 0054 passes empty and historical-0049 upgrade paths, rollback/reapply, and real PostgreSQL repeated-parent-node repository tests.
+- Unit and real E2E evidence retain child failure/cancellation propagation, plan-save failure, recursion/depth rejection, real MCP audit and output validation.
+
 ## [1.0.1] - 2026-07-15
 
 ### Added

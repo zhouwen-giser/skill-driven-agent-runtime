@@ -75,7 +75,8 @@ Invariants for every increment:
 - [x] 2026-07-15 12:50 Baseline-only repair committed as `bc4b44a`; immutable Compose pins restored, `.env` recreated locally, operator-managed infrastructure mode added, and clean `pnpm verify` passed.
 - [x] 2026-07-15 13:17 v1.0.1 feature commit `34c48a8` and annotated `v1.0.1` tag pushed after 196 unit, 57 contract and 41 Workflow E2E tests passed.
 - [x] 2026-07-15 13:28 v1.0.1 bug-fixed commit `6417a6f` and annotated `v1.0.1-bug-fixed` tag pushed after the complete focused gate passed.
-- [ ] 2026-07-15 13:43 v1.0.2 feature gate passed (204 unit, 57 contract, 36 integration, 41 E2E); create the feature commit, annotated tag and push, then enter bug-fixed.
+- [x] 2026-07-15 13:44 v1.0.2 feature commit `0e3122c` and annotated `v1.0.2` tag pushed after 204 unit, 57 contract, 36 integration and 41 E2E tests passed.
+- [ ] 2026-07-15 13:54 v1.0.2 bug-fixed gate passed (206 unit, 57 contract, 37 integration, 41 E2E, build and migration paths); create bug-fixed commit, annotated tag and push.
 - [ ] Complete v1.0.3 feature and bug-fixed increments; run full gate.
 - [ ] Complete v1.0.4–v1.0.6 in order; run full gate at v1.0.6-bug-fixed.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
@@ -92,6 +93,7 @@ Invariants for every increment:
 - 2026-07-15: TypeScript 6 rejects a recursive type alias routed directly through `Readonly<Record<...>>`; an explicit `WorkflowBoundObject` interface preserves the task-package data model and strict typing.
 - 2026-07-15: referenced values originate at validated protocol boundaries in production, but the runtime port remains `unknown`; bounding both template traversal and detached cloning prevents a malformed or cyclic adapter value from exhausting the JavaScript stack.
 - 2026-07-15: ADR-042's independent child instance existed, but its child plan was a single deterministic LLM node. v1.0.2 therefore supersedes it with ADR-073 and the existing normal planner; the first real MCP E2E exposed that child Tool policy must be scoped to the child graph rather than the parent `skill_call` graph.
+- 2026-07-15: the v1.0.2 bug-fixed integration run exposed a test-bootstrap violation of ADR-072: an existing 0053 ledger attempted to replay 0002–0053 when 0054 was absent. The bootstrap now applies only the next forward migration, matching production monotonic behavior.
 
 ## Decision Log
 

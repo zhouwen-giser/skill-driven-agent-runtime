@@ -17,10 +17,12 @@ The parent Workflow already passed a v1.0.1-resolved immutable input snapshot. T
 - Tool policy is scoped to the Workflow governed by that Skill. A parent graph records and budgets a referenced child Skill, but the child Skill's required/forbidden Tool policy is enforced only against its independently planned child graph.
 - The child result is validated again against the actual current Skill output schema. Invalid, failed or canceled child outcomes are recorded and propagated; no model-generated fallback result is allowed.
 - Node execution propagates the parent `AbortSignal`. A bounded async Skill ancestry rejects cycles and composition deeper than eight calls before another child plan is generated.
-- The existing parent/node → child plan/instance/SkillVersion record remains the audit link for this increment. Repeated entry history is reviewed in the v1.0.2 bug-fixed phase.
+- The existing parent/node → child plan/instance/SkillVersion record remains the audit link for the feature increment. The v1.0.2 bug-fixed phase adds an independent `call_id` so repeated entry is append-only.
 
 ## Consequences
 
 Child Workflows may contain real MCP, LLM, control and nested Skill nodes while retaining the same planner, validator, executor, persistence and audit boundaries as top-level Workflows. Planning/model failure, Tool policy failure, MCP failure, cancellation and output-schema failure fail the parent node rather than producing a synthetic success.
 
 Nested confirmation policy will be finalized in v1.0.5.
+
+The v1.0.2 bug-fixed review additionally bounds child results to finite JSON of at most 64,000 serialized characters before returning them to parent state. Migration 0054 preserves every repeated parent-node call; its rollback collapses each parent/node history to the latest relation before restoring the legacy key.

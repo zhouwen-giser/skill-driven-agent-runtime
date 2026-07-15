@@ -1243,6 +1243,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0051_workflow_node_duration.up.sql',
     '0052_observability_correlation.up.sql',
     '0053_mcp_tool_enhancement_stage.up.sql',
+    '0054_skill_call_history.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

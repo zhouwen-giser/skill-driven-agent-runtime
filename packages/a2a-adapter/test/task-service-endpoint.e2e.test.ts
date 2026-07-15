@@ -1132,6 +1132,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await expect(runtime.listSkillCallWorkflows(instanceId)).resolves.toEqual([
         expect.objectContaining({
           parentNodeId: 'child',
+          callId: expect.any(String),
           childInstanceId: expect.stringMatching(/^instance-skill-call-/u),
           childPlanId: expect.stringMatching(/^plan-skill-call-/u),
           skillId,

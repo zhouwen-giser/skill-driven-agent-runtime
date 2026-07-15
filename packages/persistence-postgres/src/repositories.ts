@@ -3231,6 +3231,7 @@ const PendingConfirmationSchema = z
   .strict();
 
 interface SkillCallWorkflowRow extends QueryResultRow {
+  call_id: string;
   parent_instance_id: string;
   parent_node_id: string;
   child_instance_id: string;
@@ -3252,14 +3253,11 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   async save(record: SkillCallWorkflowRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_call_workflow(
-         parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
+         call_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
          status,evaluation_summary,created_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT(parent_instance_id,parent_node_id) DO UPDATE SET
-         child_instance_id=EXCLUDED.child_instance_id,child_plan_id=EXCLUDED.child_plan_id,
-         skill_id=EXCLUDED.skill_id,skill_version=EXCLUDED.skill_version,status=EXCLUDED.status,
-         evaluation_summary=EXCLUDED.evaluation_summary,completed_at=EXCLUDED.completed_at`,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
+        record.callId,
         record.parentInstanceId,
         record.parentNodeId,
         record.childInstanceId,
@@ -3276,7 +3274,9 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
   async find(parentInstanceId: string, parentNodeId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
-      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 AND parent_node_id=$2`,
+      `SELECT * FROM skill_call_workflow
+       WHERE parent_instance_id=$1 AND parent_node_id=$2
+       ORDER BY created_at DESC,completed_at DESC,call_id DESC LIMIT 1`,
       [parentInstanceId, parentNodeId],
     );
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
@@ -3284,7 +3284,8 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
   async listByParent(parentInstanceId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
-      `SELECT * FROM skill_call_workflow WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id`,
+      `SELECT * FROM skill_call_workflow
+       WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id,call_id`,
       [parentInstanceId],
     );
     return result.rows.map(mapSkillCallWorkflow);
@@ -3293,6 +3294,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 
 function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
   return {
+    callId: row.call_id,
     parentInstanceId: row.parent_instance_id,
     parentNodeId: row.parent_node_id,
     childInstanceId: row.child_instance_id,

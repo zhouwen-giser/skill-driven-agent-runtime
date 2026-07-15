@@ -1,6 +1,7 @@
 export type SkillCallWorkflowStatus = 'succeeded' | 'failed' | 'canceled';
 
 export interface SkillCallWorkflowRecord {
+  readonly callId: string;
   readonly parentInstanceId: string;
   readonly parentNodeId: string;
   readonly childInstanceId: string;

@@ -8,6 +8,7 @@ import type {
 import { createSkillVersion } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
+  MAX_SKILL_CHILD_RESULT_CHARACTERS,
   MAX_SKILL_CALL_DEPTH,
   nextSkillCallAncestry,
   SkillCallWorkflowService,
@@ -105,6 +106,7 @@ describe('SkillCallWorkflowService', () => {
     });
     expect(saveRecord).toHaveBeenCalledWith(
       expect.objectContaining({
+        callId: 'id-1',
         parentInstanceId: 'instance-parent',
         childInstanceId: 'instance-skill-call-id-1',
         skillVersion: 3,
@@ -144,6 +146,36 @@ describe('SkillCallWorkflowService', () => {
         evaluationSummary: expect.stringContaining('schema validation'),
       }),
     );
+  });
+
+  it('rejects an oversized child result before injecting it into the parent state', async () => {
+    const harness = serviceHarness({
+      child: childInstance({
+        status: 'online',
+        payload: 'x'.repeat(MAX_SKILL_CHILD_RESULT_CHARACTERS),
+      }),
+    });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_OUTPUT_TOO_LARGE' });
+    expect(harness.saveRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callId: 'id-1',
+        status: 'failed',
+        evaluationSummary: expect.stringContaining('exceeding'),
+      }),
+    );
+  });
+
+  it('rejects a cyclic non-JSON child result before output-schema validation', async () => {
+    const cyclic: { status: string; self?: unknown } = { status: 'online' };
+    cyclic.self = cyclic;
+    const harness = serviceHarness({ child: childInstance(cyclic) });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_OUTPUT_INVALID' });
   });
 
   it.each([

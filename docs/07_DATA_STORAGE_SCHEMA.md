@@ -19,6 +19,7 @@
 - `mcp_tool_warning`
 - `workflow_definition`
 - `workflow_instance`
+- `skill_call_workflow`
 - `workflow_node_run`
 - `mcp_invocation`
 - `model_provider`
@@ -69,3 +70,5 @@
 - 破坏性迁移需要备份与回滚说明；
 - CI 在空库和升级库上都运行 migration test；
 - 种子数据只包含 Mock Skill、Mock MCP 和开发配置，不含真实凭据。
+
+Migration `0054_skill_call_history` 将 `skill_call_workflow` 的主键改为独立 `call_id`，使同一父实例/节点的重复执行保留追加历史；`find(parent,node)` 仍按时间返回最新调用。其 rollback 为兼容旧主键会只保留每个父实例/节点最新一条关系，因此回滚前必须备份需要保留的重复调用审计。
