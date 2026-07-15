@@ -7,6 +7,7 @@
   "lastMergedHardeningSha": "fa4b0509971fc73c474211b871eeefaf4e76eb54",
   "lastObservedHardeningSha": "fa4b0509971fc73c474211b871eeefaf4e76eb54",
   "blockedFiles": [],
+  "blockers": ["phase-0-draft-pr-tooling"],
   "requiredNextCheckpoint": "before phase-3 implementation",
-  "updatedAt": "2026-07-16T00:00:00+08:00"
+  "updatedAt": "2026-07-16T02:28:00+08:00"
 }
