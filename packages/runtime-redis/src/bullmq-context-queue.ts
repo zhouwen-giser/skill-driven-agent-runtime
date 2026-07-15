@@ -7,8 +7,10 @@ import { ContextSerialExecutor } from './context-serial-executor.js';
 const ContextTaskJobSchema = z.object({
   taskId: z.string().min(1),
   contextId: z.string().min(1),
+  attemptId: z.string().min(1),
+  mode: z.enum(['initial', 'continue_after_input']),
 });
-type ContextTaskJob = z.infer<typeof ContextTaskJobSchema>;
+export type ContextTaskJob = z.infer<typeof ContextTaskJobSchema>;
 export const DEFAULT_CONTEXT_WORKER_CONCURRENCY = 10;
 
 export interface RedisConnectionConfig {
@@ -37,10 +39,10 @@ export class BullMqContextTaskQueue implements ContextTaskQueue {
     });
   }
 
-  async enqueue(input: Readonly<{ taskId: string; contextId: string }>): Promise<void> {
+  async enqueue(input: ContextTaskJob): Promise<void> {
     const job = ContextTaskJobSchema.parse(input);
     await this.#queue.add('task', job, {
-      jobId: job.taskId,
+      jobId: contextTaskJobId(job.taskId, job.attemptId),
       attempts: 1,
       removeOnComplete: false,
       removeOnFail: false,
@@ -52,8 +54,13 @@ export class BullMqContextTaskQueue implements ContextTaskQueue {
   }
 }
 
+/** BullMQ rejects ':' in custom IDs, so encode both composite identity segments explicitly. */
+export function contextTaskJobId(taskId: string, attemptId: string): string {
+  return `${encodeURIComponent(taskId)}~${encodeURIComponent(attemptId)}`;
+}
+
 export interface ContextTaskProcessor {
-  process(input: Readonly<{ taskId: string; contextId: string }>): Promise<void>;
+  process(input: ContextTaskJob): Promise<void>;
 }
 
 export interface BullMqContextWorkerOptions extends BullMqContextQueueOptions {

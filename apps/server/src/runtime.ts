@@ -110,6 +110,7 @@ import {
   PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
+  PostgresTaskInputRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
@@ -190,6 +191,7 @@ export async function startServerRuntime(
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
   const tasks = new PostgresAgentTaskRepository(pool);
+  const taskInputs = new PostgresTaskInputRepository(pool);
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
@@ -539,6 +541,7 @@ export async function startServerRuntime(
     tasks,
     events,
     skillDrafts,
+    taskInputs,
     queue,
     clock,
     ids,
@@ -585,7 +588,7 @@ export async function startServerRuntime(
             goalVersion,
             taskId: task.taskId,
             initialPlanId: planId,
-            input: { requestText: task.requestText },
+            input: await service.executionInput(task.taskId),
             skillIds: selectedSkillIds,
             planningInstruction: JSON.stringify({
               operation: 'task_outer_replan',
@@ -654,7 +657,12 @@ export async function startServerRuntime(
     memories,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
-      requestInput: (taskId, question) => service.requestInput(taskId, question),
+      requestInput: (taskId, question, controlId, controlRoundIndex) =>
+        service.requestInput(taskId, question, {
+          source: 'goal_evaluation',
+          controlId,
+          controlRoundIndex,
+        }),
       reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
       async prepareSkillReplacement(taskId) {
         if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
@@ -672,6 +680,8 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
+      reportInputContinuationPlan: (taskId, input) =>
+        service.awaitInputContinuationConfirmation(taskId, input),
       async reportAchieved(taskId, instance, evaluation) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
@@ -900,6 +910,21 @@ export async function startServerRuntime(
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
+    taskInputs,
+    requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
+    workflowContinuation: {
+      continueAfterInput(input) {
+        if (input.controlId === undefined || input.controlRoundIndex === undefined)
+          throw new Error('TASK_INPUT_WORKFLOW_CONTROL_ASSOCIATION_REQUIRED');
+        return workflowController.continueAfterInput({
+          controlId: input.controlId,
+          taskId: input.taskId,
+          inputRequestId: input.inputRequestId,
+          controlRoundIndex: input.controlRoundIndex,
+          content: input.content,
+        });
+      },
+    },
     taskPlanning: {
       async prepare(input) {
         const skill =
@@ -991,7 +1016,7 @@ export async function startServerRuntime(
           goalVersion: task.goalVersion,
           taskId: task.taskId,
           initialPlanId: input.planId,
-          input: { requestText: task.requestText },
+          input: input.executionInput,
           skillIds: [task.selectedSkillId],
           planningInstruction: JSON.stringify({
             operation: 'task_outer_replan',
@@ -1244,6 +1269,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0052_observability_correlation.up.sql',
     '0053_mcp_tool_enhancement_stage.up.sql',
     '0054_skill_call_history.up.sql',
+    '0055_task_input_continuation.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

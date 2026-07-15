@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
+  contextTaskJobId,
   type RedisConnectionConfig,
 } from '../src/index.js';
 
@@ -50,16 +51,12 @@ describe('BullMQ context queue', () => {
 
     const firstIds = Array.from({ length: 10 }, (_, index) => `task-${String(index)}-first`);
     await Promise.all(
-      firstIds.map((taskId, index) =>
-        queue.enqueue({ taskId, contextId: `context-${String(index)}` }),
-      ),
+      firstIds.map((taskId, index) => queue.enqueue(jobInput(taskId, `context-${String(index)}`))),
     );
     await waitFor(() => active === 10);
     const tailIds = Array.from({ length: 10 }, (_, index) => `task-${String(index)}-tail`);
     await Promise.all(
-      tailIds.map((taskId, index) =>
-        queue.enqueue({ taskId, contextId: `context-${String(index)}` }),
-      ),
+      tailIds.map((taskId, index) => queue.enqueue(jobInput(taskId, `context-${String(index)}`))),
     );
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 25);
@@ -69,7 +66,7 @@ describe('BullMQ context queue', () => {
     releaseFirstWave();
 
     const jobs = await Promise.all(
-      [...firstIds, ...tailIds].map((taskId) => rawQueue.getJob(taskId)),
+      [...firstIds, ...tailIds].map((taskId) => rawQueue.getJob(jobId(taskId))),
     );
     for (let offset = 0; offset < jobs.length; offset += 10) {
       await Promise.all(
@@ -118,12 +115,12 @@ describe('BullMQ context queue', () => {
     resources.unshift(worker);
     worker.start();
 
-    await queue.enqueue({ taskId: 'a1', contextId: 'context-a' });
-    await queue.enqueue({ taskId: 'a2', contextId: 'context-a' });
-    await queue.enqueue({ taskId: 'b1', contextId: 'context-b' });
-    const a1 = await rawQueue.getJob('a1');
-    const a2 = await rawQueue.getJob('a2');
-    const b1 = await rawQueue.getJob('b1');
+    await queue.enqueue(jobInput('a1', 'context-a'));
+    await queue.enqueue(jobInput('a2', 'context-a'));
+    await queue.enqueue(jobInput('b1', 'context-b'));
+    const a1 = await rawQueue.getJob(jobId('a1'));
+    const a2 = await rawQueue.getJob(jobId('a2'));
+    const b1 = await rawQueue.getJob(jobId('b1'));
     if (a1 === undefined || a2 === undefined || b1 === undefined)
       throw new Error('BULLMQ_JOB_MISSING');
 
@@ -144,7 +141,7 @@ describe('BullMQ context queue', () => {
   it('retains a queued job across queue-client restart before a worker starts', async () => {
     const queueName = `sdar-queue-restart-${String(Date.now())}`;
     const firstQueue = new BullMqContextTaskQueue({ connection, queueName });
-    await firstQueue.enqueue({ taskId: 'queued-1', contextId: 'context-restart' });
+    await firstQueue.enqueue(jobInput('queued-1', 'context-restart'));
     await firstQueue.close();
 
     const observed: string[] = [];
@@ -161,7 +158,7 @@ describe('BullMQ context queue', () => {
       },
     });
     resources.push(worker, queueEvents, rawQueue);
-    const job = await rawQueue.getJob('queued-1');
+    const job = await rawQueue.getJob(jobId('queued-1'));
     if (job === undefined) throw new Error('BULLMQ_RESTART_JOB_MISSING');
     worker.start();
     await job.waitUntilFinished(queueEvents, 5_000);
@@ -188,15 +185,15 @@ describe('BullMQ context queue', () => {
     });
     resources.push(worker, queueEvents, rawQueue, queue);
 
-    await queue.enqueue({ taskId: 'failed-once', contextId: 'context-failure' });
-    const job = await rawQueue.getJob('failed-once');
+    await queue.enqueue(jobInput('failed-once', 'context-failure'));
+    const job = await rawQueue.getJob(jobId('failed-once'));
     if (job === undefined) throw new Error('BULLMQ_FAILED_JOB_MISSING');
     worker.start();
     await expect(job.waitUntilFinished(queueEvents, 5_000)).rejects.toThrow(
       'worker failed after a side effect',
     );
     await waitFor(() => processorCalls === 1);
-    const failedJob = await rawQueue.getJob('failed-once');
+    const failedJob = await rawQueue.getJob(jobId('failed-once'));
     if (failedJob === undefined) throw new Error('BULLMQ_FAILED_JOB_NOT_RETAINED');
 
     expect(processorCalls).toBe(1);
@@ -204,7 +201,60 @@ describe('BullMQ context queue', () => {
     expect(failedJob.attemptsMade).toBe(1);
     await expect(failedJob.getState()).resolves.toBe('failed');
   });
+
+  it('allows a completed Task job to be followed by a distinct input-response attempt', async () => {
+    const queueName = `sdar-input-attempt-${String(Date.now())}`;
+    const queue = new BullMqContextTaskQueue({ connection, queueName });
+    const rawQueue = new Queue(queueName, { connection });
+    const queueEvents = new QueueEvents(queueName, { connection });
+    const observed: string[] = [];
+    const worker = new BullMqContextWorker({
+      connection,
+      queueName,
+      processor: {
+        process: ({ attemptId, mode }) => {
+          observed.push(`${attemptId}:${mode}`);
+          return Promise.resolve();
+        },
+      },
+    });
+    resources.push(worker, queueEvents, rawQueue, queue);
+    worker.start();
+    await queue.enqueue({
+      taskId: 'task-continuation',
+      contextId: 'context-continuation',
+      attemptId: 'attempt-initial',
+      mode: 'initial',
+    });
+    const initial = await rawQueue.getJob(contextTaskJobId('task-continuation', 'attempt-initial'));
+    if (initial === undefined) throw new Error('INITIAL_ATTEMPT_JOB_MISSING');
+    await initial.waitUntilFinished(queueEvents, 5_000);
+    await queue.enqueue({
+      taskId: 'task-continuation',
+      contextId: 'context-continuation',
+      attemptId: 'attempt-input-response',
+      mode: 'continue_after_input',
+    });
+    const continuation = await rawQueue.getJob(
+      contextTaskJobId('task-continuation', 'attempt-input-response'),
+    );
+    if (continuation === undefined) throw new Error('CONTINUATION_ATTEMPT_JOB_MISSING');
+    await continuation.waitUntilFinished(queueEvents, 5_000);
+
+    expect(observed).toEqual([
+      'attempt-initial:initial',
+      'attempt-input-response:continue_after_input',
+    ]);
+  });
 });
+
+function jobInput(taskId: string, contextId: string) {
+  return { taskId, contextId, attemptId: `${taskId}-attempt`, mode: 'initial' as const };
+}
+
+function jobId(taskId: string): string {
+  return contextTaskJobId(taskId, `${taskId}-attempt`);
+}
 
 async function waitFor(predicate: () => boolean): Promise<void> {
   const deadline = Date.now() + 5_000;

@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-15
+
+### Added
+
+- Durable Task input requests, responses and initial/input-response execution attempts in PostgreSQL, including exact Goal-control round linkage.
+- Attempt-aware BullMQ Jobs with one-attempt execution and BullMQ-safe composite Task/attempt identity.
+- `WorkflowControllerService.continueAfterInput` for a fresh, unconfirmed plan after Goal Evaluation requests more input.
+
+### Changed
+
+- `provide_input` now answers the original waiting request, queues continuation on the original Task/Context, and immediately projects working state.
+- Goal deliberation uses persisted supplementary answers; Workflow controls merge the same data into execution input without replaying completed Workflow instances.
+
+### Verification
+
+- Unit, real PostgreSQL restart, real Redis serialization/job-identity, and real A2A/MCP tests cover both recovery paths and prove the supplied value reaches subsequent MCP arguments.
+
 ## [1.0.2] - 2026-07-15
 
 ### Added

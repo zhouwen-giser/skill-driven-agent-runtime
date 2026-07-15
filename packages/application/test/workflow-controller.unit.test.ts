@@ -193,6 +193,41 @@ describe('Workflow outer controller', () => {
       );
     },
   );
+
+  it('binds answered input to its waiting round and creates a fresh unconfirmed plan', async () => {
+    const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
+    fixture.evaluator.decisions.push({
+      decision: 'request_input',
+      summary: 'A device identifier is required.',
+      question: 'Which device?',
+    });
+    await fixture.controller.start(startInput());
+
+    const continued = await fixture.controller.continueAfterInput({
+      controlId: 'control-1',
+      taskId: 'task-control',
+      inputRequestId: 'input-request-1',
+      controlRoundIndex: 0,
+      content: 'device-17',
+    });
+
+    expect(continued).toMatchObject({
+      status: 'awaiting_confirmation',
+      currentPlanId: 'plan-control-1-1',
+      roundCount: 1,
+      replanCount: 1,
+      input: {
+        request: 'run',
+        supplementaryInputs: [{ inputRequestId: 'input-request-1', content: 'device-17' }],
+      },
+    });
+    expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+    expect(fixture.execution.confirm).not.toHaveBeenCalled();
+    expect(fixture.taskOutcomes.reportInputContinuationPlan).toHaveBeenCalledWith(
+      'task-control',
+      expect.objectContaining({ planId: 'plan-control-1-1' }),
+    );
+  });
 });
 
 function startInput() {
@@ -229,6 +264,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
       }),
     ),
     reportReplacementPlan: vi.fn(() => Promise.resolve()),
+    reportInputContinuationPlan: vi.fn(() => Promise.resolve()),
   };
   const planner = {
     plan: vi.fn(async (request: { planId: string; workflowVersion: number }) => {

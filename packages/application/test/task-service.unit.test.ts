@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   transitionTask,
+  createTaskInputRequest,
   type AgentTask,
   type ConversationContext,
   type SkillDraft,
+  type TaskExecutionAttempt,
+  type TaskInputRequest,
+  type TaskInputResponse,
 } from '../../domain/src/index.js';
 import {
   ANONYMOUS_USER_ID,
@@ -16,11 +20,25 @@ import {
   type RuntimeEventPublisher,
   type RuntimeTaskEvent,
   type SkillDraftRepository,
+  type TaskInputRepository,
 } from '../src/index.js';
 
 const timestamp = '2026-07-11T10:00:00.000Z';
 
 describe('TaskService', () => {
+  it('requires Goal-evaluation input requests to identify both control and round', () => {
+    expect(() =>
+      createTaskInputRequest({
+        inputRequestId: 'input-request-1',
+        taskId: 'task-1',
+        contextId: 'context-1',
+        source: 'goal_evaluation',
+        question: 'Which device?',
+        controlId: 'control-1',
+        createdAt: timestamp,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'TASK_INPUT_CONTROL_ROUND_INVALID' }));
+  });
   it('creates default anonymous/context values, persists first, then enqueues by context', async () => {
     const harness = createHarness();
     const result = await harness.service.submit({
@@ -63,6 +81,96 @@ describe('TaskService', () => {
     expect(result.createdContext).toBe(false);
     expect(result.task.userId).toBe('user-original');
     expect(harness.operations).not.toContain('context.save:context-existing');
+  });
+
+  it('persists supplementary input and queues a distinct continuation attempt', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect it.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of ['context_loading', 'goal_deliberation'] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    await harness.service.requestInput(task.taskId, 'Which device?', {
+      source: 'goal_deliberation',
+    });
+    const request = [...harness.inputRequests.values()][0];
+    if (request === undefined) throw new Error('INPUT_REQUEST_MISSING');
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'provide_input',
+        inputRequestId: request.inputRequestId,
+        messageText: 'device-17',
+      }),
+    ).resolves.toMatchObject({
+      taskId: task.taskId,
+      phase: 'goal_deliberation',
+      phaseMessage: 'Supplementary input saved; continuation queued.',
+    });
+    expect(harness.inputRequests.get(request.inputRequestId)).toMatchObject({
+      status: 'answered',
+      answeredAt: timestamp,
+    });
+    expect([...harness.inputResponses.values()]).toEqual([
+      expect.objectContaining({
+        inputRequestId: request.inputRequestId,
+        taskId: task.taskId,
+        content: 'device-17',
+      }),
+    ]);
+    expect([...harness.attempts.values()].map((attempt) => attempt.reason)).toEqual([
+      'initial',
+      'input_response',
+    ]);
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'provide_input',
+        inputRequestId: request.inputRequestId,
+        messageText: 'device-17 again',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INPUT_NOT_PENDING' });
+  });
+
+  it('rejects input for an expired request and for a request owned by another Task', async () => {
+    const harness = createHarness();
+    const first = await harness.service.submit({ messageText: 'First.', metadata: {} });
+    const second = await harness.service.submit({ messageText: 'Second.', metadata: {} });
+    for (const submitted of [first, second]) {
+      let task = submitted.task;
+      for (const phase of ['context_loading', 'goal_deliberation'] as const)
+        task = transitionTask(task, phase, phase, timestamp);
+      harness.tasks.set(task.taskId, task);
+      await harness.service.requestInput(task.taskId, `Question for ${task.taskId}?`, {
+        source: 'goal_deliberation',
+      });
+    }
+    const requests = [...harness.inputRequests.values()];
+    const firstRequest = requests.find((request) => request.taskId === first.task.taskId);
+    const secondRequest = requests.find((request) => request.taskId === second.task.taskId);
+    if (firstRequest === undefined || secondRequest === undefined)
+      throw new Error('INPUT_REQUEST_MISSING');
+    harness.inputRequests.set(firstRequest.inputRequestId, {
+      ...firstRequest,
+      status: 'expired',
+    });
+    await expect(
+      harness.service.followUp({
+        taskId: first.task.taskId,
+        action: 'provide_input',
+        inputRequestId: firstRequest.inputRequestId,
+        messageText: 'late',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INPUT_ALREADY_RESOLVED' });
+    await expect(
+      harness.service.followUp({
+        taskId: first.task.taskId,
+        action: 'provide_input',
+        inputRequestId: secondRequest.inputRequestId,
+        messageText: 'wrong task',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INPUT_TASK_MISMATCH' });
   });
 
   it('persists a Skill request as a non-published draft before queueing', async () => {
@@ -280,11 +388,17 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
   drafts: Map<string, SkillDraft>;
   events: RuntimeTaskEvent[];
   operations: string[];
+  inputRequests: Map<string, TaskInputRequest>;
+  inputResponses: Map<string, TaskInputResponse>;
+  attempts: Map<string, TaskExecutionAttempt>;
 }> {
   const contexts = new Map<string, ConversationContext>();
   const tasks = new Map<string, AgentTask>();
   const drafts = new Map<string, SkillDraft>();
   const events: RuntimeTaskEvent[] = [];
+  const inputRequests = new Map<string, TaskInputRequest>();
+  const inputResponses = new Map<string, TaskInputResponse>();
+  const attempts = new Map<string, TaskExecutionAttempt>();
   const operations: string[] = [];
   const contextRepository: ConversationContextRepository = {
     findById: (contextId) => Promise.resolve(contexts.get(contextId)),
@@ -329,6 +443,59 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     },
     markPublished: () => Promise.reject(new Error('UNUSED')),
   };
+  const taskInputs: TaskInputRepository = {
+    createRequest: (request) => {
+      inputRequests.set(request.inputRequestId, request);
+      return Promise.resolve();
+    },
+    findRequest: (inputRequestId) => Promise.resolve(inputRequests.get(inputRequestId)),
+    findPendingByTask: (taskId) =>
+      Promise.resolve(
+        [...inputRequests.values()].find(
+          (request) => request.taskId === taskId && request.status === 'waiting',
+        ),
+      ),
+    cancelPending: (taskId, status) => {
+      for (const request of inputRequests.values())
+        if (request.taskId === taskId && request.status === 'waiting')
+          inputRequests.set(request.inputRequestId, { ...request, status });
+      return Promise.resolve();
+    },
+    listResponses: (taskId) =>
+      Promise.resolve(
+        [...inputResponses.values()].filter((response) => response.taskId === taskId),
+      ),
+    createInitialAttempt: (attempt) => {
+      attempts.set(attempt.attemptId, attempt);
+      return Promise.resolve();
+    },
+    answerAndCreateAttempt: (input) => {
+      const request = inputRequests.get(input.inputRequestId);
+      if (request?.status !== 'waiting')
+        return Promise.reject(new Error('TASK_INPUT_REQUEST_NOT_WAITING'));
+      inputRequests.set(input.inputRequestId, {
+        ...request,
+        status: 'answered',
+        answeredAt: input.answeredAt,
+      });
+      inputResponses.set(input.response.inputResponseId, input.response);
+      attempts.set(input.attempt.attemptId, input.attempt);
+      return Promise.resolve();
+    },
+    findAttempt: (attemptId) => Promise.resolve(attempts.get(attemptId)),
+    findResponseForAttempt: () => Promise.resolve(undefined),
+    updateAttempt: (attemptId, status, updatedAt, errorCode) => {
+      const attempt = attempts.get(attemptId);
+      if (attempt === undefined) return Promise.reject(new Error('ATTEMPT_NOT_FOUND'));
+      attempts.set(attemptId, {
+        ...attempt,
+        status,
+        ...(status === 'running' ? { startedAt: updatedAt } : { completedAt: updatedAt }),
+        ...(errorCode === undefined ? {} : { errorCode }),
+      });
+      return Promise.resolve();
+    },
+  };
   let contextSequence = 0;
   let taskSequence = 0;
   let eventSequence = 0;
@@ -336,7 +503,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     nextId: (kind) => {
       if (kind === 'context') return `context-${String(++contextSequence)}`;
       if (kind === 'task') return `task-${String(++taskSequence)}`;
-      return `event-${String(++eventSequence)}`;
+      return `${kind}-${String(++eventSequence)}`;
     },
   };
   return {
@@ -346,6 +513,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       queue,
       events: publisher,
       skillDrafts,
+      taskInputs,
       clock: { now: () => timestamp },
       ids,
       planActions: {
@@ -374,5 +542,8 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     drafts,
     events,
     operations,
+    inputRequests,
+    inputResponses,
+    attempts,
   };
 }

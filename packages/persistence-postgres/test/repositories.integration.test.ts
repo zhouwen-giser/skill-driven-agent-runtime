@@ -41,10 +41,12 @@ import {
   PostgresTaskQualityReportRepository,
   PostgresEvaluationInfluenceRepository,
   PostgresEvaluationAnalyticsRepository,
+  PostgresTaskInputRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
   createAgentTask,
+  createTaskInputRequest,
   createSkillVersion,
   recordTaskCapabilityGap,
   transitionTask,
@@ -60,16 +62,16 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0055_task_input_continuation') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
     const previous = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
     );
     if (previous.rows[0]?.applied === true) {
       const forward = await readFile(
         new URL(
-          '../../../infra/postgres/migrations/0054_skill_call_history.up.sql',
+          '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
           import.meta.url,
         ),
         'utf8',
@@ -385,6 +387,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillCallHistoryMigration);
+  const taskInputContinuationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(taskInputContinuationMigration);
 });
 
 beforeEach(async () => {
@@ -2565,6 +2575,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       tasks,
       events,
       skillDrafts: new PostgresSkillDraftRepository(pool),
+      taskInputs: new PostgresTaskInputRepository(pool),
       queue: { enqueue: () => Promise.resolve() },
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
       ids: sequenceIds(),
@@ -2659,6 +2670,66 @@ describe('PostgreSQL protocol-domain repositories', () => {
       }),
     ]);
   });
+
+  it('answers a persisted waiting request after service restart and creates a new attempt', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const taskInputs = new PostgresTaskInputRepository(pool);
+    const events = new PostgresRuntimeEventPublisher(pool);
+    const ids = sequenceIds();
+    const queued: unknown[] = [];
+    const dependencies = {
+      contexts,
+      tasks,
+      taskInputs,
+      events,
+      skillDrafts: new PostgresSkillDraftRepository(pool),
+      queue: {
+        enqueue: (input: unknown) => {
+          queued.push(input);
+          return Promise.resolve();
+        },
+      },
+      clock: { now: () => '2026-07-15T10:00:00.000Z' },
+      ids,
+    };
+    const firstService = new TaskService(dependencies);
+    const submitted = await firstService.submit({ messageText: 'Inspect it.', metadata: {} });
+    let task = submitted.task;
+    task = transitionTask(task, 'context_loading', 'loaded', task.updatedAt);
+    task = transitionTask(task, 'goal_deliberation', 'deliberating', task.updatedAt);
+    await tasks.save(task);
+    await firstService.requestInput(task.taskId, 'Which device?', {
+      source: 'goal_deliberation',
+    });
+    const pending = await taskInputs.findPendingByTask(task.taskId);
+    if (pending === undefined) throw new Error('PERSISTED_INPUT_REQUEST_MISSING');
+
+    const restartedService = new TaskService(dependencies);
+    await restartedService.followUp({
+      taskId: task.taskId,
+      action: 'provide_input',
+      inputRequestId: pending.inputRequestId,
+      messageText: 'device-17',
+    });
+
+    await expect(taskInputs.findRequest(pending.inputRequestId)).resolves.toMatchObject({
+      status: 'answered',
+      answeredAt: '2026-07-15T10:00:00.000Z',
+    });
+    await expect(taskInputs.listResponses(task.taskId)).resolves.toEqual([
+      expect.objectContaining({ content: 'device-17', inputRequestId: pending.inputRequestId }),
+    ]);
+    expect(queued).toEqual([
+      expect.objectContaining({ mode: 'initial', attemptId: 'attempt-1' }),
+      expect.objectContaining({ mode: 'continue_after_input', attemptId: 'attempt-2' }),
+    ]);
+    await expect(taskInputs.findAttempt('attempt-2')).resolves.toMatchObject({
+      reason: 'input_response',
+      status: 'queued',
+      inputRequestId: pending.inputRequestId,
+    });
+  });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);
@@ -2736,20 +2807,69 @@ describe('PostgreSQL protocol-domain repositories', () => {
         '2026-07-12T00:01:00.000Z',
       ),
     );
+    const inputBase = createAgentTask({
+      taskId: 'task.wait.input.db',
+      contextId: 'context.wait.db',
+      userId: 'operator',
+      requestText: 'Wait for input.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    const inputLoading = transitionTask(
+      inputBase,
+      'context_loading',
+      'Loaded.',
+      inputBase.updatedAt,
+    );
+    const inputDeliberating = transitionTask(
+      inputLoading,
+      'goal_deliberation',
+      'Goal.',
+      inputBase.updatedAt,
+    );
+    await tasks.save(
+      transitionTask(
+        inputDeliberating,
+        'awaiting_user_input',
+        'Which device?',
+        '2026-07-12T00:01:00.000Z',
+      ),
+    );
+    const taskInputs = new PostgresTaskInputRepository(pool);
+    await taskInputs.createRequest(
+      createTaskInputRequest({
+        inputRequestId: 'input-request.wait.db',
+        taskId: 'task.wait.input.db',
+        contextId: 'context.wait.db',
+        source: 'goal_deliberation',
+        question: 'Which device?',
+        createdAt: '2026-07-12T00:01:00.000Z',
+      }),
+    );
     await waits.update({ timeoutSeconds: 60, updatedAt: '2026-07-12T00:02:00.000Z' });
 
     await expect(
       waits.expireWaiting('2026-07-12T00:01:00.000Z', '2026-07-12T00:02:00.000Z'),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        taskId: 'task.wait.db',
-        phase: 'canceled',
-        errorCode: 'TASK_WAIT_TIMEOUT',
-      }),
-    ]);
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskId: 'task.wait.db',
+          phase: 'canceled',
+          errorCode: 'TASK_WAIT_TIMEOUT',
+        }),
+        expect.objectContaining({
+          taskId: 'task.wait.input.db',
+          phase: 'canceled',
+          errorCode: 'TASK_WAIT_TIMEOUT',
+        }),
+      ]),
+    );
     await expect(tasks.findById('task.wait.db')).resolves.toMatchObject({
       phase: 'canceled',
       errorCode: 'TASK_WAIT_TIMEOUT',
+    });
+    await expect(taskInputs.findRequest('input-request.wait.db')).resolves.toMatchObject({
+      status: 'expired',
     });
     const event = await pool.query<{ summary: string }>(
       "SELECT summary FROM runtime_event WHERE task_id='task.wait.db'",
@@ -2766,6 +2886,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       tasks,
       events,
       skillDrafts: new PostgresSkillDraftRepository(pool),
+      taskInputs: new PostgresTaskInputRepository(pool),
       queue: { enqueue: () => Promise.resolve() },
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
       ids: sequenceIds(),
@@ -2789,6 +2910,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       tasks,
       events: new PostgresRuntimeEventPublisher(pool),
       skillDrafts: new PostgresSkillDraftRepository(pool),
+      taskInputs: new PostgresTaskInputRepository(pool),
       queue: { enqueue: () => Promise.resolve() },
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
       ids: sequenceIds(),
@@ -2828,6 +2950,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       tasks,
       events: new PostgresRuntimeEventPublisher(pool),
       skillDrafts: drafts,
+      taskInputs: new PostgresTaskInputRepository(pool),
       queue: { enqueue: () => Promise.resolve() },
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
       ids: sequenceIds(),
@@ -2990,6 +3113,40 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     expect(restored.rows[0]?.count).toBe('1');
   });
+
+  it('rolls back and reapplies durable Task input continuation', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0055_task_input_continuation.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.tables
+         WHERE table_schema='public' AND table_name IN
+           ('task_input_request','task_input_response','task_execution_attempt')`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.tables
+       WHERE table_schema='public' AND table_name IN
+         ('task_input_request','task_input_response','task_execution_attempt')`,
+    );
+    expect(restored.rows[0]?.count).toBe('3');
+  });
 });
 
 async function stageRouteConstraint(): Promise<string> {
@@ -3001,8 +3158,19 @@ async function stageRouteConstraint(): Promise<string> {
   return result.rows.map((row) => row.definition).join('\n');
 }
 
-function sequenceIds(): Readonly<{ nextId(kind: 'context' | 'task' | 'event'): string }> {
-  const counters = { context: 0, task: 0, event: 0 };
+function sequenceIds(): Readonly<{
+  nextId(
+    kind: 'context' | 'task' | 'event' | 'input-request' | 'input-response' | 'attempt',
+  ): string;
+}> {
+  const counters = {
+    context: 0,
+    task: 0,
+    event: 0,
+    'input-request': 0,
+    'input-response': 0,
+    attempt: 0,
+  };
   return {
     nextId: (kind) => `${kind}-${String(++counters[kind])}`,
   };

@@ -69,8 +69,18 @@ const MemoryRetentionPolicySchema = z.object({
 });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
 const TaskActionSchema = z.object({
-  action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
+  action: z.enum([
+    'confirm_plan',
+    'reject_plan',
+    'revise_plan',
+    'patch_goal',
+    'cancel_goal',
+    'provide_input',
+    'pause',
+    'resume',
+  ]),
   messageText: z.string().min(1),
+  inputRequestId: z.string().min(1).optional(),
 });
 const EvaluationAnalyticsFilterSchema = z
   .object({
@@ -740,6 +750,7 @@ export async function startManagementHttpEndpoint(
           taskId: pathValue(request, 'taskId'),
           action: input.action,
           messageText: input.messageText,
+          ...(input.inputRequestId === undefined ? {} : { inputRequestId: input.inputRequestId }),
         }),
       );
     }),

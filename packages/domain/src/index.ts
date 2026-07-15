@@ -29,5 +29,6 @@ export * from './memory-retention.js';
 export * from './prompt.js';
 export * from './processed-result.js';
 export * from './task.js';
+export * from './task-input.js';
 export * from './task-quality.js';
 export * from './task-wait-policy.js';

@@ -1,16 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { createAgentTask, type AgentTask } from '../../domain/src/index.js';
+import { createAgentTask, transitionTask, type AgentTask } from '../../domain/src/index.js';
 import { PlanPreparationProcessor } from '../src/index.js';
 
 const timestamp = '2026-07-12T00:00:00.000Z';
+const initialJob = {
+  taskId: 'task-1',
+  contextId: 'context-1',
+  attemptId: 'attempt-1',
+  mode: 'initial' as const,
+};
 
 describe('PlanPreparationProcessor LLM decisions', () => {
   it('binds the LLM-formulated Goal and LLM-selected Skill before planning', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
     const processor = processorWith(tasks);
-    await processor.process({ taskId: 'task-1', contextId: 'context-1' });
+    await processor.process(initialJob);
 
     expect(tasks.value).toMatchObject({
       phase: 'awaiting_plan_confirmation',
@@ -26,9 +32,9 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
     const processor = processorWith(tasks, true);
-    await expect(
-      processor.process({ taskId: 'task-1', contextId: 'context-1' }),
-    ).rejects.toMatchObject({ code: 'MODEL_INVOCATION_FAILED' });
+    await expect(processor.process(initialJob)).rejects.toMatchObject({
+      code: 'MODEL_INVOCATION_FAILED',
+    });
     expect(tasks.value).toMatchObject({
       phase: 'failed',
       phaseMessage: 'Task preparation failed with MODEL_INVOCATION_FAILED.',
@@ -38,10 +44,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
   it('reuses the active Goal for another Task in the same context', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
-    await processorWith(tasks, false, 'active').process({
-      taskId: 'task-1',
-      contextId: 'context-1',
-    });
+    await processorWith(tasks, false, 'active').process(initialJob);
     expect(tasks.value).toMatchObject({ goalId: 'goal-existing', goalVersion: 3 });
     expect(tasks.goalFormulations).toBe(0);
     expect(tasks.messages).toContain('Continuing the active Goal for this context.');
@@ -50,10 +53,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
   it('records an LLM-decided related successor after the previous Goal ended', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
-    await processorWith(tasks, false, 'terminal').process({
-      taskId: 'task-1',
-      contextId: 'context-1',
-    });
+    await processorWith(tasks, false, 'terminal').process(initialJob);
     expect(tasks.createdGoal).toMatchObject({
       goalId: 'goal-1',
       previousGoalId: 'goal-existing',
@@ -70,7 +70,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     tasks.value = task();
     tasks.goalRequiresInput = true;
     tasks.inferenceOutcome = 'inferred';
-    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    await processorWith(tasks).process(initialJob);
     expect(tasks.value).toMatchObject({ phase: 'awaiting_plan_confirmation' });
     expect(tasks.createdGoal).toMatchObject({ description: 'Inspect inferred device-17.' });
   });
@@ -80,7 +80,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     tasks.value = task();
     tasks.goalRequiresInput = true;
     tasks.inferenceOutcome = 'input_required';
-    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    await processorWith(tasks).process(initialJob);
     expect(tasks.value).toMatchObject({
       phase: 'awaiting_user_input',
       phaseMessage: 'Which device should be inspected?',
@@ -92,13 +92,19 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
     tasks.autoConfirm = true;
-    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    await processorWith(tasks).process(initialJob);
     expect(tasks.value).toMatchObject({
       phase: 'executing',
       planId: 'plan-task-1',
       phaseMessage: 'Skill policy auto-confirmed the plan.',
     });
-    expect(tasks.autoExecutions).toEqual([{ taskId: 'task-1', planId: 'plan-task-1' }]);
+    expect(tasks.autoExecutions).toEqual([
+      {
+        taskId: 'task-1',
+        planId: 'plan-task-1',
+        executionInput: { requestText: 'Complete it.', supplementaryInputs: [] },
+      },
+    ]);
   });
 
   it('binds a task-scoped Temporary Skill and always stops at plan confirmation', async () => {
@@ -107,7 +113,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     tasks.useTemporarySkill = true;
     tasks.autoConfirm = true;
 
-    await processorWith(tasks).process({ taskId: 'task-1', contextId: 'context-1' });
+    await processorWith(tasks).process(initialJob);
 
     expect(tasks.value).toMatchObject({
       phase: 'awaiting_plan_confirmation',
@@ -118,6 +124,27 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     expect(tasks.planningInput).toMatchObject({ temporarySkillId: 'temporary-1' });
     expect(tasks.autoExecutions).toEqual([]);
   });
+
+  it('continues Goal deliberation on the original Task using the saved answer', async () => {
+    const tasks = new MemoryTasks();
+    let waiting = task();
+    waiting = transitionTask(waiting, 'context_loading', 'loaded', timestamp);
+    waiting = transitionTask(waiting, 'goal_deliberation', 'deliberating', timestamp);
+    waiting = transitionTask(waiting, 'awaiting_user_input', 'Which device?', timestamp);
+    waiting = transitionTask(waiting, 'goal_deliberation', 'continuation queued', timestamp);
+    tasks.value = waiting;
+    tasks.attemptReason = 'input_response';
+    tasks.supplementaryContent = 'device-17';
+
+    await processorWith(tasks).process({ ...initialJob, mode: 'continue_after_input' });
+
+    expect(tasks.value).toMatchObject({
+      taskId: 'task-1',
+      phase: 'awaiting_plan_confirmation',
+      goalId: 'goal-1',
+    });
+    expect(tasks.formulationInputs[0]).toContain('device-17');
+  });
 });
 
 function processorWith(
@@ -126,6 +153,7 @@ function processorWith(
   prior: 'none' | 'active' | 'terminal' = 'none',
 ) {
   let event = 0;
+  let attemptStatus: 'queued' | 'running' | 'completed' | 'failed' = 'queued';
   return new PlanPreparationProcessor({
     tasks,
     events: {
@@ -145,8 +173,9 @@ function processorWith(
               }),
             )
           : Promise.resolve({ intent: 'execute', summary: 'Execute the task.' }),
-      formulateGoal: () => {
+      formulateGoal: ({ requestText }) => {
         tasks.goalFormulations += 1;
+        tasks.formulationInputs.push(requestText);
         return Promise.resolve({
           title: 'Goal',
           description: 'Complete the task.',
@@ -233,6 +262,67 @@ function processorWith(
               },
         ),
     },
+    taskInputs: {
+      findAttempt: () =>
+        Promise.resolve({
+          attemptId: 'attempt-1',
+          taskId: 'task-1',
+          contextId: 'context-1',
+          reason: tasks.attemptReason,
+          status: attemptStatus,
+          createdAt: timestamp,
+        }),
+      findResponseForAttempt: () =>
+        Promise.resolve(
+          tasks.attemptReason === 'input_response'
+            ? {
+                request: {
+                  inputRequestId: 'input-request-1',
+                  taskId: 'task-1',
+                  contextId: 'context-1',
+                  source: 'goal_deliberation' as const,
+                  question: 'Which device?',
+                  status: 'answered' as const,
+                  createdAt: timestamp,
+                  answeredAt: timestamp,
+                },
+                response: {
+                  inputResponseId: 'input-response-1',
+                  inputRequestId: 'input-request-1',
+                  taskId: 'task-1',
+                  content: tasks.supplementaryContent,
+                  createdAt: timestamp,
+                },
+              }
+            : undefined,
+        ),
+      listResponses: () =>
+        Promise.resolve(
+          tasks.supplementaryContent === undefined
+            ? []
+            : [
+                {
+                  inputResponseId: 'input-response-1',
+                  inputRequestId: 'input-request-1',
+                  taskId: 'task-1',
+                  content: tasks.supplementaryContent,
+                  createdAt: timestamp,
+                },
+              ],
+        ),
+      updateAttempt: (_attemptId, status) => {
+        attemptStatus = status;
+        return Promise.resolve();
+      },
+    },
+    requestTaskInput: (_taskId, question) => {
+      if (tasks.value === undefined) throw new Error('TASK_NOT_FOUND');
+      tasks.value = transitionTask(tasks.value, 'awaiting_user_input', question, timestamp);
+      return Promise.resolve();
+    },
+    workflowContinuation: {
+      continueAfterInput: () => Promise.reject(new Error('UNUSED')),
+    },
     taskPlanning: {
       prepare: (input) => {
         tasks.planningInput = input;
@@ -279,13 +369,16 @@ class MemoryTasks {
   value: AgentTask | undefined;
   readonly messages: string[] = [];
   goalFormulations = 0;
+  readonly formulationInputs: string[] = [];
+  attemptReason: 'initial' | 'input_response' = 'initial';
+  supplementaryContent: unknown;
   createdGoal: unknown;
   goalRequiresInput = false;
   inferenceOutcome: 'inferred' | 'input_required' = 'inferred';
   autoConfirm = false;
   useTemporarySkill = false;
   planningInput: unknown;
-  readonly autoExecutions: { taskId: string; planId: string }[] = [];
+  readonly autoExecutions: { taskId: string; planId: string; executionInput: unknown }[] = [];
   findById() {
     return Promise.resolve(this.value);
   }

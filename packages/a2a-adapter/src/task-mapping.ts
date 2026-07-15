@@ -33,7 +33,7 @@ export class A2AMappingError extends Error {
 
 export function toTaskFollowUp(
   message: Message,
-): Readonly<{ action: TaskFollowUpAction; messageText: string }> {
+): Readonly<{ action: TaskFollowUpAction; messageText: string; inputRequestId?: string }> {
   const command = toSubmitTaskCommand(message, 'follow-up', 'follow-up');
   const result = FollowUpActionSchema.safeParse(command.metadata['sdar_action']);
   if (!result.success) {
@@ -42,7 +42,17 @@ export function toTaskFollowUp(
       'A2A follow-up metadata sdar_action must name a supported task action.',
     );
   }
-  return { action: result.data, messageText: command.messageText };
+  const inputRequestId = command.metadata['input_request_id'];
+  if (inputRequestId !== undefined && typeof inputRequestId !== 'string')
+    throw new A2AMappingError(
+      'A2A_METADATA_INVALID',
+      'A2A follow-up metadata input_request_id must be a string.',
+    );
+  return {
+    action: result.data,
+    messageText: command.messageText,
+    ...(inputRequestId === undefined ? {} : { inputRequestId }),
+  };
 }
 
 export function toSubmitTaskCommand(

@@ -88,9 +88,14 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0055_task_input_continuation') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0054_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0055_MISSING:${label}`);
+  const continuationTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
+  );
+  if (continuationTables.rows[0]?.count !== 3)
+    throw new Error(`MIGRATION_TASK_INPUT_TABLES_MISSING:${label}`);
   const historyKey = await pool.query(
     "SELECT string_agg(a.attname,',' ORDER BY key_position.ordinality) AS columns FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS key_position(attnum,ordinality) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=key_position.attnum WHERE c.conname='skill_call_workflow_pkey' GROUP BY c.oid",
   );
