@@ -28,6 +28,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Fixed
 
+- Runtime-hardening baseline verification can reuse operator-managed loopback PostgreSQL/Redis without issuing Docker lifecycle commands; Compose images are again pinned by immutable OCI digest, and the external-infrastructure mode is recorded in verification evidence.
+
 - The 20-Job Redis concurrency test now observes completion in bounded batches, avoiding a false-positive Node EventEmitter warning from BullMQ's temporary `waitUntilFinished` listeners without reducing execution concurrency or assertions.
 
 - SBOM/license generation now filters the pnpm virtual store through the current lockfile and records package-relative license locators, excluding stale packages and peer-layout paths left by prior installs so clean-checkout evidence is deterministic.

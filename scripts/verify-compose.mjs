@@ -54,11 +54,11 @@ for (const statement of [
 
 const smoke = await readFile(new URL('./smoke-infra.mjs', import.meta.url), 'utf8');
 for (const fragment of [
-  "'up', '-d', '--wait'",
+  'startInfrastructure();',
   "extname = 'vector'",
   "'[1,0,0]'::vector(3)",
   'sdar:smoke:queue-persistence',
-  "'stop'",
+  'stopInfrastructure();',
 ]) {
   if (!smoke.includes(fragment)) {
     throw new Error(`INFRA_SMOKE_BASELINE_MISSING: ${fragment}`);

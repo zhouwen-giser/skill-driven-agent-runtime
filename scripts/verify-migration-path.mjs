@@ -1,20 +1,17 @@
-import { spawnSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
 import pg from 'pg';
 
+import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+
 const { Pool } = pg;
 const root = process.cwd();
 const databases = ['sdar_verify_empty', 'sdar_verify_upgrade'];
 
 try {
-  run(
-    'docker',
-    ['compose', '-f', 'compose.yaml', 'up', '-d', '--wait', 'postgres', 'redis'],
-    180_000,
-  );
+  startInfrastructure(root);
   const { applyRuntimeMigrations } = await import(
     `../dist/apps/server/src/runtime.js?migration-check=${String(Date.now())}`
   );
@@ -62,7 +59,9 @@ try {
   } finally {
     await upgradePool.end();
   }
-  process.stdout.write('Migration path verified from empty database and historical 0049 baseline.\n');
+  process.stdout.write(
+    'Migration path verified from empty database and historical 0049 baseline.\n',
+  );
 } finally {
   const admin = databasePool('sdar');
   try {
@@ -77,7 +76,7 @@ try {
     // The primary failure remains authoritative when infrastructure never became reachable.
   } finally {
     await admin.end().catch(() => undefined);
-    run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);
+    stopInfrastructure(root);
   }
 }
 
@@ -98,13 +97,5 @@ async function verifyCurrentSchema(pool, label) {
   const definition = constraint.rows[0]?.definition;
   if (typeof definition !== 'string' || !definition.includes('tool_enhancement')) {
     throw new Error(`MIGRATION_STAGE_CONSTRAINT_STALE:${label}`);
-  }
-}
-
-function run(command, args, timeout, ignoreFailure = false) {
-  const result = spawnSync(command, args, { cwd: root, env: process.env, stdio: 'inherit', timeout });
-  if (result.error !== undefined && !ignoreFailure) throw result.error;
-  if (result.status !== 0 && !ignoreFailure) {
-    throw new Error(`MIGRATION_VERIFY_COMMAND_FAILED:${command} ${args.join(' ')}`);
   }
 }
