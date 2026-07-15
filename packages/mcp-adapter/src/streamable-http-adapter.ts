@@ -3,6 +3,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 import type { McpTransportAdapter } from '../../application/src/index.js';
+import type { RuntimeExecutionContext } from '../../domain/src/index.js';
 
 export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   readonly #clients = new Map<string, Promise<Client>>();
@@ -25,6 +26,7 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
       signal?: AbortSignal;
     }>,
   ): Promise<unknown> {

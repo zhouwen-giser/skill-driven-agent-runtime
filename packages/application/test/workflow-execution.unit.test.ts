@@ -278,6 +278,7 @@ describe('Workflow execution application service', () => {
         planId: 'plan-1',
         input: {},
         skillIds: ['skill-tight'],
+        executionContext: { mode: 'simulation', simulationId: 'simulation-budget-1' },
       }),
     ).resolves.toMatchObject({
       status: 'failed',
@@ -291,6 +292,7 @@ describe('Workflow execution application service', () => {
       expect.objectContaining({ maxMcpCalls: 0, maxCost: 5 }),
       undefined,
       'instance-budget',
+      { mode: 'simulation', simulationId: 'simulation-budget-1' },
     );
   });
 

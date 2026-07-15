@@ -412,7 +412,7 @@ export async function startServerRuntime(
           : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
       });
     },
-    async callMcpTool({ executionId, tool, arguments: arguments_, signal }) {
+    async callMcpTool({ executionId, tool, arguments: arguments_, signal, executionContext }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
@@ -421,10 +421,19 @@ export async function startServerRuntime(
         tool.toolName,
         arguments_,
         signal,
-        task === undefined ? {} : { taskId: task.taskId, contextId: task.contextId },
+        task === undefined
+          ? { executionContext }
+          : { taskId: task.taskId, contextId: task.contextId, executionContext },
       );
     },
-    async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
+    async executeSkill({
+      skillId,
+      input,
+      parentExecutionId,
+      parentNodeId,
+      signal,
+      executionContext,
+    }) {
       const parent = await workflowInstances.findInstance(parentExecutionId);
       if (parent === undefined) throw new Error('WORKFLOW_PARENT_INSTANCE_NOT_FOUND');
       const ancestry = nextSkillCallAncestry(skillCallAncestry.getStore() ?? [], skillId);
@@ -436,11 +445,18 @@ export async function startServerRuntime(
           parentNodeId,
           parentGoalId: parent.goalId,
           parentGoalVersion: parent.goalVersion,
+          executionContext,
           ...(signal === undefined ? {} : { signal }),
         }),
       );
     },
-    async executeSubworkflow({ workflowDefinitionId, workflowVersion, input, signal }) {
+    async executeSubworkflow({
+      workflowDefinitionId,
+      workflowVersion,
+      input,
+      signal,
+      executionContext,
+    }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
       const ancestry = workflowAncestry.getStore() ?? [];
       if (ancestry.includes(key) || ancestry.length >= 16)
@@ -458,7 +474,7 @@ export async function startServerRuntime(
         const outcome = await new LangGraphWorkflowExecutor(
           workflowPorts,
           workflowCallCosts,
-        ).execute(definition, input, workflowBudgetDefaults, signal);
+        ).execute(definition, input, workflowBudgetDefaults, signal, undefined, executionContext);
         if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
         return outcome.result;
       });
@@ -804,7 +820,7 @@ export async function startServerRuntime(
     skills: skillRegistry,
     experiences: new PostgresEvolutionExperienceRepository(pool),
     runner: {
-      async run({ proposedSkill, case_ }) {
+      async run({ proposedSkill, case_, executionContext }) {
         const tool = proposedSkill.tools[0];
         if (tool === undefined)
           return { passed: false, summary: 'No Tool is available for simulation.' };
@@ -820,6 +836,7 @@ export async function startServerRuntime(
         try {
           await mcpRegistry.call(tool.serverId, tool.toolName, case_.input, undefined, {
             contextId: `skill-evolution:${proposedSkill.skillId}`,
+            executionContext,
           });
           return {
             passed: case_.expectedOutcome === 'success',
@@ -838,7 +855,7 @@ export async function startServerRuntime(
           };
         }
       },
-      async replay({ experience }) {
+      async replay({ experience, executionContext }) {
         try {
           const outcome = await langGraphExecutor.execute(
             experience.workflow,
@@ -846,6 +863,7 @@ export async function startServerRuntime(
             workflowBudgetDefaults,
             undefined,
             `evolution-replay-${experience.experienceId}-${randomUUID()}`,
+            executionContext,
           );
           return {
             succeeded: outcome.status === 'succeeded',
@@ -1292,6 +1310,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0053_mcp_tool_enhancement_stage.up.sql',
     '0054_skill_call_history.up.sql',
     '0055_task_input_continuation.up.sql',
+    '0056_mcp_execution_mode.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

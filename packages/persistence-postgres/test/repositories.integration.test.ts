@@ -63,21 +63,37 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0055_task_input_continuation') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
     const previous = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0055_task_input_continuation') AS applied",
     );
     if (previous.rows[0]?.applied === true) {
       const forward = await readFile(
         new URL(
-          '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
+          '../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql',
           import.meta.url,
         ),
         'utf8',
       );
       await pool.query(forward);
+      return;
+    }
+    const previousSkillCall = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
+    );
+    if (previousSkillCall.rows[0]?.applied === true) {
+      for (const migrationName of [
+        '0055_task_input_continuation.up.sql',
+        '0056_mcp_execution_mode.up.sql',
+      ]) {
+        const forward = await readFile(
+          new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
+          'utf8',
+        );
+        await pool.query(forward);
+      }
       return;
     }
   }
@@ -396,6 +412,11 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskInputContinuationMigration);
+  const mcpExecutionModeMigration = await readFile(
+    new URL('../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql', import.meta.url),
+    'utf8',
+  );
+  await pool.query(mcpExecutionModeMigration);
 });
 
 beforeEach(async () => {
@@ -1467,6 +1488,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       invocationId: 'mcp-invocation.analytics.db',
       taskId: task.taskId,
       contextId: task.contextId,
+      executionMode: 'historical-replay',
+      simulationId: 'analytics-replay-1',
       serverId: 'mcp.history',
       toolName: 'replay',
       arguments: {},
@@ -2474,6 +2497,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       invocationId: 'invocation-1',
       taskId: 'task-1',
       contextId: 'context-1',
+      executionMode: 'live',
       serverId: 'mcp.devices',
       toolName: 'inspect',
       arguments: { deviceId: 'device-1' },
@@ -3171,6 +3195,35 @@ describe('PostgreSQL protocol-domain repositories', () => {
          ('task_input_request','task_input_response','task_execution_attempt')`,
     );
     expect(restored.rows[0]?.count).toBe('3');
+  });
+
+  it('rolls back and reapplies MCP execution-mode audit columns', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0056_mcp_execution_mode.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL('../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.columns
+         WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')`,
+    );
+    expect(restored.rows[0]?.count).toBe('2');
   });
 });
 

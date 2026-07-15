@@ -34,6 +34,10 @@ describe('SkillCallWorkflowService', () => {
       Promise.resolve({ ...plan, confirmationStatus: 'confirmed' as const }),
     );
     const signal = new AbortController().signal;
+    const executionContext = {
+      mode: 'historical-replay' as const,
+      simulationId: 'replay-child-1',
+    };
     const execute = vi.fn(() => Promise.resolve(childInstance({ status: 'online' })));
     const loadToolPlanningMetadata = vi.fn(() =>
       Promise.resolve([
@@ -70,6 +74,7 @@ describe('SkillCallWorkflowService', () => {
         parentGoalId: 'goal-1',
         parentGoalVersion: 1,
         signal,
+        executionContext,
       }),
     ).resolves.toEqual({ status: 'online' });
 
@@ -103,6 +108,7 @@ describe('SkillCallWorkflowService', () => {
       input: { deviceId: 'device-1' },
       skillIds: [skill.skillId],
       signal,
+      executionContext,
     });
     expect(saveRecord).toHaveBeenCalledWith(
       expect.objectContaining({

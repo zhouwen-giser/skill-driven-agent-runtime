@@ -1094,6 +1094,7 @@ describe('management HTTP API contract', () => {
                 invocationId: 'mcp-invocation-1',
                 taskId,
                 contextId: 'context-1',
+                executionMode: 'live' as const,
                 serverId: 'server-1',
                 toolName: 'tool-1',
                 arguments: {},

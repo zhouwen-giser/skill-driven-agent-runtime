@@ -74,3 +74,5 @@
 Migration `0054_skill_call_history` 将 `skill_call_workflow` 的主键改为独立 `call_id`，使同一父实例/节点的重复执行保留追加历史；`find(parent,node)` 仍按时间返回最新调用。其 rollback 为兼容旧主键会只保留每个父实例/节点最新一条关系，因此回滚前必须备份需要保留的重复调用审计。
 
 Migration `0055_task_input_continuation` 新增 `task_input_request`、`task_input_response` 与 `task_execution_attempt`。问题和回答以 PostgreSQL 为权威；同一 Task 同时最多一个 `waiting` 问题，回答与新的 `input_response` attempt 在一个事务内创建。Goal Evaluation 问题保存 `control_id` 和 `control_round_index`，BullMQ 只携带 Task/Context/attempt/mode 的临时调度副本。rollback 会删除全部补充输入与 attempt 审计，回滚前必须备份。
+
+Migration `0056_mcp_execution_mode` 为 `mcp_invocation` 增加 `execution_mode` 与 `simulation_id`。`live` 审计不得带 simulation ID；`simulation` 与 `historical-replay` 必须保存稳定 ID。rollback 会删除这两个隔离审计字段，回滚前必须导出需要保留的非 live 调用关联。

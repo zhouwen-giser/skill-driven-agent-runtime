@@ -213,7 +213,18 @@ describe('LangGraph Workflow compiler', () => {
       ['result'],
     );
     const compiled = compileWorkflow(source, 'confirmed', runtime);
-    const interrupted = await compiled.invoke({ request: 'weather' }, budget, costs);
+    const executionContext = {
+      mode: 'simulation' as const,
+      simulationId: 'simulation-workflow-1',
+    };
+    const interrupted = await compiled.invoke(
+      { request: 'weather' },
+      budget,
+      costs,
+      undefined,
+      'workflow.compiler',
+      executionContext,
+    );
     expect(interrupted).toMatchObject({
       status: 'paused',
       pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
@@ -248,9 +259,16 @@ describe('LangGraph Workflow compiler', () => {
         tool: { serverId: 'weather', toolName: 'current' },
         arguments: { city: 'Shanghai' },
         signal: expect.any(AbortSignal),
+        executionContext,
       }),
     );
     expect(runtime.callMcpTool).toHaveBeenCalledTimes(1);
+    expect(runtime.executeSkill).toHaveBeenCalledWith(
+      expect.objectContaining({ executionContext }),
+    );
+    expect(runtime.executeSubworkflow).toHaveBeenCalledWith(
+      expect.objectContaining({ executionContext }),
+    );
     expect(runtime.requestHumanConfirmation).not.toHaveBeenCalled();
   });
 

@@ -525,6 +525,8 @@ interface McpInvocationRow extends QueryResultRow {
   invocation_id: string;
   task_id: string | null;
   context_id: string | null;
+  execution_mode: McpInvocation['executionMode'];
+  simulation_id: string | null;
   server_id: string;
   tool_name: string;
   arguments_json: Record<string, unknown>;
@@ -4526,13 +4528,15 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async saveInvocation(invocation: McpInvocation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO mcp_invocation
-         (invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
+         (invocation_id, task_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
           result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
         invocation.contextId ?? null,
+        invocation.executionMode,
+        invocation.simulationId ?? null,
         invocation.serverId,
         invocation.toolName,
         JSON.stringify(invocation.arguments),
@@ -4550,7 +4554,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
     );
@@ -4560,7 +4564,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
     );
@@ -5067,6 +5071,8 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     invocationId: row.invocation_id,
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
     ...(row.context_id === null ? {} : { contextId: row.context_id }),
+    executionMode: row.execution_mode,
+    ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     serverId: row.server_id,
     toolName: row.tool_name,
     arguments: row.arguments_json,

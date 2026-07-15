@@ -10,6 +10,7 @@ import {
 
 import type {
   ToolReference,
+  RuntimeExecutionContext,
   WorkflowBudgetLimits,
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
@@ -38,6 +39,7 @@ export interface WorkflowRuntimePorts {
       context?: unknown;
       responseSchema: unknown;
       signal?: AbortSignal;
+      executionContext: RuntimeExecutionContext;
     }>,
   ) => Promise<unknown>;
   readonly callMcpTool: (
@@ -46,6 +48,7 @@ export interface WorkflowRuntimePorts {
       tool: ToolReference;
       arguments: unknown;
       signal?: AbortSignal;
+      executionContext: RuntimeExecutionContext;
     }>,
   ) => Promise<unknown>;
   readonly executeSkill: (
@@ -55,6 +58,7 @@ export interface WorkflowRuntimePorts {
       parentExecutionId: string;
       parentNodeId: string;
       signal?: AbortSignal;
+      executionContext: RuntimeExecutionContext;
     }>,
   ) => Promise<unknown>;
   readonly executeSubworkflow: (
@@ -63,6 +67,7 @@ export interface WorkflowRuntimePorts {
       workflowVersion: number;
       input: unknown;
       signal?: AbortSignal;
+      executionContext: RuntimeExecutionContext;
     }>,
   ) => Promise<unknown>;
   readonly requestHumanConfirmation: (
@@ -171,6 +176,7 @@ export interface CompiledWorkflow {
     callCosts: WorkflowCallCosts,
     signal?: AbortSignal,
     executionId?: string,
+    executionContext?: RuntimeExecutionContext,
   ): Promise<WorkflowExecutionResult>;
   resume(
     executionId: string,
@@ -205,6 +211,7 @@ export function compileWorkflow(
       budgetMeter: WorkflowBudgetMeter;
       control: ExecutionControl;
       signal?: AbortSignal;
+      executionContext: RuntimeExecutionContext;
     }>
   >();
   const handlers = new Map(
@@ -294,7 +301,7 @@ export function compileWorkflow(
   };
   return {
     definition: immutableDefinition,
-    async invoke(input, budgetLimits, callCosts, signal, executionId) {
+    async invoke(input, budgetLimits, callCosts, signal, executionId, executionContext) {
       const budgetMeter = new WorkflowBudgetMeter(budgetLimits, callCosts, ports.nowMilliseconds);
       const runId = executionId ?? immutableDefinition.workflowDefinitionId;
       runtimeContexts.set(runId, {
@@ -305,6 +312,7 @@ export function compileWorkflow(
           activeCallAbort: new AbortController(),
         },
         ...(signal === undefined ? {} : { signal }),
+        executionContext: executionContext ?? { mode: 'live' },
       });
       try {
         const state = await executable.invoke(
@@ -376,6 +384,7 @@ export function compileWorkflow(
         budgetMeter: existingContext.budgetMeter,
         control: existingContext.control,
         ...(signal === undefined ? {} : { signal }),
+        executionContext: existingContext.executionContext,
       });
       existingContext.budgetMeter.resume();
       const before = await executable.getState(config);
@@ -522,6 +531,7 @@ function createNodeAction(
     budgetMeter: WorkflowBudgetMeter;
     control: ExecutionControl;
     signal?: AbortSignal;
+    executionContext: RuntimeExecutionContext;
   }>,
 ): NodeAction {
   return async (state) => {
@@ -606,6 +616,7 @@ async function executeNode(
     budgetMeter: WorkflowBudgetMeter;
     control: ExecutionControl;
     signal?: AbortSignal;
+    executionContext: RuntimeExecutionContext;
   }>,
 ): Promise<StateUpdate> {
   const signal =
@@ -625,6 +636,7 @@ async function executeNode(
         ...(dynamicContext === undefined ? {} : { context: dynamicContext }),
         responseSchema: node.responseSchema,
         signal: callSignal,
+        executionContext: runtimeContext.executionContext,
       });
       budgetMeter.assertDuration();
       return output(node.nodeId, value);
@@ -638,6 +650,7 @@ async function executeNode(
         tool: node.tool,
         arguments: argumentsSnapshot,
         signal: callSignal,
+        executionContext: runtimeContext.executionContext,
       });
       budgetMeter.assertDuration();
       return output(node.nodeId, normalizeResultEnvelope(value));
@@ -652,6 +665,7 @@ async function executeNode(
         parentExecutionId: state.executionId,
         parentNodeId: node.nodeId,
         signal: callSignal,
+        executionContext: runtimeContext.executionContext,
       });
       budgetMeter.assertDuration();
       return output(node.nodeId, value);
@@ -665,6 +679,7 @@ async function executeNode(
         workflowVersion: node.workflowVersion,
         input: inputSnapshot,
         signal: callSignal,
+        executionContext: runtimeContext.executionContext,
       });
       budgetMeter.assertDuration();
       return output(node.nodeId, value);

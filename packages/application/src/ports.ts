@@ -66,6 +66,7 @@ import type {
   TaskQualityReport,
   TaskInputRequest,
   TaskInputResponse,
+  RuntimeExecutionContext,
   TaskExecutionAttempt,
 } from '../../domain/src/index.js';
 
@@ -452,6 +453,7 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
       signal?: AbortSignal;
     }>,
   ): Promise<unknown>;
@@ -574,6 +576,7 @@ export interface WorkflowExecutor {
     budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
     executionId?: string,
+    executionContext?: RuntimeExecutionContext,
   ): Promise<
     Readonly<{
       status: 'paused' | 'succeeded' | 'failed' | 'canceled';

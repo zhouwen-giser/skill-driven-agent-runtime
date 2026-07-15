@@ -181,11 +181,81 @@ describe('McpRegistryService', () => {
         status: 'succeeded',
         arguments: { deviceId: 'device-1' },
         result: { ok: true },
+        executionMode: 'live',
       }),
     ]);
     await expect(service.listInvocationsByTask('task-1')).resolves.toEqual([
       expect.objectContaining({ invocationId: 'invocation-1', taskId: 'task-1' }),
     ]);
+  });
+
+  it('writes reserved execution Headers last and audits stable simulation/replay identity', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    const service = createService(repository, transport);
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: { Authorization: 'Bearer secret' },
+    });
+    const arguments_ = { deviceId: 'device-1' };
+    await service.call('mcp.devices', 'device_status', arguments_);
+    await service.call('mcp.devices', 'device_status', arguments_, undefined, {
+      executionContext: { mode: 'simulation', simulationId: 'simulation-stable-1' },
+    });
+    await service.call('mcp.devices', 'device_status', arguments_, undefined, {
+      executionContext: { mode: 'historical-replay', simulationId: 'replay-stable-1' },
+    });
+
+    expect(transport.callInputs.map((input) => input.headers)).toEqual([
+      { Authorization: 'Bearer secret' },
+      {
+        Authorization: 'Bearer secret',
+        'X-SDAR-Execution-Mode': 'simulation',
+        'X-SDAR-Simulation-Id': 'simulation-stable-1',
+      },
+      {
+        Authorization: 'Bearer secret',
+        'X-SDAR-Execution-Mode': 'historical-replay',
+        'X-SDAR-Simulation-Id': 'replay-stable-1',
+      },
+    ]);
+    expect(repository.invocations).toEqual([
+      expect.objectContaining({ executionMode: 'live' }),
+      expect.objectContaining({
+        executionMode: 'simulation',
+        simulationId: 'simulation-stable-1',
+      }),
+      expect.objectContaining({
+        executionMode: 'historical-replay',
+        simulationId: 'replay-stable-1',
+      }),
+    ]);
+    expect(JSON.stringify(repository.invocations)).not.toContain('Bearer secret');
+  });
+
+  it('rejects case-insensitive reserved credential Headers on register and rotation', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    const service = createService(repository, transport);
+    await expect(
+      service.register({
+        serverId: 'mcp.devices',
+        name: 'Devices',
+        endpoint: 'https://mcp.example.test/mcp',
+        credentialHeaders: { 'x-sdar-execution-mode': 'live' },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_RESERVED_HEADER_CONFLICT' });
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: {},
+    });
+    await expect(
+      service.updateCredentials('mcp.devices', { 'X-SDAR-Simulation-Id': 'forged' }),
+    ).rejects.toMatchObject({ code: 'MCP_RESERVED_HEADER_CONFLICT' });
   });
 
   it('persists a replayable failure summary and rethrows the transport error', async () => {
@@ -317,6 +387,7 @@ class ChangingTransport implements McpTransportAdapter {
   pingFailure: Error | undefined;
   lastPingHeaders: Readonly<Record<string, string>> | undefined;
   invalidSchema = false;
+  callInputs: Parameters<McpTransportAdapter['call']>[0][] = [];
   discover() {
     this.discoveries += 1;
     const schema = this.invalidSchema
@@ -331,7 +402,8 @@ class ChangingTransport implements McpTransportAdapter {
         : []),
     ]);
   }
-  call() {
+  call(input: Parameters<McpTransportAdapter['call']>[0]) {
+    this.callInputs.push(input);
     this.calls += 1;
     if (this.failure !== undefined) return Promise.reject(this.failure);
     return Promise.resolve({ ok: true });

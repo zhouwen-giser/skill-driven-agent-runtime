@@ -2932,6 +2932,32 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'boundary',
         'exception',
       ]);
+      const candidateId = third.formalizationCandidate?.candidateId;
+      if (candidateId === undefined) throw new Error('FORMALIZATION_CANDIDATE_ID_MISSING');
+      const invocationModes = await runtime.listMcpInvocations(serverId);
+      expect(invocationModes).toContainEqual(expect.objectContaining({ executionMode: 'live' }));
+      expect(invocationModes).toContainEqual(
+        expect.objectContaining({
+          executionMode: 'simulation',
+          simulationId: `skill-evolution:${candidateId}:simulation:normal-device`,
+        }),
+      );
+      expect(invocationModes).toContainEqual(
+        expect.objectContaining({
+          executionMode: 'historical-replay',
+          simulationId: expect.stringContaining(`skill-evolution:${candidateId}:historical:`),
+        }),
+      );
+      expect(
+        mockMcp.receivedHeaders.some((headers) => headers['x-sdar-execution-mode'] === undefined),
+      ).toBe(true);
+      for (const invocation of invocationModes.filter((item) => item.executionMode !== 'live'))
+        expect(mockMcp.receivedHeaders).toContainEqual(
+          expect.objectContaining({
+            'x-sdar-execution-mode': invocation.executionMode,
+            'x-sdar-simulation-id': invocation.simulationId,
+          }),
+        );
       const triggers = z
         .object({
           items: z.array(

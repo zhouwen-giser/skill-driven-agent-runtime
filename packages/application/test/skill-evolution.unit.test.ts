@@ -58,6 +58,30 @@ describe('SkillEvolutionService', () => {
         },
       ],
     });
+    expect(fixture.replayContexts).toEqual([
+      {
+        mode: 'historical-replay',
+        simulationId: 'skill-evolution:candidate-1:historical:history-success',
+      },
+      {
+        mode: 'historical-replay',
+        simulationId: 'skill-evolution:candidate-1:historical:history-failure',
+      },
+    ]);
+    expect(fixture.runContexts).toEqual([
+      {
+        mode: 'simulation',
+        simulationId: 'skill-evolution:candidate-1:simulation:normal-1',
+      },
+      {
+        mode: 'simulation',
+        simulationId: 'skill-evolution:candidate-1:simulation:boundary-1',
+      },
+      {
+        mode: 'simulation',
+        simulationId: 'skill-evolution:candidate-1:simulation:exception-1',
+      },
+    ]);
   });
 
   it('persists a failed evolution draft and leaves the formal registry unchanged', async () => {
@@ -148,6 +172,8 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
   let published: Omit<SkillVersion, 'version' | 'previousVersion' | 'createdAt'> | undefined;
   let currentSkillVersion = 1;
   let modelInstruction: unknown;
+  const runContexts: unknown[] = [];
+  const replayContexts: unknown[] = [];
   const service = new SkillEvolutionService({
     temporarySkills: repository,
     model: {
@@ -176,8 +202,9 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
     },
     experiences: { listByTool: () => Promise.resolve([history(true), history(false)]) },
     runner: {
-      run: ({ proposedSkill, case_ }) =>
-        Promise.resolve({
+      run: ({ proposedSkill, case_, executionContext }) => {
+        runContexts.push(executionContext);
+        return Promise.resolve({
           passed:
             allPass ||
             proposedSkill.workflowGuidance.startsWith('Corrected') ||
@@ -188,12 +215,15 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
             case_.kind !== 'boundary'
               ? 'Passed.'
               : 'Boundary failed.',
-        }),
-      replay: ({ experience }) =>
-        Promise.resolve({
+        });
+      },
+      replay: ({ experience, executionContext }) => {
+        replayContexts.push(executionContext);
+        return Promise.resolve({
           succeeded: experience.successful,
           summary: `Replayed expected ${experience.successful ? 'success' : 'failure'}.`,
-        }),
+        });
+      },
     },
     clock: { now: () => timestamp },
     nextCorrectionId: () => 'correction-1',
@@ -210,6 +240,8 @@ function setup(allPass: boolean, modelDecision: unknown = decision()) {
     get currentSkillVersion() {
       return currentSkillVersion;
     },
+    runContexts,
+    replayContexts,
   };
 }
 

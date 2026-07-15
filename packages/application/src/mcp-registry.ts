@@ -1,5 +1,7 @@
 import {
   createMcpServer,
+  createRuntimeExecutionContext,
+  LIVE_RUNTIME_EXECUTION_CONTEXT,
   createMcpTool,
   createMcpToolEnhancement,
   type McpInvocation,
@@ -8,6 +10,7 @@ import {
   type McpServer,
   type McpTool,
   type McpToolEnhancement,
+  type RuntimeExecutionContext,
 } from '../../domain/src/index.js';
 
 import type {
@@ -38,7 +41,14 @@ export interface McpRefreshResult {
 export interface McpCallContext {
   readonly taskId?: string;
   readonly contextId?: string;
+  readonly executionContext?: RuntimeExecutionContext;
 }
+
+export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
+export const SDAR_SIMULATION_ID_HEADER = 'X-SDAR-Simulation-Id';
+const RESERVED_RUNTIME_HEADERS = new Set(
+  [SDAR_EXECUTION_MODE_HEADER, SDAR_SIMULATION_ID_HEADER].map((header) => header.toLowerCase()),
+);
 
 export interface McpHealthResult {
   readonly serverId: string;
@@ -81,6 +91,7 @@ export class McpRegistryService {
     if ((await this.#repository.findServer(input.serverId)) !== undefined) {
       throw new McpRegistryError('MCP_SERVER_ALREADY_EXISTS', 'MCP Server already exists.');
     }
+    assertNoReservedCredentialHeaders(input.credentialHeaders);
     const timestamp = this.#clock.now();
     const server = createMcpServer({
       serverId: input.serverId,
@@ -112,7 +123,7 @@ export class McpRegistryService {
       status: 'enabled',
       updatedAt: timestamp,
     });
-    const headers = this.#cipher.decrypt(record.encryptedCredential);
+    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
     const discoveredTools = await this.#discover(server, headers, timestamp, previous);
     const tools = discoveredTools;
     const dependencyWarnings = compareTools(previous, tools);
@@ -152,11 +163,18 @@ export class McpRegistryService {
     }
     const invocationId = this.#ids.nextInvocationId();
     const startedAt = this.#clock.now();
+    const executionContext = createRuntimeExecutionContext(
+      context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
+    );
     let result: unknown;
     try {
       result = await this.#transport.call({
         endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
+        headers: executionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        executionContext,
         toolName,
         arguments: arguments_,
         ...(signal === undefined ? {} : { signal }),
@@ -201,7 +219,7 @@ export class McpRegistryService {
     const record = await this.#requireServer(serverId);
     await this.#transport.disconnect({
       endpoint: record.server.endpoint,
-      headers: this.#cipher.decrypt(record.encryptedCredential),
+      headers: sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential)),
     });
     await this.#repository.deleteServer(serverId);
     await this.#auditManagementOperation(serverId, 'delete', { disconnected: true });
@@ -211,8 +229,11 @@ export class McpRegistryService {
     serverId: string,
     credentialHeaders: Readonly<Record<string, string>>,
   ): Promise<void> {
+    assertNoReservedCredentialHeaders(credentialHeaders);
     const record = await this.#requireServer(serverId);
-    const previousHeaders = this.#cipher.decrypt(record.encryptedCredential);
+    const previousHeaders = sanitizedCredentialHeaders(
+      this.#cipher.decrypt(record.encryptedCredential),
+    );
     await this.#transport.ping({ endpoint: record.server.endpoint, headers: credentialHeaders });
     const tools = await this.#repository.listTools(serverId);
     await this.#transport.disconnect({
@@ -230,7 +251,7 @@ export class McpRegistryService {
 
   async checkHealth(serverId: string): Promise<McpHealthResult> {
     const record = await this.#requireServer(serverId);
-    const headers = this.#cipher.decrypt(record.encryptedCredential);
+    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
     const startedAt = this.#clock.now();
     let status: McpHealthResult['status'] = 'enabled';
     let errorCode: McpHealthResult['errorCode'];
@@ -384,9 +405,17 @@ function invocationRecord(
   }>,
 ): McpInvocation {
   const duration = elapsedMilliseconds(input.startedAt, input.completedAt);
+  const executionContext = createRuntimeExecutionContext(
+    input.context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
+  );
   return {
     invocationId: input.invocationId,
-    ...input.context,
+    ...(input.context.taskId === undefined ? {} : { taskId: input.context.taskId }),
+    ...(input.context.contextId === undefined ? {} : { contextId: input.context.contextId }),
+    executionMode: executionContext.mode,
+    ...(executionContext.simulationId === undefined
+      ? {}
+      : { simulationId: executionContext.simulationId }),
     serverId: input.serverId,
     toolName: input.toolName,
     arguments: input.arguments,
@@ -403,6 +432,40 @@ function invocationRecord(
 function elapsedMilliseconds(startedAt: string, completedAt: string): number {
   const duration = Date.parse(completedAt) - Date.parse(startedAt);
   return Number.isFinite(duration) && duration >= 0 ? duration : 0;
+}
+
+function assertNoReservedCredentialHeaders(headers: Readonly<Record<string, string>>): void {
+  const conflict = Object.keys(headers).find((header) =>
+    RESERVED_RUNTIME_HEADERS.has(header.toLowerCase()),
+  );
+  if (conflict !== undefined)
+    throw new McpRegistryError(
+      'MCP_RESERVED_HEADER_CONFLICT',
+      `Credential Header ${conflict} is reserved for runtime execution isolation.`,
+    );
+}
+
+function sanitizedCredentialHeaders(
+  headers: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      ([header]) => !RESERVED_RUNTIME_HEADERS.has(header.toLowerCase()),
+    ),
+  );
+}
+
+function executionHeaders(
+  credentials: Readonly<Record<string, string>>,
+  context: RuntimeExecutionContext,
+): Readonly<Record<string, string>> {
+  const headers = { ...sanitizedCredentialHeaders(credentials) };
+  if (context.mode === 'live') return headers;
+  return {
+    ...headers,
+    [SDAR_EXECUTION_MODE_HEADER]: context.mode,
+    [SDAR_SIMULATION_ID_HEADER]: context.simulationId ?? '',
+  };
 }
 
 function compareTools(
@@ -425,6 +488,7 @@ export type McpRegistryErrorCode =
   | 'MCP_ARGUMENT_SCHEMA_MISMATCH'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_FOUND'
+  | 'MCP_RESERVED_HEADER_CONFLICT'
   | 'MCP_TOOL_NOT_FOUND'
   | 'MCP_TOOL_SCHEMA_INVALID';
 

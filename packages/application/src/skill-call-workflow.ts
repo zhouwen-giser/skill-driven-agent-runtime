@@ -1,4 +1,8 @@
-import type { SkillVersion, WorkflowPlanRecord } from '../../domain/src/index.js';
+import type {
+  RuntimeExecutionContext,
+  SkillVersion,
+  WorkflowPlanRecord,
+} from '../../domain/src/index.js';
 
 import type { McpToolPlanningMetadata } from './mcp-tool-enhancer.js';
 import type {
@@ -62,6 +66,7 @@ export class SkillCallWorkflowService {
       parentGoalId: string;
       parentGoalVersion: number;
       signal?: AbortSignal;
+      executionContext?: RuntimeExecutionContext;
     }>,
   ): Promise<unknown> {
     const skill = await this.#skills.findCurrentVersion(input.skillId);
@@ -104,6 +109,7 @@ export class SkillCallWorkflowService {
       planId: childPlanId,
       input: input.value,
       skillIds: [skill.skillId],
+      ...(input.executionContext === undefined ? {} : { executionContext: input.executionContext }),
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
     if (child.status !== 'succeeded') {

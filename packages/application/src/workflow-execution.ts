@@ -3,6 +3,7 @@ import type {
   WorkflowInstance,
   WorkflowNodeEvent,
   WorkflowPlanRecord,
+  RuntimeExecutionContext,
 } from '../../domain/src/index.js';
 import { resolveWorkflowBudgetLimits } from '../../domain/src/index.js';
 import type {
@@ -104,6 +105,7 @@ export class WorkflowExecutionService {
       skillIds?: readonly string[];
       replanCount?: number;
       signal?: AbortSignal;
+      executionContext?: RuntimeExecutionContext;
     }>,
   ): Promise<WorkflowInstance> {
     if ((await this.#instances.findInstance(input.instanceId)) !== undefined)
@@ -167,13 +169,23 @@ export class WorkflowExecutionService {
     };
     await this.#instances.saveInstance(running);
     try {
-      const outcome = await this.#executor.execute(
-        validation.definition,
-        input.input,
-        budgetLimits,
-        input.signal,
-        input.instanceId,
-      );
+      const outcome =
+        input.executionContext === undefined
+          ? await this.#executor.execute(
+              validation.definition,
+              input.input,
+              budgetLimits,
+              input.signal,
+              input.instanceId,
+            )
+          : await this.#executor.execute(
+              validation.definition,
+              input.input,
+              budgetLimits,
+              input.signal,
+              input.instanceId,
+              input.executionContext,
+            );
       await this.#instances.saveNodeEvents(this.#events(input.instanceId, outcome.events, 1));
       const completed: WorkflowInstance = {
         ...running,
