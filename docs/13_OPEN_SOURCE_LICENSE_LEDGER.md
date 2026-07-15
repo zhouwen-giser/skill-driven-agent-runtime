@@ -20,6 +20,12 @@ Skill-Driven Agent Runtime 由 zhouwen 以 Apache License 2.0 发布，SPDX 标�
 | Microsoft Agent Framework | MIT                                          | 架构参考                        | .NET/Python，不跨语言嵌入                            |
 | A2A JS SDK                | Apache-2.0                                   | 直接依赖                        | v1.0 beta 版本必须锁定并验证                         |
 | MCP TypeScript SDK        | MIT（以锁定版本为准）                        | 直接依赖                        | 核查协议和 SDK 版本兼容性                            |
+| MCP Tasks Extension       | Apache-2.0                                   | 官方协议扩展参考                | 锁定 commit/schema blob；复制 Schema 时保留归属      |
+
+v1.1 MCP Tasks 冻结说明：运行依赖继续使用 `@modelcontextprotocol/sdk@1.29.0`
+（MIT）；其旧实验性 Tasks API 不是 v1.1 权威。`modelcontextprotocol/ext-tasks`
+仅作为精确锁定的官方扩展契约，当前未安装、未复制源码。精确 License hash、schema blob
+和兼容边界见 `third_party/intake/mcp-tasks-extension-0.1.0.md` 与 ADR-076。
 
 ## 发布前要求
 

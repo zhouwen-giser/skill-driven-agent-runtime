@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+### Added
+
+- Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, ADR-076–080, repository/symbol/hardening maps and clean baseline evidence.
+- Exact Apache-2.0 official `modelcontextprotocol/ext-tasks` commit and schema-blob Intake as a reference contract; no new runtime dependency or copied source is introduced in Phase 0.
+
+### Changed
+
+- MCP TypeScript SDK Intake now records the exact MIT license hash and forbids its legacy experimental `tasks/result`/`tasks/list` surface as the v1.1 contract; future extension requests remain isolated behind the existing adapter.
+
+### Known limitations
+
+- MCP Tasks behavior is still unimplemented/unverified. Final v1.1 acceptance cannot start until `v1.0.13-bug-fixed` and its complete migration chain are merged.
+
 ### Fixed
 
 - Portable SBOM/license evidence now excludes host-specific optional native leaf packages in favor of their cross-platform wrappers and records the current package version, so frozen verification is reproducible on Windows and Linux.

@@ -152,3 +152,47 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | FR-SKL-010/011; FR-WF-003/006/007; FR-MCP-009/010 | v1.0.2 | bug-fixed 门禁通过 | `packages/application/src/skill-call-workflow.ts`; `packages/application/src/workflow-execution.ts`; `apps/server/src/runtime.ts`; `packages/domain/src/skill-call-workflow.ts`; `packages/persistence-postgres/src/repositories.ts`; `infra/postgres/migrations/0034_skill_call_workflow.up.sql`; `infra/postgres/migrations/0054_skill_call_history.up.sql`; `adr/ADR-073-planned-real-skill-call-workflows.md` | `packages/application/test/skill-call-workflow.unit.test.ts`; `packages/application/test/workflow-execution.unit.test.ts`; `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`; `scripts/verify-migration-path.mjs` | Current Skill version drives normal child planning with real MCP, output validation, cancellation and bounded ancestry. Bug-fixed adds append-only repeated-node linkage and a 64,000-character finite-JSON output boundary; format/lint/typecheck/architecture, 206 unit, 57 contract, 37 real integration, 41 E2E, build and empty/0049 migration paths passed. Nested confirmation remains v1.0.5. |
 | FR-A2A-003; FR-GOAL-006/007; FR-EXE-001/002; NFR-REL-001/002 | v1.0.3 | bug-fixed 门禁通过 | `packages/domain/src/task-input.ts`; `packages/application/src/task-service.ts`; `packages/application/src/task-attempt-dispatch.ts`; `packages/application/src/plan-preparation-processor.ts`; `packages/application/src/workflow-controller.ts`; `packages/runtime-redis/src/bullmq-context-queue.ts`; `packages/persistence-postgres/src/repositories.ts`; `packages/a2a-adapter/src/task-mapping.ts`; `apps/server/src/runtime.ts`; `infra/postgres/migrations/0055_task_input_continuation.up.sql`; `adr/ADR-074-durable-task-input-continuation-attempts.md` | `packages/application/test/task-service.unit.test.ts`; `packages/application/test/task-attempt-dispatch.unit.test.ts`; `packages/application/test/plan-preparation-processor.unit.test.ts`; `packages/application/test/workflow-controller.unit.test.ts`; `packages/runtime-redis/test/bullmq-context-queue.integration.test.ts`; `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`; `scripts/verify-migration-path.mjs` | 等待问题、回答、新 attempt 与 Task 继续阶段由 PostgreSQL 权威事务保存；仅 `queued` attempt 会在启动及周期协调时幂等派发，运行中/失败 attempt 不恢复不重试；超过 64,000 字符的回答在写入前拒绝。两类真实 MCP E2E 证明补充值进入后续 Tool 参数；完整 operator-managed `pnpm verify` 通过 271 unit+contract、41 integration、42 E2E、迁移、构建和 smoke，且未执行 Docker 生命周期。 |
 | FR-EVO-005/006; FR-MCP-002/008/010/012; FR-WF-003/007; NFR-SEC-001; NFR-OBS-001 | v1.0.4 | bug-fixed 门禁通过 | `packages/domain/src/runtime-execution.ts`; `packages/application/src/mcp-registry.ts`; `packages/application/src/skill-evolution.ts`; `packages/application/src/workflow-execution.ts`; `packages/application/src/skill-call-workflow.ts`; `packages/langgraph-runtime/src/workflow-compiler.ts`; `packages/mcp-adapter/src/streamable-http-adapter.ts`; `apps/server/src/runtime.ts`; `packages/persistence-postgres/src/repositories.ts`; `infra/postgres/migrations/0056_mcp_execution_mode.up.sql`; `adr/ADR-075-runtime-owned-mcp-execution-mode-headers.md` | `packages/domain/test/runtime-execution.unit.test.ts`; `packages/application/test/mcp-registry.unit.test.ts`; `packages/application/test/skill-evolution.unit.test.ts`; `packages/application/test/workflow-execution.unit.test.ts`; `packages/application/test/skill-call-workflow.unit.test.ts`; `packages/langgraph-runtime/test/workflow-compiler.unit.test.ts`; `packages/mcp-adapter/test/streamable-http.contract.test.ts`; `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts` | Runtime 对 simulation/replay Header 拥有最终写入权；live 不发送保留 Header，非 live 使用有界 Header-safe 稳定 ID，子 Workflow/Skill 与 pause/resume 继承；失败 Invocation 不记录凭据。Bug-fixed gate 通过 218 unit、58 contract、42 real integration、42 real E2E、172-file architecture、production build；0056 空库/0049 路径已通过，未执行 Docker 生命周期。 |
+
+## SDAR v1.1 MCP Tasks Addendum
+
+本节是 `docs/22_V1_1_MCP_TASKS_DESIGN.md` 的增量追踪，不改写 V1.0 基线。Phase 0 仅冻结设计，因此以下状态均为“未实现”；只有真实实现、测试命令和报告齐全后才能逐行改为“已验证”。
+
+| Requirement | Phase | Status | Planned implementation authority | Planned tests/evidence |
+| --- | --- | --- | --- | --- |
+| FR-MCPT-001 | 1 | 未实现 | `packages/mcp-adapter`; application Tasks port; ADR-076 | extension schema + official-SDK loopback contract |
+| FR-MCPT-002 | 1 | 未实现 | MCP domain union; `McpRegistryService`; adapter | immediate/error/remote union unit+contract+E2E |
+| FR-MCPT-003 | 1–2 | 未实现 | remote Task domain; observation repository | schema/state reduction/PostgreSQL tests |
+| FR-MCPT-004 | 2 | 未实现 | binding domain/repository/migration 0100+; ADR-077/080 | PG uniqueness/lineage/restart E2E |
+| FR-MCPT-005 | 2 | 未实现 | Redis poll scheduler/worker/reconciler | Redis+PG duplicate/lost/stale job integration |
+| FR-MCPT-006 | 2 | 未实现 | poll failure policy and observations | unreachable/backoff/recovery clock tests |
+| FR-MCPT-007 | 4 | 未实现 | LangGraph waiting result; continuation snapshot/service; ADR-079 | no-replay/restart/side-effect E2E |
+| FR-MCPT-008 | 2,4 | 未实现 | observation/control state machine | pause/resume/progress/control E2E |
+| FR-MCPT-009 | 3 | 未实现 | availability client, planner, validator, runtime guard | plan/pre-call/unknown/disabled/restricted tests |
+| FR-MCPT-010 | 3,5 | 未实现 | timing domain and Provider contract; ADR-078 | Schema/deterministic clock/Mock Provider contract |
+| FR-MCPT-011 | 3,5 | 未实现 | restricted risk decision + Provider admission mapping | zero-local-preemption and accept/reject E2E |
+| FR-MCPT-012 | 5 | 未实现 | remote input link; Task input service; `tasks/update` | A2A input to same remote Task E2E |
+| FR-MCPT-013 | 5 | 未实现 | cancel request/ack/observation state | success/unreachable/race contract+E2E |
+| FR-MCPT-014 | 5–6 | 未实现 | management API/OpenAPI/Console real projections/actions | API contract, Console unit/browser E2E, smoke |
+| NFR-MCPT-001 | 1–6 | 未实现 | bounded schemas, sanitization, architecture gates | malformed/depth/size/secret/error tests |
+| NFR-MCPT-002 | 2–6 | 未实现 | context queue + idempotent repositories/controls | concurrent/duplicate/process failure tests |
+| NFR-MCPT-003 | 2,4,6 | 未实现 | PostgreSQL binding/snapshot + Redis reconciler | real process/Redis restart E2E |
+| NFR-MCPT-004 | 2–6 | 未实现 | binding/observation/control/event/API/Console correlation | trace query/API/UI E2E and acceptance report |
+
+| Acceptance | Phase | Status | Planned evidence |
+| --- | --- | --- | --- |
+| AC-MCPT-01 | 1 | 未实现 | synchronous success/error regression, zero binding |
+| AC-MCPT-02 | 1–2 | 未实现 | negotiated Task creation, headers, binding and trace |
+| AC-MCPT-03 | 1 | 未实现 | unsupported fallback and require-task fail-closed |
+| AC-MCPT-04 | 2,4 | 未实现 | working→completed poll/continue/output/terminal |
+| AC-MCPT-05 | 2,4 | 未实现 | pause/resume observation without Graph continuation |
+| AC-MCPT-06 | 5 | 未实现 | A2A input→tasks/update without Goal replan |
+| AC-MCPT-07 | 5 | 未实现 | cancel request/ack/provider-cancelled sequence |
+| AC-MCPT-08 | 5 | 未实现 | unreachable cancellation uncertainty |
+| AC-MCPT-09 | 3–5 | 未实现 | restricted risk/confirmation/pre-call refresh/accept |
+| AC-MCPT-10 | 1,5 | 未实现 | admission rejected, no binding, error handler |
+| AC-MCPT-11 | 3,5 | 未实现 | Provider-reported start-window-missed |
+| AC-MCPT-12 | 3,5 | 未实现 | Provider-reported deadline-reached after isolation |
+| AC-MCPT-13 | 2 | 未实现 | provider unreachable backoff/no fake terminal/recovery |
+| AC-MCPT-14 | 2,4 | 未实现 | PostgreSQL/Redis/process restart without replay |
+| AC-MCPT-15 | 4 | 未实现 | parallel and child Workflow independent continuation |
+| AC-MCPT-16 | 4–5 | 未实现 | Goal Patch invalidation and late-event audit-only |
