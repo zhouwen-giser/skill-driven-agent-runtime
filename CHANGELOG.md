@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-15
+
+### Added
+
+- Real planned child Workflows for `skill_call`, using the current Skill definition, current MCP planning metadata, normal Workflow validation, independent plan/instance persistence and the sole LangGraph runtime.
+- Bounded Skill-call ancestry with stable cycle and maximum-depth errors.
+
+### Changed
+
+- Child results must pass the executed Skill version's output schema; failed, canceled or invalid children propagate to the parent instead of returning a model-fabricated success.
+- Child Skill Tool policy is enforced against its own child Workflow, while parent Workflows retain child version and budget evidence.
+
+### Known issues at feature tag
+
+- Nested confirmation policy will be finalized in v1.0.5.
+- Repeated execution of the same parent `skill_call` node retains only the latest linkage under the current persistence key; the v1.0.2 bug-fixed audit covers this case.
+
 ## [1.0.1] - 2026-07-15
 
 ### Added

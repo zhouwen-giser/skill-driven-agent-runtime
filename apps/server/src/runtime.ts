@@ -28,6 +28,7 @@ import {
   SkillSelectionService,
   SkillQualityService,
   SkillCallWorkflowService,
+  nextSkillCallAncestry,
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
@@ -387,6 +388,7 @@ export async function startServerRuntime(
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
+  const skillCallAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
     async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
@@ -419,15 +421,18 @@ export async function startServerRuntime(
     async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
       const parent = await workflowInstances.findInstance(parentExecutionId);
       if (parent === undefined) throw new Error('WORKFLOW_PARENT_INSTANCE_NOT_FOUND');
-      return skillCallWorkflowService.execute({
-        skillId,
-        value: input,
-        parentInstanceId: parentExecutionId,
-        parentNodeId,
-        parentGoalId: parent.goalId,
-        parentGoalVersion: parent.goalVersion,
-        ...(signal === undefined ? {} : { signal }),
-      });
+      const ancestry = nextSkillCallAncestry(skillCallAncestry.getStore() ?? [], skillId);
+      return skillCallAncestry.run(ancestry, () =>
+        skillCallWorkflowService.execute({
+          skillId,
+          value: input,
+          parentInstanceId: parentExecutionId,
+          parentNodeId,
+          parentGoalId: parent.goalId,
+          parentGoalVersion: parent.goalVersion,
+          ...(signal === undefined ? {} : { signal }),
+        }),
+      );
     },
     async executeSubworkflow({ workflowDefinitionId, workflowVersion, input, signal }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
@@ -473,10 +478,17 @@ export async function startServerRuntime(
   });
   const skillCallWorkflowService = new SkillCallWorkflowService({
     skills,
-    plans: workflowPlans,
+    planner: workflowPlanner,
+    validator: workflowValidator,
     execution: workflowExecution,
     records: skillCallWorkflows,
     schemas: schemaValidator,
+    loadToolPlanningMetadata: (skill) =>
+      buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
+        (await mcpRepository.listTools(reference.serverId)).find(
+          (tool) => tool.toolName === reference.toolName,
+        ),
+      ),
     clock,
     nextId: randomUUID,
   });

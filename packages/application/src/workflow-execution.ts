@@ -123,8 +123,14 @@ export class WorkflowExecutionService {
         'WORKFLOW_PLAN_REVALIDATION_FAILED',
         'Persisted plan no longer validates against current Tool and Skill catalogs.',
       );
-    const skillVersions = await this.#resolveSkillVersions(validation.definition, input.skillIds);
-    const toolPolicyViolations = validateSkillToolPolicies(validation.definition, skillVersions);
+    const { skillVersions, governingSkillVersions } = await this.#resolveSkillVersions(
+      validation.definition,
+      input.skillIds,
+    );
+    const toolPolicyViolations = validateSkillToolPolicies(
+      validation.definition,
+      governingSkillVersions,
+    );
     if (toolPolicyViolations.length > 0)
       throw new WorkflowExecutionError(
         'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION',
@@ -394,7 +400,8 @@ export class WorkflowExecutionService {
     definition: NonNullable<WorkflowPlanRecord['definition']>,
     requestedSkillIds: readonly string[] | undefined,
   ) {
-    const ids = new Set(requestedSkillIds ?? []);
+    const governingIds = new Set(requestedSkillIds ?? []);
+    const ids = new Set(governingIds);
     for (const node of definition.nodes) if (node.type === 'skill_call') ids.add(node.skillId);
     const versions = [];
     for (const skillId of ids) {
@@ -406,7 +413,10 @@ export class WorkflowExecutionService {
         );
       versions.push(version);
     }
-    return versions;
+    return {
+      skillVersions: versions,
+      governingSkillVersions: versions.filter((version) => governingIds.has(version.skillId)),
+    };
   }
 
   async #requirePlan(planId: string): Promise<WorkflowPlanRecord> {

@@ -15,6 +15,6 @@ Date: 2026-07-15
 - No persistence, transaction, Task terminal-state, credential, Worker, AbortSignal, or MCP authority boundary changed.
 - Parallel outputs remain keyed by validator-enforced unique node IDs; loop updates intentionally replace only their own node output.
 - Feature tag: `v1.0.1` / `34c48a825fed614be0f1b52b3b1715d2d41f323c`.
-- Bug-fixed tag/commit: populated by the tagged commit and reconciled in the next traceability update.
+- Bug-fixed tag/commit: `v1.0.1-bug-fixed` / `6417a6f2c200a8bbfddca89c7f61c34094131594`.
 
 Known limits remain finite JSON, explicit path segments and maximum depth 64. The increment may proceed to v1.0.2 after the bug-fixed gate, commit, tag and push pass.
