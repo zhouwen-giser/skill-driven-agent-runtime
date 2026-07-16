@@ -113,9 +113,8 @@ export class MemoryService {
       durabilityReason: input.durabilityReason,
       createdAt: this.#clock.now(),
     });
-    assertDurableAdmission(item);
-    const embedding = await this.#embeddings.embed(searchableText(item));
-    validateEmbedding(embedding);
+    assertDurableAdmission(enforceRefinementPolicy(item, item.authority));
+    const embedding = snapshotEmbedding(await this.#embeddings.embed(searchableText(item)));
     await this.#repository.save(item, embedding);
     return item;
   }
@@ -132,8 +131,7 @@ export class MemoryService {
       throw new MemoryApplicationError('MEMORY_QUERY_REQUIRED', 'Query is required.');
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new MemoryApplicationError('MEMORY_LIMIT_INVALID', 'Limit must be between 1 and 100.');
-    const embedding = await this.#embeddings.embed(query);
-    validateEmbedding(embedding);
+    const embedding = snapshotEmbedding(await this.#embeddings.embed(query));
     return this.#repository.search({ ...embedding, limit });
   }
 
@@ -146,8 +144,9 @@ export class MemoryService {
         'Stage memory limit must be between 1 and 20.',
       );
     const policy = stagePolicy(stage);
-    const embedding = await this.#embeddings.embed(policy.queryTemplate(subject.trim()));
-    validateEmbedding(embedding);
+    const embedding = snapshotEmbedding(
+      await this.#embeddings.embed(policy.queryTemplate(subject.trim())),
+    );
     return (await this.#repository.search({ ...embedding, limit: 100 }))
       .filter((hit) => policy.types.includes(hit.item.type))
       .slice(0, limit);
@@ -252,8 +251,7 @@ export class MemoryService {
       supersedes: [memoryId],
       createdAt: this.#clock.now(),
     });
-    const embedding = await this.#embeddings.embed(searchableText(replacement));
-    validateEmbedding(embedding);
+    const embedding = snapshotEmbedding(await this.#embeddings.embed(searchableText(replacement)));
     const transition: MemoryStatusTransition = {
       transitionId: this.#nextTransitionId(),
       memoryId,
@@ -330,32 +328,33 @@ export class MemoryService {
         'MEMORY_REFINEMENT_UNAVAILABLE',
         'Memory refinement model is unavailable.',
       );
-    const refined = RefinedMemorySchema.parse(
-      await this.#model.generateStructured({
-        stage: 'result_processing',
-        instruction: JSON.stringify({
-          operation: 'refine_memory',
-          candidate: {
-            type: input.type,
-            content: input.content,
-            summary: input.summary,
-            confidence: input.confidence,
-            authorityHint: input.authorityHint,
-            sourceRefs: input.sourceRefs,
-          },
-          instruction:
-            'Return all seven schema fields. Current coordinates, battery, online status, occupancy and device-task state are volatile MCP authority and must not become durable Memory. Stable reusable Skill experience may be durable. When durability is uncertain, return unknown. Do not copy raw task traces or treat the authority hint as proof.',
+    const refined = createMemoryRefinement(
+      RefinedMemorySchema.parse(
+        await this.#model.generateStructured({
+          stage: 'result_processing',
+          instruction: JSON.stringify({
+            operation: 'refine_memory',
+            candidate: {
+              type: input.type,
+              content: input.content,
+              summary: input.summary,
+              confidence: input.confidence,
+              authorityHint: input.authorityHint,
+              sourceRefs: input.sourceRefs,
+            },
+            instruction:
+              'Return all seven schema fields. Current coordinates, battery, online status, occupancy and device-task state are volatile MCP authority and must not become durable Memory. Stable reusable Skill experience may be durable. When durability is uncertain, return unknown. Do not copy raw task traces or treat the authority hint as proof.',
+          }),
+          responseSchema: refinedMemoryResponseSchema,
+          correctionErrors: [],
         }),
-        responseSchema: refinedMemoryResponseSchema,
-        correctionErrors: [],
-      }),
+      ),
     );
-    return createMemoryRefinement(refined);
+    return enforceRefinementPolicy(refined, input.authorityHint);
   }
 
   async #findDuplicate(type: MemoryType, summary: string): Promise<MemoryItem | undefined> {
-    const embedding = await this.#embeddings.embed(`${type}\n${summary}`);
-    validateEmbedding(embedding);
+    const embedding = snapshotEmbedding(await this.#embeddings.embed(`${type}\n${summary}`));
     return (await this.#repository.search({ ...embedding, limit: 20 })).find(
       (hit) => hit.item.type === type && normalizeCandidate(hit.item.summary) === summary,
     )?.item;
@@ -428,7 +427,9 @@ function searchableText(item: MemoryItem): string {
   return `${item.type}\n${item.summary}\n${JSON.stringify(item.content)}`;
 }
 
-function validateEmbedding(value: Readonly<{ providerId: string; vector: readonly number[] }>) {
+function snapshotEmbedding(
+  value: Readonly<{ providerId: string; vector: readonly number[] }>,
+): Readonly<{ providerId: string; vector: readonly number[] }> {
   if (
     value.providerId.trim() === '' ||
     value.vector.length === 0 ||
@@ -438,6 +439,52 @@ function validateEmbedding(value: Readonly<{ providerId: string; vector: readonl
       'MEMORY_EMBEDDING_INVALID',
       'Memory embedding requires a provider ID and a non-empty finite vector.',
     );
+  return Object.freeze({
+    providerId: value.providerId,
+    vector: Object.freeze([...value.vector]),
+  });
+}
+
+function enforceRefinementPolicy(
+  refinement: MemoryRefinement,
+  authorityHint: MemoryAuthority,
+): MemoryRefinement {
+  if (containsDynamicDeviceState(refinement))
+    return createMemoryRefinement({
+      ...refinement,
+      durability: 'volatile',
+      authority: 'mcp',
+      durabilityReason: 'Dynamic device state must be requeried from MCP.',
+    });
+  if (refinement.durability === 'durable' && refinement.authority !== authorityHint)
+    throw new MemoryApplicationError(
+      'MEMORY_AUTHORITY_PROVENANCE_INVALID',
+      `Durable Memory authority ${refinement.authority} does not match source provenance ${authorityHint}.`,
+    );
+  return refinement;
+}
+
+const DYNAMIC_DEVICE_STATE_PATTERNS = [
+  /\bcurrent(?:ly)?\s+(?:coordinates?|location|latitude|longitude)\b/iu,
+  /"(?:coordinates?|location|lat|lng|lon|latitude|longitude)"\s*:/iu,
+  /\b(?:coordinates?|latitude|longitude)\s+(?:are|is|=|:)\s*[-+\d]/iu,
+  /\bcurrent\s+(?:battery|charge)(?:\s+(?:level|percentage|status))?\b/iu,
+  /"(?:battery|charge)(?:Level|Status|Percent(?:age)?|_level|_status|_percent(?:age)?)?"\s*:/iu,
+  /\b(?:battery|charge)\s+(?:level|percentage|status)?\s*(?:is|=|:)\s*(?:\d|full|low|empty)/iu,
+  /\b(?:is|was|currently)\s+(?:online|offline)\b/iu,
+  /"(?:online|connectivity|status)"\s*:\s*(?:"(?:online|offline)"|true|false)/iu,
+  /\b(?:current\s+occupancy|is\s+(?:occupied|vacant))\b/iu,
+  /"(?:occupancy|occupied)"\s*:/iu,
+  /\bcurrent\s+device\s+(?:task|job)\b/iu,
+  /"current(?:Device)?(?:Task|Job)"\s*:/iu,
+  /(?:当前|目前|实时).{0,8}(?:坐标|位置|经度|纬度|电量|电池状态|在线状态|离线状态|占用状态|设备任务)/u,
+  /"(?:坐标|经度|纬度|电量|电池状态|在线状态|占用状态|设备任务状态)"\s*:/u,
+  /(?:在线状态|设备)\s*(?:为|是)\s*(?:在线|离线|占用|空闲)/u,
+] as const;
+
+function containsDynamicDeviceState(refinement: MemoryRefinement): boolean {
+  const evidence = `${refinement.summary}\n${JSON.stringify(refinement.content)}`;
+  return DYNAMIC_DEVICE_STATE_PATTERNS.some((pattern) => pattern.test(evidence));
 }
 
 function assertDurableAdmission(value: Pick<MemoryRefinement, 'durability' | 'durabilityReason'>) {
@@ -450,6 +497,7 @@ function assertDurableAdmission(value: Pick<MemoryRefinement, 'durability' | 'du
 
 export type MemoryApplicationErrorCode =
   | 'MEMORY_ACTOR_REQUIRED'
+  | 'MEMORY_AUTHORITY_PROVENANCE_INVALID'
   | 'MEMORY_EMBEDDING_INVALID'
   | 'MEMORY_DURABILITY_NOT_ADMITTED'
   | 'MEMORY_LIMIT_INVALID'

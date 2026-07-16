@@ -23,6 +23,19 @@ All notable changes to this project are documented here. The format follows Keep
 - The complete operator-managed `pnpm verify` passed in 86,193 ms with format, lint, strict TypeScript, 284 unit tests, 64 contract tests, 60 integration tests, 46 E2E tests, 182-source architecture, 106-operation OpenAPI, production build, empty/0049→0064 migrations and both smoke gates.
 - Real PostgreSQL migration tests cover provider/dimension isolation, durable-only retrieval, legacy exclusion and guarded rollback. No Docker command ran.
 
+## [1.0.12-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- A structured model can no longer elevate a durable processed-result candidate to administrator or Skill-experience authority; durable authority must match the application-owned source path.
+- Current coordinates, battery, online state, occupancy and device-task state are deterministically forced to `volatile`/`mcp` before embedding even when a model falsely claims they are durable; direct creation cannot bypass the same policy.
+- Memory content is copied, finite-JSON validated, depth/cycle bounded and deeply frozen at the domain boundary; provider embeddings are copied and frozen after finite positive-dimension validation, preventing asynchronous caller mutation from changing persisted evidence.
+
+### Verification
+
+- The required bug-fixed `pnpm verify` passed in 85,277 ms with 287 unit tests, 64 contract tests, 60 integration tests, 46 E2E tests, 182-source architecture, 106-operation OpenAPI, production build, empty/0049→0064 migrations and both smoke gates.
+- Adversarial regressions cover forged durable classifications for every named dynamic-state class, authority elevation, direct-create bypass, cyclic/non-finite content and post-validation vector/content mutation. No Docker command ran.
+
 ## [1.0.11] - 2026-07-16
 
 ### Added

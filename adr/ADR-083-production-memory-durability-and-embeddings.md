@@ -17,7 +17,10 @@ enhancement, but its persisted warnings had no management query route.
 The Memory domain owns `durability`, `authority`, and a displayable `durabilityReason`. The fixed
 Refinement stage must return type, content, summary, confidence and all three production fields in
 one strict structured response. Caller-supplied authority is a hint in untrusted model input, not
-proof; the model must return an explicit validated authority.
+proof; the model must return an explicit validated authority. A durable result must also match the
+application-owned provenance path: management refinement is `admin`, evolution is
+`skill_experience`, and processed-result extraction is `model_inferred`. A model cannot elevate
+itself by naming a stronger authority.
 
 Only `durable` refinement results may enter new long-term Memory. `volatile` and `unknown` results
 are rejected before embedding or deduplication. Current coordinates, battery, online state,
@@ -25,6 +28,13 @@ occupancy and device-task state are explicitly classified as volatile MCP eviden
 must query MCP again. Skill correction, prompt correction, failure and evaluation experience may be
 classified as durable `skill_experience`. Management refinement carries an `admin` hint but still
 passes through the same structured durability decision.
+
+The application also recognizes the five named dynamic-state classes independently of the model.
+Contradictory durable responses are forced to `volatile` / `mcp` before embedding, and the direct
+create boundary applies the same rule. Domain constructors copy, finite-JSON validate, depth/cycle
+bound and deeply freeze Memory content; the application copies and freezes each validated
+Embedding before repository handoff. TypeScript `readonly` alone is not treated as runtime
+immutability.
 
 Migration 0064 converts only `memory_item.embedding` from `vector(3)` to generic `vector`, keeps an
 explicit positive dimension column, enforces `vector_dims(embedding)` equality, and indexes active
@@ -47,7 +57,8 @@ does not create a second state store or execution runtime.
 - Real providers may use 3, 8, 1536 or other positive finite dimensions without schema changes.
 - Rows from different providers or dimensions are never compared.
 - Dynamic device state cannot be admitted by the normal automatic pipeline when Refinement labels
-  it volatile; uncertain evidence defaults to no admission.
+  it volatile or when the deterministic safety policy detects a contradictory durable claim;
+  uncertain evidence defaults to no admission.
 - Historical unclassified Memory becomes conservative non-retrieval evidence instead of silently
   retaining authority.
 - PostgreSQL remains the long-term source of truth, while model output remains validated data and

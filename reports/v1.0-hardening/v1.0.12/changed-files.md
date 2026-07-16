@@ -10,4 +10,5 @@
 - `schemas/memory-item.schema.json` and `management-api.openapi.yaml`
 - `infra/postgres/migrations/0064_memory_production_hardening.{up,down}.sql`
 - domain/application/API/Console/persistence/A2A regression fixtures and tests
+- bug-fixed domain immutability, application provenance/dynamic-state policy and adversarial tests
 - ADR-083, migration verifier, traceability, ExecPlan, changelog and v1.0.12 evidence reports

@@ -1,4 +1,4 @@
 # v1.0.12 Test Results
 
-The feature gate passed completely; see `feature-test-results.md`. The independent bug-fixed audit
-and its required full gate remain pending.
+The feature and independently audited bug-fixed gates passed completely; see
+`feature-test-results.md` and `bug-fixed-test-results.md`.
