@@ -8,6 +8,7 @@ import type {
 } from '../../domain/src/index.js';
 
 import type { McpToolPlanningMetadata } from './mcp-tool-enhancer.js';
+import { snapshotMcpToolPlanningExecutionSemantics } from './mcp-tool-enhancer.js';
 import type {
   Clock,
   JsonSchemaValidator,
@@ -301,6 +302,7 @@ export class SkillCallWorkflowService {
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
       goalContract: parentPlan.goalContract,
+      toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
       compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
       planningInstruction: childPlanningInstruction(
         skill,

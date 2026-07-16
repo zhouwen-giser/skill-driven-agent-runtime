@@ -117,6 +117,16 @@ function registerTools(
     'device_status',
     {
       description: 'Returns deterministic read-only device status.',
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+      _meta: {
+        'io.sdar/tool-execution-semantics': {
+          effect: 'read_only',
+          execution: 'synchronous',
+          cancellation: 'cooperative',
+          idempotency: 'client_request_key',
+          replay: 'allowed',
+        },
+      },
       inputSchema: {
         deviceId: z.string().min(1),
         delayMs: z.number().int().nonnegative().optional(),

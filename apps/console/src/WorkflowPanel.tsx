@@ -6,6 +6,7 @@ interface WorkflowNodeRecord {
   readonly nodeId: string;
   readonly name: string;
   readonly type: string;
+  readonly tool?: Readonly<{ serverId: string; toolName: string }>;
 }
 interface WorkflowEdgeRecord {
   readonly sourceNodeId: string;
@@ -28,6 +29,10 @@ interface WorkflowPlanRecord {
   readonly sourcePlanId?: string;
   readonly revisionKind?: string;
   readonly definition?: WorkflowDefinitionRecord;
+  readonly toolExecutionSemantics?: readonly Readonly<{
+    reference: Readonly<{ serverId: string; toolName: string }>;
+    executionSemantics: WorkflowToolSemanticsRecord['executionSemantics'];
+  }>[];
 }
 interface WorkflowTraceRecord {
   readonly instance: Readonly<{
@@ -108,6 +113,11 @@ export function parseVisualWorkflowDefinition(
         nodeId: String(node.nodeId),
         name: String(node.name),
         type: String(node.type),
+        ...(isObject(node.tool) &&
+        typeof node.tool.serverId === 'string' &&
+        typeof node.tool.toolName === 'string'
+          ? { tool: { serverId: node.tool.serverId, toolName: node.tool.toolName } }
+          : {}),
       })),
       edges: edges.map((edge) => ({
         sourceNodeId: String(edge.sourceNodeId),
@@ -172,6 +182,50 @@ export function WorkflowEventDuration({ durationMs }: { readonly durationMs: num
   return durationMs === undefined ? null : <small>Node duration · {durationMs} ms</small>;
 }
 
+interface WorkflowToolSemanticsRecord {
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly executionSemantics: Readonly<{
+    effect: string;
+    execution: string;
+    cancellation: string;
+    idempotency: string;
+    replay: string;
+    source: string;
+  }>;
+}
+
+export function WorkflowToolSemanticsSummary({
+  items,
+}: {
+  readonly items: readonly WorkflowToolSemanticsRecord[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="panel" aria-label="Plan confirmation Tool execution semantics">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">CONFIRMATION AUTHORITY</span>
+          <h2>Tool execution semantics</h2>
+        </div>
+      </div>
+      <div className="record-list">
+        {items.map((item) => (
+          <article key={`${item.serverId}/${item.toolName}`}>
+            <strong>
+              {item.serverId} / {item.toolName}
+            </strong>
+            <small>
+              {item.executionSemantics.effect} · {item.executionSemantics.execution} · replay{' '}
+              {item.executionSemantics.replay} · source {item.executionSemantics.source}
+            </small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function WorkflowPanel({
   initialPlanId,
   onOpenTask,
@@ -195,6 +249,7 @@ export function WorkflowPanel({
     [replayEvents],
   );
   const visualDefinition = useMemo(() => parseVisualWorkflowDefinition(editor), [editor]);
+  const definition = visualDefinition ?? plan?.definition;
 
   async function loadPlanById(id: string) {
     await run(async () => {
@@ -269,7 +324,6 @@ export function WorkflowPanel({
     }
   }
 
-  const definition = visualDefinition ?? plan?.definition;
   const visualEditingEnabled = visualDefinition !== undefined;
   return (
     <div className="stack">
@@ -312,6 +366,12 @@ export function WorkflowPanel({
         {message === undefined ? null : <p className="action-message">{message}</p>}
         <WorkflowTaskLink taskId={linkedTaskId} onOpenTask={onOpenTask} />
       </section>
+      <WorkflowToolSemanticsSummary
+        items={(plan?.toolExecutionSemantics ?? []).map((snapshot) => ({
+          ...snapshot.reference,
+          executionSemantics: snapshot.executionSemantics,
+        }))}
+      />
       {definition === undefined ? null : (
         <section className="workflow-grid">
           <div className="panel dag-board">

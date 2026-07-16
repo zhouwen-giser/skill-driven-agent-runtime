@@ -542,6 +542,21 @@ paths:
             schema: { $ref: '#/components/schemas/ToolEnhancement' }
       responses:
         '204': { description: Updated }
+  /api/v1/mcp/servers/{serverId}/tools/{toolName}/execution-semantics:
+    parameters:
+      - $ref: '#/components/parameters/ServerId'
+      - { name: toolName, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: updateMcpToolExecutionSemantics
+      description: Retains a credential-free administrator semantics override across discovery refreshes. An available MCP declaration remains authoritative.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/McpToolExecutionSemanticsValues' }
+      responses:
+        '204': { description: Override retained and effective semantics recalculated }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/mcp/servers/{serverId}/invocations:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     get:
@@ -1088,6 +1103,19 @@ components:
         returnDescription: { type: string }
         commonErrors: { type: array, items: { type: string } }
         tags: { type: array, items: { type: string } }
+    McpToolExecutionSemanticsValues:
+      type: object
+      additionalProperties: false
+      required: [effect, execution, cancellation, idempotency, replay]
+      properties:
+        effect: { type: string, enum: [read_only, side_effecting, unknown] }
+        execution:
+          { type: string, enum: [synchronous, task_capable, task_required, unknown] }
+        cancellation:
+          { type: string, enum: [unsupported, cooperative, task_cancel, unknown] }
+        idempotency:
+          { type: string, enum: [none, client_request_key, server_managed, unknown] }
+        replay: { type: string, enum: [allowed, simulation_only, forbidden, unknown] }
     CreateTemporarySkill:
       type: object
       additionalProperties: false

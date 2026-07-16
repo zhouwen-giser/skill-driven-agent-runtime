@@ -88,10 +88,20 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
   );
   if (latest.rows[0]?.applied !== true)
-    throw new Error(`MIGRATION_0062_MISSING:${label}`);
+    throw new Error(`MIGRATION_0063_MISSING:${label}`);
+  const semanticsColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='mcp_tool' AND column_name IN ('declared_execution_semantics_json','admin_execution_semantics_override_json','execution_semantics_json')) OR (table_name='mcp_invocation' AND column_name='execution_semantics_json') OR (table_name IN ('workflow_plan','workflow_plan_attempt') AND column_name='tool_execution_semantics_json')",
+  );
+  if (semanticsColumns.rows[0]?.count !== 6)
+    throw new Error(`MIGRATION_MCP_TOOL_EXECUTION_SEMANTICS_MISSING:${label}`);
+  const semanticsOperationConstraint = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='mcp_management_operation'::regclass AND conname='mcp_management_operation_operation_type_check'",
+  );
+  if (!semanticsOperationConstraint.rows[0]?.definition?.includes('tool_semantics_override'))
+    throw new Error(`MIGRATION_MCP_TOOL_SEMANTICS_OPERATION_MISSING:${label}`);
   const compositionColumns = await pool.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json') AND table_name IN ('workflow_plan','workflow_plan_attempt')",
   );

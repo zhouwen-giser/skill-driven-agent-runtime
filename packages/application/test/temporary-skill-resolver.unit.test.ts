@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { createAgentTask, type TemporarySkill } from '../../domain/src/index.js';
+import {
+  createAgentTask,
+  DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+  type TemporarySkill,
+} from '../../domain/src/index.js';
 import { TemporarySkillResolver } from '../src/index.js';
 
 const task = createAgentTask({
@@ -117,6 +121,7 @@ function registry() {
           title: 'Device status',
           description: 'Read device status.',
           inputSchema: { type: 'object', required: ['deviceId'] },
+          executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
           discoveredAt: '2026-07-12T00:00:00.000Z',
         },
       ]),

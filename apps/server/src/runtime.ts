@@ -21,6 +21,7 @@ import {
   McpRegistryService,
   StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
+  snapshotMcpToolPlanningExecutionSemantics,
   ModelRuntimeService,
   PromptService,
   SkillGraphService,
@@ -1093,14 +1094,18 @@ export async function startServerRuntime(
           throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
         if (skill?.status === 'enabled' && input.skillInputResolution === undefined)
           throw new Error('SELECTED_SKILL_INPUT_NOT_RESOLVED');
-        const toolPlanningMetadata =
-          skill === undefined
-            ? undefined
-            : await buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
-                (await mcpRepository.listTools(reference.serverId)).find(
-                  (tool) => tool.toolName === reference.toolName,
-                ),
-              );
+        const planningToolPolicy = skill?.toolPolicy ?? {
+          required: temporary?.tools ?? [],
+          optional: [],
+          forbidden: [],
+        };
+        const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
+          planningToolPolicy,
+          async (reference) =>
+            (await mcpRepository.listTools(reference.serverId)).find(
+              (tool) => tool.toolName === reference.toolName,
+            ),
+        );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
         const plan = await workflowPlanner.plan({
           planId,
@@ -1109,6 +1114,7 @@ export async function startServerRuntime(
           goalId: input.goalId,
           goalVersion: input.goalVersion,
           goalContract: input.goalContract,
+          toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
           ...(skill === undefined
             ? {}
             : {
@@ -1133,6 +1139,7 @@ export async function startServerRuntime(
                     temporarySkillId: temporary?.temporarySkillId,
                     description: temporary?.description,
                     tools: temporary?.tools,
+                    toolPlanningMetadata,
                     inputSchema: temporary?.inputSchema,
                     outputSchema: temporary?.outputSchema,
                   },
@@ -1512,6 +1519,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0060_task_skill_input_resolution_binding.up.sql',
     '0061_goal_execution_contract.up.sql',
     '0062_skill_composition_context.up.sql',
+    '0063_mcp_tool_execution_semantics.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

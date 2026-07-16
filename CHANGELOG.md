@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-07-16
+
+### Added
+
+- Domain-owned MCP Tool execution semantics for effect, execution, cancellation, idempotency, replay and authoritative source.
+- Migration 0063 stores declared, administrator and effective Tool values, call-time Invocation snapshots, and immutable Planner-time Workflow plan/attempt snapshots.
+- Credential-free management API and Console controls for retained administrator overrides, plus semantics display in MCP inventory, plan confirmation and Skill Tool Policy views.
+
+### Changed
+
+- Official MCP SDK annotations, task support and the validated `io.sdar/tool-execution-semantics` metadata extension are translated inside the adapter; SDK types never enter domain/application contracts.
+- Workflow planning and repair use a frozen semantics snapshot. Refresh preserves administrator input, while an available MCP declaration remains higher priority per the task package.
+- LLM Tool Enhancement remains descriptive data and cannot set real execution authority.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 86,700 ms with format, lint, strict TypeScript, 281 unit tests, 62 contract tests, 59 integration tests, 46 E2E tests, 182-source architecture, 105-operation OpenAPI, build, empty/0049→0063 migrations and both smoke gates.
+- Compose daemon/config validation was deferred by operator-managed mode and no Docker command was run.
+
 ## [1.0.10] - 2026-07-16
 
 ### Changed

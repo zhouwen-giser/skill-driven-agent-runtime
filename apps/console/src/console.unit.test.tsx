@@ -8,6 +8,7 @@ import {
   WorkflowEventDuration,
   WorkflowPanel,
   WorkflowTaskLink,
+  WorkflowToolSemanticsSummary,
 } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
@@ -21,10 +22,46 @@ import { McpPanel } from './McpPanel.js';
 import { SystemPanel } from './SystemPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
-import { openRelatedSkillTasks, SkillTaskNavigation } from './SkillsPanel.js';
+import {
+  openRelatedSkillTasks,
+  SkillTaskNavigation,
+  SkillToolPolicySemantics,
+} from './SkillsPanel.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders execution semantics in plan confirmation and Skill Tool Policy views', () => {
+    const tool = {
+      serverId: 'mcp.devices',
+      toolName: 'device_status',
+      executionSemantics: {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      },
+    };
+    const markup = renderToStaticMarkup(
+      <>
+        <WorkflowToolSemanticsSummary items={[tool]} />
+        <SkillToolPolicySemantics
+          policy={{
+            required: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+            optional: [],
+            forbidden: [],
+          }}
+          tools={[tool]}
+        />
+      </>,
+    );
+    expect(markup).toContain('CONFIRMATION AUTHORITY');
+    expect(markup).toContain('required: mcp.devices/device_status');
+    expect(markup).toContain('source mcp_declared');
+    expect(markup).toContain('replay allowed');
+  });
+
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
     const markup = renderToStaticMarkup(<App />);
     expect(markup).toContain('aria-label="主导航"');

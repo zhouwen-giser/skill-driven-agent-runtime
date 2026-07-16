@@ -3,6 +3,8 @@ import {
   createRuntimeExecutionContext,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
   createMcpTool,
+  createMcpToolExecutionSemantics,
+  withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
   type McpInvocation,
   type McpManagementOperation,
@@ -10,6 +12,7 @@ import {
   type McpServer,
   type McpTool,
   type McpToolEnhancement,
+  type McpToolExecutionSemanticsValues,
   type RuntimeExecutionContext,
 } from '../../domain/src/index.js';
 
@@ -188,6 +191,7 @@ export class McpRegistryService {
           context,
           serverId,
           toolName,
+          executionSemantics: tool.executionSemantics,
           arguments: arguments_,
           status: canceled ? 'canceled' : 'failed',
           errorCode: canceled ? 'MCP_CALL_CANCELED' : 'MCP_CALL_FAILED',
@@ -205,6 +209,7 @@ export class McpRegistryService {
         context,
         serverId,
         toolName,
+        executionSemantics: tool.executionSemantics,
         arguments: arguments_,
         result,
         status: 'succeeded',
@@ -326,6 +331,36 @@ export class McpRegistryService {
     );
   }
 
+  async updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    values: McpToolExecutionSemanticsValues,
+  ): Promise<void> {
+    await this.#requireServer(serverId);
+    const tool = (await this.#repository.listTools(serverId)).find(
+      (candidate) => candidate.toolName === toolName,
+    );
+    if (tool === undefined)
+      throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
+    const adminOverride = createMcpToolExecutionSemantics(values, 'admin_override');
+    const updated = withMcpToolAdminExecutionSemanticsOverride(tool, adminOverride);
+    await this.#repository.updateToolExecutionSemantics(
+      serverId,
+      toolName,
+      adminOverride,
+      updated.executionSemantics,
+    );
+    await this.#auditManagementOperation(
+      serverId,
+      'tool_semantics_override',
+      {
+        effectiveSource: updated.executionSemantics.source,
+        retainedForRefresh: true,
+      },
+      toolName,
+    );
+  }
+
   async #auditManagementOperation(
     serverId: string,
     operationType: McpManagementOperationType,
@@ -366,17 +401,40 @@ export class McpRegistryService {
         ...(tool.title === undefined ? {} : { title: tool.title }),
         ...(tool.description === undefined ? {} : { description: tool.description }),
         inputSchema: tool.inputSchema,
+        ...(tool.declaredExecutionSemantics === undefined
+          ? {}
+          : {
+              declaredExecutionSemantics: createMcpToolExecutionSemantics(
+                tool.declaredExecutionSemantics,
+                'mcp_declared',
+              ),
+            }),
         discoveredAt: timestamp,
       });
     });
     const previousByName = new Map(previous.map((tool) => [tool.toolName, tool]));
     return Promise.all(
       registered.map(async (tool) => {
-        const existing = previousByName.get(tool.toolName)?.enhancement;
-        return {
-          ...tool,
+        const previousTool = previousByName.get(tool.toolName);
+        const existing = previousTool?.enhancement;
+        const enhanced = createMcpTool({
+          serverId: tool.serverId,
+          toolName: tool.toolName,
+          ...(tool.title === undefined ? {} : { title: tool.title }),
+          ...(tool.description === undefined ? {} : { description: tool.description }),
+          inputSchema: tool.inputSchema,
           enhancement: existing ?? (await this.#enhancer.enhance(tool)),
-        };
+          ...(tool.declaredExecutionSemantics === undefined
+            ? {}
+            : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
+          discoveredAt: tool.discoveredAt,
+        });
+        return previousTool?.adminExecutionSemanticsOverride === undefined
+          ? enhanced
+          : withMcpToolAdminExecutionSemanticsOverride(
+              enhanced,
+              previousTool.adminExecutionSemanticsOverride,
+            );
       }),
     );
   }
@@ -395,6 +453,7 @@ function invocationRecord(
     context: McpCallContext;
     serverId: string;
     toolName: string;
+    executionSemantics: McpInvocation['executionSemantics'];
     arguments: Readonly<Record<string, unknown>>;
     result?: unknown;
     status: McpInvocation['status'];
@@ -418,6 +477,7 @@ function invocationRecord(
       : { simulationId: executionContext.simulationId }),
     serverId: input.serverId,
     toolName: input.toolName,
+    executionSemantics: input.executionSemantics,
     arguments: input.arguments,
     ...(input.result === undefined ? {} : { result: input.result }),
     status: input.status,

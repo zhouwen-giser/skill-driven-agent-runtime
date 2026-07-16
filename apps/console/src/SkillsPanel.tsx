@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { managementRequest } from './api.js';
 import { SkillStudio } from './SkillStudio.js';
@@ -8,6 +8,27 @@ interface SkillRecord extends Record<string, unknown> {
   readonly name: string;
   readonly status: string;
   readonly version: number;
+  readonly toolPolicy?: Readonly<{
+    required: readonly SkillToolReference[];
+    optional: readonly SkillToolReference[];
+    forbidden: readonly SkillToolReference[];
+  }>;
+}
+
+interface SkillToolReference {
+  readonly serverId: string;
+  readonly toolName: string;
+}
+
+interface SkillToolSemanticsRecord {
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly executionSemantics: Readonly<{
+    effect: string;
+    execution: string;
+    replay: string;
+    source: string;
+  }>;
 }
 
 export function SkillsPanel({
@@ -22,6 +43,20 @@ export function SkillsPanel({
   const [message, setMessage] = useState<string>();
   const [detail, setDetail] = useState<unknown>();
   const [rollback, setRollback] = useState<Record<string, string>>({});
+  const [toolSemantics, setToolSemantics] = useState<readonly SkillToolSemanticsRecord[]>([]);
+  const toolReferences = useMemo(
+    () =>
+      skills.flatMap((skill) =>
+        skill.toolPolicy === undefined
+          ? []
+          : [
+              ...skill.toolPolicy.required,
+              ...skill.toolPolicy.optional,
+              ...skill.toolPolicy.forbidden,
+            ],
+      ),
+    [skills],
+  );
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -34,6 +69,35 @@ export function SkillsPanel({
     }
   }, []);
   useEffect(() => void reload(), [reload]);
+  useEffect(() => {
+    let active = true;
+    const serverIds = [...new Set(toolReferences.map((reference) => reference.serverId))];
+    if (serverIds.length === 0) {
+      setToolSemantics([]);
+      return () => {
+        active = false;
+      };
+    }
+    void Promise.all(
+      serverIds.map((serverId) =>
+        managementRequest<{ readonly items: readonly SkillToolSemanticsRecord[] }>(
+          `/api/v1/mcp/servers/${encodeURIComponent(serverId)}/tools`,
+        ),
+      ),
+    )
+      .then((responses) => {
+        if (active) setToolSemantics(responses.flatMap((response) => response.items));
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setMessage(
+            error instanceof Error ? error.message : 'Skill Tool semantics could not load.',
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [toolReferences]);
 
   async function action(
     skillId: string,
@@ -116,6 +180,7 @@ export function SkillsPanel({
                 回滚
               </button>
             </div>
+            <SkillToolPolicySemantics policy={skill.toolPolicy} tools={toolSemantics} />
           </article>
         ))}
       </div>
@@ -125,6 +190,42 @@ export function SkillsPanel({
         </section>
       )}
       <SkillStudio onRegistryChanged={() => void reload()} />
+    </div>
+  );
+}
+
+export function SkillToolPolicySemantics({
+  policy,
+  tools,
+}: {
+  readonly policy: SkillRecord['toolPolicy'];
+  readonly tools: readonly SkillToolSemanticsRecord[];
+}) {
+  if (policy === undefined) return null;
+  const entries = (
+    [
+      ['required', policy.required],
+      ['optional', policy.optional],
+      ['forbidden', policy.forbidden],
+    ] as const
+  ).flatMap(([kind, references]) => references.map((reference) => ({ kind, reference })));
+  if (entries.length === 0) return null;
+  return (
+    <div className="record-list" aria-label="Skill Tool Policy execution semantics">
+      {entries.map(({ kind, reference }) => {
+        const tool = tools.find(
+          (candidate) =>
+            candidate.serverId === reference.serverId && candidate.toolName === reference.toolName,
+        );
+        return (
+          <small key={`${kind}/${reference.serverId}/${reference.toolName}`}>
+            {kind}: {reference.serverId}/{reference.toolName} ·{' '}
+            {tool === undefined
+              ? 'semantics unavailable'
+              : `${tool.executionSemantics.effect}, ${tool.executionSemantics.execution}, replay ${tool.executionSemantics.replay}, source ${tool.executionSemantics.source}`}
+          </small>
+        );
+      })}
     </div>
   );
 }

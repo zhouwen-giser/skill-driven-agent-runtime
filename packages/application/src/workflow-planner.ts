@@ -3,10 +3,12 @@ import {
   goalExecutionContractsEqual,
   snapshotGoalExecutionContract,
   snapshotSkillCompositionContext,
+  snapshotWorkflowToolExecutionSemantics,
   type GoalExecutionContract,
   type SkillCompositionContext,
   type WorkflowPlanAttempt,
   type WorkflowPlanRecord,
+  type WorkflowToolExecutionSemanticsSnapshot,
 } from '../../domain/src/index.js';
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
@@ -24,6 +26,7 @@ export interface PlanWorkflowInput {
   readonly compositionRoot?: SkillCompositionRoot;
   readonly compositionContext?: SkillCompositionContext;
   readonly capabilityGapSkillIds?: readonly string[];
+  readonly toolExecutionSemantics?: readonly WorkflowToolExecutionSemanticsSnapshot[];
   readonly planningInstruction: string;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;
@@ -98,6 +101,10 @@ export class WorkflowPlannerService {
           : snapshotSkillCompositionContext(input.compositionContext)
         : await this.#requireComposition().compose(input.compositionRoot);
     const capabilityGapSkillIds = normalizeSkillIds(input.capabilityGapSkillIds ?? []);
+    const suppliedToolExecutionSemantics =
+      input.toolExecutionSemantics === undefined
+        ? undefined
+        : snapshotWorkflowToolExecutionSemantics(input.toolExecutionSemantics);
     const source =
       input.sourceConfirmedPlanId === undefined
         ? undefined
@@ -113,6 +120,20 @@ export class WorkflowPlannerService {
         'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
         'Repair source confirmation belongs to a different Goal execution contract.',
       );
+    if (
+      source !== undefined &&
+      suppliedToolExecutionSemantics !== undefined &&
+      !toolExecutionSemanticsEqual(
+        source.toolExecutionSemantics ?? [],
+        suppliedToolExecutionSemantics,
+      )
+    )
+      throw new WorkflowPlannerError(
+        'WORKFLOW_REPAIR_TOOL_SEMANTICS_MISMATCH',
+        'Repair planning cannot replace the confirmed Tool execution semantics snapshot.',
+      );
+    const toolExecutionSemantics =
+      suppliedToolExecutionSemantics ?? source?.toolExecutionSemantics ?? [];
     if (
       source !== undefined &&
       (!skillCompositionContextsEqual(source.compositionContext, compositionContext) ||
@@ -135,6 +156,7 @@ export class WorkflowPlannerService {
       goalContract,
       compositionContext,
       capabilityGapSkillIds,
+      toolExecutionSemantics,
     );
     const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
@@ -161,6 +183,7 @@ export class WorkflowPlannerService {
           goalContract,
           compositionContext,
           capabilityGapSkillIds,
+          toolExecutionSemantics,
           attempt,
           candidate,
           validation,
@@ -175,6 +198,7 @@ export class WorkflowPlannerService {
           goalContract,
           ...(compositionContext === undefined ? {} : { compositionContext }),
           ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
+          ...(toolExecutionSemantics.length === 0 ? {} : { toolExecutionSemantics }),
           definition: validation.definition,
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
@@ -209,6 +233,7 @@ export class WorkflowPlannerService {
       goalContract,
       ...(compositionContext === undefined ? {} : { compositionContext }),
       ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
+      ...(toolExecutionSemantics.length === 0 ? {} : { toolExecutionSemantics }),
       ...(input.sourceConfirmedPlanId === undefined
         ? {}
         : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
@@ -271,11 +296,13 @@ function addPlanningContracts(
   goalContract: GoalExecutionContract,
   compositionContext: SkillCompositionContext | undefined,
   capabilityGapSkillIds: readonly string[],
+  toolExecutionSemantics: readonly WorkflowToolExecutionSemanticsSnapshot[],
 ): string {
   const planningAuthority = {
     goalContract,
     skillCompositionContext: compositionContext ?? null,
     capabilityGapSkillIds,
+    toolExecutionSemantics,
     skillCallConstraint:
       'Every skill_call target must be admitted by allowedChildSkillIds or capabilityGapSkillIds.',
   } as const;
@@ -354,6 +381,7 @@ function toAttempt(
   goalContract: GoalExecutionContract,
   compositionContext: SkillCompositionContext | undefined,
   capabilityGapSkillIds: readonly string[],
+  toolExecutionSemantics: readonly WorkflowToolExecutionSemanticsSnapshot[],
   attempt: number,
   candidate: unknown,
   validation: WorkflowValidationResult,
@@ -364,12 +392,20 @@ function toAttempt(
     goalContract,
     ...(compositionContext === undefined ? {} : { compositionContext }),
     ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
+    ...(toolExecutionSemantics.length === 0 ? {} : { toolExecutionSemantics }),
     attempt,
     candidate,
     validationErrors: validation.errors,
     valid: validation.valid,
     createdAt,
   };
+}
+
+function toolExecutionSemanticsEqual(
+  left: readonly WorkflowToolExecutionSemanticsSnapshot[],
+  right: readonly WorkflowToolExecutionSemanticsSnapshot[],
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function normalizeSkillIds(values: readonly string[]): readonly string[] {
@@ -402,6 +438,7 @@ export type WorkflowPlannerErrorCode =
   | 'WORKFLOW_COMPOSITION_AUTHORITY_AMBIGUOUS'
   | 'WORKFLOW_COMPOSITION_PLANNER_UNAVAILABLE'
   | 'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH'
+  | 'WORKFLOW_REPAIR_TOOL_SEMANTICS_MISMATCH'
   | 'WORKFLOW_REPAIR_COMPOSITION_CONTEXT_MISMATCH'
   | 'WORKFLOW_REVISION_SOURCE_REQUIRED'
   | 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED';

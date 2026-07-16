@@ -44,10 +44,12 @@ import type {
   TaskInputRepository,
 } from '../../application/src/index.js';
 import {
+  createMcpTool,
   DomainError,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
   snapshotSkillCompositionContext,
+  snapshotWorkflowToolExecutionSemantics,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
@@ -265,6 +267,24 @@ const McpEnhancementSchema = z.object({
   commonErrors: StringArraySchema,
   tags: StringArraySchema,
 });
+const McpExecutionSemanticsSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+    source: z.enum(['mcp_declared', 'admin_override', 'default_unknown']),
+  })
+  .strict();
+const WorkflowToolExecutionSemanticsSchema = z.array(
+  z
+    .object({
+      reference: z.object({ serverId: z.string().min(1), toolName: z.string().min(1) }).strict(),
+      executionSemantics: McpExecutionSemanticsSchema,
+    })
+    .strict(),
+);
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
@@ -601,6 +621,9 @@ interface McpToolRow extends QueryResultRow {
   description: string | null;
   input_schema_json: unknown;
   enhancement_json: Record<string, unknown> | null;
+  declared_execution_semantics_json: unknown;
+  admin_execution_semantics_override_json: unknown;
+  execution_semantics_json: unknown;
   discovered_at: Date | string;
 }
 
@@ -624,6 +647,7 @@ interface McpInvocationRow extends QueryResultRow {
   simulation_id: string | null;
   server_id: string;
   tool_name: string;
+  execution_semantics_json: unknown;
   arguments_json: Record<string, unknown>;
   result_json: unknown;
   status: McpInvocation['status'];
@@ -3985,6 +4009,7 @@ interface WorkflowPlanRow extends QueryResultRow {
   goal_contract_json: unknown;
   composition_context_json: unknown;
   capability_gap_skill_ids_json: unknown;
+  tool_execution_semantics_json: unknown;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
   source_plan_id: string | null;
@@ -4220,8 +4245,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     await this.#pool.query(
       `INSERT INTO workflow_plan_attempt
          (plan_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
-          attempt,candidate_json,validation_errors_json,valid,created_at)
-       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7::jsonb,$8,$9)`,
+          tool_execution_semantics_json,attempt,candidate_json,validation_errors_json,valid,created_at)
+       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7::jsonb,$8::jsonb,$9,$10)`,
       [
         attempt.planId,
         JSON.stringify(attempt.goalContract),
@@ -4229,6 +4254,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           ? null
           : JSON.stringify(attempt.compositionContext),
         JSON.stringify(attempt.capabilityGapSkillIds ?? []),
+        JSON.stringify(attempt.toolExecutionSemantics ?? []),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -4241,9 +4267,9 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     await this.#pool.query(
       `INSERT INTO workflow_plan
          (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
-          capability_gap_skill_ids_json,definition_json,source_confirmed_plan_id,source_plan_id,
+          capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
           revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13)`,
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
       [
         plan.planId,
         plan.goalId,
@@ -4251,6 +4277,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
         JSON.stringify(plan.goalContract),
         plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
         JSON.stringify(plan.capabilityGapSkillIds ?? []),
+        JSON.stringify(plan.toolExecutionSemantics ?? []),
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
@@ -4274,9 +4301,9 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       await client.query(
         `INSERT INTO workflow_plan
            (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
-            capability_gap_skill_ids_json,definition_json,source_confirmed_plan_id,source_plan_id,
+            capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
             revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13)`,
+         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
         [
           plan.planId,
           plan.goalId,
@@ -4284,6 +4311,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           JSON.stringify(plan.goalContract),
           plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
           JSON.stringify(plan.capabilityGapSkillIds ?? []),
+          JSON.stringify(plan.toolExecutionSemantics ?? []),
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
@@ -4977,8 +5005,14 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
 
 function mapWorkflowPlanCompositionAuthority(
   row: WorkflowPlanRow,
-): Pick<WorkflowPlanRecord, 'compositionContext' | 'capabilityGapSkillIds'> {
+): Pick<
+  WorkflowPlanRecord,
+  'compositionContext' | 'capabilityGapSkillIds' | 'toolExecutionSemantics'
+> {
   const capabilityGapSkillIds = StringArraySchema.parse(row.capability_gap_skill_ids_json);
+  const toolExecutionSemantics = snapshotWorkflowToolExecutionSemantics(
+    WorkflowToolExecutionSemanticsSchema.parse(row.tool_execution_semantics_json),
+  );
   return {
     ...(row.composition_context_json === null
       ? {}
@@ -4990,6 +5024,7 @@ function mapWorkflowPlanCompositionAuthority(
           ),
         }),
     ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
+    ...(toolExecutionSemantics.length === 0 ? {} : { toolExecutionSemantics }),
   };
 }
 
@@ -5281,7 +5316,8 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listTools(serverId: string): Promise<readonly McpTool[]> {
     const result = await this.#pool.query<McpToolRow>(
       `SELECT server_id, tool_name, title, description, input_schema_json,
-              enhancement_json, discovered_at
+              enhancement_json, declared_execution_semantics_json,
+              admin_execution_semantics_override_json, execution_semantics_json, discovered_at
        FROM mcp_tool WHERE server_id = $1 ORDER BY tool_name`,
       [serverId],
     );
@@ -5344,8 +5380,9 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
         await client.query(
           `INSERT INTO mcp_tool
              (server_id, tool_name, title, description, input_schema_json,
-              enhancement_json, discovered_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              enhancement_json, declared_execution_semantics_json,
+              admin_execution_semantics_override_json, execution_semantics_json, discovered_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             tool.serverId,
             tool.toolName,
@@ -5353,6 +5390,13 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
             tool.description ?? null,
             JSON.stringify(tool.inputSchema),
             tool.enhancement === undefined ? null : JSON.stringify(tool.enhancement),
+            tool.declaredExecutionSemantics === undefined
+              ? null
+              : JSON.stringify(tool.declaredExecutionSemantics),
+            tool.adminExecutionSemanticsOverride === undefined
+              ? null
+              : JSON.stringify(tool.adminExecutionSemanticsOverride),
+            JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
           ],
         );
@@ -5401,8 +5445,8 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     await this.#pool.query(
       `INSERT INTO mcp_invocation
          (invocation_id, task_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
-          result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
@@ -5412,6 +5456,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
         invocation.serverId,
         invocation.toolName,
         JSON.stringify(invocation.arguments),
+        JSON.stringify(invocation.executionSemantics),
         invocation.result === undefined ? null : JSON.stringify(invocation.result),
         invocation.status,
         invocation.errorCode ?? null,
@@ -5426,7 +5471,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
     );
@@ -5436,7 +5481,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
     );
@@ -5489,6 +5534,21 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
       `UPDATE mcp_tool SET enhancement_json = $3
        WHERE server_id = $1 AND tool_name = $2`,
       [serverId, toolName, JSON.stringify(enhancement)],
+    );
+  }
+
+  async updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    adminOverride: McpTool['executionSemantics'],
+    effective: McpTool['executionSemantics'],
+  ): Promise<void> {
+    await this.#pool.query(
+      `UPDATE mcp_tool
+       SET admin_execution_semantics_override_json = $3,
+           execution_semantics_json = $4
+       WHERE server_id = $1 AND tool_name = $2`,
+      [serverId, toolName, JSON.stringify(adminOverride), JSON.stringify(effective)],
     );
   }
 }
@@ -5914,7 +5974,7 @@ function mapPromptVersionRow(row: PromptVersionRow): PromptVersion {
 }
 
 function mapMcpToolRow(row: McpToolRow): McpTool {
-  return {
+  return createMcpTool({
     serverId: row.server_id,
     toolName: row.tool_name,
     ...(row.title === null ? {} : { title: row.title }),
@@ -5923,8 +5983,23 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     ...(row.enhancement_json === null
       ? {}
       : { enhancement: McpEnhancementSchema.parse(row.enhancement_json) }),
+    ...(row.declared_execution_semantics_json === null
+      ? {}
+      : {
+          declaredExecutionSemantics: McpExecutionSemanticsSchema.parse(
+            row.declared_execution_semantics_json,
+          ),
+        }),
+    ...(row.admin_execution_semantics_override_json === null
+      ? {}
+      : {
+          adminExecutionSemanticsOverride: McpExecutionSemanticsSchema.parse(
+            row.admin_execution_semantics_override_json,
+          ),
+        }),
+    executionSemantics: McpExecutionSemanticsSchema.parse(row.execution_semantics_json),
     discoveredAt: toIsoString(row.discovered_at),
-  };
+  });
 }
 
 function mapMcpWarningRow(row: McpWarningRow): McpDependencyWarning {
@@ -5950,6 +6025,7 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     serverId: row.server_id,
     toolName: row.tool_name,
+    executionSemantics: McpExecutionSemanticsSchema.parse(row.execution_semantics_json),
     arguments: row.arguments_json,
     ...(row.result_json === null ? {} : { result: row.result_json }),
     status: row.status,

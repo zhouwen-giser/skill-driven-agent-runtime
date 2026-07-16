@@ -51,6 +51,7 @@ import {
   createTaskExecutionAttempt,
   createTaskInputRequest,
   createSkillVersion,
+  DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
 } from '../../domain/src/index.js';
@@ -104,15 +105,28 @@ function testCompositionContext() {
   };
 }
 
+async function applyTestMigration(name: string): Promise<void> {
+  await pool.query(
+    await readFile(new URL(`../../../infra/postgres/migrations/${name}`, import.meta.url), 'utf8'),
+  );
+}
+
 beforeAll(async () => {
   const ledger = await pool.query<{ exists: boolean }>(
     "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const skillCompositionContext = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
+    );
+    if (skillCompositionContext.rows[0]?.applied === true) {
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      return;
+    }
     const goalExecutionContract = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
     );
@@ -126,6 +140,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
@@ -150,6 +165,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const skillInputResolution = await pool.query<{ applied: boolean }>(
@@ -182,6 +198,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
@@ -223,6 +240,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
@@ -272,6 +290,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -329,6 +348,7 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -344,6 +364,7 @@ beforeAll(async () => {
         '0060_task_skill_input_resolution_binding.up.sql',
         '0061_goal_execution_contract.up.sql',
         '0062_skill_composition_context.up.sql',
+        '0063_mcp_tool_execution_semantics.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -722,6 +743,7 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillCompositionContextMigration);
+  await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
 });
 
 beforeEach(async () => {
@@ -954,6 +976,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
   it('persists every Workflow planning attempt and immutable validated plan', async () => {
     const repository = new PostgresWorkflowPlanRepository(pool);
+    const toolExecutionSemantics = [
+      {
+        reference: { serverId: 'mcp.devices', toolName: 'status' },
+        executionSemantics: {
+          effect: 'read_only' as const,
+          execution: 'synchronous' as const,
+          cancellation: 'cooperative' as const,
+          idempotency: 'client_request_key' as const,
+          replay: 'allowed' as const,
+          source: 'mcp_declared' as const,
+        },
+      },
+    ];
     const definition = {
       workflowDefinitionId: 'workflow.db',
       version: 1,
@@ -976,6 +1011,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       goalContract: testGoalContract('goal.db'),
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
+      toolExecutionSemantics,
       attempt: 1,
       candidate: { invalid: true },
       validationErrors: [{ code: 'INVALID', path: 'nodes', message: 'Invalid.' }],
@@ -987,6 +1023,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       goalContract: testGoalContract('goal.db'),
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
+      toolExecutionSemantics,
       attempt: 2,
       candidate: definition,
       validationErrors: [],
@@ -1000,6 +1037,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       goalContract: testGoalContract('goal.db'),
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
+      toolExecutionSemantics,
       definition,
       confirmationStatus: 'awaiting_confirmation',
       attemptCount: 2,
@@ -1011,6 +1049,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         goalContract: testGoalContract('goal.db'),
         compositionContext: testCompositionContext(),
         capabilityGapSkillIds: ['skill.gap.db'],
+        toolExecutionSemantics,
         attemptCount: 2,
         confirmationStatus: 'awaiting_confirmation',
       }),
@@ -1020,11 +1059,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
       contracts: unknown[];
       compositionContexts: unknown[];
       capabilityGaps: unknown[];
+      toolSemantics: unknown[];
     }>(
       `SELECT COUNT(*)::int count,
               jsonb_agg(goal_contract_json ORDER BY attempt) contracts,
               jsonb_agg(composition_context_json ORDER BY attempt) "compositionContexts",
-              jsonb_agg(capability_gap_skill_ids_json ORDER BY attempt) "capabilityGaps"
+              jsonb_agg(capability_gap_skill_ids_json ORDER BY attempt) "capabilityGaps",
+              jsonb_agg(tool_execution_semantics_json ORDER BY attempt) "toolSemantics"
        FROM workflow_plan_attempt WHERE plan_id=$1`,
       ['plan.db'],
     );
@@ -1038,6 +1079,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
       testCompositionContext(),
     ]);
     expect(attempts.rows[0]?.capabilityGaps).toEqual([['skill.gap.db'], ['skill.gap.db']]);
+    expect(attempts.rows[0]?.toolSemantics).toEqual([
+      toolExecutionSemantics,
+      toolExecutionSemantics,
+    ]);
     await expect(
       pool.query(
         `UPDATE workflow_plan SET capability_gap_skill_ids_json='{}'::jsonb WHERE plan_id=$1`,
@@ -1929,6 +1974,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       simulationId: 'analytics-replay-1',
       serverId: 'mcp.history',
       toolName: 'replay',
+      executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
       arguments: {},
       result: { replayed: true },
       status: 'succeeded',
@@ -3166,11 +3212,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
       },
       encryptedCredential: cipher.encrypt(mcpCredential),
     };
+    const declaredSemantics = {
+      effect: 'read_only',
+      execution: 'synchronous',
+      cancellation: 'cooperative',
+      idempotency: 'client_request_key',
+      replay: 'allowed',
+      source: 'mcp_declared',
+    } as const;
     await repository.saveServerAndReplaceTools(record, [
       {
         serverId: 'mcp.devices',
         toolName: 'status',
         inputSchema: { type: 'object' },
+        executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
         discoveredAt: '2026-07-11T10:00:00.000Z',
       },
     ]);
@@ -3208,6 +3263,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
           serverId: 'mcp.devices',
           toolName: 'inspect',
           inputSchema: { type: 'object' },
+          declaredExecutionSemantics: declaredSemantics,
+          executionSemantics: declaredSemantics,
           discoveredAt: '2026-07-11T10:01:00.000Z',
         },
       ],
@@ -3220,6 +3277,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       executionMode: 'live',
       serverId: 'mcp.devices',
       toolName: 'inspect',
+      executionSemantics: declaredSemantics,
       arguments: { deviceId: 'device-1' },
       result: { status: 'online' },
       status: 'succeeded',
@@ -3235,6 +3293,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
       commonErrors: ['offline'],
       tags: ['device'],
     });
+    await repository.updateToolExecutionSemantics(
+      'mcp.devices',
+      'inspect',
+      {
+        effect: 'side_effecting',
+        execution: 'unknown',
+        cancellation: 'unknown',
+        idempotency: 'none',
+        replay: 'forbidden',
+        source: 'admin_override',
+      },
+      declaredSemantics,
+    );
     await repository.saveManagementOperation({
       operationId: 'mcp-operation-1',
       serverId: 'mcp.devices',
@@ -3242,6 +3313,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
       actor: 'anonymous-management',
       summary: { headerNames: ['Authorization'] },
       occurredAt: '2026-07-11T10:03:00.000Z',
+    });
+    await repository.saveManagementOperation({
+      operationId: 'mcp-operation-2',
+      serverId: 'mcp.devices',
+      operationType: 'tool_semantics_override',
+      actor: 'anonymous-management',
+      target: 'inspect',
+      summary: { effectiveSource: 'mcp_declared', retainedForRefresh: true },
+      occurredAt: '2026-07-11T10:04:00.000Z',
     });
 
     await expect(repository.findServer('mcp.devices')).resolves.toMatchObject({
@@ -3252,6 +3332,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect.objectContaining({
         toolName: 'inspect',
         enhancement: expect.objectContaining({ purpose: 'Inspect device', tags: ['device'] }),
+        declaredExecutionSemantics: declaredSemantics,
+        adminExecutionSemanticsOverride: expect.objectContaining({
+          source: 'admin_override',
+          replay: 'forbidden',
+        }),
+        executionSemantics: declaredSemantics,
       }),
     ]);
     const raw = await pool.query<{ encrypted_credential: string }>(
@@ -3275,6 +3361,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         durationMs: 25,
         arguments: { deviceId: 'device-1' },
         result: { status: 'online' },
+        executionSemantics: declaredSemantics,
       }),
     ]);
     await expect(repository.listInvocationsByTask('task-1')).resolves.toEqual([
@@ -3288,6 +3375,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
         actor: 'anonymous-management',
         summary: { headerNames: ['Authorization'] },
         occurredAt: '2026-07-11T10:03:00.000Z',
+      },
+      {
+        operationId: 'mcp-operation-2',
+        serverId: 'mcp.devices',
+        operationType: 'tool_semantics_override',
+        actor: 'anonymous-management',
+        target: 'inspect',
+        summary: { effectiveSource: 'mcp_declared', retainedForRefresh: true },
+        occurredAt: '2026-07-11T10:04:00.000Z',
       },
     ]);
   });
@@ -4294,6 +4390,48 @@ describe('PostgreSQL protocol-domain repositories', () => {
          AND table_name IN ('workflow_plan','workflow_plan_attempt')`,
     );
     expect(restored.rows[0]?.count).toBe(4);
+  });
+
+  it('rolls back and reapplies MCP Tool execution semantics snapshots', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0063_mcp_tool_execution_semantics.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0063_mcp_tool_execution_semantics.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: number }>(
+        `SELECT count(*)::integer count FROM information_schema.columns
+         WHERE (table_name='mcp_tool' AND column_name IN
+           ('declared_execution_semantics_json','admin_execution_semantics_override_json',
+            'execution_semantics_json'))
+            OR (table_name='mcp_invocation' AND column_name='execution_semantics_json')
+            OR (table_name IN ('workflow_plan','workflow_plan_attempt')
+                AND column_name='tool_execution_semantics_json')`,
+      );
+      expect(removed.rows[0]?.count).toBe(0);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer count FROM information_schema.columns
+       WHERE (table_name='mcp_tool' AND column_name IN
+         ('declared_execution_semantics_json','admin_execution_semantics_override_json',
+          'execution_semantics_json'))
+          OR (table_name='mcp_invocation' AND column_name='execution_semantics_json')
+          OR (table_name IN ('workflow_plan','workflow_plan_attempt')
+              AND column_name='tool_execution_semantics_json')`,
+    );
+    expect(restored.rows[0]?.count).toBe(6);
   });
 
   it('rolls back and reapplies the Goal execution contract snapshots', async () => {

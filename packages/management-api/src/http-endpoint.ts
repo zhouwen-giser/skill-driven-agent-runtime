@@ -133,6 +133,15 @@ const ToolEnhancementSchema = z.object({
   commonErrors: z.array(z.string()),
   tags: z.array(z.string()),
 });
+const ToolExecutionSemanticsValuesSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+  })
+  .strict();
 const ToolReferenceSchema = z.object({ serverId: z.string().min(1), toolName: z.string().min(1) });
 const SkillRelationSchema = z.object({
   sourceSkillId: z.string().min(1),
@@ -364,6 +373,7 @@ export interface ManagementOperations {
     | 'refresh'
     | 'register'
     | 'updateToolEnhancement'
+    | 'updateToolExecutionSemantics'
     | 'updateCredentials'
   >;
   readonly skills: Pick<
@@ -1185,6 +1195,17 @@ export async function startManagementHttpEndpoint(
         pathValue(request, 'serverId'),
         pathValue(request, 'toolName'),
         ToolEnhancementSchema.parse(request.body),
+      );
+      response.status(204).end();
+    }),
+  );
+  app.put(
+    '/api/v1/mcp/servers/:serverId/tools/:toolName/execution-semantics',
+    asyncRoute(async (request, response) => {
+      await options.operations.mcp.updateToolExecutionSemantics(
+        pathValue(request, 'serverId'),
+        pathValue(request, 'toolName'),
+        ToolExecutionSemanticsValuesSchema.parse(request.body),
       );
       response.status(204).end();
     }),

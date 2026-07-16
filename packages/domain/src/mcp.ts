@@ -25,6 +25,33 @@ export interface McpToolEnhancement {
   readonly tags: readonly string[];
 }
 
+export type McpToolEffect = 'read_only' | 'side_effecting' | 'unknown';
+export type McpToolExecution = 'synchronous' | 'task_capable' | 'task_required' | 'unknown';
+export type McpToolCancellation = 'unsupported' | 'cooperative' | 'task_cancel' | 'unknown';
+export type McpToolIdempotency = 'none' | 'client_request_key' | 'server_managed' | 'unknown';
+export type McpToolReplay = 'allowed' | 'simulation_only' | 'forbidden' | 'unknown';
+export type McpToolExecutionSemanticsSource = 'mcp_declared' | 'admin_override' | 'default_unknown';
+
+export interface McpToolExecutionSemantics {
+  readonly effect: McpToolEffect;
+  readonly execution: McpToolExecution;
+  readonly cancellation: McpToolCancellation;
+  readonly idempotency: McpToolIdempotency;
+  readonly replay: McpToolReplay;
+  readonly source: McpToolExecutionSemanticsSource;
+}
+
+export type McpToolExecutionSemanticsValues = Omit<McpToolExecutionSemantics, 'source'>;
+
+export const DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS: McpToolExecutionSemantics = Object.freeze({
+  effect: 'unknown',
+  execution: 'unknown',
+  cancellation: 'unknown',
+  idempotency: 'unknown',
+  replay: 'unknown',
+  source: 'default_unknown',
+});
+
 export interface McpTool {
   readonly serverId: string;
   readonly toolName: string;
@@ -32,6 +59,9 @@ export interface McpTool {
   readonly description?: string;
   readonly inputSchema: unknown;
   readonly enhancement?: McpToolEnhancement;
+  readonly executionSemantics: McpToolExecutionSemantics;
+  readonly declaredExecutionSemantics?: McpToolExecutionSemantics;
+  readonly adminExecutionSemanticsOverride?: McpToolExecutionSemantics;
   readonly discoveredAt: string;
 }
 
@@ -61,6 +91,7 @@ export interface McpInvocation {
   readonly simulationId?: string;
   readonly serverId: string;
   readonly toolName: string;
+  readonly executionSemantics: McpToolExecutionSemantics;
   readonly arguments: Readonly<Record<string, unknown>>;
   readonly result?: unknown;
   readonly status: McpInvocationStatus;
@@ -77,6 +108,7 @@ export type McpManagementOperationType =
   | 'health_check'
   | 'credentials_update'
   | 'tool_metadata_update'
+  | 'tool_semantics_override'
   | 'delete';
 
 export interface McpManagementOperation {
@@ -101,12 +133,109 @@ export function createMcpServer(input: McpServer): McpServer {
   return { ...input, serverId, name, endpoint };
 }
 
-export function createMcpTool(input: McpTool): McpTool {
+export function createMcpTool(
+  input: Omit<McpTool, 'executionSemantics'> &
+    Readonly<{ executionSemantics?: McpToolExecutionSemantics }>,
+): McpTool {
   const serverId = requireIdentifier(input.serverId, 'MCP_SERVER_ID_REQUIRED');
   const toolName = input.toolName.trim();
   if (toolName === '')
     throw new DomainError('MCP_TOOL_NAME_REQUIRED', 'MCP Tool name is required.');
-  return { ...input, serverId, toolName };
+  const declared =
+    input.declaredExecutionSemantics === undefined
+      ? undefined
+      : createMcpToolExecutionSemantics(input.declaredExecutionSemantics, 'mcp_declared');
+  const adminOverride =
+    input.adminExecutionSemanticsOverride === undefined
+      ? undefined
+      : createMcpToolExecutionSemantics(input.adminExecutionSemanticsOverride, 'admin_override');
+  const executionSemantics = resolveMcpToolExecutionSemantics(declared, adminOverride);
+  if (
+    input.executionSemantics !== undefined &&
+    !sameMcpToolExecutionSemantics(input.executionSemantics, executionSemantics)
+  ) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_INCONSISTENT',
+      'Effective MCP Tool execution semantics do not match authoritative sources.',
+    );
+  }
+  return {
+    ...input,
+    serverId,
+    toolName,
+    executionSemantics,
+    ...(declared === undefined ? {} : { declaredExecutionSemantics: declared }),
+    ...(adminOverride === undefined ? {} : { adminExecutionSemanticsOverride: adminOverride }),
+  };
+}
+
+export function createMcpToolExecutionSemantics(
+  input: McpToolExecutionSemanticsValues | McpToolExecutionSemantics,
+  source: McpToolExecutionSemanticsSource,
+): McpToolExecutionSemantics {
+  const semantics = { ...input, source };
+  if (
+    !(['read_only', 'side_effecting', 'unknown'] as const).includes(semantics.effect) ||
+    !(['synchronous', 'task_capable', 'task_required', 'unknown'] as const).includes(
+      semantics.execution,
+    ) ||
+    !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as const).includes(
+      semantics.cancellation,
+    ) ||
+    !(['none', 'client_request_key', 'server_managed', 'unknown'] as const).includes(
+      semantics.idempotency,
+    ) ||
+    !(['allowed', 'simulation_only', 'forbidden', 'unknown'] as const).includes(semantics.replay)
+  ) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+      'MCP Tool execution semantics contain an unsupported value.',
+    );
+  }
+  return semantics;
+}
+
+export function resolveMcpToolExecutionSemantics(
+  declared?: McpToolExecutionSemantics,
+  adminOverride?: McpToolExecutionSemantics,
+): McpToolExecutionSemantics {
+  if (declared !== undefined) return createMcpToolExecutionSemantics(declared, 'mcp_declared');
+  if (adminOverride !== undefined)
+    return createMcpToolExecutionSemantics(adminOverride, 'admin_override');
+  return DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS;
+}
+
+export function withMcpToolAdminExecutionSemanticsOverride(
+  tool: McpTool,
+  adminOverride: McpToolExecutionSemantics,
+): McpTool {
+  return createMcpTool({
+    serverId: tool.serverId,
+    toolName: tool.toolName,
+    ...(tool.title === undefined ? {} : { title: tool.title }),
+    ...(tool.description === undefined ? {} : { description: tool.description }),
+    inputSchema: tool.inputSchema,
+    ...(tool.enhancement === undefined ? {} : { enhancement: tool.enhancement }),
+    ...(tool.declaredExecutionSemantics === undefined
+      ? {}
+      : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
+    adminExecutionSemanticsOverride: adminOverride,
+    discoveredAt: tool.discoveredAt,
+  });
+}
+
+function sameMcpToolExecutionSemantics(
+  left: McpToolExecutionSemantics,
+  right: McpToolExecutionSemantics,
+): boolean {
+  return (
+    left.effect === right.effect &&
+    left.execution === right.execution &&
+    left.cancellation === right.cancellation &&
+    left.idempotency === right.idempotency &&
+    left.replay === right.replay &&
+    left.source === right.source
+  );
 }
 
 export function createMcpToolEnhancement(input: McpToolEnhancement): McpToolEnhancement {

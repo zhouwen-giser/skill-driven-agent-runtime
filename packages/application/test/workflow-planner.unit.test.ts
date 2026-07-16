@@ -202,6 +202,54 @@ describe('WorkflowPlannerService', () => {
     });
   });
 
+  it('persists the exact Tool semantics used for planning and confirmation', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    const toolExecutionSemantics = [
+      {
+        reference: { serverId: 'mcp.devices', toolName: 'device_status' },
+        executionSemantics: {
+          effect: 'read_only' as const,
+          execution: 'synchronous' as const,
+          cancellation: 'cooperative' as const,
+          idempotency: 'client_request_key' as const,
+          replay: 'allowed' as const,
+          source: 'mcp_declared' as const,
+        },
+      },
+    ];
+
+    const plan = await planner(repository, model).plan({
+      ...input(),
+      toolExecutionSemantics,
+    });
+    expect(plan.toolExecutionSemantics).toEqual(toolExecutionSemantics);
+    expect(repository.attempts[0]?.toolExecutionSemantics).toEqual(toolExecutionSemantics);
+    expect(JSON.parse(model.calls[0]?.instruction ?? '{}')).toMatchObject({
+      toolExecutionSemantics,
+    });
+
+    const originalSemantics = toolExecutionSemantics[0];
+    if (originalSemantics === undefined) throw new Error('TOOL_SEMANTICS_FIXTURE_MISSING');
+    repository.plans.set(plan.planId, { ...plan, confirmationStatus: 'confirmed' });
+    await expect(
+      planner(repository, new SequenceModel([validDefinition()])).plan({
+        ...input(),
+        planId: 'repair-plan',
+        sourceConfirmedPlanId: plan.planId,
+        toolExecutionSemantics: [
+          {
+            reference: originalSemantics.reference,
+            executionSemantics: {
+              ...originalSemantics.executionSemantics,
+              replay: 'forbidden',
+            },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_REPAIR_TOOL_SEMANTICS_MISMATCH' });
+  });
+
   it('produces a different Workflow when the Goal success criteria change', async () => {
     const repository = new MemoryPlanRepository();
     const model: StructuredModelProvider = {

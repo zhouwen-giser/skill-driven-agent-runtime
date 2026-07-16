@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { EvolutionExperience } from '../../domain/src/index.js';
+import {
+  DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+  type EvolutionExperience,
+} from '../../domain/src/index.js';
 
 import {
   startManagementHttpEndpoint,
@@ -76,6 +79,71 @@ describe('management HTTP API contract', () => {
       items: [expect.objectContaining({ operationType: 'credentials_update' })],
     });
     expect(JSON.stringify(payload)).not.toContain('Bearer');
+  });
+
+  it('exposes Tool semantics and validates credential-free administrator overrides', async () => {
+    let captured: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        mcp: {
+          ...operations().mcp,
+          listTools: (serverId) =>
+            Promise.resolve([
+              {
+                serverId,
+                toolName: 'device_status',
+                inputSchema: { type: 'object' },
+                executionSemantics: {
+                  effect: 'read_only',
+                  execution: 'synchronous',
+                  cancellation: 'cooperative',
+                  idempotency: 'client_request_key',
+                  replay: 'allowed',
+                  source: 'mcp_declared',
+                },
+                discoveredAt: '2026-07-16T00:00:00.000Z',
+              },
+            ]),
+          updateToolExecutionSemantics: (serverId, toolName, values) => {
+            captured = { serverId, toolName, values };
+            return Promise.resolve();
+          },
+        },
+      },
+    });
+
+    const tools = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/tools`);
+    const toolsPayload = await tools.json();
+    expect(toolsPayload).toEqual({
+      items: [
+        expect.objectContaining({
+          executionSemantics: expect.objectContaining({ source: 'mcp_declared' }),
+        }),
+      ],
+    });
+    expect(JSON.stringify(toolsPayload)).not.toContain('credential');
+
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/tools/device_status/execution-semantics`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          effect: 'side_effecting',
+          execution: 'synchronous',
+          cancellation: 'unsupported',
+          idempotency: 'none',
+          replay: 'forbidden',
+        }),
+      },
+    );
+    expect(response.status).toBe(204);
+    expect(captured).toEqual({
+      serverId: 'mcp.devices',
+      toolName: 'device_status',
+      values: expect.objectContaining({ effect: 'side_effecting', replay: 'forbidden' }),
+    });
   });
 
   it('exposes persisted MCP dependency warnings for management display', async () => {
@@ -1175,6 +1243,7 @@ describe('management HTTP API contract', () => {
                 executionMode: 'live' as const,
                 serverId: 'server-1',
                 toolName: 'tool-1',
+                executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
                 arguments: {},
                 status: 'succeeded' as const,
                 startedAt: '2026-07-13T00:00:00.000Z',
@@ -1720,6 +1789,7 @@ function operations(failServerList = false): ManagementOperations {
       refresh: unused,
       register: unused,
       updateToolEnhancement: unused,
+      updateToolExecutionSemantics: unused,
       updateCredentials: unused,
     },
     models: {

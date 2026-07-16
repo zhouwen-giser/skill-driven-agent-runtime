@@ -9,6 +9,8 @@ import type {
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
+  McpToolExecutionSemantics,
+  McpToolExecutionSemanticsValues,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
@@ -468,6 +470,12 @@ export interface McpRegistryRepository {
     toolName: string,
     enhancement: McpToolEnhancement,
   ): Promise<void>;
+  updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    adminOverride: McpToolExecutionSemantics,
+    effective: McpToolExecutionSemantics,
+  ): Promise<void>;
 }
 
 export interface SecretCipher {
@@ -484,6 +492,7 @@ export interface McpTransportAdapter {
       title?: string;
       description?: string;
       inputSchema: unknown;
+      declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
     }>[]
   >;
   call(

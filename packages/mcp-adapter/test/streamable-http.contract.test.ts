@@ -41,6 +41,13 @@ describe('official MCP Streamable HTTP transport', () => {
     adapter = new StreamableHttpMcpAdapter();
     const tools = await adapter.discover({ endpoint: server.endpoint.toString(), headers: {} });
     expect(tools.map((tool) => tool.name)).toEqual(['device_status', 'slow_probe']);
+    expect(tools[0]?.declaredExecutionSemantics).toEqual({
+      effect: 'read_only',
+      execution: 'synchronous',
+      cancellation: 'cooperative',
+      idempotency: 'client_request_key',
+      replay: 'allowed',
+    });
     const result = await adapter.call({
       endpoint: server.endpoint.toString(),
       headers: {},

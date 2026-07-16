@@ -4,6 +4,9 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 import type { McpTransportAdapter } from '../../application/src/index.js';
 import type { RuntimeExecutionContext } from '../../domain/src/index.js';
+import type { McpToolExecutionSemanticsValues } from '../../domain/src/index.js';
+
+const SDAR_EXECUTION_SEMANTICS_META_KEY = 'io.sdar/tool-execution-semantics';
 
 export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   readonly #clients = new Map<string, Promise<Client>>();
@@ -11,12 +14,16 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   async discover(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
     return this.#withClient(input, async (client) => {
       const response = await client.listTools();
-      return response.tools.map((tool) => ({
-        name: tool.name,
-        ...(tool.title === undefined ? {} : { title: tool.title }),
-        ...(tool.description === undefined ? {} : { description: tool.description }),
-        inputSchema: tool.inputSchema,
-      }));
+      return response.tools.map((tool) => {
+        const semantics = declaredExecutionSemantics(tool);
+        return {
+          name: tool.name,
+          ...(tool.title === undefined ? {} : { title: tool.title }),
+          ...(tool.description === undefined ? {} : { description: tool.description }),
+          inputSchema: tool.inputSchema,
+          ...(semantics === undefined ? {} : { declaredExecutionSemantics: semantics }),
+        };
+      });
     });
   }
 
@@ -97,6 +104,93 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
     await client.connect(asSdkTransport(transport));
     return client;
   }
+}
+
+interface SdkToolSemanticsInput {
+  readonly annotations?:
+    | Readonly<{
+        readonly readOnlyHint?: boolean | undefined;
+        readonly destructiveHint?: boolean | undefined;
+      }>
+    | undefined;
+  readonly execution?:
+    | Readonly<{
+        readonly taskSupport?: 'optional' | 'required' | 'forbidden' | undefined;
+      }>
+    | undefined;
+  readonly _meta?: Readonly<Record<string, unknown>> | undefined;
+}
+
+function declaredExecutionSemantics(
+  tool: SdkToolSemanticsInput,
+): McpToolExecutionSemanticsValues | undefined {
+  const exact = parseExactSemantics(tool._meta?.[SDAR_EXECUTION_SEMANTICS_META_KEY]);
+  const effect =
+    exact?.effect ??
+    (tool.annotations?.readOnlyHint === true
+      ? 'read_only'
+      : tool.annotations?.readOnlyHint === false || tool.annotations?.destructiveHint === true
+        ? 'side_effecting'
+        : 'unknown');
+  const execution =
+    exact?.execution ??
+    (tool.execution?.taskSupport === 'forbidden'
+      ? 'synchronous'
+      : tool.execution?.taskSupport === 'optional'
+        ? 'task_capable'
+        : tool.execution?.taskSupport === 'required'
+          ? 'task_required'
+          : 'unknown');
+  const hasDeclaration = exact !== undefined || effect !== 'unknown' || execution !== 'unknown';
+  if (!hasDeclaration) return undefined;
+  return {
+    effect,
+    execution,
+    cancellation: exact?.cancellation ?? 'unknown',
+    idempotency: exact?.idempotency ?? 'unknown',
+    replay: exact?.replay ?? 'unknown',
+  };
+}
+
+function parseExactSemantics(value: unknown): McpToolExecutionSemanticsValues | undefined {
+  if (!isRecord(value)) return undefined;
+  const effect = enumValue(value['effect'], ['read_only', 'side_effecting', 'unknown']);
+  const execution = enumValue(value['execution'], [
+    'synchronous',
+    'task_capable',
+    'task_required',
+    'unknown',
+  ]);
+  const cancellation = enumValue(value['cancellation'], [
+    'unsupported',
+    'cooperative',
+    'task_cancel',
+    'unknown',
+  ]);
+  const idempotency = enumValue(value['idempotency'], [
+    'none',
+    'client_request_key',
+    'server_managed',
+    'unknown',
+  ]);
+  const replay = enumValue(value['replay'], ['allowed', 'simulation_only', 'forbidden', 'unknown']);
+  if (
+    effect === undefined ||
+    execution === undefined ||
+    cancellation === undefined ||
+    idempotency === undefined ||
+    replay === undefined
+  )
+    return undefined;
+  return { effect, execution, cancellation, idempotency, replay };
+}
+
+function enumValue<const T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === 'string' && allowed.includes(value as T) ? (value as T) : undefined;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function clientKey(

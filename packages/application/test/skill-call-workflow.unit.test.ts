@@ -54,6 +54,14 @@ describe('SkillCallWorkflowService', () => {
             required: ['deviceId'],
             properties: { deviceId: { type: 'string' } },
           },
+          executionSemantics: {
+            effect: 'read_only' as const,
+            execution: 'synchronous' as const,
+            cancellation: 'cooperative' as const,
+            idempotency: 'client_request_key' as const,
+            replay: 'allowed' as const,
+            source: 'mcp_declared' as const,
+          },
           contractAuthority: 'original_mcp_input_schema' as const,
         },
       ]),
@@ -125,6 +133,12 @@ describe('SkillCallWorkflowService', () => {
       skillId: skill.skillId,
       skillVersion: skill.version,
     });
+    expect(planningCall.toolExecutionSemantics).toEqual([
+      expect.objectContaining({
+        reference: { serverId: 'mcp.devices', toolName: 'device_status' },
+        executionSemantics: expect.objectContaining({ source: 'mcp_declared' }),
+      }),
+    ]);
     expect(validator.validate).toHaveBeenCalledWith(definition, {
       enforceSkillComposition: false,
       allowedChildSkillIds: [],

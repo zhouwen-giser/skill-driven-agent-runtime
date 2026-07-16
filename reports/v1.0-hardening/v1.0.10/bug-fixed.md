@@ -12,4 +12,4 @@ The audit found and fixed three terminal-authority gaps:
 
 The repaired boundaries preserve every Task terminal phase during Goal Patch, lock and recheck non-terminal Control authority before Round insertion, require structured PostgreSQL/A2A evidence, and reject blank domain evidence fields.
 
-Bug-fixed publication: pending / `v1.0.10-bug-fixed`.
+Bug-fixed publication: `2eba64e` / annotated `v1.0.10-bug-fixed`, remotely verified.
