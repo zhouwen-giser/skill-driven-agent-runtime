@@ -11,6 +11,14 @@ const task = createAgentTask({
   requestMetadata: {},
   timestamp: '2026-07-12T00:00:00.000Z',
 });
+const goalContract = {
+  goalId: 'goal-1',
+  version: 1,
+  title: 'Read device status',
+  description: 'Read the device status.',
+  constraints: ['read-only'],
+  successCriteria: ['status returned'],
+} as const;
 
 describe('TemporarySkillResolver', () => {
   it('authors a task-scoped Skill only from an enabled registered MCP Tool', async () => {
@@ -36,7 +44,7 @@ describe('TemporarySkillResolver', () => {
       },
     });
 
-    const result = await resolver.resolve('Read the device status.', task);
+    const result = await resolver.resolve(goalContract, task);
 
     expect(result).toMatchObject({
       skill: { temporarySkillId: 'temporary-1', taskId: 'task-1', contextId: 'context-1' },
@@ -64,7 +72,7 @@ describe('TemporarySkillResolver', () => {
       temporarySkills: { create: () => Promise.reject(new Error('MUST_NOT_CREATE')) },
     });
 
-    await expect(resolver.resolve('Read status.', task)).rejects.toThrow(
+    await expect(resolver.resolve(goalContract, task)).rejects.toThrow(
       'TEMPORARY_SKILL_MODEL_SELECTED_UNKNOWN_TOOL',
     );
   });

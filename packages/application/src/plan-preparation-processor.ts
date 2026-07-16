@@ -3,8 +3,11 @@ import {
   bindTaskGoal,
   bindTaskSkill,
   bindTaskTemporarySkill,
+  createGoalExecutionContract,
   transitionTask,
   type AgentTask,
+  type GoalExecutionContract,
+  type SkillSelectionRecord,
   type TaskPhase,
 } from '../../domain/src/index.js';
 
@@ -19,7 +22,6 @@ import type {
 import type { GoalService } from './goal-service.js';
 import type { StructuredTaskDecisionService } from './model-decisions.js';
 import type { GoalInputInferenceService } from './goal-input-inference.js';
-import type { SkillSelectionRecord } from '../../domain/src/index.js';
 import { TaskApplicationError } from './task-service.js';
 import type { SkillInputResolutionService } from './skill-input-resolution.js';
 import { skillInputResolutionQuestion } from './skill-input-resolution.js';
@@ -41,7 +43,7 @@ export interface PlanPreparationProcessorDependencies {
   readonly skillInputs: Pick<SkillInputResolutionService, 'resolve'>;
   readonly skillSelection: Readonly<{
     select(
-      goalDescription: string,
+      goalContract: GoalExecutionContract,
       task: AgentTask,
     ): Promise<
       | SkillSelectionRecord
@@ -78,6 +80,7 @@ export interface PlanPreparationProcessorDependencies {
         goalId: string;
         goalVersion: number;
         goalDescription: string;
+        goalContract: GoalExecutionContract;
         skillId?: string;
         skillVersion?: number;
         temporarySkillId?: string;
@@ -319,7 +322,10 @@ export class PlanPreparationProcessor {
       timestamp: this.#dependencies.clock.now(),
       summary: goalSummary,
     });
-    const selection = await this.#dependencies.skillSelection.select(goal.description, task);
+    const selection = await this.#dependencies.skillSelection.select(
+      createGoalExecutionContract(goal),
+      task,
+    );
     const temporary = 'temporarySkillId' in selection;
     task = await this.#transition(
       task,
@@ -395,6 +401,7 @@ export class PlanPreparationProcessor {
       goalId: goal.goalId,
       goalVersion: goal.version,
       goalDescription: goal.description,
+      goalContract: createGoalExecutionContract(goal),
       ...('temporarySkillId' in selected
         ? { temporarySkillId: selected.temporarySkillId }
         : {

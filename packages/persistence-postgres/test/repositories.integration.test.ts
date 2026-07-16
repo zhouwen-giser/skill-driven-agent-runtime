@@ -59,15 +59,41 @@ const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
 const pool = new Pool({ connectionString, max: 4 });
 
+function testGoalContract(goalId: string, version = 1) {
+  return {
+    goalId,
+    version,
+    title: `Test Goal ${goalId}`,
+    description: `Exercise ${goalId}.`,
+    constraints: ['test-only'],
+    successCriteria: ['verified'],
+  } as const;
+}
+
 beforeAll(async () => {
   const ledger = await pool.query<{ exists: boolean }>(
     "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
+    );
+    if (taskSkillInputBinding.rows[0]?.applied === true) {
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      return;
+    }
     const skillInputResolution = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
     );
@@ -80,6 +106,15 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(forward);
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
@@ -98,6 +133,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -129,6 +173,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -173,6 +226,15 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -186,6 +248,7 @@ beforeAll(async () => {
         '0058_runtime_terminal_outcome.up.sql',
         '0059_skill_input_resolution.up.sql',
         '0060_task_skill_input_resolution_binding.up.sql',
+        '0061_goal_execution_contract.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -548,6 +611,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(taskSkillInputBindingMigration);
+  const goalExecutionContractMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(goalExecutionContractMigration);
 });
 
 beforeEach(async () => {
@@ -799,6 +870,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     };
     await repository.saveAttempt({
       planId: 'plan.db',
+      goalContract: testGoalContract('goal.db'),
       attempt: 1,
       candidate: { invalid: true },
       validationErrors: [{ code: 'INVALID', path: 'nodes', message: 'Invalid.' }],
@@ -807,6 +879,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await repository.saveAttempt({
       planId: 'plan.db',
+      goalContract: testGoalContract('goal.db'),
       attempt: 2,
       candidate: definition,
       validationErrors: [],
@@ -817,6 +890,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.db',
       goalId: 'goal.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.db'),
       definition,
       confirmationStatus: 'awaiting_confirmation',
       attemptCount: 2,
@@ -825,15 +899,34 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.findPlan('plan.db')).resolves.toEqual(
       expect.objectContaining({
         definition,
+        goalContract: testGoalContract('goal.db'),
         attemptCount: 2,
         confirmationStatus: 'awaiting_confirmation',
       }),
     );
-    const attempts = await pool.query<{ count: number }>(
-      'SELECT COUNT(*)::int count FROM workflow_plan_attempt WHERE plan_id=$1',
+    const attempts = await pool.query<{ count: number; contracts: unknown[] }>(
+      `SELECT COUNT(*)::int count,
+              jsonb_agg(goal_contract_json ORDER BY attempt) contracts
+       FROM workflow_plan_attempt WHERE plan_id=$1`,
       ['plan.db'],
     );
     expect(attempts.rows[0]?.count).toBe(2);
+    expect(attempts.rows[0]?.contracts).toEqual([
+      testGoalContract('goal.db'),
+      testGoalContract('goal.db'),
+    ]);
+    await expect(
+      repository.savePlan({
+        planId: 'plan.invalid-contract.db',
+        goalId: 'goal.db',
+        goalVersion: 1,
+        goalContract: testGoalContract('goal.other.db'),
+        definition,
+        confirmationStatus: 'awaiting_confirmation',
+        attemptCount: 1,
+        createdAt: '2026-07-12T00:01:00.000Z',
+      }),
+    ).rejects.toMatchObject({ constraint: 'workflow_plan_goal_contract_identity_check' });
     await repository.confirmPlan('plan.db', { confirmedAt: '2026-07-12T00:02:00.000Z' });
     await expect(repository.findConfirmedDefinition('workflow.db', 1)).resolves.toMatchObject({
       planId: 'plan.db',
@@ -956,6 +1049,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.revision.source',
       goalId: 'goal.revision.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.revision.db'),
       definition: sourceDefinition,
       confirmationStatus: 'confirmed',
       attemptCount: 1,
@@ -966,6 +1060,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         planId: 'plan.revision.next',
         goalId: 'goal.revision.db',
         goalVersion: 1,
+        goalContract: testGoalContract('goal.revision.db'),
         definition: { ...sourceDefinition, version: 2 },
         sourcePlanId: 'plan.revision.source',
         revisionKind: 'admin_dsl',
@@ -990,6 +1085,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
           planId: 'plan.revision.invalid',
           goalId: 'goal.revision.db',
           goalVersion: 1,
+          goalContract: testGoalContract('goal.revision.db'),
           definition: { ...sourceDefinition, version: 3 },
           sourcePlanId: 'plan.revision.source',
           revisionKind: 'admin_dsl',
@@ -1008,6 +1104,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.execution.db',
       goalId: 'goal.execution.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.execution.db'),
       definition: {
         workflowDefinitionId: 'workflow.execution.db',
         version: 1,
@@ -1182,6 +1279,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         planId,
         goalId: 'goal.skill-call.db',
         goalVersion: 1,
+        goalContract: testGoalContract('goal.skill-call.db'),
         definition: definition(workflowId),
         confirmationStatus: 'confirmed',
         attemptCount: 1,
@@ -1327,6 +1425,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.interrupted.db',
       goalId: 'goal.interrupted.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.interrupted.db'),
       definition: {
         workflowDefinitionId: 'workflow.interrupted.db',
         version: 1,
@@ -1426,6 +1525,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.control.db',
       goalId: 'goal.control.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.control.db'),
       definition: {
         workflowDefinitionId: 'workflow.control.db',
         version: 1,
@@ -1837,6 +1937,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.goal-cancel.db',
       goalId: goalToCancel.goalId,
       goalVersion: 1,
+      goalContract: testGoalContract(goalToCancel.goalId),
       definition: {
         workflowDefinitionId: 'workflow.goal-cancel.db',
         version: 1,
@@ -1992,6 +2093,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.patch.db',
       goalId: beforeGoal.goalId,
       goalVersion: 1,
+      goalContract: testGoalContract(beforeGoal.goalId),
       definition: {
         workflowDefinitionId: 'workflow.patch.db',
         version: 1,
@@ -2503,6 +2605,22 @@ describe('PostgreSQL protocol-domain repositories', () => {
         name: version.name,
         summary: version.summary,
         capabilities: version.capabilities,
+        inputSchemaSummary: {
+          type: 'object',
+          requiredFields: [],
+          propertyNames: [],
+          allowsAdditionalProperties: 'unspecified' as const,
+        },
+        outputSchemaSummary: {
+          type: 'object',
+          requiredFields: [],
+          propertyNames: [],
+          allowsAdditionalProperties: 'unspecified' as const,
+        },
+        toolPolicy: version.toolPolicy,
+        workflowGuidanceSummary: version.workflowGuidance,
+        runtimePolicy: version.runtimePolicy,
+        activeMcpDependencyWarnings: [],
         autoConfirmPlan: false,
         createdAt: version.createdAt,
         semanticScore: 0.8,
@@ -2511,6 +2629,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ];
     const selection = {
       selectionId: 'selection-db-1',
+      goalContract: testGoalContract('goal.selection.db'),
       goalDescription: 'Select a Skill.',
       candidates,
       selectedSkillId: version.skillId,
@@ -2522,6 +2641,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await repository.saveReplacementPlan({
       replacementPlanId: 'replacement-db-1',
       selectionId: selection.selectionId,
+      goalContract: selection.goalContract,
       failedSkillId: version.skillId,
       candidates,
       replacementSkillId: version.skillId,
@@ -2529,6 +2649,16 @@ describe('PostgreSQL protocol-domain repositories', () => {
       decisionSummary: 'Await confirmation.',
       status: 'awaiting_confirmation',
       createdAt: version.createdAt,
+    });
+    await expect(repository.findSelection(selection.selectionId)).resolves.toMatchObject({
+      goalContract: selection.goalContract,
+      candidates: [
+        expect.objectContaining({
+          toolPolicy: version.toolPolicy,
+          workflowGuidanceSummary: version.workflowGuidance,
+          runtimePolicy: version.runtimePolicy,
+        }),
+      ],
     });
 
     await expect(repository.findMetrics(version.skillId)).resolves.toEqual(metrics);
@@ -3002,6 +3132,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       planId: 'plan.task-link.db',
       goalId: 'goal.task-link.db',
       goalVersion: 1,
+      goalContract: testGoalContract('goal.task-link.db'),
       definition: {
         workflowDefinitionId: 'workflow.task-link.db',
         version: 1,
@@ -3855,6 +3986,42 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(restored.rows[0]?.count).toBe('3');
   });
 
+  it('rolls back and reapplies the Goal execution contract snapshots', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0061_goal_execution_contract.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: number }>(
+        `SELECT count(*)::integer count FROM information_schema.columns
+         WHERE column_name='goal_contract_json'
+           AND table_name IN ('workflow_plan','workflow_plan_attempt',
+                              'skill_selection_record','skill_replacement_plan')`,
+      );
+      expect(removed.rows[0]?.count).toBe(0);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer count FROM information_schema.columns
+       WHERE column_name='goal_contract_json'
+         AND table_name IN ('workflow_plan','workflow_plan_attempt',
+                            'skill_selection_record','skill_replacement_plan')`,
+    );
+    expect(restored.rows[0]?.count).toBe(4);
+  });
+
   it('rolls back and reapplies the top-level Skill input resolution schema', async () => {
     const bindingDown = await readFile(
       new URL(
@@ -4067,6 +4234,7 @@ async function createTerminalOutcomeFixture(suffix: string) {
     planId,
     goalId,
     goalVersion: 1,
+    goalContract: testGoalContract(goalId),
     definition: {
       workflowDefinitionId: `workflow.terminal.${suffix}`,
       version: 1,

@@ -44,6 +44,7 @@ describe('WorkflowPlannerService', () => {
       planId: 'confirmed-plan',
       goalId: 'goal-1',
       goalVersion: 1,
+      goalContract,
       definition: validDefinition(),
       confirmationStatus: 'confirmed',
       attemptCount: 1,
@@ -66,6 +67,28 @@ describe('WorkflowPlannerService', () => {
         sourceConfirmedPlanId: 'missing',
       }),
     ).rejects.toMatchObject({ code: 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED' });
+  });
+  it('does not inherit confirmation from a different complete Goal contract', async () => {
+    const repository = new MemoryPlanRepository();
+    repository.plans.set('confirmed-plan', {
+      planId: 'confirmed-plan',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      goalContract: { ...goalContract, constraints: ['write allowed'] },
+      definition: validDefinition(),
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    const model = new SequenceModel([validDefinition()]);
+
+    await expect(
+      planner(repository, model).plan({
+        ...input(),
+        sourceConfirmedPlanId: 'confirmed-plan',
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH' });
+    expect(model.calls).toHaveLength(0);
   });
   it('offers a preferred successful template for adjustment and records the produced plan use', async () => {
     const repository = new MemoryPlanRepository();
@@ -129,6 +152,65 @@ describe('WorkflowPlannerService', () => {
     expect(model.calls[0]?.instruction).toContain('memory-workflow');
     expect(usedPlanId).toBe('plan-1');
   });
+
+  it('rejects stale Goal content before invoking the model and audits the exact contract', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    await expect(
+      planner(repository, model).plan({
+        ...input(),
+        goalContract: { ...goalContract, version: 2 },
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_GOAL_CONTRACT_MISMATCH' });
+    expect(model.calls).toHaveLength(0);
+
+    await planner(repository, model).plan(input());
+    expect(JSON.parse(model.calls[0]?.instruction ?? '{}')).toMatchObject({ goalContract });
+    expect(repository.attempts[0]?.goalContract).toEqual(goalContract);
+  });
+
+  it('produces a different Workflow when the Goal success criteria change', async () => {
+    const repository = new MemoryPlanRepository();
+    const model: StructuredModelProvider = {
+      generateStructured: ({ instruction }) => {
+        const parsed = JSON.parse(instruction) as {
+          goalContract: { successCriteria: string[] };
+        };
+        const criterion = parsed.goalContract.successCriteria[0] ?? 'unspecified';
+        const detailed = criterion.includes('temperature');
+        return Promise.resolve(
+          validDefinition({
+            workflowDefinitionId: detailed ? 'workflow-detailed' : 'workflow-basic',
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Result',
+                type: 'result',
+                value: { op: 'literal', value: criterion },
+              },
+            ],
+          }),
+        );
+      },
+    };
+    const basic = await planner(repository, model).plan({
+      ...input(),
+      planId: 'plan-basic',
+      workflowDefinitionId: 'workflow-basic',
+    });
+    const detailedContract = {
+      ...goalContract,
+      successCriteria: ['status and temperature returned'],
+    } as const;
+    const detailed = await planner(repository, model).plan({
+      ...input(),
+      planId: 'plan-detailed',
+      workflowDefinitionId: 'workflow-detailed',
+      goalContract: detailedContract,
+    });
+    expect(basic.definition?.nodes).not.toEqual(detailed.definition?.nodes);
+    expect(detailed.goalContract).toEqual(detailedContract);
+  });
 });
 
 function planner(
@@ -162,9 +244,18 @@ function input() {
     workflowVersion: 1,
     goalId: 'goal-1',
     goalVersion: 1,
+    goalContract,
     planningInstruction: 'Plan safely.',
   };
 }
+const goalContract = {
+  goalId: 'goal-1',
+  version: 1,
+  title: 'Inspect device',
+  description: 'Inspect the device safely.',
+  constraints: ['read-only'],
+  successCriteria: ['status returned'],
+} as const;
 function validDefinition(overrides: Partial<WorkflowDefinition> = {}): WorkflowDefinition {
   return {
     workflowDefinitionId: 'workflow-1',

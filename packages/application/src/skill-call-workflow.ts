@@ -284,12 +284,22 @@ export class SkillCallWorkflowService {
     const childWorkflowDefinitionId = `workflow-skill-${skill.skillId}-${String(skill.version)}-${callId}`;
     const createdAt = this.#clock.now();
     const toolPlanningMetadata = await this.#toolPlanningMetadata(skill);
+    const parentPlan = await this.#plans.findPlan(input.parentPlanId);
+    if (
+      parentPlan?.goalId !== input.parentGoalId ||
+      parentPlan.goalVersion !== input.parentGoalVersion
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
+        'Child Skill planning requires the immutable parent plan Goal contract.',
+      );
     const plan = await this.#planner.plan({
       planId: childPlanId,
       workflowDefinitionId: childWorkflowDefinitionId,
       workflowVersion: skill.version,
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
+      goalContract: parentPlan.goalContract,
       planningInstruction: childPlanningInstruction(
         skill,
         input.value,
@@ -560,6 +570,7 @@ export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_CHILD_CANCELED'
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
+  | 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE'
   | 'WORKFLOW_SKILL_RECURSION_INVALID'
   | 'WORKFLOW_SKILL_DEPTH_EXCEEDED';
 

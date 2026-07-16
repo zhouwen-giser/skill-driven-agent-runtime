@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { AgentTask, TemporarySkill } from '../../domain/src/index.js';
+import type { AgentTask, GoalExecutionContract, TemporarySkill } from '../../domain/src/index.js';
 
 import type { McpRegistryRepository, StructuredModelProvider } from './ports.js';
 import type { TemporarySkillService } from './temporary-skill.js';
@@ -46,7 +46,7 @@ export class TemporarySkillResolver {
   }
 
   async resolve(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     task: AgentTask,
   ): Promise<
     Readonly<{
@@ -74,7 +74,7 @@ export class TemporarySkillResolver {
         stage: 'skill_authoring',
         instruction: JSON.stringify({
           operation: 'resolve_temporary_skill',
-          goalDescription,
+          goalContract,
           tools,
         }),
         responseSchema,

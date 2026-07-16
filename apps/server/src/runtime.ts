@@ -66,6 +66,8 @@ import {
   type TextEmbeddingProvider,
 } from '../../../packages/application/src/index.js';
 import {
+  createGoalExecutionContract,
+  goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
   type SkillVersion,
   type WorkflowBudgetLimits,
@@ -380,6 +382,7 @@ export async function startServerRuntime(
           decider:
             options.skillSelection.decider ??
             new StructuredSkillSelectionDecider(modelRuntime, memories),
+          mcpWarnings: mcpRepository,
           clock,
           ids: {
             nextSelectionId: () => `skill-selection-${randomUUID()}`,
@@ -803,9 +806,14 @@ export async function startServerRuntime(
         const task = await service.get(taskId);
         if (task.skillSelectionId === undefined || task.selectedSkillId === undefined)
           throw new Error('TASK_SKILL_SELECTION_NOT_BOUND');
+        if (task.goalId === undefined || task.goalVersion === undefined)
+          throw new Error('TASK_GOAL_NOT_ATTACHED');
+        const goal = await goals.findById(task.goalId);
+        if (goal?.version !== task.goalVersion) throw new Error('TASK_GOAL_VERSION_STALE');
         const replacement = await skillSelection.planReplacement(
           task.skillSelectionId,
           task.selectedSkillId,
+          createGoalExecutionContract(goal),
         );
         return {
           skillId: replacement.replacementSkillId,
@@ -1021,10 +1029,13 @@ export async function startServerRuntime(
     skills,
     skillInputs: skillInputResolution,
     skillSelection: {
-      async select(goalDescription, task) {
-        if (!goalDescription.includes('TEMPORARY_SKILL_GOAL') && skillSelection !== undefined) {
+      async select(goalContract, task) {
+        if (
+          !goalContract.description.includes('TEMPORARY_SKILL_GOAL') &&
+          skillSelection !== undefined
+        ) {
           try {
-            return await skillSelection.select(goalDescription);
+            return await skillSelection.select(goalContract);
           } catch (error: unknown) {
             if (!(
               typeof error === 'object' &&
@@ -1035,7 +1046,7 @@ export async function startServerRuntime(
               throw error;
           }
         }
-        const resolved = await temporarySkillResolver.resolve(goalDescription, task);
+        const resolved = await temporarySkillResolver.resolve(goalContract, task);
         return {
           temporarySkillId: resolved.skill.temporarySkillId,
           name: resolved.skill.name,
@@ -1090,6 +1101,7 @@ export async function startServerRuntime(
           workflowVersion: 1,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
           templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
@@ -1243,7 +1255,15 @@ export async function startServerRuntime(
         evolutionPolicy,
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
-          plan: (input) => workflowPlanner.plan(input),
+          plan: async (input) => {
+            const goal = await goals.findById(input.goalId);
+            if (
+              goal !== undefined &&
+              !goalExecutionContractsEqual(createGoalExecutionContract(goal), input.goalContract)
+            )
+              throw new Error('WORKFLOW_GOAL_CONTRACT_STALE');
+            return workflowPlanner.plan(input);
+          },
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
           resumeHumanConfirmation: (input) => workflowExecution.resumeHumanConfirmation(input),
@@ -1451,6 +1471,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0058_runtime_terminal_outcome.up.sql',
     '0059_skill_input_resolution.up.sql',
     '0060_task_skill_input_resolution_binding.up.sql',
+    '0061_goal_execution_contract.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

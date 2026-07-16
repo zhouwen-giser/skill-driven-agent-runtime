@@ -28,6 +28,19 @@ import type {
 import { WorkflowControllerService } from '../src/workflow-controller.js';
 
 describe('Workflow outer controller', () => {
+  it('rejects same-version Goal content drift before workflow execution', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.goals.goal = {
+      ...fixture.goals.goal,
+      constraints: ['Never execute this stale plan.'],
+    };
+
+    await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+      code: 'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH',
+    });
+    expect(fixture.execution.execute).not.toHaveBeenCalled();
+  });
+
   it('creates a new immutable version outside execution and auto-confirms only an opted-in Skill', async () => {
     const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
     fixture.evaluator.decisions.push(
@@ -526,6 +539,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   return {
     controller,
     controls,
+    plans,
     goals,
     evaluator,
     execution,
@@ -574,6 +588,14 @@ function plan(
     planId,
     goalId: 'goal-control',
     goalVersion: 1,
+    goalContract: {
+      goalId: 'goal-control',
+      version: 1,
+      title: 'Control',
+      description: 'Complete the control Goal.',
+      constraints: [],
+      successCriteria: ['Done'],
+    },
     definition: {
       workflowDefinitionId: 'workflow-control',
       version,

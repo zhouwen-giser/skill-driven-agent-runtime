@@ -1,4 +1,6 @@
 import {
+  createGoalExecutionContract,
+  goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
   type Goal,
   type GoalEvaluationResult,
@@ -167,6 +169,11 @@ export class WorkflowControllerService {
         'WORKFLOW_CONTROL_INITIAL_PLAN_INVALID',
         'Initial plan must be confirmed and match the active Goal version.',
       );
+    if (!goalExecutionContractsEqual(plan.goalContract, createGoalExecutionContract(goal)))
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH',
+        'Initial plan does not contain the active Goal execution contract.',
+      );
     const timestamp = this.#clock.now();
     const control: WorkflowControlRecord = {
       controlId: input.controlId,
@@ -237,6 +244,16 @@ export class WorkflowControllerService {
         'WORKFLOW_CONTROL_INPUT_SOURCE_PLAN_INVALID',
         'The waiting control source plan is unavailable.',
       );
+    const goal = await this.#requireActiveGoal(
+      control.goalId,
+      control.contextId,
+      control.goalVersion,
+    );
+    if (!goalExecutionContractsEqual(sourcePlan.goalContract, createGoalExecutionContract(goal)))
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH',
+        'Input-continuation source plan does not contain the active Goal execution contract.',
+      );
     const nextReplanCount = control.replanCount + 1;
     const nextPlan = await this.#planner.plan({
       planId: this.#ids.nextPlanId(control.controlId, nextReplanCount),
@@ -244,6 +261,7 @@ export class WorkflowControllerService {
       workflowVersion: sourcePlan.definition.version + 1,
       goalId: control.goalId,
       goalVersion: control.goalVersion,
+      goalContract: createGoalExecutionContract(goal),
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
       supersedeSourcePlan: true,
@@ -319,6 +337,16 @@ export class WorkflowControllerService {
           'WORKFLOW_CONTROL_PLAN_NOT_CONFIRMED',
           'Current plan is not executable.',
         );
+      const goal = await this.#requireActiveGoal(
+        control.goalId,
+        control.contextId,
+        control.goalVersion,
+      );
+      if (!goalExecutionContractsEqual(plan.goalContract, createGoalExecutionContract(goal)))
+        throw new WorkflowControllerError(
+          'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH',
+          'Current plan does not contain the active Goal execution contract.',
+        );
       const instanceId = this.#ids.nextInstanceId(control.controlId, control.roundCount);
       let instance: WorkflowInstance;
       try {
@@ -355,11 +383,6 @@ export class WorkflowControllerService {
         }
         instance = await this.#execution.waitForPauseResolution(instance.instanceId, pending);
       }
-      const goal = await this.#requireActiveGoal(
-        control.goalId,
-        control.contextId,
-        control.goalVersion,
-      );
       const evaluation = await this.#evaluator.evaluate({ goal, instance });
       const round = {
         controlId: control.controlId,
@@ -520,6 +543,7 @@ export class WorkflowControllerService {
         workflowVersion: plan.definition.version + 1,
         goalId: control.goalId,
         goalVersion: control.goalVersion,
+        goalContract: createGoalExecutionContract(goal),
         sourcePlanId: plan.planId,
         revisionKind: 'replan',
         supersedeSourcePlan: true,
@@ -729,6 +753,7 @@ function mergeSupplementaryInput(
 export type WorkflowControllerErrorCode =
   | 'WORKFLOW_CONTROL_ALREADY_EXISTS'
   | 'WORKFLOW_CONTROL_GOAL_INVALID'
+  | 'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_CONTROL_INITIAL_PLAN_INVALID'
   | 'WORKFLOW_CONTROL_NOT_AWAITING_CONFIRMATION'
   | 'WORKFLOW_CONTROL_NOT_AWAITING_INPUT'

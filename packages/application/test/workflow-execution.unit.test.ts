@@ -18,6 +18,14 @@ const validPlan: WorkflowPlanRecord = {
   planId: 'plan-1',
   goalId: 'goal-1',
   goalVersion: 1,
+  goalContract: {
+    goalId: 'goal-1',
+    version: 1,
+    title: 'Execute workflow',
+    description: 'Execute the validated Workflow.',
+    constraints: [],
+    successCriteria: ['done'],
+  },
   definition: {
     workflowDefinitionId: 'workflow-1',
     version: 2,
@@ -42,6 +50,19 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('rejects a plan whose Goal contract does not match its execution identity', async () => {
+    const stale = {
+      ...validPlan,
+      goalContract: { ...validPlan.goalContract, version: 2 },
+    };
+    const service = createService(new MemoryPlans([stale]), new MemoryExecutions(), {
+      execute: vi.fn(),
+    });
+    await expect(service.confirm(stale.planId)).rejects.toMatchObject({
+      code: 'WORKFLOW_GOAL_CONTRACT_MISMATCH',
+    });
+  });
+
   it('persists the confirmation timestamp and triggering Task identity', async () => {
     const awaiting = { ...validPlan, confirmationStatus: 'awaiting_confirmation' as const };
     const plans = new MemoryPlans([awaiting]);

@@ -38,6 +38,7 @@ export class WorkflowRevisionService {
       workflowVersion: definition.version + 1,
       goalId: source.goalId,
       goalVersion: source.goalVersion,
+      goalContract: source.goalContract,
       planningInstruction: JSON.stringify({
         operation: 'natural_language_plan_revision',
         instruction: input.instruction,
@@ -73,6 +74,7 @@ export class WorkflowRevisionService {
       planId: input.newPlanId,
       goalId: source.goalId,
       goalVersion: source.goalVersion,
+      goalContract: source.goalContract,
       definition: validation.definition,
       sourcePlanId: source.planId,
       revisionKind: input.format === 'dsl' ? 'admin_dsl' : 'admin_dag',
@@ -82,6 +84,7 @@ export class WorkflowRevisionService {
     };
     await this.#plans.saveAttempt({
       planId: plan.planId,
+      goalContract: source.goalContract,
       attempt: 1,
       candidate: input.definition,
       validationErrors: [],

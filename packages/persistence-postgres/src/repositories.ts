@@ -76,6 +76,7 @@ import type {
   WorkflowControlRecord,
   WorkflowControlRound,
   Goal,
+  GoalExecutionContract,
   GoalPatchRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
@@ -181,6 +182,16 @@ const EvolutionGoalSchema = z.object({
   constraints: z.array(z.string()),
   successCriteria: z.array(z.string()),
 });
+const GoalExecutionContractSchema: z.ZodType<GoalExecutionContract> = z
+  .object({
+    goalId: z.string().min(1),
+    version: z.number().int().positive(),
+    title: z.string(),
+    description: z.string(),
+    constraints: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+  })
+  .strict();
 const CapabilitiesSchema = z.array(z.string());
 const ToolPolicySchema = z.object({
   required: z.array(ToolReferenceSchema),
@@ -221,6 +232,31 @@ const SkillCandidateSchema = z.object({
   name: z.string(),
   summary: z.string(),
   capabilities: z.array(z.string()),
+  inputSchemaSummary: z.object({
+    type: z.string(),
+    requiredFields: z.array(z.string()),
+    propertyNames: z.array(z.string()),
+    allowsAdditionalProperties: z.union([z.boolean(), z.literal('unspecified')]),
+  }),
+  outputSchemaSummary: z.object({
+    type: z.string(),
+    requiredFields: z.array(z.string()),
+    propertyNames: z.array(z.string()),
+    allowsAdditionalProperties: z.union([z.boolean(), z.literal('unspecified')]),
+  }),
+  toolPolicy: ToolPolicySchema,
+  workflowGuidanceSummary: z.string(),
+  runtimePolicy: RuntimePolicySchema,
+  activeMcpDependencyWarnings: z.array(
+    z.object({
+      warningId: z.string(),
+      serverId: z.string(),
+      toolName: z.string(),
+      reason: z.enum(['removed', 'schema_changed']),
+      toolRevision: z.number().int().positive(),
+      createdAt: z.string(),
+    }),
+  ),
   autoConfirmPlan: z.boolean(),
   createdAt: z.string(),
   semanticScore: z.number().min(0).max(1),
@@ -403,6 +439,7 @@ interface SkillQualityWarningRow extends QueryResultRow {
 
 interface SkillSelectionRow extends QueryResultRow {
   selection_id: string;
+  goal_contract_json: unknown;
   goal_description: string;
   candidates_json: unknown;
   selected_skill_id: string;
@@ -3515,11 +3552,12 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   async saveSelection(record: SkillSelectionRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_selection_record
-         (selection_id, goal_description, candidates_json, selected_skill_id,
+         (selection_id, goal_contract_json, goal_description, candidates_json, selected_skill_id,
           selected_skill_version, decision_summary, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+       VALUES ($1,$2::jsonb,$3,$4,$5,$6,$7,$8)`,
       [
         record.selectionId,
+        JSON.stringify(record.goalContract),
         record.goalDescription,
         JSON.stringify(record.candidates),
         record.selectedSkillId,
@@ -3532,8 +3570,8 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
 
   async findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined> {
     const result = await this.#pool.query<SkillSelectionRow>(
-      `SELECT selection_id, goal_description, candidates_json, selected_skill_id,
-              selected_skill_version, decision_summary, created_at
+      `SELECT selection_id, goal_contract_json, goal_description, candidates_json,
+              selected_skill_id, selected_skill_version, decision_summary, created_at
        FROM skill_selection_record WHERE selection_id = $1`,
       [selectionId],
     );
@@ -3544,12 +3582,13 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   async saveReplacementPlan(plan: SkillReplacementPlan): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_replacement_plan
-         (replacement_plan_id, selection_id, failed_skill_id, candidates_json,
+         (replacement_plan_id, selection_id, goal_contract_json, failed_skill_id, candidates_json,
           replacement_skill_id, replacement_skill_version, decision_summary, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+       VALUES ($1,$2,$3::jsonb,$4,$5,$6,$7,$8,$9,$10)`,
       [
         plan.replacementPlanId,
         plan.selectionId,
+        JSON.stringify(plan.goalContract),
         plan.failedSkillId,
         JSON.stringify(plan.candidates),
         plan.replacementSkillId,
@@ -3874,6 +3913,7 @@ interface WorkflowPlanRow extends QueryResultRow {
   plan_id: string;
   goal_id: string;
   goal_version: number;
+  goal_contract_json: unknown;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
   source_plan_id: string | null;
@@ -4056,6 +4096,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       planId: row.plan_id,
       goalId: row.goal_id,
       goalVersion: row.goal_version,
+      goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
       ...(row.definition_json === null
         ? {}
         : {
@@ -4105,10 +4146,11 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan_attempt(plan_id,attempt,candidate_json,validation_errors_json,valid,created_at)
-       VALUES($1,$2,$3::jsonb,$4::jsonb,$5,$6)`,
+      `INSERT INTO workflow_plan_attempt(plan_id,goal_contract_json,attempt,candidate_json,validation_errors_json,valid,created_at)
+       VALUES($1,$2::jsonb,$3,$4::jsonb,$5::jsonb,$6,$7)`,
       [
         attempt.planId,
+        JSON.stringify(attempt.goalContract),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -4119,12 +4161,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,goal_contract_json,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
       [
         plan.planId,
         plan.goalId,
         plan.goalVersion,
+        JSON.stringify(plan.goalContract),
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
@@ -4146,12 +4189,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       );
       if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
       await client.query(
-        `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
+        `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,goal_contract_json,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
         [
           plan.planId,
           plan.goalId,
           plan.goalVersion,
+          JSON.stringify(plan.goalContract),
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
@@ -4813,6 +4857,7 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     planId: row.plan_id,
     goalId: row.goal_id,
     goalVersion: row.goal_version,
+    goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
     ...(row.definition_json === null
       ? {}
       : {
@@ -5567,8 +5612,11 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {
   return {
     selectionId: row.selection_id,
+    goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
     goalDescription: row.goal_description,
-    candidates: z.array(SkillCandidateSchema).parse(row.candidates_json),
+    candidates: z
+      .array(SkillCandidateSchema)
+      .parse(row.candidates_json) as unknown as SkillSelectionRecord['candidates'],
     selectedSkillId: row.selected_skill_id,
     selectedSkillVersion: row.selected_skill_version,
     decisionSummary: row.decision_summary,

@@ -88,9 +88,14 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0060_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0061_MISSING:${label}`);
+  const goalContractColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name='goal_contract_json' AND table_name IN ('workflow_plan','workflow_plan_attempt','skill_selection_record','skill_replacement_plan')",
+  );
+  if (goalContractColumns.rows[0]?.count !== 4)
+    throw new Error(`MIGRATION_GOAL_EXECUTION_CONTRACT_MISSING:${label}`);
   const inputResolutionTable = await pool.query(
     "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
   );

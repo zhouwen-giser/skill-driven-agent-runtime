@@ -220,6 +220,33 @@ paths:
   /api/v1/workflows/plan:
     post:
       operationId: planWorkflow
+      description: Every standalone planning request carries one complete immutable Goal execution contract; a registered Goal must match it exactly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                [
+                  planId,
+                  workflowDefinitionId,
+                  workflowVersion,
+                  goalId,
+                  goalVersion,
+                  goalContract,
+                  planningInstruction,
+                ]
+              properties:
+                planId: { type: string, minLength: 1 }
+                workflowDefinitionId: { type: string, minLength: 1 }
+                workflowVersion: { type: integer, minimum: 1 }
+                goalId: { type: string, minLength: 1 }
+                goalVersion: { type: integer, minimum: 1 }
+                goalContract: { $ref: '#/components/schemas/GoalExecutionContract' }
+                planningInstruction: { type: string, minLength: 1 }
+                sourceConfirmedPlanId: { type: string, minLength: 1 }
       responses:
         '201': { description: Immutable validated Workflow plan and confirmation status }
         '400': { $ref: '#/components/responses/Error' }
@@ -572,9 +599,9 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [goalDescription]
+              required: [goalContract]
               properties:
-                goalDescription: { type: string, minLength: 1 }
+                goalContract: { $ref: '#/components/schemas/GoalExecutionContract' }
       responses:
         '201':
           {
@@ -953,6 +980,24 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    GoalExecutionContract:
+      type: object
+      additionalProperties: false
+      required: [goalId, version, title, description, constraints, successCriteria]
+      properties:
+        goalId: { type: string, minLength: 1 }
+        version: { type: integer, minimum: 1 }
+        title: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        constraints: { type: array, items: { type: string } }
+        successCriteria: { type: array, items: { type: string } }
+      example:
+        goalId: goal-inspect-1
+        version: 2
+        title: Inspect device safely
+        description: Return the current device status.
+        constraints: [read-only, no actuator calls]
+        successCriteria: [status and observation are returned]
     MemoryRetentionPolicy:
       type: object
       additionalProperties: false

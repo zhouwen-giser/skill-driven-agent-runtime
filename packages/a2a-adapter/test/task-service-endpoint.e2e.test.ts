@@ -693,10 +693,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       });
       expect(response.status).toBe(201);
     }
+    const selectionGoalContract = {
+      goalId: `goal-selection-${randomUUID()}`,
+      version: 1,
+      title: 'Run zebra diagnostics',
+      description: 'Run the zebra diagnostic capability.',
+      constraints: ['read-only'],
+      successCriteria: ['diagnostic returned'],
+    } as const;
     const response = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goalDescription: 'Run the zebra diagnostic capability.' }),
+      body: JSON.stringify({
+        goalContract: selectionGoalContract,
+      }),
     });
     expect(response.status).toBe(201);
     const selection = z
@@ -704,20 +714,54 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         selectedSkillId: z.string(),
         selectedSkillVersion: z.number(),
         decisionSummary: z.string(),
+        goalContract: z.object({
+          goalId: z.string(),
+          version: z.number(),
+          title: z.string(),
+          description: z.string(),
+          constraints: z.array(z.string()),
+          successCriteria: z.array(z.string()),
+        }),
         candidates: z.array(
           z.object({
             skillId: z.string(),
             semanticScore: z.number(),
             metrics: z.object({ successRate: z.number(), stabilityScore: z.number() }),
+            inputSchemaSummary: z.object({ type: z.string() }),
+            outputSchemaSummary: z.object({ type: z.string() }),
+            toolPolicy: z.object({
+              required: z.array(z.unknown()),
+              optional: z.array(z.unknown()),
+              forbidden: z.array(z.unknown()),
+            }),
+            workflowGuidanceSummary: z.string(),
+            runtimePolicy: z.object({ autoConfirmPlan: z.boolean() }),
+            activeMcpDependencyWarnings: z.array(z.unknown()),
           }),
         ),
       })
       .parse(await response.json());
+    expect(selection.goalContract).toEqual(selectionGoalContract);
     expect(selection.selectedSkillId).toBe(deviceSkillId);
     expect(selection.candidates.find((item) => item.skillId === deviceSkillId)?.semanticScore).toBe(
       1,
     );
     expect(selection.decisionSummary).toContain('metric snapshot');
+    const audits = z
+      .object({
+        items: z.array(z.object({ request: z.object({ instruction: z.string() }).loose() })),
+      })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_selection`,
+          )
+        ).json(),
+      );
+    const audited = audits.items.find((item) =>
+      item.request.instruction.includes(selectionGoalContract.goalId),
+    );
+    expect(audited?.request.instruction).toContain(JSON.stringify(selectionGoalContract));
   });
 
   it('raises a low-quality warning without disabling or repairing the enabled Skill', async () => {
@@ -1102,6 +1146,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 1,
           goalId: skillCallWorkflowTarget.goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(skillCallWorkflowTarget.goalId),
           planningInstruction: 'SKILL_CALL_PLAN',
         }),
       });
@@ -1917,6 +1962,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         workflowVersion: 1,
         goalId: 'goal.planned.e2e',
         goalVersion: 1,
+        goalContract: standaloneGoalContract('goal.planned.e2e'),
         planningInstruction: 'PLAN_WORKFLOW',
       }),
     });
@@ -1945,6 +1991,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         workflowVersion: 1,
         goalId: 'goal.planned.e2e',
         goalVersion: 1,
+        goalContract: standaloneGoalContract('goal.planned.e2e'),
         planningInstruction: 'PLAN_WORKFLOW',
       }),
     });
@@ -2049,6 +2096,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 1,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
         }),
       });
@@ -2108,6 +2156,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 2,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           sourceConfirmedPlanId: planId,
         }),
@@ -2149,6 +2198,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 3,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           sourceConfirmedPlanId: repairedPlanId,
         }),
@@ -2226,6 +2276,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId,
             goalVersion: 1,
+            goalContract: standaloneGoalContract(goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -2358,6 +2409,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId,
             goalVersion: 1,
+            goalContract: standaloneGoalContract(goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -2494,6 +2546,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId: prepared.goalId,
             goalVersion: prepared.goalVersion,
+            goalContract: await loadGoalExecutionContract(prepared.goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -2685,10 +2738,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 1,
           goalId,
           goalVersion: 1,
+          goalContract: await loadGoalExecutionContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
         }),
       });
-      expect(initialPlan.status).toBe(201);
+      if (initialPlan.status !== 201)
+        throw new Error(
+          `CONTROL_INITIAL_PLAN_FAILED:${String(initialPlan.status)}:${await initialPlan.text()}`,
+        );
       expect(
         (
           await fetch(
@@ -4678,9 +4735,10 @@ async function startModelLoopback(): Promise<Server> {
         const skillCallWorkflowRequest = body.messages?.some(
           (message) => message.content?.includes('SKILL_CALL_PLAN') === true,
         );
-        const skillChildExecutionRequest = body.messages?.some(
-          (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
-        );
+        const skillChildExecutionRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
+          ) && skillSelectionRequest !== true;
         const skillChildPlanningRequest = body.messages?.some(
           (message) => message.content?.includes('"operation":"skill_call_child_plan"') === true,
         );
@@ -4715,26 +4773,33 @@ async function startModelLoopback(): Promise<Server> {
         const workflowControlInputContinuationRequest = body.messages?.some(
           (message) => message.content?.includes('workflow_control_continue_after_input') === true,
         );
-        const controlEvaluationRequest =
-          body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
-          true;
-        const capabilityGapEvaluationRequest =
-          body.messages?.some(
-            (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
-          ) === true;
-        const autoTaskEvaluationRequest =
-          body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
-          true;
-        const replacementEvaluationRequest = body.messages?.some(
-          (message) => message.content?.includes('REPLACE_SKILL_GOAL') === true,
-        );
-        const inputContinuationEvaluationRequest = body.messages?.some(
-          (message) => message.content?.includes('INPUT_AFTER_EVALUATION') === true,
-        );
         const genericTaskEvaluationRequest =
           body.messages?.some(
             (message) => message.content?.includes('"workflow":{"instanceId"') === true,
           ) === true;
+        const controlEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
+            true;
+        const capabilityGapEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
+          ) === true;
+        const autoTaskEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
+            true;
+        const replacementEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('REPLACE_SKILL_GOAL') === true,
+          );
+        const inputContinuationEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('INPUT_AFTER_EVALUATION') === true,
+          );
         if (primarySkillFailureRequest === true) {
           response.statusCode = 500;
           response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
@@ -4995,14 +5060,14 @@ async function startModelLoopback(): Promise<Server> {
         if (temporarySkillResolutionRequest === true) {
           const requestData = z
             .object({
-              goalDescription: z.string(),
+              goalContract: z.object({ description: z.string() }).loose(),
               tools: z.array(
                 z.object({ serverId: z.string(), toolName: z.string(), description: z.string() }),
               ),
             })
             .parse(embeddedOperation(body.messages, 'resolve_temporary_skill'));
           const requested = /TEMPORARY_SKILL_GOAL:([^/\s]+)\/([^\s]+)/.exec(
-            requestData.goalDescription,
+            requestData.goalContract.description,
           );
           if (requested === null) throw new Error('TEMPORARY_TOOL_MARKER_MISSING');
           const requestedServerId = requested[1] ?? '';
@@ -5185,7 +5250,7 @@ async function startModelLoopback(): Promise<Server> {
           const requestData = embeddedOperation(body.messages, 'select_skill');
           const candidates = z
             .object({
-              goalDescription: z.string(),
+              goalContract: z.object({ description: z.string() }).loose(),
               candidates: z.array(
                 z.looseObject({
                   skillId: z.string(),
@@ -5197,11 +5262,11 @@ async function startModelLoopback(): Promise<Server> {
               ),
             })
             .parse(requestData);
-          const eligibleCandidates = candidates.goalDescription.includes('AUTO_TASK_GOAL')
+          const eligibleCandidates = candidates.goalContract.description.includes('AUTO_TASK_GOAL')
             ? candidates.candidates.filter((candidate) => candidate.autoConfirmPlan)
             : candidates.candidates.filter((candidate) => !candidate.autoConfirmPlan);
           const requestedSharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
-            candidates.goalDescription,
+            candidates.goalContract.description,
           )?.[1];
           const exactSharedCandidate = eligibleCandidates.find(
             (candidate) => candidate.skillId === requestedSharedSkill,
@@ -5787,6 +5852,35 @@ async function sendFollowUp(taskId: string, contextId: string, action: string, t
   );
 }
 
+function standaloneGoalContract(goalId: string, version = 1) {
+  return {
+    goalId,
+    version,
+    title: 'Standalone planning Goal',
+    description: 'Exercise the standalone management planning surface.',
+    constraints: ['test-only'],
+    successCriteria: ['a validated Workflow is produced'],
+  } as const;
+}
+
+async function loadGoalExecutionContract(goalId: string) {
+  const response = await fetch(
+    `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(goalId)}`,
+  );
+  if (!response.ok) throw new Error(`GOAL_CONTRACT_LOAD_FAILED:${String(response.status)}`);
+  const goal = z
+    .object({
+      goalId: z.string(),
+      version: z.number().int().positive(),
+      title: z.string(),
+      description: z.string(),
+      constraints: z.array(z.string()),
+      successCriteria: z.array(z.string()),
+    })
+    .parse(await response.json());
+  return goal;
+}
+
 async function attachPlannedTask(taskId: string): Promise<string> {
   const task = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
@@ -5803,11 +5897,13 @@ async function attachPlannedTask(taskId: string): Promise<string> {
       workflowVersion: 1,
       goalId: task.goalId,
       goalVersion: task.goalVersion,
+      goalContract: await loadGoalExecutionContract(task.goalId),
       planningInstruction: 'TASK_ATTACHED_PLAN',
     }),
   });
   taskWorkflowTarget = undefined;
-  if (planned.status !== 201) throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}`);
+  if (planned.status !== 201)
+    throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}:${await planned.text()}`);
   const attached = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/plan`,
     {

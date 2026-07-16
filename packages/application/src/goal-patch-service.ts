@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import type { Goal, GoalPatchChanges, GoalPatchRecord } from '../../domain/src/index.js';
+import {
+  createGoalExecutionContract,
+  type Goal,
+  type GoalPatchChanges,
+  type GoalPatchRecord,
+} from '../../domain/src/index.js';
 import type {
   Clock,
   GoalPatchRepository,
@@ -160,6 +165,7 @@ export class GoalPatchService {
       workflowVersion: sourcePlan.definition.version + 1,
       goalId: goal.goalId,
       goalVersion: afterGoal.version,
+      goalContract: createGoalExecutionContract(afterGoal),
       planningInstruction: JSON.stringify({
         operation: 'goal_patch_replan',
         patch,

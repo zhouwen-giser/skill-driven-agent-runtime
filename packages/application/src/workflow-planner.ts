@@ -1,4 +1,10 @@
-import type { WorkflowPlanAttempt, WorkflowPlanRecord } from '../../domain/src/index.js';
+import {
+  assertGoalExecutionContractIdentity,
+  goalExecutionContractsEqual,
+  type GoalExecutionContract,
+  type WorkflowPlanAttempt,
+  type WorkflowPlanRecord,
+} from '../../domain/src/index.js';
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
 import type { WorkflowTemplateService } from './workflow-template.js';
@@ -10,6 +16,7 @@ export interface PlanWorkflowInput {
   readonly workflowVersion: number;
   readonly goalId: string;
   readonly goalVersion: number;
+  readonly goalContract: GoalExecutionContract;
   readonly planningInstruction: string;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;
@@ -56,6 +63,17 @@ export class WorkflowPlannerService {
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
+    try {
+      assertGoalExecutionContractIdentity(input.goalContract, {
+        goalId: input.goalId,
+        goalVersion: input.goalVersion,
+      });
+    } catch {
+      throw new WorkflowPlannerError(
+        'WORKFLOW_GOAL_CONTRACT_MISMATCH',
+        'Planner Goal identity does not match the supplied execution contract snapshot.',
+      );
+    }
     const source =
       input.sourceConfirmedPlanId === undefined
         ? undefined
@@ -66,6 +84,14 @@ export class WorkflowPlannerService {
         'Repair source plan is not confirmed.',
       );
     }
+    if (
+      source !== undefined &&
+      !goalExecutionContractsEqual(source.goalContract, input.goalContract)
+    )
+      throw new WorkflowPlannerError(
+        'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
+        'Repair source confirmation belongs to a different Goal execution contract.',
+      );
     const preferredTemplate =
       input.templateQuery === undefined
         ? undefined
@@ -74,7 +100,8 @@ export class WorkflowPlannerService {
       'workflow_generation',
       input.templateQuery ?? input.planningInstruction,
     );
-    const withMemory = addMemoryContext(input.planningInstruction, memoryContext);
+    const withContract = addGoalContract(input.planningInstruction, input.goalContract);
+    const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
       preferredTemplate === undefined
         ? withMemory
@@ -89,13 +116,21 @@ export class WorkflowPlannerService {
       });
       const validation = await this.#validateExpected(candidate, input);
       await this.#repository.saveAttempt(
-        toAttempt(input.planId, attempt, candidate, validation, this.#clock.now()),
+        toAttempt(
+          input.planId,
+          input.goalContract,
+          attempt,
+          candidate,
+          validation,
+          this.#clock.now(),
+        ),
       );
       if (validation.valid && validation.definition !== undefined) {
         const plan: WorkflowPlanRecord = {
           planId: input.planId,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
           definition: validation.definition,
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
@@ -127,6 +162,7 @@ export class WorkflowPlannerService {
       planId: input.planId,
       goalId: input.goalId,
       goalVersion: input.goalVersion,
+      goalContract: input.goalContract,
       ...(input.sourceConfirmedPlanId === undefined
         ? {}
         : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
@@ -167,6 +203,21 @@ export class WorkflowPlannerService {
       });
     return errors.length === 0 ? result : { valid: false, errors };
   }
+}
+
+function addGoalContract(instruction: string, goalContract: GoalExecutionContract): string {
+  try {
+    const parsed = JSON.parse(instruction) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
+      return JSON.stringify({ ...parsed, goalContract });
+  } catch {
+    // Plain-language instructions remain data inside a structured planning request.
+  }
+  return JSON.stringify({
+    operation: 'plan_with_goal_execution_contract',
+    originalInstruction: instruction,
+    goalContract,
+  });
 }
 
 function addPreferredTemplate(
@@ -227,6 +278,7 @@ function addMemoryContext(
 
 function toAttempt(
   planId: string,
+  goalContract: GoalExecutionContract,
   attempt: number,
   candidate: unknown,
   validation: WorkflowValidationResult,
@@ -234,6 +286,7 @@ function toAttempt(
 ): WorkflowPlanAttempt {
   return {
     planId,
+    goalContract,
     attempt,
     candidate,
     validationErrors: validation.errors,
@@ -245,6 +298,8 @@ function toAttempt(
 export type WorkflowPlannerErrorCode =
   | 'WORKFLOW_PLANNER_ATTEMPTS_INVALID'
   | 'WORKFLOW_PLANNING_FAILED'
+  | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'
+  | 'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_REVISION_SOURCE_REQUIRED'
   | 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED';
 export class WorkflowPlannerError extends Error {

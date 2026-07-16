@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type {
-  Goal,
-  GoalPatchRecord,
-  SkillVersion,
-  WorkflowPlanRecord,
+import {
+  createGoalExecutionContract,
+  type Goal,
+  type GoalPatchRecord,
+  type SkillVersion,
+  type WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 import { GoalPatchService, type PlanWorkflowInput } from '../src/index.js';
 
@@ -24,6 +25,7 @@ const sourcePlan: WorkflowPlanRecord = {
   planId: 'plan-1',
   goalId: goal.goalId,
   goalVersion: 1,
+  goalContract: createGoalExecutionContract(goal),
   definition: {
     workflowDefinitionId: 'workflow-1',
     version: 1,
@@ -108,6 +110,7 @@ describe('GoalPatchService', () => {
             planId: input.planId,
             goalId: input.goalId,
             goalVersion: input.goalVersion,
+            goalContract: input.goalContract,
             confirmationStatus: 'awaiting_confirmation',
             attemptCount: 1,
             createdAt: '2026-07-12T00:00:01.000Z',
@@ -156,6 +159,11 @@ describe('GoalPatchService', () => {
     expect(planning[0]).toMatchObject({
       planId: 'plan-2',
       goalVersion: 2,
+      goalContract: {
+        goalId: 'goal-1',
+        version: 2,
+        constraints: ['read-only', 'include temperature'],
+      },
       sourcePlanId: 'plan-1',
       revisionKind: 'replan',
     });

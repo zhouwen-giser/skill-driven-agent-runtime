@@ -5,7 +5,10 @@ import type {
   WorkflowPlanRecord,
   RuntimeExecutionContext,
 } from '../../domain/src/index.js';
-import { resolveWorkflowBudgetLimits } from '../../domain/src/index.js';
+import {
+  assertGoalExecutionContractIdentity,
+  resolveWorkflowBudgetLimits,
+} from '../../domain/src/index.js';
 import type {
   Clock,
   SkillRepository,
@@ -452,6 +455,17 @@ export class WorkflowExecutionService {
     const plan = await this.#plans.findPlan(planId);
     if (plan === undefined)
       throw new WorkflowExecutionError('WORKFLOW_PLAN_NOT_FOUND', 'Workflow plan was not found.');
+    try {
+      assertGoalExecutionContractIdentity(plan.goalContract, {
+        goalId: plan.goalId,
+        goalVersion: plan.goalVersion,
+      });
+    } catch {
+      throw new WorkflowExecutionError(
+        'WORKFLOW_GOAL_CONTRACT_MISMATCH',
+        'Workflow plan Goal identity does not match its immutable execution contract.',
+      );
+    }
     return plan;
   }
 
@@ -525,6 +539,7 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_PLAN_NOT_EXECUTABLE'
   | 'WORKFLOW_PLAN_NOT_FOUND'
   | 'WORKFLOW_PLAN_REVALIDATION_FAILED'
+  | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_REPLAN_BUDGET_EXHAUSTED'
   | 'WORKFLOW_RESUME_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE'

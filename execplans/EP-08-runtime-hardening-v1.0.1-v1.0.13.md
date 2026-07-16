@@ -86,8 +86,9 @@ Invariants for every increment:
 - [x] 2026-07-16 12:05 v1.0.6 feature commit `4df20a9` and annotated `v1.0.6` published after 242 unit, 58 contract, 52 integration, 44 E2E, 175-source architecture, build and migrations passed.
 - [x] 2026-07-16 12:26 v1.0.6 bug-fixed commit `967d555` and annotated `v1.0.6-bug-fixed` published after the complete operator-managed `pnpm verify` passed in 82,005 ms.
 - [x] 2026-07-16 v1.0.7 feature commit `9bf6ba3` and annotated `v1.0.7` published after format/lint/typecheck, 249 unit, 58 contract, 55 integration, 46 E2E, 178-source architecture, OpenAPI, build and empty/0049 migrations passed.
-- [ ] 2026-07-16 v1.0.7 bug-fixed audit adds exact plan-to-resolution authority through migration 0060, conflict/root-error normalization and pre-commit Goal Patch input resolution. Gate passes 251 unit, 58 contract, 56 integration, 46 E2E, architecture/OpenAPI/build/migrations; publication remains.
-- [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
+- [x] 2026-07-16 v1.0.7 bug-fixed commit `88d1d01` and annotated `v1.0.7-bug-fixed` published after exact plan-to-resolution authority, conflict/root-error normalization and pre-commit Goal Patch input resolution passed 251 unit, 58 contract, 56 integration, 46 E2E, architecture/OpenAPI/build/migrations.
+- [ ] 2026-07-16 v1.0.8 feature implementation and gate complete: ADR-079, migration 0061 and complete Goal Contract propagation pass 259 unit, 59 contract, 57 integration, 46 E2E, architecture/OpenAPI/build/migrations; publication remains.
+- [ ] Complete v1.0.8–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
 - [ ] Complete v1.0.13 feature and bug-fixed increments; run full gate and both demos.
 - [ ] Run independent acceptance audit, generate final reports, verify 26 remote tags and create release-to-main PR.
@@ -112,6 +113,7 @@ Invariants for every increment:
 - 2026-07-16: the v1.0.5 bug-fixed audit found that invalidating a child version could produce a second LangGraph pause while `WorkflowControllerService` still waited only for a terminal status. Pause waiting now detects checkpoint identity changes and reprojects every fresh child plan; real v1-to-v2 E2E proves the second checkpoint is visible and executes no stale MCP call.
 - 2026-07-16: the former top-level formal Skill path passed a generic request envelope and never enforced the selected Skill version's `inputSchema`; only child `skill_call` input had an independent validation boundary. The first new real MCP E2E also exposed an unreachable result node in its deterministic mock plan, proving the test uses the real Workflow validator before Tool execution.
 - 2026-07-16: v1.0.7 adversarial review found that “latest matching resolution” was weaker than the required fixed input version, model unresolved markers could contradict authoritative metadata, and post-invalidation Goal Patch resolution could leave partial state. Migration 0060 pins exact identity; field reconciliation and preflight ordering close the other two gaps.
+- 2026-07-16: v1.0.8 propagation exposed two same-ID/version content-drift boundaries: a confirmed repair source could grant confirmation to different Goal content, and WorkflowControl could execute before re-reading the exact snapshot. Complete content equality now fails before model/Tool invocation at both boundaries.
 - 2026-07-15: continuation binding paths use string path segments (`"0"`) like the public DSL; numeric array indices are rejected at validation rather than reaching runtime. Both real MCP E2E paths assert the supplied value, preventing state-only false positives.
 
 ## Decision Log
@@ -122,6 +124,7 @@ Invariants for every increment:
 - 2026-07-15: `WorkflowBoundValue` is owned by the Workflow domain and resolved only inside the sole LangGraph Runtime. Planning validates the restricted template shape, while current MCP/Skill business schemas are enforced after resolution at their existing application boundaries. This preserves ADR-001/004/042 and requires no new ADR.
 - 2026-07-15: accept ADR-074. Task input requests/responses/attempts are Task-domain state in PostgreSQL; Redis only schedules attempt-identified work. Evaluation continuation always creates an unconfirmed immutable plan outside LangGraph and never replays the completed prior instance.
 - 2026-07-16: accept ADR-078. A versioned Task/Goal/Skill resolution record owns formal top-level input evidence; `structured_input` metadata is canonical, Memory is non-authoritative, and only a schema-valid structured value enters the sole LangGraph runtime. Goal Patch creates a new resolution for the patched Goal version.
+- 2026-07-16: accept ADR-079. The Goal domain owns one six-field execution snapshot; selection, planning, evaluation and their audit records consume it unchanged, while all authority boundaries compare complete content rather than trusting identity alone.
 
 ## Implementation Steps
 

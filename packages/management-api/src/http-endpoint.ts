@@ -224,7 +224,17 @@ const PublishSkillDraftSchema = z.object({
   runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
   status: z.enum(['enabled', 'disabled']),
 });
-const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
+const GoalExecutionContractSchema = z
+  .object({
+    goalId: z.string().min(1),
+    version: z.number().int().positive(),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    constraints: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+  })
+  .strict();
+const SelectSkillSchema = z.object({ goalContract: GoalExecutionContractSchema }).strict();
 const SkillQualityObservationSchema = z.object({
   skillVersion: z.number().int().positive(),
   evaluationRef: z.string().min(1),
@@ -269,6 +279,7 @@ const PlanWorkflowSchema = z.object({
   workflowVersion: z.number().int().positive(),
   goalId: z.string().min(1),
   goalVersion: z.number().int().positive(),
+  goalContract: GoalExecutionContractSchema,
   planningInstruction: z.string().min(1),
   sourceConfirmedPlanId: z.string().min(1).optional(),
 });
@@ -869,6 +880,7 @@ export async function startManagementHttpEndpoint(
           workflowVersion: input.workflowVersion,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
           planningInstruction: input.planningInstruction,
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
@@ -1362,9 +1374,7 @@ export async function startManagementHttpEndpoint(
         );
       }
       const input = SelectSkillSchema.parse(request.body);
-      response
-        .status(201)
-        .json(await options.operations.skillSelection.select(input.goalDescription));
+      response.status(201).json(await options.operations.skillSelection.select(input.goalContract));
     }),
   );
   app.post(

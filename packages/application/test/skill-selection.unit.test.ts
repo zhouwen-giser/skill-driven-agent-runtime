@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type {
+  GoalExecutionContract,
   Skill,
   SkillPerformanceMetrics,
   SkillRelation,
@@ -10,6 +11,7 @@ import type {
 } from '../../domain/src/index.js';
 import {
   SkillSelectionService,
+  type McpRegistryRepository,
   type SkillGraphRepository,
   type SkillRepository,
   type SkillSelectionRepository,
@@ -19,19 +21,25 @@ describe('SkillSelectionService', () => {
   it('persists an LLM-decided selection with all required metric snapshots', async () => {
     const records = new MemorySelectionRepository();
     const service = createService(records, [], 'skill.a');
-    const selection = await service.select('Inspect the device safely.');
+    const selection = await service.select(goalContract);
 
     expect(selection).toMatchObject({
       selectedSkillId: 'skill.a',
       selectedSkillVersion: 1,
       decisionSummary: 'Skill A balances semantic fit and operational history.',
     });
-    expect(selection.candidates[0]).toEqual({
+    expect(selection.candidates[0]).toMatchObject({
       skillId: 'skill.a',
       skillVersion: 1,
       name: 'skill.a',
       summary: 'Candidate.',
       capabilities: ['inspection'],
+      inputSchemaSummary: { type: 'object' },
+      outputSchemaSummary: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      workflowGuidanceSummary: 'Inspect.',
+      runtimePolicy: { autoConfirmPlan: false },
+      activeMcpDependencyWarnings: [],
       autoConfirmPlan: false,
       createdAt: '2026-07-11T10:00:00.000Z',
       semanticScore: 0.9,
@@ -59,9 +67,9 @@ describe('SkillSelectionService', () => {
       },
     ];
     const initial = createService(records, relations, 'skill.a');
-    const selection = await initial.select('Inspect the device safely.');
+    const selection = await initial.select(goalContract);
     const replacement = createService(records, relations, 'skill.b');
-    const plan = await replacement.planReplacement(selection.selectionId, 'skill.a');
+    const plan = await replacement.planReplacement(selection.selectionId, 'skill.a', goalContract);
 
     expect(plan).toMatchObject({
       failedSkillId: 'skill.a',
@@ -74,32 +82,121 @@ describe('SkillSelectionService', () => {
 
   it('rejects a decider result that is not one of the enabled candidates', async () => {
     const service = createService(new MemorySelectionRepository(), [], 'skill.missing');
-    await expect(service.select('Inspect device.')).rejects.toMatchObject({
+    await expect(service.select(goalContract)).rejects.toMatchObject({
       code: 'SKILL_SELECTION_INVALID_DECISION',
     });
   });
+
+  it('rejects replacement after the Goal contract changes', async () => {
+    const records = new MemorySelectionRepository();
+    const relations: readonly SkillRelation[] = [
+      {
+        relationId: 'alternative-1',
+        sourceSkillId: 'skill.a',
+        targetSkillId: 'skill.b',
+        relationType: 'alternative',
+        metadata: {},
+        createdAt: '2026-07-11T10:00:00.000Z',
+      },
+    ];
+    const service = createService(records, relations, 'skill.a');
+    const selection = await service.select(goalContract);
+    await expect(
+      service.planReplacement(selection.selectionId, 'skill.a', {
+        ...goalContract,
+        version: 2,
+        constraints: ['read-only', 'no network'],
+      }),
+    ).rejects.toMatchObject({ code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' });
+  });
+
+  it('changes the selected Skill when the Goal safety constraint changes', async () => {
+    const service = createService(new MemorySelectionRepository(), [], (contract) =>
+      contract.constraints.includes('offline-only') ? 'skill.b' : 'skill.a',
+    );
+    await expect(service.select(goalContract)).resolves.toMatchObject({
+      selectedSkillId: 'skill.a',
+    });
+    await expect(
+      service.select({ ...goalContract, constraints: ['read-only', 'offline-only'] }),
+    ).resolves.toMatchObject({ selectedSkillId: 'skill.b' });
+  });
+
+  it('includes active matching MCP dependency warnings in candidate evidence', async () => {
+    const service = createService(new MemorySelectionRepository(), [], 'skill.a', {
+      toolPolicy: {
+        required: [{ serverId: 'mcp.devices', toolName: 'read_status' }],
+        optional: [],
+        forbidden: [],
+      },
+      warnings: [
+        {
+          warningId: 'warning-active',
+          serverId: 'mcp.devices',
+          toolName: 'read_status',
+          reason: 'schema_changed',
+          skillId: 'skill.a',
+          skillVersion: 1,
+          toolRevision: 2,
+          createdAt: '2026-07-11T10:00:00.000Z',
+        },
+        {
+          warningId: 'warning-acknowledged',
+          serverId: 'mcp.devices',
+          toolName: 'read_status',
+          reason: 'removed',
+          skillId: 'skill.a',
+          skillVersion: 1,
+          toolRevision: 3,
+          createdAt: '2026-07-11T10:00:00.000Z',
+          acknowledgedAt: '2026-07-11T10:01:00.000Z',
+        },
+      ],
+    });
+    const selection = await service.select(goalContract);
+    expect(selection.candidates.find((candidate) => candidate.skillId === 'skill.a')).toMatchObject(
+      { activeMcpDependencyWarnings: [{ warningId: 'warning-active' }] },
+    );
+  });
 });
+
+const goalContract = {
+  goalId: 'goal-1',
+  version: 1,
+  title: 'Inspect device',
+  description: 'Inspect the device safely.',
+  constraints: ['read-only'],
+  successCriteria: ['status returned'],
+} as const;
 
 function createService(
   records: SkillSelectionRepository,
   relations: readonly SkillRelation[],
-  selectedSkillId: string,
+  selectedSkillId: string | ((contract: GoalExecutionContract) => string),
+  options: Readonly<{
+    toolPolicy?: SkillVersion['toolPolicy'];
+    warnings?: Awaited<ReturnType<McpRegistryRepository['listDependencyWarnings']>>;
+  }> = {},
 ): SkillSelectionService {
   return new SkillSelectionService({
-    skills: new SelectionSkillRepository(),
+    skills: new SelectionSkillRepository(options.toolPolicy),
     graph: new SelectionGraphRepository(relations),
     records,
     retriever: { score: () => Promise.resolve({ 'skill.a': 0.9, 'skill.b': 0.7 }) },
     decider: {
-      decide: ({ mode }) =>
+      decide: ({ mode, goalContract: contract }) =>
         Promise.resolve({
-          selectedSkillId,
+          selectedSkillId:
+            typeof selectedSkillId === 'string' ? selectedSkillId : selectedSkillId(contract),
           decisionSummary:
             mode === 'initial'
               ? 'Skill A balances semantic fit and operational history.'
               : 'Skill B is the enabled declared alternative.',
         }),
     },
+    ...(options.warnings === undefined
+      ? {}
+      : { mcpWarnings: { listDependencyWarnings: () => Promise.resolve(options.warnings ?? []) } }),
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
     ids: {
       nextSelectionId: () => 'selection-1',
@@ -157,7 +254,10 @@ class SelectionGraphRepository implements SkillGraphRepository {
 }
 
 class SelectionSkillRepository implements SkillRepository {
-  readonly versions = [skillVersion('skill.a'), skillVersion('skill.b')];
+  readonly versions: readonly SkillVersion[];
+  constructor(toolPolicy?: SkillVersion['toolPolicy']) {
+    this.versions = [skillVersion('skill.a', toolPolicy), skillVersion('skill.b', toolPolicy)];
+  }
   find(skillId: string): Promise<Skill | undefined> {
     return Promise.resolve(
       this.versions.some((item) => item.skillId === skillId)
@@ -192,7 +292,7 @@ class SelectionSkillRepository implements SkillRepository {
   }
 }
 
-function skillVersion(skillId: string): SkillVersion {
+function skillVersion(skillId: string, toolPolicy?: SkillVersion['toolPolicy']): SkillVersion {
   return {
     skillId,
     version: 1,
@@ -204,7 +304,7 @@ function skillVersion(skillId: string): SkillVersion {
     outputInstruction: 'Return result.',
     inputSchema: { type: 'object' },
     outputSchema: { type: 'object' },
-    toolPolicy: { required: [], optional: [], forbidden: [] },
+    toolPolicy: toolPolicy ?? { required: [], optional: [], forbidden: [] },
     runtimePolicy: { autoConfirmPlan: false },
     status: 'enabled',
     sourceKind: 'admin',

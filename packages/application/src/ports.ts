@@ -2,6 +2,7 @@ import type {
   AgentTask,
   ConversationContext,
   Goal,
+  GoalExecutionContract,
   McpServer,
   McpDependencyWarning,
   McpInvocation,
@@ -332,7 +333,7 @@ export interface SkillQualityRepository {
 
 export interface SkillSemanticRetriever {
   score(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
   ): Promise<Readonly<Record<string, number>>>;
 }
@@ -364,7 +365,7 @@ export interface SkillEmbeddingRepository {
 export interface SkillSelectionDecider {
   decide(
     input: Readonly<{
-      goalDescription: string;
+      goalContract: GoalExecutionContract;
       candidates: SkillSelectionRecord['candidates'];
       mode: 'initial' | 'replacement';
       failedSkillId?: string;

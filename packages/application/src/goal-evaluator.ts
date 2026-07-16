@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { GoalEvaluationResult } from '../../domain/src/index.js';
+import { createGoalExecutionContract, type GoalEvaluationResult } from '../../domain/src/index.js';
 import type { GoalEvaluator, StructuredModelProvider } from './ports.js';
 import type { MemoryService } from './memory-service.js';
 
@@ -79,13 +79,7 @@ export class StructuredGoalEvaluator implements GoalEvaluator {
     const raw = await this.#model.generateStructured({
       stage: 'goal_evaluation',
       instruction: JSON.stringify({
-        goal: {
-          goalId: input.goal.goalId,
-          version: input.goal.version,
-          description: input.goal.description,
-          constraints: input.goal.constraints,
-          successCriteria: input.goal.successCriteria,
-        },
+        goal: createGoalExecutionContract(input.goal),
         workflow: {
           instanceId: input.instance.instanceId,
           status: input.instance.status,

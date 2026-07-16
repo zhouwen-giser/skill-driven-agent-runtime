@@ -313,7 +313,7 @@ function processorWith(
       },
     },
     skillSelection: {
-      select: (goalDescription) =>
+      select: (goalContract) =>
         Promise.resolve(
           tasks.useTemporarySkill
             ? {
@@ -323,7 +323,8 @@ function processorWith(
               }
             : {
                 selectionId: 'selection-1',
-                goalDescription,
+                goalContract,
+                goalDescription: goalContract.description,
                 candidates: [],
                 selectedSkillId: 'skill-1',
                 selectedSkillVersion: 2,

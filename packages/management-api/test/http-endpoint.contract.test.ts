@@ -716,7 +716,16 @@ describe('management HTTP API contract', () => {
     const response = await fetch(`${endpoint.baseUrl}/api/v1/skill-selections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goalDescription: 'Inspect a device.' }),
+      body: JSON.stringify({
+        goalContract: {
+          goalId: 'goal-1',
+          version: 1,
+          title: 'Inspect device',
+          description: 'Inspect a device.',
+          constraints: [],
+          successCriteria: ['status returned'],
+        },
+      }),
     });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -902,6 +911,14 @@ describe('management HTTP API contract', () => {
         planId,
         goalId: 'goal-1',
         goalVersion: 1,
+        goalContract: {
+          goalId: 'goal-1',
+          version: 1,
+          title: 'Manage workflow',
+          description: 'Manage the workflow.',
+          constraints: [],
+          successCriteria: ['done'],
+        },
         confirmationStatus: 'confirmed' as const,
         confirmedAt: '2026-07-12T00:00:01.000Z',
         attemptCount: 1,
@@ -953,6 +970,62 @@ describe('management HTTP API contract', () => {
       planId: 'plan-1',
       status: 'succeeded',
     });
+  });
+
+  it('requires and forwards one complete Goal contract for standalone Workflow planning', async () => {
+    const configured = operations();
+    const contract = {
+      goalId: 'goal-plan-contract',
+      version: 2,
+      title: 'Plan safely',
+      description: 'Produce a safe Workflow.',
+      constraints: ['read-only'],
+      successCriteria: ['validated Workflow returned'],
+    } as const;
+    let received: Parameters<ManagementOperations['workflows']['plan']>[0] | undefined;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        workflows: {
+          ...configured.workflows,
+          plan: (input) => {
+            received = input;
+            return Promise.resolve({
+              planId: input.planId,
+              goalId: input.goalId,
+              goalVersion: input.goalVersion,
+              goalContract: input.goalContract,
+              confirmationStatus: 'failed' as const,
+              attemptCount: 1,
+              createdAt: '2026-07-12T00:00:00.000Z',
+            });
+          },
+        },
+      },
+    });
+    const body = {
+      planId: 'plan-contract',
+      workflowDefinitionId: 'workflow-contract',
+      workflowVersion: 1,
+      goalId: contract.goalId,
+      goalVersion: contract.version,
+      goalContract: contract,
+      planningInstruction: 'Plan from the complete contract.',
+    };
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    expect(response.status).toBe(201);
+    expect(received?.goalContract).toEqual(contract);
+
+    const missing = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, goalContract: undefined }),
+    });
+    expect(missing.status).toBe(400);
   });
 
   it('exposes persisted human-confirmation resume for a paused Workflow instance', async () => {
@@ -1415,6 +1488,14 @@ describe('management HTTP API contract', () => {
               planId: input.newPlanId,
               goalId: 'goal-1',
               goalVersion: 1,
+              goalContract: {
+                goalId: 'goal-1',
+                version: 1,
+                title: 'Revise workflow',
+                description: 'Revise the workflow.',
+                constraints: [],
+                successCriteria: ['valid'],
+              },
               sourcePlanId: input.sourcePlanId,
               revisionKind:
                 input.format === 'dsl' ? ('admin_dsl' as const) : ('admin_dag' as const),
