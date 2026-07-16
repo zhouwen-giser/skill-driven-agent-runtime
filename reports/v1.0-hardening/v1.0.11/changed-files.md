@@ -10,4 +10,5 @@
 - `apps/console/src/McpPanel.tsx`, `WorkflowPanel.tsx`, and `SkillsPanel.tsx`
 - `infra/postgres/migrations/0063_mcp_tool_execution_semantics.{up,down}.sql`
 - domain/application/adapter/API/Console/persistence regression tests
+- bug-fixed domain, official MCP loopback, application race and PostgreSQL transaction regressions
 - ADR-082, OpenAPI, traceability, ExecPlan, changelog and v1.0.11 evidence reports

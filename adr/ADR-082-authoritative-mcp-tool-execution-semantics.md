@@ -37,12 +37,19 @@ The official SDK adapter translates protocol-neutral declarations as follows:
   `readOnlyHint: false` or `destructiveHint: true` to `side_effecting`;
 - the optional `_meta["io.sdar/tool-execution-semantics"]` object may declare the five exact SDAR
   values and takes precedence over weaker protocol hints inside the MCP-declared snapshot;
+- when that exact key is present, all five values must be valid; malformed exact declarations fail
+  discovery and retain the previous registry snapshot instead of falling back to weaker authority;
 - absent fields remain `unknown`; `idempotentHint` is not promoted to server-managed
   idempotency because it does not prove a request-key or deduplication mechanism.
 
 The adapter validates and translates these SDK values before they cross the application port.
 The domain validates discovered and administrator values again. LLM Tool Enhancement remains
 descriptive only and is never read during resolution.
+
+`default_unknown` is valid only when all five values are `unknown`. Persisted source/value pairs
+are reconstructed through the same domain invariant. Administrator override and its management
+audit record commit in one PostgreSQL transaction; a missing Tool produces neither state nor audit,
+and an audit failure rolls back the override.
 
 The effective snapshot is included in Tool planning metadata, persisted with every immutable
 Workflow plan and planning attempt, and copied into every invocation, including failed, canceled
@@ -58,4 +65,6 @@ authority, or conflict control is introduced.
 - Refreshes preserve administrator input without allowing it to silently outrank an available MCP
   declaration.
 - New database columns and JSON validation are required for Tool sources and invocation snapshots.
+- Malformed explicit remote declarations fail the refresh as a unit; operators keep the last valid
+  Tool registry revision and must correct the MCP Server declaration before refreshing again.
 - Future MCP Task execution can build on the model, but v1.0.11 still invokes Tools synchronously.

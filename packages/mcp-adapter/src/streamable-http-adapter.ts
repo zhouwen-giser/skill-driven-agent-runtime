@@ -3,7 +3,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 import type { McpTransportAdapter } from '../../application/src/index.js';
-import type { RuntimeExecutionContext } from '../../domain/src/index.js';
+import { DomainError, type RuntimeExecutionContext } from '../../domain/src/index.js';
 import type { McpToolExecutionSemanticsValues } from '../../domain/src/index.js';
 
 const SDAR_EXECUTION_SEMANTICS_META_KEY = 'io.sdar/tool-execution-semantics';
@@ -124,7 +124,16 @@ interface SdkToolSemanticsInput {
 function declaredExecutionSemantics(
   tool: SdkToolSemanticsInput,
 ): McpToolExecutionSemanticsValues | undefined {
+  const hasExactDeclaration =
+    tool._meta !== undefined &&
+    Object.prototype.hasOwnProperty.call(tool._meta, SDAR_EXECUTION_SEMANTICS_META_KEY);
   const exact = parseExactSemantics(tool._meta?.[SDAR_EXECUTION_SEMANTICS_META_KEY]);
+  if (hasExactDeclaration && exact === undefined) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_DECLARATION_INVALID',
+      'MCP Tool execution semantics declaration is malformed.',
+    );
+  }
   const effect =
     exact?.effect ??
     (tool.annotations?.readOnlyHint === true

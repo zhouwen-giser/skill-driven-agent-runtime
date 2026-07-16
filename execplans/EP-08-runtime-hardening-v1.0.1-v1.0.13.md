@@ -93,8 +93,9 @@ Invariants for every increment:
 - [x] 2026-07-16 v1.0.9 bug-fixed commit `63eb1e5` and annotated `v1.0.9-bug-fixed` published after inherited/persisted reachability and uniqueness revalidation, 128-relation/64-JSON bounds, indexed graph reads and the required full `pnpm verify` passed in 87,491 ms.
 - [x] 2026-07-16 v1.0.10 feature commit `f8ae410` and annotated `v1.0.10` published after capability gap became a terminal Task/WorkflowControl and A2A failed outcome while retaining the active Goal for a new same-Context Task; 274 unit, 60 contract, 58 integration and 46 E2E passed.
 - [x] 2026-07-16 v1.0.10 bug-fixed commit `2eba64e` and annotated `v1.0.10-bug-fixed` published after same-Goal Patch isolation, post-terminal Round exclusion and corrupt/incomplete terminal evidence passed 274 unit, 61 contract, 58 integration and 46 E2E.
-- [ ] 2026-07-16 v1.0.11 feature implementation establishes ADR-082, domain-owned source-prioritized Tool semantics, 0063 Tool/Invocation/Planner snapshots, Planner/confirmation/Skill Policy display and management override. The complete operator-managed gate passes 281 unit, 62 contract, 59 integration, 46 E2E, 182-source architecture, 105-operation OpenAPI, build, empty/0049→0063 migrations and both smoke gates in 86,700 ms; publication remains.
-- [ ] Complete v1.0.11–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
+- [x] 2026-07-16 v1.0.11 feature commit `2efbef6` and annotated `v1.0.11` published after ADR-082, source-prioritized Tool semantics, 0063 Tool/Invocation/Planner snapshots and the complete operator-managed gate passed in 86,700 ms.
+- [ ] 2026-07-16 v1.0.11 bug-fixed audit rejects contradictory/default and malformed remote authority, freezes snapshots, revalidates PostgreSQL evidence, and atomically commits administrator override/audit. The full gate passed 283 unit, 63 contract, 59 integration, 46 E2E, build, migrations and smoke in 85,191 ms; publication remains.
+- [ ] Complete v1.0.11 bug-fixed and v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
 - [ ] Complete v1.0.13 feature and bug-fixed increments; run full gate and both demos.
 - [ ] Run independent acceptance audit, generate final reports, verify 26 remote tags and create release-to-main PR.
 

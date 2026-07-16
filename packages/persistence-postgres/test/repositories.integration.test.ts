@@ -3293,19 +3293,32 @@ describe('PostgreSQL protocol-domain repositories', () => {
       commonErrors: ['offline'],
       tags: ['device'],
     });
-    await repository.updateToolExecutionSemantics(
-      'mcp.devices',
-      'inspect',
-      {
-        effect: 'side_effecting',
-        execution: 'unknown',
-        cancellation: 'unknown',
-        idempotency: 'none',
-        replay: 'forbidden',
-        source: 'admin_override',
-      },
-      declaredSemantics,
-    );
+    const adminOverride = {
+      effect: 'side_effecting',
+      execution: 'unknown',
+      cancellation: 'unknown',
+      idempotency: 'none',
+      replay: 'forbidden',
+      source: 'admin_override',
+    } as const;
+    const semanticsOperation = {
+      operationId: 'mcp-operation-2',
+      serverId: 'mcp.devices',
+      operationType: 'tool_semantics_override',
+      actor: 'anonymous-management',
+      target: 'inspect',
+      summary: { effectiveSource: 'mcp_declared', retainedForRefresh: true },
+      occurredAt: '2026-07-11T10:04:00.000Z',
+    } as const;
+    await expect(
+      repository.updateToolExecutionSemantics(
+        'mcp.devices',
+        'inspect',
+        adminOverride,
+        declaredSemantics,
+        semanticsOperation,
+      ),
+    ).resolves.toBe(true);
     await repository.saveManagementOperation({
       operationId: 'mcp-operation-1',
       serverId: 'mcp.devices',
@@ -3314,15 +3327,33 @@ describe('PostgreSQL protocol-domain repositories', () => {
       summary: { headerNames: ['Authorization'] },
       occurredAt: '2026-07-11T10:03:00.000Z',
     });
-    await repository.saveManagementOperation({
-      operationId: 'mcp-operation-2',
-      serverId: 'mcp.devices',
-      operationType: 'tool_semantics_override',
-      actor: 'anonymous-management',
-      target: 'inspect',
-      summary: { effectiveSource: 'mcp_declared', retainedForRefresh: true },
-      occurredAt: '2026-07-11T10:04:00.000Z',
-    });
+    const replacementOverride = {
+      ...adminOverride,
+      replay: 'allowed',
+    } as const;
+    await expect(
+      repository.updateToolExecutionSemantics(
+        'mcp.devices',
+        'inspect',
+        replacementOverride,
+        declaredSemantics,
+        semanticsOperation,
+      ),
+    ).rejects.toMatchObject({ code: '23505' });
+    await expect(repository.listTools('mcp.devices')).resolves.toEqual([
+      expect.objectContaining({
+        adminExecutionSemanticsOverride: expect.objectContaining({ replay: 'forbidden' }),
+      }),
+    ]);
+    await expect(
+      repository.updateToolExecutionSemantics(
+        'mcp.devices',
+        'missing',
+        adminOverride,
+        declaredSemantics,
+        { ...semanticsOperation, operationId: 'mcp-operation-phantom', target: 'missing' },
+      ),
+    ).resolves.toBe(false);
 
     await expect(repository.findServer('mcp.devices')).resolves.toMatchObject({
       server: { toolRevision: 2 },
@@ -3386,6 +3417,25 @@ describe('PostgreSQL protocol-domain repositories', () => {
         occurredAt: '2026-07-11T10:04:00.000Z',
       },
     ]);
+    await pool.query(
+      `UPDATE mcp_invocation
+       SET execution_semantics_json = $2
+       WHERE invocation_id = $1`,
+      [
+        'invocation-1',
+        JSON.stringify({
+          effect: 'read_only',
+          execution: 'unknown',
+          cancellation: 'unknown',
+          idempotency: 'unknown',
+          replay: 'unknown',
+          source: 'default_unknown',
+        }),
+      ],
+    );
+    await expect(repository.listInvocations('mcp.devices')).rejects.toMatchObject({
+      code: 'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+    });
   });
 
   it('atomically stores immutable Skill versions and publishes only the enabled current version', async () => {

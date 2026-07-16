@@ -21,4 +21,8 @@ renders the immutable Planner snapshot and Skill Tool Policy renders current reg
 This increment adds no MCP Task binding, remote Task polling, device state authority, or device
 conflict control.
 
-Feature commit/tag: pending / `v1.0.11`.
+The bug-fixed audit additionally rejects contradictory default/persisted evidence, fails closed on
+malformed exact MCP declarations, freezes accepted semantics, and commits administrator override
+with its audit record atomically.
+
+Feature commit/tag: `2efbef6` / `v1.0.11`, remotely verified.

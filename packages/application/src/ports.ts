@@ -475,7 +475,8 @@ export interface McpRegistryRepository {
     toolName: string,
     adminOverride: McpToolExecutionSemantics,
     effective: McpToolExecutionSemantics,
-  ): Promise<void>;
+    operation: McpManagementOperation,
+  ): Promise<boolean>;
 }
 
 export interface SecretCipher {

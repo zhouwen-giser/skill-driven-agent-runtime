@@ -192,7 +192,20 @@ export function createMcpToolExecutionSemantics(
       'MCP Tool execution semantics contain an unsupported value.',
     );
   }
-  return semantics;
+  if (
+    source === 'default_unknown' &&
+    (semantics.effect !== 'unknown' ||
+      semantics.execution !== 'unknown' ||
+      semantics.cancellation !== 'unknown' ||
+      semantics.idempotency !== 'unknown' ||
+      semantics.replay !== 'unknown')
+  ) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+      'Default MCP Tool execution semantics must remain conservatively unknown.',
+    );
+  }
+  return Object.freeze(semantics);
 }
 
 export function resolveMcpToolExecutionSemantics(

@@ -24,7 +24,7 @@
 - v1.0.8-bug-fixed 保留未注册 Goal 的管理端 standalone selection/planning 能力，用于低层验证与预注册编排；一旦相同 `goalId` 已在 PostgreSQL 注册，该 Goal 必须仍为 active 且六字段完全一致。终态或内容漂移均在 embedding/model 调用前拒绝。
 - v1.0.9 将任务包的 `composable` 语义映射到仓库既有 `composition` 枚举，不新增同义关系。初始组合只沿 root 出站的 `parent_child`、`depends_on`、`input_output_match`、`composition`、`capability_coverage` 遍历，深度上限 8、相关 Skill 上限 32、关系上限 128、快照 JSON 深度上限 64；`alternative` 仍仅用于失败后替代。0062 前的历史计划保持可读/可执行兼容，但没有组合快照的旧行不得被当作新规划授权来源。
 - v1.0.10 将 capability gap 解释为当前 Task/WorkflowControl 的不可恢复终态，而不是等待状态。注册或刷新 Tool 不扫描、不唤醒、不执行旧 Task；上游必须在同 Context 提交新 Task。旧 Task 和 Control 保留终态证据，Goal 独立保持 active，直至新 Task 推进或显式 Goal cancellation 结束它。后续 Task 的 Goal Patch/Goal cancellation 不改写旧终态，Round 追加按 PostgreSQL 非终态行锁授权。现有列与约束已表达该值和证据，因此无新增 Migration。
-- v1.0.11 按任务包的字面优先级将可用 MCP 声明置于 Admin override 之前；override 会跨 refresh 保留，但在 MCP 声明存在时处于 dormant 状态，声明消失后才生效。SDK `execution.taskSupport` 与明确的 read-only/destructive annotation 被翻译为保守项目语义；精确五字段扩展使用 `_meta["io.sdar/tool-execution-semantics"]`。`idempotentHint` 不足以证明 request-key 或 server dedup，因此不会升级为 `server_managed`。LLM Enhancement 永远不是权威。Workflow plan/attempt 和 Invocation 保存发生时快照；本版本仍不实现 MCP Task Binding、远程 Task polling、设备状态权威或冲突控制。
+- v1.0.11 按任务包的字面优先级将可用 MCP 声明置于 Admin override 之前；override 会跨 refresh 保留，但在 MCP 声明存在时处于 dormant 状态，声明消失后才生效。SDK `execution.taskSupport` 与明确的 read-only/destructive annotation 被翻译为保守项目语义；精确五字段扩展使用 `_meta["io.sdar/tool-execution-semantics"]`，键存在但内容畸形时整个发现失败并保留旧注册快照，不静默降级。`idempotentHint` 不足以证明 request-key 或 server dedup，因此不会升级为 `server_managed`。LLM Enhancement 永远不是权威。Workflow plan/attempt 和 Invocation 保存发生时快照；本版本仍不实现 MCP Task Binding、远程 Task polling、设备状态权威或冲突控制。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 

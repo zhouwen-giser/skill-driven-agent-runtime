@@ -119,6 +119,34 @@ describe('McpRegistryService', () => {
     });
   });
 
+  it('does not report a successful audited override when the Tool disappears concurrently', async () => {
+    const repository = new MemoryMcpRepository();
+    const transport = new ChangingTransport();
+    const service = createService(repository, transport);
+    await service.register({
+      serverId: 'mcp.devices',
+      name: 'Devices',
+      endpoint: 'https://mcp.example.test/mcp',
+      credentialHeaders: {},
+    });
+    repository.removeToolBeforeSemanticsUpdate = true;
+
+    await expect(
+      service.updateToolExecutionSemantics('mcp.devices', 'device_status', {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'unsupported',
+        idempotency: 'none',
+        replay: 'forbidden',
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TOOL_NOT_FOUND' });
+    expect(repository.managementOperations).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ operationType: 'tool_semantics_override' }),
+      ]),
+    );
+  });
+
   it('discovers once on registration, refreshes manually, and reports dependency warnings', async () => {
     const repository = new MemoryMcpRepository();
     const transport = new ChangingTransport();
@@ -587,6 +615,7 @@ class MemoryMcpRepository implements McpRegistryRepository {
   invocations: readonly McpInvocation[] = [];
   warnings: readonly McpDependencyWarning[] = [];
   managementOperations: readonly McpManagementOperation[] = [];
+  removeToolBeforeSemanticsUpdate = false;
   findServer() {
     return Promise.resolve(this.record);
   }
@@ -637,7 +666,17 @@ class MemoryMcpRepository implements McpRegistryRepository {
     toolName: string,
     adminOverride: McpTool['executionSemantics'],
     effective: McpTool['executionSemantics'],
+    operation: McpManagementOperation,
   ) {
+    if (this.removeToolBeforeSemanticsUpdate) {
+      this.tools = this.tools.filter(
+        (tool) => tool.serverId !== serverId || tool.toolName !== toolName,
+      );
+    }
+    const found = this.tools.some(
+      (tool) => tool.serverId === serverId && tool.toolName === toolName,
+    );
+    if (!found) return Promise.resolve(false);
     this.tools = this.tools.map((tool) =>
       tool.serverId === serverId && tool.toolName === toolName
         ? {
@@ -647,6 +686,7 @@ class MemoryMcpRepository implements McpRegistryRepository {
           }
         : tool,
     );
-    return Promise.resolve();
+    this.managementOperations = [...this.managementOperations, operation];
+    return Promise.resolve(true);
   }
 }

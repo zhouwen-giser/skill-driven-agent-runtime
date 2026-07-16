@@ -344,13 +344,7 @@ export class McpRegistryService {
       throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
     const adminOverride = createMcpToolExecutionSemantics(values, 'admin_override');
     const updated = withMcpToolAdminExecutionSemanticsOverride(tool, adminOverride);
-    await this.#repository.updateToolExecutionSemantics(
-      serverId,
-      toolName,
-      adminOverride,
-      updated.executionSemantics,
-    );
-    await this.#auditManagementOperation(
+    const operation = this.#createManagementOperation(
       serverId,
       'tool_semantics_override',
       {
@@ -359,6 +353,14 @@ export class McpRegistryService {
       },
       toolName,
     );
+    const saved = await this.#repository.updateToolExecutionSemantics(
+      serverId,
+      toolName,
+      adminOverride,
+      updated.executionSemantics,
+      operation,
+    );
+    if (!saved) throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
   }
 
   async #auditManagementOperation(
@@ -367,7 +369,18 @@ export class McpRegistryService {
     summary: Readonly<Record<string, unknown>>,
     target?: string,
   ): Promise<void> {
-    const operation: McpManagementOperation = {
+    await this.#repository.saveManagementOperation(
+      this.#createManagementOperation(serverId, operationType, summary, target),
+    );
+  }
+
+  #createManagementOperation(
+    serverId: string,
+    operationType: McpManagementOperationType,
+    summary: Readonly<Record<string, unknown>>,
+    target?: string,
+  ): McpManagementOperation {
+    return {
       operationId: this.#ids.nextManagementOperationId(),
       serverId,
       operationType,
@@ -376,7 +389,6 @@ export class McpRegistryService {
       summary,
       occurredAt: this.#clock.now(),
     };
-    await this.#repository.saveManagementOperation(operation);
   }
 
   async #discover(

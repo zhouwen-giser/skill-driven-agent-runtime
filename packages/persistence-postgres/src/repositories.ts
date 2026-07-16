@@ -45,6 +45,7 @@ import type {
 } from '../../application/src/index.js';
 import {
   createMcpTool,
+  createMcpToolExecutionSemantics,
   DomainError,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
@@ -5542,14 +5543,44 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     toolName: string,
     adminOverride: McpTool['executionSemantics'],
     effective: McpTool['executionSemantics'],
-  ): Promise<void> {
-    await this.#pool.query(
-      `UPDATE mcp_tool
-       SET admin_execution_semantics_override_json = $3,
-           execution_semantics_json = $4
-       WHERE server_id = $1 AND tool_name = $2`,
-      [serverId, toolName, JSON.stringify(adminOverride), JSON.stringify(effective)],
-    );
+    operation: McpManagementOperation,
+  ): Promise<boolean> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        `UPDATE mcp_tool
+         SET admin_execution_semantics_override_json = $3,
+             execution_semantics_json = $4
+         WHERE server_id = $1 AND tool_name = $2`,
+        [serverId, toolName, JSON.stringify(adminOverride), JSON.stringify(effective)],
+      );
+      if (updated.rowCount !== 1) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      await client.query(
+        `INSERT INTO mcp_management_operation
+           (operation_id, server_id, operation_type, actor, target, summary_json, occurred_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          operation.operationId,
+          operation.serverId,
+          operation.operationType,
+          operation.actor,
+          operation.target ?? null,
+          JSON.stringify(operation.summary),
+          operation.occurredAt,
+        ],
+      );
+      await client.query('COMMIT');
+      return true;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -5986,18 +6017,20 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     ...(row.declared_execution_semantics_json === null
       ? {}
       : {
-          declaredExecutionSemantics: McpExecutionSemanticsSchema.parse(
+          declaredExecutionSemantics: parseMcpExecutionSemantics(
             row.declared_execution_semantics_json,
+            'mcp_declared',
           ),
         }),
     ...(row.admin_execution_semantics_override_json === null
       ? {}
       : {
-          adminExecutionSemanticsOverride: McpExecutionSemanticsSchema.parse(
+          adminExecutionSemanticsOverride: parseMcpExecutionSemantics(
             row.admin_execution_semantics_override_json,
+            'admin_override',
           ),
         }),
-    executionSemantics: McpExecutionSemanticsSchema.parse(row.execution_semantics_json),
+    executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     discoveredAt: toIsoString(row.discovered_at),
   });
 }
@@ -6025,7 +6058,7 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     serverId: row.server_id,
     toolName: row.tool_name,
-    executionSemantics: McpExecutionSemanticsSchema.parse(row.execution_semantics_json),
+    executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     arguments: row.arguments_json,
     ...(row.result_json === null ? {} : { result: row.result_json }),
     status: row.status,
@@ -6035,6 +6068,20 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     completedAt: toIsoString(row.completed_at),
     durationMs: row.duration_ms,
   };
+}
+
+function parseMcpExecutionSemantics(
+  value: unknown,
+  expectedSource?: McpTool['executionSemantics']['source'],
+): McpTool['executionSemantics'] {
+  const parsed = McpExecutionSemanticsSchema.parse(value);
+  if (expectedSource !== undefined && parsed.source !== expectedSource) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+      'Persisted MCP Tool execution semantics use an invalid authority source.',
+    );
+  }
+  return createMcpToolExecutionSemantics(parsed, parsed.source);
 }
 
 function mapMcpManagementOperationRow(row: McpManagementOperationRow): McpManagementOperation {

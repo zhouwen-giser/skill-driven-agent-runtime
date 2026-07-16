@@ -60,6 +60,23 @@ describe('official MCP Streamable HTTP transport', () => {
     );
   });
 
+  it('fails discovery instead of silently downgrading a malformed exact declaration', async () => {
+    server = await startMcpLoopbackServer({
+      deviceExecutionSemantics: {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'execute_again',
+      },
+    });
+    adapter = new StreamableHttpMcpAdapter();
+
+    await expect(
+      adapter.discover({ endpoint: server.endpoint.toString(), headers: {} }),
+    ).rejects.toMatchObject({ code: 'MCP_TOOL_EXECUTION_SEMANTICS_DECLARATION_INVALID' });
+  });
+
   it('delivers runtime-owned simulation Headers to the real MCP HTTP server', async () => {
     server = await startMcpLoopbackServer();
     adapter = new StreamableHttpMcpAdapter();

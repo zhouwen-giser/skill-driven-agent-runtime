@@ -23,6 +23,20 @@ All notable changes to this project are documented here. The format follows Keep
 - The complete operator-managed `pnpm verify` passed in 86,700 ms with format, lint, strict TypeScript, 281 unit tests, 62 contract tests, 59 integration tests, 46 E2E tests, 182-source architecture, 105-operation OpenAPI, build, empty/0049→0063 migrations and both smoke gates.
 - Compose daemon/config validation was deferred by operator-managed mode and no Docker command was run.
 
+## [1.0.11-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- `default_unknown` semantics can no longer carry non-unknown values, and accepted semantics snapshots are frozen at the domain boundary.
+- A malformed exact `io.sdar/tool-execution-semantics` declaration now fails discovery instead of silently falling back to weaker annotation or administrator authority.
+- Administrator semantics override and its management audit now commit in one PostgreSQL transaction; concurrent Tool removal returns not-found without a phantom audit, and audit failure rolls back the override.
+- Persisted Tool source fields and Invocation snapshots are revalidated through the domain invariant before becoming runtime evidence.
+
+### Verification
+
+- The operator-managed bug-fixed `pnpm verify` passed in 85,191 ms with 283 unit, 63 contract, 59 integration and 46 E2E tests, 182-source architecture, 105-operation OpenAPI, production build, empty/0049 migrations through 0063 and both smoke gates.
+- Real MCP SDK and PostgreSQL regressions prove fail-closed malformed declarations and atomic override/audit rollback. No Docker command ran.
+
 ## [1.0.10] - 2026-07-16
 
 ### Changed

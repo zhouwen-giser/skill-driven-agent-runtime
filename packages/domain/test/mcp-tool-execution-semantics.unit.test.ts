@@ -73,4 +73,12 @@ describe('MCP Tool execution semantics', () => {
       }),
     ).toThrow(expect.objectContaining({ code: 'MCP_TOOL_EXECUTION_SEMANTICS_INCONSISTENT' }));
   });
+
+  it('rejects contradictory default authority and freezes accepted snapshots', () => {
+    expect(() => createMcpToolExecutionSemantics(values, 'default_unknown')).toThrow(
+      expect.objectContaining({ code: 'MCP_TOOL_EXECUTION_SEMANTICS_INVALID' }),
+    );
+
+    expect(Object.isFrozen(createMcpToolExecutionSemantics(values, 'mcp_declared'))).toBe(true);
+  });
 });

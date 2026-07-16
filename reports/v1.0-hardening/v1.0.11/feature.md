@@ -4,4 +4,4 @@ The implementation gate passed the complete operator-managed `pnpm verify` in 86
 includes static/build gates, 281 unit, 62 contract, 59 integration and 46 E2E tests, empty and
 historical-0049 migration paths through 0063, and both smoke stages.
 
-Feature publication: pending / annotated `v1.0.11`.
+Feature publication: `2efbef6` / annotated `v1.0.11`, remotely verified.
