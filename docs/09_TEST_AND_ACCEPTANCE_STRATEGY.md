@@ -64,7 +64,7 @@ Phase 3 增加严格 DSL/metadata/availability 合约、确定性时钟与风险
 
 Phase 6 使用机器可读的 `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.json` 和人工可读 Markdown 将 AC-MCPT-01–16 映射到测试。真实验证包括本地 PostgreSQL/pgvector、Redis/BullMQ、HTTP、单进程 Server、LangGraph 继续执行、管理 API、A2A、迁移与生产构建；Provider 状态序列和模型决策来自确定性本地替身，必须标记为 `simulated`，不得描述为生产 Provider 验证。
 
-`pnpm demo:acceptance` 已通过生产 build、10 个 Provider contract、402 个 unit、80 个真实 integration、49 个真实 E2E 和 acceptance report verifier。self-managed Compose `pnpm verify` 已在 162.9 秒内通过：75 个 unit/contract 文件共 493 个测试、80 integration、49 E2E、232-source architecture、110-operation OpenAPI、68 migration pairs 和两阶段 smoke。
+干净提交 `df8b6e0` 上的 `pnpm demo:acceptance` 已通过生产 build、10 个 Provider contract、402 个 unit、80 个真实 integration、49 个真实 E2E 和 acceptance report verifier。干净提交 `13194b8` 上的 self-managed Compose `pnpm verify` 已在 162.0 秒内通过：75 个 unit/contract 文件共 493 个测试、80 integration、49 E2E、232-source architecture、110-operation OpenAPI、68 migration pairs 和两阶段 smoke。
 
 重启场景必须删除 Redis/BullMQ 临时队列，再由 PostgreSQL 的有效 external-wait continuation/binding 恢复观察与继续执行，并断言 `tools/call` 不重放；同一测试另插入普通 running Task，证明其仍以 `PROCESS_EXECUTION_LOST` 失败。迁移 0104 验证 `node_waiting_external` 可持久化，并验证存在此类证据时回滚 fail closed。
 

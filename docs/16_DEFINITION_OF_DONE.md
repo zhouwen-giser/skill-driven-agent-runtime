@@ -30,7 +30,7 @@
 
 - [x] Phase 0–6 功能增量完成，AC-MCPT-01–16 有机器可读和人工可读的真实/模拟分类证据。
 - [x] `pnpm demo:acceptance` 通过 build、10 Provider contract、402 unit、80 real integration、49 real E2E 和验收报告校验。
-- [x] self-managed Compose `pnpm verify` 在 162.9 秒内通过 75 files/493 unit+contract、80 integration、49 E2E、232-source architecture、110-operation OpenAPI、68 migration pairs 和两阶段 smoke。
+- [x] clean self-managed Compose `pnpm verify` 在提交 `13194b8` 上以 162.0 秒通过 75 files/493 unit+contract、80 integration、49 E2E、232-source architecture、110-operation OpenAPI、68 migration pairs 和两阶段 smoke。
 - [x] 迁移 0104 与 restart integration 证明 external-wait 可由 PostgreSQL 恢复，普通 running Task 仍不恢复、不自动重试。
 - [x] 管理 API/Console 连接真实 remote Task lifecycle 查询与 operator action，并明确无认证、Provider 权威和操作副作用告警。
 - [ ] Phase 6 变更已形成干净 Conventional Commit，且 clean-commit 门禁证据已复核。

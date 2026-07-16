@@ -19,7 +19,7 @@
 - [x] Phase 6 functional vertical is complete: confirmed plan, availability/risk guard, LangGraph, remote MCP Task, polling/control, durable continuation, result/evaluation and A2A projection.
 - [x] AC-MCPT-01–16 machine/human reports pass and distinguish real local infrastructure/transport evidence from deterministic Provider/model simulation.
 - [x] `pnpm demo:acceptance` passes build, 10 Provider contract, 402 unit, 80 real integration and 49 real E2E tests.
-- [x] Self-managed Compose `pnpm verify` passes in 162.9 seconds with 75 files/493 unit+contract, 80 integration, 49 E2E, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
+- [x] Clean self-managed Compose `pnpm verify` passes at `13194b8` in 162.0 seconds with 75 files/493 unit+contract, 80 integration, 49 E2E, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 - [x] Migration 0104 persists `node_waiting_external` and its guarded rollback rejects lossy removal of existing external-wait evidence.
 - [x] Restart evidence deletes ephemeral queues, reconciles only PostgreSQL-proven external waits without replaying `tools/call`, and preserves `PROCESS_EXECUTION_LOST` for ordinary running work.
 - [x] Test helpers importing PostgreSQL, BullMQ or A2A SDK dependencies reside in their owning `test-support` boundary; the architecture gate is not weakened.

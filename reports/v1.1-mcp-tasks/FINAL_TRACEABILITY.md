@@ -56,4 +56,4 @@ The detailed authoritative mappings, including exact implementation and test pat
 
 ## Release provenance boundary
 
-The evidence set has zero unverified MCPT requirement rows, but the reports disclose a dirty working tree at base commit `f97637b`. The feature-to-main PR, exact clean-commit rerun and `v1.1.0-rc.1` tag remain publication tasks, not requirement evidence. External production Provider interoperability and DOCX page rendering remain explicitly unverified.
+The evidence set has zero unverified MCPT requirement rows. Acceptance reports record merged commit `df8b6e0` with `dirty=false`, and the unified gate records evidence commit `13194b8` with `dirty=false`. The feature-to-main PR and `v1.1.0-rc.1` tag remain publication tasks, not requirement evidence. External production Provider interoperability and DOCX page rendering remain explicitly unverified.

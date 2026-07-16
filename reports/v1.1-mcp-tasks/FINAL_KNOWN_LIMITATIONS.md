@@ -5,8 +5,8 @@
 1. **No external production Provider interoperability claim.** The protocol path uses official SDK transport over real local HTTP, but Provider state machines and business outcomes are deterministic simulations. Production credentials and production systems were not used.
 2. **No external production Model claim.** Planning, structured risk and evaluation behavior use a deterministic local Mock Model. Schema validation and runtime boundaries are real; model quality in production is outside this evidence.
 3. **DOCX visual QA is unverified.** `source/Agent通用模板Server需求规格说明书_V1.0.docx` was read through direct OOXML structure extraction and compared with the baseline/traceability identifiers. The environment has no `soffice`, so page rendering, pagination, font substitution and visual layout were not verified. The source DOCX was not modified.
-4. **Current reports are dirty-worktree evidence.** `V11-ACCEPTANCE`, `V11-LOCAL-DEMO` and the latest verification summary record commit `f97637b4152ef697785167b5df5aa09f9ab7deea` with `dirty=true`. They verify the present code under test but are not clean release-tag provenance.
-5. **Release publication is pending.** The final feature-to-main PR and `v1.1.0-rc.1` tag do not exist at audit time. They must not be represented as completed until the exact committed tree is reverified and published through protected branch workflow.
+4. **Local clean evidence is not external certification.** `V11-ACCEPTANCE` and `V11-LOCAL-DEMO` record merged commit `df8b6e0` with `dirty=false`; the latest verification summary records `13194b8` with `dirty=false`. They attest the local pinned environment, not every external Provider or production deployment.
+5. **Release publication is pending.** The final feature-to-main PR and `v1.1.0-rc.1` tag do not exist at audit time. They must not be represented as completed until the verified branch is published through the protected workflow.
 
 ## Accepted product/protocol constraints
 

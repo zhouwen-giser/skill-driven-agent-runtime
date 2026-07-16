@@ -27,11 +27,11 @@ All notable changes to this project are documented here. The format follows Keep
 ### Verification
 
 - `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.
-- Self-managed Compose `pnpm verify` passed in 162.9 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
+- Clean self-managed Compose `pnpm verify` passed at `13194b8` in 162.0 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 
 ### Known limitations
 
-- Phase 1–6 functionality and local acceptance are verified against merged `v1.0.13-bug-fixed`, but current Phase 6 evidence was produced from a dirty pre-release worktree. Clean-commit verification, RC tag, final PR and publication remain pending; this entry is not a v1.1 release announcement.
+- Phase 1–6 functionality and clean local acceptance are verified against merged `v1.0.13-bug-fixed`. External production Provider interoperability, the RC tag, final PR and publication remain pending; this entry is not a v1.1 release announcement.
 
 ## [1.0.13] - 2026-07-16
 
