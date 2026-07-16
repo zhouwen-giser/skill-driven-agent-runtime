@@ -3552,23 +3552,29 @@ const PendingConfirmationSchema = z
   .object({
     nodeId: z.string().min(1),
     prompt: z.string().min(1),
-    kind: z.enum(['human_confirmation', 'task_pause']).optional(),
+    kind: z.enum(['human_confirmation', 'task_pause', 'skill_confirmation']).optional(),
     pausedAt: z.string().optional(),
+    parentPlanId: z.string().min(1).optional(),
+    childPlanId: z.string().min(1).optional(),
+    childSkillId: z.string().min(1).optional(),
+    childSkillVersion: z.number().int().positive().optional(),
   })
   .strict();
 
 interface SkillCallWorkflowRow extends QueryResultRow {
   call_id: string;
+  parent_plan_id: string;
   parent_instance_id: string;
   parent_node_id: string;
-  child_instance_id: string;
+  child_instance_id: string | null;
   child_plan_id: string;
   skill_id: string;
   skill_version: number;
+  confirmation_status: SkillCallWorkflowRecord['confirmationStatus'];
   status: SkillCallWorkflowRecord['status'];
   evaluation_summary: string;
   created_at: Date;
-  completed_at: Date;
+  completed_at: Date | null;
 }
 
 export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRepository {
@@ -3580,21 +3586,29 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   async save(record: SkillCallWorkflowRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_call_workflow(
-         call_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
-         status,evaluation_summary,created_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         call_id,parent_plan_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,
+         skill_id,skill_version,confirmation_status,status,evaluation_summary,created_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT(call_id) DO UPDATE SET
+         child_instance_id=COALESCE(skill_call_workflow.child_instance_id,EXCLUDED.child_instance_id),
+         confirmation_status=EXCLUDED.confirmation_status,
+         status=EXCLUDED.status,
+         evaluation_summary=EXCLUDED.evaluation_summary,
+         completed_at=EXCLUDED.completed_at`,
       [
         record.callId,
+        record.parentPlanId,
         record.parentInstanceId,
         record.parentNodeId,
-        record.childInstanceId,
+        record.childInstanceId ?? null,
         record.childPlanId,
         record.skillId,
         record.skillVersion,
+        record.confirmationStatus,
         record.status,
         record.evaluationSummary,
         record.createdAt,
-        record.completedAt,
+        record.completedAt ?? null,
       ],
     );
   }
@@ -3622,16 +3636,18 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
   return {
     callId: row.call_id,
+    parentPlanId: row.parent_plan_id,
     parentInstanceId: row.parent_instance_id,
     parentNodeId: row.parent_node_id,
-    childInstanceId: row.child_instance_id,
+    ...(row.child_instance_id === null ? {} : { childInstanceId: row.child_instance_id }),
     childPlanId: row.child_plan_id,
     skillId: row.skill_id,
     skillVersion: row.skill_version,
+    confirmationStatus: row.confirmation_status,
     status: row.status,
     evaluationSummary: row.evaluation_summary,
     createdAt: row.created_at.toISOString(),
-    completedAt: row.completed_at.toISOString(),
+    ...(row.completed_at === null ? {} : { completedAt: row.completed_at.toISOString() }),
   };
 }
 
@@ -3806,6 +3822,12 @@ function mapPendingConfirmation(
     prompt: pending.prompt,
     ...(pending.kind === undefined ? {} : { kind: pending.kind }),
     ...(pending.pausedAt === undefined ? {} : { pausedAt: pending.pausedAt }),
+    ...(pending.parentPlanId === undefined ? {} : { parentPlanId: pending.parentPlanId }),
+    ...(pending.childPlanId === undefined ? {} : { childPlanId: pending.childPlanId }),
+    ...(pending.childSkillId === undefined ? {} : { childSkillId: pending.childSkillId }),
+    ...(pending.childSkillVersion === undefined
+      ? {}
+      : { childSkillVersion: pending.childSkillVersion }),
   };
 }
 

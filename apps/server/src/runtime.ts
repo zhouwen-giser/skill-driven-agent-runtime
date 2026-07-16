@@ -28,6 +28,7 @@ import {
   SkillSelectionService,
   SkillQualityService,
   SkillCallWorkflowService,
+  TransitiveSkillConfirmationEvaluator,
   nextSkillCallAncestry,
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
@@ -441,6 +442,7 @@ export async function startServerRuntime(
         skillCallWorkflowService.execute({
           skillId,
           value: input,
+          parentPlanId: parent.planId,
           parentInstanceId: parentExecutionId,
           parentNodeId,
           parentGoalId: parent.goalId,
@@ -498,11 +500,17 @@ export async function startServerRuntime(
     skills,
     systemBudgetDefaults: workflowBudgetDefaults,
   });
+  const skillConfirmation = new TransitiveSkillConfirmationEvaluator({
+    skills,
+    graph: skillGraphRepository,
+  });
   const skillCallWorkflowService = new SkillCallWorkflowService({
     skills,
     planner: workflowPlanner,
     validator: workflowValidator,
     execution: workflowExecution,
+    plans: workflowPlans,
+    confirmation: skillConfirmation,
     records: skillCallWorkflows,
     schemas: schemaValidator,
     loadToolPlanningMetadata: (skill) =>
@@ -570,7 +578,12 @@ export async function startServerRuntime(
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        await workflowExecution.confirm(task.planId, task.taskId);
+        if (!(await skillCallWorkflowService.confirmPendingForParentPlan(task.planId, task.taskId)))
+          await workflowExecution.confirm(task.planId, task.taskId);
+      },
+      async reject(task) {
+        if (task.planId !== undefined)
+          await skillCallWorkflowService.rejectPendingForParentPlan(task.planId);
       },
       executeConfirmed(task) {
         if (
@@ -585,6 +598,7 @@ export async function startServerRuntime(
         const goalVersion = task.goalVersion;
         const selectedSkillIds = task.selectedSkillId === undefined ? [] : [task.selectedSkillId];
         const execution = (async () => {
+          if (await skillCallWorkflowService.resumeConfirmedForParentPlan(planId)) return;
           const controlId = `control-task-${task.taskId}`;
           try {
             const existing = await workflowController.get(controlId);
@@ -653,6 +667,8 @@ export async function startServerRuntime(
       },
       async cancel(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        if (await skillCallWorkflowService.rejectPendingForParentPlan(task.planId)) return;
+        if (task.phase === 'awaiting_plan_confirmation') return;
         await workflowExecution.cancelForPlan(task.planId);
       },
       async resume(task) {
@@ -669,7 +685,7 @@ export async function startServerRuntime(
     controls: new PostgresWorkflowControlRepository(pool),
     plans: workflowPlans,
     goals,
-    skills,
+    confirmation: skillConfirmation,
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
@@ -683,6 +699,8 @@ export async function startServerRuntime(
           controlId,
           controlRoundIndex,
         }),
+      requestSkillConfirmation: (taskId, input) =>
+        service.requestNestedSkillConfirmation(taskId, input),
       reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
       async prepareSkillReplacement(taskId) {
         if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
@@ -1016,11 +1034,15 @@ export async function startServerRuntime(
           throw new Error(
             `TASK_PLAN_SKILL_TOOL_POLICY_INVALID:${JSON.stringify(toolPolicyViolations)}`,
           );
-        if (skill?.runtimePolicy.autoConfirmPlan === true)
+        const confirmation = await skillConfirmation.evaluate(
+          skill === undefined ? [] : [skill.skillId],
+          plan.definition,
+        );
+        if (confirmation.autoConfirm)
           await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
-          autoConfirmed: skill?.runtimePolicy.autoConfirmPlan === true,
+          autoConfirmed: confirmation.autoConfirm,
         };
       },
       async executeAuto(input) {
@@ -1311,6 +1333,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0054_skill_call_history.up.sql',
     '0055_task_input_continuation.up.sql',
     '0056_mcp_execution_mode.up.sql',
+    '0057_nested_skill_confirmation.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

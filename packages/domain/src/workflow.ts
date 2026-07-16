@@ -146,8 +146,12 @@ export interface WorkflowInstance {
   readonly pendingConfirmation?: Readonly<{
     nodeId: string;
     prompt: string;
-    kind?: 'human_confirmation' | 'task_pause';
+    kind?: 'human_confirmation' | 'task_pause' | 'skill_confirmation';
     pausedAt?: string;
+    parentPlanId?: string;
+    childPlanId?: string;
+    childSkillId?: string;
+    childSkillVersion?: number;
   }>;
 }
 

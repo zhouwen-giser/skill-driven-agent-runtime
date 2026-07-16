@@ -82,6 +82,7 @@ export interface TaskServiceDependencies {
   >;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<void>;
+    reject(task: AgentTask): Promise<void>;
     executeConfirmed(task: AgentTask): Promise<void>;
     reviseNaturalLanguage(
       task: AgentTask,
@@ -178,7 +179,9 @@ export class TaskService {
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
     if (
-      (task.phase === 'executing' || task.phase === 'paused') &&
+      (task.phase === 'executing' ||
+        task.phase === 'paused' ||
+        task.phase === 'awaiting_plan_confirmation') &&
       task.planId !== undefined &&
       this.#dependencies.planActions !== undefined
     )
@@ -325,6 +328,8 @@ export class TaskService {
         );
       await this.#dependencies.planActions.confirm(task);
     }
+    if (command.action === 'reject_plan' && this.#dependencies.planActions !== undefined)
+      await this.#dependencies.planActions.reject(task);
     const transitions = command.action === 'resume' ? [] : followUpTransitions(command.action);
     for (const transition of transitions) {
       const timestamp = this.#dependencies.clock.now();
@@ -391,6 +396,34 @@ export class TaskService {
       eventType: 'task.phase_changed',
       timestamp,
       summary: reason,
+    });
+    return waiting;
+  }
+
+  async requestNestedSkillConfirmation(
+    taskId: string,
+    input: Readonly<{
+      childPlanId: string;
+      childSkillId: string;
+      childSkillVersion: number;
+    }>,
+  ): Promise<AgentTask> {
+    const task = await this.get(taskId);
+    if (task.phase === 'awaiting_plan_confirmation') return task;
+    const waiting = transitionTask(
+      task,
+      'awaiting_plan_confirmation',
+      `Child Skill ${input.childSkillId}@${String(input.childSkillVersion)} plan ${input.childPlanId} requires independent confirmation.`,
+      this.#dependencies.clock.now(),
+    );
+    await this.#dependencies.tasks.save(waiting);
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: waiting.taskId,
+      contextId: waiting.contextId,
+      eventType: 'task.phase_changed',
+      timestamp: waiting.updatedAt,
+      summary: waiting.phaseMessage,
     });
     return waiting;
   }

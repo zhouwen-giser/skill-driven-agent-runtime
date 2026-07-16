@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-07-16
+
+### Added
+
+- One transitive Skill confirmation evaluator for initial Task planning, outer replanning and runtime child planning.
+- Durable nested confirmation linkage across parent plan/instance/node, child plan, exact child Skill version and confirmation status.
+- LangGraph `skill_confirmation` checkpoints that project the parent Task as A2A input-required and resume the same node after an explicit decision.
+- Migration 0057 for pending/confirmed/rejected/invalidated child confirmation lifecycles.
+
+### Changed
+
+- `skill_call` no longer inherits parent confirmation; a child opts in independently through its current runtime policy.
+- Top-level auto-confirm now requires every governing, directly planned and recursively reachable execution Skill to opt in.
+- Child version changes invalidate a pending linkage and force a fresh child plan and confirmation.
+
+### Verification
+
+- Unit, real PostgreSQL migration/lifecycle and real A2A/MCP E2E evidence covers conservative transitive policy, independent pause/confirm/resume, rejection, cancellation, version drift and zero child MCP calls before confirmation.
+
 ## [1.0.4] - 2026-07-15
 
 ### Added

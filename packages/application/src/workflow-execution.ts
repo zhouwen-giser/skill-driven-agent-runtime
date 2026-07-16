@@ -73,6 +73,10 @@ export class WorkflowExecutionService {
     return this.#instances.findInstance(instanceId);
   }
 
+  findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    return this.#instances.findActiveByPlanId(planId);
+  }
+
   async trace(
     instanceId: string,
   ): Promise<Readonly<{ instance: WorkflowInstance; events: readonly WorkflowNodeEvent[] }>> {

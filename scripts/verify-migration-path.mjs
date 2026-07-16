@@ -88,9 +88,9 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0056_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0057_MISSING:${label}`);
   const continuationTables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
   );
@@ -107,6 +107,16 @@ async function verifyCurrentSchema(pool, label) {
   if (historyKey.rows[0]?.columns !== 'call_id') {
     throw new Error(`MIGRATION_SKILL_CALL_HISTORY_KEY_STALE:${label}`);
   }
+  const nestedConfirmationColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='skill_call_workflow' AND column_name IN ('parent_plan_id','confirmation_status')",
+  );
+  if (nestedConfirmationColumns.rows[0]?.count !== 2)
+    throw new Error(`MIGRATION_NESTED_CONFIRMATION_COLUMNS_MISSING:${label}`);
+  const childInstanceForeignKey = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='skill_call_workflow'::regclass AND conname='skill_call_workflow_child_instance_id_fkey') AS exists",
+  );
+  if (childInstanceForeignKey.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_NESTED_CONFIRMATION_CHILD_FK_MISSING:${label}`);
   const constraint = await pool.query(
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='stage_model_route_stage_check'",
   );

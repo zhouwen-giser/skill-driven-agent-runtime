@@ -63,16 +63,16 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
     const previous = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0055_task_input_continuation') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
     );
     if (previous.rows[0]?.applied === true) {
       const forward = await readFile(
         new URL(
-          '../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql',
+          '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
           import.meta.url,
         ),
         'utf8',
@@ -87,6 +87,7 @@ beforeAll(async () => {
       for (const migrationName of [
         '0055_task_input_continuation.up.sql',
         '0056_mcp_execution_mode.up.sql',
+        '0057_nested_skill_confirmation.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -417,6 +418,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(mcpExecutionModeMigration);
+  const nestedSkillConfirmationMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(nestedSkillConfirmationMigration);
 });
 
 beforeEach(async () => {
@@ -1091,12 +1100,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const repository = new PostgresSkillCallWorkflowRepository(pool);
     await repository.save({
       callId: 'skill-call.db.1',
+      parentPlanId: 'plan.parent.db',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
       childInstanceId: 'instance.child.db',
       childPlanId: 'plan.child.db',
       skillId: skill.skillId,
       skillVersion: skill.version,
+      confirmationStatus: 'confirmed',
       status: 'succeeded',
       evaluationSummary: 'Output Schema passed.',
       createdAt: '2026-07-12T00:00:01.000Z',
@@ -1104,12 +1115,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await repository.save({
       callId: 'skill-call.db.2',
+      parentPlanId: 'plan.parent.db',
+      parentInstanceId: 'instance.parent.db',
+      parentNodeId: 'child',
+      childPlanId: 'plan.child-second.db',
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      confirmationStatus: 'awaiting_confirmation',
+      status: 'awaiting_confirmation',
+      evaluationSummary: 'Independent child confirmation required.',
+      createdAt: '2026-07-12T00:00:03.000Z',
+    });
+    await repository.save({
+      callId: 'skill-call.db.2',
+      parentPlanId: 'plan.parent.db',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
       childInstanceId: 'instance.child-second.db',
       childPlanId: 'plan.child-second.db',
       skillId: skill.skillId,
       skillVersion: skill.version,
+      confirmationStatus: 'confirmed',
       status: 'succeeded',
       evaluationSummary: 'Repeated output Schema passed.',
       createdAt: '2026-07-12T00:00:03.000Z',
@@ -3222,6 +3248,48 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const restored = await pool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM information_schema.columns
        WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')`,
+    );
+    expect(restored.rows[0]?.count).toBe('2');
+  });
+
+  it('rolls back and reapplies nested Skill confirmation linkage', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0057_nested_skill_confirmation.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM information_schema.columns
+         WHERE table_name='skill_call_workflow'
+           AND column_name IN ('parent_plan_id','confirmation_status')`,
+      );
+      expect(removed.rows[0]?.count).toBe('0');
+      const restoredForeignKey = await pool.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM pg_constraint
+           WHERE conrelid='skill_call_workflow'::regclass
+             AND conname='skill_call_workflow_child_instance_id_fkey'
+         ) AS exists`,
+      );
+      expect(restoredForeignKey.rows[0]?.exists).toBe(true);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE table_name='skill_call_workflow'
+         AND column_name IN ('parent_plan_id','confirmation_status')`,
     );
     expect(restored.rows[0]?.count).toBe('2');
   });

@@ -11,6 +11,7 @@ import {
 import type {
   ToolReference,
   RuntimeExecutionContext,
+  SkillCallExecutionResult,
   WorkflowBudgetLimits,
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
@@ -60,7 +61,7 @@ export interface WorkflowRuntimePorts {
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
-  ) => Promise<unknown>;
+  ) => Promise<SkillCallExecutionResult>;
   readonly executeSubworkflow: (
     input: Readonly<{
       workflowDefinitionId: string;
@@ -116,8 +117,12 @@ export interface WorkflowExecutionResult {
   readonly pendingConfirmation?: Readonly<{
     nodeId: string;
     prompt: string;
-    kind?: 'human_confirmation' | 'task_pause';
+    kind?: 'human_confirmation' | 'task_pause' | 'skill_confirmation';
     pausedAt?: string;
+    parentPlanId?: string;
+    childPlanId?: string;
+    childSkillId?: string;
+    childSkillVersion?: number;
   }>;
 }
 
@@ -191,6 +196,7 @@ interface ExecutionControl {
   pauseRequested: boolean;
   cancelRequested: boolean;
   readonly activeCallAbort: AbortController;
+  readonly pendingSkillReservations: Set<string>;
 }
 
 export function compileWorkflow(
@@ -310,6 +316,7 @@ export function compileWorkflow(
           pauseRequested: false,
           cancelRequested: false,
           activeCallAbort: new AbortController(),
+          pendingSkillReservations: new Set(),
         },
         ...(signal === undefined ? {} : { signal }),
         executionContext: executionContext ?? { mode: 'live' },
@@ -428,7 +435,10 @@ function pendingConfirmation(
   )
     return undefined;
   const kind =
-    'kind' in value && (value.kind === 'human_confirmation' || value.kind === 'task_pause')
+    'kind' in value &&
+    (value.kind === 'human_confirmation' ||
+      value.kind === 'task_pause' ||
+      value.kind === 'skill_confirmation')
       ? value.kind
       : undefined;
   const pausedAt =
@@ -438,7 +448,33 @@ function pendingConfirmation(
     prompt: value.prompt,
     ...(kind === undefined ? {} : { kind }),
     ...(pausedAt === undefined ? {} : { pausedAt }),
+    ...optionalStringProperty(value, 'parentPlanId'),
+    ...optionalStringProperty(value, 'childPlanId'),
+    ...optionalStringProperty(value, 'childSkillId'),
+    ...optionalPositiveIntegerProperty(value, 'childSkillVersion'),
   };
+}
+
+function optionalStringProperty(
+  value: object,
+  property: 'parentPlanId' | 'childPlanId' | 'childSkillId',
+): Readonly<Record<string, string>> {
+  const record = value as Readonly<Record<string, unknown>>;
+  return property in record && typeof record[property] === 'string'
+    ? { [property]: record[property] }
+    : {};
+}
+
+function optionalPositiveIntegerProperty(
+  value: object,
+  property: 'childSkillVersion',
+): Readonly<Record<string, number>> {
+  return property in value &&
+    typeof value[property] === 'number' &&
+    Number.isInteger(value[property]) &&
+    value[property] > 0
+    ? { [property]: value[property] }
+    : {};
 }
 
 function workflowEventCount(value: unknown): number {
@@ -656,10 +692,11 @@ async function executeNode(
       return output(node.nodeId, normalizeResultEnvelope(value));
     }
     case 'skill_call': {
-      budgetMeter.reserve('skill');
+      const reservationPending = runtimeContext.control.pendingSkillReservations.has(node.nodeId);
+      if (!reservationPending) budgetMeter.reserve('skill');
       const callSignal = budgetMeter.signal(signal);
       const inputSnapshot = resolveWorkflowBoundValue(node.input, state);
-      const value = await ports.executeSkill({
+      let result = await ports.executeSkill({
         skillId: node.skillId,
         input: inputSnapshot,
         parentExecutionId: state.executionId,
@@ -667,8 +704,49 @@ async function executeNode(
         signal: callSignal,
         executionContext: runtimeContext.executionContext,
       });
+      while (result.status === 'awaiting_confirmation') {
+        runtimeContext.control.pendingSkillReservations.add(node.nodeId);
+        budgetMeter.pause();
+        const confirmed = interrupt<
+          Readonly<{
+            nodeId: string;
+            prompt: string;
+            kind: 'skill_confirmation';
+            pausedAt: string;
+            parentPlanId: string;
+            childPlanId: string;
+            childSkillId: string;
+            childSkillVersion: number;
+          }>,
+          boolean
+        >({
+          nodeId: node.nodeId,
+          prompt: `Confirm child Skill plan ${result.childPlanId} for ${result.childSkillId}@${String(result.childSkillVersion)}.`,
+          kind: 'skill_confirmation',
+          pausedAt: ports.now(),
+          parentPlanId: result.parentPlanId,
+          childPlanId: result.childPlanId,
+          childSkillId: result.childSkillId,
+          childSkillVersion: result.childSkillVersion,
+        });
+        budgetMeter.resume();
+        if (!confirmed)
+          throw new WorkflowCompilerError(
+            'WORKFLOW_SKILL_CONFIRMATION_REJECTED',
+            'Child Skill plan confirmation was rejected.',
+          );
+        result = await ports.executeSkill({
+          skillId: node.skillId,
+          input: inputSnapshot,
+          parentExecutionId: state.executionId,
+          parentNodeId: node.nodeId,
+          signal: callSignal,
+          executionContext: runtimeContext.executionContext,
+        });
+      }
+      runtimeContext.control.pendingSkillReservations.delete(node.nodeId);
       budgetMeter.assertDuration();
-      return output(node.nodeId, value);
+      return output(node.nodeId, result.output);
     }
     case 'subworkflow': {
       budgetMeter.reserve('subworkflow');
@@ -969,6 +1047,8 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_ROUTE_AMBIGUOUS'
   | 'WORKFLOW_ROUTE_MISSING'
   | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
+  | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
+  | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
   | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'
   | 'WORKFLOW_CHECKPOINT_NOT_AVAILABLE';
 

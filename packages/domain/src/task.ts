@@ -182,6 +182,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   executing: [
     'paused',
     'planning',
+    'awaiting_plan_confirmation',
     'evaluating',
     'awaiting_user_input',
     'capability_gap',

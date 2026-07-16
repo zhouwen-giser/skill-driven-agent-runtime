@@ -54,6 +54,37 @@ describe('Workflow outer controller', () => {
     expect(fixture.goals.goal.status).toBe('achieved');
   });
 
+  it('projects a paused child Skill checkpoint before waiting for its independent decision', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Goal satisfied.' });
+    const terminal = instance('instance-0', 'plan-initial', 0, 1);
+    const { completedAt: _completedAt, result: _result, ...running } = terminal;
+    void _completedAt;
+    void _result;
+    fixture.execution.execute.mockResolvedValueOnce({
+      ...running,
+      status: 'paused',
+      pendingConfirmation: {
+        nodeId: 'child',
+        prompt: 'Confirm child.',
+        kind: 'skill_confirmation',
+        parentPlanId: 'plan-initial',
+        childPlanId: 'plan-child',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      },
+    });
+    fixture.execution.waitForPauseResolution.mockResolvedValueOnce(terminal);
+
+    await fixture.controller.start(startInput());
+
+    expect(fixture.taskOutcomes.requestSkillConfirmation).toHaveBeenCalledWith('task-control', {
+      childPlanId: 'plan-child',
+      childSkillId: 'skill.child',
+      childSkillVersion: 2,
+    });
+  });
+
   it('pauses a normal replan for confirmation and continues the same persisted control', async () => {
     const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
     fixture.evaluator.decisions.push(
@@ -255,6 +286,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     reportCapabilityGap: vi.fn(() => Promise.resolve()),
     reportAchieved: vi.fn(() => Promise.resolve()),
     requestInput: vi.fn(() => Promise.resolve()),
+    requestSkillConfirmation: vi.fn(() => Promise.resolve()),
     reportUnachievable: vi.fn(() => Promise.resolve()),
     prepareSkillReplacement: vi.fn(() =>
       Promise.resolve({
@@ -299,7 +331,17 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     controls,
     plans,
     goals,
-    skills,
+    confirmation: {
+      evaluate: async (skillIds) => ({
+        autoConfirm:
+          skillIds.length > 0 &&
+          (await Promise.all(skillIds.map((skillId) => skills.findCurrentVersion(skillId)))).every(
+            (skill) => skill?.status === 'enabled' && skill.runtimePolicy.autoConfirmPlan,
+          ),
+        skillVersions: [],
+        blockingSkillIds: [],
+      }),
+    },
     planner,
     execution,
     evaluator,

@@ -8,7 +8,6 @@ import type {
   Clock,
   GoalEvaluator,
   GoalRepository,
-  SkillRepository,
   WorkflowControlRepository,
   WorkflowPlanRepository,
 } from './ports.js';
@@ -16,6 +15,7 @@ import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { EvolutionExperienceService } from './evolution-experience.js';
 import type { MemoryService } from './memory-service.js';
+import type { TransitiveSkillConfirmationEvaluator } from './skill-confirmation.js';
 
 export interface StartWorkflowControlInput {
   readonly controlId: string;
@@ -33,7 +33,7 @@ export class WorkflowControllerService {
   readonly #controls: WorkflowControlRepository;
   readonly #plans: WorkflowPlanRepository;
   readonly #goals: GoalRepository;
-  readonly #skills: SkillRepository;
+  readonly #confirmation: Pick<TransitiveSkillConfirmationEvaluator, 'evaluate'>;
   readonly #planner: Pick<WorkflowPlannerService, 'plan'>;
   readonly #execution: Pick<
     WorkflowExecutionService,
@@ -55,6 +55,14 @@ export class WorkflowControllerService {
           question: string,
           controlId: string,
           controlRoundIndex: number,
+        ): Promise<unknown>;
+        requestSkillConfirmation(
+          taskId: string,
+          input: Readonly<{
+            childPlanId: string;
+            childSkillId: string;
+            childSkillVersion: number;
+          }>,
         ): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
@@ -91,7 +99,7 @@ export class WorkflowControllerService {
       controls: WorkflowControlRepository;
       plans: WorkflowPlanRepository;
       goals: GoalRepository;
-      skills: SkillRepository;
+      confirmation: Pick<TransitiveSkillConfirmationEvaluator, 'evaluate'>;
       planner: Pick<WorkflowPlannerService, 'plan'>;
       execution: Pick<
         WorkflowExecutionService,
@@ -112,6 +120,14 @@ export class WorkflowControllerService {
           question: string,
           controlId: string,
           controlRoundIndex: number,
+        ): Promise<unknown>;
+        requestSkillConfirmation(
+          taskId: string,
+          input: Readonly<{
+            childPlanId: string;
+            childSkillId: string;
+            childSkillVersion: number;
+          }>,
         ): Promise<unknown>;
         reportUnachievable(taskId: string, summary: string): Promise<unknown>;
         prepareSkillReplacement(
@@ -146,7 +162,7 @@ export class WorkflowControllerService {
     this.#controls = dependencies.controls;
     this.#plans = dependencies.plans;
     this.#goals = dependencies.goals;
-    this.#skills = dependencies.skills;
+    this.#confirmation = dependencies.confirmation;
     this.#planner = dependencies.planner;
     this.#execution = dependencies.execution;
     this.#evaluator = dependencies.evaluator;
@@ -341,6 +357,28 @@ export class WorkflowControllerService {
         if (failed?.status !== 'failed') throw error;
         instance = failed;
       }
+      if (
+        instance.status === 'paused' &&
+        instance.pendingConfirmation?.kind === 'skill_confirmation' &&
+        control.taskId !== undefined
+      ) {
+        const pending = instance.pendingConfirmation;
+        if (
+          this.#taskOutcomes === undefined ||
+          pending.childPlanId === undefined ||
+          pending.childSkillId === undefined ||
+          pending.childSkillVersion === undefined
+        )
+          throw new WorkflowControllerError(
+            'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+            'Nested Skill confirmation Task projection is unavailable.',
+          );
+        await this.#taskOutcomes.requestSkillConfirmation(control.taskId, {
+          childPlanId: pending.childPlanId,
+          childSkillId: pending.childSkillId,
+          childSkillVersion: pending.childSkillVersion,
+        });
+      }
       if (instance.status === 'paused')
         instance = await this.#execution.waitForPauseResolution(instance.instanceId);
       const goal = await this.#requireActiveGoal(
@@ -503,11 +541,9 @@ export class WorkflowControllerService {
         }),
       });
       const nextSkillIds = replacement === undefined ? control.skillIds : [replacement.skillId];
-      const autoConfirmSkillIds = new Set(nextSkillIds);
-      for (const node of nextPlan.definition?.nodes ?? [])
-        if (node.type === 'skill_call') autoConfirmSkillIds.add(node.skillId);
       const autoConfirm =
-        replacement === undefined && (await this.#allSkillsAutoConfirm([...autoConfirmSkillIds]));
+        replacement === undefined &&
+        (await this.#confirmation.evaluate(nextSkillIds, nextPlan.definition)).autoConfirm;
       if (autoConfirm) await this.#execution.confirm(nextPlan.planId, control.taskId);
       if (replacement !== undefined && control.taskId !== undefined)
         await this.#taskOutcomes?.reportReplacementPlan(control.taskId, {
@@ -529,15 +565,6 @@ export class WorkflowControllerService {
       if (!autoConfirm) return control;
     }
     return control;
-  }
-
-  async #allSkillsAutoConfirm(skillIds: readonly string[]): Promise<boolean> {
-    if (skillIds.length === 0) return false;
-    for (const skillId of skillIds) {
-      const skill = await this.#skills.findCurrentVersion(skillId);
-      if (skill?.status !== 'enabled' || !skill.runtimePolicy.autoConfirmPlan) return false;
-    }
-    return true;
   }
 
   async #requireActiveGoal(goalId: string, contextId: string, version: number) {

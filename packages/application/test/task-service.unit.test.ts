@@ -432,6 +432,62 @@ describe('TaskService', () => {
         messageText: 'Reject.',
       }),
     ).resolves.toMatchObject({ phase: 'canceled', phaseMessage: 'Plan rejected.' });
+    expect(harness.operations).toContain('plan.reject:missing');
+  });
+
+  it('moves an executing parent Task back to input-required plan confirmation for a child', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.requestNestedSkillConfirmation(task.taskId, {
+        childPlanId: 'plan-child',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      }),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      phaseMessage: expect.stringContaining('skill.child@2'),
+    });
+  });
+
+  it('routes cancellation of a child-confirmation wait through execution control', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    task = await harness.service.attachPlan(task.taskId, {
+      planId: 'plan-parent',
+      goalId: 'goal-parent',
+      goalVersion: 1,
+    });
+    task = transitionTask(task, 'executing', 'executing', timestamp);
+    harness.tasks.set(task.taskId, task);
+    await harness.service.requestNestedSkillConfirmation(task.taskId, {
+      childPlanId: 'plan-child',
+      childSkillId: 'skill.child',
+      childSkillVersion: 1,
+    });
+
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({ phase: 'canceled' });
+    expect(harness.operations).toContain('plan.cancel:plan-parent');
   });
 });
 
@@ -590,6 +646,10 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
           operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
           return Promise.resolve();
         },
+        reject: (task) => {
+          operations.push(`plan.reject:${task.planId ?? 'missing'}`);
+          return Promise.resolve();
+        },
         executeConfirmed: () => Promise.resolve(),
         reviseNaturalLanguage: (task) => {
           operations.push(`plan.revise:${task.planId ?? 'missing'}`);
@@ -601,7 +661,10 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
         },
         patchGoal: () => Promise.resolve(),
         pause: () => Promise.resolve(),
-        cancel: () => Promise.resolve(),
+        cancel: (task) => {
+          operations.push(`plan.cancel:${task.planId ?? 'missing'}`);
+          return Promise.resolve();
+        },
         resume: () => Promise.resolve(resumeDisposition),
         cancelGoal: () => Promise.resolve(),
       },

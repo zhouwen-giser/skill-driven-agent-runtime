@@ -80,7 +80,8 @@ Invariants for every increment:
 - [x] 2026-07-15 16:01 v1.0.3 feature commit `c25e92b` and annotated `v1.0.3` tag published after 211 unit, 57 contract, 40 integration, 42 E2E, architecture and migration paths passed.
 - [x] 2026-07-15 17:02 v1.0.3 bug-fixed commit `bb8c90a` and annotated `v1.0.3-bug-fixed` tag published after the complete operator-managed gate passed.
 - [x] 2026-07-15 18:55 v1.0.4 feature commit `82a90ab` and annotated `v1.0.4` tag published after the complete feature gate passed.
-- [ ] 2026-07-15 19:07 v1.0.4 bug-fixed audit bounded Header values and verified legacy conflict normalization, failure audit, pause/resume and stable-session reuse; final 218 unit, 58 contract, 42 integration and 42 E2E gates passed. Publish commit/tag.
+- [x] 2026-07-15 19:07 v1.0.4 bug-fixed commit `fa4b050` and annotated `v1.0.4-bug-fixed` tag published after the final 218 unit, 58 contract, 42 integration and 42 E2E gates passed.
+- [ ] 2026-07-16 10:20 v1.0.5 feature gate passed with ADR-076, migration 0057, 229 unit, 58 contract, 43 integration, 43 E2E, architecture, build and migration paths. Publish feature commit/tag, then audit adversarial confirmation transitions.
 - [ ] Complete v1.0.4–v1.0.6 in order; run full gate at v1.0.6-bug-fixed.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
@@ -102,6 +103,8 @@ Invariants for every increment:
 - 2026-07-15: the first required `pnpm verify` invocation was blocked before gates because the shell default pnpm store differed from the Snap store recorded in `node_modules/.modules.yaml`. Pointing pnpm at that existing store required no dependency changes and the full gate then passed; verification remained operator-managed with Docker lifecycle disabled.
 - 2026-07-15: v1.0.4 Header isolation creates separate official MCP SDK clients for different final Header sets. The original loopback Mock MCP used one server transport and rejected the second initialization. It now routes official `mcp-session-id` values to independent server/transport pairs, proving concurrent live, simulation and replay sessions rather than hiding the isolation.
 - 2026-07-15: v1.0.4 bug-fixed review treated model-provided simulation case IDs as untrusted Header data. Domain normalization now rejects whitespace/control/non-ASCII and values longer than 256 characters before transport admission; generated candidate/history identities remain within the bound.
+- 2026-07-16: the first real v1.0.5 E2E exposed that the v1.0.2 child-instance foreign key cannot accept a relation before the child instance exists. Migration 0057 preserves that foreign key and instead allows a null child instance during confirmation; the deterministic `call_id` supplies the planned identity and the final upsert attaches the materialized instance.
+- 2026-07-16: A2A confirmation returns after the authoritative Task transition while Workflow execution continues in the background. Nested confirmation E2E therefore polls the Task projection and proves the persisted checkpoint rather than assuming the immediate response means the child node has already paused.
 - 2026-07-15: continuation binding paths use string path segments (`"0"`) like the public DSL; numeric array indices are rejected at validation rather than reaching runtime. Both real MCP E2E paths assert the supplied value, preventing state-only false positives.
 
 ## Decision Log

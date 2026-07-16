@@ -1059,6 +1059,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(registration.status).toBe(201);
       const skillVersionInput = (name: string, workflowGuidance: string) => ({
         ...skillInput(skillId, name),
+        runtimePolicy: { autoConfirmPlan: true },
         workflowGuidance,
         inputSchema: {
           type: 'object',
@@ -1166,6 +1167,139 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       );
     } finally {
       skillCallWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
+  it('requires an independent child Skill confirmation before the parent Task can continue', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.nested-confirmation.${randomUUID()}`;
+    const parentSkillId = `skill.nested-parent.${randomUUID()}`;
+    const childSkillId = `skill.nested-child.${randomUUID()}`;
+    try {
+      await runtime.registerMcpServer({
+        serverId,
+        name: 'Nested confirmation MCP',
+        endpoint: mockMcp.endpoint.toString(),
+        credentialHeaders: {},
+      });
+      await runtime.registerSkill({
+        ...skillInput(parentSkillId, 'Nested confirmation parent'),
+      });
+      await runtime.registerSkill({
+        ...skillInput(childSkillId, 'Nested confirmation child'),
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId'],
+          properties: { deviceId: { type: 'string' } },
+        },
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: { deviceId: { type: 'string' }, status: { enum: ['online'] } },
+        },
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      });
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+
+      const parentConfirmed = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the parent plan.',
+      );
+      if (!('id' in parentConfirmed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+
+      const task = z
+        .object({ planId: z.string(), phase: z.string(), phaseMessage: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      expect(task).toMatchObject({
+        phase: 'awaiting_plan_confirmation',
+        phaseMessage: expect.stringContaining(`${childSkillId}@1`),
+      });
+      const trace = z
+        .object({
+          instance: z.object({
+            instanceId: z.string(),
+            status: z.literal('paused'),
+            pendingConfirmation: z.object({
+              kind: z.literal('skill_confirmation'),
+              parentPlanId: z.string(),
+              childPlanId: z.string(),
+              childSkillId: z.string(),
+              childSkillVersion: z.number(),
+            }),
+          }),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      expect(trace.instance.pendingConfirmation).toMatchObject({
+        parentPlanId: task.planId,
+        childSkillId,
+        childSkillVersion: 1,
+      });
+      await expect(runtime.listSkillCallWorkflows(trace.instance.instanceId)).resolves.toEqual([
+        expect.objectContaining({
+          parentPlanId: task.planId,
+          childPlanId: trace.instance.pendingConfirmation.childPlanId,
+          skillId: childSkillId,
+          skillVersion: 1,
+          confirmationStatus: 'awaiting_confirmation',
+          status: 'awaiting_confirmation',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(0);
+
+      const completed = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the child plan.',
+      );
+      if (!('id' in completed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listSkillCallWorkflows(trace.instance.instanceId)).resolves.toEqual([
+        expect.objectContaining({
+          childPlanId: trace.instance.pendingConfirmation.childPlanId,
+          confirmationStatus: 'confirmed',
+          status: 'succeeded',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toContainEqual(
+        expect.objectContaining({ status: 'succeeded', toolName: 'device_status' }),
+      );
+    } finally {
       await mockMcp.close();
     }
   });
@@ -4428,6 +4562,9 @@ async function startModelLoopback(): Promise<Server> {
           const sharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
             requestData.requestText,
           )?.[1];
+          const nestedConfirmationSkill = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
+            requestData.requestText,
+          )?.[1];
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
             (requestData.requestText.includes('unknown target') &&
@@ -4444,7 +4581,7 @@ async function startModelLoopback(): Promise<Server> {
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined
-                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}`
                     : capabilityGapGoal
                       ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                       : controlGoal
@@ -4780,6 +4917,9 @@ async function startModelLoopback(): Promise<Server> {
           const historical = historicalSuccess || historicalFailure;
           const inputContinuationMcp =
             requestData.goalDescription.includes('INPUT_CONTINUATION_MCP');
+          const nestedConfirmationSkillId = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
+            requestData.goalDescription,
+          )?.[1];
           respondStructured(response, {
             ...requestData.workflowIdentity,
             entryNodeId:
@@ -4787,7 +4927,9 @@ async function startModelLoopback(): Promise<Server> {
                 ? 'execute'
                 : temporaryTool !== undefined || historicalSuccess
                   ? 'tool'
-                  : 'result',
+                  : nestedConfirmationSkillId !== undefined
+                    ? 'child'
+                    : 'result',
             exitNodeIds: ['result'],
             nodes:
               historical && historicalTool !== undefined
@@ -4840,30 +4982,46 @@ async function startModelLoopback(): Promise<Server> {
                         value: { op: 'ref', path: ['nodes', 'tool'] },
                       },
                     ]
-                  : failPrimary
+                  : nestedConfirmationSkillId !== undefined
                     ? [
                         {
-                          nodeId: 'execute',
-                          name: 'Fail primary Skill execution',
-                          type: 'llm',
-                          instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                          responseSchema: { type: 'object' },
+                          nodeId: 'child',
+                          name: 'Execute independently confirmed child Skill',
+                          type: 'skill_call',
+                          skillId: nestedConfirmationSkillId,
+                          input: { deviceId: 'device-nested-confirmation' },
                         },
                         {
                           nodeId: 'result',
-                          name: 'Primary result',
+                          name: 'Return child result',
                           type: 'result',
-                          value: { op: 'ref', path: ['nodes', 'execute'] },
+                          value: { op: 'ref', path: ['nodes', 'child'] },
                         },
                       ]
-                    : [
-                        {
-                          nodeId: 'result',
-                          name: 'Initial Task result',
-                          type: 'result',
-                          value: { op: 'literal', value: 'online' },
-                        },
-                      ],
+                    : failPrimary
+                      ? [
+                          {
+                            nodeId: 'execute',
+                            name: 'Fail primary Skill execution',
+                            type: 'llm',
+                            instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                            responseSchema: { type: 'object' },
+                          },
+                          {
+                            nodeId: 'result',
+                            name: 'Primary result',
+                            type: 'result',
+                            value: { op: 'ref', path: ['nodes', 'execute'] },
+                          },
+                        ]
+                      : [
+                          {
+                            nodeId: 'result',
+                            name: 'Initial Task result',
+                            type: 'result',
+                            value: { op: 'literal', value: 'online' },
+                          },
+                        ],
             edges: historical
               ? historicalFailure
                 ? [
@@ -4873,9 +5031,11 @@ async function startModelLoopback(): Promise<Server> {
                 : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
               : temporaryTool !== undefined
                 ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                : failPrimary
-                  ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
-                  : [],
+                : nestedConfirmationSkillId !== undefined
+                  ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
+                  : failPrimary
+                    ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                    : [],
           });
           return;
         }
