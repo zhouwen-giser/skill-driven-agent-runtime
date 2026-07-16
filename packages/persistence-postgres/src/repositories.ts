@@ -724,10 +724,16 @@ export class PostgresConversationContextRepository implements ConversationContex
 export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #preserveRemoteWaits: boolean;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    options: Readonly<{ preserveRemoteWaits?: boolean }> = {},
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#preserveRemoteWaits = options.preserveRemoteWaits ?? false;
   }
 
   async failInterrupted(timestamp: string) {
@@ -735,10 +741,32 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
     try {
       await client.query('BEGIN');
       const tasks = await client.query<TaskRow>(
-        `UPDATE agent_task
+        `UPDATE agent_task task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
          WHERE phase IN ('executing','paused','evaluating')
+         ${
+           this.#preserveRemoteWaits
+             ? `AND NOT EXISTS (
+           SELECT 1
+           FROM workflow_continuation_snapshot snapshot
+           JOIN workflow_continuation_wait_binding wait
+             ON wait.snapshot_id=snapshot.snapshot_id
+           JOIN remote_task_binding binding ON binding.binding_id=wait.binding_id
+           JOIN workflow_instance instance
+             ON instance.instance_id=snapshot.workflow_instance_id
+           WHERE snapshot.agent_task_id=task.task_id
+             AND snapshot.lifecycle='active'
+             AND instance.status='waiting_external'
+             AND binding.workflow_instance_id=instance.instance_id
+             AND binding.invalidated_at IS NULL
+             AND binding.local_state IN (
+               'polling','cancel_observing','awaiting_input',
+               'terminal_event_pending','terminal_event_claimed'
+             )
+         )`
+             : ''
+         }
          RETURNING *`,
         [timestamp],
       );
@@ -754,7 +782,31 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
       const attempts = await client.query(
         `UPDATE task_execution_attempt
          SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
-         WHERE status='running'`,
+         WHERE status='running'
+         ${
+           this.#preserveRemoteWaits
+             ? `AND NOT EXISTS (
+           SELECT 1
+           FROM agent_task task
+           JOIN workflow_continuation_snapshot snapshot
+             ON snapshot.agent_task_id=task.task_id
+           JOIN workflow_continuation_wait_binding wait
+             ON wait.snapshot_id=snapshot.snapshot_id
+           JOIN remote_task_binding binding ON binding.binding_id=wait.binding_id
+           JOIN workflow_instance instance
+             ON instance.instance_id=snapshot.workflow_instance_id
+           WHERE task.task_id=task_execution_attempt.task_id
+             AND snapshot.lifecycle='active'
+             AND instance.status='waiting_external'
+             AND binding.workflow_instance_id=instance.instance_id
+             AND binding.invalidated_at IS NULL
+             AND binding.local_state IN (
+               'polling','cancel_observing','awaiting_input',
+               'terminal_event_pending','terminal_event_claimed'
+             )
+         )`
+             : ''
+         }`,
         [timestamp],
       );
       await client.query('COMMIT');
@@ -1199,11 +1251,11 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
             `INSERT INTO remote_task_cancel_request(
                cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,
                delivery_status,attempt_count,requested_at,updated_at,version)
-             SELECT 'remote-cancel-' || md5(binding_id || ':' || $1 || ':' || $2),binding_id,
-                    md5('goal:' || $1 || ':' || $2 || ':' || binding_id),'goal',
+             SELECT 'remote-cancel-' || md5(binding_id || ':' || $1::text || ':' || $2::text),binding_id,
+                    md5('goal:' || $1::text || ':' || $2::text || ':' || binding_id),'goal',
                     'local_goal_cancel',left($3,2048),'requested',0,$4,$4,1
              FROM remote_task_binding
-             WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
+             WHERE goal_id=$1 AND goal_version=$2::integer AND terminal_at IS NULL
                AND protocol_status IN ('working','input_required')
                AND local_state NOT IN ('closed','reentered','quarantined')
              ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,

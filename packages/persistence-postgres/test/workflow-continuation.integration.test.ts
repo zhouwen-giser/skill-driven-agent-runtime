@@ -111,6 +111,12 @@ describe('PostgreSQL remote Task continuation authority', () => {
          $1,'{"status":"completed"}'::jsonb,'pending','2026-07-16T08:01:00.000Z')`,
       ['a'.repeat(64)],
     );
+    await pool.query(
+      `UPDATE remote_task_binding
+       SET local_state='terminal_event_pending',next_poll_at=NULL,
+           updated_at='2026-07-16T08:01:00.000Z'
+       WHERE binding_id='continuation-binding'`,
+    );
 
     const initial = continuationSnapshot();
     await continuations.saveSnapshot(initial);
@@ -221,8 +227,13 @@ describe('PostgreSQL remote Task continuation authority', () => {
         claimToken: 'continuation-claim-2',
         status: 'processed',
         processedAt: '2026-07-16T08:01:14.000Z',
+        bindingDisposition: 'reentered',
       }),
     ).resolves.toBeUndefined();
+    await expect(remoteTasks.findById('continuation-binding')).resolves.toMatchObject({
+      localState: 'reentered',
+      version: 2,
+    });
 
     const successor = createWorkflowContinuationSnapshot({
       ...initial,

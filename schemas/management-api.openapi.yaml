@@ -27,7 +27,8 @@ paths:
       operationId: createMemory
       description: Refines one globally shared candidate and persists it only when structured durability is durable; embeddings may use any positive provider dimension.
       responses:
-        '201': { description: Active durable global memory item with authority and durability reason }
+        '201':
+          { description: Active durable global memory item with authority and durability reason }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/runtime-terminal-outcomes/{outcomeId}:
     parameters: [{ name: outcomeId, in: path, required: true, schema: { type: string } }]
@@ -44,7 +45,10 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
-        '200': { description: Same-provider/same-dimension durable active memories ordered by pgvector similarity }
+        '200':
+          {
+            description: Same-provider/same-dimension durable active memories ordered by pgvector similarity,
+          }
   /api/v1/memories/{memoryId}:
     parameters: [{ name: memoryId, in: path, required: true, schema: { type: string } }]
     get:
@@ -137,6 +141,41 @@ paths:
       operationId: listTaskRuntimeEvents
       responses:
         '200': { description: Ordered displayable Task lifecycle events }
+  /api/v1/tasks/{taskId}/remote-task-lifecycle:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTaskRemoteTaskLifecycle
+      description: Returns the credential-free PostgreSQL-authoritative correlation from Agent Task through MCP capability, availability evidence, remote binding, observations, controls, continuation, input rounds, cancellation delivery/Provider-terminal separation, timing, protocol attempts, and final Provider result. Refreshing this resource only reloads evidence and does not fabricate a Provider state transition.
+      responses:
+        '200':
+          {
+            description: Remote Task lifecycle with trusted-intranet,
+            Provider-authority,
+            side-effect,
+            non-recovery,
+            and cancellation-uncertainty warnings,
+          }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/remote-task-bindings/{bindingId}/refresh:
+    parameters: [{ name: bindingId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: refreshRemoteTaskBinding
+      description: Performs one bounded, version-CAS tasks/get observation through the same context-serialized polling service. The expectedVersion is mandatory; this action never fabricates a Provider transition.
+      responses:
+        '200':
+          {
+            description: Poll disposition; authoritative evidence is read from the lifecycle resource,
+          }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/remote-task-bindings/{bindingId}/cancel:
+    parameters: [{ name: bindingId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: cancelRemoteTaskBinding
+      description: Creates an idempotent source=management cooperative cancellation request. Acknowledgement or uncertainty is not Provider terminal cancellation and observation continues.
+      responses:
+        '200':
+          { description: Durable cancellation request disposition and delivery scheduling state }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/processed-results:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
@@ -155,7 +194,12 @@ paths:
       operationId: listTaskSkillInputResolutions
       description: Returns immutable top-level Skill input decisions for every resolution attempt on the Task.
       responses:
-        '200': { description: Ordered structured input, schema status, source references and decision summaries }
+        '200':
+          {
+            description: Ordered structured input,
+            schema status,
+            source references and decision summaries,
+          }
   /api/v1/skill-input-resolutions/{resolutionId}:
     parameters: [{ name: resolutionId, in: path, required: true, schema: { type: string } }]
     get:
@@ -182,7 +226,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: actOnTaskPlan
-      description: Uses the same TaskService path as A2A follow-up messages to confirm, reject, or naturally revise a plan.
+      description: Uses the same TaskService path as A2A follow-up messages. In addition to plan decisions, provide_input accepts an optional structured inputContent plus inputRequestId for a schema-validated remote form round; cancel_goal enters the authoritative local cancellation path and creates cooperative remote cancellation evidence for active bindings.
       responses:
         '200': { description: Authoritative Task state after the action }
         '400': { $ref: '#/components/responses/Error' }
@@ -1138,12 +1182,9 @@ components:
       required: [effect, execution, cancellation, idempotency, replay]
       properties:
         effect: { type: string, enum: [read_only, side_effecting, unknown] }
-        execution:
-          { type: string, enum: [synchronous, task_capable, task_required, unknown] }
-        cancellation:
-          { type: string, enum: [unsupported, cooperative, task_cancel, unknown] }
-        idempotency:
-          { type: string, enum: [none, client_request_key, server_managed, unknown] }
+        execution: { type: string, enum: [synchronous, task_capable, task_required, unknown] }
+        cancellation: { type: string, enum: [unsupported, cooperative, task_cancel, unknown] }
+        idempotency: { type: string, enum: [none, client_request_key, server_managed, unknown] }
         replay: { type: string, enum: [allowed, simulation_only, forbidden, unknown] }
     CreateTemporarySkill:
       type: object

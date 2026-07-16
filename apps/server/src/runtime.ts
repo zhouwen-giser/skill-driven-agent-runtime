@@ -25,6 +25,7 @@ import {
   RemoteTaskContinuationService,
   RemoteTaskContinuationReconciler,
   RemoteTaskInputService,
+  RemoteTaskCancellationService,
   RemoteTaskCancellationReconciler,
   RemoteTaskCancellationWorker,
   McpTaskReadinessService,
@@ -146,6 +147,7 @@ import {
   PostgresRemoteTaskRepository,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
+  PostgresRemoteTaskLifecycleQuery,
   PostgresWorkflowContinuationRepository,
   PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
@@ -301,7 +303,9 @@ export async function startServerRuntime(
     clock,
   });
   await new RuntimeRecoveryService({
-    repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState),
+    repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState, {
+      preserveRemoteWaits: options.v11McpTasks !== undefined,
+    }),
     clock,
   }).failInterruptedExecutions();
   const taskAttemptDispatch = new TaskAttemptDispatchService({ attempts: taskInputs, queue });
@@ -572,6 +576,22 @@ export async function startServerRuntime(
     remoteTaskRepository === undefined || remoteTaskCancellationQueue === undefined
       ? undefined
       : new PostgresRemoteTaskCancellationRepository(pool);
+  const remoteTaskCancellation =
+    remoteTaskRepository === undefined ||
+    remoteTaskCancellations === undefined ||
+    remoteTaskCancellationQueue === undefined
+      ? undefined
+      : new RemoteTaskCancellationService({
+          remoteTasks: remoteTaskRepository,
+          cancellations: remoteTaskCancellations,
+          queue: remoteTaskCancellationQueue,
+          clock,
+          ids: {
+            nextRequestId: () => `remote-task-cancel-request-${randomUUID()}`,
+            nextAttemptId: () => `remote-task-cancel-attempt-${randomUUID()}`,
+            nextClaimToken: () => `remote-task-cancel-claim-${randomUUID()}`,
+          },
+        });
   const remoteTaskCancellationProcessor =
     remoteTaskRepository === undefined || remoteTaskCancellations === undefined
       ? undefined
@@ -640,12 +660,21 @@ export async function startServerRuntime(
           ? undefined
           : await skillCallWorkflows.findByChildInstanceId(instance.instanceId);
       const planDefinition = plan?.definition;
-      if (taskExecution !== undefined && taskReadiness === undefined)
+      const declaredTaskSemantics =
+        taskExecution === undefined
+          ? await mcpRepository.getTaskOperationSemantics(tool)
+          : undefined;
+      const effectiveTaskExecution =
+        taskExecution ??
+        (declaredTaskSemantics?.execution === 'task_required'
+          ? { mode: 'require_task' as const, availabilityCheck: 'required' as const }
+          : undefined);
+      if (effectiveTaskExecution !== undefined && taskReadiness === undefined)
         throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
-      if (taskExecution !== undefined && planDefinition === undefined)
+      if (effectiveTaskExecution !== undefined && planDefinition === undefined)
         throw new Error('MCP_TASK_WORKFLOW_DEFINITION_MISSING');
       const guardedTaskExecution =
-        taskExecution === undefined ||
+        effectiveTaskExecution === undefined ||
         taskReadiness === undefined ||
         instance === undefined ||
         plan === undefined ||
@@ -662,7 +691,7 @@ export async function startServerRuntime(
               serverId: tool.serverId,
               operationName: tool.toolName,
               arguments: arguments_,
-              taskExecution,
+              taskExecution: effectiveTaskExecution,
               executionContext,
               ...(signal === undefined ? {} : { signal }),
             });
@@ -2039,6 +2068,13 @@ export async function startServerRuntime(
         ...(taskAvailabilityEvidence === undefined
           ? {}
           : { taskAvailability: taskAvailabilityEvidence }),
+        ...(options.v11McpTasks === undefined
+          ? {}
+          : {
+              remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool),
+              ...(remoteTaskPolling === undefined ? {} : { remoteTaskPolling }),
+              ...(remoteTaskCancellation === undefined ? {} : { remoteTaskCancellation }),
+            }),
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -2352,6 +2388,7 @@ export async function applyRuntimeMigrations(
     '0101_task_execution_readiness.up.sql',
     '0102_remote_task_continuation.up.sql',
     '0103_remote_task_input_and_cancellation.up.sql',
+    '0104_workflow_external_wait_event.up.sql',
   ] as const;
   const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
   for (const [index, version] of v11Versions.entries()) {
@@ -2386,11 +2423,12 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
         '0100_remote_mcp_task_tracking',
         '0101_task_execution_readiness',
         '0102_remote_task_continuation',
-        '0103_remote_task_input_and_cancellation'
+        '0103_remote_task_input_and_cancellation',
+        '0104_workflow_external_wait_event'
       )) AS v11_count`,
   );
   const ledgerState = ledger.rows[0];
   if (ledgerState?.released_present !== true)
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledgerState.v11_count !== 4) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (ledgerState.v11_count !== 5) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

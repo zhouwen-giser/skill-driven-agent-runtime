@@ -355,23 +355,44 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
       status: 'processed' | 'failed';
       processedAt: string;
       errorCode?: string;
+      bindingDisposition?: 'reentered';
     }>,
   ): Promise<void> {
     if (input.status === 'failed' && input.errorCode === undefined)
       throw new Error('WORKFLOW_CONTINUATION_CONTROL_ERROR_CODE_REQUIRED');
     if (input.status === 'processed' && input.errorCode !== undefined)
       throw new Error('WORKFLOW_CONTINUATION_CONTROL_ERROR_CODE_UNEXPECTED');
-    const result = await this.#pool.query(
-      `UPDATE remote_task_control_event
-       SET status=$3,processed_at=$4,error_code=$5
-       WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2`,
-      [input.eventId, input.claimToken, input.status, input.processedAt, input.errorCode ?? null],
-    );
-    if (result.rowCount !== 1)
-      throw new WorkflowContinuationPersistenceError(
-        'WORKFLOW_CONTINUATION_CAS_FAILED',
-        'The remote Task control claim is stale or already closed.',
+    if (input.bindingDisposition !== undefined && input.status !== 'processed')
+      throw new Error('WORKFLOW_CONTINUATION_BINDING_DISPOSITION_REQUIRES_PROCESSED_CONTROL');
+    await withTransaction(this.#pool, async (client) => {
+      const result = await client.query<{ binding_id: string }>(
+        `UPDATE remote_task_control_event
+         SET status=$3,processed_at=$4,error_code=$5
+         WHERE event_id=$1 AND status='claimed' AND continuation_claim_token=$2
+         RETURNING binding_id`,
+        [input.eventId, input.claimToken, input.status, input.processedAt, input.errorCode ?? null],
       );
+      if (result.rowCount !== 1)
+        throw new WorkflowContinuationPersistenceError(
+          'WORKFLOW_CONTINUATION_CAS_FAILED',
+          'The remote Task control claim is stale or already closed.',
+        );
+      if (input.bindingDisposition === 'reentered') {
+        const bindingId = requiredRow(result.rows[0]).binding_id;
+        const bindingResult = await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='reentered',version=version+1,updated_at=$2
+           WHERE binding_id=$1
+             AND local_state IN ('terminal_event_pending','terminal_event_claimed')`,
+          [bindingId, input.processedAt],
+        );
+        if (bindingResult.rowCount !== 1)
+          throw new WorkflowContinuationPersistenceError(
+            'WORKFLOW_CONTINUATION_BINDING_STATE_MISMATCH',
+            'The terminal remote Task binding was not pending continuation re-entry.',
+          );
+      }
+    });
   }
 
   async saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void> {
@@ -693,6 +714,7 @@ export type WorkflowContinuationPersistenceErrorCode =
   | 'WORKFLOW_CONTINUATION_CLOSED'
   | 'WORKFLOW_CONTINUATION_IDEMPOTENCY_CONFLICT'
   | 'WORKFLOW_CONTINUATION_INSTANCE_CLOSED'
+  | 'WORKFLOW_CONTINUATION_BINDING_STATE_MISMATCH'
   | 'WORKFLOW_CONTINUATION_WAIT_BINDING_INVALID';
 
 export class WorkflowContinuationPersistenceError extends Error {

@@ -42,6 +42,10 @@ import type {
   RuntimeEventQuery,
   RuntimeTerminalOutcomeRepository,
   TaskAvailabilityEvidenceRepository,
+  RemoteTaskLifecycleQuery,
+  RemoteTaskLifecycleEvidence,
+  RemoteTaskPollingService,
+  RemoteTaskCancellationService,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -71,20 +75,23 @@ const MemoryRetentionPolicySchema = z.object({
   automaticDeleteEnabled: z.boolean(),
 });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
-const TaskActionSchema = z.object({
-  action: z.enum([
-    'confirm_plan',
-    'reject_plan',
-    'revise_plan',
-    'patch_goal',
-    'cancel_goal',
-    'provide_input',
-    'pause',
-    'resume',
-  ]),
-  messageText: z.string().min(1),
-  inputRequestId: z.string().min(1).optional(),
-});
+const TaskActionSchema = z
+  .object({
+    action: z.enum([
+      'confirm_plan',
+      'reject_plan',
+      'revise_plan',
+      'patch_goal',
+      'cancel_goal',
+      'provide_input',
+      'pause',
+      'resume',
+    ]),
+    messageText: z.string().min(1),
+    inputRequestId: z.string().min(1).optional(),
+    inputContent: z.unknown().optional(),
+  })
+  .strict();
 const EvaluationAnalyticsFilterSchema = z
   .object({
     skillId: z.string().min(1).optional(),
@@ -120,6 +127,14 @@ const TaskReadinessQuerySchema = z
   .object({
     phase: z.enum(['planning', 'pre_invocation']).optional(),
     limit: z.coerce.number().int().min(1).max(1_000).optional(),
+  })
+  .strict();
+const RefreshRemoteTaskSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
+const CancelRemoteTaskSchema = z
+  .object({
+    idempotencyKey: z.string().min(1).max(512),
+    reasonCode: z.string().min(1).max(128),
+    summary: z.string().min(1).max(2_048),
   })
   .strict();
 
@@ -441,6 +456,9 @@ export interface ManagementOperations {
   >;
   readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
   readonly taskAvailability?: Pick<TaskAvailabilityEvidenceRepository, 'listByPlan'>;
+  readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
+  readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
+  readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -796,6 +814,153 @@ export async function startManagementHttpEndpoint(
       });
     }),
   );
+  app.get(
+    '/api/v1/tasks/:taskId/remote-task-lifecycle',
+    asyncRoute(async (request, response) => {
+      const taskId = pathValue(request, 'taskId');
+      const task = await options.operations.tasks.get(taskId);
+      const evidence =
+        options.operations.remoteTaskLifecycle === undefined
+          ? []
+          : await options.operations.remoteTaskLifecycle.listByAgentTaskId(taskId);
+      response.json({
+        warnings: [
+          'Trusted-intranet V1 has no authentication; do not expose this management endpoint publicly.',
+          'The MCP Provider is authoritative for remote Task status, substate, admission, business timers, and final result.',
+          'A tasks/cancel acknowledgement or transport uncertainty does not prove Provider cancellation; observation continues until tasks/get is terminal.',
+          'Side effects may already have occurred, and running local work is not automatically recovered after process failure.',
+        ],
+        actions: {
+          refreshEvidence: {
+            method: 'GET',
+            path: `/api/v1/tasks/${encodeURIComponent(taskId)}/remote-task-lifecycle`,
+          },
+          provideInput: {
+            method: 'POST',
+            path: `/api/v1/tasks/${encodeURIComponent(taskId)}/actions`,
+            action: 'provide_input',
+          },
+          cancelGoal: {
+            method: 'POST',
+            path: `/api/v1/tasks/${encodeURIComponent(taskId)}/actions`,
+            action: 'cancel_goal',
+          },
+        },
+        correlationRoot: {
+          taskId: task.taskId,
+          contextId: task.contextId,
+          ...(task.goalId === undefined ? {} : { goalId: task.goalId }),
+          ...(task.goalVersion === undefined ? {} : { goalVersion: task.goalVersion }),
+          ...(task.planId === undefined ? {} : { workflowPlanId: task.planId }),
+          ...(task.selectedSkillId === undefined ? {} : { skillId: task.selectedSkillId }),
+          ...(task.selectedSkillVersion === undefined
+            ? {}
+            : { skillVersion: task.selectedSkillVersion }),
+        },
+        items: await Promise.all(
+          evidence.map(async (item) => {
+            const tool = (await options.operations.mcp.listTools(item.binding.serverId)).find(
+              (candidate) => candidate.toolName === item.binding.operationName,
+            );
+            const availabilityEvidence =
+              options.operations.taskAvailability === undefined
+                ? []
+                : await options.operations.taskAvailability.listByPlan(
+                    item.binding.workflowPlanId,
+                    { limit: 1_000 },
+                  );
+            return {
+              binding: sanitizeRemoteTaskBinding(item.binding),
+              capability:
+                tool === undefined
+                  ? { status: 'not_found_in_current_registry' }
+                  : {
+                      status: 'registered',
+                      taskExecution: tool.taskExecution ?? null,
+                      executionSemantics: tool.executionSemantics,
+                      discoveredAt: tool.discoveredAt,
+                    },
+              availability: availabilityEvidence.map(sanitizeTaskAvailabilityEvidence),
+              observations: item.observations.map((observation) => ({
+                ...observation,
+                payload: sanitizeDisplayableValue(observation.payload),
+              })),
+              controls: item.controls.map((control) => ({
+                ...control,
+                payload: sanitizeDisplayableValue(control.payload),
+              })),
+              protocolAttempts: item.protocolAttempts,
+              continuations: item.continuations,
+              inputRounds: item.inputRounds.map((round) => ({
+                ...round,
+                link: {
+                  ...round.link,
+                  inputRequests: sanitizeDisplayableValue(round.link.inputRequests),
+                },
+                ...(round.responseContent === undefined
+                  ? {}
+                  : { responseContent: sanitizeDisplayableValue(round.responseContent) }),
+              })),
+              cancellations: item.cancellations.map((cancellation) => ({
+                request: sanitizeCancellationRequest(cancellation.request),
+                attempts: cancellation.attempts,
+              })),
+              finalOutcome: {
+                providerStatus: item.binding.protocolStatus,
+                authoritative: item.binding.terminalAt !== undefined,
+                ...(item.binding.resultSnapshot === undefined
+                  ? {}
+                  : { result: sanitizeDisplayableValue(item.binding.resultSnapshot) }),
+                ...(item.binding.errorSnapshot === undefined
+                  ? {}
+                  : { error: sanitizeDisplayableValue(item.binding.errorSnapshot) }),
+                ...(item.binding.terminalAt === undefined
+                  ? {}
+                  : { terminalAt: item.binding.terminalAt }),
+              },
+            };
+          }),
+        ),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/remote-task-bindings/:bindingId/refresh',
+    asyncRoute(async (request, response) => {
+      if (options.operations.remoteTaskPolling === undefined)
+        throw new HttpInputError(
+          'REMOTE_TASK_MANAGEMENT_ACTION_UNAVAILABLE',
+          'Remote Task refresh is not composed in this runtime.',
+        );
+      const input = RefreshRemoteTaskSchema.parse(request.body);
+      response.json({
+        disposition: await options.operations.remoteTaskPolling.process({
+          bindingId: pathValue(request, 'bindingId'),
+          expectedVersion: input.expectedVersion,
+        }),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/remote-task-bindings/:bindingId/cancel',
+    asyncRoute(async (request, response) => {
+      if (options.operations.remoteTaskCancellation === undefined)
+        throw new HttpInputError(
+          'REMOTE_TASK_MANAGEMENT_ACTION_UNAVAILABLE',
+          'Remote Task cancellation is not composed in this runtime.',
+        );
+      const input = CancelRemoteTaskSchema.parse(request.body);
+      response.json(
+        await options.operations.remoteTaskCancellation.request({
+          bindingId: pathValue(request, 'bindingId'),
+          idempotencyKey: input.idempotencyKey,
+          source: 'management',
+          reasonCode: input.reasonCode,
+          summary: input.summary,
+        }),
+      );
+    }),
+  );
   app.post(
     '/api/v1/tasks/:taskId/actions',
     asyncRoute(async (request, response) => {
@@ -806,6 +971,7 @@ export async function startManagementHttpEndpoint(
           action: input.action,
           messageText: input.messageText,
           ...(input.inputRequestId === undefined ? {} : { inputRequestId: input.inputRequestId }),
+          ...(input.inputContent === undefined ? {} : { inputContent: input.inputContent }),
         }),
       );
     }),
@@ -1598,6 +1764,163 @@ export async function startManagementHttpEndpoint(
   return {
     baseUrl: `http://${host}:${String(address.port)}`,
     close: () => closeServer(server),
+  };
+}
+
+type TaskAvailabilityEvidence = Awaited<
+  ReturnType<TaskAvailabilityEvidenceRepository['listByPlan']>
+>[number];
+
+type LifecycleBinding = RemoteTaskLifecycleEvidence['binding'];
+type LifecycleCancellation = RemoteTaskLifecycleEvidence['cancellations'][number]['request'];
+
+function sanitizeRemoteTaskBinding(binding: LifecycleBinding) {
+  return {
+    bindingId: binding.bindingId,
+    serverId: binding.serverId,
+    operationName: binding.operationName,
+    remoteTaskId: binding.remoteTaskId,
+    agentTaskId: binding.agentTaskId,
+    contextId: binding.contextId,
+    goalId: binding.goalId,
+    goalVersion: binding.goalVersion,
+    workflowPlanId: binding.workflowPlanId,
+    workflowDefinitionId: binding.workflowDefinitionId,
+    workflowDefinitionVersion: binding.workflowDefinitionVersion,
+    workflowInstanceId: binding.workflowInstanceId,
+    workflowNodeId: binding.workflowNodeId,
+    workflowNodeRunId: binding.workflowNodeRunId,
+    ...(binding.parentWorkflowInstanceId === undefined
+      ? {}
+      : { parentWorkflowInstanceId: binding.parentWorkflowInstanceId }),
+    ...(binding.parentSkillCallId === undefined
+      ? {}
+      : { parentSkillCallId: binding.parentSkillCallId }),
+    mcpInvocationId: binding.mcpInvocationId,
+    protocolStatus: binding.protocolStatus,
+    ...(binding.providerSubstate === undefined
+      ? {}
+      : { providerSubstate: binding.providerSubstate }),
+    ...(binding.remoteRevision === undefined ? {} : { remoteRevision: binding.remoteRevision }),
+    localState: binding.localState,
+    ...(binding.requestedTiming === undefined ? {} : { requestedTiming: binding.requestedTiming }),
+    executionMode: binding.executionContext.mode,
+    lastProviderUpdatedAt: binding.lastProviderUpdatedAt,
+    pollIntervalMs: binding.pollIntervalMs,
+    ...(binding.nextPollAt === undefined ? {} : { nextPollAt: binding.nextPollAt }),
+    pollAttempt: binding.pollAttempt,
+    providerFailureCount: binding.providerFailureCount,
+    createdAt: binding.createdAt,
+    updatedAt: binding.updatedAt,
+    ...(binding.invalidatedAt === undefined ? {} : { invalidatedAt: binding.invalidatedAt }),
+    ...(binding.terminalAt === undefined ? {} : { terminalAt: binding.terminalAt }),
+    version: binding.version,
+  };
+}
+
+function sanitizeCancellationRequest(request: LifecycleCancellation) {
+  return {
+    requestId: request.requestId,
+    bindingId: request.bindingId,
+    idempotencyKey: request.idempotencyKey,
+    source: request.source,
+    reasonCode: request.reasonCode,
+    summary: request.summary,
+    deliveryStatus: request.deliveryStatus,
+    ...(request.providerTerminalStatus === undefined
+      ? {}
+      : { providerTerminalStatus: request.providerTerminalStatus }),
+    ...(request.protocolRevision === undefined
+      ? {}
+      : { protocolRevision: request.protocolRevision }),
+    ...(request.acknowledgedAt === undefined ? {} : { acknowledgedAt: request.acknowledgedAt }),
+    ...(request.resolvedAt === undefined ? {} : { resolvedAt: request.resolvedAt }),
+    attemptCount: request.attemptCount,
+    ...(request.lastSafeErrorCode === undefined
+      ? {}
+      : { lastSafeErrorCode: request.lastSafeErrorCode }),
+    requestedAt: request.requestedAt,
+    updatedAt: request.updatedAt,
+    version: request.version,
+  };
+}
+
+const SENSITIVE_DISPLAY_KEYS = new Set([
+  'authorization',
+  'apikey',
+  'accesstoken',
+  'refreshtoken',
+  'clientsecret',
+  'cookie',
+  'setcookie',
+  'credential',
+  'credentialheaders',
+  'password',
+  'secret',
+  'stack',
+  'chainofthought',
+  'privatereasoning',
+  'reasoningcontent',
+  'pollclaimtoken',
+  'claimtoken',
+]);
+
+function sanitizeDisplayableValue(value: unknown, depth = 0): unknown {
+  if (depth > 32) return '[redacted:depth-limit]';
+  if (Array.isArray(value))
+    return value.map((candidate) => sanitizeDisplayableValue(candidate, depth + 1));
+  if (typeof value !== 'object' || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, candidate]) => [
+      key,
+      SENSITIVE_DISPLAY_KEYS.has(key.toLowerCase().replaceAll(/[^a-z0-9]/g, ''))
+        ? '[redacted]'
+        : sanitizeDisplayableValue(candidate, depth + 1),
+    ]),
+  );
+}
+
+function sanitizeTaskAvailabilityEvidence(item: TaskAvailabilityEvidence) {
+  return {
+    readiness: item.readiness,
+    snapshots: item.snapshots.map((snapshot) => ({
+      snapshotId: snapshot.snapshotId,
+      nodeId: snapshot.nodeId,
+      serverId: snapshot.serverId,
+      operationName: snapshot.operationName,
+      argumentsHash: snapshot.argumentsHash,
+      ...(snapshot.arguments.unresolved
+        ? { unresolvedPaths: snapshot.arguments.unresolvedPaths }
+        : {}),
+      ...(snapshot.timing === undefined ? {} : { timing: snapshot.timing }),
+      availability: snapshot.result.availability,
+      riskLevel: snapshot.result.riskLevel,
+      ...(snapshot.result.reasonCode === undefined
+        ? {}
+        : { reasonCode: snapshot.result.reasonCode }),
+      ...(snapshot.result.description === undefined
+        ? {}
+        : { description: snapshot.result.description }),
+      ...(snapshot.result.validUntil === undefined
+        ? {}
+        : { validUntil: snapshot.result.validUntil }),
+      ...(snapshot.result.earliestStartTime === undefined
+        ? {}
+        : { earliestStartTime: snapshot.result.earliestStartTime }),
+      nextAvailableWindows: snapshot.result.nextAvailableWindows,
+      ...(snapshot.result.estimatedDelayMs === undefined
+        ? {}
+        : { estimatedDelayMs: snapshot.result.estimatedDelayMs }),
+      reservationMode: snapshot.result.reservationMode,
+      ...(snapshot.result.reservationMode === 'guaranteed' &&
+      snapshot.result.reservationRef !== undefined
+        ? { reservationRef: snapshot.result.reservationRef }
+        : {}),
+      possibleEffects: snapshot.result.possibleEffects,
+      sourceRevision: snapshot.sourceRevision,
+      checkedAt: snapshot.checkedAt,
+      normalizationReasonCodes: snapshot.normalizationReasonCodes,
+    })),
   };
 }
 

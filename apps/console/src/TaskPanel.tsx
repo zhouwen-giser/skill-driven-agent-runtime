@@ -34,6 +34,51 @@ type TaskFilters = Readonly<{
   phase: string;
 }>;
 
+export interface RemoteTaskLifecycleResponse {
+  readonly warnings: readonly string[];
+  readonly items: readonly Readonly<{
+    binding: Readonly<{
+      bindingId: string;
+      serverId: string;
+      operationName: string;
+      remoteTaskId: string;
+      protocolStatus: string;
+      providerSubstate?: string;
+      localState: string;
+      requestedTiming?: unknown;
+      nextPollAt?: string;
+      pollAttempt: number;
+      providerFailureCount: number;
+      version: number;
+      workflowInstanceId: string;
+      workflowNodeRunId: string;
+      mcpInvocationId: string;
+    }>;
+    capability: unknown;
+    availability: readonly unknown[];
+    observations: readonly unknown[];
+    controls: readonly unknown[];
+    protocolAttempts: readonly unknown[];
+    continuations: readonly unknown[];
+    inputRounds: readonly Readonly<{
+      link: Readonly<{ inputRequestId: string; status: string }>;
+      question: string;
+      requestStatus: string;
+      attempts: readonly unknown[];
+    }>[];
+    cancellations: readonly Readonly<{
+      request: Readonly<{
+        requestId: string;
+        deliveryStatus: string;
+        providerTerminalStatus?: string;
+        lastSafeErrorCode?: string;
+      }>;
+      attempts: readonly unknown[];
+    }>[];
+    finalOutcome: unknown;
+  }>[];
+}
+
 export function GoalTaskNavigation({
   goalId,
   onExploreGoal,
@@ -74,10 +119,12 @@ export function TaskPanel({
     phase: '',
   });
   const [live, setLive] = useState(false);
-  const [action, setAction] = useState<'confirm_plan' | 'reject_plan' | 'revise_plan'>(
-    'confirm_plan',
-  );
+  const [action, setAction] = useState<
+    'confirm_plan' | 'reject_plan' | 'revise_plan' | 'provide_input' | 'cancel_goal'
+  >('confirm_plan');
   const [actionText, setActionText] = useState('Confirmed from the operational console.');
+  const [inputRequestId, setInputRequestId] = useState('');
+  const [structuredInput, setStructuredInput] = useState('');
 
   const loadTask = useCallback(async (id: string, announce = true) => {
     try {
@@ -137,11 +184,20 @@ export function TaskPanel({
     event.preventDefault();
     if (task === undefined) return;
     try {
+      const inputContent: unknown =
+        action === 'provide_input' && structuredInput.trim() !== ''
+          ? JSON.parse(structuredInput)
+          : undefined;
       const updated = await managementRequest<TaskRecord>(
         `/api/v1/tasks/${encodeURIComponent(task.taskId)}/actions`,
         {
           method: 'POST',
-          body: JSON.stringify({ action, messageText: actionText }),
+          body: JSON.stringify({
+            action,
+            messageText: actionText,
+            ...(inputRequestId.trim() === '' ? {} : { inputRequestId: inputRequestId.trim() }),
+            ...(inputContent === undefined ? {} : { inputContent }),
+          }),
         },
       );
       setTask(updated);
@@ -300,6 +356,34 @@ export function TaskPanel({
           )}
           <TaskRelatedNavigation task={task} onNavigate={onNavigate} />
           <TaskEvidenceNavigation task={task} evidence={evidence} onNavigate={onNavigate} />
+          <RemoteTaskLifecyclePanel
+            value={evidence.find((item) => item.key === 'remote-task-lifecycle')?.value}
+            onRefresh={() => void loadTask(task.taskId)}
+            onRefreshBinding={(bindingId, expectedVersion) => {
+              void runRemoteBindingAction(
+                bindingId,
+                'refresh',
+                { expectedVersion },
+                loadTask,
+                task.taskId,
+                setMessage,
+              );
+            }}
+            onCancelBinding={(bindingId, expectedVersion) => {
+              void runRemoteBindingAction(
+                bindingId,
+                'cancel',
+                {
+                  idempotencyKey: `management:${task.taskId}:${bindingId}:${String(expectedVersion)}`,
+                  reasonCode: 'MANAGEMENT_REQUESTED',
+                  summary: actionText,
+                },
+                loadTask,
+                task.taskId,
+                setMessage,
+              );
+            }}
+          />
           <section className="panel">
             <div className="panel-heading">
               <span className="eyebrow">PLAN ACTION BOUNDARY</span>
@@ -326,6 +410,8 @@ export function TaskPanel({
                   <option value="confirm_plan">Confirm plan</option>
                   <option value="reject_plan">Reject plan</option>
                   <option value="revise_plan">Revise plan</option>
+                  <option value="provide_input">Provide schema-validated input</option>
+                  <option value="cancel_goal">Cancel Goal (cooperative remote request)</option>
                 </select>
               </label>
               <label>
@@ -338,6 +424,29 @@ export function TaskPanel({
                   }}
                 />
               </label>
+              {action !== 'provide_input' ? null : (
+                <>
+                  <label>
+                    Input request ID
+                    <input
+                      required
+                      value={inputRequestId}
+                      onChange={(event) => {
+                        setInputRequestId(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Structured form response (JSON; empty uses displayable text)
+                    <textarea
+                      value={structuredInput}
+                      onChange={(event) => {
+                        setStructuredInput(event.target.value);
+                      }}
+                    />
+                  </label>
+                </>
+              )}
               <button type="submit">提交 Task Action</button>
             </form>
           </section>
@@ -362,6 +471,160 @@ export function TaskPanel({
         ))}
       </section>
     </div>
+  );
+}
+
+export function RemoteTaskLifecyclePanel({
+  value,
+  onRefresh,
+  onRefreshBinding,
+  onCancelBinding,
+}: {
+  readonly value: unknown;
+  readonly onRefresh?: () => void;
+  readonly onRefreshBinding?: (bindingId: string, expectedVersion: number) => void;
+  readonly onCancelBinding?: (bindingId: string, expectedVersion: number) => void;
+}) {
+  if (!isRemoteTaskLifecycleResponse(value)) return null;
+  return (
+    <section className="panel" aria-label="Remote Task lifecycle">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">POSTGRESQL REMOTE TASK AUTHORITY</span>
+          <h2>MCP Task lifecycle</h2>
+        </div>
+        {onRefresh === undefined ? null : (
+          <button type="button" onClick={onRefresh}>
+            Refresh authoritative evidence
+          </button>
+        )}
+      </div>
+      <div className="risk-banner">
+        {value.warnings.map((warning) => (
+          <p key={warning}>{warning}</p>
+        ))}
+      </div>
+      {value.items.map((item) => (
+        <article className="evidence-card" key={item.binding.bindingId}>
+          <header>
+            <span>
+              {item.binding.serverId} / {item.binding.operationName}
+            </span>
+            <code>{item.binding.remoteTaskId}</code>
+          </header>
+          <p>
+            Provider {item.binding.protocolStatus}
+            {item.binding.providerSubstate === undefined
+              ? ''
+              : ` / ${item.binding.providerSubstate}`}{' '}
+            · local {item.binding.localState}
+          </p>
+          <p>
+            Poll attempt {item.binding.pollAttempt}; Provider failures{' '}
+            {item.binding.providerFailureCount}; next {item.binding.nextPollAt ?? 'not scheduled'}
+          </p>
+          <p>
+            Observations {item.observations.length} · controls {item.controls.length} · protocol
+            attempts {item.protocolAttempts.length} · continuations {item.continuations.length}
+          </p>
+          <div className="action-row">
+            {onRefreshBinding === undefined ? null : (
+              <button
+                type="button"
+                onClick={() => {
+                  onRefreshBinding(item.binding.bindingId, item.binding.version);
+                }}
+              >
+                Observe Provider once (version-CAS)
+              </button>
+            )}
+            {onCancelBinding === undefined ? null : (
+              <button
+                type="button"
+                className="danger"
+                onClick={() => {
+                  onCancelBinding(item.binding.bindingId, item.binding.version);
+                }}
+              >
+                Request cooperative Provider cancellation
+              </button>
+            )}
+          </div>
+          <details>
+            <summary>Capability, availability, timing and correlation</summary>
+            <pre>
+              {JSON.stringify(
+                {
+                  capability: item.capability,
+                  availability: item.availability,
+                  timing: item.binding.requestedTiming ?? null,
+                  workflowInstanceId: item.binding.workflowInstanceId,
+                  workflowNodeRunId: item.binding.workflowNodeRunId,
+                  mcpInvocationId: item.binding.mcpInvocationId,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </details>
+          {item.inputRounds.map((round) => (
+            <p key={round.link.inputRequestId}>
+              Input {round.link.inputRequestId}: {round.question} · {round.requestStatus} /{' '}
+              {round.link.status} · update attempts {round.attempts.length}
+            </p>
+          ))}
+          {item.cancellations.map(({ request, attempts }) => (
+            <p key={request.requestId} className="action-message">
+              Cancellation {request.requestId}: delivery {request.deliveryStatus}; Provider terminal{' '}
+              {request.providerTerminalStatus ?? 'not observed'}; attempts {attempts.length}
+              {request.lastSafeErrorCode === undefined ? '' : `; ${request.lastSafeErrorCode}`}
+            </p>
+          ))}
+          <details>
+            <summary>Provider-authoritative final result / error</summary>
+            <pre>{JSON.stringify(item.finalOutcome, null, 2)}</pre>
+          </details>
+        </article>
+      ))}
+      {value.items.length === 0 ? (
+        <p>No remote Task binding is associated with this Task.</p>
+      ) : null}
+    </section>
+  );
+}
+
+async function runRemoteBindingAction(
+  bindingId: string,
+  action: 'refresh' | 'cancel',
+  body: unknown,
+  reload: (taskId: string, announce?: boolean) => Promise<void>,
+  taskId: string,
+  setMessage: (message: string) => void,
+) {
+  try {
+    await managementRequest(
+      `/api/v1/remote-task-bindings/${encodeURIComponent(bindingId)}/${action}`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+    await reload(taskId, false);
+    setMessage(
+      action === 'refresh'
+        ? `${bindingId}: one Provider observation completed; PostgreSQL evidence reloaded.`
+        : `${bindingId}: cooperative cancellation requested; Provider terminal status remains separate.`,
+    );
+  } catch (error: unknown) {
+    setMessage(error instanceof Error ? error.message : `Remote Task ${action} failed.`);
+  }
+}
+
+function isRemoteTaskLifecycleResponse(value: unknown): value is RemoteTaskLifecycleResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'warnings' in value &&
+    Array.isArray(value.warnings) &&
+    'items' in value &&
+    Array.isArray(value.items)
   );
 }
 
@@ -483,6 +746,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
   const id = encodeURIComponent(task.taskId);
   const links: Omit<EvidenceItem, 'value'>[] = [
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
+    {
+      key: 'remote-task-lifecycle',
+      label: 'MCP Task Lifecycle',
+      endpoint: `/api/v1/tasks/${id}/remote-task-lifecycle`,
+    },
     {
       key: 'results',
       label: 'Processed Results',

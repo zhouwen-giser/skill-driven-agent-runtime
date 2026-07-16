@@ -14,6 +14,7 @@ if (pnpmCli === undefined || pnpmCli === '') {
 }
 const steps = [
   ['static-unit-contract-build', 'verify:bootstrap', 180_000],
+  ['v1.1-mcp-tasks-acceptance-map', 'verify:v11-acceptance', 30_000],
   ['empty-and-upgrade-migrations', 'verify:migrations', 300_000],
   ['postgres-redis-integration', 'test:integration', 300_000],
   ['postgres-redis-model-mcp-e2e', 'test:e2e', 300_000],

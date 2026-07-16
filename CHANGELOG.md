@@ -12,16 +12,26 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
 - Phase 4 bounded persisted-frontier continuation, PostgreSQL control inbox claims/attempts, one-attempt BullMQ continuation scheduling, fresh LangGraph branch continuation, parallel join evidence, child Skill Workflow propagation and Goal Patch/cancellation invalidation through migration 0102.
 - Phase 5 bounded remote form elicitation, A2A structured input mapping, exact `tasks/update`, multi-round/echo-safe polling, cooperative cancellation request/ack/uncertainty/Provider-terminal separation, one-attempt BullMQ cancellation delivery and structured Provider business outcomes through migration 0103.
+- Phase 6 deterministic MCP Tasks Provider scenarios and a machine-readable 16-scenario acceptance report; real PostgreSQL/Redis vertical, restart, parallel/child and A2A continuation evidence is paired with explicitly classified Provider/model simulation.
+- Real management API and Console remote-task lifecycle projections, observations, input/cancellation state and operator poll/cancel actions with trusted-intranet and Provider-authority warnings.
+- Migration 0104 permits the durable `node_waiting_external` Workflow event required by remote continuation and includes a guarded rollback that refuses to discard existing external-wait evidence.
 
 ### Changed
 
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
 - Local Task/Goal cancellation remains immediately authoritative locally while active remote bindings enter `cancel_observing`; only later Provider snapshots can establish remote `cancelled`, `completed` or `failed`.
+- Startup recovery preserves only Tasks backed by an active, valid PostgreSQL external-wait continuation/binding; ordinary executing, paused and evaluating work still fails with `PROCESS_EXECUTION_LOST` and is never automatically retried.
+- Cross-package acceptance helpers now live under their dependency-owning `test-support` boundaries so PostgreSQL, BullMQ and A2A SDK types remain within the architecture-enforced adapters.
+
+### Verification
+
+- `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.
+- Self-managed Compose `pnpm verify` passed in 162.9 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 
 ### Known limitations
 
-- Phase 1–5 protocol, persistence/polling, availability/timing, remote continuation and lifecycle outcomes are verified against merged `v1.0.13-bug-fixed`. Phase 6 management/Console completion, composed acceptance and final publication remain incomplete.
+- Phase 1–6 functionality and local acceptance are verified against merged `v1.0.13-bug-fixed`, but current Phase 6 evidence was produced from a dirty pre-release worktree. Clean-commit verification, RC tag, final PR and publication remain pending; this entry is not a v1.1 release announcement.
 
 ## [1.0.13] - 2026-07-16
 

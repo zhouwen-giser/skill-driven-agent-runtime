@@ -201,6 +201,7 @@ export class RemoteTaskContinuationService {
         claimToken,
         status: 'processed',
         processedAt: completedAt,
+        bindingDisposition: 'reentered',
       });
       return {
         disposition: 'continued',

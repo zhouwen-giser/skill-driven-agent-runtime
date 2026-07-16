@@ -8,7 +8,7 @@
 - 有副作用工具无统一幂等/去重机制。
 - Tool Schema 变化只告警，不自动禁用 Skill。
 - 模型失败直接导致任务失败，无备用模型。
-- 执行中任务故障后不恢复、不自动重试。
+- 普通执行中任务故障后不恢复、不自动重试。V1.1 仅对持久化且可验证的 `waiting_external` remote Task wait 重建观察队列和 continuation frontier；它不恢复丢失的运行中节点。
 
 这些风险必须在 README、部署文档、控制台首页和相关配置页面显示，不得隐藏。
 
@@ -23,6 +23,8 @@
 - Workflow 节点白名单、循环预算、Tool 参数校验；
 - 禁止动态代码执行和路径穿越；
 - HTTP 超时、响应体大小限制；
+- MCP Task Headers、IDs、payload、availability、snapshot、continuation、input 和 result 的 Schema/大小/深度限制；
+- `task_required` Tool 即使 DSL 省略 `taskExecution` 也必须隐式执行 planning 与 pre-call readiness Guard；
 - Prompt 注入不能绕过 Skill 工具边界；
 - 前端安全渲染，禁止直接执行模型输出 HTML/JS；
 - 依赖扫描和许可证扫描。
@@ -43,3 +45,7 @@
 - `try_interrupt` propagates `AbortSignal`, but a remote Tool may ignore cancellation or may already have committed a side effect.
 - Cancellation never automatically compensates or retries external effects. The selected immutable Skill policy and canceled invocation evidence remain auditable.
 - Short resume requires the original in-process checkpoint. Process loss fails the execution instead of replaying it.
+- V1.1 remote waiting is not short resume: only a PostgreSQL-authoritative active continuation snapshot plus matching waiting Binding may be reconstructed after restart, and the fresh LangGraph invocation starts at the persisted frontier rather than `START`.
+- A missing, malformed, invalidated, terminal, or identity-mismatched remote-wait snapshot is not recoverable. Ordinary running/evaluating work still fails with `PROCESS_EXECUTION_LOST`.
+- Provider Task status, admission, business timer and final result remain Provider-authoritative. Refresh, cancellation ack, transport uncertainty, local timeout, Redis loss, or Console action cannot fabricate a remote terminal state.
+- The lifecycle API/Console is still unauthenticated trusted-intranet management. It redacts credentials and unclean errors, but refresh, input and cancel can cause external effects and must not be exposed publicly.

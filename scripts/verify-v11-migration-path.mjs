@@ -61,12 +61,14 @@ try {
       false,
       'upgrade-released',
     );
+    await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0104_workflow_external_wait_event.down.sql',
       '0103_remote_task_input_and_cancellation.down.sql',
       '0102_remote_task_continuation.down.sql',
       '0101_task_execution_readiness.down.sql',
@@ -82,12 +84,8 @@ try {
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'rollback');
     await assertMigration(upgrade, '0101_task_execution_readiness', false, 'rollback');
     await assertMigration(upgrade, '0102_remote_task_continuation', false, 'rollback');
-    await assertMigration(
-      upgrade,
-      '0103_remote_task_input_and_cancellation',
-      false,
-      'rollback',
-    );
+    await assertMigration(upgrade, '0103_remote_task_input_and_cancellation', false, 'rollback');
+    await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -111,6 +109,7 @@ try {
       false,
       'default-profile',
     );
+    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'default-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -126,12 +125,8 @@ try {
     await expectRejection(() => applyRuntimeMigrations(guard), 'V11_MIGRATION_PROFILE_REQUIRED');
     await assertMigration(guard, '0101_task_execution_readiness', false, 'profile-guard');
     await assertMigration(guard, '0102_remote_task_continuation', false, 'profile-guard');
-    await assertMigration(
-      guard,
-      '0103_remote_task_input_and_cancellation',
-      false,
-      'profile-guard',
-    );
+    await assertMigration(guard, '0103_remote_task_input_and_cancellation', false, 'profile-guard');
+    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'profile-guard');
   } finally {
     await guard.end();
   }
@@ -156,12 +151,8 @@ try {
     await assertMigration(gap, '0100_remote_mcp_task_tracking', false, 'ledger-gap');
     await assertMigration(gap, '0101_task_execution_readiness', true, 'ledger-gap');
     await assertMigration(gap, '0102_remote_task_continuation', false, 'ledger-gap');
-    await assertMigration(
-      gap,
-      '0103_remote_task_input_and_cancellation',
-      false,
-      'ledger-gap',
-    );
+    await assertMigration(gap, '0103_remote_task_input_and_cancellation', false, 'ledger-gap');
+    await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
@@ -211,6 +202,7 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0101_task_execution_readiness', true, label);
   await assertMigration(pool, '0102_remote_task_continuation', true, label);
   await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
+  await assertMigration(pool, '0104_workflow_external_wait_event', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -256,6 +248,12 @@ async function verifyV11Schema(pool, label) {
   );
   if (!workflowStatus.rows[0]?.definition?.includes('waiting_external')) {
     throw new Error(`V11_WAITING_EXTERNAL_STATUS_MISSING:${label}`);
+  }
+  const workflowEventType = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='workflow_node_event'::regclass AND conname='workflow_node_event_event_type_check'",
+  );
+  if (!workflowEventType.rows[0]?.definition?.includes('node_waiting_external')) {
+    throw new Error(`V11_WAITING_EXTERNAL_EVENT_TYPE_MISSING:${label}`);
   }
   const skillCallStatus = await pool.query(
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='skill_call_workflow'::regclass AND conname='skill_call_workflow_status_check'",

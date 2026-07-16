@@ -852,6 +852,48 @@ export interface RemoteTaskInputSender {
   ): Promise<RemoteTaskOperationAck>;
 }
 
+export interface RemoteTaskInputLifecycleEvidence {
+  readonly link: RemoteTaskInputLink;
+  readonly question: string;
+  readonly requestStatus: 'waiting' | 'answered' | 'expired' | 'canceled';
+  readonly responseContent?: unknown;
+  readonly answeredAt?: string;
+  readonly attempts: readonly RemoteTaskInputAttempt[];
+}
+
+export interface RemoteTaskCancellationLifecycleEvidence {
+  readonly request: RemoteTaskCancellationRequest;
+  readonly attempts: readonly RemoteTaskCancellationAttempt[];
+}
+
+export interface RemoteTaskContinuationLifecycleEvidence {
+  readonly snapshotId: string;
+  readonly continuationId: string;
+  readonly stateVersion: number;
+  readonly lifecycle: 'building' | 'active' | 'superseded' | 'invalidated' | 'terminal';
+  readonly waitId: string;
+  readonly waitState: 'waiting' | 'awaiting_input';
+  readonly nodeId: string;
+  readonly nodeRunId: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** Read-only PostgreSQL lifecycle projection for management surfaces. */
+export interface RemoteTaskLifecycleEvidence {
+  readonly binding: RemoteTaskBinding;
+  readonly observations: readonly RemoteTaskObservation[];
+  readonly controls: readonly RemoteTaskControlEvent[];
+  readonly protocolAttempts: readonly RemoteTaskProtocolAttempt[];
+  readonly continuations: readonly RemoteTaskContinuationLifecycleEvidence[];
+  readonly inputRounds: readonly RemoteTaskInputLifecycleEvidence[];
+  readonly cancellations: readonly RemoteTaskCancellationLifecycleEvidence[];
+}
+
+export interface RemoteTaskLifecycleQuery {
+  listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskLifecycleEvidence[]>;
+}
+
 export interface RemoteTaskCancellationJob {
   readonly requestId: string;
   readonly expectedVersion: number;
@@ -893,6 +935,7 @@ export interface WorkflowContinuationRepository {
       status: 'processed' | 'failed';
       processedAt: string;
       errorCode?: string;
+      bindingDisposition?: 'reentered';
     }>,
   ): Promise<void>;
   saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void>;

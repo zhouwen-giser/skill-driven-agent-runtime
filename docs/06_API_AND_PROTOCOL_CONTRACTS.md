@@ -59,6 +59,15 @@ API 必须提供 OpenAPI 文档和契约测试。
 - Tool 调用的 task execution 信息放在协议 `_meta`，不混入业务参数；`mode=require_task` 返回同步结果是稳定契约错误。
 - `GET /api/v1/workflows/plans/{planId}/task-readiness` 返回清洗后的 planning/pre-invocation 证据、窗口、预测有效期、timing 与真实 reservation 引用；不返回完整参数快照。该接口为 trusted-intranet、无认证的只读投影。
 
+### v1.1 remote Task lifecycle
+
+- `GET /api/v1/tasks/{taskId}/remote-task-lifecycle` 返回 credential-free 的 PostgreSQL 权威关联：Task/Context/Goal/plan/Skill → capability/availability → Binding → observations/controls/protocol attempts → continuation/input/cancellation → Provider final result。
+- `POST /api/v1/remote-task-bindings/{bindingId}/refresh` 必须提供 `expectedVersion`，并通过同一 `context_id` 串行、版本 CAS 的 polling service 执行一次有界 `tasks/get`；它不直接改写 Provider 状态。
+- `POST /api/v1/remote-task-bindings/{bindingId}/cancel` 创建 `source=management` 的幂等 cooperative cancellation request。ack/uncertain 与 Provider terminal `cancelled` 保持分离。
+- 远程输入继续使用 `POST /api/v1/tasks/{taskId}/actions` 的 `provide_input`，绑定当前 `TaskInputRequest` 后通过 `tasks/update` 返回原 remote Task，不触发 Goal planning。
+- Console 读取上述真实 API，显示 capability、timing、availability、状态/substate、轮询、continuation、输入轮次、取消不确定性和最终结果；只暴露受约束 refresh/cancel/provide-input，不拥有执行状态。
+- lifecycle 响应和 Console 始终显示 trusted-intranet/no-auth、Provider authority、副作用、取消不确定性和普通运行中任务不可恢复告警。
+
 ## 最终结果
 
 A2A 返回自然语言结果，并在有主 Skill 时返回符合 `output_schema` 的结构化数据。过程可观察信息不包含私有思维链。

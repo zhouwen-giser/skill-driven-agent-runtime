@@ -1,0 +1,416 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "generatedAt": "2026-07-16T17:51:00.792Z",
+  "commit": "f97637b4152ef697785167b5df5aa09f9ab7deea",
+  "dirty": true,
+  "commandRuns": [
+    {
+      "name": "production-build",
+      "command": "pnpm build",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-07-16T17:50:02.653Z",
+      "finishedAt": "2026-07-16T17:50:13.065Z",
+      "durationMs": 10412
+    },
+    {
+      "name": "mcp-tasks-sixteen-scenario-contract",
+      "command": "pnpm exec vitest run --project contract packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-07-16T17:50:13.065Z",
+      "finishedAt": "2026-07-16T17:50:14.723Z",
+      "durationMs": 1658
+    },
+    {
+      "name": "acceptance-unit-evidence",
+      "command": "pnpm test:unit",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-07-16T17:50:15.559Z",
+      "finishedAt": "2026-07-16T17:50:21.943Z",
+      "durationMs": 6384
+    },
+    {
+      "name": "postgres-redis-integration-including-restart",
+      "command": "pnpm test:integration",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-07-16T17:50:21.943Z",
+      "finishedAt": "2026-07-16T17:50:31.602Z",
+      "durationMs": 9659
+    },
+    {
+      "name": "full-e2e",
+      "command": "pnpm test:e2e",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-07-16T17:50:31.602Z",
+      "finishedAt": "2026-07-16T17:50:59.274Z",
+      "durationMs": 27672
+    }
+  ],
+  "unverified": [],
+  "scenarios": [
+    {
+      "id": "AC-MCPT-01",
+      "title": "synchronous Tool regression",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "The loopback Provider returns synchronous success with no remote Task."
+        },
+        {
+          "path": "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+          "assertion": "Immediate business errors remain synchronous and create no remote Task ID."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-02",
+      "title": "Task negotiation and creation",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "full-e2e"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+          "assertion": "Exact protocol negotiation, execution Headers, handle creation and Task methods cross a real HTTP loopback."
+        },
+        {
+          "path": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+          "assertion": "The composed Server persists a Binding after confirmed Workflow admission."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-03",
+      "title": "Provider without Tasks",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "full-e2e"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+          "assertion": "An undeclared Provider rejects Task results and require_task rejects synchronous fallback."
+        },
+        {
+          "path": "packages/application/test/mcp-task-readiness.e2e.test.ts",
+          "assertion": "Unsupported or changed readiness produces zero Tool calls."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-04",
+      "title": "working to completed continuation",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "postgres-redis-integration-including-restart",
+        "full-e2e"
+      ],
+      "evidence": [
+        {
+          "path": "apps/server/test/remote-task-runtime.integration.test.ts",
+          "assertion": "PostgreSQL observations and BullMQ continuation advance a remote Task exactly once."
+        },
+        {
+          "path": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+          "assertion": "The full Skill-to-LangGraph-to-remote-Task path returns the terminal result through A2A."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-05",
+      "title": "pause and resume observation",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "acceptance-unit-evidence"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "Paused and resuming snapshots remain working until one terminal observation."
+        },
+        {
+          "path": "packages/application/test/remote-task-polling.unit.test.ts",
+          "assertion": "Nonterminal observations do not enqueue a graph continuation."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-06",
+      "title": "input required",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "postgres-redis-integration-including-restart"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "Exact tasks/update wire behavior completes one-round and two-round form elicitation."
+        },
+        {
+          "path": "apps/server/test/remote-task-runtime.integration.test.ts",
+          "assertion": "A2A-shaped input is persisted and returned to the same remote Task without replanning."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-07",
+      "title": "cooperative cancellation acknowledged",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "postgres-redis-integration-including-restart"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "Cancellation acknowledgement is separate from the later Provider cancelled snapshot."
+        },
+        {
+          "path": "apps/server/test/remote-task-runtime.integration.test.ts",
+          "assertion": "PostgreSQL keeps request, acknowledgement and Provider terminal state separate."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-08",
+      "title": "cancellation Provider unreachable",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "acceptance-unit-evidence"
+      ],
+      "evidence": [
+        {
+          "path": "packages/application/test/remote-task-cancellation.unit.test.ts",
+          "assertion": "An unreachable Provider records uncertainty without fabricating cancelled."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-09",
+      "title": "restricted operation accepted",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "acceptance-unit-evidence",
+        "full-e2e"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "The Provider advertises restricted availability and accepts the confirmed operation."
+        },
+        {
+          "path": "packages/application/test/mcp-task-readiness.e2e.test.ts",
+          "assertion": "Restricted planning requires confirmation and exact pre-call refresh before Provider admission."
+        },
+        {
+          "path": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+          "assertion": "The composed plan stays unexecuted until explicit confirmation."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-10",
+      "title": "admission rejected",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "acceptance-unit-evidence"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "Restricted rejection returns an immediate structured admission outcome without a Task."
+        },
+        {
+          "path": "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+          "assertion": "A remote Tool business error follows the existing typed node error handler."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-11",
+      "title": "scheduled start window missed",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "acceptance-unit-evidence"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "The Provider declares start_window_missed with stable reason and retry evidence."
+        },
+        {
+          "path": "packages/domain/test/provider-business-outcome.unit.test.ts",
+          "assertion": "SDAR validates and maps only Provider-declared start-window evidence."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-12",
+      "title": "maximum elapsed deadline reached",
+      "classification": [
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "acceptance-unit-evidence"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "The Provider declares deadline_reached as completed business evidence."
+        },
+        {
+          "path": "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+          "assertion": "The typed deadline result reaches the existing LangGraph error handler."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-13",
+      "title": "Provider unreachable and recovery",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "mcp-tasks-sixteen-scenario-contract",
+        "postgres-redis-integration-including-restart"
+      ],
+      "evidence": [
+        {
+          "path": "packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
+          "assertion": "A deterministic transport outage recovers without a fabricated terminal snapshot."
+        },
+        {
+          "path": "apps/server/test/remote-task-runtime.integration.test.ts",
+          "assertion": "Real PostgreSQL/Redis polling backs off, preserves state and resumes after recovery."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-14",
+      "title": "process and Redis restart",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "postgres-redis-integration-including-restart"
+      ],
+      "evidence": [
+        {
+          "path": "apps/server/test/server-runtime-restart.integration.test.ts",
+          "assertion": "A fresh ServerRuntime reconstructs PostgreSQL waiting state after ephemeral queue loss without replaying tools/call."
+        },
+        {
+          "path": "packages/persistence-postgres/test/workflow-continuation.integration.test.ts",
+          "assertion": "PostgreSQL continuation inbox state rebuilds pending queue work idempotently."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-15",
+      "title": "parallel and child waits",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "acceptance-unit-evidence",
+        "postgres-redis-integration-including-restart"
+      ],
+      "evidence": [
+        {
+          "path": "apps/server/test/remote-task-composition.integration.test.ts",
+          "assertion": "Real PostgreSQL/Redis composition keeps parallel bindings independent, joins once and propagates a remote child result only after child persistence."
+        },
+        {
+          "path": "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+          "assertion": "A fresh LangGraph runtime continues independent waits without replaying completed nodes."
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "AC-MCPT-16",
+      "title": "Goal Patch and late remote events",
+      "classification": [
+        "real",
+        "simulated"
+      ],
+      "commands": [
+        "postgres-redis-integration-including-restart",
+        "full-e2e"
+      ],
+      "evidence": [
+        {
+          "path": "packages/persistence-postgres/test/repositories.integration.test.ts",
+          "assertion": "Goal Patch invalidates old bindings, snapshots and controls while late evidence remains audit-only."
+        },
+        {
+          "path": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+          "assertion": "Goal Patch forces a fresh plan and confirmation before any new execution."
+        }
+      ],
+      "status": "passed"
+    }
+  ]
+}

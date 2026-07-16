@@ -17,6 +17,8 @@ The Server loads `.env` when present and then validates environment variables st
 
 Model Providers, fixed stage routes, Prompts, MCP Servers, wait policy, retention values, and evolution thresholds are managed through the API/Console and persisted in PostgreSQL. Provider/MCP credentials are write-only at the management boundary and AES-256-GCM encrypted at rest.
 
+The V1.1 MCP Tasks composition is deliberately opt-in through `startServerRuntime({ v11McpTasks: { isolationAcknowledged: true } })`; it is not an environment-variable switch in the packaged `start:server` entry point. The opt-in requires a disposable database whose name begins `sdar_v11_`, applies migrations `0100`–`0104`, composes the remote Poll/continuation/input/cancel workers and lifecycle management operations, and enables only the validated `waiting_external` restart exemption.
+
 ## Local operation
 
 Use `pnpm demo:acceptance` for a self-contained, automatically cleaned acceptance deployment. For a persistent local process:
@@ -41,7 +43,11 @@ The repository Compose file publishes PostgreSQL and Redis only on `127.0.0.1`; 
 - `pnpm smoke:infra`
 - `pnpm smoke:server`
 - `pnpm verify:migrations`
+- `pnpm verify:v11-acceptance`
+- `pnpm demo:acceptance`
 - `pnpm verify`
+
+`pnpm demo:acceptance` writes `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{json,md}` and `V11-LOCAL-DEMO.{json,md}`. The Phase 6 evidence run records 493 unit+contract tests, 80 integration tests using real PostgreSQL/Redis, 49 E2E tests, 232 architecture assertions, 110 OpenAPI operations and 68 migration pairs. The Provider and model decisions are deterministic local simulations; external production Provider interoperability remains unverified.
 
 Historical data is retained indefinitely in V1. Automatic archive/delete are disabled; retention day values are advisory. Back up PostgreSQL as the system of record. Redis is ephemeral queue/runtime state and is not a recovery source for running tasks.
 
@@ -61,13 +67,17 @@ Run `docker version`, `docker compose ps`, and `pnpm smoke:infra`. Confirm ports
 
 Check Redis health, Task phase, wait policy, and Task events in Console. Confirmation and input waits are explicit states. Same-`context_id` work is serialized by design.
 
+For an MCP Task, inspect `GET /api/v1/tasks/{taskId}/remote-task-lifecycle` or the Console lifecycle panel. Compare Binding version, Provider status/substate, next poll time, accepted/rejected observations, active continuation, input round, and cancellation uncertainty. A versioned `POST /api/v1/remote-task-bindings/{bindingId}/refresh` performs one bounded observation; it must not be used as an unbounded retry loop. A cancel acknowledgement is not remote cancellation.
+
 ### Model or MCP stage fails
 
 There is no Provider fallback. Inspect credential-safe model/MCP invocation audits, fixed stage route, Prompt version, endpoint health, schema mismatch warnings, and timeout. Never paste secrets into logs or reports.
 
 ### Running work after a crash
 
-V1 does not recover or automatically retry running work. Startup marks interrupted Tasks/instances failed with `PROCESS_EXECUTION_LOST`. Re-submit only after reviewing possible external side effects.
+Ordinary running/paused/evaluating work is not recovered or automatically retried. Startup marks it failed with `PROCESS_EXECUTION_LOST`; re-submit only after reviewing possible external side effects.
+
+When and only when the V1.1 composition is enabled, a Task backed by a valid active `waiting_external` snapshot and matching remote Binding is preserved. Startup reconstructs Poll/continuation scheduling from PostgreSQL, does not replay `tools/call`, and starts a fresh LangGraph invocation only after an authoritative control event. Missing or inconsistent evidence fails closed. The real restart integration test also inserts an ordinary running Task and proves that it fails while the remote wait completes without duplicate Tool admission.
 
 ## Release operations
 

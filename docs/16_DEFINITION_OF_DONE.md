@@ -25,3 +25,16 @@
 4. 需求追踪记录实现文件、测试文件和证据；
 5. API/配置/行为变化已文档化；
 6. 没有依赖未批准的临时绕过。
+
+## v1.1 MCP Tasks 发布状态
+
+- [x] Phase 0–6 功能增量完成，AC-MCPT-01–16 有机器可读和人工可读的真实/模拟分类证据。
+- [x] `pnpm demo:acceptance` 通过 build、10 Provider contract、402 unit、80 real integration、49 real E2E 和验收报告校验。
+- [x] self-managed Compose `pnpm verify` 在 162.9 秒内通过 75 files/493 unit+contract、80 integration、49 E2E、232-source architecture、110-operation OpenAPI、68 migration pairs 和两阶段 smoke。
+- [x] 迁移 0104 与 restart integration 证明 external-wait 可由 PostgreSQL 恢复，普通 running Task 仍不恢复、不自动重试。
+- [x] 管理 API/Console 连接真实 remote Task lifecycle 查询与 operator action，并明确无认证、Provider 权威和操作副作用告警。
+- [ ] Phase 6 变更已形成干净 Conventional Commit，且 clean-commit 门禁证据已复核。
+- [ ] `v1.1.0-rc.1`（或最终决定的 RC tag）已在正确提交上创建并推送。
+- [ ] 最终 PR 已创建/更新，远程分支保护下的检查和发布审计完成。
+
+因此 v1.1 功能与本地发布前验收已完成，但在后三项完成前不得称为已发布或满足 v1.1 发布级 Definition of Done。
