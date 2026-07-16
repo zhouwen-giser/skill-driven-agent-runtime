@@ -22,6 +22,7 @@ export * from './evolution-policy.js';
 export * from './workflow.js';
 export * from './workflow-budget.js';
 export * from './workflow-control.js';
+export * from './workflow-continuation.js';
 export * from './workflow-template.js';
 export * from './mcp.js';
 export * from './mcp-task.js';

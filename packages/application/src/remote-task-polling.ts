@@ -50,15 +50,23 @@ export class RemoteTaskAdmissionService {
     Readonly<{
       binding: RemoteTaskBinding;
       created: boolean;
+      pollScheduled: boolean;
     }>
   > {
     const candidate = createRemoteTaskBinding(input);
     const admitted = await this.#repository.admit(candidate, this.#nextObservationId());
+    let pollScheduled = false;
     if (admitted.binding.localState === 'polling') {
       const job = pollJobFor(admitted.binding);
-      await this.#queue.enqueue(job, admitted.binding.nextPollAt ?? admitted.binding.updatedAt);
+      try {
+        await this.#queue.enqueue(job, admitted.binding.nextPollAt ?? admitted.binding.updatedAt);
+        pollScheduled = true;
+      } catch {
+        // PostgreSQL admission remains authoritative. The reconciler repairs this explicit gap.
+        pollScheduled = false;
+      }
     }
-    return admitted;
+    return { ...admitted, pollScheduled };
   }
 }
 

@@ -93,6 +93,12 @@ import type {
   TaskAvailabilityReadResult,
   TaskAvailabilitySnapshot,
   DslExecutionReadiness,
+  WorkflowContinuationSnapshot,
+  WorkflowContinuationAttempt,
+  WorkflowContinuationLifecycle,
+  WorkflowContinuationAttemptStatus,
+  WorkflowExternalWaitResolution,
+  WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -720,6 +726,47 @@ export interface RemoteTaskRepository {
   listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
 }
 
+export interface WorkflowContinuationRepository {
+  saveSnapshot(snapshot: WorkflowContinuationSnapshot): Promise<void>;
+  transitionLifecycle(
+    snapshotId: string,
+    expected: WorkflowContinuationLifecycle,
+    next: WorkflowContinuationLifecycle,
+    updatedAt: string,
+  ): Promise<WorkflowContinuationSnapshot>;
+  findById(snapshotId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  listInbox(
+    now: string,
+    limit: number,
+    afterEventId?: string,
+  ): Promise<readonly RemoteTaskControlEvent[]>;
+  claimControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskControlEvent | undefined>;
+  finishControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      status: 'processed' | 'failed';
+      processedAt: string;
+      errorCode?: string;
+    }>,
+  ): Promise<void>;
+  saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void>;
+  updateAttempt(
+    attempt: WorkflowContinuationAttempt,
+    expectedStatus: WorkflowContinuationAttemptStatus,
+  ): Promise<void>;
+  listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]>;
+}
+
 export type RemoteTaskPollJobState = 'missing' | 'scheduled' | 'active' | 'completed' | 'failed';
 
 export interface RemoteTaskPollJob {
@@ -740,6 +787,17 @@ export interface RemoteTaskPollQueue {
   state(bindingId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
   listDeadLetters(limit: number): Promise<readonly RemoteTaskDeadLetter[]>;
   retryDeadLetter(jobId: string): Promise<void>;
+}
+
+export interface RemoteTaskContinuationJob {
+  readonly eventId: string;
+  readonly bindingId: string;
+  readonly eventType: RemoteTaskControlEvent['type'];
+}
+
+export interface RemoteTaskContinuationQueue {
+  enqueue(input: RemoteTaskContinuationJob): Promise<void>;
+  state(eventId: string): Promise<RemoteTaskPollJobState>;
 }
 
 export interface ContextSerialGate {
@@ -841,6 +899,7 @@ export interface SkillCallWorkflowRepository {
     parentInstanceId: string,
     parentNodeId: string,
   ): Promise<SkillCallWorkflowRecord | undefined>;
+  findByChildInstanceId(childInstanceId: string): Promise<SkillCallWorkflowRecord | undefined>;
   listByParent(parentInstanceId: string): Promise<readonly SkillCallWorkflowRecord[]>;
 }
 
@@ -854,21 +913,30 @@ export interface WorkflowExecutor {
     executionContext?: RuntimeExecutionContext,
   ): Promise<
     Readonly<{
-      status: 'paused' | 'succeeded' | 'failed' | 'canceled';
+      status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
       result?: unknown;
       errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
       budgetUsage: WorkflowBudgetUsage;
       terminationReason?: WorkflowBudgetTerminationReason;
       events: readonly Readonly<{
         nodeId: string;
-        type: 'node_started' | 'node_succeeded' | 'node_failed';
+        type: 'node_started' | 'node_succeeded' | 'node_failed' | 'node_waiting_external';
         timestamp: string;
         durationMs?: number;
         summary: string;
       }>[];
       pendingConfirmation?: WorkflowInstance['pendingConfirmation'];
+      continuation?: WorkflowRuntimeContinuationState;
     }>
   >;
+  continueExternal?(
+    definition: WorkflowDefinition,
+    executionId: string,
+    continuation: WorkflowRuntimeContinuationState,
+    resolution: WorkflowExternalWaitResolution,
+    continuationAttemptId: string,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']>;
   resumeHumanConfirmation?(
     executionId: string,
     confirmed: boolean,

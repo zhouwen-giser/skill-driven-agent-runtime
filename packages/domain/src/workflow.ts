@@ -213,7 +213,8 @@ export interface WorkflowInstance {
   readonly skillVersions: readonly Readonly<{ skillId: string; version: number }>[];
   readonly budgetLimits: WorkflowBudgetLimits;
   readonly budgetUsage: WorkflowBudgetUsage;
-  readonly status: 'running' | 'paused' | 'succeeded' | 'failed' | 'canceled' | 'invalidated';
+  readonly status:
+    'running' | 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled' | 'invalidated';
   readonly input: unknown;
   readonly result?: unknown;
   readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
@@ -237,7 +238,7 @@ export interface WorkflowNodeEvent {
   readonly instanceId: string;
   readonly sequence: number;
   readonly nodeId: string;
-  readonly eventType: 'node_started' | 'node_succeeded' | 'node_failed';
+  readonly eventType: 'node_started' | 'node_succeeded' | 'node_failed' | 'node_waiting_external';
   readonly timestamp: string;
   readonly durationMs?: number;
   readonly summary: string;

@@ -69,7 +69,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE task_availability_snapshot,task_execution_readiness,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
+    'TRUNCATE task_availability_snapshot,task_execution_readiness,workflow_continuation_attempt,workflow_continuation_wait_binding,workflow_continuation_snapshot,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
   );
   await pool.query("DELETE FROM mcp_invocation WHERE invocation_id LIKE 'remote-invocation-%'");
 });

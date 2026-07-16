@@ -978,6 +978,23 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
          RETURNING instance_id`,
         [record.goalId, record.fromVersion, record.createdAt],
       );
+      if (await relationExists(client, 'remote_task_binding')) {
+        await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
+               next_poll_at=NULL,updated_at=$3,version=version+1
+           WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
+          [record.goalId, record.fromVersion, record.createdAt],
+        );
+      }
+      if (await relationExists(client, 'workflow_continuation_snapshot')) {
+        await client.query(
+          `UPDATE workflow_continuation_snapshot
+           SET lifecycle='invalidated',updated_at=$3
+           WHERE goal_id=$1 AND goal_version=$2 AND lifecycle IN ('building','active')`,
+          [record.goalId, record.fromVersion, record.createdAt],
+        );
+      }
       const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET
            phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
@@ -1173,9 +1190,26 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
            pending_confirmation_json=NULL,
            errors_json=jsonb_set(errors_json,'{goalCancellation}',
              '{"code":"GOAL_CANCELED","message":"Goal cancellation terminated this Workflow instance without automatic compensation."}'::jsonb,true)
-         WHERE goal_id=$1 AND goal_version=$2 AND status IN ('running','paused')`,
+         WHERE goal_id=$1 AND goal_version=$2 AND status IN ('running','paused','waiting_external')`,
         [input.goalId, input.goalVersion, input.createdAt],
       );
+      if (await relationExists(client, 'remote_task_binding')) {
+        await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
+               next_poll_at=NULL,updated_at=$3,version=version+1
+           WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
+          [input.goalId, input.goalVersion, input.createdAt],
+        );
+      }
+      if (await relationExists(client, 'workflow_continuation_snapshot')) {
+        await client.query(
+          `UPDATE workflow_continuation_snapshot
+           SET lifecycle='invalidated',updated_at=$3
+           WHERE goal_id=$1 AND goal_version=$2 AND lifecycle IN ('building','active')`,
+          [input.goalId, input.goalVersion, input.createdAt],
+        );
+      }
       const instances = await client.query<{ instance_id: string }>(
         `SELECT instance_id FROM workflow_instance
          WHERE goal_id=$1 AND goal_version=$2 AND status='canceled' ORDER BY instance_id`,
@@ -4528,6 +4562,16 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
   }
 
+  async findByChildInstanceId(childInstanceId: string) {
+    const result = await this.#pool.query<SkillCallWorkflowRow>(
+      `SELECT * FROM skill_call_workflow
+       WHERE child_instance_id=$1
+       ORDER BY created_at DESC,call_id DESC LIMIT 1`,
+      [childInstanceId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
+  }
+
   async listByParent(parentInstanceId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
@@ -4620,7 +4664,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   async findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE plan_id=$1 AND status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`,
+       WHERE plan_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at DESC LIMIT 1`,
       [planId],
     );
     const instanceId = result.rows[0]?.instance_id;
@@ -4640,7 +4684,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   async listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]> {
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE goal_id=$1 AND status IN ('running','paused') ORDER BY started_at,instance_id`,
+       WHERE goal_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at,instance_id`,
       [goalId],
     );
     return Promise.all(result.rows.map((row) => this.findInstance(row.instance_id))).then(
@@ -6284,4 +6328,12 @@ function toIsoString(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.valueOf())) throw new Error('POSTGRES_TIMESTAMP_INVALID');
   return date.toISOString();
+}
+
+async function relationExists(client: PoolClient, relationName: string): Promise<boolean> {
+  const result = await client.query<{ present: boolean }>(
+    'SELECT to_regclass($1) IS NOT NULL AS present',
+    [relationName],
+  );
+  return result.rows[0]?.present === true;
 }

@@ -328,6 +328,30 @@ describe('McpRegistryService', () => {
     await expect(service.listInvocationsByTask('task-1')).resolves.toEqual([
       expect.objectContaining({ invocationId: 'invocation-1', taskId: 'task-1' }),
     ]);
+    await expect(
+      service.callDetailed('mcp.devices', 'device_status', { deviceId: 'device-2' }),
+    ).resolves.toMatchObject({
+      invocationId: 'invocation-2',
+      outcome: { kind: 'immediate' },
+      credentialRevision: expect.any(String),
+      sessionRevision: expect.any(String),
+    });
+    await expect(
+      service.cancelRemoteTask({
+        serverId: 'mcp.devices',
+        remoteTaskId: 'remote-task-orphan',
+        executionContext: { mode: 'simulation', simulationId: 'simulation-cancel-1' },
+      }),
+    ).resolves.toMatchObject({ acknowledged: true });
+    expect(transport.cancelInputs).toEqual([
+      expect.objectContaining({
+        remoteTaskId: 'remote-task-orphan',
+        headers: expect.objectContaining({
+          'X-SDAR-Execution-Mode': 'simulation',
+          'X-SDAR-Simulation-Id': 'simulation-cancel-1',
+        }),
+      }),
+    ]);
   });
 
   it('writes reserved execution Headers last and audits stable simulation/replay identity', async () => {
@@ -617,6 +641,7 @@ class ChangingTransport implements McpTransportAdapter {
   };
   declaredExecutionSemantics: McpToolExecutionSemanticsValues | undefined;
   callInputs: Parameters<McpTransportAdapter['call']>[0][] = [];
+  cancelInputs: Parameters<McpTransportAdapter['cancelTask']>[0][] = [];
   discover() {
     this.discoveries += 1;
     const schema = this.invalidSchema
@@ -657,8 +682,9 @@ class ChangingTransport implements McpTransportAdapter {
   updateTask() {
     return Promise.reject(new Error('No remote Tasks in this unit transport.'));
   }
-  cancelTask() {
-    return Promise.reject(new Error('No remote Tasks in this unit transport.'));
+  cancelTask(input: Parameters<McpTransportAdapter['cancelTask']>[0]) {
+    this.cancelInputs.push(input);
+    return Promise.resolve({ acknowledged: true as const, protocolRevision: 'test-protocol' });
   }
   disconnect() {
     return Promise.resolve();

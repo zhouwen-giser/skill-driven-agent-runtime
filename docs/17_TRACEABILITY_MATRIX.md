@@ -156,8 +156,8 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | FR-MCPT-004 | 2 | 已验证 | unique durable binding and full lineage；migration 0100；real PostgreSQL integration |
 | FR-MCPT-005 | 2 | 已验证 | versioned one-attempt BullMQ polling, dead letter and reconciliation；real Redis/PG integration |
 | FR-MCPT-006 | 2 | 已验证 | provider-unreachable backoff/recovery, state unchanged and invalid-contract quarantine |
-| FR-MCPT-007 | 4 | 未实现 | LangGraph external wait and continuation snapshot pending |
-| FR-MCPT-008 | 2,4 | 部分验证（Phase 2 observation/control） | ordered observation and idempotent control production verified；continuation consumer pending |
+| FR-MCPT-007 | 4 | 已验证 | bounded Domain snapshot；PostgreSQL authority；fresh LangGraph `Command.goto` without START replay；parallel/child tests；real PG/Redis integration；Phase 4 report |
+| FR-MCPT-008 | 2,4 | 部分验证（Phase 2–4 terminal controls） | observation-only events never resume Graph；completed/failed/cancelled controls use idempotent claims and fresh continuation；`input_required` remains Phase 5 |
 | FR-MCPT-009 | 3 | 已验证 | `mcp-task-readiness.ts`、Planner、Validator、Compiler、0101 append-only evidence、pre-call exact-argument refresh；unit/contract/real PG integration/vertical E2E；`pnpm verify`；Phase 3 report |
 | FR-MCPT-010 | 3,5 | 部分验证（Phase 3 timing contract） | strict immediate/scheduled/start tolerance/max-elapsed DSL and immutable resolver verified；Provider business outcomes remain Phase 5 |
 | FR-MCPT-011 | 3,5 | 部分验证（Phase 3 readiness/risk guard） | schema-constrained risk decision, transitive confirmation conjunction, stale/risk-increase rejection and zero-Tool-call guards verified；Provider admission outcome remains Phase 5 |
@@ -165,26 +165,28 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | FR-MCPT-013 | 5 | 未实现 | cancel request/ack/Provider terminal separation pending |
 | FR-MCPT-014 | 5–6 | 未实现 | management/Console complete lifecycle projection/actions pending |
 | NFR-MCPT-001 | 1–6 | 部分验证（Phase 1–3） | bounded adapter/readiness/timing Schema, strict unknown-field rejection, hashes and sanitized read-only projection verified；remaining lifecycle boundaries pending |
-| NFR-MCPT-002 | 2–6 | 部分验证（Phase 2 polling） | shared context serializer, CAS and attempts=1 verified；continuation concurrency pending |
-| NFR-MCPT-003 | 2,4,6 | 部分验证（Phase 2 authority） | queue restart/reconcile verified；external continuation/process restart pending |
-| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1–3 trace） | invocation/binding/observation/control/protocol plus append-only planning/pre-call readiness evidence and Console/API projection verified；continuation/final-result trace pending |
+| NFR-MCPT-002 | 2–6 | 部分验证（Phase 2–4） | shared context serializer, control CAS, one-attempt polling/continuation Workers and no automatic retry verified；final lifecycle concurrency remains Phase 5–6 |
+| NFR-MCPT-003 | 2,4,6 | 部分验证（Phase 2–4 authority/reconciliation） | PostgreSQL snapshots/inbox rebuild queued work after Redis loss；fresh-process LangGraph no-replay simulated；final process-restart acceptance remains Phase 6 |
+| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1–4 trace） | invocation/binding/observation/control/readiness plus snapshot/attempt/node-run/parent-child continuation trace verified；final lifecycle result/API/Console trace pending |
 
 | Acceptance | Phase | Status | Evidence |
 | --- | --- | --- | --- |
 | AC-MCPT-01 | 1 | 已验证 | real legacy/modern sync success/business error, no binding |
 | AC-MCPT-02 | 1–4 | 部分验证 | negotiation/handle/Headers/durable binding verified；Workflow admission pending |
 | AC-MCPT-03 | 1,3 | 已验证 | real ordinary fallback/undeclared Task rejection plus DSL `require_task` mismatch fail-closed with zero remote wait/Tool call |
-| AC-MCPT-04 | 2,4 | 部分验证 | polling/terminal control verified；continuation output pending |
-| AC-MCPT-05 | 2,4 | 部分验证 | pause/resume/progress observation-only verified；Graph non-resume E2E pending |
+| AC-MCPT-04 | 2,4 | 部分验证（Phase 4 continuation） | working→completed polling/control plus node output continuation verified across real PG/Redis and fresh LangGraph tests；final loopback acceptance remains Phase 6 |
+| AC-MCPT-05 | 2,4 | 部分验证（Phase 4 continuation） | pause/resume/progress remain observation-only and do not enqueue continuation；final loopback Graph-run count remains Phase 6 |
 | AC-MCPT-06–08 | 5 | 未实现 | input and cancellation lifecycle pending Phase 5 |
 | AC-MCPT-09 | 3–4 | 部分验证（Phase 3 readiness/confirmation） | restricted risk, explicit confirmation, exact pre-call refresh and risk-increase rejection verified；Provider remote admission/binding pending Phase 4 |
 | AC-MCPT-10–12 | 5 | 未实现/部分 Phase 1 rejection | admission rejection and Provider business-time outcomes pending Phase 5 |
 | AC-MCPT-13 | 2 | 已验证 | deterministic failure + real PG/Redis unreachable/backoff/recovery evidence |
-| AC-MCPT-14 | 2,4 | 部分验证 | queue restart/reconcile verified；continuation no-replay pending |
-| AC-MCPT-15 | 4 | 未实现 | parallel/child continuation pending |
-| AC-MCPT-16 | 4–5 | 未实现 | Goal Patch invalidation/late remote event pending |
+| AC-MCPT-14 | 2,4 | 部分验证（Phase 4 reconstruction） | PostgreSQL inbox/snapshot and Redis reconciler rebuild queued continuation；completed side effects are not replayed in fresh LangGraph tests；full process restart remains Phase 6 |
+| AC-MCPT-15 | 4 | 部分验证（Phase 4 runtime） | independent waits, persisted join arrivals and child-first parent propagation verified by runtime/application/PG tests；final vertical acceptance remains Phase 6 |
+| AC-MCPT-16 | 4–5 | 部分验证（Phase 4 invalidation） | Goal Patch/cancel closes mapped and not-yet-mapped old-version bindings and invalidates active snapshots；Phase 5 late lifecycle projection remains pending |
 
 Phase 3 可复现证据：实现位于 `packages/domain/src/mcp-task-availability.ts`、`packages/application/src/mcp-task-readiness.ts`、`packages/application/src/workflow-planner.ts`、`packages/application/src/skill-call-workflow.ts`、`packages/langgraph-runtime/src/mcp-task-execution-resolver.ts`、`packages/mcp-adapter/src/mcp-task-availability-contract.ts`、`packages/persistence-postgres/src/task-availability-repository.ts`、`apps/server/src/runtime.ts`、`packages/management-api/src/http-endpoint.ts`、`apps/console/src/WorkflowPanel.tsx` 和迁移 0101。测试位于对应 `mcp-task-readiness` unit/E2E、Workflow Planner/Validator/Compiler/child confirmation unit、MCP availability/HTTP/JSON Schema/management contract、Console unit 及 `apps/server/test/remote-task-runtime.integration.test.ts`。`pnpm verify` 在 2026-07-16 post-hardening 工作树上通过 328 unit、79 contract、68 real integration、48 real E2E、迁移和双 smoke；详见 `reports/v1.1-mcp-tasks/03-availability-timing.{md,json}` 与 `reports/verification/summary.{md,json}`。
+
+Phase 4 可复现证据：实现位于 `packages/domain/src/workflow-continuation.ts`、`packages/langgraph-runtime/src/workflow-compiler.ts`、`packages/application/src/workflow-execution.ts`、`packages/application/src/remote-task-continuation.ts`、`packages/application/src/skill-call-workflow.ts`、`packages/persistence-postgres/src/workflow-continuation-repository.ts`、`packages/runtime-redis/src/bullmq-remote-task-continuation-queue.ts`、`apps/server/src/runtime.ts` 与迁移 0102。测试位于对应 Domain/Compiler/Execution/Controller/continuation/child Skill unit，真实 PostgreSQL continuation/repository integration、真实 Redis/BullMQ continuation integration、Server remote-task integration 和 A2A E2E regression。`pnpm verify` 于 2026-07-16 通过 362 unit、79 contract、72 real integration、48 real E2E、212-source architecture、107-operation OpenAPI、66 migration pairs、production build 与双 smoke；命令、分类和限制详见 `reports/v1.1-mcp-tasks/04-remote-continuation.{md,json}` 与 `reports/verification/summary.{md,json}`。
 
 ## Runtime Hardening Addendum
 

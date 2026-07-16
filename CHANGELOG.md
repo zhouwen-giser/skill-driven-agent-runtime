@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
 - Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
 - Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
+- Phase 4 bounded persisted-frontier continuation, PostgreSQL control inbox claims/attempts, one-attempt BullMQ continuation scheduling, fresh LangGraph branch continuation, parallel join evidence, child Skill Workflow propagation and Goal Patch/cancellation invalidation through migration 0102.
 
 ### Changed
 
@@ -18,7 +19,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Known limitations
 
-- Phase 1 protocol, Phase 2 persistence/polling and the Phase 3 availability/timing increment are verified against merged `v1.0.13-bug-fixed`. Phase 4–6 continuation, lifecycle and final acceptance remain incomplete.
+- Phase 1–4 protocol, persistence/polling, availability/timing and remote continuation increments are verified against merged `v1.0.13-bug-fixed`. Phase 5 lifecycle and Phase 6 final acceptance remain incomplete.
 
 ## [1.0.13] - 2026-07-16
 

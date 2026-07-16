@@ -111,6 +111,40 @@ describe('Workflow outer controller', () => {
     });
   });
 
+  it('does not evaluate the Goal while externally waiting and resumes the same control round', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    const terminal = instance('instance-0', 'plan-initial', 0, 1);
+    const { completedAt: _completedAt, result: _result, ...active } = terminal;
+    void _completedAt;
+    void _result;
+    const waiting: WorkflowInstance = { ...active, status: 'waiting_external' };
+    fixture.execution.execute.mockResolvedValueOnce(waiting);
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      controlId: 'control-1',
+      status: 'running',
+      roundCount: 0,
+    });
+    expect(fixture.evaluator.inputs).toHaveLength(0);
+    expect(fixture.execution.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        continuationAuthority: {
+          agentTaskId: 'task-control',
+          contextId: 'context-control',
+          workflowControlId: 'control-1',
+        },
+      }),
+    );
+
+    fixture.execution.get.mockResolvedValueOnce(terminal);
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Remote work completed.' });
+    await expect(
+      fixture.controller.continueAfterExternal('control-1', terminal.instanceId),
+    ).resolves.toMatchObject({ status: 'achieved', roundCount: 1 });
+    expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+    expect(fixture.evaluator.inputs).toHaveLength(1);
+  });
+
   it('projects every fresh child checkpoint after a stale confirmation is invalidated', async () => {
     const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
     fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Goal satisfied.' });

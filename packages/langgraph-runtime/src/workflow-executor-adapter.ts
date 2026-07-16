@@ -1,8 +1,10 @@
 import type { WorkflowExecutor } from '../../application/src/ports.js';
 import type {
   RuntimeExecutionContext,
+  WorkflowExternalWaitResolution,
   WorkflowBudgetLimits,
   WorkflowDefinition,
+  WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
 import {
   compileWorkflow,
@@ -56,6 +58,26 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     return mapResult(result);
   }
 
+  async continueExternal(
+    definition: WorkflowDefinition,
+    executionId: string,
+    continuation: WorkflowRuntimeContinuationState,
+    resolution: WorkflowExternalWaitResolution,
+    continuationAttemptId: string,
+    signal?: AbortSignal,
+  ) {
+    const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
+    const result = await compiled.continueExternal(
+      executionId,
+      continuation,
+      resolution,
+      this.#callCosts,
+      signal,
+      continuationAttemptId,
+    );
+    return mapResult(result);
+  }
+
   requestPause(executionId: string): boolean {
     return this.#executions.get(executionId)?.requestPause(executionId) ?? false;
   }
@@ -78,5 +100,6 @@ function mapResult(result: Awaited<ReturnType<CompiledWorkflow['invoke']>>) {
     ...(result.pendingConfirmation === undefined
       ? {}
       : { pendingConfirmation: result.pendingConfirmation }),
+    ...(result.continuation === undefined ? {} : { continuation: result.continuation }),
   };
 }

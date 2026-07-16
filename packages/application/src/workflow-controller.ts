@@ -213,6 +213,29 @@ export class WorkflowControllerService {
     return this.#advanceOrFail(running);
   }
 
+  async continueAfterExternal(
+    controlId: string,
+    instanceId: string,
+  ): Promise<WorkflowControlRecord> {
+    const control = await this.#requireControl(controlId);
+    if (control.status !== 'running')
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_NOT_WAITING_EXTERNAL',
+        'Only a running control with a completed external continuation may advance.',
+      );
+    const instance = await this.#execution.get(instanceId);
+    if (
+      instance === undefined ||
+      instance.status === 'running' ||
+      instance.status === 'waiting_external'
+    )
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_INCOMPLETE',
+        'External continuation has not produced an evaluable Workflow instance.',
+      );
+    return this.#advanceOrFail(control, instance);
+  }
+
   async continueAfterInput(
     input: Readonly<{
       controlId: string;
@@ -325,9 +348,12 @@ export class WorkflowControllerService {
     return this.#controls.listRounds(controlId);
   }
 
-  async #advanceOrFail(control: WorkflowControlRecord): Promise<WorkflowControlRecord> {
+  async #advanceOrFail(
+    control: WorkflowControlRecord,
+    resumedInstance?: WorkflowInstance,
+  ): Promise<WorkflowControlRecord> {
     try {
-      return await this.#advance(control);
+      return await this.#advance(control, resumedInstance);
     } catch (error: unknown) {
       const latest = (await this.#controls.find(control.controlId)) ?? control;
       if (isTerminalWorkflowControlStatus(latest.status)) throw error;
@@ -337,8 +363,12 @@ export class WorkflowControllerService {
     }
   }
 
-  async #advance(initial: WorkflowControlRecord): Promise<WorkflowControlRecord> {
+  async #advance(
+    initial: WorkflowControlRecord,
+    resumedInstance?: WorkflowInstance,
+  ): Promise<WorkflowControlRecord> {
     let control = initial;
+    let continuationResult = resumedInstance;
     while (control.status === 'running') {
       const plan = await this.#plans.findPlan(control.currentPlanId);
       if (plan?.definition === undefined || plan.confirmationStatus !== 'confirmed')
@@ -356,21 +386,46 @@ export class WorkflowControllerService {
           'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH',
           'Current plan does not contain the active Goal execution contract.',
         );
-      const instanceId = this.#ids.nextInstanceId(control.controlId, control.roundCount);
+      const instanceId =
+        continuationResult?.instanceId ??
+        this.#ids.nextInstanceId(control.controlId, control.roundCount);
       let instance: WorkflowInstance;
-      try {
-        instance = await this.#execution.execute({
-          instanceId,
-          planId: plan.planId,
-          input: control.input,
-          skillIds: control.skillIds,
-          replanCount: control.replanCount,
-        });
-      } catch (error: unknown) {
-        const failed = await this.#execution.get(instanceId);
-        if (failed?.status !== 'failed') throw error;
-        instance = failed;
-      }
+      if (continuationResult !== undefined) {
+        if (
+          continuationResult.instanceId !== instanceId ||
+          continuationResult.planId !== plan.planId ||
+          continuationResult.goalId !== goal.goalId ||
+          continuationResult.goalVersion !== goal.version
+        )
+          throw new WorkflowControllerError(
+            'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_STALE',
+            'External continuation result does not match the current immutable control round.',
+          );
+        instance = continuationResult;
+        continuationResult = undefined;
+      } else
+        try {
+          instance = await this.#execution.execute({
+            instanceId,
+            planId: plan.planId,
+            input: control.input,
+            skillIds: control.skillIds,
+            replanCount: control.replanCount,
+            ...(control.taskId === undefined
+              ? {}
+              : {
+                  continuationAuthority: {
+                    agentTaskId: control.taskId,
+                    contextId: control.contextId,
+                    workflowControlId: control.controlId,
+                  },
+                }),
+          });
+        } catch (error: unknown) {
+          const failed = await this.#execution.get(instanceId);
+          if (failed?.status !== 'failed') throw error;
+          instance = failed;
+        }
       while (instance.status === 'paused') {
         const pending = instance.pendingConfirmation;
         if (pending?.kind === 'skill_confirmation' && control.taskId !== undefined) {
@@ -392,6 +447,7 @@ export class WorkflowControllerService {
         }
         instance = await this.#execution.waitForPauseResolution(instance.instanceId, pending);
       }
+      if (instance.status === 'waiting_external') return control;
       const evaluation = await this.#evaluator.evaluate({ goal, instance });
       const round = {
         controlId: control.controlId,
@@ -793,6 +849,9 @@ export type WorkflowControllerErrorCode =
   | 'WORKFLOW_CONTROL_INPUT_PLAN_INVALID'
   | 'WORKFLOW_CONTROL_NOT_FOUND'
   | 'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE'
+  | 'WORKFLOW_CONTROL_NOT_WAITING_EXTERNAL'
+  | 'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_INCOMPLETE'
+  | 'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_STALE'
   | 'WORKFLOW_CONTROL_TERMINAL_COMMIT_INCOMPLETE'
   | 'WORKFLOW_CONTROL_PLAN_NOT_CONFIRMED';
 export class WorkflowControllerError extends Error {

@@ -40,16 +40,52 @@ describe('RemoteTaskAdmissionService', () => {
     const duplicate = await service.admit(admission({ bindingId: 'ignored-duplicate-id' }));
 
     expect(first.created).toBe(true);
-    expect(duplicate).toEqual({ binding: first.binding, created: false });
+    expect(first.pollScheduled).toBe(true);
+    expect(duplicate).toEqual({ binding: first.binding, created: false, pollScheduled: true });
     expect(repository.observations).toHaveLength(1);
     expect(queue.enqueued).toEqual([
       { job: { bindingId: 'binding-1', expectedVersion: 1 }, runAt: timestamp },
       { job: { bindingId: 'binding-1', expectedVersion: 1 }, runAt: timestamp },
     ]);
   });
+
+  it('keeps an admitted binding authoritative when initial Redis scheduling fails', async () => {
+    const repository = new InMemoryRemoteTaskRepository();
+    const queue = new RecordingPollQueue();
+    queue.enqueueFailure = new Error('queue backend unavailable');
+    const service = new RemoteTaskAdmissionService({
+      repository,
+      queue,
+      nextObservationId: () => 'observation-1',
+    });
+
+    await expect(service.admit(admission())).resolves.toMatchObject({
+      created: true,
+      pollScheduled: false,
+      binding: { bindingId: 'binding-1', localState: 'polling' },
+    });
+    expect(repository.binding.bindingId).toBe('binding-1');
+  });
 });
 
 describe('RemoteTaskPollingService', () => {
+  it.each([
+    ['working', 'polling'],
+    ['input_required', 'polling'],
+    ['completed', 'polling'],
+    ['failed', 'polling'],
+    ['cancelled', 'polling'],
+  ] as const)(
+    'requires an authoritative initial poll for Provider status %s',
+    (protocolStatus, localState) => {
+      expect(createRemoteTaskBinding(admission({ protocolStatus }))).toMatchObject({
+        protocolStatus,
+        localState,
+        nextPollAt: timestamp,
+      });
+    },
+  );
+
   it('rejects a stale job before any Provider request', async () => {
     const harness = pollingHarness();
     harness.repository.binding = { ...harness.repository.binding, version: 2 };
@@ -225,8 +261,10 @@ function pollingHarness(overrides: Partial<RemoteTaskBinding> = {}) {
 class RecordingPollQueue implements RemoteTaskPollQueue {
   readonly enqueued: { job: RemoteTaskPollJob; runAt: string }[] = [];
   readonly states = new Map<string, RemoteTaskPollJobState>();
+  enqueueFailure: Error | undefined;
 
   enqueue(job: RemoteTaskPollJob, runAt: string): Promise<void> {
+    if (this.enqueueFailure !== undefined) return Promise.reject(this.enqueueFailure);
     this.enqueued.push({ job, runAt });
     return Promise.resolve();
   }

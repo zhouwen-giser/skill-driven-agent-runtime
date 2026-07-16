@@ -207,10 +207,14 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
       'Remote Task polling interval must be an integer of at least 100 milliseconds.',
     );
   }
+  // tools/call is admission evidence, not an authoritative tasks/get snapshot.
+  // Every accepted remote Task therefore enters one initial poll before its
+  // observed Provider status is projected into awaiting/terminal local state.
+  const localState = 'polling' as const;
   return Object.freeze({
     ...input,
     executionContext: createRuntimeExecutionContext(input.executionContext),
-    localState: 'polling',
+    localState,
     nextPollAt: input.nextPollAt ?? input.createdAt,
     pollAttempt: 0,
     providerFailureCount: 0,
