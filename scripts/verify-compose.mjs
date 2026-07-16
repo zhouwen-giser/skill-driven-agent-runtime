@@ -10,7 +10,7 @@ const requiredFragments = [
   'healthcheck:',
   './infra/postgres/init:/docker-entrypoint-initdb.d:ro',
   "restart: 'no'",
-  "'127.0.0.1:${SDAR_POSTGRES_PORT:-54329}:5432'",
+  "'127.0.0.1:${SDAR_POSTGRES_PORT:-55432}:5432'",
   "'127.0.0.1:${SDAR_REDIS_PORT:-56379}:6379'",
 ];
 

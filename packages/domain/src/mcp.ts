@@ -1,6 +1,7 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { RuntimeExecutionMode } from './runtime-execution.js';
+import type { McpTaskOperationSemantics } from './mcp-task-availability.js';
 
 export type McpTransportKind = 'streamable_http';
 export type McpServerStatus = 'enabled' | 'disabled' | 'unreachable';
@@ -62,6 +63,8 @@ export interface McpTool {
   readonly executionSemantics: McpToolExecutionSemantics;
   readonly declaredExecutionSemantics?: McpToolExecutionSemantics;
   readonly adminExecutionSemanticsOverride?: McpToolExecutionSemantics;
+  /** Narrow V1.1 Tasks extension projection, not generic Tool semantics. */
+  readonly taskExecution?: McpTaskOperationSemantics;
   readonly discoveredAt: string;
 }
 
@@ -232,6 +235,7 @@ export function withMcpToolAdminExecutionSemanticsOverride(
     ...(tool.declaredExecutionSemantics === undefined
       ? {}
       : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
+    ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
     adminExecutionSemanticsOverride: adminOverride,
     discoveredAt: tool.discoveredAt,
   });

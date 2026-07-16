@@ -271,6 +271,9 @@ export class WorkflowControllerService {
       ...(sourcePlan.capabilityGapSkillIds === undefined
         ? {}
         : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
+      ...(sourcePlan.toolExecutionSemantics === undefined
+        ? {}
+        : { toolExecutionSemantics: sourcePlan.toolExecutionSemantics }),
       planningInstruction: JSON.stringify({
         operation: 'workflow_control_continue_after_input',
         workflowIdentity: {
@@ -561,6 +564,9 @@ export class WorkflowControllerService {
               ...(plan.capabilityGapSkillIds === undefined
                 ? {}
                 : { capabilityGapSkillIds: plan.capabilityGapSkillIds }),
+              ...(plan.toolExecutionSemantics === undefined
+                ? {}
+                : { toolExecutionSemantics: plan.toolExecutionSemantics }),
             }
           : {
               compositionRoot: {
@@ -587,6 +593,9 @@ export class WorkflowControllerService {
       const nextSkillIds = replacement === undefined ? control.skillIds : [replacement.skillId];
       const autoConfirm =
         replacement === undefined &&
+        (nextPlan.executionReadiness === undefined ||
+          (nextPlan.executionReadiness.disposition === 'ready' &&
+            !nextPlan.executionReadiness.confirmationRequired)) &&
         (await this.#confirmation.evaluate(nextSkillIds, nextPlan.definition)).autoConfirm;
       if (autoConfirm) await this.#execution.confirm(nextPlan.planId, control.taskId);
       if (replacement !== undefined && control.taskId !== undefined)

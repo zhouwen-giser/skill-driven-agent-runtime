@@ -16,6 +16,7 @@ const forbiddenRuntimeDependencies = [
 const forbiddenDomainImports = [
   '@a2a-js/sdk',
   '@modelcontextprotocol/sdk',
+  '@modelcontextprotocol/client',
   '@langchain/langgraph',
   'express',
   'bullmq',
@@ -28,6 +29,7 @@ const forbiddenDomainImports = [
 const forbiddenApplicationImports = [
   '@a2a-js/sdk',
   '@modelcontextprotocol/sdk',
+  '@modelcontextprotocol/client',
   '@langchain/langgraph',
   'express',
   'bullmq',
@@ -60,7 +62,8 @@ for (const file of sourceFiles) {
     throw new Error(`ARCH_A2A_BOUNDARY_VIOLATION: ${file}`);
   }
   if (
-    source.includes('@modelcontextprotocol/sdk') &&
+    (source.includes('@modelcontextprotocol/sdk') ||
+      source.includes('@modelcontextprotocol/client')) &&
     !normalize(file).startsWith('packages/mcp-adapter/')
   ) {
     throw new Error(`ARCH_MCP_BOUNDARY_VIOLATION: ${file}`);

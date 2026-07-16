@@ -329,7 +329,13 @@ export class SkillCallWorkflowService {
       createdAt,
     };
     await this.#records.save(record);
-    if (!evaluation.autoConfirm) return confirmationRequest(record);
+    if (
+      !evaluation.autoConfirm ||
+      (plan.executionReadiness !== undefined &&
+        (plan.executionReadiness.disposition !== 'ready' ||
+          plan.executionReadiness.confirmationRequired))
+    )
+      return confirmationRequest(record);
     await this.#execution.confirm(childPlanId);
     record = {
       ...record,

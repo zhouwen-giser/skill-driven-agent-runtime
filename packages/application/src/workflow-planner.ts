@@ -9,12 +9,14 @@ import {
   type WorkflowPlanAttempt,
   type WorkflowPlanRecord,
   type WorkflowToolExecutionSemanticsSnapshot,
+  type RuntimeExecutionContext,
 } from '../../domain/src/index.js';
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
 import type { WorkflowTemplateService } from './workflow-template.js';
 import type { MemoryService } from './memory-service.js';
 import type { SkillCompositionPlanner, SkillCompositionRoot } from './skill-composition.js';
+import type { WorkflowCandidateReadinessPolicy } from './mcp-task-readiness.js';
 
 export interface PlanWorkflowInput {
   readonly planId: string;
@@ -33,6 +35,8 @@ export interface PlanWorkflowInput {
   readonly revisionKind?: NonNullable<WorkflowPlanRecord['revisionKind']>;
   readonly supersedeSourcePlan?: boolean;
   readonly templateQuery?: string;
+  readonly taskId?: string;
+  readonly executionContext?: RuntimeExecutionContext;
 }
 
 export class WorkflowPlannerService {
@@ -45,6 +49,7 @@ export class WorkflowPlannerService {
   readonly #templates: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'> | undefined;
   readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
   readonly #composition: Pick<SkillCompositionPlanner, 'compose'> | undefined;
+  readonly #readiness: WorkflowCandidateReadinessPolicy | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -57,6 +62,7 @@ export class WorkflowPlannerService {
       templates?: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'>;
       memories?: Pick<MemoryService, 'searchForStage'>;
       composition?: Pick<SkillCompositionPlanner, 'compose'>;
+      readiness?: WorkflowCandidateReadinessPolicy;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -73,6 +79,7 @@ export class WorkflowPlannerService {
     this.#templates = dependencies.templates;
     this.#memories = dependencies.memories;
     this.#composition = dependencies.composition;
+    this.#readiness = dependencies.readiness;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
@@ -191,6 +198,20 @@ export class WorkflowPlannerService {
         ),
       );
       if (validation.valid && validation.definition !== undefined) {
+        const readiness = await this.#readiness?.assess({
+          planId: input.planId,
+          attempt,
+          definition: validation.definition,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+          ...(input.executionContext === undefined
+            ? {}
+            : { executionContext: input.executionContext }),
+        });
+        if (readiness?.accepted === false) {
+          correctionErrors = readiness.correctionErrors;
+          if (readiness.terminal) break;
+          continue;
+        }
         const plan: WorkflowPlanRecord = {
           planId: input.planId,
           goalId: input.goalId,
@@ -206,9 +227,15 @@ export class WorkflowPlannerService {
           ...(input.sourcePlanId === undefined ? {} : { sourcePlanId: input.sourcePlanId }),
           ...(input.revisionKind === undefined ? {} : { revisionKind: input.revisionKind }),
           confirmationStatus:
-            source?.confirmationStatus === 'confirmed' ? 'confirmed' : 'awaiting_confirmation',
+            source?.confirmationStatus === 'confirmed' &&
+            (readiness === undefined ||
+              (readiness.readiness.disposition === 'ready' &&
+                !readiness.readiness.confirmationRequired))
+              ? 'confirmed'
+              : 'awaiting_confirmation',
           attemptCount: attempt,
           createdAt: this.#clock.now(),
+          ...(readiness === undefined ? {} : { executionReadiness: readiness.readiness }),
         };
         if (input.supersedeSourcePlan === true) {
           if (input.sourcePlanId === undefined)

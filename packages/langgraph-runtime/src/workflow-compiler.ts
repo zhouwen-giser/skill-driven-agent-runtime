@@ -19,9 +19,11 @@ import type {
   WorkflowEdge,
   WorkflowNode,
   WorkflowRecoveryOption,
+  ResolvedMcpTaskExecution,
 } from '../../domain/src/index.js';
 import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
+import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
 
 export interface WorkflowExecutionEvent {
@@ -46,8 +48,11 @@ export interface WorkflowRuntimePorts {
   readonly callMcpTool: (
     input: Readonly<{
       executionId: string;
+      workflowNodeRunId: string;
+      workflowNodeId: string;
       tool: ToolReference;
       arguments: unknown;
+      taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -601,7 +606,14 @@ function createNodeAction(
       summary: `${node.type} node started.`,
     };
     try {
-      const update = await executeNode(node, state, definition, ports, context);
+      const update = await executeNode(
+        node,
+        state,
+        definition,
+        ports,
+        context,
+        workflowNodeRunId(state, node.nodeId),
+      );
       const handler = handlers.get(node.nodeId);
       const successRoute =
         handler === undefined || update.routes?.[node.nodeId] !== undefined
@@ -654,6 +666,7 @@ async function executeNode(
     signal?: AbortSignal;
     executionContext: RuntimeExecutionContext;
   }>,
+  workflowNodeRunId: string,
 ): Promise<StateUpdate> {
   const signal =
     runtimeContext.signal === undefined
@@ -681,10 +694,17 @@ async function executeNode(
       budgetMeter.reserve('mcp');
       const callSignal = budgetMeter.signal(signal);
       const argumentsSnapshot = resolveWorkflowBoundValue(node.arguments, state);
+      const taskExecution =
+        node.taskExecution === undefined
+          ? undefined
+          : resolveMcpTaskExecution(node.taskExecution, state);
       const value = await ports.callMcpTool({
         executionId: state.executionId,
+        workflowNodeRunId,
+        workflowNodeId: node.nodeId,
         tool: node.tool,
         arguments: argumentsSnapshot,
+        ...(taskExecution === undefined ? {} : { taskExecution }),
         signal: callSignal,
         executionContext: runtimeContext.executionContext,
       });
@@ -903,6 +923,13 @@ async function executeNode(
       return { outputs: { [node.nodeId]: decision }, routes: { [node.nodeId]: next ?? END } };
     }
   }
+}
+
+function workflowNodeRunId(state: WorkflowExecutionState, nodeId: string): string {
+  const priorRuns = state.events.filter(
+    (event) => event.nodeId === nodeId && event.type === 'node_started',
+  ).length;
+  return `${state.executionId}~${encodeURIComponent(nodeId)}~${String(priorRuns + 1)}`;
 }
 
 function output(nodeId: string, value: unknown): StateUpdate {

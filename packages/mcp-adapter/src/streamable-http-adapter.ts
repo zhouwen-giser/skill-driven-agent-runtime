@@ -1,64 +1,231 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { randomBytes } from 'node:crypto';
+
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 
 import type { McpTransportAdapter } from '../../application/src/index.js';
-import { DomainError, type RuntimeExecutionContext } from '../../domain/src/index.js';
-import type { McpToolExecutionSemanticsValues } from '../../domain/src/index.js';
+import type {
+  McpInvocationOutcome,
+  McpProtocolCapabilities,
+  McpToolExecutionSemanticsValues,
+  RemoteTaskOperationAck,
+  RemoteTaskSnapshot,
+  TaskAvailabilityCheckResult,
+} from '../../domain/src/index.js';
+import { DomainError } from '../../domain/src/index.js';
+import {
+  MCP_TASKS_EXTENSION_ID,
+  MCP_TASKS_METHOD_ALIASES,
+  MCP_TASKS_SCHEMA_REVISION,
+  MCP_TASKS_TESTED_PROTOCOL_REVISION,
+  McpTasksAdapterError,
+  assertValidInputResponses,
+  assertValidRemoteTaskId,
+  createMcpToolCallResultSchema,
+  mcpTaskAckResultSchema,
+  mcpTaskSnapshotResultSchema,
+  toMcpInvocationOutcome,
+  toRemoteTaskSnapshot,
+} from './mcp-tasks-contract.js';
+import {
+  MCP_TASK_AVAILABILITY_SCHEMA_REVISION,
+  parseTaskOperationSemantics,
+  taskAvailabilityResponseSchema,
+  taskExecutionCallMetadata,
+  toTaskAvailabilityResults,
+  validateAvailabilityRequests,
+} from './mcp-task-availability-contract.js';
+import {
+  McpTasksTransportBridge,
+  createMcpTasksRoutingFetch,
+} from './mcp-tasks-transport-bridge.js';
+
+interface ClientSession {
+  readonly client: Client;
+  readonly capabilities: McpProtocolCapabilities;
+  readonly bridgeNonce: string;
+}
 
 const SDAR_EXECUTION_SEMANTICS_META_KEY = 'io.sdar/tool-execution-semantics';
 
 export class StreamableHttpMcpAdapter implements McpTransportAdapter {
-  readonly #clients = new Map<string, Promise<Client>>();
+  readonly #clients = new Map<string, Promise<ClientSession>>();
 
   async discover(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
-    return this.#withClient(input, async (client) => {
+    return this.#withSession(input, async (session) => {
+      const { client } = session;
       const response = await client.listTools();
       return response.tools.map((tool) => {
         const semantics = declaredExecutionSemantics(tool);
+        const taskExecution = parseTaskOperationSemantics(tool._meta);
+        if (taskExecution?.execution === 'task_required') this.#requireTasksCapability(session);
         return {
           name: tool.name,
           ...(tool.title === undefined ? {} : { title: tool.title }),
           ...(tool.description === undefined ? {} : { description: tool.description }),
           inputSchema: tool.inputSchema,
           ...(semantics === undefined ? {} : { declaredExecutionSemantics: semantics }),
+          ...(taskExecution === undefined ? {} : { taskExecution }),
         };
       });
     });
   }
 
-  async call(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      toolName: string;
-      arguments: Readonly<Record<string, unknown>>;
-      executionContext: RuntimeExecutionContext;
-      signal?: AbortSignal;
-    }>,
-  ): Promise<unknown> {
-    return this.#withClient(input, (client) =>
-      client.callTool(
-        { name: input.toolName, arguments: input.arguments },
-        undefined,
-        input.signal === undefined ? undefined : { signal: input.signal },
-      ),
-    );
+  capabilities(
+    input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
+  ): Promise<McpProtocolCapabilities> {
+    return this.#withSession(input, ({ capabilities }) => Promise.resolve(capabilities));
   }
 
-  async #withClient<T>(
+  async call(input: Parameters<McpTransportAdapter['call']>[0]): Promise<McpInvocationOutcome> {
+    return this.#withSession(input, async (session) => {
+      try {
+        if (input.taskExecution !== undefined) this.#requireTasksCapability(session);
+        const value = await session.client.request(
+          {
+            method: MCP_TASKS_METHOD_ALIASES.callTool,
+            params: {
+              name: input.toolName,
+              arguments: input.arguments,
+              ...(input.taskExecution === undefined
+                ? {}
+                : { _meta: taskExecutionCallMetadata(input.taskExecution) }),
+            },
+          },
+          createMcpToolCallResultSchema(session.bridgeNonce),
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        const outcome = toMcpInvocationOutcome(value, session.capabilities.protocolRevision);
+        if (outcome.kind === 'remote_task') this.#requireTasksCapability(session);
+        if (input.taskExecution?.mode === 'require_task' && outcome.kind === 'immediate')
+          throw new McpTasksAdapterError(
+            'MCP_TASK_REQUIRED_RESULT_MISMATCH',
+            'Provider returned a synchronous result for require_task execution.',
+          );
+        return outcome;
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  checkTaskAvailability(
+    input: Parameters<NonNullable<McpTransportAdapter['checkTaskAvailability']>>[0],
+  ): Promise<
+    Readonly<{
+      protocolRevision: string;
+      availabilitySchemaRevision: string;
+      results: readonly TaskAvailabilityCheckResult[];
+    }>
+  > {
+    return this.#withSession(input, async (session) => {
+      this.#requireTasksCapability(session);
+      const requests = validateAvailabilityRequests(input.requests);
+      try {
+        const value = await session.client.request(
+          {
+            method: MCP_TASKS_METHOD_ALIASES.availability,
+            params: { revision: MCP_TASK_AVAILABILITY_SCHEMA_REVISION, requests },
+          },
+          taskAvailabilityResponseSchema,
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        return {
+          protocolRevision: session.capabilities.protocolRevision,
+          availabilitySchemaRevision: MCP_TASK_AVAILABILITY_SCHEMA_REVISION,
+          results: toTaskAvailabilityResults(value, requests),
+        };
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  getTask(input: Parameters<McpTransportAdapter['getTask']>[0]): Promise<RemoteTaskSnapshot> {
+    return this.#withSession(input, async (session) => {
+      this.#requireTasksCapability(session);
+      const remoteTaskId = assertValidRemoteTaskId(input.remoteTaskId);
+      try {
+        const value = await session.client.request(
+          { method: MCP_TASKS_METHOD_ALIASES.get, params: { taskId: remoteTaskId } },
+          mcpTaskSnapshotResultSchema,
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        if (value.taskId !== remoteTaskId) {
+          throw new McpTasksAdapterError(
+            'MCP_TASK_RESPONSE_INVALID',
+            'Provider returned a Task ID different from the requested Task.',
+          );
+        }
+        return toRemoteTaskSnapshot(value, session.capabilities.protocolRevision);
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  updateTask(
+    input: Parameters<McpTransportAdapter['updateTask']>[0],
+  ): Promise<RemoteTaskOperationAck> {
+    return this.#withSession(input, async (session) => {
+      this.#requireTasksCapability(session);
+      const remoteTaskId = assertValidRemoteTaskId(input.remoteTaskId);
+      const inputResponses = assertValidInputResponses(input.inputResponses);
+      try {
+        await session.client.request(
+          {
+            method: MCP_TASKS_METHOD_ALIASES.update,
+            params: { taskId: remoteTaskId, inputResponses },
+          },
+          mcpTaskAckResultSchema,
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        return {
+          acknowledged: true,
+          protocolRevision: session.capabilities.protocolRevision,
+        };
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  cancelTask(
+    input: Parameters<McpTransportAdapter['cancelTask']>[0],
+  ): Promise<RemoteTaskOperationAck> {
+    return this.#withSession(input, async (session) => {
+      this.#requireTasksCapability(session);
+      const remoteTaskId = assertValidRemoteTaskId(input.remoteTaskId);
+      try {
+        await session.client.request(
+          { method: MCP_TASKS_METHOD_ALIASES.cancel, params: { taskId: remoteTaskId } },
+          mcpTaskAckResultSchema,
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        return {
+          acknowledged: true,
+          protocolRevision: session.capabilities.protocolRevision,
+        };
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  async #withSession<T>(
     input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
-    operation: (client: Client) => Promise<T>,
+    operation: (session: ClientSession) => Promise<T>,
   ): Promise<T> {
-    const client = await this.#getClient(input);
-    return operation(client);
+    const session = await this.#getSession(input);
+    return operation(session);
   }
 
   async close(): Promise<void> {
-    const clients = await Promise.allSettled(this.#clients.values());
+    const sessions = await Promise.allSettled(this.#clients.values());
     this.#clients.clear();
     await Promise.all(
-      clients.flatMap((result) => (result.status === 'fulfilled' ? [result.value.close()] : [])),
+      sessions.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value.client.close()] : [],
+      ),
     );
   }
 
@@ -69,9 +236,9 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
     }>,
   ): Promise<void> {
     const key = clientKey(input);
-    const client = this.#clients.get(key);
+    const session = this.#clients.get(key);
     this.#clients.delete(key);
-    if (client !== undefined) await (await client).close();
+    if (session !== undefined) await (await session).client.close();
   }
 
   async ping(
@@ -80,11 +247,11 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
     }>,
   ): Promise<void> {
-    const client = await this.#getClient(input);
-    await client.ping();
+    const session = await this.#getSession(input);
+    await session.client.ping();
   }
 
-  #getClient(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
+  #getSession(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
     const key = clientKey(input);
     const existing = this.#clients.get(key);
     if (existing !== undefined) return existing;
@@ -97,12 +264,65 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   }
 
   async #connect(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
+    const bridgeNonce = randomBytes(32).toString('hex');
     const transport = new StreamableHTTPClientTransport(new URL(input.endpoint), {
       requestInit: { headers: { ...input.headers } },
+      fetch: createMcpTasksRoutingFetch(),
     });
-    const client = new Client({ name: 'sdar-runtime', version: '1.0.0' });
-    await client.connect(asSdkTransport(transport));
-    return client;
+    const bridge = new McpTasksTransportBridge(transport, bridgeNonce);
+    const client = new Client(
+      { name: 'sdar-runtime', version: '1.1.0' },
+      {
+        capabilities: { extensions: { [MCP_TASKS_EXTENSION_ID]: {} } },
+        versionNegotiation: { mode: 'auto' },
+      },
+    );
+    await client.connect(bridge);
+    const protocolRevision = client.getNegotiatedProtocolVersion();
+    const protocolEra = client.getProtocolEra();
+    if (protocolRevision === undefined || protocolEra === undefined) {
+      await client.close();
+      throw new McpTasksAdapterError(
+        'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED',
+        'MCP connection did not report a negotiated protocol revision.',
+      );
+    }
+    const serverExtensions = client.getServerCapabilities()?.extensions;
+    const declared =
+      serverExtensions !== undefined &&
+      Object.prototype.hasOwnProperty.call(serverExtensions, MCP_TASKS_EXTENSION_ID);
+    const tasksExtension =
+      protocolEra === 'modern' &&
+      protocolRevision === MCP_TASKS_TESTED_PROTOCOL_REVISION &&
+      declared;
+    return {
+      client,
+      bridgeNonce,
+      capabilities: {
+        protocolEra,
+        protocolRevision,
+        tasksExtension,
+        tasksSchemaRevision: MCP_TASKS_SCHEMA_REVISION,
+      },
+    } satisfies ClientSession;
+  }
+
+  #requireTasksCapability(session: ClientSession): void {
+    if (
+      session.capabilities.protocolEra !== 'modern' ||
+      session.capabilities.protocolRevision !== MCP_TASKS_TESTED_PROTOCOL_REVISION
+    ) {
+      throw new McpTasksAdapterError(
+        'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED',
+        `MCP Tasks requires tested protocol revision ${MCP_TASKS_TESTED_PROTOCOL_REVISION}.`,
+      );
+    }
+    if (!session.capabilities.tasksExtension) {
+      throw new McpTasksAdapterError(
+        'MCP_TASK_CAPABILITY_REQUIRED',
+        `Provider did not declare ${MCP_TASKS_EXTENSION_ID}.`,
+      );
+    }
   }
 }
 
@@ -211,8 +431,17 @@ function clientKey(
   return JSON.stringify([input.endpoint, Object.entries(input.headers).sort()]);
 }
 
-// SDK 1.29.0 has an exact-optional mismatch between concrete transports and Transport.
-// The cast stays inside this adapter and loopback contract tests verify runtime behavior.
-function asSdkTransport(transport: unknown): Transport {
-  return transport as Transport;
+function normalizeTasksProtocolError(error: unknown): Error {
+  if (error instanceof McpTasksAdapterError) return error;
+  if (isRecord(error)) {
+    const code = error['code'];
+    if (code === 'INVALID_RESULT' || code === 'UNSUPPORTED_RESULT_TYPE') {
+      return new McpTasksAdapterError(
+        'MCP_TASK_RESPONSE_INVALID',
+        'MCP Provider returned a response that violates the frozen Tasks contract.',
+        { cause: error },
+      );
+    }
+  }
+  return error instanceof Error ? error : new Error('Unknown MCP transport failure.');
 }

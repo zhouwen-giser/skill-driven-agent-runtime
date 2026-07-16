@@ -11,7 +11,7 @@ import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import { startMcpLoopbackServer } from '../../mcp-adapter/src/index.js';
 
 const postgresUrl =
-  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const redis = { host: '127.0.0.1', port: 56379 };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;

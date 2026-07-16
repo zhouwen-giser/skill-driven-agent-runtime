@@ -9,8 +9,16 @@ import type {
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
+  McpInvocationOutcome,
+  McpProtocolCapabilities,
   McpToolExecutionSemantics,
   McpToolExecutionSemanticsValues,
+  RemoteTaskOperationAck,
+  RemoteTaskBinding,
+  RemoteTaskControlEvent,
+  RemoteTaskObservation,
+  RemoteTaskProtocolAttempt,
+  RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
@@ -78,6 +86,13 @@ import type {
   RuntimeTerminalOutcomeRecord,
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
+  McpTaskOperationSemantics,
+  ResolvedMcpTaskExecution,
+  TaskAvailabilityCheckRequest,
+  TaskAvailabilityCheckResult,
+  TaskAvailabilityReadResult,
+  TaskAvailabilitySnapshot,
+  DslExecutionReadiness,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -444,6 +459,49 @@ export interface McpToolCatalog {
   getInputSchema(reference: ToolReference): Promise<unknown>;
 }
 
+export interface McpTaskOperationCatalog {
+  getTaskOperationSemantics(
+    reference: ToolReference,
+  ): Promise<McpTaskOperationSemantics | undefined>;
+}
+
+export interface TaskAvailabilityBatchReader {
+  checkTaskAvailability(
+    input: Readonly<{
+      serverId: string;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult>;
+}
+
+export interface TaskAvailabilityEvidenceRepository {
+  saveEvaluation(
+    readiness: DslExecutionReadiness,
+    snapshots: readonly TaskAvailabilitySnapshot[],
+  ): Promise<void>;
+  listByPlan(
+    planId: string,
+    filter?: Readonly<{
+      phase?: DslExecutionReadiness['checkPhase'] | undefined;
+      limit?: number | undefined;
+    }>,
+  ): Promise<
+    readonly Readonly<{
+      readiness: DslExecutionReadiness;
+      snapshots: readonly TaskAvailabilitySnapshot[];
+    }>[]
+  >;
+  findLatestPlanning(planId: string): Promise<
+    | Readonly<{
+        readiness: DslExecutionReadiness;
+        snapshots: readonly TaskAvailabilitySnapshot[];
+      }>
+    | undefined
+  >;
+}
+
 export interface McpServerRecord {
   readonly server: McpServer;
   readonly encryptedCredential: string;
@@ -494,6 +552,7 @@ export interface McpTransportAdapter {
       description?: string;
       inputSchema: unknown;
       declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
+      taskExecution?: McpTaskOperationSemantics;
     }>[]
   >;
   call(
@@ -503,9 +562,55 @@ export interface McpTransportAdapter {
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
       executionContext: RuntimeExecutionContext;
+      taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
     }>,
-  ): Promise<unknown>;
+  ): Promise<McpInvocationOutcome>;
+  capabilities(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+    }>,
+  ): Promise<McpProtocolCapabilities>;
+  checkTaskAvailability?(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      signal?: AbortSignal;
+    }>,
+  ): Promise<
+    Readonly<{
+      protocolRevision: string;
+      availabilitySchemaRevision: string;
+      results: readonly TaskAvailabilityCheckResult[];
+    }>
+  >;
+  getTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskSnapshot>;
+  updateTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+  cancelTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
   disconnect(
     input: Readonly<{
       endpoint: string;
@@ -518,6 +623,127 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
     }>,
   ): Promise<void>;
+}
+
+export type RemoteTaskReadResult =
+  | Readonly<{ kind: 'snapshot'; snapshot: RemoteTaskSnapshot }>
+  | Readonly<{ kind: 'provider_unreachable'; errorCode: string }>
+  | Readonly<{ kind: 'contract_invalid'; errorCode: string }>
+  | Readonly<{ kind: 'provider_protocol'; errorCode: string }>;
+
+export interface RemoteTaskSnapshotReader {
+  readRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskReadResult>;
+}
+
+export type RemoteTaskMutationResult =
+  | Readonly<{ applied: false; reason: 'missing' | 'stale' | 'closed' }>
+  | Readonly<{
+      applied: true;
+      binding: RemoteTaskBinding;
+      snapshotAccepted?: boolean;
+      controlEvent?: RemoteTaskControlEvent;
+    }>;
+
+export type RemoteTaskPollClaimResult =
+  | Readonly<{ claimed: false; reason: 'missing' | 'stale' | 'closed' | 'leased' }>
+  | Readonly<{ claimed: true; binding: RemoteTaskBinding }>;
+
+export interface RemoteTaskRepository {
+  admit(
+    binding: RemoteTaskBinding,
+    acceptedObservationId: string,
+  ): Promise<Readonly<{ binding: RemoteTaskBinding; created: boolean }>>;
+  findById(bindingId: string): Promise<RemoteTaskBinding | undefined>;
+  findByRemoteIdentity(
+    serverId: string,
+    remoteTaskId: string,
+  ): Promise<RemoteTaskBinding | undefined>;
+  listRequiringPoll(
+    now: string,
+    limit: number,
+    afterBindingId?: string,
+  ): Promise<readonly RemoteTaskBinding[]>;
+  claimPoll(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskPollClaimResult>;
+  recordSnapshot(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      snapshot: RemoteTaskSnapshot;
+      observationId: string;
+      controlEventId?: string;
+      resultHash?: string;
+      observedAt: string;
+      nextPollAt?: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  recordProviderFailure(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      nextPollAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  quarantine(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]>;
+  listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]>;
+  listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
+}
+
+export type RemoteTaskPollJobState = 'missing' | 'scheduled' | 'active' | 'completed' | 'failed';
+
+export interface RemoteTaskPollJob {
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+}
+
+export interface RemoteTaskDeadLetter {
+  readonly jobId: string;
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+  readonly failedReason: string;
+  readonly attemptsMade: number;
+}
+
+export interface RemoteTaskPollQueue {
+  enqueue(input: RemoteTaskPollJob, runAt: string): Promise<void>;
+  state(bindingId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
+  listDeadLetters(limit: number): Promise<readonly RemoteTaskDeadLetter[]>;
+  retryDeadLetter(jobId: string): Promise<void>;
+}
+
+export interface ContextSerialGate {
+  run<T>(contextId: string, operation: () => Promise<T>): Promise<T>;
 }
 
 /** Rebuildable protocol representation; AgentTask remains the system of record. */

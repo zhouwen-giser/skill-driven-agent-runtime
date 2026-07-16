@@ -52,6 +52,13 @@ API 必须提供 OpenAPI 文档和契约测试。
 - Tool Schema 变化只告警，不自动禁用 Skill。
 - Tool 调用失败由受约束的 LLM 异常决策处理，但系统预算、状态和允许动作先行约束。
 
+### v1.1 availability extension
+
+- Tool 发现可携带经严格验证的 `io.sdar/taskExecution` 元数据；外部类型不越过 Adapter。
+- 批量 readiness 使用精确自定义方法 `io.sdar/tasks/checkAvailability`，请求/响应数量、JSON 大小、节点关联、时间窗口顺序与预约引用均受 Schema 和确定性校验。
+- Tool 调用的 task execution 信息放在协议 `_meta`，不混入业务参数；`mode=require_task` 返回同步结果是稳定契约错误。
+- `GET /api/v1/workflows/plans/{planId}/task-readiness` 返回清洗后的 planning/pre-invocation 证据、窗口、预测有效期、timing 与真实 reservation 引用；不返回完整参数快照。该接口为 trusted-intranet、无认证的只读投影。
+
 ## 最终结果
 
 A2A 返回自然语言结果，并在有主 Skill 时返回符合 `output_schema` 的结构化数据。过程可观察信息不包含私有思维链。

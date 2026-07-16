@@ -8,7 +8,7 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 
 const { Pool } = pg;
 const postgresUrl =
-  process.env.SDAR_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
+  process.env.SDAR_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const redisHost = process.env.SDAR_REDIS_HOST ?? '127.0.0.1';
 const redisPort = Number(process.env.SDAR_REDIS_PORT ?? 56379);
 

@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+### Added
+
+- Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
+- Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
+- Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
+- Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
+
+### Changed
+
+- v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
+- The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
+
+### Known limitations
+
+- Phase 1 protocol, Phase 2 persistence/polling and the Phase 3 availability/timing increment are verified against merged `v1.0.13-bug-fixed`. Phase 4–6 continuation, lifecycle and final acceptance remain incomplete.
+
 ## [1.0.13] - 2026-07-16
 
 ### Added

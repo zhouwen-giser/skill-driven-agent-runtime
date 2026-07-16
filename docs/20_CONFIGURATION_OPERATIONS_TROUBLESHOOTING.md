@@ -6,7 +6,7 @@ The Server loads `.env` when present and then validates environment variables st
 
 | Variable                                        | Default                                                  | Purpose                                                                                                                          |
 | ----------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `SDAR_POSTGRES_URL`                             | `postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar` | PostgreSQL/pgvector authority                                                                                                    |
+| `SDAR_POSTGRES_URL`                             | `postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar` | PostgreSQL/pgvector authority                                                                                                    |
 | `SDAR_REDIS_HOST`                               | `127.0.0.1`                                              | Redis/BullMQ host                                                                                                                |
 | `SDAR_REDIS_PORT`                               | `56379`                                                  | Redis/BullMQ port                                                                                                                |
 | `SDAR_A2A_HOST` / `SDAR_A2A_PORT`               | `127.0.0.1` / `9999`                                     | A2A listener                                                                                                                     |
@@ -49,7 +49,7 @@ Historical data is retained indefinitely in V1. Automatic archive/delete are dis
 
 ### Docker or database is unavailable
 
-Run `docker version`, `docker compose ps`, and `pnpm smoke:infra`. Confirm ports 54329 and 56379 are free and that Docker Desktop is healthy. Do not substitute static Compose validation for a real smoke pass.
+Run `docker version`, `docker compose ps`, and `pnpm smoke:infra`. Confirm ports 55432 and 56379 are free and that Docker Desktop is healthy. Do not substitute static Compose validation for a real smoke pass.
 
 ### Server rejects startup
 

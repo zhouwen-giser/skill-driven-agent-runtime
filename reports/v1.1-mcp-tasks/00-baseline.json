@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "branch": "feature/v1.1-mcp-tasks",
+  "baselineCommit": "6f9abf88cf9b7d5489c076da4728fdcde0019243",
+  "mergedHardening": {
+    "tag": "v1.0.4-bug-fixed",
+    "commit": "fa4b0509971fc73c474211b871eeefaf4e76eb54"
+  },
+  "observedHardeningCommit": "fa4b0509971fc73c474211b871eeefaf4e76eb54",
+  "package": {
+    "name": "skill-driven-agent-runtime",
+    "version": "1.0.4",
+    "node": "v22.14.0",
+    "pnpm": "11.7.0",
+    "mcpSdk": "1.29.0",
+    "langgraph": "1.4.7",
+    "bullmq": "5.80.1",
+    "latestMigration": "0056_mcp_execution_mode"
+  },
+  "sourceHashes": {
+    "upgradePackageSha256": "298FDE094AF6BBFDA630B3141242327107CF92AD2AD9540470F800BACA25FA46",
+    "designInputSha256": "510F60C807EC380C9F9239D779F6DDF225B1D3208BDE74598AF8425AEEE43328"
+  },
+  "verification": {
+    "startedAt": "2026-07-15T18:03:01.248Z",
+    "finishedAt": "2026-07-15T18:05:01.016Z",
+    "durationMs": 119768,
+    "dirty": false,
+    "infrastructure": "real-postgresql-redis-self-managed-compose",
+    "commands": [
+      { "command": "pnpm install --frozen-lockfile", "status": "passed" },
+      { "command": "pnpm verify", "status": "passed" },
+      { "command": "pnpm test:unit", "status": "passed", "files": 50, "tests": 218 },
+      { "command": "pnpm test:contract", "status": "passed", "files": 7, "tests": 58 },
+      { "command": "pnpm test:integration", "status": "passed", "tests": 42 },
+      { "command": "pnpm test:e2e", "status": "passed", "tests": 42 },
+      { "command": "pnpm smoke:infra", "status": "passed" },
+      { "command": "pnpm smoke:server", "status": "passed" }
+    ]
+  },
+  "mcpTasksV11": "unverified"
+}

@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { normalizeTaskTimestamp } from '../../domain/src/index.js';
 import type {
   WorkflowBoundValue,
   WorkflowDefinition,
   WorkflowExpression,
   WorkflowNode,
+  McpTaskExecutionSpec,
 } from '../../domain/src/index.js';
 import type { JsonSchemaValidator, McpToolCatalog, SkillRepository } from './ports.js';
 
@@ -43,6 +45,40 @@ const BoundValueSchema: z.ZodType<WorkflowBoundValue> = z.lazy(() =>
       ),
   ]),
 );
+const TaskStartSchema = z.discriminatedUnion('mode', [
+  z
+    .object({
+      mode: z.literal('immediate'),
+      startToleranceMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('scheduled'),
+      scheduledAt: z.union([z.string().min(1), BoundReferenceSchema]),
+      startToleranceMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict(),
+]);
+const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z
+  .object({
+    mode: z.enum(['allow_task', 'require_task']),
+    availabilityCheck: z.enum(['required', 'best_effort']).optional(),
+    timing: z
+      .object({
+        start: TaskStartSchema,
+        maxElapsedMs: z
+          .number()
+          .int()
+          .positive()
+          .max(Number.MAX_SAFE_INTEGER)
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 const BaseNode = { nodeId: Identifier, name: z.string().min(1) };
 const JsonSchemaValue = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
@@ -61,6 +97,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('mcp_tool'),
       tool: z.object({ serverId: Identifier, toolName: Identifier }).strict(),
       arguments: BoundValueSchema,
+      taskExecution: TaskExecutionSchema.optional(),
     })
     .strict(),
   z.object({ ...BaseNode, type: z.literal('result'), value: ExpressionSchema }).strict(),
@@ -244,6 +281,17 @@ export class WorkflowValidator {
           result.errors.join('; '),
         );
     } else if (node.type === 'mcp_tool') {
+      if (
+        node.taskExecution?.timing?.start.mode === 'scheduled' &&
+        typeof node.taskExecution.timing.start.scheduledAt === 'string' &&
+        !isRfc3339WithTimezone(node.taskExecution.timing.start.scheduledAt)
+      )
+        add(
+          errors,
+          'WORKFLOW_TASK_SCHEDULED_AT_INVALID',
+          `nodes.${String(index)}.taskExecution.timing.start.scheduledAt`,
+          'scheduledAt must be a real RFC 3339 timestamp with an explicit timezone.',
+        );
       const schema = await this.#tools.getInputSchema(node.tool);
       if (schema === undefined)
         add(
@@ -297,6 +345,15 @@ export class WorkflowValidator {
           );
       }
     }
+  }
+}
+
+function isRfc3339WithTimezone(value: string): boolean {
+  try {
+    normalizeTaskTimestamp(value);
+    return true;
+  } catch {
+    return false;
   }
 }
 

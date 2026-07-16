@@ -7,6 +7,7 @@ import type {
   ExternalTaskProjectionRepository,
   McpRegistryRepository,
   McpToolCatalog,
+  McpTaskOperationCatalog,
   McpServerRecord,
   ModelProviderRecord,
   ModelRuntimeRepository,
@@ -66,6 +67,7 @@ import type {
   McpTool,
   McpToolDependencyChange,
   McpToolEnhancement,
+  McpTaskOperationSemantics,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   StageModelRoute,
@@ -289,6 +291,17 @@ const WorkflowToolExecutionSemanticsSchema = z.array(
     })
     .strict(),
 );
+const McpTaskOperationSemanticsSchema: z.ZodType<McpTaskOperationSemantics> = z
+  .object({
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    availability: z.enum(['not_supported', 'dynamic']),
+    supportsScheduling: z.boolean(),
+    supportsMaxElapsed: z.boolean(),
+    supportsObservations: z.boolean(),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    revision: z.literal('1.0'),
+  })
+  .strict();
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
@@ -628,6 +641,7 @@ interface McpToolRow extends QueryResultRow {
   declared_execution_semantics_json: unknown;
   admin_execution_semantics_override_json: unknown;
   execution_semantics_json: unknown;
+  task_execution_json?: unknown;
   discovered_at: Date | string;
 }
 
@@ -5336,11 +5350,15 @@ const temporarySkillSelect = `SELECT temporary_skill_id, task_id, context_id, na
   description, tools_json, input_schema_json, output_schema_json,
   capability_fingerprint, status, created_at, expired_at FROM temporary_skill`;
 
-export class PostgresMcpRegistryRepository implements McpRegistryRepository, McpToolCatalog {
+export class PostgresMcpRegistryRepository
+  implements McpRegistryRepository, McpToolCatalog, McpTaskOperationCatalog
+{
   readonly #pool: Pool;
+  readonly #v11TaskMetadata: boolean;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, options: Readonly<{ v11TaskMetadata?: boolean }> = {}) {
     this.#pool = pool;
+    this.#v11TaskMetadata = options.v11TaskMetadata === true;
   }
 
   async findServer(serverId: string): Promise<McpServerRecord | undefined> {
@@ -5369,7 +5387,8 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     const result = await this.#pool.query<McpToolRow>(
       `SELECT server_id, tool_name, title, description, input_schema_json,
               enhancement_json, declared_execution_semantics_json,
-              admin_execution_semantics_override_json, execution_semantics_json, discovered_at
+              admin_execution_semantics_override_json, execution_semantics_json,
+              discovered_at${this.#v11TaskMetadata ? ', task_execution_json' : ''}
        FROM mcp_tool WHERE server_id = $1 ORDER BY tool_name`,
       [serverId],
     );
@@ -5395,6 +5414,22 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
       [reference.serverId, reference.toolName],
     );
     return result.rows[0]?.input_schema_json;
+  }
+
+  async getTaskOperationSemantics(
+    reference: ToolReference,
+  ): Promise<McpTaskOperationSemantics | undefined> {
+    if (!this.#v11TaskMetadata) return undefined;
+    const result = await this.#pool.query<{ task_execution_json: unknown }>(
+      `SELECT t.task_execution_json FROM mcp_tool t
+       JOIN mcp_server s ON s.server_id=t.server_id
+       WHERE t.server_id=$1 AND t.tool_name=$2 AND s.status='enabled'`,
+      [reference.serverId, reference.toolName],
+    );
+    const value = result.rows[0]?.task_execution_json;
+    return value === undefined || value === null
+      ? undefined
+      : McpTaskOperationSemanticsSchema.parse(value);
   }
 
   async saveServerAndReplaceTools(
@@ -5430,11 +5465,18 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
       await client.query('DELETE FROM mcp_tool WHERE server_id = $1', [record.server.serverId]);
       for (const tool of tools) {
         await client.query(
-          `INSERT INTO mcp_tool
-             (server_id, tool_name, title, description, input_schema_json,
-              enhancement_json, declared_execution_semantics_json,
-              admin_execution_semantics_override_json, execution_semantics_json, discovered_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          this.#v11TaskMetadata
+            ? `INSERT INTO mcp_tool
+                 (server_id,tool_name,title,description,input_schema_json,
+                  enhancement_json,declared_execution_semantics_json,
+                  admin_execution_semantics_override_json,execution_semantics_json,
+                  discovered_at,task_execution_json)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+            : `INSERT INTO mcp_tool
+                 (server_id,tool_name,title,description,input_schema_json,
+                  enhancement_json,declared_execution_semantics_json,
+                  admin_execution_semantics_override_json,execution_semantics_json,discovered_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             tool.serverId,
             tool.toolName,
@@ -5450,6 +5492,9 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
               : JSON.stringify(tool.adminExecutionSemanticsOverride),
             JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
+            ...(this.#v11TaskMetadata
+              ? [tool.taskExecution === undefined ? null : JSON.stringify(tool.taskExecution)]
+              : []),
           ],
         );
       }
@@ -6082,6 +6127,9 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
           ),
         }),
     executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
+    ...(row.task_execution_json === undefined || row.task_execution_json === null
+      ? {}
+      : { taskExecution: McpTaskOperationSemanticsSchema.parse(row.task_execution_json) }),
     discoveredAt: toIsoString(row.discovered_at),
   });
 }

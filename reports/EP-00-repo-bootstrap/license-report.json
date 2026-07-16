@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-07-11T17:42:00+08:00",
-  "package_count": 288,
+  "package_count": 286,
   "unknown_license_count": 0,
   "packages": [
     {
@@ -19,13 +19,6 @@
       "license": "MIT",
       "licenseFiles": [],
       "repository": "https://github.com/cfworker/cfworker"
-    },
-    {
-      "name": "@esbuild/linux-x64",
-      "version": "0.28.1",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "git+https://github.com/evanw/esbuild.git"
     },
     {
       "name": "@eslint-community/eslint-utils",
@@ -214,6 +207,24 @@
       ]
     },
     {
+      "name": "@modelcontextprotocol/client",
+      "version": "2.0.0-beta.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "@modelcontextprotocol/client@2.0.0-beta.4/LICENSE"
+      ],
+      "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+    },
+    {
+      "name": "@modelcontextprotocol/core",
+      "version": "2.0.0-beta.4",
+      "license": "MIT",
+      "licenseFiles": [
+        "@modelcontextprotocol/core@2.0.0-beta.4/LICENSE"
+      ],
+      "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+    },
+    {
       "name": "@modelcontextprotocol/sdk",
       "version": "1.29.0",
       "license": "MIT",
@@ -223,13 +234,6 @@
       "repository": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
     },
     {
-      "name": "@msgpackr-extract/msgpackr-extract-linux-x64",
-      "version": "3.0.4",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "http://github.com/kriszyp/msgpackr-extract"
-    },
-    {
       "name": "@oxc-project/types",
       "version": "0.139.0",
       "license": "MIT",
@@ -237,13 +241,6 @@
         "@oxc-project/types@0.139.0/LICENSE"
       ],
       "repository": "git+https://github.com/oxc-project/oxc.git"
-    },
-    {
-      "name": "@rolldown/binding-linux-x64-gnu",
-      "version": "1.1.5",
-      "license": "MIT",
-      "licenseFiles": [],
-      "repository": "git+https://github.com/rolldown/rolldown.git"
     },
     {
       "name": "@rolldown/pluginutils",
@@ -1514,15 +1511,6 @@
       "repository": "git://github.com/gkz/levn.git"
     },
     {
-      "name": "lightningcss-linux-x64-gnu",
-      "version": "1.32.0",
-      "license": "MPL-2.0",
-      "licenseFiles": [
-        "lightningcss-linux-x64-gnu@1.32.0/LICENSE"
-      ],
-      "repository": "https://github.com/parcel-bundler/lightningcss.git"
-    },
-    {
       "name": "lightningcss",
       "version": "1.32.0",
       "license": "MPL-2.0",
@@ -2578,6 +2566,16 @@
       "name": "redis",
       "version": "8.2.7-alpine3.22",
       "license": "AGPL-3.0-only"
+    }
+  ],
+  "adapted_sources": [
+    {
+      "name": "modelcontextprotocol/ext-tasks",
+      "commit": "8966bea9c4f4e6d71060cc8284a539086e9e234f",
+      "schema_blob": "2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc",
+      "license": "Apache-2.0",
+      "modified_by": "zhouwen",
+      "local_file": "packages/mcp-adapter/src/mcp-tasks-contract.ts"
     }
   ]
 }

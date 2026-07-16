@@ -144,6 +144,48 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | NFR-DATA-001 | EP-07    | unit+integration+contract+e2e | 已验证 | `packages/domain/src/memory-retention.ts`; `packages/application/src/memory-retention.ts`; `packages/persistence-postgres/src/repositories.ts`; `infra/postgres/migrations/0045_memory_retention_policy.up.sql`; `packages/management-api/src/http-endpoint.ts`; `apps/console/src/App.tsx`; `apps/console/src/SystemPanel.tsx`; `adr/ADR-059-v1-memory-retention-controls.md`                                                                                                                                                                                                                                                                                                                 | `packages/application/test/memory-retention.unit.test.ts`; `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/management-api/test/http-endpoint.contract.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`; `apps/console/src/console.unit.test.tsx`; `reports/EP-05-memory-evaluation-evolution/FR-MEM-006-retention-policy.md`; `reports/EP-07-hardening-acceptance/NFR-DATA-001-indefinite-retention.md`; `reports/EP-07-hardening-acceptance/NFR-DATA-001-indefinite-retention.json`                                                                                                                             | 历史真实门禁已执行迁移 0045、PostgreSQL CHECK/持久化、管理 API、Memory 保留、30 integration、39 E2E 与 smoke；当前 3 文件/49 测试证明领域拒绝自动清理、health/Console 明示 indefinite/no-cleanup。原始验收仅要求无自动删除任务且预留策略字段，不要求长时 soak，故已验证。                                                                                                                                                                            |
 | NFR-UX-001 | EP-07 | non-functional+e2e | 已验证 | `apps/console/src/App.tsx`; `apps/console/src/TaskPanel.tsx`; `apps/console/src/SkillsPanel.tsx`; `apps/console/src/WorkflowPanel.tsx`; `apps/console/src/MemoryPanel.tsx`; `apps/console/src/McpPanel.tsx`; `apps/console/src/SystemPanel.tsx`; `apps/console/src/EvaluationPanel.tsx`; `packages/management-api/src/http-endpoint.ts`; `packages/persistence-postgres/src/repositories.ts`; `adr/ADR-066-task-rooted-observability-navigation.md` | `apps/console/src/console.unit.test.tsx`; `packages/management-api/test/http-endpoint.contract.test.ts`; `packages/persistence-postgres/test/repositories.integration.test.ts`; `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`; `scripts/smoke-server.mjs`; `reports/EP-06-console-observability/NFR-UX-001-task-workflow-skill-navigation.md`; `reports/EP-06-console-observability/NFR-UX-001-browser-navigation.json` | 真实 API/PostgreSQL 浏览器验证 Task/Goal/Workflow/Skill/Tool/model/Memory/Evaluation 一键关联及反向入口；Console bundle smoke 防止资源路径回归。 |
 
+## SDAR v1.1 MCP Tasks Addendum
+
+本节追踪 `docs/22_V1_1_MCP_TASKS_DESIGN.md` 的增量需求，不修改 V1.0 基线。跨阶段需求在全部组成部分完成前保持“部分验证”。
+
+| Requirement | Phase | Status | Implementation / evidence |
+| --- | --- | --- | --- |
+| FR-MCPT-001 | 1 | 已验证 | domain-owned union；official v2 beta adapter/bridge；real modern/legacy HTTP contracts；Phase 1 report |
+| FR-MCPT-002 | 1 | 已验证 | immediate success/business error/remote handle/unknown fail-closed；application + adapter tests |
+| FR-MCPT-003 | 1–2 | 已验证 | strict five-state Schema、ordered Provider observations、real PostgreSQL integration |
+| FR-MCPT-004 | 2 | 已验证 | unique durable binding and full lineage；migration 0100；real PostgreSQL integration |
+| FR-MCPT-005 | 2 | 已验证 | versioned one-attempt BullMQ polling, dead letter and reconciliation；real Redis/PG integration |
+| FR-MCPT-006 | 2 | 已验证 | provider-unreachable backoff/recovery, state unchanged and invalid-contract quarantine |
+| FR-MCPT-007 | 4 | 未实现 | LangGraph external wait and continuation snapshot pending |
+| FR-MCPT-008 | 2,4 | 部分验证（Phase 2 observation/control） | ordered observation and idempotent control production verified；continuation consumer pending |
+| FR-MCPT-009 | 3 | 已验证 | `mcp-task-readiness.ts`、Planner、Validator、Compiler、0101 append-only evidence、pre-call exact-argument refresh；unit/contract/real PG integration/vertical E2E；`pnpm verify`；Phase 3 report |
+| FR-MCPT-010 | 3,5 | 部分验证（Phase 3 timing contract） | strict immediate/scheduled/start tolerance/max-elapsed DSL and immutable resolver verified；Provider business outcomes remain Phase 5 |
+| FR-MCPT-011 | 3,5 | 部分验证（Phase 3 readiness/risk guard） | schema-constrained risk decision, transitive confirmation conjunction, stale/risk-increase rejection and zero-Tool-call guards verified；Provider admission outcome remains Phase 5 |
+| FR-MCPT-012 | 5 | 未实现 | remote input link and `tasks/update` pending |
+| FR-MCPT-013 | 5 | 未实现 | cancel request/ack/Provider terminal separation pending |
+| FR-MCPT-014 | 5–6 | 未实现 | management/Console complete lifecycle projection/actions pending |
+| NFR-MCPT-001 | 1–6 | 部分验证（Phase 1–3） | bounded adapter/readiness/timing Schema, strict unknown-field rejection, hashes and sanitized read-only projection verified；remaining lifecycle boundaries pending |
+| NFR-MCPT-002 | 2–6 | 部分验证（Phase 2 polling） | shared context serializer, CAS and attempts=1 verified；continuation concurrency pending |
+| NFR-MCPT-003 | 2,4,6 | 部分验证（Phase 2 authority） | queue restart/reconcile verified；external continuation/process restart pending |
+| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1–3 trace） | invocation/binding/observation/control/protocol plus append-only planning/pre-call readiness evidence and Console/API projection verified；continuation/final-result trace pending |
+
+| Acceptance | Phase | Status | Evidence |
+| --- | --- | --- | --- |
+| AC-MCPT-01 | 1 | 已验证 | real legacy/modern sync success/business error, no binding |
+| AC-MCPT-02 | 1–4 | 部分验证 | negotiation/handle/Headers/durable binding verified；Workflow admission pending |
+| AC-MCPT-03 | 1,3 | 已验证 | real ordinary fallback/undeclared Task rejection plus DSL `require_task` mismatch fail-closed with zero remote wait/Tool call |
+| AC-MCPT-04 | 2,4 | 部分验证 | polling/terminal control verified；continuation output pending |
+| AC-MCPT-05 | 2,4 | 部分验证 | pause/resume/progress observation-only verified；Graph non-resume E2E pending |
+| AC-MCPT-06–08 | 5 | 未实现 | input and cancellation lifecycle pending Phase 5 |
+| AC-MCPT-09 | 3–4 | 部分验证（Phase 3 readiness/confirmation） | restricted risk, explicit confirmation, exact pre-call refresh and risk-increase rejection verified；Provider remote admission/binding pending Phase 4 |
+| AC-MCPT-10–12 | 5 | 未实现/部分 Phase 1 rejection | admission rejection and Provider business-time outcomes pending Phase 5 |
+| AC-MCPT-13 | 2 | 已验证 | deterministic failure + real PG/Redis unreachable/backoff/recovery evidence |
+| AC-MCPT-14 | 2,4 | 部分验证 | queue restart/reconcile verified；continuation no-replay pending |
+| AC-MCPT-15 | 4 | 未实现 | parallel/child continuation pending |
+| AC-MCPT-16 | 4–5 | 未实现 | Goal Patch invalidation/late remote event pending |
+
+Phase 3 可复现证据：实现位于 `packages/domain/src/mcp-task-availability.ts`、`packages/application/src/mcp-task-readiness.ts`、`packages/application/src/workflow-planner.ts`、`packages/application/src/skill-call-workflow.ts`、`packages/langgraph-runtime/src/mcp-task-execution-resolver.ts`、`packages/mcp-adapter/src/mcp-task-availability-contract.ts`、`packages/persistence-postgres/src/task-availability-repository.ts`、`apps/server/src/runtime.ts`、`packages/management-api/src/http-endpoint.ts`、`apps/console/src/WorkflowPanel.tsx` 和迁移 0101。测试位于对应 `mcp-task-readiness` unit/E2E、Workflow Planner/Validator/Compiler/child confirmation unit、MCP availability/HTTP/JSON Schema/management contract、Console unit 及 `apps/server/test/remote-task-runtime.integration.test.ts`。`pnpm verify` 在 2026-07-16 post-hardening 工作树上通过 328 unit、79 contract、68 real integration、48 real E2E、迁移和双 smoke；详见 `reports/v1.1-mcp-tasks/03-availability-timing.{md,json}` 与 `reports/verification/summary.{md,json}`。
+
 ## Runtime Hardening Addendum
 
 | Requirements | Version | Status | Implementation | Tests | Evidence |

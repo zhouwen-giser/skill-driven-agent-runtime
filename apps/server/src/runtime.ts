@@ -19,6 +19,10 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  RemoteTaskPollingService,
+  RemoteTaskReconciler,
+  McpTaskReadinessService,
+  StructuredTaskRiskDecider,
   StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
   snapshotMcpToolPlanningExecutionSemantics,
@@ -67,6 +71,7 @@ import {
   type StructuredModelProvider,
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
+  type RemoteTaskPollingOptions,
 } from '../../../packages/application/src/index.js';
 import {
   createGoalExecutionContract,
@@ -74,6 +79,7 @@ import {
   isTerminalWorkflowControlStatus,
   type AgentTask,
   type GoalExecutionContract,
+  type McpInvocationOutcome,
   type SkillVersion,
   type WorkflowBudgetLimits,
 } from '../../../packages/domain/src/index.js';
@@ -129,10 +135,15 @@ import {
   PostgresTaskInputRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
+  PostgresRemoteTaskRepository,
+  PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
+  BullMqRemoteTaskPollQueue,
+  BullMqRemoteTaskPollWorker,
+  ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
 
@@ -155,6 +166,13 @@ export interface ServerRuntimeOptions {
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
   readonly taskAttemptDispatchIntervalMs?: number;
+  readonly v11McpTasks?: Readonly<{
+    /** Explicit opt-in for the additive V1.1 migration/runtime profile. */
+    isolationAcknowledged: true;
+    queueName?: string;
+    reconcileIntervalMs?: number;
+    polling?: RemoteTaskPollingOptions;
+  }>;
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
 }
@@ -210,7 +228,16 @@ export async function startServerRuntime(
   const publishTaskState = (task: AgentTask) => {
     taskStateNotifier.publish(task);
   };
-  if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
+  if (options.applyMigrations === true) {
+    await applyRuntimeMigrations(
+      pool,
+      options.v11McpTasks === undefined
+        ? { profile: 'released' }
+        : { profile: 'v1.1-isolated', isolationAcknowledged: true },
+    );
+  } else if (options.v11McpTasks !== undefined) {
+    await assertV11RuntimeReady(pool);
+  }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
   const tasks = new PostgresAgentTaskRepository(pool, publishTaskState);
@@ -220,12 +247,15 @@ export async function startServerRuntime(
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
-  const mcpRepository = new PostgresMcpRegistryRepository(pool);
+  const mcpRepository = new PostgresMcpRegistryRepository(pool, {
+    v11TaskMetadata: options.v11McpTasks !== undefined,
+  });
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
+  const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
   const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
@@ -309,17 +339,6 @@ export async function startServerRuntime(
   const prompts = new PromptService({
     repository: new PostgresPromptRepository(pool),
     clock,
-    memories,
-  });
-  const workflowPlanner = new WorkflowPlannerService({
-    model: modelRuntime,
-    validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool),
-    workflowSchema,
-    clock,
-    maxAttempts: 3,
-    composition: skillComposition,
-    templates: workflowTemplates,
     memories,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
@@ -430,6 +449,75 @@ export async function startServerRuntime(
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
   });
+  const taskAvailabilityEvidence =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new PostgresTaskAvailabilityEvidenceRepository(pool);
+  const taskReadiness =
+    taskAvailabilityEvidence === undefined
+      ? undefined
+      : new McpTaskReadinessService({
+          operations: mcpRepository,
+          provider: mcpRegistry,
+          evidence: taskAvailabilityEvidence,
+          riskDecider: new StructuredTaskRiskDecider(modelRuntime),
+          clock,
+          ids: {
+            nextReadinessId: () => `task-readiness-${randomUUID()}`,
+            nextSnapshotId: () => `task-availability-${randomUUID()}`,
+          },
+        });
+  const workflowPlanner = new WorkflowPlannerService({
+    model: modelRuntime,
+    validator: workflowValidator,
+    repository: new PostgresWorkflowPlanRepository(pool),
+    workflowSchema,
+    clock,
+    maxAttempts: 3,
+    composition: skillComposition,
+    templates: workflowTemplates,
+    memories,
+    ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
+  });
+  const remoteTaskRepository =
+    options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+  const remoteTaskQueue =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollQueue({
+          connection: options.redis,
+          ...(options.v11McpTasks.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+        });
+  const remoteTaskPolling =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskPollingService({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          reader: mcpRegistry,
+          serial: contextSerial,
+          clock,
+          ids: {
+            nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+            nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+            nextClaimToken: () => `remote-task-claim-${randomUUID()}`,
+            nextProtocolAttemptId: () => `remote-task-protocol-attempt-${randomUUID()}`,
+          },
+          hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
+          ...(options.v11McpTasks?.polling === undefined
+            ? {}
+            : { options: options.v11McpTasks.polling }),
+        });
+  const remoteTaskReconciler =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskReconciler({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          clock,
+        });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
@@ -452,18 +540,70 @@ export async function startServerRuntime(
           : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
       });
     },
-    async callMcpTool({ executionId, tool, arguments: arguments_, signal, executionContext }) {
+    async callMcpTool({
+      executionId,
+      workflowNodeId,
+      workflowNodeRunId,
+      tool,
+      arguments: arguments_,
+      taskExecution,
+      signal,
+      executionContext,
+    }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
-      return mcpRegistry.call(
-        tool.serverId,
-        tool.toolName,
-        arguments_,
-        signal,
-        task === undefined
-          ? { executionContext }
-          : { taskId: task.taskId, contextId: task.contextId, executionContext },
+      const plan =
+        instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      const planDefinition = plan?.definition;
+      if (taskExecution !== undefined && taskReadiness === undefined)
+        throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
+      if (taskExecution !== undefined && planDefinition === undefined)
+        throw new Error('MCP_TASK_WORKFLOW_DEFINITION_MISSING');
+      const guardedTaskExecution =
+        taskExecution === undefined ||
+        taskReadiness === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? taskExecution
+          : await taskReadiness.assertPreInvocation({
+              planId: plan.planId,
+              planAttempt: plan.attemptCount,
+              definition: planDefinition,
+              planConfirmed: plan.confirmationStatus === 'confirmed',
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              serverId: tool.serverId,
+              operationName: tool.toolName,
+              arguments: arguments_,
+              taskExecution,
+              executionContext,
+              ...(signal === undefined ? {} : { signal }),
+            });
+      return unwrapMcpInvocationOutcome(
+        await mcpRegistry.call(
+          tool.serverId,
+          tool.toolName,
+          arguments_,
+          signal,
+          task === undefined
+            ? {
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              }
+            : {
+                taskId: task.taskId,
+                contextId: task.contextId,
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              },
+        ),
       );
     },
     async executeSkill({
@@ -1134,6 +1274,7 @@ export async function startServerRuntime(
                   skillVersion: skill.version,
                 },
               }),
+          taskId: input.task.taskId,
           templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
@@ -1183,11 +1324,15 @@ export async function startServerRuntime(
           skill === undefined ? [] : [skill.skillId],
           plan.definition,
         );
-        if (confirmation.autoConfirm)
-          await workflowExecution.confirm(plan.planId, input.task.taskId);
+        const autoConfirmed =
+          confirmation.autoConfirm &&
+          (plan.executionReadiness === undefined ||
+            (plan.executionReadiness.disposition === 'ready' &&
+              !plan.executionReadiness.confirmationRequired));
+        if (autoConfirmed) await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
-          autoConfirmed: confirmation.autoConfirm,
+          autoConfirmed,
         };
       },
       async executeAuto(input) {
@@ -1252,8 +1397,44 @@ export async function startServerRuntime(
       });
   }, options.taskAttemptDispatchIntervalMs ?? 1000);
   attemptDispatchTimer.unref();
-  const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
+  const worker = new BullMqContextWorker({
+    connection: options.redis,
+    queueName,
+    processor,
+    serial: contextSerial,
+  });
+  const remoteTaskWorker =
+    remoteTaskPolling === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollWorker({
+          connection: options.redis,
+          ...(options.v11McpTasks?.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+          processor: remoteTaskPolling,
+        });
+  let remoteTaskReconcileRunning = false;
+  const remoteTaskReconcileTimer =
+    remoteTaskReconciler === undefined
+      ? undefined
+      : setInterval(() => {
+          if (remoteTaskReconcileRunning) return;
+          remoteTaskReconcileRunning = true;
+          void remoteTaskReconciler
+            .reconcile()
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'remote_task_reconcile.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              remoteTaskReconcileRunning = false;
+            });
+        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+  remoteTaskReconcileTimer?.unref();
+  if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
   worker.start();
+  remoteTaskWorker?.start();
   let management: ManagementHttpEndpointHandle | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
@@ -1333,6 +1514,9 @@ export async function startServerRuntime(
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,
+        ...(taskAvailabilityEvidence === undefined
+          ? {}
+          : { taskAvailability: taskAvailabilityEvidence }),
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -1412,8 +1596,10 @@ export async function startServerRuntime(
       refreshMcpServer(serverId) {
         return mcpRegistry.refresh(serverId);
       },
-      callMcpTool(serverId, toolName, arguments_, signal, context) {
-        return mcpRegistry.call(serverId, toolName, arguments_, signal, context);
+      async callMcpTool(serverId, toolName, arguments_, signal, context) {
+        return unwrapMcpInvocationOutcome(
+          await mcpRegistry.call(serverId, toolName, arguments_, signal, context),
+        );
       },
       deleteMcpServer(serverId) {
         return mcpRegistry.delete(serverId);
@@ -1436,10 +1622,13 @@ export async function startServerRuntime(
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
+        if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         taskExecutor.close();
         await a2a.close();
         await startedManagement.close();
+        await remoteTaskWorker?.close();
         await worker.close();
+        await remoteTaskQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await mcpTransport.close();
@@ -1455,10 +1644,13 @@ export async function startServerRuntime(
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
+    if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     taskStateNotifier.close();
     await management?.close();
     await mcpTransport.close();
+    await remoteTaskWorker?.close();
     await worker.close();
+    await remoteTaskQueue?.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -1469,19 +1661,67 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  const record = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(',')}}`;
+}
+
+function unwrapMcpInvocationOutcome(outcome: McpInvocationOutcome): unknown {
+  if (outcome.kind === 'immediate') return outcome.result;
+  throw new RemoteMcpTaskPhaseNotConnectedError(outcome.task.remoteTaskId);
+}
+
+class RemoteMcpTaskPhaseNotConnectedError extends Error {
+  readonly code = 'MCP_REMOTE_TASK_PHASE_NOT_CONNECTED';
+
+  constructor(remoteTaskId: string) {
+    super(
+      `Remote MCP Task ${remoteTaskId} was accepted before the Phase 4 continuation is active.`,
+    );
+    this.name = 'RemoteMcpTaskPhaseNotConnectedError';
+  }
+}
+
+export interface RuntimeMigrationOptions {
+  readonly profile?: 'released' | 'v1.1-isolated';
+  readonly isolationAcknowledged?: boolean;
+}
+
+export async function applyRuntimeMigrations(
+  pool: Pool,
+  options: RuntimeMigrationOptions = {},
+): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   )`);
-  const ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const profile = options.profile ?? 'released';
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (profile === 'v1.1-isolated') {
+    if (options.isolationAcknowledged !== true || !/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+      throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+    }
+  }
+  let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  if (
+    profile === 'released' &&
+    ledger.rows.some((row) => Number.parseInt(row.version.slice(0, 4), 10) >= 100)
+  ) {
+    throw new Error('V11_MIGRATION_PROFILE_REQUIRED');
+  }
   const highestAppliedSequence = Math.max(
     0,
     ...ledger.rows
       .map((row) => Number.parseInt(row.version.slice(0, 4), 10))
       .filter(Number.isFinite),
   );
-  for (const name of [
+  const releasedMigrations = [
     '0002_protocol_domain.up.sql',
     '0003_external_task_projection.up.sql',
     '0004_task_request.up.sql',
@@ -1545,7 +1785,8 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0062_skill_composition_context.up.sql',
     '0063_mcp_tool_execution_semantics.up.sql',
     '0064_memory_production_hardening.up.sql',
-  ]) {
+  ] as const;
+  for (const name of releasedMigrations) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;
     const migration = await readFile(
@@ -1554,4 +1795,50 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     );
     await pool.query(migration);
   }
+  if (profile !== 'v1.1-isolated') return;
+  ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const applied = new Set(ledger.rows.map((row) => row.version));
+  // The complete v1.0.13 hardening chain must precede the reserved V1.1 range.
+  if (!applied.has('0064_memory_production_hardening')) {
+    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  }
+  const v11Migrations = [
+    '0100_remote_mcp_task_tracking.up.sql',
+    '0101_task_execution_readiness.up.sql',
+  ] as const;
+  const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
+  for (const [index, version] of v11Versions.entries()) {
+    if (
+      !applied.has(version) &&
+      v11Versions.slice(index + 1).some((laterVersion) => applied.has(laterVersion))
+    )
+      throw new Error('V11_MIGRATION_LEDGER_GAP');
+  }
+  for (const v11Migration of v11Migrations) {
+    if (applied.has(v11Migration.replace('.up.sql', ''))) continue;
+    const migration = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'migrations', v11Migration),
+      'utf8',
+    );
+    await pool.query(migration);
+  }
+}
+
+async function assertV11RuntimeReady(pool: Pool): Promise<void> {
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+    throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+  }
+  const ledger = await pool.query<{ released_present: boolean; v11_count: number }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM schema_migration WHERE version = '0064_memory_production_hardening'
+     ) AS released_present,
+     (SELECT count(*)::integer FROM schema_migration
+      WHERE version IN ('0100_remote_mcp_task_tracking','0101_task_execution_readiness')) AS v11_count`,
+  );
+  const ledgerState = ledger.rows[0];
+  if (ledgerState?.released_present !== true)
+    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  if (ledgerState.v11_count !== 2) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

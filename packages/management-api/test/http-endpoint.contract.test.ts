@@ -52,6 +52,83 @@ describe('management HTTP API contract', () => {
     await expect(uses.json()).resolves.toEqual({ items: [] });
   });
 
+  it('projects Task readiness windows without exposing full argument snapshots', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskAvailability: {
+          listByPlan: () =>
+            Promise.resolve([
+              {
+                readiness: {
+                  readinessId: 'readiness-1',
+                  workflowPlanId: 'plan-1',
+                  planAttempt: 1,
+                  checkPhase: 'planning' as const,
+                  dslHash: 'a'.repeat(64),
+                  disposition: 'confirmation_required' as const,
+                  permittedActions: ['request_confirmation' as const],
+                  guardAction: 'request_confirmation' as const,
+                  guardReasonCodes: ['MCP_TASK_RISK_CONFIRMATION_REQUIRED:patrol'],
+                  confirmationRequired: true,
+                  createdAt: '2026-07-16T22:00:00.000Z',
+                },
+                snapshots: [
+                  {
+                    snapshotId: 'snapshot-1',
+                    readinessId: 'readiness-1',
+                    workflowPlanId: 'plan-1',
+                    planAttempt: 1,
+                    checkPhase: 'planning' as const,
+                    nodeId: 'patrol',
+                    serverId: 'provider',
+                    operationName: 'vehicle_patrol',
+                    arguments: {
+                      unresolved: false as const,
+                      value: { credential: 'must-not-leak', route: 'A' },
+                    },
+                    argumentsHash: 'b'.repeat(64),
+                    timing: {
+                      start: { mode: 'immediate' as const, startToleranceMs: 0 },
+                      maxElapsedMs: null,
+                    },
+                    result: {
+                      nodeId: 'patrol',
+                      operationName: 'vehicle_patrol',
+                      availability: 'restricted' as const,
+                      riskLevel: 'high' as const,
+                      validUntil: '2026-07-16T22:10:00.000Z',
+                      earliestStartTime: '2026-07-16T22:02:00.000Z',
+                      nextAvailableWindows: [
+                        {
+                          startTime: '2026-07-16T22:02:00.000Z',
+                          endTime: '2026-07-16T22:12:00.000Z',
+                        },
+                      ],
+                      reservationMode: 'best_effort' as const,
+                      possibleEffects: ['start_rejection' as const],
+                    },
+                    sourceRevision: '2026-07-28/1.0',
+                    checkedAt: '2026-07-16T22:00:00.000Z',
+                    normalizationReasonCodes: [],
+                  },
+                ],
+              },
+            ]),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/task-readiness?phase=planning&limit=10`,
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain('best_effort');
+    expect(body).toContain('2026-07-16T22:10:00.000Z');
+    expect(body).toContain('forecast');
+    expect(body).not.toContain('must-not-leak');
+  });
+
   it('exposes credential-safe MCP management operation evidence', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {

@@ -8,7 +8,7 @@ const EnvironmentSchema = z
     SDAR_POSTGRES_URL: z
       .string()
       .min(1)
-      .default('postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar'),
+      .default('postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar'),
     SDAR_REDIS_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_REDIS_PORT: z.coerce.number().int().positive().default(56379),
     SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),

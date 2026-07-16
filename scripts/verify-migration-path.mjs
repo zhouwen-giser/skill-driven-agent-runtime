@@ -16,7 +16,7 @@ try {
     `../dist/apps/server/src/runtime.js?migration-check=${String(Date.now())}`
   );
   const admin = new Pool({
-    connectionString: 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar',
+    connectionString: 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar',
   });
   try {
     for (const database of databases) {
@@ -82,7 +82,7 @@ try {
 
 function databasePool(database) {
   return new Pool({
-    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:54329/${database}`,
+    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${database}`,
   });
 }
 

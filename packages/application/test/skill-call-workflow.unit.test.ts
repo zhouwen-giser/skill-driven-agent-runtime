@@ -299,6 +299,38 @@ describe('SkillCallWorkflowService', () => {
     );
   });
 
+  it('does not let transitive auto-confirm bypass child Task readiness confirmation', async () => {
+    const definition = childDefinition('skill.child', 3);
+    const plannedChild = childPlan(definition);
+    const harness = serviceHarness({
+      childPlan: {
+        ...plannedChild,
+        executionReadiness: {
+          readinessId: 'readiness-child-risk',
+          workflowPlanId: plannedChild.planId,
+          planAttempt: 1,
+          checkPhase: 'planning',
+          dslHash: 'a'.repeat(64),
+          disposition: 'confirmation_required',
+          permittedActions: ['request_confirmation'],
+          guardAction: 'request_confirmation',
+          guardReasonCodes: ['MCP_TASK_RISK_CONFIRMATION_REQUIRED:device_status'],
+          confirmationRequired: true,
+          createdAt: '2026-07-12T00:00:01.000Z',
+        },
+      },
+    });
+
+    await expect(harness.service.execute(executionInput(harness.skill.skillId))).resolves.toEqual(
+      expect.objectContaining({
+        status: 'awaiting_confirmation',
+        childPlanId: plannedChild.planId,
+      }),
+    );
+    expect(harness.confirm).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
+  });
+
   it('confirms, resumes, and rejects only the child plan bound to the paused parent checkpoint', async () => {
     const parent = pausedParentInstance();
     const confirmed = serviceHarness({ autoConfirm: false, parent });
@@ -430,20 +462,20 @@ function serviceHarness(
     autoConfirm?: boolean;
     parent?: WorkflowInstance;
     parentPlan?: WorkflowPlanRecord;
+    childPlan?: WorkflowPlanRecord;
   }> = {},
 ) {
   const skill = childSkill(options.autoConfirm ?? true);
   let currentSkill = skill;
   const definition = childDefinition(skill.skillId, skill.version);
-  const planRecord = childPlan(definition);
-  let currentPlan = planRecord;
+  let currentPlan = options.childPlan ?? childPlan(definition);
   let currentParent = options.parent;
   const plan = vi.fn((input: PlanWorkflowInput) => {
     void input;
-    return Promise.resolve(planRecord);
+    return Promise.resolve(currentPlan);
   });
   const confirm = vi.fn(() =>
-    Promise.resolve({ ...planRecord, confirmationStatus: 'confirmed' as const }),
+    Promise.resolve({ ...currentPlan, confirmationStatus: 'confirmed' as const }),
   );
   const execute = vi.fn(() =>
     Promise.resolve(options.child ?? childInstance({ status: 'online' })),

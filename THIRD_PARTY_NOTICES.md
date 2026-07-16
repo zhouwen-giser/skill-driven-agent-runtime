@@ -1,19 +1,22 @@
 # Third-Party Notices
 
-Generated from the exact pnpm lockfile installation for the EP-00 baseline. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+Generated from the exact pnpm lockfile installation and pinned adapted sources. Host-specific optional native leaf packages are represented by their portable wrapper packages so this source-distribution evidence is reproducible across operating systems. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+
+## Adapted protocol source
+
+- modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 
 ## External services
 
 - pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
 - Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
 
-## npm packages (288)
+## npm packages (286)
 
 | Package | License | Packaged license/notice files |
 | --- | --- | --- |
 | `@a2a-js/sdk@1.0.0-beta.0` | Apache-2.0 | `@a2a-js/sdk@1.0.0-beta.0/LICENSE` |
 | `@cfworker/json-schema@4.1.1` | MIT | not found |
-| `@esbuild/linux-x64@0.28.1` | MIT | not found |
 | `@eslint-community/eslint-utils@4.9.1` | MIT | `@eslint-community/eslint-utils@4.9.1/LICENSE` |
 | `@eslint-community/regexpp@4.12.2` | MIT | `@eslint-community/regexpp@4.12.2/LICENSE` |
 | `@eslint/config-array@0.23.5` | Apache-2.0 | `@eslint/config-array@0.23.5/LICENSE` |
@@ -35,10 +38,10 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `@langchain/langgraph-sdk@1.9.25` | MIT | `@langchain/langgraph-sdk@1.9.25/LICENSE` |
 | `@langchain/langgraph@1.4.7` | MIT | `@langchain/langgraph@1.4.7/LICENSE` |
 | `@langchain/protocol@0.0.18` | MIT | `@langchain/protocol@0.0.18/LICENSE` |
+| `@modelcontextprotocol/client@2.0.0-beta.4` | MIT | `@modelcontextprotocol/client@2.0.0-beta.4/LICENSE` |
+| `@modelcontextprotocol/core@2.0.0-beta.4` | MIT | `@modelcontextprotocol/core@2.0.0-beta.4/LICENSE` |
 | `@modelcontextprotocol/sdk@1.29.0` | MIT | `@modelcontextprotocol/sdk@1.29.0/LICENSE` |
-| `@msgpackr-extract/msgpackr-extract-linux-x64@3.0.4` | MIT | not found |
 | `@oxc-project/types@0.139.0` | MIT | `@oxc-project/types@0.139.0/LICENSE` |
-| `@rolldown/binding-linux-x64-gnu@1.1.5` | MIT | not found |
 | `@rolldown/pluginutils@1.0.1` | MIT | `@rolldown/pluginutils@1.0.1/LICENSE` |
 | `@standard-schema/spec@1.1.0` | MIT | `@standard-schema/spec@1.1.0/LICENSE` |
 | `@types/body-parser@1.19.6` | MIT | `@types/body-parser@1.19.6/LICENSE` |
@@ -181,7 +184,6 @@ Generated from the exact pnpm lockfile installation for the EP-00 baseline. This
 | `keyv@4.5.4` | MIT | not found |
 | `langsmith@0.8.1` | MIT | not found |
 | `levn@0.4.1` | MIT | `levn@0.4.1/LICENSE` |
-| `lightningcss-linux-x64-gnu@1.32.0` | MPL-2.0 | `lightningcss-linux-x64-gnu@1.32.0/LICENSE` |
 | `lightningcss@1.32.0` | MPL-2.0 | `lightningcss@1.32.0/LICENSE` |
 | `locate-path@6.0.0` | MIT | `locate-path@6.0.0/license` |
 | `lodash.defaults@4.2.0` | MIT | `lodash.defaults@4.2.0/LICENSE` |

@@ -57,7 +57,7 @@ import {
 } from '../../domain/src/index.js';
 
 const connectionString =
-  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const pool = new Pool({ connectionString, max: 4 });
 
 function testGoalContract(goalId: string, version = 1) {
@@ -380,6 +380,23 @@ beforeAll(async () => {
         '0062_skill_composition_context.up.sql',
         '0063_mcp_tool_execution_semantics.up.sql',
         '0064_memory_production_hardening.up.sql',
+      ]) {
+        const forward = await readFile(
+          new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
+          'utf8',
+        );
+        await pool.query(forward);
+      }
+      return;
+    }
+    const previousToolEnhancement = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
+    );
+    if (previousToolEnhancement.rows[0]?.applied === true) {
+      for (const migrationName of [
+        '0054_skill_call_history.up.sql',
+        '0055_task_input_continuation.up.sql',
+        '0056_mcp_execution_mode.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),

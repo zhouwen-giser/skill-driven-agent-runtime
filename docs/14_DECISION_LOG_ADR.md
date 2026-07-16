@@ -9,5 +9,15 @@
 | ADR-005 | PostgreSQL/pgvector + Redis/BullMQ 存储分工                |
 | ADR-006 | 八个项目选择性复用，不合并 Runtime                         |
 | ADR-007 | 单进程模块化单体和 Express/React 基线（待 EP-00 最终确认） |
+| ADR-008–075 | 已接受的 V1.0 架构、运行、持久化、协议和 hardening 决策；以 `adr/` 对应文件为准 |
+| ADR-076–084 | v1.0.5–v1.0.13 hardening 决策；以 `adr/` 对应文件为准 |
+| ADR-085 | MCP Tasks 使用锁定官方扩展的 Adapter 边界 |
+| ADR-086 | Provider 对远程 Task 权威，SDAR 以显式本地 Binding 关联 |
+| ADR-087 | Task availability、预测/预约和 Provider 时间合同严格分离 |
+| ADR-088 | 远程等待使用持久 continuation，不使用 LangGraph interrupt/resume |
+| ADR-089 | v1.1 使用 0100+，受支持升级必须基于完整 v1.0.13 迁移链 |
+| ADR-090 | MCP extension era 使用精确官方 v2 beta Client，v1 仅保留 legacy Server fixture |
+| ADR-091 | 远程 Task 使用 PostgreSQL 版本租约、共享 context 串行和 0100 migration profile |
+| ADR-092 | MCP Task readiness 由领域模型与确定性 Guard 控制，并叠加通用 Tool semantics 与传递确认 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

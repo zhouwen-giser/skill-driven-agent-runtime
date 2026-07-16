@@ -7,6 +7,7 @@ import {
   withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
   type McpInvocation,
+  type McpInvocationOutcome,
   type McpManagementOperation,
   type McpManagementOperationType,
   type McpServer,
@@ -14,6 +15,9 @@ import {
   type McpToolEnhancement,
   type McpToolExecutionSemanticsValues,
   type RuntimeExecutionContext,
+  type ResolvedMcpTaskExecution,
+  type TaskAvailabilityReadResult,
+  type TaskAvailabilityCheckRequest,
 } from '../../domain/src/index.js';
 
 import type {
@@ -21,6 +25,7 @@ import type {
   JsonSchemaValidator,
   McpRegistryRepository,
   McpTransportAdapter,
+  RemoteTaskReadResult,
   SecretCipher,
 } from './ports.js';
 import type { McpToolEnhancer } from './mcp-tool-enhancer.js';
@@ -45,6 +50,7 @@ export interface McpCallContext {
   readonly taskId?: string;
   readonly contextId?: string;
   readonly executionContext?: RuntimeExecutionContext;
+  readonly taskExecution?: ResolvedMcpTaskExecution;
 }
 
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
@@ -149,7 +155,7 @@ export class McpRegistryService {
     arguments_: Readonly<Record<string, unknown>>,
     signal?: AbortSignal,
     context: McpCallContext = {},
-  ): Promise<unknown> {
+  ): Promise<McpInvocationOutcome> {
     const record = await this.#requireServer(serverId);
     const tool = (await this.#repository.listTools(serverId)).find(
       (item) => item.toolName === toolName,
@@ -169,9 +175,9 @@ export class McpRegistryService {
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
     );
-    let result: unknown;
+    let outcome: McpInvocationOutcome;
     try {
-      result = await this.#transport.call({
+      outcome = await this.#transport.call({
         endpoint: record.server.endpoint,
         headers: executionHeaders(
           this.#cipher.decrypt(record.encryptedCredential),
@@ -180,6 +186,7 @@ export class McpRegistryService {
         executionContext,
         toolName,
         arguments: arguments_,
+        ...(context.taskExecution === undefined ? {} : { taskExecution: context.taskExecution }),
         ...(signal === undefined ? {} : { signal }),
       });
     } catch (error: unknown) {
@@ -203,6 +210,9 @@ export class McpRegistryService {
       throw error;
     }
     const completedAt = this.#clock.now();
+    const invocationResult =
+      outcome.kind === 'immediate' ? outcome.result : { remoteTask: outcome.task };
+    const businessRejected = outcome.kind === 'immediate' && outcome.result.isError;
     await this.#repository.saveInvocation(
       invocationRecord({
         invocationId,
@@ -211,13 +221,19 @@ export class McpRegistryService {
         toolName,
         executionSemantics: tool.executionSemantics,
         arguments: arguments_,
-        result,
-        status: 'succeeded',
+        result: invocationResult,
+        status: businessRejected ? 'failed' : 'succeeded',
+        ...(businessRejected
+          ? {
+              errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
+              errorMessage: 'MCP Tool returned an immediate isError result.',
+            }
+          : {}),
         startedAt,
         completedAt,
       }),
     );
-    return result;
+    return outcome;
   }
 
   async delete(serverId: string): Promise<void> {
@@ -291,6 +307,90 @@ export class McpRegistryService {
 
   listInvocationsByTask(taskId: string) {
     return this.#repository.listInvocationsByTask(taskId);
+  }
+
+  async readRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskReadResult> {
+    try {
+      const record = await this.#requireServer(input.serverId);
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const snapshot = await this.#transport.getTask({
+        endpoint: record.server.endpoint,
+        headers: executionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        remoteTaskId: input.remoteTaskId,
+      });
+      return { kind: 'snapshot', snapshot };
+    } catch (error: unknown) {
+      const code = stableErrorCode(error);
+      if (
+        code === 'MCP_TASK_RESPONSE_INVALID' ||
+        code === 'MCP_TASK_RESPONSE_TOO_LARGE' ||
+        code === 'MCP_TOOL_RESULT_TOO_LARGE'
+      ) {
+        return { kind: 'contract_invalid', errorCode: code };
+      }
+      if (
+        code === 'MCP_TASK_CAPABILITY_REQUIRED' ||
+        code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' ||
+        code === 'MCP_SERVER_NOT_FOUND'
+      ) {
+        return { kind: 'provider_protocol', errorCode: code };
+      }
+      return { kind: 'provider_unreachable', errorCode: 'MCP_TASK_PROVIDER_UNREACHABLE' };
+    }
+  }
+
+  async checkTaskAvailability(
+    input: Readonly<{
+      serverId: string;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult> {
+    try {
+      const record = await this.#requireServer(input.serverId);
+      if (this.#transport.checkTaskAvailability === undefined)
+        return {
+          kind: 'capability_missing',
+          errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
+        };
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const response = await this.#transport.checkTaskAvailability({
+        endpoint: record.server.endpoint,
+        headers: executionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        requests: input.requests,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+      });
+      return { kind: 'results', ...response };
+    } catch (error: unknown) {
+      const code = stableErrorCode(error);
+      if (
+        code === 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID' ||
+        code === 'MCP_TASK_AVAILABILITY_RESPONSE_TOO_LARGE' ||
+        code === 'MCP_TASK_AVAILABILITY_RESERVATION_INVALID'
+      )
+        return { kind: 'contract_invalid', errorCode: code };
+      if (code === 'MCP_TASK_CAPABILITY_REQUIRED')
+        return { kind: 'capability_missing', errorCode: code };
+      if (code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' || code === 'MCP_SERVER_NOT_FOUND')
+        return { kind: 'provider_protocol', errorCode: code };
+      return {
+        kind: 'provider_unreachable',
+        errorCode: 'MCP_TASK_AVAILABILITY_PROVIDER_UNREACHABLE',
+      };
+    }
   }
 
   listManagementOperations(serverId: string) {
@@ -421,6 +521,7 @@ export class McpRegistryService {
                 'mcp_declared',
               ),
             }),
+        ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
         discoveredAt: timestamp,
       });
     });
@@ -439,6 +540,7 @@ export class McpRegistryService {
           ...(tool.declaredExecutionSemantics === undefined
             ? {}
             : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
+          ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
           discoveredAt: tool.discoveredAt,
         });
         return previousTool?.adminExecutionSemanticsOverride === undefined
@@ -554,6 +656,11 @@ function compareTools(
     }
   }
   return warnings;
+}
+
+function stableErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
 }
 
 export type McpRegistryErrorCode =
