@@ -1,8 +1,8 @@
 # V1.1 MCP Tasks Acceptance
 
 - Status: **passed**
-- Generated: 2026-07-16T17:51:00.792Z
-- Commit: `f97637b4152ef697785167b5df5aa09f9ab7deea` (dirty working tree)
+- Generated: 2026-07-16T22:41:15.132Z
+- Commit: `df8b6e0fa0d0934ca4412d409c1749ede1911aa3`
 
 | Scenario | Result | Classification | Evidence |
 | --- | --- | --- | --- |
