@@ -3,7 +3,7 @@
   "phase": 5,
   "status": "verified_phase_5_increment",
   "branch": "feature/v1.1-mcp-tasks",
-  "phaseCommit": null,
+  "phaseCommit": "470fdac",
   "scope": [
     "FR-MCPT-008-input-control",
     "FR-MCPT-010-provider-business-time",
@@ -92,7 +92,7 @@
     ]
   },
   "limitations": [
-    "The unified gate ran on the pre-commit dirty worktree; phaseCommit is populated after publication.",
+    "The unified gate ran on the pre-commit dirty worktree; the separate phaseCommit field records the published tree.",
     "Only form-mode elicitation/create is accepted; sampling, roots and URL elicitation fail closed.",
     "Phase 6 owns final management/Console and all-AC composed acceptance."
   ]

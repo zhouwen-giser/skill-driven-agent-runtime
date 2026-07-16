@@ -2,6 +2,8 @@
 
 Status: **Phase 5 increment verified**. This report does not claim Phase 6 management/Console completion or final v1.1 release acceptance.
 
+Published Phase commit: `470fdac` (`feat(v1.1): complete task input cancellation and error semantics`).
+
 ## Delivered increment
 
 - Provider form-mode `elicitation/create` becomes a bounded `source=remote_task` Task input linked to the exact binding, remote revision, result hash, Workflow instance/node run and control event. Sampling, roots and URL elicitation fail closed.
