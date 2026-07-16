@@ -62,6 +62,7 @@ import {
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
+  InMemoryTaskStateNotifier,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -71,6 +72,7 @@ import {
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
+  type AgentTask,
   type GoalExecutionContract,
   type SkillVersion,
   type WorkflowBudgetLimits,
@@ -153,6 +155,8 @@ export interface ServerRuntimeOptions {
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
   readonly taskAttemptDispatchIntervalMs?: number;
+  readonly a2aWaitTimeoutMs?: number;
+  readonly a2aSafetyPollIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -202,11 +206,15 @@ export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
+  const taskStateNotifier = new InMemoryTaskStateNotifier();
+  const publishTaskState = (task: AgentTask) => {
+    taskStateNotifier.publish(task);
+  };
   if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
-  const tasks = new PostgresAgentTaskRepository(pool);
-  const taskInputs = new PostgresTaskInputRepository(pool);
+  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState);
+  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState);
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
@@ -244,11 +252,11 @@ export async function startServerRuntime(
     clock,
   });
   const taskWaitTimeouts = new TaskWaitTimeoutService({
-    repository: new PostgresTaskWaitPolicyRepository(pool),
+    repository: new PostgresTaskWaitPolicyRepository(pool, publishTaskState),
     clock,
   });
   await new RuntimeRecoveryService({
-    repository: new PostgresRuntimeRecoveryRepository(pool),
+    repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState),
     clock,
   }).failInterruptedExecutions();
   const taskAttemptDispatch = new TaskAttemptDispatchService({ attempts: taskInputs, queue });
@@ -323,7 +331,10 @@ export async function startServerRuntime(
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
   });
-  const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(pool);
+  const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(
+    pool,
+    publishTaskState,
+  );
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
     memories,
@@ -561,13 +572,13 @@ export async function startServerRuntime(
     goals,
     instances: workflowInstances,
     execution: workflowExecution,
-    repository: new PostgresGoalCancellationRepository(pool),
+    repository: new PostgresGoalCancellationRepository(pool, publishTaskState),
     clock,
     nextId: () => `goal-cancellation-${randomUUID()}`,
   });
   const goalPatches = new GoalPatchService({
     goals,
-    patches: new PostgresGoalPatchRepository(pool),
+    patches: new PostgresGoalPatchRepository(pool, publishTaskState),
     plans: workflowPlans,
     planner: workflowPlanner,
     skills,
@@ -1328,8 +1339,18 @@ export async function startServerRuntime(
       consoleDirectory: resolve('apps/console/dist'),
     });
     management = startedManagement;
+    const taskExecutor = new TaskServiceAgentExecutor({
+      tasks: service,
+      notifier: taskStateNotifier,
+      ...(options.a2aWaitTimeoutMs === undefined
+        ? {}
+        : { waitTimeoutMs: options.a2aWaitTimeoutMs }),
+      ...(options.a2aSafetyPollIntervalMs === undefined
+        ? {}
+        : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
+    });
     const a2a = await startA2AHttpEndpoint({
-      executor: new TaskServiceAgentExecutor({ tasks: service }),
+      executor: taskExecutor,
       taskStore: new A2AProjectionTaskStore(
         new PostgresExternalTaskProjectionRepository(pool),
         tasks,
@@ -1415,6 +1436,7 @@ export async function startServerRuntime(
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
+        taskExecutor.close();
         await a2a.close();
         await startedManagement.close();
         await worker.close();
@@ -1433,6 +1455,7 @@ export async function startServerRuntime(
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
+    taskStateNotifier.close();
     await management?.close();
     await mcpTransport.close();
     await worker.close();

@@ -1764,9 +1764,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
       pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
     });
 
+    const recoveryNotifications: ReturnType<typeof createAgentTask>[] = [];
     await expect(
-      new PostgresRuntimeRecoveryRepository(pool).failInterrupted('2026-07-12T00:01:00.000Z'),
+      new PostgresRuntimeRecoveryRepository(pool, (recoveredTask) => {
+        recoveryNotifications.push(recoveredTask);
+      }).failInterrupted('2026-07-12T00:01:00.000Z'),
     ).resolves.toEqual({ tasks: 1, workflowInstances: 1, taskAttempts: 1 });
+    expect(recoveryNotifications).toEqual([
+      expect.objectContaining({ taskId: task.taskId, phase: 'failed' }),
+    ]);
     await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
       phase: 'failed',
       errorCode: 'PROCESS_EXECUTION_LOST',
@@ -2318,7 +2324,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: goalToCancel.createdAt,
       updatedAt: goalToCancel.updatedAt,
     });
-    const cancellations = new PostgresGoalCancellationRepository(pool);
+    const cancellationNotifications: ReturnType<typeof createAgentTask>[] = [];
+    const cancellations = new PostgresGoalCancellationRepository(pool, (canceledTask) => {
+      cancellationNotifications.push(canceledTask);
+    });
     await expect(
       cancellations.cancel({
         cancellationId: 'goal-cancellation.db',
@@ -2333,6 +2342,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       invalidatedPlanIds: ['plan.goal-cancel.db'],
       canceledInstanceIds: ['instance.goal-cancel.db'],
     });
+    expect(cancellationNotifications).toEqual([
+      expect.objectContaining({ taskId: task.taskId, phase: 'canceled' }),
+    ]);
     await expect(goals.findById(goalToCancel.goalId)).resolves.toMatchObject({
       status: 'canceled',
     });
@@ -2363,7 +2375,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const goals = new PostgresGoalRepository(pool);
     const plans = new PostgresWorkflowPlanRepository(pool);
     const executions = new PostgresWorkflowExecutionRepository(pool);
-    const patches = new PostgresGoalPatchRepository(pool);
+    const patchNotifications: ReturnType<typeof createAgentTask>[] = [];
+    const patches = new PostgresGoalPatchRepository(pool, (patchedTask) => {
+      patchNotifications.push(patchedTask);
+    });
     const beforeGoal = {
       goalId: 'goal.patch.db',
       contextId: 'context.patch.db',
@@ -2533,6 +2548,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       invalidatedPlanIds: ['plan.patch.db'],
       invalidatedInstanceIds: ['instance.patch.db'],
     });
+    expect(patchNotifications).toEqual([
+      expect.objectContaining({ taskId: triggeringTask.taskId, phase: 'planning' }),
+    ]);
     await expect(goals.findById(beforeGoal.goalId)).resolves.toMatchObject({
       version: 2,
       successCriteria: afterGoal.successCriteria,
@@ -3559,7 +3577,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
 
   it('persists TaskService context/task/event and reads domain values back', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
-    const tasks = new PostgresAgentTaskRepository(pool);
+    const taskNotifications: ReturnType<typeof createAgentTask>[] = [];
+    const tasks = new PostgresAgentTaskRepository(pool, (savedTask) => {
+      taskNotifications.push(savedTask);
+    });
     const events = new PostgresRuntimeEventPublisher(pool);
     const service = new TaskService({
       contexts,
@@ -3586,6 +3607,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
 
     expect(storedContext).toEqual(submitted.context);
     expect(storedTask).toEqual(submitted.task);
+    expect(taskNotifications).toEqual([submitted.task]);
     expect(eventResult.rows[0]?.count).toBe('1');
     await expect(events.listByTask(submitted.task.taskId)).resolves.toEqual([
       expect.objectContaining({ taskId: submitted.task.taskId, eventType: 'task.created' }),
@@ -3666,7 +3688,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
   it('answers a persisted waiting request after service restart and creates a new attempt', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);
-    const taskInputs = new PostgresTaskInputRepository(pool);
+    const inputNotifications: ReturnType<typeof createAgentTask>[] = [];
+    const taskInputs = new PostgresTaskInputRepository(pool, (continuedTask) => {
+      inputNotifications.push(continuedTask);
+    });
     const events = new PostgresRuntimeEventPublisher(pool);
     const ids = sequenceIds();
     const queued: unknown[] = [];
@@ -3729,6 +3754,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       phase: 'goal_deliberation',
       phaseMessage: 'Supplementary input saved; continuation queued.',
     });
+    expect(inputNotifications).toEqual([
+      expect.objectContaining({ taskId: task.taskId, phase: 'goal_deliberation' }),
+    ]);
   });
   it('persists normalized result, facts, value assessment, and memory candidates', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
@@ -3780,7 +3808,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
   it('atomically cancels both confirmation and input waits using the managed timeout', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);
-    const waits = new PostgresTaskWaitPolicyRepository(pool);
+    const waitNotifications: ReturnType<typeof createAgentTask>[] = [];
+    const waits = new PostgresTaskWaitPolicyRepository(pool, (expiredTask) => {
+      waitNotifications.push(expiredTask);
+    });
     await contexts.save({
       contextId: 'context.wait.db',
       userId: 'operator',
@@ -3888,6 +3919,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
           phase: 'canceled',
           errorCode: 'TASK_WAIT_TIMEOUT',
         }),
+      ]),
+    );
+    expect(waitNotifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ taskId: 'task.wait.db', phase: 'canceled' }),
+        expect.objectContaining({ taskId: 'task.wait.input.db', phase: 'canceled' }),
       ]),
     );
     await expect(tasks.findById('task.wait.db')).resolves.toMatchObject({
@@ -4185,6 +4222,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
 
     expect(repeated).toEqual(first);
+    expect(fixture.outcomeNotifications).toEqual([
+      expect.objectContaining({ taskId: fixture.taskId, phase: 'completed' }),
+    ]);
     await expect(fixture.tasks.findById(fixture.taskId)).resolves.toMatchObject({
       phase: 'completed',
       output: { text: 'Terminal result.', structured: { ok: true } },
@@ -4849,7 +4889,10 @@ async function createTerminalOutcomeFixture(suffix: string) {
   const plans = new PostgresWorkflowPlanRepository(pool);
   const executions = new PostgresWorkflowExecutionRepository(pool);
   const controls = new PostgresWorkflowControlRepository(pool);
-  const outcomes = new PostgresRuntimeTerminalOutcomeRepository(pool);
+  const outcomeNotifications: ReturnType<typeof createAgentTask>[] = [];
+  const outcomes = new PostgresRuntimeTerminalOutcomeRepository(pool, (terminalTask) => {
+    outcomeNotifications.push(terminalTask);
+  });
   await contexts.save({
     contextId,
     userId: 'operator',
@@ -4989,6 +5032,7 @@ async function createTerminalOutcomeFixture(suffix: string) {
     goals,
     controls,
     outcomes,
+    outcomeNotifications,
     achievedInput: {
       outcomeId: `terminal-outcome-${taskId}`,
       taskId,

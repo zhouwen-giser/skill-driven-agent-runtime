@@ -19,8 +19,8 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 | v1.0.9  | Skill Graph composition planning      | ADR-080; bounded non-alternative graph snapshot; model subset decision; persisted authorization | domain/application/runtime/PostgreSQL/management vertical path | `0062_skill_composition_context` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `8f7bba9` / `v1.0.9` | `63eb1e5` / `v1.0.9-bug-fixed` | feature: 270 unit, 59 contract, 58 integration, 46 E2E; bug-fixed full `pnpm verify`: 273 unit, 59 contract, 58 integration, 46 E2E, 181-source architecture, A2A/OpenAPI/acceptance/license/SBOM/build/migrations/smoke passed in 87,491 ms | depth 8 / Skills 32 / relations 128 / JSON depth 64; historical pre-0062 plans remain readable but do not grant new planning authority | bug-fixed gate passed |
 | v1.0.10 | terminal capability-gap contract      | ADR-081; monotonic Task/Control terminal; active Goal; new-Task-only continuation | domain/application/A2A/PostgreSQL vertical path | none | unit+contract+integration+real A2A/Model E2E | `f8ae410` / `v1.0.10` | `2eba64e` / `v1.0.10-bug-fixed` | feature: 274 unit, 60 contract, 58 integration, 46 E2E; bug-fixed: 274 unit, 61 contract, 58 integration, 46 E2E, 181-source architecture, 104-operation OpenAPI, build and migrations passed | original Task never resumes; MCP Tasks remain out of scope | bug-fixed gate passed |
 | v1.0.11 | MCP Tool execution semantics          | ADR-082; MCP-declared → retained Admin override → unknown; immutable Planner/Invocation snapshots; atomic override/audit | domain/application/MCP adapter/PostgreSQL/management/Console vertical path | `0063_mcp_tool_execution_semantics` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `2efbef6` / `v1.0.11` | `fe3b126` / `v1.0.11-bug-fixed` | feature: 281 unit, 62 contract, 59 integration, 46 E2E; bug-fixed full `pnpm verify`: 283 unit, 63 contract, 59 integration, 46 E2E, 182-source architecture, 105-operation OpenAPI, build+migrations+smoke passed in 85,191 ms | no MCP Task binding/polling/device authority | published; bug-fixed gate passed |
-| v1.0.12 | Memory durability/embedding hardening | ADR-083; strict seven-field refinement; durable-only admission; generic positive vectors with exact provider/dimension matching; post-commit warning query; provenance/dynamic-state/immutable-snapshot audit | domain/application/PostgreSQL/management/Console vertical path | `0064_memory_production_hardening` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `01e2d44` / `v1.0.12` | this bug-fixed commit / `v1.0.12-bug-fixed` pending | feature full gate: 284 unit, 64 contract, 60 integration, 46 E2E in 86,193 ms; bug-fixed full `pnpm verify`: 287 unit, 64 contract, 60 integration, 46 E2E, 182-source architecture, 106-operation OpenAPI, build+migrations+smoke passed in 85,277 ms | legacy rows are unknown/excluded; rollback rejects non-3D rows; MCP remains live-state authority | bug-fixed gate passed; publication pending |
-| v1.0.13 | A2A state notification wait           | pending         | pending        | pending   | pending | pending              | pending                | `pnpm verify` + both demos  | pending                                 | pending |
+| v1.0.12 | Memory durability/embedding hardening | ADR-083; strict seven-field refinement; durable-only admission; generic positive vectors with exact provider/dimension matching; post-commit warning query; provenance/dynamic-state/immutable-snapshot audit | domain/application/PostgreSQL/management/Console vertical path | `0064_memory_production_hardening` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `01e2d44` / `v1.0.12` | `21b9f79` / `v1.0.12-bug-fixed` | feature full gate: 284 unit, 64 contract, 60 integration, 46 E2E in 86,193 ms; bug-fixed full `pnpm verify`: 287 unit, 64 contract, 60 integration, 46 E2E, 182-source architecture, 106-operation OpenAPI, build+migrations+smoke passed in 85,277 ms | legacy rows are unknown/excluded; rollback rejects non-3D rows; MCP remains live-state authority | published; bug-fixed gate passed |
+| v1.0.13 | A2A state notification wait           | ADR-084; post-commit process-local notification; PostgreSQL reload; low-frequency safety poll | application/A2A/PostgreSQL/runtime vertical path | none | unit+integration+real A2A E2E+performance sample | this feature commit / `v1.0.13` pending | pending | feature full `pnpm verify`: 296 unit, 64 contract, 60 integration, 46 E2E, 185-source architecture, build+migrations+smoke passed in 89,011 ms; bug-fixed must add both demos | process-local only; missed notification latency is bounded by safety interval | feature gate passed; publication pending |
 
 ## Baseline Evidence
 
@@ -155,3 +155,26 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 - `saveRound` locks and selects only non-terminal WorkflowControl authority. A stale round after capability gap fails with no append, while the legitimate pre-terminal round remains readable.
 - PostgreSQL mapping rejects a capability-gap row with missing evidence or wrong error code. Domain construction rejects blank display fields, and the A2A adapter refuses incomplete terminal projection.
 - The operator-managed bug-fixed gate passes format, lint, strict TypeScript, 274 unit, 61 contract, 58 integration, 46 E2E, 181-source architecture, 104-operation OpenAPI, production build and empty/0049 migrations through 0062. No Docker command ran.
+
+## v1.0.13 Feature Evidence
+
+- ADR-084 makes `TaskStateNotifier` an application-owned, protocol-neutral wake-up port. The bounded
+  single-process implementation releases all active waiters on publish or close and never becomes
+  Task persistence, recovery state, or a second workflow runtime.
+- Ordinary save, input continuation, unified wait expiry, startup recovery, Goal Patch, Goal
+  cancellation and terminal-outcome transactions publish only after successful PostgreSQL commit.
+  Every A2A wake performs an authoritative repository reload.
+- Safety polling defaults to 1,000 ms and configuration below 100 ms is rejected. Timeout reloads and
+  returns the current standard Task snapshot, leaving working execution in the background; no
+  `A2A_TASK_WAIT_TIMEOUT` path remains.
+- Unit evidence covers terminal/input/capability-gap notification, current working timeout, missed
+  notification recovery, 20 concurrent waits and close release. Real persistence tests cover all
+  seven mutation publishers. The real E2E runtime uses a 5,000 ms safety interval and passes all 46
+  return-immediately, stream, disconnect/poll/resubscribe, cancellation and timeout scenarios.
+- Actual Node.js v22.23.1/Linux x64 local sample: one 250 ms wait issued 4 reads in 251 ms; 20 waits
+  issued 83 reads in 253 ms; a deliberately missed notification recovered in 94 ms at a 100 ms
+  safety interval; close released the 30-second waiter in less than one rounded millisecond. These
+  are test-environment measurements, not production capacity claims.
+- Complete operator-managed `pnpm verify` passed in 89,011 ms with 296 unit, 64 contract, 60 real
+  integration, 46 real E2E, 185-source architecture, A2A/OpenAPI/acceptance/license/SBOM gates,
+  production builds, empty/0049 migrations through 0064 and both smoke stages. No Docker command ran.

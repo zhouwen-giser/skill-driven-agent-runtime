@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-07-16
+
+### Added
+
+- A bounded process-local `TaskStateNotifier` wakes A2A synchronous/streaming waits after committed
+  Task changes while retaining a low-frequency PostgreSQL safety read.
+- Commit notifications now cover ordinary Task saves, input continuation, wait expiry, process
+  recovery, Goal Patch, Goal cancellation and atomic Runtime Terminal Outcomes.
+
+### Changed
+
+- A2A synchronous waits no longer query PostgreSQL every 10 ms. The default safety interval is one
+  second, configuration below 100 ms is rejected, and every wake reloads PostgreSQL authority.
+- Wait-window expiry returns the current standard Task snapshot instead of throwing
+  `A2A_TASK_WAIT_TIMEOUT`; working Tasks continue in the background and remain pollable/resubscribable.
+- Runtime close releases all notifier waiters before the A2A endpoint and database are closed.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 89,011 ms with 296 unit, 64 contract, 60
+  integration and 46 E2E tests, 185-source architecture, production build, migrations and smoke.
+- Actual local samples recorded 4 reads for one 250 ms wait, 83 reads for 20 concurrent 250 ms waits,
+  94 ms missed-notification recovery at a 100 ms safety interval, and sub-millisecond rounded close
+  release. These are test-environment measurements, not production throughput claims.
+
 ## [1.0.12] - 2026-07-16
 
 ### Added

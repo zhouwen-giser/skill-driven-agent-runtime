@@ -136,6 +136,8 @@ import type {
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
+type TaskStateCommitted = (task: AgentTask) => void;
+
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
 const ToolReferencesSchema = z.array(ToolReferenceSchema);
 const SkillInductionReportSchema = z.object({
@@ -707,19 +709,23 @@ export class PostgresConversationContextRepository implements ConversationContex
 
 export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async failInterrupted(timestamp: string) {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      const tasks = await client.query(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
-         WHERE phase IN ('executing','paused','evaluating')`,
+         WHERE phase IN ('executing','paused','evaluating')
+         RETURNING *`,
         [timestamp],
       );
       const instances = await client.query(
@@ -738,6 +744,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
         [timestamp],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return {
         tasks: tasks.rowCount ?? 0,
         workflowInstances: instances.rowCount ?? 0,
@@ -908,8 +915,11 @@ const GoalPatchChangesSchema = z.object({
 
 export class PostgresGoalPatchRepository implements GoalPatchRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async apply(
@@ -954,14 +964,15 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
          RETURNING instance_id`,
         [record.goalId, record.fromVersion, record.createdAt],
       );
-      await client.query(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET
            phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
            phase_message='Goal Patch invalidated the old plan and intermediate result.',
            goal_version=$2,plan_id=NULL,skill_input_resolution_id=NULL,output_text=NULL,output_structured=NULL,
            error_code='GOAL_PATCH_INVALIDATED',updated_at=$4
          WHERE goal_id=$1 AND goal_version=$5
-           AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')`,
+           AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
+         RETURNING *`,
         [
           record.goalId,
           record.toVersion,
@@ -1001,6 +1012,7 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
         ],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return completed;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -1041,8 +1053,11 @@ interface GoalCancellationRow extends QueryResultRow {
 
 export class PostgresGoalCancellationRepository implements GoalCancellationRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async cancel(
@@ -1074,14 +1089,14 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         input.goalId,
         input.createdAt,
       ]);
-      const tasks = await client.query<{ task_id: string }>(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET phase='canceled',phase_message='Goal canceled by user.',
            error_code='GOAL_CANCELED',updated_at=$2
          WHERE (goal_id=$1 OR (
            goal_id IS NULL AND context_id=(SELECT context_id FROM goal WHERE goal_id=$1)
            AND created_at <= $2
          )) AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
-         RETURNING task_id`,
+         RETURNING *`,
         [input.goalId, input.createdAt],
       );
       const canceledTaskIds = new Set(tasks.rows.map((row) => row.task_id));
@@ -1176,6 +1191,7 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         ],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return completed;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -1442,9 +1458,11 @@ type RuntimeTerminalCommitInput =
 
 export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminalOutcomeRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
@@ -1648,15 +1666,17 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           input.committedAt,
         ],
       );
+      let committedTask: AgentTask | undefined;
       if (task !== undefined) {
         const terminalTask = terminalTaskProjection(kind, input.summary, processed);
-        const updated = await client.query(
+        const updated = await client.query<TaskRow>(
           `UPDATE agent_task SET phase=$2,phase_message=$3,output_text=$4,
              output_structured=$5::jsonb,error_code=$6,updated_at=$7
            WHERE task_id=$1 AND (
              ($8='canceled' AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated'))
              OR ($8<>'canceled' AND phase IN ('executing','evaluating'))
-           )`,
+           )
+           RETURNING *`,
           [
             task.task_id,
             terminalTask.phase,
@@ -1670,7 +1690,10 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
             kind,
           ],
         );
-        if (updated.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_TASK_UPDATE_CONFLICT');
+        const committedTaskRow = updated.rows[0];
+        if (updated.rowCount !== 1 || committedTaskRow === undefined)
+          throw new Error('RUNTIME_TERMINAL_TASK_UPDATE_CONFLICT');
+        committedTask = mapTaskRow(committedTaskRow);
       }
       const goalStatus =
         kind === 'achieved' ? 'achieved' : kind === 'canceled' ? 'canceled' : 'unachievable';
@@ -1719,6 +1742,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         );
       }
       await client.query('COMMIT');
+      if (committedTask !== undefined) this.#onTaskStateCommitted?.(committedTask);
       return {
         outcomeId: input.outcomeId,
         kind,
@@ -2652,9 +2676,11 @@ function exactGoalSnapshot(value: unknown): Goal {
 
 export class PostgresAgentTaskRepository implements AgentTaskRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async findById(taskId: string): Promise<AgentTask | undefined> {
@@ -2767,14 +2793,17 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       ],
     );
     if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    this.#onTaskStateCommitted?.(task);
   }
 }
 
 export class PostgresTaskInputRepository implements TaskInputRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async createRequest(request: TaskInputRequest): Promise<void> {
@@ -2901,7 +2930,9 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       );
       await this.#insertAttempt(client, input.attempt);
       await client.query('COMMIT');
-      return mapTaskRow(taskRow);
+      const task = mapTaskRow(taskRow);
+      this.#onTaskStateCommitted?.(task);
+      return task;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -3105,9 +3136,11 @@ export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepos
 
 export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async get(): Promise<TaskWaitPolicy> {
@@ -3148,7 +3181,9 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
-    return result.rows.map(mapTaskRow);
+    const expired = result.rows.map(mapTaskRow);
+    for (const task of expired) this.#onTaskStateCommitted?.(task);
+    return expired;
   }
 }
 

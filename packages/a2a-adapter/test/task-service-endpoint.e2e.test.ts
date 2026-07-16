@@ -48,6 +48,7 @@ beforeAll(async () => {
     masterKeyBase64: randomBytes(32).toString('base64'),
     queueName,
     applyMigrations: true,
+    a2aSafetyPollIntervalMs: 5_000,
     skillSelection: {
       embeddings: {
         embed: (text) =>
