@@ -19,4 +19,4 @@ Nested Skills now enforce their own confirmation policy. Parent confirmation is 
 
 The paused LangGraph checkpoint is process-local and is not reconstructed after process failure, matching the V1 non-recovery invariant. PostgreSQL retains the plans and confirmation audit.
 
-Feature commit/tag: reconciled after publication.
+Feature commit/tag: `6decc5d` / `v1.0.5` (published and remotely verified).

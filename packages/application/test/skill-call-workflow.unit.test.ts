@@ -288,6 +288,58 @@ describe('SkillCallWorkflowService', () => {
     });
   });
 
+  it('treats an exact duplicate child confirmation as idempotent', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).resolves.toBe(true);
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).resolves.toBe(true);
+
+    expect(harness.confirm).toHaveBeenCalledTimes(1);
+    expect(harness.records.current()).toMatchObject({ confirmationStatus: 'confirmed' });
+  });
+
+  it('rejects a stale decision whose checkpoint metadata no longer matches the child linkage', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    harness.setParent({
+      ...pausedParentInstance(),
+      pendingConfirmation: {
+        ...pausedParentInstance().pendingConfirmation,
+        kind: 'skill_confirmation',
+        nodeId: 'child',
+        prompt: 'Confirm a replaced child.',
+        childPlanId: 'plan-replaced-child',
+      },
+    });
+
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).rejects.toMatchObject({
+      code: 'WORKFLOW_SKILL_CONFIRMATION_STALE',
+    });
+    expect(harness.confirm).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a confirmed child plan that was superseded before parent resume', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    await harness.service.confirmPendingForParentPlan('plan-parent');
+    harness.setPlan({
+      ...childPlan(childDefinition(harness.skill.skillId, 3)),
+      confirmationStatus: 'superseded',
+    });
+
+    await expect(harness.service.resumeConfirmedForParentPlan('plan-parent')).resolves.toBe(true);
+    expect(harness.records.current()).toMatchObject({
+      confirmationStatus: 'invalidated',
+      status: 'invalidated',
+      evaluationSummary: expect.stringContaining('immutable plan changed'),
+    });
+    expect(harness.resumeHumanConfirmation).toHaveBeenCalledWith({
+      instanceId: 'instance-parent',
+      confirmed: true,
+    });
+  });
+
   it('invalidates a waiting child when its current version changes and prepares a fresh plan', async () => {
     const parent = pausedParentInstance();
     const harness = serviceHarness({ autoConfirm: false, parent });
@@ -340,6 +392,8 @@ function serviceHarness(
   let currentSkill = skill;
   const definition = childDefinition(skill.skillId, skill.version);
   const planRecord = childPlan(definition);
+  let currentPlan = planRecord;
+  let currentParent = options.parent;
   const plan = vi.fn((input: PlanWorkflowInput) => {
     void input;
     return Promise.resolve(planRecord);
@@ -358,6 +412,12 @@ function serviceHarness(
     setSkill(value: ReturnType<typeof childSkill>) {
       currentSkill = value;
     },
+    setPlan(value: WorkflowPlanRecord) {
+      currentPlan = value;
+    },
+    setParent(value: WorkflowInstance) {
+      currentParent = value;
+    },
     plan,
     confirm,
     execute,
@@ -374,10 +434,10 @@ function serviceHarness(
         confirm,
         execute,
         get: () => Promise.resolve(undefined),
-        findActiveByPlanId: () => Promise.resolve(options.parent),
+        findActiveByPlanId: () => Promise.resolve(currentParent),
         resumeHumanConfirmation,
       },
-      plans: { findPlan: () => Promise.resolve(planRecord) },
+      plans: { findPlan: () => Promise.resolve(currentPlan) },
       confirmation: {
         evaluate: () =>
           Promise.resolve({

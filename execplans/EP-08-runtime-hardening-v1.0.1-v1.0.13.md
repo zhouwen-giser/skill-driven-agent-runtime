@@ -81,8 +81,9 @@ Invariants for every increment:
 - [x] 2026-07-15 17:02 v1.0.3 bug-fixed commit `bb8c90a` and annotated `v1.0.3-bug-fixed` tag published after the complete operator-managed gate passed.
 - [x] 2026-07-15 18:55 v1.0.4 feature commit `82a90ab` and annotated `v1.0.4` tag published after the complete feature gate passed.
 - [x] 2026-07-15 19:07 v1.0.4 bug-fixed commit `fa4b050` and annotated `v1.0.4-bug-fixed` tag published after the final 218 unit, 58 contract, 42 integration and 42 E2E gates passed.
-- [ ] 2026-07-16 10:20 v1.0.5 feature gate passed with ADR-076, migration 0057, 229 unit, 58 contract, 43 integration, 43 E2E, architecture, build and migration paths. Publish feature commit/tag, then audit adversarial confirmation transitions.
-- [ ] Complete v1.0.4–v1.0.6 in order; run full gate at v1.0.6-bug-fixed.
+- [x] 2026-07-16 10:28 v1.0.5 feature commit `6decc5d` and annotated `v1.0.5` tag published after ADR-076, migration 0057, 229 unit, 58 contract, 43 integration, 43 E2E, architecture, build and migration paths passed.
+- [ ] 2026-07-16 11:12 v1.0.5 bug-fixed audit passes 238 unit, 58 contract, 43 integration, 43 E2E and the complete operator-managed gate. Publish the exact bug-fixed commit/tag after evidence reconciliation.
+- [ ] Complete v1.0.6 feature and bug-fixed increments; run the required full gate at v1.0.6-bug-fixed.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
 - [ ] Complete v1.0.13 feature and bug-fixed increments; run full gate and both demos.
@@ -105,6 +106,7 @@ Invariants for every increment:
 - 2026-07-15: v1.0.4 bug-fixed review treated model-provided simulation case IDs as untrusted Header data. Domain normalization now rejects whitespace/control/non-ASCII and values longer than 256 characters before transport admission; generated candidate/history identities remain within the bound.
 - 2026-07-16: the first real v1.0.5 E2E exposed that the v1.0.2 child-instance foreign key cannot accept a relation before the child instance exists. Migration 0057 preserves that foreign key and instead allows a null child instance during confirmation; the deterministic `call_id` supplies the planned identity and the final upsert attaches the materialized instance.
 - 2026-07-16: A2A confirmation returns after the authoritative Task transition while Workflow execution continues in the background. Nested confirmation E2E therefore polls the Task projection and proves the persisted checkpoint rather than assuming the immediate response means the child node has already paused.
+- 2026-07-16: the v1.0.5 bug-fixed audit found that invalidating a child version could produce a second LangGraph pause while `WorkflowControllerService` still waited only for a terminal status. Pause waiting now detects checkpoint identity changes and reprojects every fresh child plan; real v1-to-v2 E2E proves the second checkpoint is visible and executes no stale MCP call.
 - 2026-07-15: continuation binding paths use string path segments (`"0"`) like the public DSL; numeric array indices are rejected at validation rather than reaching runtime. Both real MCP E2E paths assert the supplied value, preventing state-only false positives.
 
 ## Decision Log

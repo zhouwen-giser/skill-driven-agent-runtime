@@ -23,6 +23,19 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Unit, real PostgreSQL migration/lifecycle and real A2A/MCP E2E evidence covers conservative transitive policy, independent pause/confirm/resume, rejection, cancellation, version drift and zero child MCP calls before confirmation.
 
+## [1.0.5-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Task confirmation/rejection/cancellation decisions are serialized per Task, phase-checked before plan side effects, and carry an explicit top-level-versus-child confirmation target so duplicate child confirmations cannot start an outer execution path.
+- Child decisions now match the complete parent checkpoint identity and revalidate the current Skill version plus immutable child-plan status immediately before confirmation and parent resume.
+- Superseded child plans and changed Skill versions are invalidated and produce a newly projected child checkpoint instead of resuming stale authority or waiting invisibly.
+- User cancellation is durably projected before releasing a child checkpoint; unified wait-timeout cancellation also rejects the nested wait and releases the in-memory parent execution.
+
+### Verification
+
+- Regression evidence covers parent/child pause state, concurrent duplicate confirmation, stale checkpoint metadata, confirmation on a canceled parent Task, superseded confirmed child plans, repeated fresh checkpoints and real version-drift/cancel A2A/MCP flows. The full operator-managed gate passes 238 unit, 58 contract, 43 integration and 43 E2E tests.
+
 ## [1.0.4] - 2026-07-15
 
 ### Added

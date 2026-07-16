@@ -1186,7 +1186,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       await runtime.registerSkill({
         ...skillInput(parentSkillId, 'Nested confirmation parent'),
       });
-      await runtime.registerSkill({
+      const childRegistration: RegisterSkillVersionInput = {
         ...skillInput(childSkillId, 'Nested confirmation child'),
         inputSchema: {
           type: 'object',
@@ -1205,7 +1205,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           optional: [],
           forbidden: [],
         },
-      });
+      };
+      await runtime.registerSkill(childRegistration);
 
       const submitted = await runtime.a2a.client.sendMessage(
         SendMessageRequest.fromJSON({
@@ -1299,6 +1300,147 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(await runtime.listMcpInvocations(serverId)).toContainEqual(
         expect.objectContaining({ status: 'succeeded', toolName: 'device_status' }),
       );
+
+      const canceledParent = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in canceledParent)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await sendFollowUp(
+        canceledParent.id,
+        canceledParent.contextId,
+        'confirm_plan',
+        'Confirm only the parent plan.',
+      );
+      await waitForInternalTaskPhase(canceledParent.id, 'awaiting_plan_confirmation');
+      const canceledInternal = z
+        .object({ planId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${canceledParent.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      const canceledTrace = z
+        .object({ instance: z.object({ instanceId: z.string(), status: z.literal('paused') }) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(canceledInternal.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      const canceled = await runtime.a2a.client.cancelTask({
+        tenant: '',
+        id: canceledParent.id,
+        metadata: {},
+      });
+      expect(canceled.status?.state).toBe(TaskState.TASK_STATE_CANCELED);
+      const staleConfirmation = await fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(canceledParent.id)}/actions`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: 'confirm_plan',
+            messageText: 'Attempt a stale child confirmation.',
+          }),
+        },
+      );
+      expect(staleConfirmation.status).toBe(400);
+      await expect(staleConfirmation.json()).resolves.toMatchObject({
+        error: { code: 'TASK_PLAN_DECISION_NOT_AWAITING' },
+      });
+      await expect(
+        runtime.listSkillCallWorkflows(canceledTrace.instance.instanceId),
+      ).resolves.toEqual([
+        expect.objectContaining({ confirmationStatus: 'rejected', status: 'rejected' }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+
+      const versionChangedParent = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in versionChangedParent)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Confirm the version-change parent plan.',
+      );
+      await waitForInternalTaskPhase(versionChangedParent.id, 'awaiting_plan_confirmation');
+      const beforeVersionChange = z
+        .object({ planId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${versionChangedParent.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      const versionChangeTrace = z
+        .object({ instance: z.object({ instanceId: z.string() }) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(beforeVersionChange.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      await expect(
+        runtime.registerSkill({
+          ...childRegistration,
+          summary: 'Nested confirmation child version two.',
+          description: 'Nested confirmation child with revised immutable guidance.',
+        }),
+      ).resolves.toMatchObject({ version: 2, previousVersion: 1, status: 'enabled' });
+
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Attempt to confirm the stale child version.',
+      );
+      await waitForInternalTaskPhase(versionChangedParent.id, 'awaiting_plan_confirmation');
+      await expect(
+        runtime.listSkillCallWorkflows(versionChangeTrace.instance.instanceId),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          skillVersion: 1,
+          confirmationStatus: 'invalidated',
+          status: 'invalidated',
+        }),
+        expect.objectContaining({
+          skillVersion: 2,
+          confirmationStatus: 'awaiting_confirmation',
+          status: 'awaiting_confirmation',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Confirm the fresh child version.',
+      );
+      await waitForTaskState(versionChangedParent.id, TaskState.TASK_STATE_COMPLETED);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
     } finally {
       await mockMcp.close();
     }

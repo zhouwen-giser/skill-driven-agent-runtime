@@ -488,6 +488,103 @@ describe('TaskService', () => {
 
     await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({ phase: 'canceled' });
     expect(harness.operations).toContain('plan.cancel:plan-parent');
+    expect(harness.operations.indexOf(`task.save:${task.taskId}:canceled`)).toBeLessThan(
+      harness.operations.indexOf('plan.cancel:plan-parent'),
+    );
+  });
+
+  it('serializes duplicate confirmation decisions and executes the plan action only once', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-parent', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    const decisions = await Promise.allSettled([
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm once.',
+      }),
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm twice.',
+      }),
+    ]);
+
+    expect(decisions.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+    expect(decisions.filter(({ status }) => status === 'rejected')).toEqual([
+      expect.objectContaining({
+        reason: expect.objectContaining({ code: 'TASK_PLAN_DECISION_NOT_AWAITING' }),
+      }),
+    ]);
+    expect(
+      harness.operations.filter((operation) => operation === 'plan.confirm:plan-parent'),
+    ).toEqual(['plan.confirm:plan-parent']);
+  });
+
+  it('rejects confirmation on an already canceled parent before any plan side effect', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-parent', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    await harness.service.cancel(task.taskId);
+    harness.operations.length = 0;
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'This decision is stale.',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_PLAN_DECISION_NOT_AWAITING' });
+    expect(harness.operations).not.toContain('plan.confirm:plan-parent');
+  });
+
+  it('releases the nested execution checkpoint after the unified wait timeout cancels a Task', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = {
+      ...transitionTask(task, 'canceled', 'Timed out.', timestamp),
+      planId: 'plan-parent',
+      goalId: 'goal-parent',
+      goalVersion: 1,
+      errorCode: 'TASK_WAIT_TIMEOUT',
+    };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await harness.service.releaseTimedOutWait(task.taskId);
+
+    expect(harness.operations).toEqual(['plan.cancel:plan-parent']);
   });
 });
 
@@ -644,7 +741,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       planActions: {
         confirm: (task) => {
           operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
-          return Promise.resolve();
+          return Promise.resolve('task_plan');
         },
         reject: (task) => {
           operations.push(`plan.reject:${task.planId ?? 'missing'}`);

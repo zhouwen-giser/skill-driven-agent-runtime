@@ -3,6 +3,7 @@ import type {
   SkillCallExecutionResult,
   SkillCallWorkflowRecord,
   SkillVersion,
+  WorkflowInstance,
   WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 
@@ -142,23 +143,31 @@ export class SkillCallWorkflowService {
     )
       return false;
     const record = await this.#records.find(parent.instanceId, pending.nodeId);
-    if (
-      record?.confirmationStatus !== 'awaiting_confirmation' ||
-      record.childPlanId !== pending.childPlanId ||
-      record.parentPlanId !== parentPlanId
-    )
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
         'Pending child confirmation no longer matches the parent checkpoint.',
       );
+    if (record.confirmationStatus === 'confirmed' || record.confirmationStatus === 'invalidated')
+      return true;
+    if (record.confirmationStatus !== 'awaiting_confirmation')
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child confirmation has already received a different decision.',
+      );
     const current = await this.#skills.findCurrentVersion(record.skillId);
-    if (current?.status !== 'enabled' || current.version !== record.skillVersion) {
+    const plan = await this.#plans.findPlan(record.childPlanId);
+    if (
+      current?.status !== 'enabled' ||
+      current.version !== record.skillVersion ||
+      plan?.confirmationStatus !== 'awaiting_confirmation'
+    ) {
       await this.#records.save({
         ...record,
         confirmationStatus: 'invalidated',
         status: 'invalidated',
         evaluationSummary:
-          'Child Skill version changed before confirmation; a fresh plan is required.',
+          'Child Skill version or immutable plan changed before confirmation; a fresh plan is required.',
         completedAt: this.#clock.now(),
       });
       return true;
@@ -178,11 +187,37 @@ export class SkillCallWorkflowService {
     const pending = parent?.pendingConfirmation;
     if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
     const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child plan no longer matches this parent checkpoint.',
+      );
+    let resumable = record;
+    if (record.confirmationStatus === 'confirmed') {
+      const [current, plan] = await Promise.all([
+        this.#skills.findCurrentVersion(record.skillId),
+        this.#plans.findPlan(record.childPlanId),
+      ]);
+      if (
+        current?.status !== 'enabled' ||
+        current.version !== record.skillVersion ||
+        plan?.confirmationStatus !== 'confirmed' ||
+        plan.definition === undefined
+      ) {
+        resumable = {
+          ...record,
+          confirmationStatus: 'invalidated',
+          status: 'invalidated',
+          evaluationSummary:
+            'Confirmed child Skill version or immutable plan changed before parent resume; a fresh plan is required.',
+          completedAt: this.#clock.now(),
+        };
+        await this.#records.save(resumable);
+      }
+    }
     if (
-      (record?.confirmationStatus !== 'confirmed' &&
-        record?.confirmationStatus !== 'invalidated') ||
-      record.childPlanId !== pending.childPlanId ||
-      record.parentPlanId !== parentPlanId
+      resumable.confirmationStatus !== 'confirmed' &&
+      resumable.confirmationStatus !== 'invalidated'
     )
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
@@ -200,7 +235,13 @@ export class SkillCallWorkflowService {
     const pending = parent?.pendingConfirmation;
     if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
     const record = await this.#records.find(parent.instanceId, pending.nodeId);
-    if (record?.confirmationStatus !== 'awaiting_confirmation')
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Pending child confirmation no longer matches the parent checkpoint.',
+      );
+    if (record.confirmationStatus === 'rejected') return true;
+    if (record.confirmationStatus !== 'awaiting_confirmation')
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
         'Child confirmation is no longer awaiting a decision.',
@@ -380,6 +421,22 @@ export class SkillCallWorkflowService {
       );
     return validation.definition;
   }
+}
+
+function matchesPendingCheckpoint(
+  record: SkillCallWorkflowRecord | undefined,
+  parentInstanceId: string,
+  pending: NonNullable<WorkflowInstance['pendingConfirmation']>,
+  parentPlanId: string,
+): record is SkillCallWorkflowRecord {
+  return (
+    record?.parentPlanId === parentPlanId &&
+    record.parentInstanceId === parentInstanceId &&
+    record.parentNodeId === pending.nodeId &&
+    record.childPlanId === pending.childPlanId &&
+    record.skillId === pending.childSkillId &&
+    record.skillVersion === pending.childSkillVersion
+  );
 }
 
 function confirmationRequest(record: SkillCallWorkflowRecord): SkillCallExecutionResult {

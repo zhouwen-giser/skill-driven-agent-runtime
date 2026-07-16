@@ -66,6 +66,8 @@ export interface TaskFollowUpCommand {
 
 export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
 
+export type TaskPlanConfirmationTarget = 'task_plan' | 'nested_skill_plan';
+
 export interface TaskServiceDependencies {
   readonly contexts: ConversationContextRepository;
   readonly tasks: AgentTaskRepository;
@@ -81,9 +83,9 @@ export interface TaskServiceDependencies {
     'observeSubmission' | 'observeRevision' | 'observeSkillSwitch'
   >;
   readonly planActions?: Readonly<{
-    confirm(task: AgentTask): Promise<void>;
+    confirm(task: AgentTask): Promise<TaskPlanConfirmationTarget>;
     reject(task: AgentTask): Promise<void>;
-    executeConfirmed(task: AgentTask): Promise<void>;
+    executeConfirmed(task: AgentTask, target: TaskPlanConfirmationTarget): Promise<void>;
     reviseNaturalLanguage(
       task: AgentTask,
       instruction: string,
@@ -98,6 +100,7 @@ export interface TaskServiceDependencies {
 
 export class TaskService {
   readonly #dependencies: TaskServiceDependencies;
+  readonly #taskDecisionLocks = new Map<string, Promise<void>>();
 
   constructor(dependencies: TaskServiceDependencies) {
     this.#dependencies = dependencies;
@@ -175,17 +178,13 @@ export class TaskService {
   }
 
   async cancel(taskId: string): Promise<AgentTask> {
+    return this.#withTaskDecisionLock(taskId, () => this.#cancel(taskId));
+  }
+
+  async #cancel(taskId: string): Promise<AgentTask> {
     const task = await this.#dependencies.tasks.findById(taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
-    if (
-      (task.phase === 'executing' ||
-        task.phase === 'paused' ||
-        task.phase === 'awaiting_plan_confirmation') &&
-      task.planId !== undefined &&
-      this.#dependencies.planActions !== undefined
-    )
-      await this.#dependencies.planActions.cancel(task);
     const timestamp = this.#dependencies.clock.now();
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
@@ -198,7 +197,24 @@ export class TaskService {
       timestamp,
       summary: 'Task canceled by user.',
     });
+    if (
+      (task.phase === 'executing' ||
+        task.phase === 'paused' ||
+        task.phase === 'awaiting_plan_confirmation') &&
+      task.planId !== undefined &&
+      this.#dependencies.planActions !== undefined
+    )
+      await this.#dependencies.planActions.cancel(task);
     return canceled;
+  }
+
+  async releaseTimedOutWait(taskId: string): Promise<void> {
+    await this.#withTaskDecisionLock(taskId, async () => {
+      const task = await this.get(taskId);
+      if (task.phase !== 'canceled' || task.errorCode !== 'TASK_WAIT_TIMEOUT') return;
+      if (task.planId !== undefined && this.#dependencies.planActions !== undefined)
+        await this.#dependencies.planActions.cancel(task);
+    });
   }
 
   async get(taskId: string): Promise<AgentTask> {
@@ -222,7 +238,22 @@ export class TaskService {
   }
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
+    if (command.action === 'confirm_plan' || command.action === 'reject_plan')
+      return this.#withTaskDecisionLock(command.taskId, () => this.#followUp(command));
+    return this.#followUp(command);
+  }
+
+  async #followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
+    if (
+      (command.action === 'confirm_plan' || command.action === 'reject_plan') &&
+      task.phase !== 'awaiting_plan_confirmation'
+    )
+      throw new TaskApplicationError(
+        'TASK_PLAN_DECISION_NOT_AWAITING',
+        `Task ${task.taskId} is ${task.phase}; only an awaiting plan may receive a confirmation decision.`,
+      );
+    let confirmationTarget: TaskPlanConfirmationTarget | undefined;
     if (command.action === 'provide_input') return this.#provideInput(task, command);
     if (command.action === 'cancel_goal') {
       if (task.goalId === undefined || this.#dependencies.planActions === undefined)
@@ -326,7 +357,7 @@ export class TaskService {
           'TASK_PLAN_ACTIONS_UNAVAILABLE',
           'Task plan confirmation is unavailable.',
         );
-      await this.#dependencies.planActions.confirm(task);
+      confirmationTarget = await this.#dependencies.planActions.confirm(task);
     }
     if (command.action === 'reject_plan' && this.#dependencies.planActions !== undefined)
       await this.#dependencies.planActions.reject(task);
@@ -345,10 +376,28 @@ export class TaskService {
       });
     }
     if (command.action === 'confirm_plan' && this.#dependencies.planActions !== undefined) {
-      await this.#dependencies.planActions.executeConfirmed(task);
+      if (confirmationTarget === undefined) throw new Error('TASK_CONFIRMATION_TARGET_MISSING');
+      await this.#dependencies.planActions.executeConfirmed(task, confirmationTarget);
       return this.get(task.taskId);
     }
     return task;
+  }
+
+  async #withTaskDecisionLock<T>(taskId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.#taskDecisionLocks.get(taskId) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolvePromise) => {
+      release = resolvePromise;
+    });
+    const queued = previous.then(() => gate);
+    this.#taskDecisionLocks.set(taskId, queued);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.#taskDecisionLocks.get(taskId) === queued) this.#taskDecisionLocks.delete(taskId);
+    }
   }
 
   async attachPlan(
@@ -671,7 +720,8 @@ export type TaskApplicationErrorCode =
   | 'TASK_INPUT_ALREADY_RESOLVED'
   | 'TASK_INPUT_RESPONSE_TOO_LARGE'
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
-  | 'TASK_PLAN_NOT_ATTACHED';
+  | 'TASK_PLAN_NOT_ATTACHED'
+  | 'TASK_PLAN_DECISION_NOT_AWAITING';
 
 export class TaskApplicationError extends Error {
   readonly code: TaskApplicationErrorCode;

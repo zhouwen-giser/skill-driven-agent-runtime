@@ -357,30 +357,27 @@ export class WorkflowControllerService {
         if (failed?.status !== 'failed') throw error;
         instance = failed;
       }
-      if (
-        instance.status === 'paused' &&
-        instance.pendingConfirmation?.kind === 'skill_confirmation' &&
-        control.taskId !== undefined
-      ) {
+      while (instance.status === 'paused') {
         const pending = instance.pendingConfirmation;
-        if (
-          this.#taskOutcomes === undefined ||
-          pending.childPlanId === undefined ||
-          pending.childSkillId === undefined ||
-          pending.childSkillVersion === undefined
-        )
-          throw new WorkflowControllerError(
-            'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
-            'Nested Skill confirmation Task projection is unavailable.',
-          );
-        await this.#taskOutcomes.requestSkillConfirmation(control.taskId, {
-          childPlanId: pending.childPlanId,
-          childSkillId: pending.childSkillId,
-          childSkillVersion: pending.childSkillVersion,
-        });
+        if (pending?.kind === 'skill_confirmation' && control.taskId !== undefined) {
+          if (
+            this.#taskOutcomes === undefined ||
+            pending.childPlanId === undefined ||
+            pending.childSkillId === undefined ||
+            pending.childSkillVersion === undefined
+          )
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'Nested Skill confirmation Task projection is unavailable.',
+            );
+          await this.#taskOutcomes.requestSkillConfirmation(control.taskId, {
+            childPlanId: pending.childPlanId,
+            childSkillId: pending.childSkillId,
+            childSkillVersion: pending.childSkillVersion,
+          });
+        }
+        instance = await this.#execution.waitForPauseResolution(instance.instanceId, pending);
       }
-      if (instance.status === 'paused')
-        instance = await this.#execution.waitForPauseResolution(instance.instanceId);
       const goal = await this.#requireActiveGoal(
         control.goalId,
         control.contextId,

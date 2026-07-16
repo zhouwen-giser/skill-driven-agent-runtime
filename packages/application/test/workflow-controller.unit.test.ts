@@ -85,6 +85,56 @@ describe('Workflow outer controller', () => {
     });
   });
 
+  it('projects every fresh child checkpoint after a stale confirmation is invalidated', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Goal satisfied.' });
+    const terminal = instance('instance-0', 'plan-initial', 0, 1);
+    const { completedAt: _completedAt, result: _result, ...running } = terminal;
+    void _completedAt;
+    void _result;
+    const firstPause: WorkflowInstance = {
+      ...running,
+      status: 'paused',
+      pendingConfirmation: {
+        nodeId: 'child',
+        prompt: 'Confirm child v2.',
+        kind: 'skill_confirmation',
+        parentPlanId: 'plan-initial',
+        childPlanId: 'plan-child-v2',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      },
+    };
+    const secondPause: WorkflowInstance = {
+      ...firstPause,
+      pendingConfirmation: {
+        ...firstPause.pendingConfirmation,
+        nodeId: 'child',
+        prompt: 'Confirm child v3.',
+        kind: 'skill_confirmation',
+        childPlanId: 'plan-child-v3',
+        childSkillVersion: 3,
+      },
+    };
+    fixture.execution.execute.mockResolvedValueOnce(firstPause);
+    fixture.execution.waitForPauseResolution
+      .mockResolvedValueOnce(secondPause)
+      .mockResolvedValueOnce(terminal);
+
+    await fixture.controller.start(startInput());
+
+    expect(fixture.taskOutcomes.requestSkillConfirmation).toHaveBeenNthCalledWith(
+      1,
+      'task-control',
+      expect.objectContaining({ childPlanId: 'plan-child-v2', childSkillVersion: 2 }),
+    );
+    expect(fixture.taskOutcomes.requestSkillConfirmation).toHaveBeenNthCalledWith(
+      2,
+      'task-control',
+      expect.objectContaining({ childPlanId: 'plan-child-v3', childSkillVersion: 3 }),
+    );
+  });
+
   it('pauses a normal replan for confirmation and continues the same persisted control', async () => {
     const fixture = createFixture({ maxReplans: 2, autoConfirm: true });
     fixture.evaluator.decisions.push(

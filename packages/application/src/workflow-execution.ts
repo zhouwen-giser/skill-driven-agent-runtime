@@ -50,10 +50,14 @@ export class WorkflowExecutionService {
 
   async confirm(planId: string, taskId?: string): Promise<WorkflowPlanRecord> {
     const plan = await this.#requirePlan(planId);
-    if (plan.definition === undefined || plan.confirmationStatus === 'failed')
+    if (
+      plan.definition === undefined ||
+      (plan.confirmationStatus !== 'awaiting_confirmation' &&
+        plan.confirmationStatus !== 'confirmed')
+    )
       throw new WorkflowExecutionError(
         'WORKFLOW_PLAN_NOT_EXECUTABLE',
-        'Failed or definition-less plan cannot be confirmed.',
+        'Only an active immutable plan with a definition can be confirmed.',
       );
     if (plan.confirmationStatus === 'confirmed') return plan;
     const confirmedAt = this.#clock.now();
@@ -384,7 +388,11 @@ export class WorkflowExecutionService {
     return { disposition: 'resumed', instance: resumed };
   }
 
-  async waitForPauseResolution(instanceId: string): Promise<WorkflowInstance> {
+  async waitForPauseResolution(
+    instanceId: string,
+    expectedCheckpoint?: WorkflowInstance['pendingConfirmation'],
+  ): Promise<WorkflowInstance> {
+    const expectedCheckpointKey = confirmationCheckpointKey(expectedCheckpoint);
     for (;;) {
       const instance = await this.#instances.findInstance(instanceId);
       if (instance === undefined)
@@ -393,6 +401,11 @@ export class WorkflowExecutionService {
           'Paused Workflow instance was not found.',
         );
       if (instance.status !== 'paused') return instance;
+      if (
+        expectedCheckpoint !== undefined &&
+        confirmationCheckpointKey(instance.pendingConfirmation) !== expectedCheckpointKey
+      )
+        return instance;
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
     }
   }
@@ -464,6 +477,19 @@ export class WorkflowExecutionService {
       summary: event.summary,
     }));
   }
+}
+
+function confirmationCheckpointKey(checkpoint: WorkflowInstance['pendingConfirmation']): string {
+  if (checkpoint === undefined) return '';
+  return JSON.stringify({
+    nodeId: checkpoint.nodeId,
+    kind: checkpoint.kind,
+    parentPlanId: checkpoint.parentPlanId,
+    childPlanId: checkpoint.childPlanId,
+    childSkillId: checkpoint.childSkillId,
+    childSkillVersion: checkpoint.childSkillVersion,
+    pausedAt: checkpoint.pausedAt,
+  });
 }
 
 function emptyUsage(replanCount: number) {

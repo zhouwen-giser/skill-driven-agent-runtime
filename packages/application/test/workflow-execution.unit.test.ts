@@ -59,6 +59,19 @@ describe('Workflow execution application service', () => {
     });
   });
 
+  it('rejects a stale confirmation after the immutable plan was superseded', async () => {
+    const superseded = { ...validPlan, confirmationStatus: 'superseded' as const };
+    const plans = new MemoryPlans([superseded]);
+    const service = createService(plans, new MemoryExecutions(), { execute: vi.fn() });
+
+    await expect(service.confirm(superseded.planId, 'task-stale')).rejects.toMatchObject({
+      code: 'WORKFLOW_PLAN_NOT_EXECUTABLE',
+    });
+    await expect(plans.findPlan(superseded.planId)).resolves.toMatchObject({
+      confirmationStatus: 'superseded',
+    });
+  });
+
   it('returns the authoritative instance with ordered displayable node events', async () => {
     const instances = new MemoryExecutions();
     const instance: WorkflowInstance = {
@@ -236,6 +249,49 @@ describe('Workflow execution application service', () => {
     ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
     expect(resumeHumanConfirmation).toHaveBeenCalledWith('instance-paused', true, undefined);
     expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
+  });
+
+  it('returns a fresh pause checkpoint without waiting for a terminal instance', async () => {
+    const instances = new MemoryExecutions();
+    const execute = vi.fn().mockResolvedValue({
+      status: 'paused',
+      errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 4, llmCalls: 0, mcpCalls: 0, cost: 1 },
+      pendingConfirmation: {
+        nodeId: 'child',
+        prompt: 'Confirm child v2.',
+        kind: 'skill_confirmation',
+        parentPlanId: 'plan-1',
+        childPlanId: 'plan-child-v2',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      },
+      events: [],
+    });
+    const service = createService(new MemoryPlans([validPlan]), instances, { execute });
+    const first = await service.execute({
+      instanceId: 'instance-multi-pause',
+      planId: 'plan-1',
+      input: {},
+    });
+    await instances.saveInstance({
+      ...first,
+      pendingConfirmation: {
+        ...first.pendingConfirmation,
+        nodeId: 'child',
+        prompt: 'Confirm child v3.',
+        kind: 'skill_confirmation',
+        childPlanId: 'plan-child-v3',
+        childSkillVersion: 3,
+      },
+    });
+
+    await expect(
+      service.waitForPauseResolution(first.instanceId, first.pendingConfirmation),
+    ).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { childPlanId: 'plan-child-v3', childSkillVersion: 3 },
+    });
   });
 
   it('resolves and persists the current Skill budget override before execution', async () => {

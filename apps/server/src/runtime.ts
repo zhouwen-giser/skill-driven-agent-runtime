@@ -578,14 +578,16 @@ export async function startServerRuntime(
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        if (!(await skillCallWorkflowService.confirmPendingForParentPlan(task.planId, task.taskId)))
-          await workflowExecution.confirm(task.planId, task.taskId);
+        if (await skillCallWorkflowService.confirmPendingForParentPlan(task.planId, task.taskId))
+          return 'nested_skill_plan';
+        await workflowExecution.confirm(task.planId, task.taskId);
+        return 'task_plan';
       },
       async reject(task) {
         if (task.planId !== undefined)
           await skillCallWorkflowService.rejectPendingForParentPlan(task.planId);
       },
-      executeConfirmed(task) {
+      executeConfirmed(task, confirmationTarget) {
         if (
           task.planId === undefined ||
           task.goalId === undefined ||
@@ -598,7 +600,10 @@ export async function startServerRuntime(
         const goalVersion = task.goalVersion;
         const selectedSkillIds = task.selectedSkillId === undefined ? [] : [task.selectedSkillId];
         const execution = (async () => {
-          if (await skillCallWorkflowService.resumeConfirmedForParentPlan(planId)) return;
+          if (confirmationTarget === 'nested_skill_plan') {
+            await skillCallWorkflowService.resumeConfirmedForParentPlan(planId);
+            return;
+          }
           const controlId = `control-task-${task.taskId}`;
           try {
             const existing = await workflowController.get(controlId);
@@ -668,7 +673,7 @@ export async function startServerRuntime(
       async cancel(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         if (await skillCallWorkflowService.rejectPendingForParentPlan(task.planId)) return;
-        if (task.phase === 'awaiting_plan_confirmation') return;
+        if (task.phase === 'awaiting_plan_confirmation' || task.phase === 'canceled') return;
         await workflowExecution.cancelForPlan(task.planId);
       },
       async resume(task) {
@@ -1071,7 +1076,20 @@ export async function startServerRuntime(
     },
   });
   const waitSweepTimer = setInterval(() => {
-    void taskWaitTimeouts.sweep().catch((error: unknown) => {
+    void (async () => {
+      const expired = await taskWaitTimeouts.sweep();
+      const releases = await Promise.allSettled(
+        expired.map((task) => service.releaseTimedOutWait(task.taskId)),
+      );
+      const failures: unknown[] = [];
+      for (const release of releases)
+        if (release.status === 'rejected') failures.push(release.reason as unknown);
+      if (failures.length > 0)
+        throw new AggregateError(
+          failures,
+          'One or more expired Task checkpoints were not released.',
+        );
+    })().catch((error: unknown) => {
       process.stderr.write(
         `${JSON.stringify({ event: 'task_wait_sweep.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
       );
