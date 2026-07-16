@@ -392,6 +392,26 @@ export class McpRegistryService {
     });
   }
 
+  async updateRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck> {
+    const record = await this.#requireServer(input.serverId);
+    const executionContext = createRuntimeExecutionContext(input.executionContext);
+    return this.#transport.updateTask({
+      endpoint: record.server.endpoint,
+      headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
+      remoteTaskId: input.remoteTaskId,
+      inputResponses: input.inputResponses,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    });
+  }
+
   async checkTaskAvailability(
     input: Readonly<{
       serverId: string;

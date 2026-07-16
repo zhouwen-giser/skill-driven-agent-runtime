@@ -337,6 +337,24 @@ describe('McpRegistryService', () => {
       sessionRevision: expect.any(String),
     });
     await expect(
+      service.updateRemoteTask({
+        serverId: 'mcp.devices',
+        remoteTaskId: 'remote-task-input',
+        inputResponses: { approval: { action: 'accept', content: { approved: true } } },
+        executionContext: { mode: 'simulation', simulationId: 'simulation-update-1' },
+      }),
+    ).resolves.toMatchObject({ acknowledged: true });
+    expect(transport.updateInputs).toEqual([
+      expect.objectContaining({
+        remoteTaskId: 'remote-task-input',
+        inputResponses: { approval: { action: 'accept', content: { approved: true } } },
+        headers: expect.objectContaining({
+          'X-SDAR-Execution-Mode': 'simulation',
+          'X-SDAR-Simulation-Id': 'simulation-update-1',
+        }),
+      }),
+    ]);
+    await expect(
       service.cancelRemoteTask({
         serverId: 'mcp.devices',
         remoteTaskId: 'remote-task-orphan',
@@ -641,6 +659,7 @@ class ChangingTransport implements McpTransportAdapter {
   };
   declaredExecutionSemantics: McpToolExecutionSemanticsValues | undefined;
   callInputs: Parameters<McpTransportAdapter['call']>[0][] = [];
+  updateInputs: Parameters<McpTransportAdapter['updateTask']>[0][] = [];
   cancelInputs: Parameters<McpTransportAdapter['cancelTask']>[0][] = [];
   discover() {
     this.discoveries += 1;
@@ -679,8 +698,9 @@ class ChangingTransport implements McpTransportAdapter {
   getTask() {
     return Promise.reject(new Error('No remote Tasks in this unit transport.'));
   }
-  updateTask() {
-    return Promise.reject(new Error('No remote Tasks in this unit transport.'));
+  updateTask(input: Parameters<McpTransportAdapter['updateTask']>[0]) {
+    this.updateInputs.push(input);
+    return Promise.resolve({ acknowledged: true as const, protocolRevision: 'test-protocol' });
   }
   cancelTask(input: Parameters<McpTransportAdapter['cancelTask']>[0]) {
     this.cancelInputs.push(input);

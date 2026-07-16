@@ -20,5 +20,6 @@
 | ADR-091     | 远程 Task 使用 PostgreSQL 版本租约、共享 context 串行和 0100 migration profile         |
 | ADR-092     | MCP Task readiness 由领域模型与确定性 Guard 控制，并叠加通用 Tool semantics 与传递确认 |
 | ADR-093     | 远程 Task 使用 PostgreSQL 持久 frontier，并通过 fresh LangGraph invocation 继续        |
+| ADR-094     | 远程输入复用 Task input，update/cancel ack 不越权，取消后继续 Provider 权威轮询       |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

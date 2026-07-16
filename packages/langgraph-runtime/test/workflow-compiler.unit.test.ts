@@ -406,6 +406,11 @@ describe('LangGraph Workflow compiler', () => {
         nodeRunId: 'execution.external-error~remote~1',
         result: {
           content: [{ type: 'text', text: 'business rejected' }],
+          structuredContent: {
+            outcome: 'deadline_reached',
+            reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+            retryable: true,
+          },
           isError: true,
         },
       },
@@ -419,15 +424,27 @@ describe('LangGraph Workflow compiler', () => {
       result: 'recovered',
       errors: {
         remote: {
-          code: 'MCP_TOOL_BUSINESS_REJECTION',
-          message: 'Remote MCP Task completed with an error Tool result.',
+          code: 'MCP_TASK_DEADLINE_REACHED',
+          message: 'The Provider ended the remote Task at its maximum elapsed deadline.',
+          details: {
+            category: 'provider_business',
+            outcome: 'deadline_reached',
+            reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+            retryable: true,
+            classification: 'declared',
+            structuredEvidence: {
+              outcome: 'deadline_reached',
+              reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+              retryable: true,
+            },
+          },
         },
       },
     });
     expect(decideExecutionError).toHaveBeenCalledWith(
       expect.objectContaining({
         handledNodeId: 'remote',
-        error: expect.objectContaining({ code: 'MCP_TOOL_BUSINESS_REJECTION' }),
+        error: expect.objectContaining({ code: 'MCP_TASK_DEADLINE_REACHED' }),
       }),
     );
     expect(callMcpTool).not.toHaveBeenCalled();

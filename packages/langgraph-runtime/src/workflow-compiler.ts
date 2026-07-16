@@ -8,6 +8,11 @@ import {
   interrupt,
 } from '@langchain/langgraph';
 
+import {
+  classifyProviderBusinessOutcome,
+  createProviderBusinessNodeError,
+  normalizeResultEnvelope,
+} from '../../domain/src/index.js';
 import type {
   InternalToolResult,
   ToolReference,
@@ -27,7 +32,6 @@ import type {
   WorkflowParallelJoinState,
   WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
-import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
 import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
@@ -116,11 +120,17 @@ export interface WorkflowCallCosts {
   readonly subworkflow: number;
 }
 
+interface WorkflowNodeRuntimeError {
+  readonly code: string;
+  readonly message: string;
+  readonly details?: unknown;
+}
+
 export interface WorkflowExecutionResult {
   readonly status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
   readonly result?: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
-  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly errors: Readonly<Record<string, WorkflowNodeRuntimeError>>;
   readonly loopCounts: Readonly<Record<string, number>>;
   readonly recoveryCounts: Readonly<Record<string, number>>;
   readonly events: readonly WorkflowExecutionEvent[];
@@ -143,7 +153,7 @@ interface WorkflowExecutionState {
   readonly executionId: string;
   readonly input: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
-  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly errors: Readonly<Record<string, WorkflowNodeRuntimeError>>;
   readonly routes: Readonly<Record<string, string>>;
   readonly loopCounts: Readonly<Record<string, number>>;
   readonly recoveryCounts: Readonly<Record<string, number>>;
@@ -163,7 +173,7 @@ const ExecutionState = Annotation.Root({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
-  errors: Annotation<Readonly<Record<string, Readonly<{ code: string; message: string }>>>>({
+  errors: Annotation<Readonly<Record<string, WorkflowNodeRuntimeError>>>({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
@@ -1334,12 +1344,11 @@ function restoreExternalResolution(
     };
   } else {
     if (resolution.kind === 'failed') validateExternalFailureCategory(waiting, resolution);
-    const error =
+    const error: WorkflowNodeRuntimeError =
       resolution.kind === 'completed'
-        ? {
-            code: 'MCP_TOOL_BUSINESS_REJECTION',
-            message: 'Remote MCP Task completed with an error Tool result.',
-          }
+        ? createProviderBusinessNodeError(
+            classifyProviderBusinessOutcome(requiredValue(remoteToolResult)),
+          )
         : { code: resolution.error.code, message: resolution.error.message };
     errors[waiting.nodeId] = error;
     const handler = handlers.get(waiting.nodeId);
@@ -1440,8 +1449,8 @@ function runnableContinuationFrontier(
 
 function workflowErrorRecord(
   value: Readonly<Record<string, unknown>>,
-): Record<string, Readonly<{ code: string; message: string }>> {
-  const errors: Record<string, Readonly<{ code: string; message: string }>> = {};
+): Record<string, WorkflowNodeRuntimeError> {
+  const errors: Record<string, WorkflowNodeRuntimeError> = {};
   for (const [nodeId, error] of Object.entries(value)) {
     if (
       typeof error !== 'object' ||
@@ -1455,7 +1464,11 @@ function workflowErrorRecord(
         'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
         'Persisted Workflow continuation errors are invalid.',
       );
-    errors[nodeId] = { code: error.code, message: error.message };
+    errors[nodeId] = {
+      code: error.code,
+      message: error.message,
+      ...('details' in error && error.details !== undefined ? { details: error.details } : {}),
+    };
   }
   return errors;
 }

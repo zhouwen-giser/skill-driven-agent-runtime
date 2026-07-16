@@ -18,6 +18,10 @@ import type {
   RemoteTaskControlEvent,
   RemoteTaskObservation,
   RemoteTaskProtocolAttempt,
+  RemoteTaskInputLink,
+  RemoteTaskCancellationRequest,
+  RemoteTaskCancellationAttempt,
+  RemoteTaskCancellationProviderTerminalStatus,
   RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
@@ -260,7 +264,10 @@ export interface TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
-      continuationPhase: Extract<AgentTask['phase'], 'goal_deliberation' | 'planning'>;
+      continuationPhase: Extract<
+        AgentTask['phase'],
+        'goal_deliberation' | 'planning' | 'executing'
+      >;
       phaseMessage: string;
     }>,
   ): Promise<AgentTask>;
@@ -724,6 +731,135 @@ export interface RemoteTaskRepository {
   listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]>;
   listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]>;
   listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
+}
+
+export type RemoteTaskCancellationRequestResult =
+  | Readonly<{ requested: false; reason: 'missing' | 'stale' | 'terminal' | 'closed' }>
+  | Readonly<{ requested: true; request: RemoteTaskCancellationRequest; created: boolean }>;
+
+export type RemoteTaskCancellationClaimResult =
+  | Readonly<{ claimed: false; reason: 'missing' | 'stale' | 'resolved' | 'leased' }>
+  | Readonly<{ claimed: true; request: RemoteTaskCancellationRequest }>;
+
+export type RemoteTaskCancellationMutationResult =
+  | Readonly<{ applied: false; reason: 'missing' | 'stale' | 'resolved' }>
+  | Readonly<{ applied: true; request: RemoteTaskCancellationRequest }>;
+
+export interface RemoteTaskCancellationRepository {
+  requestCancellation(
+    request: RemoteTaskCancellationRequest,
+    expectedBindingVersion: number,
+  ): Promise<RemoteTaskCancellationRequestResult>;
+  findCancellation(requestId: string): Promise<RemoteTaskCancellationRequest | undefined>;
+  listRequiringDelivery(
+    now: string,
+    limit: number,
+  ): Promise<readonly RemoteTaskCancellationRequest[]>;
+  claimCancellation(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskCancellationClaimResult>;
+  recordCancellationAcknowledged(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      attempt: RemoteTaskCancellationAttempt;
+      acknowledgedAt: string;
+      protocolRevision: string;
+    }>,
+  ): Promise<RemoteTaskCancellationMutationResult>;
+  recordCancellationUncertain(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      attempt: RemoteTaskCancellationAttempt;
+      errorCode: string;
+      observedAt: string;
+    }>,
+  ): Promise<RemoteTaskCancellationMutationResult>;
+  resolveCancellationFromProvider(
+    bindingId: string,
+    status: RemoteTaskCancellationProviderTerminalStatus,
+    resolvedAt: string,
+  ): Promise<readonly RemoteTaskCancellationRequest[]>;
+  listCancellationAttempts(requestId: string): Promise<readonly RemoteTaskCancellationAttempt[]>;
+}
+
+export interface RemoteTaskCancellationSender {
+  cancelRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+}
+
+export type RemoteTaskInputAttemptStatus =
+  'acknowledged' | 'provider_unreachable' | 'contract_invalid' | 'provider_protocol';
+
+export interface RemoteTaskInputAttempt {
+  readonly attemptId: string;
+  readonly inputRequestId: string;
+  readonly bindingId: string;
+  readonly expectedBindingVersion: number;
+  readonly status: RemoteTaskInputAttemptStatus;
+  readonly protocolRevision?: string;
+  readonly errorCode?: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly durationMs: number;
+}
+
+export interface RemoteTaskInputRepository {
+  activate(
+    input: Readonly<{
+      request: TaskInputRequest;
+      link: RemoteTaskInputLink;
+      claimToken: string;
+      processedAt: string;
+      phaseMessage: string;
+    }>,
+  ): Promise<boolean>;
+  findLink(inputRequestId: string): Promise<RemoteTaskInputLink | undefined>;
+  recordUpdateOutcome(
+    input: Readonly<{
+      inputRequestId: string;
+      expectedBindingVersion: number;
+      attempt: RemoteTaskInputAttempt;
+      status: Extract<RemoteTaskInputLink['status'], 'update_acknowledged' | 'update_uncertain'>;
+      observedAt: string;
+    }>,
+  ): Promise<Readonly<{ applied: boolean; binding?: RemoteTaskBinding }>>;
+  listAttempts(inputRequestId: string): Promise<readonly RemoteTaskInputAttempt[]>;
+}
+
+export interface RemoteTaskInputSender {
+  updateRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+}
+
+export interface RemoteTaskCancellationJob {
+  readonly requestId: string;
+  readonly expectedVersion: number;
+}
+
+export interface RemoteTaskCancellationQueue {
+  enqueue(input: RemoteTaskCancellationJob): Promise<void>;
+  state(requestId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
 }
 
 export interface WorkflowContinuationRepository {

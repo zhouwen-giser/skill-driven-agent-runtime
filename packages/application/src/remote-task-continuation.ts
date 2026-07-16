@@ -1,4 +1,5 @@
 import {
+  classifyProviderBusinessOutcome,
   createWorkflowContinuationAttempt,
   transitionWorkflowContinuationAttempt,
   type RemoteTaskBinding,
@@ -19,7 +20,7 @@ import type {
 import type { WorkflowExecutionService } from './workflow-execution.js';
 
 export type RemoteTaskContinuationProcessResult =
-  | Readonly<{ disposition: 'ignored_input_required' }>
+  | Readonly<{ disposition: 'input_activated' | 'input_deferred' }>
   | Readonly<{ disposition: 'not_claimed' }>
   | Readonly<{ disposition: 'stale'; instance?: WorkflowInstance }>
   | Readonly<{
@@ -45,6 +46,13 @@ export class RemoteTaskContinuationService {
         }>,
       ) => Promise<void>)
     | undefined;
+  readonly #inputRequired:
+    | Readonly<{
+        process(
+          event: RemoteTaskContinuationJob,
+        ): Promise<'activated' | 'deferred' | 'not_claimed'>;
+      }>
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -62,6 +70,11 @@ export class RemoteTaskContinuationService {
           continuationAttemptId: string;
         }>,
       ) => Promise<void>;
+      inputRequired?: Readonly<{
+        process(
+          event: RemoteTaskContinuationJob,
+        ): Promise<'activated' | 'deferred' | 'not_claimed'>;
+      }>;
     }>,
   ) {
     this.#continuations = dependencies.continuations;
@@ -72,10 +85,16 @@ export class RemoteTaskContinuationService {
     this.#ids = dependencies.ids;
     this.#claimLeaseMs = dependencies.claimLeaseMs ?? 30_000;
     this.#onContinued = dependencies.onContinued;
+    this.#inputRequired = dependencies.inputRequired;
   }
 
   async process(event: RemoteTaskContinuationJob): Promise<RemoteTaskContinuationProcessResult> {
-    if (event.eventType === 'task.input_required') return { disposition: 'ignored_input_required' };
+    if (event.eventType === 'task.input_required') {
+      const result = await this.#inputRequired?.process(event);
+      return {
+        disposition: result === 'activated' ? 'input_activated' : 'input_deferred',
+      };
+    }
     const binding = await this.#remoteTasks.findById(event.bindingId);
     if (binding === undefined) return { disposition: 'not_claimed' };
     return this.#serial.run(binding.contextId, () => this.#processSerial(event, binding));
@@ -237,12 +256,8 @@ export class RemoteTaskContinuationReconciler {
     const events = await this.#continuations.listInbox(this.#clock.now(), limit);
     let scheduled = 0;
     let alreadyScheduled = 0;
-    let deferredInput = 0;
+    const deferredInput = 0;
     for (const event of events) {
-      if (event.type === 'task.input_required') {
-        deferredInput += 1;
-        continue;
-      }
       const state = await this.#queue.state(event.eventId);
       if (state === 'scheduled' || state === 'active' || state === 'failed') {
         alreadyScheduled += 1;
@@ -301,7 +316,9 @@ function resolutionFromControlEvent(
         'REMOTE_TASK_CONTROL_PAYLOAD_INVALID',
         'Completed remote Task control evidence does not contain a valid Tool result.',
       );
-    return { kind: 'completed', waitId, nodeRunId, result: payload['result'] };
+    const result = payload['result'];
+    if (result.isError) classifyProviderBusinessOutcome(result);
+    return { kind: 'completed', waitId, nodeRunId, result };
   }
   if (event.type === 'task.failed') {
     const error = payloadRecord(payload['error']);

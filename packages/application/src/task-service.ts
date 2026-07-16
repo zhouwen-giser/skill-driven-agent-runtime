@@ -63,6 +63,8 @@ export interface TaskFollowUpCommand {
   readonly action: TaskFollowUpAction;
   readonly messageText: string;
   readonly inputRequestId?: string;
+  /** Protocol-neutral structured supplementary input supplied by an adapter. */
+  readonly inputContent?: unknown;
 }
 
 export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
@@ -76,6 +78,9 @@ export interface TaskServiceDependencies {
   readonly events: RuntimeEventPublisher;
   readonly skillDrafts: SkillDraftRepository;
   readonly taskInputs: TaskInputRepository;
+  readonly remoteTaskInputs?: Readonly<{
+    prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
+  }>;
   readonly skillInputs?: Pick<SkillInputResolutionRepository, 'find'>;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
@@ -715,6 +720,13 @@ export class TaskService {
         'TASK_INPUT_ALREADY_RESOLVED',
         `Supplementary input request is ${pending.status}.`,
       );
+    const responseContent =
+      pending.source === 'remote_task'
+        ? await this.#prepareRemoteTaskInput(
+            pending.inputRequestId,
+            command.inputContent ?? command.messageText,
+          )
+        : (command.inputContent ?? command.messageText);
     const timestamp = this.#dependencies.clock.now();
     const attempt = createTaskExecutionAttempt({
       attemptId: this.#dependencies.ids.nextId('attempt'),
@@ -732,12 +744,17 @@ export class TaskService {
         inputResponseId: this.#dependencies.ids.nextId('input-response'),
         inputRequestId: pending.inputRequestId,
         taskId: task.taskId,
-        content: command.messageText,
+        content: responseContent,
         createdAt: timestamp,
       },
       attempt,
       answeredAt: timestamp,
-      continuationPhase: pending.source === 'goal_deliberation' ? 'goal_deliberation' : 'planning',
+      continuationPhase:
+        pending.source === 'remote_task'
+          ? 'executing'
+          : pending.source === 'goal_deliberation'
+            ? 'goal_deliberation'
+            : 'planning',
       phaseMessage,
     });
     await this.#dependencies.events.publish({
@@ -760,6 +777,15 @@ export class TaskService {
     }
     return task;
   }
+
+  async #prepareRemoteTaskInput(inputRequestId: string, inputContent: unknown): Promise<unknown> {
+    if (this.#dependencies.remoteTaskInputs === undefined)
+      throw new TaskApplicationError(
+        'TASK_REMOTE_INPUT_UNAVAILABLE',
+        'Remote Task supplementary input is unavailable.',
+      );
+    return this.#dependencies.remoteTaskInputs.prepareResponse(inputRequestId, inputContent);
+  }
 }
 
 export type TaskApplicationErrorCode =
@@ -771,6 +797,7 @@ export type TaskApplicationErrorCode =
   | 'TASK_INPUT_TASK_MISMATCH'
   | 'TASK_INPUT_ALREADY_RESOLVED'
   | 'TASK_INPUT_RESPONSE_TOO_LARGE'
+  | 'TASK_REMOTE_INPUT_UNAVAILABLE'
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
   | 'TASK_PLAN_NOT_ATTACHED'
   | 'TASK_RUNTIME_CANCELLATION_INCOMPLETE'

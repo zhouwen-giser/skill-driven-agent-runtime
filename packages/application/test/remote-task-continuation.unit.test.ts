@@ -117,6 +117,33 @@ describe('RemoteTaskContinuationService', () => {
     });
   });
 
+  it('fails closed before graph continuation when timing outcome evidence is malformed', async () => {
+    const harness = createHarness();
+    const event = completedEvent({
+      content: [],
+      structuredContent: {
+        outcome: 'deadline_reached',
+        retryable: true,
+      },
+      isError: true,
+    });
+    harness.continuations.addControl(event);
+
+    await expect(harness.service.process(jobFor(event))).rejects.toMatchObject({
+      code: 'PROVIDER_BUSINESS_OUTCOME_INVALID',
+    });
+
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.continuations.attempts[0]).toMatchObject({
+      status: 'failed',
+      errorCode: 'PROVIDER_BUSINESS_OUTCOME_INVALID',
+    });
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'PROVIDER_BUSINESS_OUTCOME_INVALID',
+    });
+  });
+
   it.each([
     ['terminal parent', { instance: workflowInstance({ status: 'canceled' }) }],
     ['stale Goal authority', { binding: remoteTaskBinding({ goalVersion: 2 }) }],
@@ -135,13 +162,13 @@ describe('RemoteTaskContinuationService', () => {
     expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'processed' });
   });
 
-  it('ignores input_required evidence before binding lookup or control claim', async () => {
+  it('defers input_required evidence when the Phase 5 input lifecycle is unavailable', async () => {
     const harness = createHarness();
     const event = inputRequiredEvent();
     harness.continuations.addControl(event);
 
     await expect(harness.service.process(jobFor(event))).resolves.toEqual({
-      disposition: 'ignored_input_required',
+      disposition: 'input_deferred',
     });
 
     expect(harness.findBinding).not.toHaveBeenCalled();
@@ -173,7 +200,7 @@ describe('RemoteTaskContinuationService', () => {
 });
 
 describe('RemoteTaskContinuationReconciler', () => {
-  it('schedules terminal inbox evidence once and defers input_required to the input lifecycle', async () => {
+  it('schedules terminal and input inbox evidence once for lifecycle dispatch', async () => {
     const completed = completedEvent();
     const inputRequired = inputRequiredEvent();
     const queueStates = new Map<string, Awaited<ReturnType<RemoteTaskContinuationQueue['state']>>>([
@@ -201,11 +228,12 @@ describe('RemoteTaskContinuationReconciler', () => {
 
     await expect(reconciler.reconcile()).resolves.toEqual({
       examined: 3,
-      scheduled: 1,
+      scheduled: 2,
       alreadyScheduled: 1,
-      deferredInput: 1,
+      deferredInput: 0,
     });
     expect(enqueue).toHaveBeenCalledWith(jobFor(completed));
+    expect(enqueue).toHaveBeenCalledWith(jobFor(inputRequired));
   });
 });
 

@@ -131,6 +131,26 @@ describe('RemoteTaskPollingService', () => {
     expect(harness.queue.enqueued).toHaveLength(0);
   });
 
+  it('keeps observing input_required after local cancellation without reviving the Workflow', async () => {
+    const harness = pollingHarness({
+      localState: 'cancel_observing',
+      invalidatedAt: timestamp,
+    });
+    harness.readerResult = { kind: 'snapshot', snapshot: inputRequiredSnapshot() };
+
+    await expect(harness.service.process(job())).resolves.toBe('cancel_observing');
+
+    expect(harness.repository.binding.localState).toBe('cancel_observing');
+    expect(harness.repository.binding.invalidatedAt).toBe(timestamp);
+    expect(harness.repository.binding.nextPollAt).toBe('2026-07-16T08:00:01.200Z');
+    expect(harness.queue.enqueued).toEqual([
+      {
+        job: { bindingId: 'binding-1', expectedVersion: 3 },
+        runAt: '2026-07-16T08:00:01.200Z',
+      },
+    ]);
+  });
+
   it('backs off an unreachable Provider without changing remote status and then recovers', async () => {
     const harness = pollingHarness();
     harness.readerResult = {
@@ -366,11 +386,18 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
       });
     }
     const working = input.snapshot.status === 'working';
-    const localState = working
-      ? ('polling' as const)
-      : input.snapshot.status === 'input_required'
-        ? ('awaiting_input' as const)
-        : ('terminal_event_pending' as const);
+    const cancellationObservationContinues =
+      this.binding.localState === 'cancel_observing' &&
+      input.snapshot.status !== 'completed' &&
+      input.snapshot.status !== 'failed' &&
+      input.snapshot.status !== 'cancelled';
+    const localState = cancellationObservationContinues
+      ? ('cancel_observing' as const)
+      : working
+        ? ('polling' as const)
+        : input.snapshot.status === 'input_required'
+          ? ('awaiting_input' as const)
+          : ('terminal_event_pending' as const);
     const updatedBinding: RemoteTaskBinding = {
       ...this.binding,
       protocolStatus: input.snapshot.status,

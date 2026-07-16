@@ -2,7 +2,7 @@ import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 
 export type TaskInputRequestSource =
-  'goal_deliberation' | 'skill_input_resolution' | 'goal_evaluation' | 'workflow';
+  'goal_deliberation' | 'skill_input_resolution' | 'goal_evaluation' | 'workflow' | 'remote_task';
 export type TaskInputRequestStatus = 'waiting' | 'answered' | 'expired' | 'canceled';
 
 export interface TaskInputRequest {

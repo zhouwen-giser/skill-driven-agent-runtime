@@ -24,6 +24,9 @@ import {
   RemoteTaskReconciler,
   RemoteTaskContinuationService,
   RemoteTaskContinuationReconciler,
+  RemoteTaskInputService,
+  RemoteTaskCancellationReconciler,
+  RemoteTaskCancellationWorker,
   McpTaskReadinessService,
   StructuredTaskRiskDecider,
   StructuredMcpToolEnhancer,
@@ -141,6 +144,8 @@ import {
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
+  PostgresRemoteTaskInputRepository,
+  PostgresRemoteTaskCancellationRepository,
   PostgresWorkflowContinuationRepository,
   PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
@@ -151,6 +156,8 @@ import {
   BullMqRemoteTaskPollWorker,
   BullMqRemoteTaskContinuationQueue,
   BullMqRemoteTaskContinuationWorker,
+  BullMqRemoteTaskCancellationQueue,
+  BullMqRemoteTaskCancellationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -511,6 +518,19 @@ export async function startServerRuntime(
             ? {}
             : { queueName: remoteTaskContinuationQueueName }),
         });
+  const remoteTaskCancellationQueueName =
+    options.v11McpTasks?.queueName === undefined
+      ? undefined
+      : `${options.v11McpTasks.queueName}-cancellations`;
+  const remoteTaskCancellationQueue =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new BullMqRemoteTaskCancellationQueue({
+          connection: options.redis,
+          ...(remoteTaskCancellationQueueName === undefined
+            ? {}
+            : { queueName: remoteTaskCancellationQueueName }),
+        });
   const remoteTaskPolling =
     remoteTaskRepository === undefined || remoteTaskQueue === undefined
       ? undefined
@@ -545,6 +565,33 @@ export async function startServerRuntime(
       : new RemoteTaskReconciler({
           repository: remoteTaskRepository,
           queue: remoteTaskQueue,
+          clock,
+        });
+  let remoteTaskInput: RemoteTaskInputService | undefined;
+  const remoteTaskCancellations =
+    remoteTaskRepository === undefined || remoteTaskCancellationQueue === undefined
+      ? undefined
+      : new PostgresRemoteTaskCancellationRepository(pool);
+  const remoteTaskCancellationProcessor =
+    remoteTaskRepository === undefined || remoteTaskCancellations === undefined
+      ? undefined
+      : new RemoteTaskCancellationWorker({
+          remoteTasks: remoteTaskRepository,
+          cancellations: remoteTaskCancellations,
+          sender: mcpRegistry,
+          serial: contextSerial,
+          clock,
+          ids: {
+            nextAttemptId: () => `remote-task-cancel-attempt-${randomUUID()}`,
+            nextClaimToken: () => `remote-task-cancel-claim-${randomUUID()}`,
+          },
+        });
+  const remoteTaskCancellationReconciler =
+    remoteTaskCancellations === undefined || remoteTaskCancellationQueue === undefined
+      ? undefined
+      : new RemoteTaskCancellationReconciler({
+          cancellations: remoteTaskCancellations,
+          queue: remoteTaskCancellationQueue,
           clock,
         });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
@@ -1055,6 +1102,17 @@ export async function startServerRuntime(
     events,
     skillDrafts,
     taskInputs,
+    ...(options.v11McpTasks === undefined
+      ? {}
+      : {
+          remoteTaskInputs: {
+            prepareResponse(inputRequestId: string, inputContent: unknown) {
+              if (remoteTaskInput === undefined)
+                throw new Error('REMOTE_TASK_INPUT_SERVICE_UNAVAILABLE');
+              return remoteTaskInput.prepareResponse(inputRequestId, inputContent);
+            },
+          },
+        }),
     skillInputs: skillInputResolutionRepository,
     queue,
     clock,
@@ -1423,20 +1481,44 @@ export async function startServerRuntime(
     }
   };
   const remoteTaskContinuation =
-    remoteTaskRepository === undefined || remoteTaskContinuationQueue === undefined
+    remoteTaskRepository === undefined ||
+    remoteTaskQueue === undefined ||
+    remoteTaskContinuationQueue === undefined
       ? undefined
-      : new RemoteTaskContinuationService({
-          continuations: workflowContinuations,
-          remoteTasks: remoteTaskRepository,
-          execution: workflowExecution,
-          serial: contextSerial,
-          clock,
-          ids: {
-            nextClaimToken: () => `workflow-continuation-claim-${randomUUID()}`,
-            nextAttemptId: () => `workflow-continuation-attempt-${randomUUID()}`,
-          },
-          onContinued: continueWorkflowHierarchy,
-        });
+      : (() => {
+          remoteTaskInput = new RemoteTaskInputService({
+            continuations: workflowContinuations,
+            remoteTasks: remoteTaskRepository,
+            inputs: new PostgresRemoteTaskInputRepository(pool),
+            tasks,
+            events,
+            sender: mcpRegistry,
+            pollQueue: remoteTaskQueue,
+            schemas: schemaValidator,
+            serial: contextSerial,
+            clock,
+            ids: {
+              nextInputRequestId: () => `remote-task-input-${randomUUID()}`,
+              nextClaimToken: () => `remote-task-input-claim-${randomUUID()}`,
+              nextProtocolAttemptId: () => `remote-task-input-attempt-${randomUUID()}`,
+              nextEventId: () => `remote-task-input-event-${randomUUID()}`,
+            },
+            onTaskChanged: publishTaskState,
+          });
+          return new RemoteTaskContinuationService({
+            continuations: workflowContinuations,
+            remoteTasks: remoteTaskRepository,
+            execution: workflowExecution,
+            serial: contextSerial,
+            clock,
+            ids: {
+              nextClaimToken: () => `workflow-continuation-claim-${randomUUID()}`,
+              nextAttemptId: () => `workflow-continuation-attempt-${randomUUID()}`,
+            },
+            onContinued: continueWorkflowHierarchy,
+            inputRequired: remoteTaskInput,
+          });
+        })();
   const remoteTaskContinuationReconciler =
     remoteTaskContinuation === undefined || remoteTaskContinuationQueue === undefined
       ? undefined
@@ -1604,6 +1686,7 @@ export async function startServerRuntime(
         });
       },
     },
+    ...(remoteTaskInput === undefined ? {} : { remoteTaskInput }),
     taskPlanning: {
       async prepare(input) {
         const skill =
@@ -1798,6 +1881,16 @@ export async function startServerRuntime(
             process: (job) => remoteTaskContinuation.process(job),
           },
         });
+  const remoteTaskCancellationWorker =
+    remoteTaskCancellationProcessor === undefined
+      ? undefined
+      : new BullMqRemoteTaskCancellationWorker({
+          connection: options.redis,
+          ...(remoteTaskCancellationQueueName === undefined
+            ? {}
+            : { queueName: remoteTaskCancellationQueueName }),
+          processor: remoteTaskCancellationProcessor,
+        });
   let remoteTaskReconcileRunning = false;
   const remoteTaskReconcileTimer =
     remoteTaskReconciler === undefined
@@ -1836,12 +1929,34 @@ export async function startServerRuntime(
             });
         }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
   remoteTaskContinuationReconcileTimer?.unref();
+  let remoteTaskCancellationReconcileRunning = false;
+  const remoteTaskCancellationReconcileTimer =
+    remoteTaskCancellationReconciler === undefined
+      ? undefined
+      : setInterval(() => {
+          if (remoteTaskCancellationReconcileRunning) return;
+          remoteTaskCancellationReconcileRunning = true;
+          void remoteTaskCancellationReconciler
+            .reconcile()
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'remote_task_cancellation_reconcile.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              remoteTaskCancellationReconcileRunning = false;
+            });
+        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+  remoteTaskCancellationReconcileTimer?.unref();
   if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
   if (remoteTaskContinuationReconciler !== undefined)
     await remoteTaskContinuationReconciler.reconcile();
+  if (remoteTaskCancellationReconciler !== undefined)
+    await remoteTaskCancellationReconciler.reconcile();
   worker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
+  remoteTaskCancellationWorker?.start();
   let management: ManagementHttpEndpointHandle | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
@@ -2032,14 +2147,18 @@ export async function startServerRuntime(
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
+        if (remoteTaskCancellationReconcileTimer !== undefined)
+          clearInterval(remoteTaskCancellationReconcileTimer);
         taskExecutor.close();
         await a2a.close();
         await startedManagement.close();
         await remoteTaskWorker?.close();
         await remoteTaskContinuationWorker?.close();
+        await remoteTaskCancellationWorker?.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
+        await remoteTaskCancellationQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await mcpTransport.close();
@@ -2232,6 +2351,7 @@ export async function applyRuntimeMigrations(
     '0100_remote_mcp_task_tracking.up.sql',
     '0101_task_execution_readiness.up.sql',
     '0102_remote_task_continuation.up.sql',
+    '0103_remote_task_input_and_cancellation.up.sql',
   ] as const;
   const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
   for (const [index, version] of v11Versions.entries()) {
@@ -2265,11 +2385,12 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
       WHERE version IN (
         '0100_remote_mcp_task_tracking',
         '0101_task_execution_readiness',
-        '0102_remote_task_continuation'
+        '0102_remote_task_continuation',
+        '0103_remote_task_input_and_cancellation'
       )) AS v11_count`,
   );
   const ledgerState = ledger.rows[0];
   if (ledgerState?.released_present !== true)
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledgerState.v11_count !== 3) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (ledgerState.v11_count !== 4) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

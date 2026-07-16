@@ -30,7 +30,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
-  ) {
+  ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     if (executionId !== undefined) this.#executions.set(executionId, compiled);
     const result = await compiled.invoke(
@@ -46,7 +46,11 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     return mapResult(result);
   }
 
-  async resumeHumanConfirmation(executionId: string, confirmed: boolean, signal?: AbortSignal) {
+  async resumeHumanConfirmation(
+    executionId: string,
+    confirmed: boolean,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = this.#executions.get(executionId);
     if (compiled === undefined)
       throw new WorkflowCompilerError(
@@ -65,7 +69,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     resolution: WorkflowExternalWaitResolution,
     continuationAttemptId: string,
     signal?: AbortSignal,
-  ) {
+  ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     const result = await compiled.continueExternal(
       executionId,
@@ -87,7 +91,9 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
   }
 }
 
-function mapResult(result: Awaited<ReturnType<CompiledWorkflow['invoke']>>) {
+function mapResult(
+  result: Awaited<ReturnType<CompiledWorkflow['invoke']>>,
+): Awaited<ReturnType<WorkflowExecutor['execute']>> {
   return {
     status: result.status,
     ...(result.result === undefined ? {} : { result: result.result }),

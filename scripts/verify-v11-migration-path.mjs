@@ -55,12 +55,19 @@ try {
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'upgrade-released');
     await assertMigration(upgrade, '0101_task_execution_readiness', false, 'upgrade-released');
     await assertMigration(upgrade, '0102_remote_task_continuation', false, 'upgrade-released');
+    await assertMigration(
+      upgrade,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'upgrade-released',
+    );
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0103_remote_task_input_and_cancellation.down.sql',
       '0102_remote_task_continuation.down.sql',
       '0101_task_execution_readiness.down.sql',
       '0100_remote_mcp_task_tracking.down.sql',
@@ -75,6 +82,12 @@ try {
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'rollback');
     await assertMigration(upgrade, '0101_task_execution_readiness', false, 'rollback');
     await assertMigration(upgrade, '0102_remote_task_continuation', false, 'rollback');
+    await assertMigration(
+      upgrade,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'rollback',
+    );
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -92,6 +105,12 @@ try {
     await assertMigration(guard, '0100_remote_mcp_task_tracking', false, 'default-profile');
     await assertMigration(guard, '0101_task_execution_readiness', false, 'default-profile');
     await assertMigration(guard, '0102_remote_task_continuation', false, 'default-profile');
+    await assertMigration(
+      guard,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'default-profile',
+    );
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -107,6 +126,12 @@ try {
     await expectRejection(() => applyRuntimeMigrations(guard), 'V11_MIGRATION_PROFILE_REQUIRED');
     await assertMigration(guard, '0101_task_execution_readiness', false, 'profile-guard');
     await assertMigration(guard, '0102_remote_task_continuation', false, 'profile-guard');
+    await assertMigration(
+      guard,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'profile-guard',
+    );
   } finally {
     await guard.end();
   }
@@ -131,6 +156,12 @@ try {
     await assertMigration(gap, '0100_remote_mcp_task_tracking', false, 'ledger-gap');
     await assertMigration(gap, '0101_task_execution_readiness', true, 'ledger-gap');
     await assertMigration(gap, '0102_remote_task_continuation', false, 'ledger-gap');
+    await assertMigration(
+      gap,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'ledger-gap',
+    );
   } finally {
     await gap.end();
   }
@@ -179,6 +210,7 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0100_remote_mcp_task_tracking', true, label);
   await assertMigration(pool, '0101_task_execution_readiness', true, label);
   await assertMigration(pool, '0102_remote_task_continuation', true, label);
+  await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -206,6 +238,12 @@ async function verifyV11Schema(pool, label) {
   );
   if (continuationTables.rows[0]?.count !== 3) {
     throw new Error(`V11_CONTINUATION_TABLES_MISSING:${label}`);
+  }
+  const lifecycleTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_input_link','remote_task_input_attempt','remote_task_cancel_request','remote_task_cancel_attempt') AND relkind='r'",
+  );
+  if (lifecycleTables.rows[0]?.count !== 4) {
+    throw new Error(`V11_REMOTE_TASK_LIFECYCLE_TABLES_MISSING:${label}`);
   }
   const controlClaimColumns = await pool.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='remote_task_control_event' AND column_name IN ('continuation_claim_token','continuation_claim_expires_at','continuation_claim_attempt')",

@@ -183,6 +183,53 @@ describe('TaskService', () => {
     ).rejects.toMatchObject({ code: 'TASK_INPUT_NOT_PENDING' });
   });
 
+  it('persists remote Task input as executing continuation without Goal replanning', async () => {
+    const prepared = {
+      approval: { action: 'accept', content: { approved: true } },
+    };
+    const harness = createHarness('resumed', false, () => Promise.resolve(prepared));
+    const submitted = await harness.service.submit({ messageText: 'Run remote.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+      'awaiting_user_input',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    const request = createTaskInputRequest({
+      inputRequestId: 'remote-input-1',
+      taskId: task.taskId,
+      contextId: task.contextId,
+      source: 'remote_task',
+      question: 'Approve?',
+      createdAt: timestamp,
+    });
+    harness.inputRequests.set(request.inputRequestId, request);
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'provide_input',
+        inputRequestId: request.inputRequestId,
+        messageText: '',
+        inputContent: prepared,
+      }),
+    ).resolves.toMatchObject({
+      phase: 'executing',
+      phaseMessage: 'Supplementary input saved; continuation queued.',
+    });
+    expect([...harness.inputResponses.values()]).toEqual([
+      expect.objectContaining({ content: prepared }),
+    ]);
+    expect(harness.operations).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/plan\./u)]),
+    );
+  });
+
   it('keeps an accepted continuation attempt queued when immediate Redis dispatch fails', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect it.', metadata: {} });
@@ -679,6 +726,7 @@ describe('TaskService', () => {
 function createHarness(
   resumeDisposition: 'resumed' | 'replan_required' = 'resumed',
   runtimeCancellation = false,
+  remotePrepare?: (inputRequestId: string, inputContent: unknown) => Promise<unknown>,
 ): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
@@ -829,6 +877,9 @@ function createHarness(
       events: publisher,
       skillDrafts,
       taskInputs,
+      ...(remotePrepare === undefined
+        ? {}
+        : { remoteTaskInputs: { prepareResponse: remotePrepare } }),
       skillInputs: {
         find: (resolutionId) =>
           Promise.resolve(

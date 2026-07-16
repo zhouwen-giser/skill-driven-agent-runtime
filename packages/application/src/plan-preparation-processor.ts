@@ -73,6 +73,9 @@ export interface PlanPreparationProcessorDependencies {
       }>,
     ): Promise<unknown>;
   }>;
+  readonly remoteTaskInput?: Readonly<{
+    submitAnswer(inputRequestId: string, inputResponses: unknown): Promise<void>;
+  }>;
   readonly taskPlanning: Readonly<{
     prepare(
       input: Readonly<{
@@ -178,6 +181,15 @@ export class PlanPreparationProcessor {
     if (continuation.request.taskId !== task.taskId)
       throw new Error('TASK_INPUT_CONTINUATION_TASK_MISMATCH');
     if (continuation.request.source !== 'goal_deliberation') {
+      if (continuation.request.source === 'remote_task') {
+        if (this.#dependencies.remoteTaskInput === undefined)
+          throw new Error('REMOTE_TASK_INPUT_CONTINUATION_UNAVAILABLE');
+        await this.#dependencies.remoteTaskInput.submitAnswer(
+          continuation.request.inputRequestId,
+          continuation.response.content,
+        );
+        return;
+      }
       if (continuation.request.source === 'skill_input_resolution') {
         await this.#continueSkillInputResolution(task);
         return;

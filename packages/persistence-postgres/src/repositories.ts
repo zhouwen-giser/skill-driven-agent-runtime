@@ -1194,13 +1194,39 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         [input.goalId, input.goalVersion, input.createdAt],
       );
       if (await relationExists(client, 'remote_task_binding')) {
-        await client.query(
-          `UPDATE remote_task_binding
-           SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
-               next_poll_at=NULL,updated_at=$3,version=version+1
-           WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
-          [input.goalId, input.goalVersion, input.createdAt],
-        );
+        if (await relationExists(client, 'remote_task_cancel_request')) {
+          await client.query(
+            `INSERT INTO remote_task_cancel_request(
+               cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,
+               delivery_status,attempt_count,requested_at,updated_at,version)
+             SELECT 'remote-cancel-' || md5(binding_id || ':' || $1 || ':' || $2),binding_id,
+                    md5('goal:' || $1 || ':' || $2 || ':' || binding_id),'goal',
+                    'local_goal_cancel',left($3,2048),'requested',0,$4,$4,1
+             FROM remote_task_binding
+             WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
+               AND protocol_status IN ('working','input_required')
+               AND local_state NOT IN ('closed','reentered','quarantined')
+             ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
+            [input.goalId, input.goalVersion, input.reason, input.createdAt],
+          );
+          await client.query(
+            `UPDATE remote_task_binding
+             SET local_state='cancel_observing',next_poll_at=$3,
+                 poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+                 updated_at=$3,version=version+1
+             WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
+               AND protocol_status IN ('working','input_required')
+               AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
+            [input.goalId, input.goalVersion, input.createdAt],
+          );
+        } else
+          await client.query(
+            `UPDATE remote_task_binding
+             SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
+                 next_poll_at=NULL,updated_at=$3,version=version+1
+             WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
+            [input.goalId, input.goalVersion, input.createdAt],
+          );
       }
       if (await relationExists(client, 'workflow_continuation_snapshot')) {
         await client.query(
@@ -1769,6 +1795,36 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       );
       if (updatedControl.rowCount !== 1)
         throw new Error('RUNTIME_TERMINAL_CONTROL_UPDATE_CONFLICT');
+      if (
+        kind === 'canceled' &&
+        (await relationExists(client, 'remote_task_cancel_request')) &&
+        (await relationExists(client, 'remote_task_binding'))
+      ) {
+        await client.query(
+          `INSERT INTO remote_task_cancel_request(
+             cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,
+             delivery_status,attempt_count,requested_at,updated_at,version)
+           SELECT 'remote-cancel-' || md5(binding_id || ':' || $1),binding_id,
+                  md5('task:' || $1 || ':' || binding_id),'task','local_task_cancel',
+                  left($2,2048),'requested',0,$3,$3,1
+           FROM remote_task_binding
+           WHERE agent_task_id=$1 AND goal_id=$4 AND goal_version=$5
+             AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND local_state NOT IN ('closed','reentered','quarantined')
+           ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
+          [input.taskId ?? '', input.summary, input.committedAt, input.goalId, input.goalVersion],
+        );
+        await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='cancel_observing',next_poll_at=$2,
+               poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+               updated_at=$2,version=version+1
+           WHERE agent_task_id=$1 AND goal_id=$3 AND goal_version=$4
+             AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
+          [input.taskId ?? '', input.committedAt, input.goalId, input.goalVersion],
+        );
+      }
       if (round !== undefined) await insertTerminalRound(client, round, input.outcomeId);
       if (task !== undefined) {
         if (kind === 'canceled')
@@ -2919,7 +2975,7 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
-      continuationPhase: 'goal_deliberation' | 'planning';
+      continuationPhase: 'goal_deliberation' | 'planning' | 'executing';
       phaseMessage: string;
     }>,
   ): Promise<AgentTask> {
@@ -2964,6 +3020,18 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
          WHERE input_request_id=$1`,
         [input.inputRequestId, input.answeredAt],
       );
+      if (request.source === 'remote_task') {
+        const linked = await client.query(
+          `UPDATE remote_task_input_link SET status='answered',updated_at=$2
+           WHERE input_request_id=$1 AND status='waiting'`,
+          [input.inputRequestId, input.answeredAt],
+        );
+        if (linked.rowCount !== 1)
+          throw new DomainError(
+            'TASK_INPUT_REQUEST_NOT_WAITING',
+            'The remote Task input link is no longer waiting.',
+          );
+      }
       await client.query(
         `INSERT INTO task_input_response(
            input_response_id,input_request_id,task_id,content_json,created_at)

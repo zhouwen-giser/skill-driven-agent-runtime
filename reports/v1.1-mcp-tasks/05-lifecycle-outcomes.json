@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "phase": 5,
+  "status": "verified_phase_5_increment",
+  "branch": "feature/v1.1-mcp-tasks",
+  "phaseCommit": null,
+  "scope": [
+    "FR-MCPT-008-input-control",
+    "FR-MCPT-010-provider-business-time",
+    "FR-MCPT-011-admission-outcome",
+    "FR-MCPT-012",
+    "FR-MCPT-013",
+    "AC-MCPT-06",
+    "AC-MCPT-07",
+    "AC-MCPT-08",
+    "AC-MCPT-10",
+    "AC-MCPT-11",
+    "AC-MCPT-12",
+    "AC-MCPT-16-late-lifecycle"
+  ],
+  "decisions": ["adr/ADR-094-remote-input-and-cooperative-cancellation.md"],
+  "implementation": [
+    "packages/domain/src/remote-task-input.ts",
+    "packages/domain/src/provider-business-outcome.ts",
+    "packages/domain/src/remote-task.ts",
+    "packages/a2a-adapter/src/task-mapping.ts",
+    "packages/application/src/remote-task-input.ts",
+    "packages/application/src/remote-task-cancellation.ts",
+    "packages/application/src/remote-task-polling.ts",
+    "packages/application/src/remote-task-continuation.ts",
+    "packages/application/src/task-service.ts",
+    "packages/application/src/plan-preparation-processor.ts",
+    "packages/langgraph-runtime/src/workflow-compiler.ts",
+    "packages/persistence-postgres/src/remote-task-input-repository.ts",
+    "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+    "packages/persistence-postgres/src/remote-task-repository.ts",
+    "packages/persistence-postgres/src/repositories.ts",
+    "packages/runtime-redis/src/bullmq-remote-task-cancellation-queue.ts",
+    "apps/server/src/runtime.ts",
+    "infra/postgres/migrations/0103_remote_task_input_and_cancellation.up.sql",
+    "infra/postgres/migrations/0103_remote_task_input_and_cancellation.down.sql"
+  ],
+  "tests": [
+    "packages/domain/test/remote-task-input.unit.test.ts",
+    "packages/domain/test/provider-business-outcome.unit.test.ts",
+    "packages/a2a-adapter/test/task-mapping.unit.test.ts",
+    "packages/application/test/remote-task-input.unit.test.ts",
+    "packages/application/test/remote-task-cancellation.unit.test.ts",
+    "packages/application/test/remote-task-polling.unit.test.ts",
+    "packages/application/test/remote-task-continuation.unit.test.ts",
+    "packages/application/test/task-service.unit.test.ts",
+    "packages/application/test/plan-preparation-processor.unit.test.ts",
+    "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+    "packages/runtime-redis/test/bullmq-remote-task-cancellation-queue.integration.test.ts",
+    "apps/server/test/remote-task-runtime.integration.test.ts",
+    "scripts/verify-v11-migration-path.mjs"
+  ],
+  "verification": {
+    "status": "passed",
+    "command": "pnpm verify",
+    "machineSummary": "reports/verification/summary.json",
+    "startedAt": "2026-07-16T17:10:38.498Z",
+    "finishedAt": "2026-07-16T17:12:31.171Z",
+    "durationMs": 112673,
+    "counts": {
+      "unitFiles": 66,
+      "unitTests": 401,
+      "contractFiles": 8,
+      "contractTests": 79,
+      "integrationFiles": 7,
+      "integrationTests": 77,
+      "e2eFiles": 2,
+      "e2eTests": 48,
+      "architectureSourceFiles": 225,
+      "managementOpenApiOperations": 107,
+      "runtimeMigrationPairs": 67
+    }
+  },
+  "classification": {
+    "real": [
+      "PostgreSQL two-round input/update, echo deduplication and cancellation lifecycle.",
+      "Redis/BullMQ attempts=1 and no automatic retry behavior.",
+      "Migration, integration, E2E, production build and smoke gates."
+    ],
+    "simulated": [
+      "Deterministic Provider snapshots, acknowledgements, network failures and business results.",
+      "LangGraph continuation and existing error-handler projection."
+    ],
+    "unverified": [
+      "External production MCP Provider interoperability.",
+      "Phase 6 API/Console/composed acceptance, demos and release publication."
+    ]
+  },
+  "limitations": [
+    "The unified gate ran on the pre-commit dirty worktree; phaseCommit is populated after publication.",
+    "Only form-mode elicitation/create is accepted; sampling, roots and URL elicitation fail closed.",
+    "Phase 6 owns final management/Console and all-AC composed acceptance."
+  ]
+}

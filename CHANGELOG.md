@@ -11,15 +11,17 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
 - Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
 - Phase 4 bounded persisted-frontier continuation, PostgreSQL control inbox claims/attempts, one-attempt BullMQ continuation scheduling, fresh LangGraph branch continuation, parallel join evidence, child Skill Workflow propagation and Goal Patch/cancellation invalidation through migration 0102.
+- Phase 5 bounded remote form elicitation, A2A structured input mapping, exact `tasks/update`, multi-round/echo-safe polling, cooperative cancellation request/ack/uncertainty/Provider-terminal separation, one-attempt BullMQ cancellation delivery and structured Provider business outcomes through migration 0103.
 
 ### Changed
 
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
+- Local Task/Goal cancellation remains immediately authoritative locally while active remote bindings enter `cancel_observing`; only later Provider snapshots can establish remote `cancelled`, `completed` or `failed`.
 
 ### Known limitations
 
-- Phase 1–4 protocol, persistence/polling, availability/timing and remote continuation increments are verified against merged `v1.0.13-bug-fixed`. Phase 5 lifecycle and Phase 6 final acceptance remain incomplete.
+- Phase 1–5 protocol, persistence/polling, availability/timing, remote continuation and lifecycle outcomes are verified against merged `v1.0.13-bug-fixed`. Phase 6 management/Console completion, composed acceptance and final publication remain incomplete.
 
 ## [1.0.13] - 2026-07-16
 
