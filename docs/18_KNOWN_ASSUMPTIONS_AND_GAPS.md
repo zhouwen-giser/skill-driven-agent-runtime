@@ -23,6 +23,17 @@
 - “Redis 保存运行 Checkpoint”与“故障不恢复”并不冲突：Checkpoint 用于暂停/恢复和正常运行，不作为崩溃恢复承诺。
 - FR-WF-009 的“费用预算”在 V1 中解释为系统配置的 LLM/MCP/Skill/子工作流调用计费单位，而不是未经配置便猜测供应商货币账单。模型 Token 仍独立审计；未来如增加 Provider 价格元数据，必须通过同一预算计量端口接入并保留执行时价格快照。
 - 外层控制器达到 `maxReplans` 后采用 fail-closed 终止策略：保留最后实例和评估证据，将控制标记为 `replan_budget_exhausted`，并将 Goal 标记为 `unachievable`，避免保留一个没有剩余可执行路径的 active Goal。
+- v1.0.6 的 `commitCanceled` 适用于已拥有一个 active WorkflowControl 的单 Task 运行终态；显式 Goal-wide cancellation 仍由既有 PostgreSQL 多 Task/Plan/Instance cascade transaction 管理，并在该事务内为每个 active Control 创建 canceled Runtime Terminal Outcome。两条路径不得交叉单写同一 active Control；如未来合并 application Port，必须新增 ADR 说明批量锁顺序、幂等键和部分 Control 不存在时的语义。
+- v1.0.7 将 A2A message metadata 的 `structured_input` 作为正式顶层 Skill 结构化输入的规范键，并兼容既有客户端可能发送的 `sdar_structured_input`；两者同时出现时规范键优先。请求文本、Goal Contract、同 Context 已处理数据、补充输入和长期 Memory 依次降级，长期 Memory 只能作为历史证据，不能声明设备当前状态。
+- v1.0.7 的正式 Skill 重规划固定使用 WorkflowControl 已保存的结构化输入；仅新的持久化 Task input response 或 Goal Patch 触发新的输入解析记录。子 Skill 继续在各自调用边界独立校验，父级解析结果不授予子级输入权限。
+- v1.0.7-bug-fixed 将 Goal Patch 后的输入解析解释为 Patch 提交前置条件：若新 Goal Contract 无法为同一正式 Skill 产生 schema-valid 输入，Patch 不改变 Goal/Task/Plan，调用方需先澄清请求再重试 Patch。这一 fail-closed 语义避免 `newPlanId` 指向不存在计划的部分提交。
+- v1.0.8 的 0061 历史回填优先使用 Goal Patch 的 before/after snapshot，其次使用当前 Goal 行。若早期记录已失去全部可恢复 Goal 证据，则保存带明确 legacy 描述的兼容快照，仅用于历史可读性；任何新规划、替代、确认继承或执行都必须提交并匹配当前完整 Contract，不能把该兼容快照当作新权限。
+- v1.0.8-bug-fixed 保留未注册 Goal 的管理端 standalone selection/planning 能力，用于低层验证与预注册编排；一旦相同 `goalId` 已在 PostgreSQL 注册，该 Goal 必须仍为 active 且六字段完全一致。终态或内容漂移均在 embedding/model 调用前拒绝。
+- v1.0.9 将任务包的 `composable` 语义映射到仓库既有 `composition` 枚举，不新增同义关系。初始组合只沿 root 出站的 `parent_child`、`depends_on`、`input_output_match`、`composition`、`capability_coverage` 遍历，深度上限 8、相关 Skill 上限 32、关系上限 128、快照 JSON 深度上限 64；`alternative` 仍仅用于失败后替代。0062 前的历史计划保持可读/可执行兼容，但没有组合快照的旧行不得被当作新规划授权来源。
+- v1.0.10 将 capability gap 解释为当前 Task/WorkflowControl 的不可恢复终态，而不是等待状态。注册或刷新 Tool 不扫描、不唤醒、不执行旧 Task；上游必须在同 Context 提交新 Task。旧 Task 和 Control 保留终态证据，Goal 独立保持 active，直至新 Task 推进或显式 Goal cancellation 结束它。后续 Task 的 Goal Patch/Goal cancellation 不改写旧终态，Round 追加按 PostgreSQL 非终态行锁授权。现有列与约束已表达该值和证据，因此无新增 Migration。
+- v1.0.11 按任务包的字面优先级将可用 MCP 声明置于 Admin override 之前；override 会跨 refresh 保留，但在 MCP 声明存在时处于 dormant 状态，声明消失后才生效。SDK `execution.taskSupport` 与明确的 read-only/destructive annotation 被翻译为保守项目语义；精确五字段扩展使用 `_meta["io.sdar/tool-execution-semantics"]`，键存在但内容畸形时整个发现失败并保留旧注册快照，不静默降级。`idempotentHint` 不足以证明 request-key 或 server dedup，因此不会升级为 `server_managed`。LLM Enhancement 永远不是权威。Workflow plan/attempt 和 Invocation 保存发生时快照；本版本仍不实现 MCP Task Binding、远程 Task polling、设备状态权威或冲突控制。
+- v1.0.12 将 0064 前的 Memory 行保守回填为 `unknown` / `model_inferred` 并排除在语义检索之外，直至未来通过显式再精炼生成新的 durable 证据；不会从旧文本猜测耐久性。模型必须返回严格七字段精炼结果，调用方的 `authorityHint` 只是候选来源上下文而非权限证明；bug-fixed 进一步要求 durable authority 与 application-owned 来源路径完全一致，模型不能自称 `admin` 或 `skill_experience` 提权。新 embedding 必须是有限数值的正维度向量，检索仅比较完全相同 provider 和维度，并在 repository handoff 前复制冻结。Memory content 只接受最大 64 层、无环、有限的 plain JSON 并深复制冻结。0064 down migration 仅在全部剩余向量都是三维时允许执行，否则以稳定错误拒绝潜在数据损失。动态坐标、电量、在线、占用、设备任务等状态即使被模型错误标成 durable，也由确定性策略强制为 `volatile` / `mcp`，当前值继续实时查询 MCP；终态后的 Memory 增强失败只形成可查询 warning，不改变已提交 Task/Goal/WorkflowControl。
+- v1.0.13 的 Task 通知只适用于当前 V1 单进程 Runtime，是有界、易失的唤醒优化，不是系统记录、跨进程总线或崩溃恢复。所有通知必须发生在 PostgreSQL Task 写入提交后，A2A 被唤醒后仍必须回读 PostgreSQL；漏通知由默认 1,000ms 的安全轮询恢复，配置不得低于 100ms。当前 waiter 对每次 publish 都唤醒，以容纳同毫秒的有效状态变化；只允许时间戳严格更新的缓存快照直接唤醒后来者，避免陈旧缓存形成新 busy loop。未来多进程扩展需要独立 ADR 选择通知传输，并保留 PostgreSQL 权威回读。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
@@ -37,10 +48,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 ## v1.1 MCP Tasks Phase 0 冻结项
 
 - 2026-07-16：实施包引用的 `SDAR_v1.1_MCP_Tasks_升级方案.md` 不存在；仓库中 byte-frozen 的 `SDAR_v1.1_MCP_Tasks_升级设计文档.md` 与实施包内容匹配并作为对应设计输入。规范化实现设计写入 `docs/22_V1_1_MCP_TASKS_DESIGN.md`，未修改需求基线。
-- 2026-07-16：所需 `tasks/get`、`tasks/update`、`tasks/cancel` 是官方 `io.modelcontextprotocol/tasks` extension 的形状，而 SDK 1.29.0 高层 `experimental.tasks` 是旧版 `tasks/result`、`tasks/list` 形状。Phase 1 Spike 进一步证明 v1 只协商到 `2025-11-25`，官方扩展禁止在该 legacy 协议启用，因此 ADR-081 覆盖 ADR-076 的客户端版本决策：生产 Adapter 精确使用官方 v2 beta.4 自动协商；v1 仅保留 legacy loopback Server fixture。
+- 2026-07-16：所需 `tasks/get`、`tasks/update`、`tasks/cancel` 是官方 `io.modelcontextprotocol/tasks` extension 的形状，而 SDK 1.29.0 高层 `experimental.tasks` 是旧版 `tasks/result`、`tasks/list` 形状。Phase 1 Spike 进一步证明 v1 只协商到 `2025-11-25`，官方扩展禁止在该 legacy 协议启用，因此 ADR-090 覆盖 ADR-085 的客户端版本决策：生产 Adapter 精确使用官方 v2 beta.4 自动协商；v1 仅保留 legacy loopback Server fixture。
 - 2026-07-16：官方 v2 beta.4 的 modern fixture 标注 `2026-07-28`，冻结 extension draft 标注 `2026-06-30`，且 SDK 未内建该扩展。实现必须保存协商修订并用本地冻结 Schema 做 exact-combination 合约测试；不得声称未测试 beta 或协议修订兼容。
 - 2026-07-16：Phase 1 将远程 Task ID 限制为 1–512 个 visible ASCII 字符。该限制同时满足冻结 Schema 的非空标识语义、`Mcp-Name` Header 安全和有界输入要求；更宽字符集只有在上游 extension 明确编码规则并通过新的 Intake/ADR/契约门禁后才能接受。
-- 2026-07-16：可执行 Spike 证明 beta.4 codec 会先于显式 Schema 拒绝 `resultType=task`，并把 `tasks/get`/`tasks/cancel` 当作 modern era 已删除的旧核心方法；transport 也不会从 `taskId` 派生 `Mcp-Name`。ADR-081 允许且仅允许 Adapter 内的临时 method/result/Header bridge；loopback 必须证明外部 wire 仍是官方方法、原始 payload 与精确 routing Headers。
+- 2026-07-16：可执行 Spike 证明 beta.4 codec 会先于显式 Schema 拒绝 `resultType=task`，并把 `tasks/get`/`tasks/cancel` 当作 modern era 已删除的旧核心方法；transport 也不会从 `taskId` 派生 `Mcp-Name`。ADR-090 允许且仅允许 Adapter 内的临时 method/result/Header bridge；loopback 必须证明外部 wire 仍是官方方法、原始 payload 与精确 routing Headers。
 - 2026-07-16：官方 extension 无 tag，当前为 draft/incubating source。锁定 commit `8966bea9c4f4e6d71060cc8284a539086e9e234f` 及两个 schema blobs；未通过新的 Intake/ADR/契约门禁不得漂移。
 - 2026-07-16：当前领域只有 MCP `serverId`，没有独立 `providerId` 权威来源。v1.1 以 `serverId` 表示 Provider authority；外部 wire 文档中的 provider 概念在持久化/领域中映射到 `serverId`，避免重复身份。
 - 2026-07-16：远程绑定必须使用稳定 `workflowNodeRunId`，不能只用 DSL `nodeId`，否则循环、重试或同节点多次运行会别名。

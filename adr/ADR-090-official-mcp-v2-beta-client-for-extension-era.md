@@ -1,4 +1,4 @@
-# ADR-081: Official MCP v2 Beta Client for the Extension Era
+# ADR-090: Official MCP v2 Beta Client for the Extension Era
 
 ## Status
 

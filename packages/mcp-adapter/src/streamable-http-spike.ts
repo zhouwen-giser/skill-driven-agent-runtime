@@ -23,6 +23,10 @@ export interface McpLoopbackServerHandle {
   close(): Promise<void>;
 }
 
+export interface McpLoopbackServerOptions {
+  readonly deviceExecutionSemantics?: unknown;
+}
+
 export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
   const server = await startMcpLoopbackServer();
   const clientTransport = new StreamableHTTPClientTransport(server.endpoint);
@@ -39,7 +43,9 @@ export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
   };
 }
 
-export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle> {
+export async function startMcpLoopbackServer(
+  options: McpLoopbackServerOptions = {},
+): Promise<McpLoopbackServerHandle> {
   const receivedHeaders: Readonly<IncomingHttpHeaders>[] = [];
   let reportCancellation: (observed: boolean) => void = () => undefined;
   const cancellationObserved = new Promise<boolean>((resolve) => {
@@ -53,7 +59,7 @@ export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle>
   const createMcpServer = () => {
     const mcpServer = new McpServer({ name: 'sdar-mock-mcp', version: '0.0.0' });
     servers.add(mcpServer);
-    registerTools(mcpServer, reportCancellation);
+    registerTools(mcpServer, reportCancellation, options);
     return mcpServer;
   };
 
@@ -112,11 +118,23 @@ export async function startMcpLoopbackServer(): Promise<McpLoopbackServerHandle>
 function registerTools(
   mcpServer: McpServer,
   reportCancellation: (observed: boolean) => void,
+  options: McpLoopbackServerOptions,
 ): void {
+  const deviceExecutionSemantics = options.deviceExecutionSemantics ?? {
+    effect: 'read_only',
+    execution: 'synchronous',
+    cancellation: 'cooperative',
+    idempotency: 'client_request_key',
+    replay: 'allowed',
+  };
   mcpServer.registerTool(
     'device_status',
     {
       description: 'Returns deterministic read-only device status.',
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+      _meta: {
+        'io.sdar/tool-execution-semantics': deviceExecutionSemantics,
+      },
       inputSchema: {
         deviceId: z.string().min(1),
         delayMs: z.number().int().nonnegative().optional(),

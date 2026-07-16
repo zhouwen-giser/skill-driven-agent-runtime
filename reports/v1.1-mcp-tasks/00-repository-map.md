@@ -27,4 +27,4 @@
 - PostgreSQL `runtime_event` contains display summaries, not an exact remote event authority.
 - BullMQ queue jobs already use `attempts: 1` and Worker `maxStalledCount: 0`; remote polling must preserve one-attempt execution while tolerating duplicate scheduling through database idempotence.
 - Startup `failInterruptedExecutions()` currently fails running/paused execution globally. Only persisted `waiting_external` may be excluded.
-- Migration loader uses a numeric high-water mark; ADR-080 governs reserved 0100+ usage.
+- Migration loader uses a numeric high-water mark; ADR-089 governs reserved 0100+ usage.

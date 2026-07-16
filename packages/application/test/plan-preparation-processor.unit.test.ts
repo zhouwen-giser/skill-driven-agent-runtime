@@ -102,7 +102,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       {
         taskId: 'task-1',
         planId: 'plan-task-1',
-        executionInput: { requestText: 'Complete it.', supplementaryInputs: [] },
+        executionInput: { deviceId: 'device-1' },
       },
     ]);
   });
@@ -144,6 +144,41 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       goalId: 'goal-1',
     });
     expect(tasks.formulationInputs[0]).toContain('device-17');
+  });
+
+  it('requests missing top-level Skill input and replans with the resolved response', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.skillInputRequired = true;
+
+    await processorWith(tasks).process(initialJob);
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_user_input',
+      selectedSkillId: 'skill-1',
+      phaseMessage: 'Additional Skill input is required for: deviceId.',
+    });
+
+    tasks.value = transitionTask(
+      tasks.value,
+      'planning',
+      'Supplementary input saved; continuation queued.',
+      timestamp,
+    );
+    tasks.attemptReason = 'input_response';
+    tasks.inputRequestSource = 'skill_input_resolution';
+    tasks.supplementaryContent = 'device-22';
+    await processorWith(tasks).process({ ...initialJob, mode: 'continue_after_input' });
+
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      planId: 'plan-task-1',
+      skillInputResolutionId: 'skill-input-resolution-1',
+    });
+    expect(tasks.planningInput).toMatchObject({
+      skillInputResolution: {
+        structuredInput: { deviceId: 'device-22' },
+      },
+    });
   });
 });
 
@@ -192,6 +227,23 @@ function processorWith(
         }),
     },
     goals: {
+      get: (goalId) =>
+        Promise.resolve(
+          goalId === 'goal-existing'
+            ? existingGoal('active')
+            : {
+                goalId: 'goal-1',
+                contextId: 'context-1',
+                version: 1,
+                title: 'Goal',
+                description: 'Complete the task.',
+                constraints: [],
+                successCriteria: ['Completed'],
+                status: 'active' as const,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              },
+        ),
       findActiveByContextId: () =>
         Promise.resolve(prior === 'active' ? existingGoal('active') : undefined),
       findLatestByContextId: () =>
@@ -209,8 +261,59 @@ function processorWith(
         });
       },
     },
+    skills: {
+      findVersion: () =>
+        Promise.resolve({
+          skillId: 'skill-1',
+          version: 2,
+          name: 'Device Skill',
+          summary: 'Inspect a device.',
+          description: 'Inspect a device.',
+          capabilities: ['device'],
+          workflowGuidance: 'Inspect once.',
+          outputInstruction: 'Return the result.',
+          inputSchema: {
+            type: 'object',
+            required: ['deviceId'],
+            properties: { deviceId: { type: 'string' } },
+          },
+          outputSchema: { type: 'object' },
+          toolPolicy: { required: [], optional: [], forbidden: [] },
+          runtimePolicy: { autoConfirmPlan: tasks.autoConfirm },
+          status: 'enabled' as const,
+          sourceKind: 'admin' as const,
+          validationPassed: true,
+          createdAt: timestamp,
+        }),
+    },
+    skillInputs: {
+      resolve: ({ task: selectedTask, goal, skill, supplementaryInputs }) => {
+        const supplied = supplementaryInputs.at(-1)?.content;
+        const stillMissing = tasks.skillInputRequired && supplied === undefined;
+        return Promise.resolve({
+          resolutionId: 'skill-input-resolution-1',
+          taskId: selectedTask.taskId,
+          goalId: goal.goalId,
+          goalVersion: goal.version,
+          skillId: skill.skillId,
+          skillVersion: skill.version,
+          ...(stillMissing
+            ? { structuredInput: {} }
+            : {
+                structuredInput: {
+                  deviceId: typeof supplied === 'string' ? supplied : 'device-1',
+                },
+              }),
+          unresolvedFields: stillMissing ? ['deviceId'] : [],
+          sourceRefs: [`task:${selectedTask.taskId}:request-text`],
+          decisionSummary: stillMissing ? 'The device is missing.' : 'Resolved from the request.',
+          status: stillMissing ? ('input_required' as const) : ('resolved' as const),
+          createdAt: timestamp,
+        });
+      },
+    },
     skillSelection: {
-      select: (goalDescription) =>
+      select: (goalContract) =>
         Promise.resolve(
           tasks.useTemporarySkill
             ? {
@@ -220,7 +323,8 @@ function processorWith(
               }
             : {
                 selectionId: 'selection-1',
-                goalDescription,
+                goalContract,
+                goalDescription: goalContract.description,
                 candidates: [],
                 selectedSkillId: 'skill-1',
                 selectedSkillVersion: 2,
@@ -280,7 +384,7 @@ function processorWith(
                   inputRequestId: 'input-request-1',
                   taskId: 'task-1',
                   contextId: 'context-1',
-                  source: 'goal_deliberation' as const,
+                  source: tasks.inputRequestSource,
                   question: 'Which device?',
                   status: 'answered' as const,
                   createdAt: timestamp,
@@ -371,10 +475,12 @@ class MemoryTasks {
   goalFormulations = 0;
   readonly formulationInputs: string[] = [];
   attemptReason: 'initial' | 'input_response' = 'initial';
+  inputRequestSource: 'goal_deliberation' | 'skill_input_resolution' = 'goal_deliberation';
   supplementaryContent: unknown;
   createdGoal: unknown;
   goalRequiresInput = false;
   inferenceOutcome: 'inferred' | 'input_required' = 'inferred';
+  skillInputRequired = false;
   autoConfirm = false;
   useTemporarySkill = false;
   planningInput: unknown;

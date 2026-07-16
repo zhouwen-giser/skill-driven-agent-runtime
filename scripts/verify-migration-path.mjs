@@ -16,7 +16,7 @@ try {
     `../dist/apps/server/src/runtime.js?migration-check=${String(Date.now())}`
   );
   const admin = new Pool({
-    connectionString: 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar',
+    connectionString: 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar',
   });
   try {
     for (const database of databases) {
@@ -82,15 +82,59 @@ try {
 
 function databasePool(database) {
   return new Pool({
-    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:54329/${database}`,
+    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${database}`,
   });
 }
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0056_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true)
+    throw new Error(`MIGRATION_0064_MISSING:${label}`);
+  const memoryHardening = await pool.query(
+    "SELECT a.atttypmod, count(c.column_name)::integer AS semantic_columns FROM pg_attribute a CROSS JOIN information_schema.columns c WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding' AND NOT a.attisdropped AND c.table_name='memory_item' AND c.column_name IN ('durability','authority','durability_reason') GROUP BY a.atttypmod",
+  );
+  if (
+    memoryHardening.rows[0]?.atttypmod !== -1 ||
+    memoryHardening.rows[0]?.semantic_columns !== 3
+  )
+    throw new Error(`MIGRATION_MEMORY_PRODUCTION_HARDENING_MISSING:${label}`);
+  const semanticsColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='mcp_tool' AND column_name IN ('declared_execution_semantics_json','admin_execution_semantics_override_json','execution_semantics_json')) OR (table_name='mcp_invocation' AND column_name='execution_semantics_json') OR (table_name IN ('workflow_plan','workflow_plan_attempt') AND column_name='tool_execution_semantics_json')",
+  );
+  if (semanticsColumns.rows[0]?.count !== 6)
+    throw new Error(`MIGRATION_MCP_TOOL_EXECUTION_SEMANTICS_MISSING:${label}`);
+  const semanticsOperationConstraint = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='mcp_management_operation'::regclass AND conname='mcp_management_operation_operation_type_check'",
+  );
+  if (!semanticsOperationConstraint.rows[0]?.definition?.includes('tool_semantics_override'))
+    throw new Error(`MIGRATION_MCP_TOOL_SEMANTICS_OPERATION_MISSING:${label}`);
+  const compositionColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json') AND table_name IN ('workflow_plan','workflow_plan_attempt')",
+  );
+  if (compositionColumns.rows[0]?.count !== 4)
+    throw new Error(`MIGRATION_SKILL_COMPOSITION_CONTEXT_MISSING:${label}`);
+  const goalContractColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name='goal_contract_json' AND table_name IN ('workflow_plan','workflow_plan_attempt','skill_selection_record','skill_replacement_plan')",
+  );
+  if (goalContractColumns.rows[0]?.count !== 4)
+    throw new Error(`MIGRATION_GOAL_EXECUTION_CONTRACT_MISSING:${label}`);
+  const inputResolutionTable = await pool.query(
+    "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
+  );
+  if (inputResolutionTable.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_SKILL_INPUT_RESOLUTION_MISSING:${label}`);
+  const taskBinding = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='agent_task' AND column_name='skill_input_resolution_id') AS exists",
+  );
+  if (taskBinding.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_TASK_SKILL_INPUT_BINDING_MISSING:${label}`);
+  const terminalOutcomeTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id') OR (table_name IN ('workflow_control','workflow_control_round') AND column_name='terminal_outcome_id')",
+  );
+  if (terminalOutcomeTables.rows[0]?.count !== 3)
+    throw new Error(`MIGRATION_RUNTIME_TERMINAL_OUTCOME_MISSING:${label}`);
   const continuationTables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
   );
@@ -107,11 +151,30 @@ async function verifyCurrentSchema(pool, label) {
   if (historyKey.rows[0]?.columns !== 'call_id') {
     throw new Error(`MIGRATION_SKILL_CALL_HISTORY_KEY_STALE:${label}`);
   }
+  const nestedConfirmationColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='skill_call_workflow' AND column_name IN ('parent_plan_id','confirmation_status')",
+  );
+  if (nestedConfirmationColumns.rows[0]?.count !== 2)
+    throw new Error(`MIGRATION_NESTED_CONFIRMATION_COLUMNS_MISSING:${label}`);
+  const childInstanceForeignKey = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='skill_call_workflow'::regclass AND conname='skill_call_workflow_child_instance_id_fkey') AS exists",
+  );
+  if (childInstanceForeignKey.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_NESTED_CONFIRMATION_CHILD_FK_MISSING:${label}`);
   const constraint = await pool.query(
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='stage_model_route_stage_check'",
   );
   const definition = constraint.rows[0]?.definition;
-  if (typeof definition !== 'string' || !definition.includes('tool_enhancement')) {
+  if (
+    typeof definition !== 'string' ||
+    !definition.includes('tool_enhancement') ||
+    !definition.includes('skill_input_resolution')
+  ) {
     throw new Error(`MIGRATION_STAGE_CONSTRAINT_STALE:${label}`);
   }
+  const inputSourceConstraint = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='task_input_request'::regclass AND conname='task_input_request_source_check'",
+  );
+  if (!inputSourceConstraint.rows[0]?.definition?.includes('skill_input_resolution'))
+    throw new Error(`MIGRATION_TASK_INPUT_SOURCE_STALE:${label}`);
 }

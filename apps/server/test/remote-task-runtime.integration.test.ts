@@ -28,8 +28,8 @@ import {
 import { PostgresRemoteTaskRepository } from '../../../packages/persistence-postgres/src/index.js';
 
 const databaseName = 'sdar_v11_remote_task_integration';
-const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
-const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:54329/${databaseName}`;
+const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${databaseName}`;
 const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
 const resources: { close(): Promise<void> }[] = [];
 let pool: Pool;

@@ -8,7 +8,7 @@
 
 Server 在 MCP capability 中声明官方 Tasks extension，并在 Tool `_meta` 中声明 SDAR 执行语义。未声明时，客户端只能按普通同步 Tool 使用；若计划要求 Task 则 fail closed。
 
-客户端使用 ADR-081 锁定的官方 v2 beta.4 自动协商，并保存实际协商的协议修订。`2025-11-25` legacy fallback 连接不得启用 Tasks。冻结扩展草案标注 `2026-06-30`，当前 beta 客户端的 modern fixture 标注 `2026-07-28`；只对精确契约测试覆盖的组合声明兼容，不推断其他 beta/协议修订。
+客户端使用 ADR-090 锁定的官方 v2 beta.4 自动协商，并保存实际协商的协议修订。`2025-11-25` legacy fallback 连接不得启用 Tasks。冻结扩展草案标注 `2026-06-30`，当前 beta 客户端的 modern fixture 标注 `2026-07-28`；只对精确契约测试覆盖的组合声明兼容，不推断其他 beta/协议修订。
 
 ```json
 {

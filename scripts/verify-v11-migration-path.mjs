@@ -113,7 +113,7 @@ try {
 
 function databasePool(database) {
   return new Pool({
-    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:54329/${database}`,
+    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${database}`,
   });
 }
 

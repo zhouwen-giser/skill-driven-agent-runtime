@@ -6,6 +6,7 @@ import {
   type AgentTask,
   type ConversationContext,
   type SkillDraft,
+  type SkillInputResolutionRecord,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
@@ -39,6 +40,54 @@ describe('TaskService', () => {
         createdAt: timestamp,
       }),
     ).toThrow(expect.objectContaining({ code: 'TASK_INPUT_CONTROL_ROUND_INVALID' }));
+  });
+  it('uses the plan-bound formal Skill input even when a newer resolution exists', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({
+      messageText: 'Inspect device-from-text.',
+      metadata: { structured_input: { deviceId: 'device-22' } },
+    });
+    harness.tasks.set(submitted.task.taskId, {
+      ...submitted.task,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      selectedSkillId: 'skill.inspect',
+      selectedSkillVersion: 3,
+      skillSelectionId: 'selection-1',
+      skillInputResolutionId: 'resolution-1',
+    });
+    harness.skillInputResolutions.set(submitted.task.taskId, {
+      resolutionId: 'resolution-1',
+      taskId: submitted.task.taskId,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      skillId: 'skill.inspect',
+      skillVersion: 3,
+      structuredInput: { deviceId: 'device-22' },
+      unresolvedFields: [],
+      sourceRefs: ['a2a-metadata:structured_input'],
+      decisionSummary: 'Resolved.',
+      status: 'resolved',
+      createdAt: timestamp,
+    });
+    harness.skillInputResolutions.set('newer-resolution', {
+      resolutionId: 'resolution-2',
+      taskId: submitted.task.taskId,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      skillId: 'skill.inspect',
+      skillVersion: 3,
+      structuredInput: { deviceId: 'device-newer-but-not-planned' },
+      unresolvedFields: [],
+      sourceRefs: ['task-input-response:newer'],
+      decisionSummary: 'Created after the plan.',
+      status: 'resolved',
+      createdAt: '2026-07-11T10:00:01.000Z',
+    });
+
+    await expect(harness.service.executionInput(submitted.task.taskId)).resolves.toEqual({
+      deviceId: 'device-22',
+    });
   });
   it('creates default anonymous/context values, persists first, then enqueues by context', async () => {
     const harness = createHarness();
@@ -258,6 +307,29 @@ describe('TaskService', () => {
     ]);
   });
 
+  it('uses an atomic runtime cancellation projection when an active control owns the Task', async () => {
+    const harness = createHarness('resumed', true);
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-runtime', goalId: 'goal-runtime', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({
+      phase: 'canceled',
+      phaseMessage: 'Atomically canceled by runtime.',
+    });
+    expect(harness.operations).toEqual(['runtime.cancel:task-1']);
+  });
+
   it('returns a stable application error for an unknown task', async () => {
     const harness = createHarness();
     await expect(harness.service.cancel('missing')).rejects.toEqual(
@@ -293,12 +365,26 @@ describe('TaskService', () => {
       }),
     ).resolves.toMatchObject({
       phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
       capabilityGap: {
         missingCapability: 'Read device pressure.',
         suggestedToolContract: { name: 'read_pressure' },
       },
     });
     expect(harness.events.at(-1)?.summary).toContain('No registered tool');
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'resume',
+        messageText: 'A Tool is now registered.',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN' });
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({
+      phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
+    });
+    expect(harness.operations).not.toContain('plan.resume:undefined');
   });
 
   it('applies plan revision, confirmation, pause, and resume through domain transitions', async () => {
@@ -392,6 +478,7 @@ describe('TaskService', () => {
       selectedSkillId: 'skill-old',
       selectedSkillVersion: 1,
       skillSelectionId: 'selection-1',
+      skillInputResolutionId: 'resolution-old',
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -410,6 +497,7 @@ describe('TaskService', () => {
       selectedSkillVersion: 2,
       skillSelectionId: 'selection-1',
     });
+    expect(harness.tasks.get('task-replacement')).not.toHaveProperty('skillInputResolutionId');
   });
 
   it('rejects a confirmation-bound plan through the shared follow-up transition', async () => {
@@ -432,10 +520,166 @@ describe('TaskService', () => {
         messageText: 'Reject.',
       }),
     ).resolves.toMatchObject({ phase: 'canceled', phaseMessage: 'Plan rejected.' });
+    expect(harness.operations).toContain('plan.reject:missing');
+  });
+
+  it('moves an executing parent Task back to input-required plan confirmation for a child', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.requestNestedSkillConfirmation(task.taskId, {
+        childPlanId: 'plan-child',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      }),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      phaseMessage: expect.stringContaining('skill.child@2'),
+    });
+  });
+
+  it('routes cancellation of a child-confirmation wait through execution control', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    harness.tasks.set(task.taskId, task);
+    task = await harness.service.attachPlan(task.taskId, {
+      planId: 'plan-parent',
+      goalId: 'goal-parent',
+      goalVersion: 1,
+    });
+    task = transitionTask(task, 'executing', 'executing', timestamp);
+    harness.tasks.set(task.taskId, task);
+    await harness.service.requestNestedSkillConfirmation(task.taskId, {
+      childPlanId: 'plan-child',
+      childSkillId: 'skill.child',
+      childSkillVersion: 1,
+    });
+
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({ phase: 'canceled' });
+    expect(harness.operations).toContain('plan.cancel:plan-parent');
+    expect(harness.operations.indexOf(`task.save:${task.taskId}:canceled`)).toBeLessThan(
+      harness.operations.indexOf('plan.cancel:plan-parent'),
+    );
+  });
+
+  it('serializes duplicate confirmation decisions and executes the plan action only once', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-parent', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    const decisions = await Promise.allSettled([
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm once.',
+      }),
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm twice.',
+      }),
+    ]);
+
+    expect(decisions.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+    expect(decisions.filter(({ status }) => status === 'rejected')).toEqual([
+      expect.objectContaining({
+        reason: expect.objectContaining({ code: 'TASK_PLAN_DECISION_NOT_AWAITING' }),
+      }),
+    ]);
+    expect(
+      harness.operations.filter((operation) => operation === 'plan.confirm:plan-parent'),
+    ).toEqual(['plan.confirm:plan-parent']);
+  });
+
+  it('rejects confirmation on an already canceled parent before any plan side effect', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-parent', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    await harness.service.cancel(task.taskId);
+    harness.operations.length = 0;
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'This decision is stale.',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_PLAN_DECISION_NOT_AWAITING' });
+    expect(harness.operations).not.toContain('plan.confirm:plan-parent');
+  });
+
+  it('releases the nested execution checkpoint after the unified wait timeout cancels a Task', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = {
+      ...transitionTask(task, 'canceled', 'Timed out.', timestamp),
+      planId: 'plan-parent',
+      goalId: 'goal-parent',
+      goalVersion: 1,
+      errorCode: 'TASK_WAIT_TIMEOUT',
+    };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await harness.service.releaseTimedOutWait(task.taskId);
+
+    expect(harness.operations).toEqual(['plan.cancel:plan-parent']);
   });
 });
 
-function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resumed'): Readonly<{
+function createHarness(
+  resumeDisposition: 'resumed' | 'replan_required' = 'resumed',
+  runtimeCancellation = false,
+): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
   tasks: Map<string, AgentTask>;
@@ -445,6 +689,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
   inputRequests: Map<string, TaskInputRequest>;
   inputResponses: Map<string, TaskInputResponse>;
   attempts: Map<string, TaskExecutionAttempt>;
+  skillInputResolutions: Map<string, SkillInputResolutionRecord>;
   queue: ContextTaskQueue;
 }> {
   const contexts = new Map<string, ConversationContext>();
@@ -454,6 +699,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
   const inputRequests = new Map<string, TaskInputRequest>();
   const inputResponses = new Map<string, TaskInputResponse>();
   const attempts = new Map<string, TaskExecutionAttempt>();
+  const skillInputResolutions = new Map<string, SkillInputResolutionRecord>();
   const operations: string[] = [];
   const contextRepository: ConversationContextRepository = {
     findById: (contextId) => Promise.resolve(contexts.get(contextId)),
@@ -583,11 +829,23 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
       events: publisher,
       skillDrafts,
       taskInputs,
+      skillInputs: {
+        find: (resolutionId) =>
+          Promise.resolve(
+            [...skillInputResolutions.values()].find(
+              (record) => record.resolutionId === resolutionId,
+            ),
+          ),
+      },
       clock: { now: () => timestamp },
       ids,
       planActions: {
         confirm: (task) => {
           operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
+          return Promise.resolve('task_plan');
+        },
+        reject: (task) => {
+          operations.push(`plan.reject:${task.planId ?? 'missing'}`);
           return Promise.resolve();
         },
         executeConfirmed: () => Promise.resolve(),
@@ -601,7 +859,22 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
         },
         patchGoal: () => Promise.resolve(),
         pause: () => Promise.resolve(),
-        cancel: () => Promise.resolve(),
+        commitRuntimeCancellation: (task) => {
+          if (!runtimeCancellation) return Promise.resolve(false);
+          operations.push(`runtime.cancel:${task.taskId}`);
+          tasks.set(task.taskId, {
+            ...task,
+            phase: 'canceled',
+            phaseMessage: 'Atomically canceled by runtime.',
+            errorCode: 'RUNTIME_CANCELED',
+            updatedAt: timestamp,
+          });
+          return Promise.resolve(true);
+        },
+        cancel: (task) => {
+          operations.push(`plan.cancel:${task.planId ?? 'missing'}`);
+          return Promise.resolve();
+        },
         resume: () => Promise.resolve(resumeDisposition),
         cancelGoal: () => Promise.resolve(),
       },
@@ -614,6 +887,7 @@ function createHarness(resumeDisposition: 'resumed' | 'replan_required' = 'resum
     inputRequests,
     inputResponses,
     attempts,
+    skillInputResolutions,
     queue,
   };
 }

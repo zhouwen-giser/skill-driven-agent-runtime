@@ -6,7 +6,7 @@ Phase 0 currently includes:
 
 - the frozen source task package and design input;
 - EP-09 with hardening checkpoints and evidence rules;
-- ADR-076 through ADR-080 for adapter isolation, Provider authority, availability/time semantics, external-wait continuation and migration ordering;
+- ADR-085 through ADR-089 for adapter isolation, Provider authority, availability/time semantics, external-wait continuation and migration ordering;
 - canonical v1.1 functional, non-functional and acceptance requirements;
 - the `io.sdar/taskExecution` Provider extension contract;
 - exact official MCP Tasks extension commit/schema/license Intake;

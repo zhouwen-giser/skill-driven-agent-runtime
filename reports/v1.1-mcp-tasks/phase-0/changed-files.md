@@ -3,7 +3,7 @@
 Planned Phase 0 scope:
 
 - `execplans/EP-09-v1.1-mcp-tasks.md`
-- `adr/ADR-076-*.md` through `adr/ADR-080-*.md`
+- `adr/ADR-085-*.md` through `adr/ADR-089-*.md`
 - `docs/13_OPEN_SOURCE_LICENSE_LEDGER.md`
 - `docs/14_DECISION_LOG_ADR.md`
 - `docs/17_TRACEABILITY_MATRIX.md`

@@ -35,7 +35,7 @@
     "infra/postgres/migrations/0100_remote_mcp_task_tracking.up.sql",
     "infra/postgres/migrations/0100_remote_mcp_task_tracking.down.sql",
     "scripts/verify-v11-migration-path.mjs",
-    "adr/ADR-082-versioned-remote-task-polling.md"
+    "adr/ADR-091-versioned-remote-task-polling.md"
   ],
   "tests": [
     "packages/application/test/remote-task-polling.unit.test.ts",

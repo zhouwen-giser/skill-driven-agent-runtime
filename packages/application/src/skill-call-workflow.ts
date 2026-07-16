@@ -1,16 +1,22 @@
 import type {
   RuntimeExecutionContext,
+  SkillCallExecutionResult,
+  SkillCallWorkflowRecord,
   SkillVersion,
+  WorkflowInstance,
   WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 
 import type { McpToolPlanningMetadata } from './mcp-tool-enhancer.js';
+import { snapshotMcpToolPlanningExecutionSemantics } from './mcp-tool-enhancer.js';
 import type {
   Clock,
   JsonSchemaValidator,
   SkillCallWorkflowRepository,
   SkillRepository,
+  WorkflowPlanRepository,
 } from './ports.js';
+import type { TransitiveSkillConfirmationEvaluator } from './skill-confirmation.js';
 import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
@@ -22,7 +28,12 @@ export class SkillCallWorkflowService {
   readonly #skills: SkillRepository;
   readonly #planner: Pick<WorkflowPlannerService, 'plan'>;
   readonly #validator: Pick<WorkflowValidator, 'validate'>;
-  readonly #execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+  readonly #execution: Pick<
+    WorkflowExecutionService,
+    'confirm' | 'execute' | 'get' | 'findActiveByPlanId' | 'resumeHumanConfirmation'
+  >;
+  readonly #plans: Pick<WorkflowPlanRepository, 'findPlan'>;
+  readonly #confirmation: Pick<TransitiveSkillConfirmationEvaluator, 'evaluate'>;
   readonly #records: SkillCallWorkflowRepository;
   readonly #schemas: JsonSchemaValidator;
   readonly #toolPlanningMetadata: (
@@ -36,7 +47,12 @@ export class SkillCallWorkflowService {
       skills: SkillRepository;
       planner: Pick<WorkflowPlannerService, 'plan'>;
       validator: Pick<WorkflowValidator, 'validate'>;
-      execution: Pick<WorkflowExecutionService, 'confirm' | 'execute'>;
+      execution: Pick<
+        WorkflowExecutionService,
+        'confirm' | 'execute' | 'get' | 'findActiveByPlanId' | 'resumeHumanConfirmation'
+      >;
+      plans: Pick<WorkflowPlanRepository, 'findPlan'>;
+      confirmation: Pick<TransitiveSkillConfirmationEvaluator, 'evaluate'>;
       records: SkillCallWorkflowRepository;
       schemas: JsonSchemaValidator;
       loadToolPlanningMetadata: (
@@ -50,6 +66,8 @@ export class SkillCallWorkflowService {
     this.#planner = dependencies.planner;
     this.#validator = dependencies.validator;
     this.#execution = dependencies.execution;
+    this.#plans = dependencies.plans;
+    this.#confirmation = dependencies.confirmation;
     this.#records = dependencies.records;
     this.#schemas = dependencies.schemas;
     this.#toolPlanningMetadata = dependencies.loadToolPlanningMetadata;
@@ -61,6 +79,7 @@ export class SkillCallWorkflowService {
     input: Readonly<{
       skillId: string;
       value: unknown;
+      parentPlanId: string;
       parentInstanceId: string;
       parentNodeId: string;
       parentGoalId: string;
@@ -68,7 +87,8 @@ export class SkillCallWorkflowService {
       signal?: AbortSignal;
       executionContext?: RuntimeExecutionContext;
     }>,
-  ): Promise<unknown> {
+  ): Promise<SkillCallExecutionResult> {
+    await this.#assertParentCompositionAuthority(input.parentPlanId, input.skillId);
     const skill = await this.#skills.findCurrentVersion(input.skillId);
     if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
     const inputValidation = this.#schemas.validate(skill.inputSchema, input.value);
@@ -78,18 +98,212 @@ export class SkillCallWorkflowService {
         `Resolved input does not satisfy ${skill.skillId}@${String(skill.version)}: ${inputValidation.errors.join('; ')}`,
       );
 
+    const existing = await this.#records.find(input.parentInstanceId, input.parentNodeId);
+    if (existing !== undefined) {
+      if (existing.parentPlanId !== input.parentPlanId || existing.skillId !== input.skillId)
+        throw new SkillCallWorkflowError(
+          'WORKFLOW_SKILL_CONFIRMATION_STALE',
+          'Persisted child confirmation does not match the immutable parent node.',
+        );
+      if (existing.skillVersion !== skill.version) {
+        await this.#records.save({
+          ...existing,
+          confirmationStatus: 'invalidated',
+          status: 'invalidated',
+          evaluationSummary: `Skill version changed from ${String(existing.skillVersion)} to ${String(skill.version)}; fresh confirmation is required.`,
+          completedAt: this.#clock.now(),
+        });
+      } else if (existing.confirmationStatus === 'awaiting_confirmation') {
+        return confirmationRequest(existing);
+      } else if (existing.confirmationStatus === 'rejected') {
+        throw new SkillCallWorkflowError(
+          'WORKFLOW_SKILL_CONFIRMATION_REJECTED',
+          'Child Skill plan confirmation was rejected.',
+        );
+      } else if (existing.confirmationStatus === 'confirmed') {
+        const plan = await this.#plans.findPlan(existing.childPlanId);
+        if (plan?.confirmationStatus !== 'confirmed')
+          throw new SkillCallWorkflowError(
+            'WORKFLOW_SKILL_CONFIRMATION_STALE',
+            'Confirmed child linkage no longer references a confirmed immutable plan.',
+          );
+        return this.#executeConfirmed(existing, skill, plan, input);
+      }
+    }
+
+    return this.#prepare(input, skill);
+  }
+
+  async confirmPendingForParentPlan(parentPlanId: string, taskId?: string): Promise<boolean> {
+    const parent = await this.#execution.findActiveByPlanId(parentPlanId);
+    const pending = parent?.pendingConfirmation;
+    if (
+      parent?.status !== 'paused' ||
+      pending?.kind !== 'skill_confirmation' ||
+      pending.parentPlanId !== parentPlanId ||
+      pending.childPlanId === undefined
+    )
+      return false;
+    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Pending child confirmation no longer matches the parent checkpoint.',
+      );
+    if (record.confirmationStatus === 'confirmed' || record.confirmationStatus === 'invalidated')
+      return true;
+    if (record.confirmationStatus !== 'awaiting_confirmation')
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child confirmation has already received a different decision.',
+      );
+    const current = await this.#skills.findCurrentVersion(record.skillId);
+    const plan = await this.#plans.findPlan(record.childPlanId);
+    if (
+      current?.status !== 'enabled' ||
+      current.version !== record.skillVersion ||
+      plan?.confirmationStatus !== 'awaiting_confirmation'
+    ) {
+      await this.#records.save({
+        ...record,
+        confirmationStatus: 'invalidated',
+        status: 'invalidated',
+        evaluationSummary:
+          'Child Skill version or immutable plan changed before confirmation; a fresh plan is required.',
+        completedAt: this.#clock.now(),
+      });
+      return true;
+    }
+    await this.#execution.confirm(record.childPlanId, taskId);
+    await this.#records.save({
+      ...record,
+      confirmationStatus: 'confirmed',
+      status: 'running',
+      evaluationSummary: `Child plan confirmed for ${record.skillId}@${String(record.skillVersion)}.`,
+    });
+    return true;
+  }
+
+  async resumeConfirmedForParentPlan(parentPlanId: string): Promise<boolean> {
+    const parent = await this.#execution.findActiveByPlanId(parentPlanId);
+    const pending = parent?.pendingConfirmation;
+    if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
+    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child plan no longer matches this parent checkpoint.',
+      );
+    let resumable = record;
+    if (record.confirmationStatus === 'confirmed') {
+      const [current, plan] = await Promise.all([
+        this.#skills.findCurrentVersion(record.skillId),
+        this.#plans.findPlan(record.childPlanId),
+      ]);
+      if (
+        current?.status !== 'enabled' ||
+        current.version !== record.skillVersion ||
+        plan?.confirmationStatus !== 'confirmed' ||
+        plan.definition === undefined
+      ) {
+        resumable = {
+          ...record,
+          confirmationStatus: 'invalidated',
+          status: 'invalidated',
+          evaluationSummary:
+            'Confirmed child Skill version or immutable plan changed before parent resume; a fresh plan is required.',
+          completedAt: this.#clock.now(),
+        };
+        await this.#records.save(resumable);
+      }
+    }
+    if (
+      resumable.confirmationStatus !== 'confirmed' &&
+      resumable.confirmationStatus !== 'invalidated'
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child plan was not confirmed for this parent checkpoint.',
+      );
+    await this.#execution.resumeHumanConfirmation({
+      instanceId: parent.instanceId,
+      confirmed: true,
+    });
+    return true;
+  }
+
+  async rejectPendingForParentPlan(parentPlanId: string): Promise<boolean> {
+    const parent = await this.#execution.findActiveByPlanId(parentPlanId);
+    const pending = parent?.pendingConfirmation;
+    if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
+    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Pending child confirmation no longer matches the parent checkpoint.',
+      );
+    if (record.confirmationStatus === 'rejected') return true;
+    if (record.confirmationStatus !== 'awaiting_confirmation')
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CONFIRMATION_STALE',
+        'Child confirmation is no longer awaiting a decision.',
+      );
+    await this.#records.save({
+      ...record,
+      confirmationStatus: 'rejected',
+      status: 'rejected',
+      evaluationSummary: `Child plan rejected for ${record.skillId}@${String(record.skillVersion)}.`,
+      completedAt: this.#clock.now(),
+    });
+    try {
+      await this.#execution.resumeHumanConfirmation({
+        instanceId: parent.instanceId,
+        confirmed: false,
+      });
+    } catch (error: unknown) {
+      const failed = await this.#execution.get(parent.instanceId);
+      if (failed?.status !== 'failed') throw error;
+    }
+    return true;
+  }
+
+  async #prepare(
+    input: Readonly<{
+      skillId: string;
+      value: unknown;
+      parentPlanId: string;
+      parentInstanceId: string;
+      parentNodeId: string;
+      parentGoalId: string;
+      parentGoalVersion: number;
+      signal?: AbortSignal;
+      executionContext?: RuntimeExecutionContext;
+    }>,
+    skill: SkillVersion,
+  ): Promise<SkillCallExecutionResult> {
     const callId = this.#nextId();
     const childPlanId = `plan-skill-call-${callId}`;
-    const childInstanceId = `instance-skill-call-${callId}`;
     const childWorkflowDefinitionId = `workflow-skill-${skill.skillId}-${String(skill.version)}-${callId}`;
     const createdAt = this.#clock.now();
     const toolPlanningMetadata = await this.#toolPlanningMetadata(skill);
+    const parentPlan = await this.#plans.findPlan(input.parentPlanId);
+    if (
+      parentPlan?.goalId !== input.parentGoalId ||
+      parentPlan.goalVersion !== input.parentGoalVersion
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
+        'Child Skill planning requires the immutable parent plan Goal contract.',
+      );
     const plan = await this.#planner.plan({
       planId: childPlanId,
       workflowDefinitionId: childWorkflowDefinitionId,
       workflowVersion: skill.version,
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
+      goalContract: parentPlan.goalContract,
+      toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
+      compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
       planningInstruction: childPlanningInstruction(
         skill,
         input.value,
@@ -100,13 +314,53 @@ export class SkillCallWorkflowService {
       ),
     });
     const definition = await this.#requireValidatedDefinition(plan);
-
-    // v1.0.2 preserves the accepted parent-covered confirmation behavior. The complete
-    // transitive nested-confirmation policy is intentionally finalized by v1.0.5.
+    const evaluation = await this.#confirmation.evaluate([skill.skillId], definition);
+    let record: SkillCallWorkflowRecord = {
+      callId,
+      parentPlanId: input.parentPlanId,
+      parentInstanceId: input.parentInstanceId,
+      parentNodeId: input.parentNodeId,
+      childPlanId,
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      confirmationStatus: 'awaiting_confirmation',
+      status: 'awaiting_confirmation',
+      evaluationSummary: `Child plan awaits confirmation because: ${evaluation.blockingSkillIds.join(', ')}.`,
+      createdAt,
+    };
+    await this.#records.save(record);
+    if (!evaluation.autoConfirm) return confirmationRequest(record);
     await this.#execution.confirm(childPlanId);
+    record = {
+      ...record,
+      confirmationStatus: 'confirmed',
+      status: 'running',
+      evaluationSummary: 'Transitive child Skill policy auto-confirmed the plan.',
+    };
+    await this.#records.save(record);
+    return this.#executeConfirmed(record, skill, plan, input);
+  }
+
+  async #executeConfirmed(
+    record: SkillCallWorkflowRecord,
+    skill: SkillVersion,
+    plan: WorkflowPlanRecord,
+    input: Readonly<{
+      value: unknown;
+      signal?: AbortSignal;
+      executionContext?: RuntimeExecutionContext;
+    }>,
+  ): Promise<SkillCallExecutionResult> {
+    const definition = await this.#requireValidatedDefinition(plan);
+    if (record.status === 'succeeded' && record.childInstanceId !== undefined) {
+      const completed = await this.#execution.get(record.childInstanceId);
+      if (completed?.status === 'succeeded')
+        return { status: 'completed', output: completed.result };
+    }
+    const childInstanceId = record.childInstanceId ?? `instance-skill-call-${record.callId}`;
     const child = await this.#execution.execute({
       instanceId: childInstanceId,
-      planId: childPlanId,
+      planId: record.childPlanId,
       input: input.value,
       skillIds: [skill.skillId],
       ...(input.executionContext === undefined ? {} : { executionContext: input.executionContext }),
@@ -114,16 +368,10 @@ export class SkillCallWorkflowService {
     });
     if (child.status !== 'succeeded') {
       await this.#records.save({
-        callId,
-        parentInstanceId: input.parentInstanceId,
-        parentNodeId: input.parentNodeId,
+        ...record,
         childInstanceId,
-        childPlanId,
-        skillId: skill.skillId,
-        skillVersion: skill.version,
         status: child.status === 'canceled' ? 'canceled' : 'failed',
         evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} ended with ${child.status}.`,
-        createdAt,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
       throw new SkillCallWorkflowError(
@@ -137,16 +385,10 @@ export class SkillCallWorkflowService {
     const resultSize = jsonSize(child.result);
     if (resultSize > MAX_SKILL_CHILD_RESULT_CHARACTERS) {
       await this.#records.save({
-        callId,
-        parentInstanceId: input.parentInstanceId,
-        parentNodeId: input.parentNodeId,
+        ...record,
         childInstanceId,
-        childPlanId,
-        skillId: skill.skillId,
-        skillVersion: skill.version,
         status: 'failed',
         evaluationSummary: `Skill output contained ${String(resultSize)} JSON characters, exceeding the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
-        createdAt,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
       throw new SkillCallWorkflowError(
@@ -157,16 +399,10 @@ export class SkillCallWorkflowService {
     const outputValidation = this.#schemas.validate(skill.outputSchema, child.result);
     if (!outputValidation.valid) {
       await this.#records.save({
-        callId,
-        parentInstanceId: input.parentInstanceId,
-        parentNodeId: input.parentNodeId,
+        ...record,
         childInstanceId,
-        childPlanId,
-        skillId: skill.skillId,
-        skillVersion: skill.version,
         status: 'failed',
         evaluationSummary: `Skill output failed ${skill.skillId}@${String(skill.version)} schema validation: ${outputValidation.errors.join('; ')}`,
-        createdAt,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
       throw new SkillCallWorkflowError(
@@ -176,19 +412,13 @@ export class SkillCallWorkflowService {
     }
 
     await this.#records.save({
-      callId,
-      parentInstanceId: input.parentInstanceId,
-      parentNodeId: input.parentNodeId,
+      ...record,
       childInstanceId,
-      childPlanId,
-      skillId: skill.skillId,
-      skillVersion: skill.version,
       status: 'succeeded',
       evaluationSummary: `Skill output passed ${skill.skillId}@${String(skill.version)} schema validation after executing ${definition.workflowDefinitionId}@${String(definition.version)}.`,
-      createdAt,
       completedAt: child.completedAt ?? this.#clock.now(),
     });
-    return child.result;
+    return { status: 'completed', output: child.result };
   }
 
   async #requireValidatedDefinition(plan: WorkflowPlanRecord) {
@@ -197,7 +427,12 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_CHILD_PLAN_INVALID',
         'Child Workflow planner returned no executable definition.',
       );
-    const validation = await this.#validator.validate(plan.definition);
+    const validation = await this.#validator.validate(plan.definition, {
+      enforceSkillComposition:
+        plan.compositionContext !== undefined || plan.capabilityGapSkillIds !== undefined,
+      allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
+      capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
+    });
     if (!validation.valid || validation.definition === undefined)
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CHILD_PLAN_INVALID',
@@ -205,6 +440,51 @@ export class SkillCallWorkflowService {
       );
     return validation.definition;
   }
+
+  async #assertParentCompositionAuthority(parentPlanId: string, skillId: string): Promise<void> {
+    const plan = await this.#plans.findPlan(parentPlanId);
+    const enforced =
+      plan?.compositionContext !== undefined || plan?.capabilityGapSkillIds !== undefined;
+    if (
+      plan === undefined ||
+      (enforced &&
+        !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
+        !plan.capabilityGapSkillIds?.includes(skillId))
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+        `Skill ${skillId} is not authorized by the immutable parent composition context.`,
+      );
+  }
+}
+
+function matchesPendingCheckpoint(
+  record: SkillCallWorkflowRecord | undefined,
+  parentInstanceId: string,
+  pending: NonNullable<WorkflowInstance['pendingConfirmation']>,
+  parentPlanId: string,
+): record is SkillCallWorkflowRecord {
+  return (
+    record?.parentPlanId === parentPlanId &&
+    record.parentInstanceId === parentInstanceId &&
+    record.parentNodeId === pending.nodeId &&
+    record.childPlanId === pending.childPlanId &&
+    record.skillId === pending.childSkillId &&
+    record.skillVersion === pending.childSkillVersion
+  );
+}
+
+function confirmationRequest(record: SkillCallWorkflowRecord): SkillCallExecutionResult {
+  return {
+    status: 'awaiting_confirmation',
+    callId: record.callId,
+    parentPlanId: record.parentPlanId,
+    parentInstanceId: record.parentInstanceId,
+    parentNodeId: record.parentNodeId,
+    childPlanId: record.childPlanId,
+    childSkillId: record.skillId,
+    childSkillVersion: record.skillVersion,
+  };
 }
 
 export function nextSkillCallAncestry(
@@ -313,6 +593,10 @@ export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_CHILD_PLAN_INVALID'
   | 'WORKFLOW_SKILL_CHILD_FAILED'
   | 'WORKFLOW_SKILL_CHILD_CANCELED'
+  | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
+  | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
+  | 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE'
+  | 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION'
   | 'WORKFLOW_SKILL_RECURSION_INVALID'
   | 'WORKFLOW_SKILL_DEPTH_EXCEEDED';
 

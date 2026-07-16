@@ -25,4 +25,4 @@ Phase 3 start, Phase 4 completion, Phase 6 start and PR-ready are mandatory fetc
 
 ## Migration collision
 
-Hardening may occupy 0057+. v1.1 reserves 0100+, but the current high-water runner would skip lower future migrations if 0100 were applied first. ADR-080 therefore prohibits 0100 in a persistent supported database until the complete v1.0.13 chain is present.
+Hardening may occupy 0057+. v1.1 reserves 0100+, but the current high-water runner would skip lower future migrations if 0100 were applied first. ADR-089 therefore prohibits 0100 in a persistent supported database until the complete v1.0.13 chain is present.

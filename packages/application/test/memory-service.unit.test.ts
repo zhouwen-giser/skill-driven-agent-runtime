@@ -24,6 +24,9 @@ describe('MemoryService', () => {
             content: { target: 'device-18' },
             summary: 'The target is device-18.',
             confidence: 0.95,
+            durability: 'durable',
+            authority: 'admin',
+            durabilityReason: 'An operator identified a stable target.',
           }),
       },
       clock: { now: () => '2026-07-12T00:00:00.000Z' },
@@ -91,15 +94,36 @@ describe('MemoryService', () => {
     const service = new MemoryService({
       repository,
       embeddings: { embed: () => Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] }) },
+      model: {
+        generateStructured: () =>
+          Promise.resolve({
+            type: 'fact',
+            content: { lesson: 'Use the stable inspection procedure.' },
+            summary: 'Use the stable inspection procedure.',
+            confidence: 0.9,
+            durability: 'durable',
+            authority: 'model_inferred',
+            durabilityReason: 'The procedure is reusable across executions.',
+          }),
+      },
       clock: { now: () => '2026-07-12T00:00:00.000Z' },
       nextId: () => `memory-${String(++sequence)}`,
     });
-    const result = processedResult();
+    const result: ProcessedResultRecord = {
+      ...processedResult(),
+      memoryCandidates: [
+        {
+          kind: 'procedure',
+          content: 'Use the stable inspection procedure.',
+          confidence: 0.9,
+        },
+      ],
+    };
     await expect(service.admitProcessedResult(result)).resolves.toMatchObject({
       admitted: [
         {
           type: 'fact',
-          summary: 'Device 17 was online.',
+          summary: 'Use the stable inspection procedure.',
           sourceRefs: ['task:task-1', 'processed-result:result-1'],
         },
       ],
@@ -108,6 +132,7 @@ describe('MemoryService', () => {
     await expect(service.admitProcessedResult(result)).resolves.toEqual({
       admitted: [],
       duplicateMemoryIds: ['memory-1'],
+      rejected: [],
     });
   });
 
@@ -125,6 +150,9 @@ describe('MemoryService', () => {
             content: { deviceId: 'device-17' },
             summary: 'The target device is device-17.',
             confidence: 0.95,
+            durability: 'durable',
+            authority: 'admin',
+            durabilityReason: 'The operator supplied a stable device identity.',
           });
         },
       },
@@ -143,7 +171,214 @@ describe('MemoryService', () => {
       memoryId: 'memory-refined',
       summary: 'The target device is device-17.',
       sourceRefs: ['task:task-1'],
+      durability: 'durable',
+      authority: 'admin',
     });
+
+    const incomplete = new MemoryService({
+      repository: new MemoryRepositoryFake(),
+      embeddings: { embed: () => Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] }) },
+      model: {
+        generateStructured: () =>
+          Promise.resolve({
+            type: 'fact',
+            content: { deviceId: 'device-17' },
+            summary: 'Missing production fields.',
+            confidence: 0.5,
+          }),
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-incomplete',
+    });
+    await expect(
+      incomplete.refine({
+        type: 'fact',
+        content: {},
+        summary: 'Incomplete.',
+        sourceRefs: ['task:task-1'],
+        confidence: 0.5,
+      }),
+    ).rejects.toMatchObject({ name: 'ZodError' });
+  });
+
+  it('rejects volatile device state and unknown durability while admitting durable Skill experience', async () => {
+    const repository = new MemoryRepositoryFake();
+    let sequence = 0;
+    const service = new MemoryService({
+      repository,
+      embeddings: { embed: () => Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] }) },
+      model: {
+        generateStructured: (request) => {
+          const input = JSON.parse(request.instruction) as {
+            candidate: {
+              type: MemoryItem['type'];
+              content: Readonly<Record<string, unknown>>;
+              summary: string;
+              confidence: number;
+              authorityHint: MemoryItem['authority'];
+            };
+          };
+          const dynamic = input.candidate.summary.includes('online');
+          const uncertain = input.candidate.summary.includes('uncertain');
+          return Promise.resolve({
+            type: input.candidate.type,
+            content: input.candidate.content,
+            summary: input.candidate.summary,
+            confidence: input.candidate.confidence,
+            durability: dynamic ? 'volatile' : uncertain ? 'unknown' : 'durable',
+            authority: dynamic ? 'mcp' : input.candidate.authorityHint,
+            durabilityReason: dynamic
+              ? 'Online status changes and must be queried again.'
+              : uncertain
+                ? 'The evidence does not establish stability.'
+                : 'The Skill lesson is reusable across executions.',
+          });
+        },
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => `memory-${String(++sequence)}`,
+    });
+
+    await expect(service.admitProcessedResult(processedResult())).resolves.toMatchObject({
+      admitted: [],
+      rejected: [{ durability: 'volatile', authority: 'mcp' }],
+    });
+    await expect(
+      service.refine({
+        type: 'fact',
+        content: { observation: 'uncertain' },
+        summary: 'uncertain state',
+        sourceRefs: ['task:task-1'],
+        confidence: 0.5,
+      }),
+    ).rejects.toMatchObject({ code: 'MEMORY_DURABILITY_NOT_ADMITTED' });
+    await expect(
+      service.recordEvolution({
+        kind: 'skill_correction',
+        sourceRef: 'skill-correction:1',
+        summary: 'Reuse the validated inspection boundary.',
+        content: { rule: 'validate before execution' },
+        confidence: 0.95,
+      }),
+    ).resolves.toMatchObject({
+      durability: 'durable',
+      authority: 'skill_experience',
+      status: 'active',
+    });
+  });
+
+  it('overrides forged durable claims for every dynamic device-state class before embedding', async () => {
+    const dynamicCandidates = [
+      'Current coordinates are 31.2, 121.5.',
+      'The battery level is 72 percent.',
+      'The device is online.',
+      'The device is occupied.',
+      'The current device task is calibration.',
+      '当前设备在线状态为在线。',
+    ];
+    let embeddingCalls = 0;
+    const service = new MemoryService({
+      repository: new MemoryRepositoryFake(),
+      embeddings: {
+        embed: () => {
+          embeddingCalls += 1;
+          return Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] });
+        },
+      },
+      model: {
+        generateStructured: (request) => {
+          const input = JSON.parse(request.instruction) as {
+            candidate: {
+              type: MemoryItem['type'];
+              content: Readonly<Record<string, unknown>>;
+              summary: string;
+              confidence: number;
+            };
+          };
+          return Promise.resolve({
+            type: input.candidate.type,
+            content: input.candidate.content,
+            summary: input.candidate.summary,
+            confidence: input.candidate.confidence,
+            durability: 'durable',
+            authority: 'admin',
+            durabilityReason: 'Forged durable classification.',
+          });
+        },
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-forged-dynamic',
+    });
+
+    for (const content of dynamicCandidates) {
+      const result: ProcessedResultRecord = {
+        ...processedResult(),
+        memoryCandidates: [{ kind: 'fact', content, confidence: 0.9 }],
+      };
+      await expect(service.admitProcessedResult(result)).resolves.toMatchObject({
+        admitted: [],
+        rejected: [
+          {
+            durability: 'volatile',
+            authority: 'mcp',
+            durabilityReason: 'Dynamic device state must be requeried from MCP.',
+          },
+        ],
+      });
+    }
+    await expect(
+      service.create({
+        type: 'fact',
+        content: { online: false },
+        summary: 'Device state snapshot.',
+        sourceRefs: ['admin:dynamic'],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'A direct caller tried to bypass refinement.',
+      }),
+    ).rejects.toMatchObject({ code: 'MEMORY_DURABILITY_NOT_ADMITTED' });
+    expect(embeddingCalls).toBe(0);
+  });
+
+  it('rejects durable model authority elevation before embedding or persistence', async () => {
+    const repository = new MemoryRepositoryFake();
+    let embeddingCalls = 0;
+    const service = new MemoryService({
+      repository,
+      embeddings: {
+        embed: () => {
+          embeddingCalls += 1;
+          return Promise.resolve({ providerId: 'embed-v1', vector: [1, 0, 0] });
+        },
+      },
+      model: {
+        generateStructured: () =>
+          Promise.resolve({
+            type: 'workflow_pattern',
+            content: { lesson: 'Use the validated procedure.' },
+            summary: 'Use the validated procedure.',
+            confidence: 0.9,
+            durability: 'durable',
+            authority: 'skill_experience',
+            durabilityReason: 'The model attempted to elevate its source authority.',
+          }),
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-forged-authority',
+    });
+    const result: ProcessedResultRecord = {
+      ...processedResult(),
+      memoryCandidates: [
+        { kind: 'procedure', content: 'Use the validated procedure.', confidence: 0.9 },
+      ],
+    };
+
+    await expect(service.admitProcessedResult(result)).rejects.toMatchObject({
+      code: 'MEMORY_AUTHORITY_PROVENANCE_INVALID',
+    });
+    expect(embeddingCalls).toBe(0);
+    expect(repository.item).toBeUndefined();
   });
 
   it('creates source-linked global memory and retrieves it semantically', async () => {
@@ -161,6 +396,9 @@ describe('MemoryService', () => {
         summary: 'The target device is device-17.',
         sourceRefs: ['task-source'],
         confidence: 0.9,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'An operator supplied a stable target identifier.',
       }),
     ).resolves.toMatchObject({ memoryId: 'memory-1', status: 'active' });
     await expect(service.search('target device', 5)).resolves.toMatchObject([
@@ -168,13 +406,18 @@ describe('MemoryService', () => {
     ]);
   });
 
-  it('rejects memories without traceable sources and invalid embedding dimensions', async () => {
+  it('supports provider dimensions 3, 8, and 1536 and rejects empty or non-finite vectors', async () => {
     const repository = new MemoryRepositoryFake();
+    let dimensions = 3;
+    let vector = Array<number>(dimensions).fill(0.5);
+    let sequence = 0;
     const service = new MemoryService({
       repository,
-      embeddings: { embed: () => Promise.resolve({ providerId: 'embed-v1', vector: [1] }) },
+      embeddings: {
+        embed: () => Promise.resolve({ providerId: 'embed-v1', vector }),
+      },
       clock: { now: () => '2026-07-12T00:00:00.000Z' },
-      nextId: () => 'memory-1',
+      nextId: () => `memory-${String(++sequence)}`,
     });
     await expect(
       service.create({
@@ -183,25 +426,119 @@ describe('MemoryService', () => {
         summary: 'No source.',
         sourceRefs: [],
         confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Stable.',
       }),
     ).rejects.toMatchObject({ code: 'MEMORY_SOURCE_REQUIRED' });
-    await expect(
+    for (dimensions of [3, 8, 1536]) {
+      vector = Array<number>(dimensions).fill(0.5);
+      await expect(
+        service.create({
+          type: 'fact',
+          content: { dimensions },
+          summary: `Embedding with ${String(dimensions)} dimensions.`,
+          sourceRefs: [`task-${String(dimensions)}`],
+          confidence: 1,
+          durability: 'durable',
+          authority: 'admin',
+          durabilityReason: 'Stable test evidence.',
+        }),
+      ).resolves.toMatchObject({ status: 'active' });
+    }
+    const invalidEmbedding = () =>
       service.create({
         type: 'fact',
         content: {},
         summary: 'Has source.',
         sourceRefs: ['task-1'],
         confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Stable.',
+      });
+    vector = [];
+    await expect(invalidEmbedding()).rejects.toMatchObject({ code: 'MEMORY_EMBEDDING_INVALID' });
+    vector = [Number.NaN];
+    await expect(invalidEmbedding()).rejects.toMatchObject({ code: 'MEMORY_EMBEDDING_INVALID' });
+  });
+
+  it('takes immutable finite-JSON and embedding snapshots across asynchronous boundaries', async () => {
+    const repository = new MemoryRepositoryFake();
+    const nested = { value: 'stable' };
+    const content = { nested };
+    const rawVector = [1, 0, 0];
+    let resolveEmbedding:
+      ((value: Readonly<{ providerId: string; vector: readonly number[] }>) => void) | undefined;
+    const service = new MemoryService({
+      repository,
+      embeddings: {
+        embed: () =>
+          new Promise((resolve) => {
+            resolveEmbedding = resolve;
+          }),
+      },
+      clock: { now: () => '2026-07-12T00:00:00.000Z' },
+      nextId: () => 'memory-snapshot',
+    });
+    const pending = service.create({
+      type: 'fact',
+      content,
+      summary: 'Stable operator evidence.',
+      sourceRefs: ['admin:1'],
+      confidence: 1,
+      durability: 'durable',
+      authority: 'admin',
+      durabilityReason: 'The operator supplied stable evidence.',
+    });
+    nested.value = 'mutated-after-call';
+    resolveEmbedding?.({ providerId: 'embed-v1', vector: rawVector });
+    const item = await pending;
+    rawVector[0] = 99;
+
+    expect(item.content).toEqual({ nested: { value: 'stable' } });
+    expect(repository.embedding).toEqual({ providerId: 'embed-v1', vector: [1, 0, 0] });
+    expect(Object.isFrozen(item)).toBe(true);
+    expect(Object.isFrozen(item.content)).toBe(true);
+    expect(Object.isFrozen(item.content['nested'] as object)).toBe(true);
+    expect(Object.isFrozen(repository.embedding?.vector)).toBe(true);
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic['self'] = cyclic;
+    await expect(
+      service.create({
+        type: 'fact',
+        content: cyclic,
+        summary: 'Cyclic evidence.',
+        sourceRefs: ['admin:2'],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Invalid cyclic evidence.',
       }),
-    ).rejects.toMatchObject({ code: 'MEMORY_EMBEDDING_INVALID' });
+    ).rejects.toMatchObject({ code: 'MEMORY_CONTENT_INVALID' });
+    await expect(
+      service.create({
+        type: 'fact',
+        content: { score: Number.POSITIVE_INFINITY },
+        summary: 'Non-finite evidence.',
+        sourceRefs: ['admin:3'],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Invalid non-finite evidence.',
+      }),
+    ).rejects.toMatchObject({ code: 'MEMORY_CONTENT_INVALID' });
   });
 });
 
 class MemoryRepositoryFake implements MemoryRepository {
   item?: MemoryItem;
+  embedding?: Readonly<{ providerId: string; vector: readonly number[] }>;
   readonly transitions: MemoryStatusTransition[] = [];
-  save(item: MemoryItem) {
+  save(item: MemoryItem, embedding: Readonly<{ providerId: string; vector: readonly number[] }>) {
     this.item = item;
+    this.embedding = embedding;
     return Promise.resolve();
   }
   find(memoryId: string) {
@@ -216,6 +553,7 @@ class MemoryRepositoryFake implements MemoryRepository {
     transitions: readonly MemoryStatusTransition[],
   ) {
     this.item = replacement;
+    this.embedding = _embedding;
     this.transitions.push(...transitions);
     return Promise.resolve();
   }
@@ -262,6 +600,9 @@ function memoryItem(type: MemoryItem['type']): MemoryItem {
     sourceRefs: ['task:task-1'],
     supersedes: [],
     confidence: 0.9,
+    durability: 'durable',
+    authority: 'skill_experience',
+    durabilityReason: 'The lesson is reusable across executions.',
     createdAt: '2026-07-12T00:00:00.000Z',
   };
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type {
-  Goal,
-  GoalPatchRecord,
-  SkillVersion,
-  WorkflowPlanRecord,
+import {
+  createGoalExecutionContract,
+  type Goal,
+  type GoalPatchRecord,
+  type SkillVersion,
+  type WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 import { GoalPatchService, type PlanWorkflowInput } from '../src/index.js';
 
@@ -24,6 +25,7 @@ const sourcePlan: WorkflowPlanRecord = {
   planId: 'plan-1',
   goalId: goal.goalId,
   goalVersion: 1,
+  goalContract: createGoalExecutionContract(goal),
   definition: {
     workflowDefinitionId: 'workflow-1',
     version: 1,
@@ -67,6 +69,11 @@ describe('GoalPatchService', () => {
   it('invalidates first, records compensation risk, and always replans awaiting confirmation', async () => {
     let persisted: GoalPatchRecord | undefined;
     const planning: PlanWorkflowInput[] = [];
+    const reparsedGoalVersions: number[] = [];
+    let applyCount = 0;
+    let modelCallCount = 0;
+    let inputRequired = false;
+    let loadedSourcePlan = sourcePlan;
     const service = new GoalPatchService({
       goals: {
         findById: () => Promise.resolve(goal),
@@ -77,7 +84,7 @@ describe('GoalPatchService', () => {
         save: () => Promise.resolve(),
       },
       plans: {
-        findPlan: () => Promise.resolve(sourcePlan),
+        findPlan: () => Promise.resolve(loadedSourcePlan),
         findConfirmedDefinition: () => Promise.resolve(undefined),
         confirmPlan: () => Promise.resolve(),
         saveAttempt: () => Promise.resolve(),
@@ -86,6 +93,7 @@ describe('GoalPatchService', () => {
       },
       patches: {
         apply: (record, triggeringTaskId) => {
+          applyCount += 1;
           persisted = {
             ...record,
             ...(triggeringTaskId === undefined ? {} : { triggeringTaskId }),
@@ -104,6 +112,7 @@ describe('GoalPatchService', () => {
             planId: input.planId,
             goalId: input.goalId,
             goalVersion: input.goalVersion,
+            goalContract: input.goalContract,
             confirmationStatus: 'awaiting_confirmation',
             attemptCount: 1,
             createdAt: '2026-07-12T00:00:01.000Z',
@@ -112,14 +121,29 @@ describe('GoalPatchService', () => {
       },
       skills: skillsWithCompensation(),
       model: {
-        generateStructured: () =>
-          Promise.resolve({
+        generateStructured: () => {
+          modelCallCount += 1;
+          return Promise.resolve({
             changes: { constraints: ['read-only', 'include temperature'] },
             decisionSummary: 'Added the requested constraint.',
-          }),
+          });
+        },
       },
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
       ids: { nextPatchId: () => 'patch-1', nextPlanId: () => 'plan-2' },
+      beforeReplan: {
+        prepare: ({ goal: patchedGoal }) => {
+          reparsedGoalVersions.push(patchedGoal.version);
+          if (inputRequired) return Promise.resolve({ status: 'input_required' as const });
+          return Promise.resolve({
+            status: 'ready' as const,
+            planningContext: {
+              resolutionId: 'skill-input-resolution-patch-1',
+              structuredInput: { deviceId: 'device-1' },
+            },
+          });
+        },
+      },
     });
 
     await expect(
@@ -139,11 +163,44 @@ describe('GoalPatchService', () => {
     expect(planning[0]).toMatchObject({
       planId: 'plan-2',
       goalVersion: 2,
+      goalContract: {
+        goalId: 'goal-1',
+        version: 2,
+        constraints: ['read-only', 'include temperature'],
+      },
       sourcePlanId: 'plan-1',
       revisionKind: 'replan',
     });
     expect(JSON.stringify(planning[0])).toContain('always_require_confirmation');
+    expect(JSON.stringify(planning[0])).toContain('skill-input-resolution-patch-1');
     expect(JSON.stringify(planning[0])).toContain('Restore the prior calibration value.');
+    expect(reparsedGoalVersions).toEqual([2]);
+    inputRequired = true;
+    await expect(
+      service.apply({
+        goalId: goal.goalId,
+        sourcePlanId: sourcePlan.planId,
+        instruction: 'Also include humidity.',
+        taskId: 'task-1',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PATCH_SKILL_INPUT_REQUIRED' });
+    expect(applyCount).toBe(1);
+    expect(planning).toHaveLength(1);
+
+    loadedSourcePlan = {
+      ...sourcePlan,
+      goalContract: { ...sourcePlan.goalContract, constraints: ['write allowed'] },
+    };
+    const modelCallsBeforeStalePatch = modelCallCount;
+    await expect(
+      service.apply({
+        goalId: goal.goalId,
+        sourcePlanId: sourcePlan.planId,
+        instruction: 'Use the stale plan.',
+        taskId: 'task-1',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PATCH_SOURCE_PLAN_INVALID' });
+    expect(modelCallCount).toBe(modelCallsBeforeStalePatch);
   });
 });
 

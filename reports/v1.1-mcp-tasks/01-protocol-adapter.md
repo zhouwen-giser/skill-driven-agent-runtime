@@ -18,7 +18,7 @@ Status: **passed for Phase 1 scope**. This is not final v1.1 acceptance.
 - Tasks contract: official Apache-2.0 `modelcontextprotocol/ext-tasks` commit `8966bea9...`; TypeScript Schema blob `2634c47c...`, JSON Schema blob `d6ccaff7...`.
 - Contract-tested negotiated protocol revision: `2026-07-28`; extension draft source revision: `2026-06-30`.
 
-ADR-081 records why the v1 SDK path was rejected and confines the temporary beta compatibility bridge to the adapter. The HTTP contracts prove that bridge-only aliases and envelopes never escape onto the external wire.
+ADR-090 records why the v1 SDK path was rejected and confines the temporary beta compatibility bridge to the adapter. The HTTP contracts prove that bridge-only aliases and envelopes never escape onto the external wire.
 
 ## Reproducible checks
 

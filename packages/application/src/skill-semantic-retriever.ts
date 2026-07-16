@@ -1,4 +1,4 @@
-import type { SkillVersion } from '../../domain/src/index.js';
+import type { GoalExecutionContract, SkillVersion } from '../../domain/src/index.js';
 
 import type {
   Clock,
@@ -25,10 +25,10 @@ export class PersistedSkillSemanticRetriever implements SkillSemanticRetriever {
   }
 
   async score(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
   ): Promise<Readonly<Record<string, number>>> {
-    const query = await this.#embeddings.embed(goalDescription);
+    const query = await this.#embeddings.embed(goalContractSearchText(goalContract));
     assertEmbedding(query.providerId, query.vector);
     for (const skill of skills) {
       const searchableText = [
@@ -65,6 +65,15 @@ export class PersistedSkillSemanticRetriever implements SkillSemanticRetriever {
       vector: query.vector,
     });
   }
+}
+
+export function goalContractSearchText(contract: GoalExecutionContract): string {
+  return [
+    contract.title,
+    contract.description,
+    ...contract.constraints.map((value) => `Constraint: ${value}`),
+    ...contract.successCriteria.map((value) => `Success criterion: ${value}`),
+  ].join('\n');
 }
 
 function assertEmbedding(providerId: string, vector: readonly number[]): void {

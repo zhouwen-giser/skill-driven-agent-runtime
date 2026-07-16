@@ -1,3 +1,7 @@
+import type { GoalExecutionContract } from './goal.js';
+import { DomainError } from './errors.js';
+import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from './mcp.js';
+import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
 import type {
   WorkflowBudgetLimits,
@@ -102,6 +106,10 @@ export interface WorkflowDefinition {
 
 export interface WorkflowPlanAttempt {
   readonly planId: string;
+  readonly goalContract: GoalExecutionContract;
+  readonly compositionContext?: SkillCompositionContext;
+  readonly capabilityGapSkillIds?: readonly string[];
+  readonly toolExecutionSemantics?: readonly WorkflowToolExecutionSemanticsSnapshot[];
   readonly attempt: number;
   readonly candidate: unknown;
   readonly validationErrors: readonly Readonly<{ code: string; path: string; message: string }>[];
@@ -113,6 +121,10 @@ export interface WorkflowPlanRecord {
   readonly planId: string;
   readonly goalId: string;
   readonly goalVersion: number;
+  readonly goalContract: GoalExecutionContract;
+  readonly compositionContext?: SkillCompositionContext;
+  readonly capabilityGapSkillIds?: readonly string[];
+  readonly toolExecutionSemantics?: readonly WorkflowToolExecutionSemanticsSnapshot[];
   readonly definition?: WorkflowDefinition;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;
@@ -124,6 +136,40 @@ export interface WorkflowPlanRecord {
   readonly confirmedAt?: string;
   readonly attemptCount: number;
   readonly createdAt: string;
+}
+
+export interface WorkflowToolExecutionSemanticsSnapshot {
+  readonly reference: ToolReference;
+  readonly executionSemantics: McpToolExecutionSemantics;
+}
+
+export function snapshotWorkflowToolExecutionSemantics(
+  values: readonly WorkflowToolExecutionSemanticsSnapshot[],
+): readonly WorkflowToolExecutionSemanticsSnapshot[] {
+  const seen = new Set<string>();
+  return Object.freeze(
+    values.map((value) => {
+      const serverId = value.reference.serverId.trim();
+      const toolName = value.reference.toolName.trim();
+      const key = `${serverId}\u0000${toolName}`;
+      if (serverId === '' || toolName === '' || seen.has(key)) {
+        throw new DomainError(
+          'WORKFLOW_TOOL_EXECUTION_SEMANTICS_INVALID',
+          'Workflow Tool execution semantics require unique, non-empty Tool references.',
+        );
+      }
+      seen.add(key);
+      return Object.freeze({
+        reference: Object.freeze({ serverId, toolName }),
+        executionSemantics: Object.freeze(
+          createMcpToolExecutionSemantics(
+            value.executionSemantics,
+            value.executionSemantics.source,
+          ),
+        ),
+      });
+    }),
+  );
 }
 
 export interface WorkflowInstance {
@@ -146,8 +192,12 @@ export interface WorkflowInstance {
   readonly pendingConfirmation?: Readonly<{
     nodeId: string;
     prompt: string;
-    kind?: 'human_confirmation' | 'task_pause';
+    kind?: 'human_confirmation' | 'task_pause' | 'skill_confirmation';
     pausedAt?: string;
+    parentPlanId?: string;
+    childPlanId?: string;
+    childSkillId?: string;
+    childSkillVersion?: number;
   }>;
 }
 

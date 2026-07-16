@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
+  SkillCallWorkflowRecord,
   WorkflowDefinition,
   WorkflowInstance,
   WorkflowPlanRecord,
@@ -20,7 +21,11 @@ describe('SkillCallWorkflowService', () => {
     const skill = childSkill();
     const definition = childDefinition(skill.skillId, skill.version);
     const plan = childPlan(definition);
-    const saveRecord = vi.fn(() => Promise.resolve());
+    let savedRecord: Awaited<ReturnType<ReturnType<typeof memoryRecords>['find']>>;
+    const saveRecord = vi.fn((record) => {
+      savedRecord = record;
+      return Promise.resolve();
+    });
     const planner = {
       plan: vi.fn((input: PlanWorkflowInput) => {
         void input;
@@ -49,6 +54,14 @@ describe('SkillCallWorkflowService', () => {
             required: ['deviceId'],
             properties: { deviceId: { type: 'string' } },
           },
+          executionSemantics: {
+            effect: 'read_only' as const,
+            execution: 'synchronous' as const,
+            cancellation: 'cooperative' as const,
+            idempotency: 'client_request_key' as const,
+            replay: 'allowed' as const,
+            source: 'mcp_declared' as const,
+          },
           contractAuthority: 'original_mcp_input_schema' as const,
         },
       ]),
@@ -57,8 +70,23 @@ describe('SkillCallWorkflowService', () => {
       skills: { findCurrentVersion: () => Promise.resolve(skill) } as never,
       planner,
       validator,
-      execution: { confirm, execute },
-      records: { save: saveRecord } as never,
+      execution: {
+        confirm,
+        execute,
+        get: () => Promise.resolve(undefined),
+        findActiveByPlanId: () => Promise.resolve(undefined),
+        resumeHumanConfirmation: vi.fn(),
+      },
+      plans: { findPlan: () => Promise.resolve(plan) },
+      confirmation: {
+        evaluate: () =>
+          Promise.resolve({ autoConfirm: true, skillVersions: [], blockingSkillIds: [] }),
+      },
+      records: {
+        save: saveRecord,
+        find: () => Promise.resolve(savedRecord),
+        listByParent: () => Promise.resolve(savedRecord === undefined ? [] : [savedRecord]),
+      },
       schemas: new AjvJsonSchemaValidator(),
       loadToolPlanningMetadata,
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
@@ -69,6 +97,7 @@ describe('SkillCallWorkflowService', () => {
       service.execute({
         skillId: skill.skillId,
         value: { deviceId: 'device-1' },
+        parentPlanId: 'plan-parent',
         parentInstanceId: 'instance-parent',
         parentNodeId: 'child',
         parentGoalId: 'goal-1',
@@ -76,7 +105,7 @@ describe('SkillCallWorkflowService', () => {
         signal,
         executionContext,
       }),
-    ).resolves.toEqual({ status: 'online' });
+    ).resolves.toEqual({ status: 'completed', output: { status: 'online' } });
 
     expect(loadToolPlanningMetadata).toHaveBeenCalledWith(skill);
     const planningCall = planner.plan.mock.calls[0]?.[0];
@@ -100,7 +129,21 @@ describe('SkillCallWorkflowService', () => {
         }),
       ],
     });
-    expect(validator.validate).toHaveBeenCalledWith(definition);
+    expect(planningCall.compositionRoot).toEqual({
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+    });
+    expect(planningCall.toolExecutionSemantics).toEqual([
+      expect.objectContaining({
+        reference: { serverId: 'mcp.devices', toolName: 'device_status' },
+        executionSemantics: expect.objectContaining({ source: 'mcp_declared' }),
+      }),
+    ]);
+    expect(validator.validate).toHaveBeenCalledWith(definition, {
+      enforceSkillComposition: false,
+      allowedChildSkillIds: [],
+      capabilityGapSkillIds: [],
+    });
     expect(confirm).toHaveBeenCalledWith(plan.planId);
     expect(execute).toHaveBeenCalledWith({
       instanceId: 'instance-skill-call-id-1',
@@ -113,6 +156,7 @@ describe('SkillCallWorkflowService', () => {
     expect(saveRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         callId: 'id-1',
+        parentPlanId: 'plan-parent',
         parentInstanceId: 'instance-parent',
         childInstanceId: 'instance-skill-call-id-1',
         skillVersion: 3,
@@ -129,6 +173,7 @@ describe('SkillCallWorkflowService', () => {
       harness.service.execute({
         skillId: harness.skill.skillId,
         value: { deviceId: 42 },
+        parentPlanId: 'plan-parent',
         parentInstanceId: 'instance-parent',
         parentNodeId: 'child',
         parentGoalId: 'goal-1',
@@ -138,6 +183,27 @@ describe('SkillCallWorkflowService', () => {
     expect(harness.plan).not.toHaveBeenCalled();
     expect(harness.execute).not.toHaveBeenCalled();
     expect(harness.saveRecord).not.toHaveBeenCalled();
+  });
+
+  it('rejects a child Skill outside the immutable parent composition authority', async () => {
+    const unauthorizedParent: WorkflowPlanRecord = {
+      ...childPlan(childDefinition('skill.other', 1)),
+      planId: 'plan-parent',
+      compositionContext: {
+        selectedSkill: skillSnapshot('skill.root', 1),
+        relatedSkills: [skillSnapshot('skill.other', 1)],
+        relations: [],
+        allowedChildSkillIds: ['skill.other'],
+        decisionSummary: 'Only skill.other is admitted.',
+      },
+    };
+    const harness = serviceHarness({ parentPlan: unauthorizedParent });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION' });
+    expect(harness.plan).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
   });
 
   it('rejects invalid child output and records the failed Skill evaluation', async () => {
@@ -209,6 +275,138 @@ describe('SkillCallWorkflowService', () => {
     expect(harness.execute).not.toHaveBeenCalled();
   });
 
+  it('persists an independently confirmable child plan when transitive policy opts out', async () => {
+    const harness = serviceHarness({ autoConfirm: false });
+
+    await expect(harness.service.execute(executionInput(harness.skill.skillId))).resolves.toEqual({
+      status: 'awaiting_confirmation',
+      callId: 'id-1',
+      parentPlanId: 'plan-parent',
+      parentInstanceId: 'instance-parent',
+      parentNodeId: 'child',
+      childPlanId: 'plan-skill-call-id-1',
+      childSkillId: 'skill.child',
+      childSkillVersion: 3,
+    });
+    expect(harness.confirm).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
+    expect(harness.saveRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentPlanId: 'plan-parent',
+        confirmationStatus: 'awaiting_confirmation',
+        status: 'awaiting_confirmation',
+      }),
+    );
+  });
+
+  it('confirms, resumes, and rejects only the child plan bound to the paused parent checkpoint', async () => {
+    const parent = pausedParentInstance();
+    const confirmed = serviceHarness({ autoConfirm: false, parent });
+    await confirmed.service.execute(executionInput(confirmed.skill.skillId));
+
+    await expect(
+      confirmed.service.confirmPendingForParentPlan('plan-parent', 'task-parent'),
+    ).resolves.toBe(true);
+    expect(confirmed.confirm).toHaveBeenCalledWith('plan-skill-call-id-1', 'task-parent');
+    expect(confirmed.records.current()).toMatchObject({
+      confirmationStatus: 'confirmed',
+      status: 'running',
+    });
+    await expect(confirmed.service.resumeConfirmedForParentPlan('plan-parent')).resolves.toBe(true);
+    expect(confirmed.resumeHumanConfirmation).toHaveBeenCalledWith({
+      instanceId: 'instance-parent',
+      confirmed: true,
+    });
+
+    const rejected = serviceHarness({ autoConfirm: false, parent });
+    await rejected.service.execute(executionInput(rejected.skill.skillId));
+    await expect(rejected.service.rejectPendingForParentPlan('plan-parent')).resolves.toBe(true);
+    expect(rejected.records.current()).toMatchObject({
+      confirmationStatus: 'rejected',
+      status: 'rejected',
+    });
+    expect(rejected.resumeHumanConfirmation).toHaveBeenCalledWith({
+      instanceId: 'instance-parent',
+      confirmed: false,
+    });
+  });
+
+  it('treats an exact duplicate child confirmation as idempotent', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).resolves.toBe(true);
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).resolves.toBe(true);
+
+    expect(harness.confirm).toHaveBeenCalledTimes(1);
+    expect(harness.records.current()).toMatchObject({ confirmationStatus: 'confirmed' });
+  });
+
+  it('rejects a stale decision whose checkpoint metadata no longer matches the child linkage', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    harness.setParent({
+      ...pausedParentInstance(),
+      pendingConfirmation: {
+        ...pausedParentInstance().pendingConfirmation,
+        kind: 'skill_confirmation',
+        nodeId: 'child',
+        prompt: 'Confirm a replaced child.',
+        childPlanId: 'plan-replaced-child',
+      },
+    });
+
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).rejects.toMatchObject({
+      code: 'WORKFLOW_SKILL_CONFIRMATION_STALE',
+    });
+    expect(harness.confirm).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a confirmed child plan that was superseded before parent resume', async () => {
+    const harness = serviceHarness({ autoConfirm: false, parent: pausedParentInstance() });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    await harness.service.confirmPendingForParentPlan('plan-parent');
+    harness.setPlan({
+      ...childPlan(childDefinition(harness.skill.skillId, 3)),
+      confirmationStatus: 'superseded',
+    });
+
+    await expect(harness.service.resumeConfirmedForParentPlan('plan-parent')).resolves.toBe(true);
+    expect(harness.records.current()).toMatchObject({
+      confirmationStatus: 'invalidated',
+      status: 'invalidated',
+      evaluationSummary: expect.stringContaining('immutable plan changed'),
+    });
+    expect(harness.resumeHumanConfirmation).toHaveBeenCalledWith({
+      instanceId: 'instance-parent',
+      confirmed: true,
+    });
+  });
+
+  it('invalidates a waiting child when its current version changes and prepares a fresh plan', async () => {
+    const parent = pausedParentInstance();
+    const harness = serviceHarness({ autoConfirm: false, parent });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    harness.setSkill({ ...harness.skill, version: 4, previousVersion: 3 });
+
+    await expect(harness.service.confirmPendingForParentPlan('plan-parent')).resolves.toBe(true);
+    expect(harness.confirm).not.toHaveBeenCalled();
+    expect(harness.records.current()).toMatchObject({
+      skillVersion: 3,
+      confirmationStatus: 'invalidated',
+      status: 'invalidated',
+    });
+    await harness.service.resumeConfirmedForParentPlan('plan-parent');
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).resolves.toMatchObject({
+      status: 'awaiting_confirmation',
+      callId: 'id-2',
+      childPlanId: 'plan-skill-call-id-2',
+      childSkillVersion: 4,
+    });
+  });
+
   it('rejects recursive Skills and bounds multi-level composition depth', () => {
     expect(() => nextSkillCallAncestry(['skill.parent'], 'skill.parent')).toThrow(
       expect.objectContaining({ code: 'WORKFLOW_SKILL_RECURSION_INVALID' }),
@@ -226,10 +424,20 @@ describe('SkillCallWorkflowService', () => {
   });
 });
 
-function serviceHarness(options: Readonly<{ child?: WorkflowInstance }> = {}) {
-  const skill = childSkill();
+function serviceHarness(
+  options: Readonly<{
+    child?: WorkflowInstance;
+    autoConfirm?: boolean;
+    parent?: WorkflowInstance;
+    parentPlan?: WorkflowPlanRecord;
+  }> = {},
+) {
+  const skill = childSkill(options.autoConfirm ?? true);
+  let currentSkill = skill;
   const definition = childDefinition(skill.skillId, skill.version);
   const planRecord = childPlan(definition);
+  let currentPlan = planRecord;
+  let currentParent = options.parent;
   const plan = vi.fn((input: PlanWorkflowInput) => {
     void input;
     return Promise.resolve(planRecord);
@@ -240,30 +448,63 @@ function serviceHarness(options: Readonly<{ child?: WorkflowInstance }> = {}) {
   const execute = vi.fn(() =>
     Promise.resolve(options.child ?? childInstance({ status: 'online' })),
   );
-  const saveRecord = vi.fn(() => Promise.resolve());
+  const records = memoryRecords();
+  const resumeHumanConfirmation = vi.fn(() => Promise.resolve(options.parent ?? childInstance({})));
+  let idSequence = 0;
   return {
     skill,
+    setSkill(value: ReturnType<typeof childSkill>) {
+      currentSkill = value;
+    },
+    setPlan(value: WorkflowPlanRecord) {
+      currentPlan = value;
+    },
+    setParent(value: WorkflowInstance) {
+      currentParent = value;
+    },
     plan,
     confirm,
     execute,
-    saveRecord,
+    saveRecord: records.save,
+    records,
+    resumeHumanConfirmation,
     service: new SkillCallWorkflowService({
-      skills: { findCurrentVersion: () => Promise.resolve(skill) } as never,
+      skills: { findCurrentVersion: () => Promise.resolve(currentSkill) } as never,
       planner: { plan },
       validator: {
         validate: () => Promise.resolve({ valid: true, errors: [], definition }),
       },
-      execution: { confirm, execute },
-      records: { save: saveRecord } as never,
+      execution: {
+        confirm,
+        execute,
+        get: () => Promise.resolve(undefined),
+        findActiveByPlanId: () => Promise.resolve(currentParent),
+        resumeHumanConfirmation,
+      },
+      plans: {
+        findPlan: (planId: string) =>
+          Promise.resolve(
+            planId === 'plan-parent' ? (options.parentPlan ?? currentPlan) : currentPlan,
+          ),
+      },
+      confirmation: {
+        evaluate: () =>
+          Promise.resolve({
+            autoConfirm: options.autoConfirm ?? true,
+            skillVersions: [],
+            blockingSkillIds: options.autoConfirm === false ? [skill.skillId] : [],
+          }),
+      },
+      records,
       schemas: new AjvJsonSchemaValidator(),
       loadToolPlanningMetadata: () => Promise.resolve([]),
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
-      nextId: () => 'id-1',
+      nextId: () => `id-${String(++idSequence)}`,
     }),
   };
 }
 
-function childSkill() {
+function childSkill(autoConfirmPlan = true) {
   return createSkillVersion({
     skillId: 'skill.child',
     version: 3,
@@ -291,12 +532,30 @@ function childSkill() {
       optional: [],
       forbidden: [],
     },
-    runtimePolicy: { autoConfirmPlan: false },
+    runtimePolicy: { autoConfirmPlan },
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,
     createdAt: '2026-07-12T00:00:00.000Z',
   });
+}
+
+function skillSnapshot(skillId: string, version: number) {
+  return {
+    skillId,
+    version,
+    name: skillId,
+    summary: skillId,
+    description: skillId,
+    capabilities: [skillId],
+    workflowGuidance: `Use ${skillId}.`,
+    outputInstruction: 'Return a result.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    createdAt: '2026-07-12T00:00:00.000Z',
+  };
 }
 
 function childDefinition(skillId: string, version: number): WorkflowDefinition {
@@ -331,6 +590,14 @@ function childPlan(definition: WorkflowDefinition): WorkflowPlanRecord {
     planId: 'plan-skill-call-id-1',
     goalId: definition.goalId,
     goalVersion: definition.goalVersion,
+    goalContract: {
+      goalId: definition.goalId,
+      version: definition.goalVersion,
+      title: 'Parent Goal',
+      description: 'Complete the parent Goal.',
+      constraints: ['safe'],
+      successCriteria: ['completed'],
+    },
     definition,
     confirmationStatus: 'awaiting_confirmation',
     attemptCount: 1,
@@ -371,9 +638,42 @@ function executionInput(skillId: string) {
   return {
     skillId,
     value: { deviceId: 'device-1' },
+    parentPlanId: 'plan-parent',
     parentInstanceId: 'instance-parent',
     parentNodeId: 'child',
     parentGoalId: 'goal-1',
     parentGoalVersion: 1,
+  };
+}
+
+function pausedParentInstance(): WorkflowInstance {
+  const terminal = childInstance(undefined);
+  return {
+    ...terminal,
+    instanceId: 'instance-parent',
+    planId: 'plan-parent',
+    status: 'paused',
+    pendingConfirmation: {
+      nodeId: 'child',
+      prompt: 'Confirm child.',
+      kind: 'skill_confirmation',
+      parentPlanId: 'plan-parent',
+      childPlanId: 'plan-skill-call-id-1',
+      childSkillId: 'skill.child',
+      childSkillVersion: 3,
+    },
+  };
+}
+
+function memoryRecords() {
+  let record: SkillCallWorkflowRecord | undefined;
+  return {
+    save: vi.fn((value: SkillCallWorkflowRecord) => {
+      record = value;
+      return Promise.resolve();
+    }),
+    find: vi.fn(() => Promise.resolve(record)),
+    listByParent: vi.fn(() => Promise.resolve(record === undefined ? [] : [record])),
+    current: () => record,
   };
 }

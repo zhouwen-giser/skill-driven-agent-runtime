@@ -42,7 +42,7 @@ export function MemoryPanel({ onOpenTask }: { readonly onOpenTask?: (taskId: str
         body: JSON.stringify(memoryPayload(form)),
       });
       setResult(value);
-      return 'Memory refined and persisted.';
+      return 'Durable Memory refined and persisted.';
     });
   }
   async function action(operation: 'get' | 'transitions' | 'invalidate' | 'supersede') {
@@ -92,7 +92,8 @@ export function MemoryPanel({ onOpenTask }: { readonly onOpenTask?: (taskId: str
         </div>
         <p className="risk-copy">
           V1 Memory is shared globally without user isolation. Only source-linked, displayable
-          content is shown.
+          durable content is searchable. Volatile device state and unknown durability are rejected;
+          query MCP again for current state.
         </p>
         <form className="lookup" onSubmit={(event) => void search(event)}>
           <label>

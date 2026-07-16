@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import type { AgentTask, TemporarySkill } from '../../domain/src/index.js';
+import {
+  snapshotGoalExecutionContract,
+  type AgentTask,
+  type GoalExecutionContract,
+  type TemporarySkill,
+} from '../../domain/src/index.js';
 
 import type { McpRegistryRepository, StructuredModelProvider } from './ports.js';
 import type { TemporarySkillService } from './temporary-skill.js';
@@ -46,7 +51,7 @@ export class TemporarySkillResolver {
   }
 
   async resolve(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     task: AgentTask,
   ): Promise<
     Readonly<{
@@ -54,6 +59,7 @@ export class TemporarySkillResolver {
       decisionSummary: string;
     }>
   > {
+    const contractSnapshot = snapshotGoalExecutionContract(goalContract);
     const servers = (await this.#mcp.listServers()).filter((server) => server.status === 'enabled');
     const tools = (
       await Promise.all(
@@ -74,7 +80,7 @@ export class TemporarySkillResolver {
         stage: 'skill_authoring',
         instruction: JSON.stringify({
           operation: 'resolve_temporary_skill',
-          goalDescription,
+          goalContract: contractSnapshot,
           tools,
         }),
         responseSchema,

@@ -28,11 +28,13 @@ import type {
   GoalInputInferenceRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
+  RuntimeTerminalOutcomeRepository,
   RuntimeTaskEvent,
   SkillDraftRepository,
   SkillGraphRepository,
   SkillEmbeddingRepository,
   SkillSelectionRepository,
+  SkillInputResolutionRepository,
   SkillQualityRepository,
   TemporarySkillRepository,
   SkillRepository,
@@ -42,7 +44,14 @@ import type {
   TaskInputRepository,
 } from '../../application/src/index.js';
 import {
+  createMemoryItem,
+  createMcpTool,
+  createMcpToolExecutionSemantics,
   DomainError,
+  MAX_SKILL_COMPOSITION_RELATED_SKILLS,
+  MAX_SKILL_COMPOSITION_RELATIONS,
+  snapshotSkillCompositionContext,
+  snapshotWorkflowToolExecutionSemantics,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
@@ -74,9 +83,17 @@ import type {
   WorkflowControlRecord,
   WorkflowControlRound,
   Goal,
+  GoalExecutionContract,
   GoalPatchRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalControlStatus,
+  RuntimeTerminalOutcomeKind,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
   TaskQualityReport,
   EvaluationInfluenceRecord,
   EvaluationAnalyticsFilter,
@@ -90,12 +107,14 @@ import type {
   GoalTransitionRecord,
   ImplicitFeedbackRecord,
   Skill,
+  SkillCompositionContext,
   SkillRelation,
   SkillPerformanceMetrics,
   SkillQualityObservation,
   SkillQualityWarning,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillInputResolutionRecord,
   SkillFormalizationCandidate,
   SkillEvolutionCorrectionExperience,
   SkillInductionReport,
@@ -116,6 +135,8 @@ import type {
 } from '../../domain/src/index.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
+
+type TaskStateCommitted = (task: AgentTask) => void;
 
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
 const ToolReferencesSchema = z.array(ToolReferenceSchema);
@@ -171,6 +192,16 @@ const EvolutionGoalSchema = z.object({
   constraints: z.array(z.string()),
   successCriteria: z.array(z.string()),
 });
+const GoalExecutionContractSchema: z.ZodType<GoalExecutionContract> = z
+  .object({
+    goalId: z.string().min(1),
+    version: z.number().int().positive(),
+    title: z.string(),
+    description: z.string(),
+    constraints: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+  })
+  .strict();
 const CapabilitiesSchema = z.array(z.string());
 const ToolPolicySchema = z.object({
   required: z.array(ToolReferenceSchema),
@@ -188,6 +219,49 @@ const RuntimePolicySchema = z.object({
   cancelStrategy: z.enum(['wait_current', 'try_interrupt', 'cleanup_workflow']).optional(),
   compensationGuidance: z.string().optional(),
 });
+const SkillVersionSnapshotSchema = z
+  .object({
+    skillId: z.string(),
+    version: z.number().int().positive(),
+    name: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    capabilities: z.array(z.string()),
+    workflowGuidance: z.string(),
+    outputInstruction: z.string(),
+    inputSchema: z.unknown(),
+    outputSchema: z.unknown(),
+    toolPolicy: ToolPolicySchema,
+    runtimePolicy: RuntimePolicySchema,
+    createdAt: z.string(),
+  })
+  .strict();
+const SkillRelationSchema = z
+  .object({
+    relationId: z.string(),
+    sourceSkillId: z.string(),
+    targetSkillId: z.string(),
+    relationType: z.enum([
+      'parent_child',
+      'depends_on',
+      'input_output_match',
+      'alternative',
+      'composition',
+      'capability_coverage',
+    ]),
+    metadata: z.record(z.string(), z.unknown()),
+    createdAt: z.string(),
+  })
+  .strict();
+const SkillCompositionContextSchema = z
+  .object({
+    selectedSkill: SkillVersionSnapshotSchema,
+    relatedSkills: z.array(SkillVersionSnapshotSchema).max(MAX_SKILL_COMPOSITION_RELATED_SKILLS),
+    relations: z.array(SkillRelationSchema).max(MAX_SKILL_COMPOSITION_RELATIONS),
+    allowedChildSkillIds: z.array(z.string()).max(MAX_SKILL_COMPOSITION_RELATED_SKILLS),
+    decisionSummary: z.string(),
+  })
+  .strict();
 const StringArraySchema = z.array(z.string());
 const McpEnhancementSchema = z.object({
   purpose: z.string(),
@@ -197,6 +271,24 @@ const McpEnhancementSchema = z.object({
   commonErrors: StringArraySchema,
   tags: StringArraySchema,
 });
+const McpExecutionSemanticsSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+    source: z.enum(['mcp_declared', 'admin_override', 'default_unknown']),
+  })
+  .strict();
+const WorkflowToolExecutionSemanticsSchema = z.array(
+  z
+    .object({
+      reference: z.object({ serverId: z.string().min(1), toolName: z.string().min(1) }).strict(),
+      executionSemantics: McpExecutionSemanticsSchema,
+    })
+    .strict(),
+);
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
@@ -211,6 +303,31 @@ const SkillCandidateSchema = z.object({
   name: z.string(),
   summary: z.string(),
   capabilities: z.array(z.string()),
+  inputSchemaSummary: z.object({
+    type: z.string(),
+    requiredFields: z.array(z.string()),
+    propertyNames: z.array(z.string()),
+    allowsAdditionalProperties: z.union([z.boolean(), z.literal('unspecified')]),
+  }),
+  outputSchemaSummary: z.object({
+    type: z.string(),
+    requiredFields: z.array(z.string()),
+    propertyNames: z.array(z.string()),
+    allowsAdditionalProperties: z.union([z.boolean(), z.literal('unspecified')]),
+  }),
+  toolPolicy: ToolPolicySchema,
+  workflowGuidanceSummary: z.string(),
+  runtimePolicy: RuntimePolicySchema,
+  activeMcpDependencyWarnings: z.array(
+    z.object({
+      warningId: z.string(),
+      serverId: z.string(),
+      toolName: z.string(),
+      reason: z.enum(['removed', 'schema_changed']),
+      toolRevision: z.number().int().positive(),
+      createdAt: z.string(),
+    }),
+  ),
   autoConfirmPlan: z.boolean(),
   createdAt: z.string(),
   semanticScore: z.number().min(0).max(1),
@@ -252,6 +369,7 @@ interface TaskRow extends QueryResultRow {
   selected_skill_id: string | null;
   selected_skill_version: number | null;
   skill_selection_id: string | null;
+  skill_input_resolution_id: string | null;
   temporary_skill_id: string | null;
   output_text: string | null;
   output_structured: unknown;
@@ -392,6 +510,7 @@ interface SkillQualityWarningRow extends QueryResultRow {
 
 interface SkillSelectionRow extends QueryResultRow {
   selection_id: string;
+  goal_contract_json: unknown;
   goal_description: string;
   candidates_json: unknown;
   selected_skill_id: string;
@@ -506,6 +625,9 @@ interface McpToolRow extends QueryResultRow {
   description: string | null;
   input_schema_json: unknown;
   enhancement_json: Record<string, unknown> | null;
+  declared_execution_semantics_json: unknown;
+  admin_execution_semantics_override_json: unknown;
+  execution_semantics_json: unknown;
   discovered_at: Date | string;
 }
 
@@ -529,6 +651,7 @@ interface McpInvocationRow extends QueryResultRow {
   simulation_id: string | null;
   server_id: string;
   tool_name: string;
+  execution_semantics_json: unknown;
   arguments_json: Record<string, unknown>;
   result_json: unknown;
   status: McpInvocation['status'];
@@ -586,19 +709,23 @@ export class PostgresConversationContextRepository implements ConversationContex
 
 export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async failInterrupted(timestamp: string) {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      const tasks = await client.query(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
-         WHERE phase IN ('executing','paused','evaluating')`,
+         WHERE phase IN ('executing','paused','evaluating')
+         RETURNING *`,
         [timestamp],
       );
       const instances = await client.query(
@@ -617,6 +744,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
         [timestamp],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return {
         tasks: tasks.rowCount ?? 0,
         workflowInstances: instances.rowCount ?? 0,
@@ -695,7 +823,7 @@ export class PostgresGoalRepository implements GoalRepository {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
+      const savedGoal = await client.query(
         `INSERT INTO goal(
          goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
          status,previous_goal_id,created_at,updated_at)
@@ -703,7 +831,8 @@ export class PostgresGoalRepository implements GoalRepository {
        ON CONFLICT(goal_id) DO UPDATE SET
          version=EXCLUDED.version,title=EXCLUDED.title,description=EXCLUDED.description,
          constraints_json=EXCLUDED.constraints_json,success_criteria_json=EXCLUDED.success_criteria_json,
-         status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at`,
+         status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at
+       WHERE goal.status='active'`,
         [
           goal.goalId,
           goal.contextId,
@@ -718,6 +847,7 @@ export class PostgresGoalRepository implements GoalRepository {
           goal.updatedAt,
         ],
       );
+      if (savedGoal.rowCount !== 1) throw new Error('GOAL_TERMINAL_STATE_CONFLICT');
       if (transition !== undefined)
         await client.query(
           `INSERT INTO goal_transition(
@@ -785,8 +915,11 @@ const GoalPatchChangesSchema = z.object({
 
 export class PostgresGoalPatchRepository implements GoalPatchRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async apply(
@@ -831,13 +964,15 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
          RETURNING instance_id`,
         [record.goalId, record.fromVersion, record.createdAt],
       );
-      await client.query(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET
            phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
            phase_message='Goal Patch invalidated the old plan and intermediate result.',
-           goal_version=$2,plan_id=NULL,output_text=NULL,output_structured=NULL,
+           goal_version=$2,plan_id=NULL,skill_input_resolution_id=NULL,output_text=NULL,output_structured=NULL,
            error_code='GOAL_PATCH_INVALIDATED',updated_at=$4
-         WHERE goal_id=$1 AND goal_version=$5 AND phase NOT IN ('canceled','failed','invalidated')`,
+         WHERE goal_id=$1 AND goal_version=$5
+           AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
+         RETURNING *`,
         [
           record.goalId,
           record.toVersion,
@@ -877,6 +1012,7 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
         ],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return completed;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -917,8 +1053,11 @@ interface GoalCancellationRow extends QueryResultRow {
 
 export class PostgresGoalCancellationRepository implements GoalCancellationRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async cancel(
@@ -935,20 +1074,80 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         [input.goalId, input.goalVersion],
       );
       if (goal.rows[0] === undefined) throw new Error('GOAL_CANCELLATION_VERSION_CONFLICT');
+      const controls = await client.query<{
+        control_id: string;
+        task_id: string | null;
+        final_instance_id: string | null;
+      }>(
+        `SELECT control_id,task_id,final_instance_id FROM workflow_control
+         WHERE goal_id=$1 AND goal_version=$2
+           AND status IN ('running','awaiting_confirmation','awaiting_input')
+         ORDER BY control_id FOR UPDATE`,
+        [input.goalId, input.goalVersion],
+      );
       await client.query("UPDATE goal SET status='canceled',updated_at=$2 WHERE goal_id=$1", [
         input.goalId,
         input.createdAt,
       ]);
-      const tasks = await client.query<{ task_id: string }>(
+      const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET phase='canceled',phase_message='Goal canceled by user.',
            error_code='GOAL_CANCELED',updated_at=$2
          WHERE (goal_id=$1 OR (
            goal_id IS NULL AND context_id=(SELECT context_id FROM goal WHERE goal_id=$1)
            AND created_at <= $2
-         )) AND phase NOT IN ('completed','canceled','failed','invalidated')
-         RETURNING task_id`,
+         )) AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
+         RETURNING *`,
         [input.goalId, input.createdAt],
       );
+      const canceledTaskIds = new Set(tasks.rows.map((row) => row.task_id));
+      if (canceledTaskIds.size > 0)
+        await client.query(
+          `UPDATE task_input_request SET status='canceled'
+           WHERE task_id=ANY($1::text[]) AND status='waiting'`,
+          [[...canceledTaskIds]],
+        );
+      for (const control of controls.rows) {
+        if (control.task_id !== null && !canceledTaskIds.has(control.task_id))
+          throw new Error('GOAL_CANCELLATION_CONTROL_TASK_CONFLICT');
+        const outcomeId = `terminal-outcome-control-${control.control_id}`;
+        await client.query(
+          `INSERT INTO runtime_terminal_outcome(
+             outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
+             round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
+           VALUES($1,'canceled',$2,$3,$4,$5,'canceled',NULL,$6,NULL,$7,'[]'::jsonb,$8)`,
+          [
+            outcomeId,
+            control.task_id,
+            input.goalId,
+            input.goalVersion,
+            control.control_id,
+            control.final_instance_id,
+            input.reason,
+            input.createdAt,
+          ],
+        );
+        const updatedControl = await client.query(
+          `UPDATE workflow_control SET status='canceled',terminal_outcome_id=$2,updated_at=$3
+           WHERE control_id=$1
+             AND status IN ('running','awaiting_confirmation','awaiting_input')`,
+          [control.control_id, outcomeId, input.createdAt],
+        );
+        if (updatedControl.rowCount !== 1)
+          throw new Error('GOAL_CANCELLATION_CONTROL_UPDATE_CONFLICT');
+        if (control.task_id !== null)
+          await client.query(
+            `INSERT INTO runtime_event(
+               event_id,task_id,context_id,event_type,event_timestamp,summary)
+             VALUES($1,$2,$3,'task.phase_changed',$4,$5)`,
+            [
+              `event-terminal-control-${control.control_id}`,
+              control.task_id,
+              goal.rows[0].context_id,
+              input.createdAt,
+              input.reason,
+            ],
+          );
+      }
       const plans = await client.query<{ plan_id: string }>(
         `UPDATE workflow_plan SET confirmation_status='invalidated'
          WHERE goal_id=$1 AND goal_version=$2
@@ -992,6 +1191,7 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         ],
       );
       await client.query('COMMIT');
+      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return completed;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -1097,6 +1297,618 @@ export class PostgresProcessedResultRepository implements ProcessedResultReposit
     );
     return result.rows.map(mapProcessedResultRow);
   }
+}
+
+interface SkillInputResolutionRow extends QueryResultRow {
+  resolution_id: string;
+  task_id: string;
+  goal_id: string;
+  goal_version: number;
+  skill_id: string;
+  skill_version: number;
+  structured_input_json: unknown;
+  unresolved_fields_json: unknown;
+  source_refs_json: unknown;
+  decision_summary: string;
+  status: SkillInputResolutionRecord['status'];
+  created_at: Date | string;
+}
+
+export class PostgresSkillInputResolutionRepository implements SkillInputResolutionRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(record: SkillInputResolutionRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_input_resolution(
+         resolution_id,task_id,goal_id,goal_version,skill_id,skill_version,
+         structured_input_json,unresolved_fields_json,source_refs_json,
+         decision_summary,status,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12)`,
+      [
+        record.resolutionId,
+        record.taskId,
+        record.goalId,
+        record.goalVersion,
+        record.skillId,
+        record.skillVersion,
+        record.structuredInput === undefined ? null : JSON.stringify(record.structuredInput),
+        JSON.stringify(record.unresolvedFields),
+        JSON.stringify(record.sourceRefs),
+        record.decisionSummary,
+        record.status,
+        record.createdAt,
+      ],
+    );
+  }
+
+  async find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      'SELECT * FROM skill_input_resolution WHERE resolution_id=$1',
+      [resolutionId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
+  }
+
+  async findLatest(
+    taskId: string,
+    skillId: string,
+    skillVersion: number,
+    goalVersion: number,
+  ): Promise<SkillInputResolutionRecord | undefined> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      `SELECT * FROM skill_input_resolution
+       WHERE task_id=$1 AND skill_id=$2 AND skill_version=$3 AND goal_version=$4
+       ORDER BY created_at DESC,resolution_id DESC LIMIT 1`,
+      [taskId, skillId, skillVersion, goalVersion],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
+  }
+
+  async listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      `SELECT * FROM skill_input_resolution
+       WHERE task_id=$1 ORDER BY created_at,resolution_id`,
+      [taskId],
+    );
+    return result.rows.map(mapSkillInputResolutionRow);
+  }
+
+  async listProcessedDataByContext(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<readonly Readonly<{ sourceRef: string; value: unknown }>[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+      throw new Error('SKILL_INPUT_CONTEXT_EVIDENCE_LIMIT_INVALID');
+    const result = await this.#pool.query<{
+      result_id: string;
+      context_value: unknown;
+    }>(
+      `SELECT r.result_id,r.normalized_json->'contextValue' context_value
+       FROM processed_result r
+       JOIN agent_task t ON t.task_id=r.task_id
+       WHERE t.context_id=$1 AND t.task_id<>$2 AND t.phase='completed'
+       ORDER BY r.created_at DESC,r.result_id DESC LIMIT $3`,
+      [contextId, excludeTaskId, limit],
+    );
+    return result.rows.map((row) => ({
+      sourceRef: `processed-result:${row.result_id}`,
+      value: row.context_value,
+    }));
+  }
+}
+
+function mapSkillInputResolutionRow(row: SkillInputResolutionRow): SkillInputResolutionRecord {
+  return {
+    resolutionId: row.resolution_id,
+    taskId: row.task_id,
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    ...(row.status === 'failed' ? {} : { structuredInput: row.structured_input_json }),
+    unresolvedFields: StringArraySchema.parse(row.unresolved_fields_json),
+    sourceRefs: StringArraySchema.parse(row.source_refs_json),
+    decisionSummary: row.decision_summary,
+    status: row.status,
+    createdAt: toIsoString(row.created_at),
+  };
+}
+
+interface RuntimeTerminalOutcomeRow extends QueryResultRow {
+  outcome_id: string;
+  outcome_kind: RuntimeTerminalOutcomeKind;
+  task_id: string | null;
+  goal_id: string;
+  goal_version: number;
+  control_id: string;
+  control_status: RuntimeTerminalControlStatus;
+  round_index: number | null;
+  final_instance_id: string | null;
+  result_id: string | null;
+  summary: string;
+  enhancement_warnings_json: unknown;
+  committed_at: Date | string;
+}
+
+const RuntimeEnhancementWarningsSchema = z.array(
+  z
+    .object({
+      source: z.enum([
+        'result_memory',
+        'task_quality',
+        'evolution_experience',
+        'evaluation_memory',
+        'temporary_skill',
+        'skill_evolution',
+      ]),
+      code: z.string(),
+      message: z.string(),
+      occurredAt: z.string(),
+    })
+    .strict(),
+);
+
+type RuntimeTerminalCommitInput =
+  RuntimeAchievedOutcomeInput | RuntimeUnachievableOutcomeInput | RuntimeCanceledOutcomeInput;
+
+export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminalOutcomeRepository {
+  readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+    this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
+  }
+
+  commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('achieved', 'achieved', input);
+  }
+
+  commitUnachievable(
+    input: RuntimeUnachievableOutcomeInput,
+  ): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('unachievable', input.controlStatus, input);
+  }
+
+  commitCanceled(input: RuntimeCanceledOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('canceled', 'canceled', input);
+  }
+
+  async recordEnhancementWarning(
+    outcomeId: string,
+    warning: RuntimeEnhancementWarning,
+  ): Promise<void> {
+    const warningJson = JSON.stringify([warning]);
+    const result = await this.#pool.query(
+      `UPDATE runtime_terminal_outcome
+       SET enhancement_warnings_json=enhancement_warnings_json || $2::jsonb
+       WHERE outcome_id=$1 AND NOT enhancement_warnings_json @> $2::jsonb`,
+      [outcomeId, warningJson],
+    );
+    if (result.rowCount === 0 && (await this.find(outcomeId)) === undefined)
+      throw new Error('RUNTIME_TERMINAL_OUTCOME_NOT_FOUND');
+  }
+
+  async find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
+      'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1',
+      [outcomeId],
+    );
+    return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
+  }
+
+  async findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
+      'SELECT * FROM runtime_terminal_outcome WHERE control_id=$1',
+      [controlId],
+    );
+    return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
+  }
+
+  async #commit(
+    kind: RuntimeTerminalOutcomeKind,
+    controlStatus: RuntimeTerminalControlStatus,
+    input: RuntimeTerminalCommitInput,
+  ): Promise<RuntimeTerminalOutcomeRecord> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const task =
+        input.taskId === undefined
+          ? undefined
+          : (
+              await client.query<{
+                task_id: string;
+                context_id: string;
+                phase: AgentTask['phase'];
+                goal_id: string | null;
+                goal_version: number | null;
+              }>(
+                `SELECT task_id,context_id,phase,goal_id,goal_version
+                 FROM agent_task WHERE task_id=$1 FOR UPDATE`,
+                [input.taskId],
+              )
+            ).rows[0];
+      if (input.taskId !== undefined && task === undefined)
+        throw new Error('RUNTIME_TERMINAL_TASK_NOT_FOUND');
+      const goal = (
+        await client.query<{
+          goal_id: string;
+          context_id: string;
+          version: number;
+          status: Goal['status'];
+        }>('SELECT goal_id,context_id,version,status FROM goal WHERE goal_id=$1 FOR UPDATE', [
+          input.goalId,
+        ])
+      ).rows[0];
+      const control = (
+        await client.query<{
+          control_id: string;
+          context_id: string;
+          goal_id: string;
+          goal_version: number;
+          task_id: string | null;
+          status: WorkflowControlRecord['status'];
+          current_plan_id: string;
+          final_instance_id: string | null;
+          round_count: number;
+        }>(
+          `SELECT control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,
+                  final_instance_id,round_count
+           FROM workflow_control WHERE control_id=$1 FOR UPDATE`,
+          [input.controlId],
+        )
+      ).rows[0];
+      if (goal === undefined) throw new Error('RUNTIME_TERMINAL_GOAL_NOT_FOUND');
+      if (control === undefined) throw new Error('RUNTIME_TERMINAL_CONTROL_NOT_FOUND');
+
+      const existing = (
+        await client.query<RuntimeTerminalOutcomeRow>(
+          'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1 OR control_id=$2 FOR UPDATE',
+          [input.outcomeId, input.controlId],
+        )
+      ).rows[0];
+      if (existing !== undefined) {
+        const mapped = mapRuntimeTerminalOutcome(existing);
+        if (matchesTerminalRetry(mapped, kind, controlStatus, input)) {
+          await client.query('COMMIT');
+          return mapped;
+        }
+        throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+      }
+
+      const round = input.round;
+      const roundIndex = round?.roundIndex;
+      const finalInstanceId =
+        kind === 'canceled'
+          ? ((input as RuntimeCanceledOutcomeInput).finalInstanceId ?? round?.instanceId)
+          : round?.instanceId;
+      const processed =
+        kind === 'achieved' ? (input as RuntimeAchievedOutcomeInput).processedResult : undefined;
+      const terminalInstance =
+        finalInstanceId === undefined
+          ? undefined
+          : (
+              await client.query<{
+                instance_id: string;
+                plan_id: string;
+                goal_id: string;
+                goal_version: number;
+              }>(
+                `SELECT instance_id,plan_id,goal_id,goal_version
+                 FROM workflow_instance WHERE instance_id=$1`,
+                [finalInstanceId],
+              )
+            ).rows[0];
+      if (
+        goal.version !== input.goalVersion ||
+        goal.status !== 'active' ||
+        goal.context_id !== control.context_id ||
+        control.goal_id !== input.goalId ||
+        control.goal_version !== input.goalVersion ||
+        !isExpectedTerminalControlStatus(control.status, kind) ||
+        (round !== undefined &&
+          (round.controlId !== input.controlId || round.planId !== control.current_plan_id)) ||
+        (roundIndex !== undefined && control.round_count !== roundIndex) ||
+        control.task_id !== (input.taskId ?? null) ||
+        (task !== undefined &&
+          (task.context_id !== control.context_id ||
+            task.goal_id !== input.goalId ||
+            task.goal_version !== input.goalVersion ||
+            !isExpectedTerminalTaskPhase(task.phase, kind))) ||
+        (finalInstanceId !== undefined &&
+          (terminalInstance?.goal_id !== input.goalId ||
+            terminalInstance.goal_version !== input.goalVersion ||
+            (round !== undefined && terminalInstance.plan_id !== round.planId) ||
+            (round === undefined &&
+              finalInstanceId !== control.final_instance_id &&
+              terminalInstance.plan_id !== control.current_plan_id)))
+      )
+        throw new Error('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
+      if (
+        processed !== undefined &&
+        (input.taskId === undefined || processed.taskId !== input.taskId)
+      )
+        throw new Error('RUNTIME_TERMINAL_RESULT_TASK_MISMATCH');
+      if (input.taskId !== undefined && kind === 'achieved' && processed === undefined)
+        throw new Error('RUNTIME_TERMINAL_RESULT_REQUIRED');
+      if (
+        (kind === 'achieved' && round?.evaluation.decision !== 'achieved') ||
+        (kind === 'unachievable' &&
+          controlStatus === 'unachievable' &&
+          round?.evaluation.decision !== 'unachievable')
+      )
+        throw new Error('RUNTIME_TERMINAL_DECISION_MISMATCH');
+
+      if (processed !== undefined) await insertProcessedResult(client, processed);
+      await client.query(
+        `INSERT INTO runtime_terminal_outcome(
+           outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
+           round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'[]'::jsonb,$12)`,
+        [
+          input.outcomeId,
+          kind,
+          input.taskId ?? null,
+          input.goalId,
+          input.goalVersion,
+          input.controlId,
+          controlStatus,
+          roundIndex ?? null,
+          finalInstanceId ?? null,
+          processed?.resultId ?? null,
+          input.summary,
+          input.committedAt,
+        ],
+      );
+      let committedTask: AgentTask | undefined;
+      if (task !== undefined) {
+        const terminalTask = terminalTaskProjection(kind, input.summary, processed);
+        const updated = await client.query<TaskRow>(
+          `UPDATE agent_task SET phase=$2,phase_message=$3,output_text=$4,
+             output_structured=$5::jsonb,error_code=$6,updated_at=$7
+           WHERE task_id=$1 AND (
+             ($8='canceled' AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated'))
+             OR ($8<>'canceled' AND phase IN ('executing','evaluating'))
+           )
+           RETURNING *`,
+          [
+            task.task_id,
+            terminalTask.phase,
+            terminalTask.phaseMessage,
+            terminalTask.output?.text ?? null,
+            terminalTask.output === undefined
+              ? null
+              : JSON.stringify(terminalTask.output.structured),
+            terminalTask.errorCode ?? null,
+            input.committedAt,
+            kind,
+          ],
+        );
+        const committedTaskRow = updated.rows[0];
+        if (updated.rowCount !== 1 || committedTaskRow === undefined)
+          throw new Error('RUNTIME_TERMINAL_TASK_UPDATE_CONFLICT');
+        committedTask = mapTaskRow(committedTaskRow);
+      }
+      const goalStatus =
+        kind === 'achieved' ? 'achieved' : kind === 'canceled' ? 'canceled' : 'unachievable';
+      const updatedGoal = await client.query(
+        `UPDATE goal SET status=$3,updated_at=$4
+         WHERE goal_id=$1 AND version=$2 AND status='active'`,
+        [input.goalId, input.goalVersion, goalStatus, input.committedAt],
+      );
+      if (updatedGoal.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_GOAL_UPDATE_CONFLICT');
+      const updatedControl = await client.query(
+        `UPDATE workflow_control SET status=$2,round_count=$3,final_instance_id=$4,
+           terminal_outcome_id=$5,updated_at=$6
+         WHERE control_id=$1
+           AND status IN ('running','awaiting_confirmation','awaiting_input')
+           AND round_count=$7`,
+        [
+          input.controlId,
+          controlStatus,
+          roundIndex === undefined ? control.round_count : roundIndex + 1,
+          finalInstanceId ?? null,
+          input.outcomeId,
+          input.committedAt,
+          control.round_count,
+        ],
+      );
+      if (updatedControl.rowCount !== 1)
+        throw new Error('RUNTIME_TERMINAL_CONTROL_UPDATE_CONFLICT');
+      if (round !== undefined) await insertTerminalRound(client, round, input.outcomeId);
+      if (task !== undefined) {
+        if (kind === 'canceled')
+          await client.query(
+            `UPDATE task_input_request SET status='canceled'
+             WHERE task_id=$1 AND status='waiting'`,
+            [task.task_id],
+          );
+        await client.query(
+          `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
+           VALUES($1,$2,$3,'task.phase_changed',$4,$5)`,
+          [
+            input.eventId ?? `event-${input.outcomeId}`,
+            task.task_id,
+            task.context_id,
+            input.committedAt,
+            input.summary,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+      if (committedTask !== undefined) this.#onTaskStateCommitted?.(committedTask);
+      return {
+        outcomeId: input.outcomeId,
+        kind,
+        ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+        goalId: input.goalId,
+        goalVersion: input.goalVersion,
+        controlId: input.controlId,
+        controlStatus,
+        ...(roundIndex === undefined ? {} : { roundIndex }),
+        ...(finalInstanceId === undefined ? {} : { finalInstanceId }),
+        ...(processed === undefined ? {} : { resultId: processed.resultId }),
+        summary: input.summary,
+        enhancementWarnings: [],
+        committedAt: input.committedAt,
+      };
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+async function insertProcessedResult(
+  client: PoolClient,
+  record: ProcessedResultRecord,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO processed_result(
+       result_id,task_id,skill_id,skill_version,normalized_json,output_json,
+       facts_json,valuable,value_summary,memory_candidates_json,created_at)
+     VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11)`,
+    [
+      record.resultId,
+      record.taskId,
+      record.skillId,
+      record.skillVersion,
+      JSON.stringify(record.normalized),
+      JSON.stringify(record.output),
+      JSON.stringify(record.facts),
+      record.valuable,
+      record.valueSummary,
+      JSON.stringify(record.memoryCandidates),
+      record.createdAt,
+    ],
+  );
+}
+
+async function insertTerminalRound(
+  client: PoolClient,
+  round: WorkflowControlRound,
+  outcomeId: string,
+): Promise<void> {
+  const result = await client.query(
+    `INSERT INTO workflow_control_round(
+       control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
+       evaluation_summary,evaluation_detail_json,terminal_outcome_id,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)
+     ON CONFLICT(control_id,round_index) DO UPDATE SET terminal_outcome_id=EXCLUDED.terminal_outcome_id
+     WHERE workflow_control_round.plan_id=EXCLUDED.plan_id
+       AND workflow_control_round.instance_id=EXCLUDED.instance_id
+       AND workflow_control_round.workflow_version=EXCLUDED.workflow_version
+       AND workflow_control_round.evaluation_detail_json=EXCLUDED.evaluation_detail_json
+       AND workflow_control_round.terminal_outcome_id IS NULL`,
+    [
+      round.controlId,
+      round.roundIndex,
+      round.planId,
+      round.instanceId,
+      round.workflowVersion,
+      round.evaluation.decision,
+      round.evaluation.summary,
+      JSON.stringify(round.evaluation),
+      outcomeId,
+      round.createdAt,
+    ],
+  );
+  if (result.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_ROUND_CONFLICT');
+}
+
+function terminalTaskProjection(
+  kind: RuntimeTerminalOutcomeKind,
+  summary: string,
+  processed: ProcessedResultRecord | undefined,
+): Readonly<{
+  phase: Extract<AgentTask['phase'], 'completed' | 'failed' | 'canceled'>;
+  phaseMessage: string;
+  output?: ProcessedResultRecord['output'];
+  errorCode?: string;
+}> {
+  if (kind === 'achieved') {
+    if (processed === undefined) throw new Error('RUNTIME_TERMINAL_RESULT_REQUIRED');
+    return { phase: 'completed', phaseMessage: 'Task completed.', output: processed.output };
+  }
+  if (kind === 'canceled')
+    return { phase: 'canceled', phaseMessage: summary, errorCode: 'RUNTIME_CANCELED' };
+  return { phase: 'failed', phaseMessage: summary, errorCode: 'GOAL_UNACHIEVABLE' };
+}
+
+function isExpectedTerminalTaskPhase(
+  phase: AgentTask['phase'],
+  kind: RuntimeTerminalOutcomeKind,
+): boolean {
+  if (kind !== 'canceled') return phase === 'executing' || phase === 'evaluating';
+  return (
+    phase !== 'capability_gap' &&
+    phase !== 'completed' &&
+    phase !== 'canceled' &&
+    phase !== 'failed' &&
+    phase !== 'invalidated'
+  );
+}
+
+function isExpectedTerminalControlStatus(
+  status: WorkflowControlRecord['status'],
+  kind: RuntimeTerminalOutcomeKind,
+): boolean {
+  if (kind !== 'canceled') return status === 'running';
+  return status === 'running' || status === 'awaiting_confirmation' || status === 'awaiting_input';
+}
+
+function matchesTerminalRetry(
+  existing: RuntimeTerminalOutcomeRecord,
+  kind: RuntimeTerminalOutcomeKind,
+  controlStatus: RuntimeTerminalControlStatus,
+  input: RuntimeTerminalCommitInput,
+): boolean {
+  const round = input.round;
+  const processed =
+    kind === 'achieved' ? (input as RuntimeAchievedOutcomeInput).processedResult : undefined;
+  const finalInstanceId =
+    kind === 'canceled'
+      ? ((input as RuntimeCanceledOutcomeInput).finalInstanceId ?? round?.instanceId)
+      : round?.instanceId;
+  return (
+    existing.outcomeId === input.outcomeId &&
+    existing.kind === kind &&
+    existing.taskId === input.taskId &&
+    existing.goalId === input.goalId &&
+    existing.goalVersion === input.goalVersion &&
+    existing.controlId === input.controlId &&
+    existing.controlStatus === controlStatus &&
+    existing.roundIndex === round?.roundIndex &&
+    existing.finalInstanceId === finalInstanceId &&
+    existing.resultId === processed?.resultId &&
+    existing.summary === input.summary
+  );
+}
+
+function mapRuntimeTerminalOutcome(row: RuntimeTerminalOutcomeRow): RuntimeTerminalOutcomeRecord {
+  return {
+    outcomeId: row.outcome_id,
+    kind: row.outcome_kind,
+    ...(row.task_id === null ? {} : { taskId: row.task_id }),
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    controlId: row.control_id,
+    controlStatus: row.control_status,
+    ...(row.round_index === null ? {} : { roundIndex: row.round_index }),
+    ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
+    ...(row.result_id === null ? {} : { resultId: row.result_id }),
+    summary: row.summary,
+    enhancementWarnings: RuntimeEnhancementWarningsSchema.parse(row.enhancement_warnings_json),
+    committedAt: toIsoString(row.committed_at),
+  };
 }
 
 interface TaskQualityReportRow extends QueryResultRow {
@@ -1395,6 +2207,9 @@ interface MemoryItemRow extends QueryResultRow {
   source_refs_json: unknown;
   supersedes_json: unknown;
   confidence: number;
+  durability: MemoryItem['durability'];
+  authority: MemoryItem['authority'];
+  durability_reason: string;
   created_at: Date | string;
   score?: number;
 }
@@ -1425,8 +2240,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
     await this.#pool.query(
       `INSERT INTO memory_item(
          memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+         durability,authority,durability_reason,
          embedding_provider_id,embedding_dimensions,embedding,created_at)
-       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
       [
         item.memoryId,
         item.type,
@@ -1436,6 +2252,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
         JSON.stringify(item.sourceRefs),
         JSON.stringify(item.supersedes),
         item.confidence,
+        item.durability,
+        item.authority,
+        item.durabilityReason,
         embedding.providerId,
         embedding.vector.length,
         vectorLiteral(embedding.vector),
@@ -1458,7 +2277,8 @@ export class PostgresMemoryRepository implements MemoryRepository {
     const result = await this.#pool.query<MemoryItemRow>(
       `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
        FROM memory_item
-       WHERE status='active' AND embedding_provider_id=$2 AND embedding_dimensions=$3
+       WHERE status='active' AND durability='durable'
+         AND embedding_provider_id=$2 AND embedding_dimensions=$3
        ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $4`,
       [vectorLiteral(query.vector), query.providerId, query.vector.length, query.limit],
     );
@@ -1476,8 +2296,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
       await client.query(
         `INSERT INTO memory_item(
            memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+           durability,authority,durability_reason,
            embedding_provider_id,embedding_dimensions,embedding,created_at)
-         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
         [
           replacement.memoryId,
           replacement.type,
@@ -1487,6 +2308,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
           JSON.stringify(replacement.sourceRefs),
           JSON.stringify(replacement.supersedes),
           replacement.confidence,
+          replacement.durability,
+          replacement.authority,
+          replacement.durabilityReason,
           embedding.providerId,
           embedding.vector.length,
           vectorLiteral(embedding.vector),
@@ -1721,7 +2545,7 @@ function mapGoalInputInferenceRow(row: GoalInputInferenceRow): GoalInputInferenc
 }
 
 function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
-  return {
+  return createMemoryItem({
     memoryId: row.memory_id,
     type: row.type,
     content: MemoryContentSchema.parse(row.content_json),
@@ -1730,8 +2554,11 @@ function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
     sourceRefs: StringArraySchema.parse(row.source_refs_json),
     supersedes: StringArraySchema.parse(row.supersedes_json),
     confidence: row.confidence,
+    durability: row.durability,
+    authority: row.authority,
+    durabilityReason: row.durability_reason,
     createdAt: toIsoString(row.created_at),
-  };
+  });
 }
 
 async function insertMemoryTransition(
@@ -1849,15 +2676,17 @@ function exactGoalSnapshot(value: unknown): Goal {
 
 export class PostgresAgentTaskRepository implements AgentTaskRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -1870,7 +2699,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findByPlanId(planId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task WHERE plan_id=$1 ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
       [planId],
@@ -1891,7 +2720,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   ): Promise<readonly AgentTask[]> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE ($1::text IS NULL OR context_id=$1)
@@ -1917,9 +2746,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -1931,14 +2760,14 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          selected_skill_id = EXCLUDED.selected_skill_id,
          selected_skill_version = EXCLUDED.selected_skill_version,
          skill_selection_id = EXCLUDED.skill_selection_id,
+         skill_input_resolution_id = EXCLUDED.skill_input_resolution_id,
          temporary_skill_id = EXCLUDED.temporary_skill_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          capability_gap_json = EXCLUDED.capability_gap_json,
          error_code = EXCLUDED.error_code,
          updated_at = EXCLUDED.updated_at
-       WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')
-          OR agent_task.phase = EXCLUDED.phase`,
+       WHERE agent_task.phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')`,
       [
         task.taskId,
         task.contextId,
@@ -1953,6 +2782,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.selectedSkillId ?? null,
         task.selectedSkillVersion ?? null,
         task.skillSelectionId ?? null,
+        task.skillInputResolutionId ?? null,
         task.temporarySkillId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
@@ -1963,14 +2793,17 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       ],
     );
     if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    this.#onTaskStateCommitted?.(task);
   }
 }
 
 export class PostgresTaskInputRepository implements TaskInputRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async createRequest(request: TaskInputRequest): Promise<void> {
@@ -2097,7 +2930,9 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       );
       await this.#insertAttempt(client, input.attempt);
       await client.query('COMMIT');
-      return mapTaskRow(taskRow);
+      const task = mapTaskRow(taskRow);
+      this.#onTaskStateCommitted?.(task);
+      return task;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -2257,7 +3092,7 @@ export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepos
     const result = await this.#pool.query<TaskRow>(
       `SELECT * FROM agent_task
        WHERE context_id=$1 AND task_id<>$2
-         AND phase IN ('completed','canceled','failed','invalidated')
+         AND phase IN ('capability_gap','completed','canceled','failed','invalidated')
        ORDER BY updated_at DESC,task_id DESC LIMIT 1`,
       [contextId, excludeTaskId],
     );
@@ -2301,9 +3136,11 @@ export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepos
 
 export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepository {
   readonly #pool: Pool;
+  readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
     this.#pool = pool;
+    this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
   async get(): Promise<TaskWaitPolicy> {
@@ -2340,11 +3177,13 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
        SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
+         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
-    return result.rows.map(mapTaskRow);
+    const expired = result.rows.map(mapTaskRow);
+    for (const task of expired) this.#onTaskStateCommitted?.(task);
+    return expired;
   }
 }
 
@@ -2670,6 +3509,28 @@ export class PostgresSkillGraphRepository implements SkillGraphRepository {
     }));
   }
 
+  async listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelation['relationType'][],
+    limit: number,
+  ): Promise<readonly SkillRelation[]> {
+    const result = await this.#pool.query<SkillRelationRow>(
+      `SELECT relation_id, source_skill_id, target_skill_id, relation_type,
+              metadata_json, created_at
+       FROM skill_relation WHERE source_skill_id=$1 AND relation_type=ANY($2::text[])
+       ORDER BY relation_type, target_skill_id, relation_id LIMIT $3`,
+      [sourceSkillId, relationTypes, limit],
+    );
+    return result.rows.map((row) => ({
+      relationId: row.relation_id,
+      sourceSkillId: row.source_skill_id,
+      targetSkillId: row.target_skill_id,
+      relationType: row.relation_type,
+      metadata: row.metadata_json,
+      createdAt: toIsoString(row.created_at),
+    }));
+  }
+
   async saveRelation(relation: SkillRelation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_relation
@@ -2836,11 +3697,12 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   async saveSelection(record: SkillSelectionRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_selection_record
-         (selection_id, goal_description, candidates_json, selected_skill_id,
+         (selection_id, goal_contract_json, goal_description, candidates_json, selected_skill_id,
           selected_skill_version, decision_summary, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+       VALUES ($1,$2::jsonb,$3,$4,$5,$6,$7,$8)`,
       [
         record.selectionId,
+        JSON.stringify(record.goalContract),
         record.goalDescription,
         JSON.stringify(record.candidates),
         record.selectedSkillId,
@@ -2853,8 +3715,8 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
 
   async findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined> {
     const result = await this.#pool.query<SkillSelectionRow>(
-      `SELECT selection_id, goal_description, candidates_json, selected_skill_id,
-              selected_skill_version, decision_summary, created_at
+      `SELECT selection_id, goal_contract_json, goal_description, candidates_json,
+              selected_skill_id, selected_skill_version, decision_summary, created_at
        FROM skill_selection_record WHERE selection_id = $1`,
       [selectionId],
     );
@@ -2865,12 +3727,13 @@ export class PostgresSkillSelectionRepository implements SkillSelectionRepositor
   async saveReplacementPlan(plan: SkillReplacementPlan): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_replacement_plan
-         (replacement_plan_id, selection_id, failed_skill_id, candidates_json,
+         (replacement_plan_id, selection_id, goal_contract_json, failed_skill_id, candidates_json,
           replacement_skill_id, replacement_skill_version, decision_summary, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+       VALUES ($1,$2,$3::jsonb,$4,$5,$6,$7,$8,$9,$10)`,
       [
         plan.replacementPlanId,
         plan.selectionId,
+        JSON.stringify(plan.goalContract),
         plan.failedSkillId,
         JSON.stringify(plan.candidates),
         plan.replacementSkillId,
@@ -3195,6 +4058,10 @@ interface WorkflowPlanRow extends QueryResultRow {
   plan_id: string;
   goal_id: string;
   goal_version: number;
+  goal_contract_json: unknown;
+  composition_context_json: unknown;
+  capability_gap_skill_ids_json: unknown;
+  tool_execution_semantics_json: unknown;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
   source_plan_id: string | null;
@@ -3377,6 +4244,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       planId: row.plan_id,
       goalId: row.goal_id,
       goalVersion: row.goal_version,
+      goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+      ...mapWorkflowPlanCompositionAuthority(row),
       ...(row.definition_json === null
         ? {}
         : {
@@ -3426,10 +4295,18 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan_attempt(plan_id,attempt,candidate_json,validation_errors_json,valid,created_at)
-       VALUES($1,$2,$3::jsonb,$4::jsonb,$5,$6)`,
+      `INSERT INTO workflow_plan_attempt
+         (plan_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
+          tool_execution_semantics_json,attempt,candidate_json,validation_errors_json,valid,created_at)
+       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7::jsonb,$8::jsonb,$9,$10)`,
       [
         attempt.planId,
+        JSON.stringify(attempt.goalContract),
+        attempt.compositionContext === undefined
+          ? null
+          : JSON.stringify(attempt.compositionContext),
+        JSON.stringify(attempt.capabilityGapSkillIds ?? []),
+        JSON.stringify(attempt.toolExecutionSemantics ?? []),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -3440,12 +4317,19 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO workflow_plan
+         (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+          capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
+          revision_kind,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
       [
         plan.planId,
         plan.goalId,
         plan.goalVersion,
+        JSON.stringify(plan.goalContract),
+        plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+        JSON.stringify(plan.capabilityGapSkillIds ?? []),
+        JSON.stringify(plan.toolExecutionSemantics ?? []),
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
@@ -3467,12 +4351,19 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       );
       if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
       await client.query(
-        `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)`,
+        `INSERT INTO workflow_plan
+           (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+            capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
+            revision_kind,confirmation_status,attempt_count,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
         [
           plan.planId,
           plan.goalId,
           plan.goalVersion,
+          JSON.stringify(plan.goalContract),
+          plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+          JSON.stringify(plan.capabilityGapSkillIds ?? []),
+          JSON.stringify(plan.toolExecutionSemantics ?? []),
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
@@ -3552,23 +4443,29 @@ const PendingConfirmationSchema = z
   .object({
     nodeId: z.string().min(1),
     prompt: z.string().min(1),
-    kind: z.enum(['human_confirmation', 'task_pause']).optional(),
+    kind: z.enum(['human_confirmation', 'task_pause', 'skill_confirmation']).optional(),
     pausedAt: z.string().optional(),
+    parentPlanId: z.string().min(1).optional(),
+    childPlanId: z.string().min(1).optional(),
+    childSkillId: z.string().min(1).optional(),
+    childSkillVersion: z.number().int().positive().optional(),
   })
   .strict();
 
 interface SkillCallWorkflowRow extends QueryResultRow {
   call_id: string;
+  parent_plan_id: string;
   parent_instance_id: string;
   parent_node_id: string;
-  child_instance_id: string;
+  child_instance_id: string | null;
   child_plan_id: string;
   skill_id: string;
   skill_version: number;
+  confirmation_status: SkillCallWorkflowRecord['confirmationStatus'];
   status: SkillCallWorkflowRecord['status'];
   evaluation_summary: string;
   created_at: Date;
-  completed_at: Date;
+  completed_at: Date | null;
 }
 
 export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRepository {
@@ -3580,21 +4477,29 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   async save(record: SkillCallWorkflowRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_call_workflow(
-         call_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,skill_id,skill_version,
-         status,evaluation_summary,created_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         call_id,parent_plan_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,
+         skill_id,skill_version,confirmation_status,status,evaluation_summary,created_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT(call_id) DO UPDATE SET
+         child_instance_id=COALESCE(skill_call_workflow.child_instance_id,EXCLUDED.child_instance_id),
+         confirmation_status=EXCLUDED.confirmation_status,
+         status=EXCLUDED.status,
+         evaluation_summary=EXCLUDED.evaluation_summary,
+         completed_at=EXCLUDED.completed_at`,
       [
         record.callId,
+        record.parentPlanId,
         record.parentInstanceId,
         record.parentNodeId,
-        record.childInstanceId,
+        record.childInstanceId ?? null,
         record.childPlanId,
         record.skillId,
         record.skillVersion,
+        record.confirmationStatus,
         record.status,
         record.evaluationSummary,
         record.createdAt,
-        record.completedAt,
+        record.completedAt ?? null,
       ],
     );
   }
@@ -3622,16 +4527,18 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
   return {
     callId: row.call_id,
+    parentPlanId: row.parent_plan_id,
     parentInstanceId: row.parent_instance_id,
     parentNodeId: row.parent_node_id,
-    childInstanceId: row.child_instance_id,
+    ...(row.child_instance_id === null ? {} : { childInstanceId: row.child_instance_id }),
     childPlanId: row.child_plan_id,
     skillId: row.skill_id,
     skillVersion: row.skill_version,
+    confirmationStatus: row.confirmation_status,
     status: row.status,
     evaluationSummary: row.evaluation_summary,
     createdAt: row.created_at.toISOString(),
-    completedAt: row.completed_at.toISOString(),
+    ...(row.completed_at === null ? {} : { completedAt: row.completed_at.toISOString() }),
   };
 }
 
@@ -3806,6 +4713,12 @@ function mapPendingConfirmation(
     prompt: pending.prompt,
     ...(pending.kind === undefined ? {} : { kind: pending.kind }),
     ...(pending.pausedAt === undefined ? {} : { pausedAt: pending.pausedAt }),
+    ...(pending.parentPlanId === undefined ? {} : { parentPlanId: pending.parentPlanId }),
+    ...(pending.childPlanId === undefined ? {} : { childPlanId: pending.childPlanId }),
+    ...(pending.childSkillId === undefined ? {} : { childSkillId: pending.childSkillId }),
+    ...(pending.childSkillVersion === undefined
+      ? {}
+      : { childSkillVersion: pending.childSkillVersion }),
   };
 }
 
@@ -3823,6 +4736,7 @@ interface WorkflowControlRow extends QueryResultRow {
   round_count: number;
   replan_count: number;
   final_instance_id: string | null;
+  terminal_outcome_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -3836,6 +4750,7 @@ interface WorkflowControlRoundRow extends QueryResultRow {
   evaluation_decision: WorkflowControlRound['evaluation']['decision'];
   evaluation_summary: string;
   evaluation_detail_json: unknown;
+  terminal_outcome_id: string | null;
   created_at: Date | string;
 }
 
@@ -3854,17 +4769,21 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
   }
 
   async save(control: WorkflowControlRecord): Promise<void> {
-    await this.#pool.query(
+    const saved = await this.#pool.query(
       `INSERT INTO workflow_control(
          control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
          skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
-         created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15)
+         terminal_outcome_id,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT(control_id) DO UPDATE SET
          status=EXCLUDED.status,current_plan_id=EXCLUDED.current_plan_id,
          input_json=EXCLUDED.input_json,
          round_count=EXCLUDED.round_count,replan_count=EXCLUDED.replan_count,
-         final_instance_id=EXCLUDED.final_instance_id,updated_at=EXCLUDED.updated_at`,
+         final_instance_id=EXCLUDED.final_instance_id,
+         terminal_outcome_id=EXCLUDED.terminal_outcome_id,updated_at=EXCLUDED.updated_at
+       WHERE workflow_control.status NOT IN (
+         'capability_gap','achieved','unachievable','canceled','failed','replan_budget_exhausted'
+       )`,
       [
         control.controlId,
         control.contextId,
@@ -3879,18 +4798,27 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         control.roundCount,
         control.replanCount,
         control.finalInstanceId ?? null,
+        control.terminalOutcomeId ?? null,
         control.createdAt,
         control.updatedAt,
       ],
     );
+    if (saved.rowCount !== 1) throw new Error('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
   }
 
   async saveRound(round: WorkflowControlRound): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO workflow_control_round(
+    const saved = await this.#pool.query(
+      `WITH writable_control AS (
+         SELECT control_id FROM workflow_control
+         WHERE control_id=$1 AND status NOT IN (
+           'capability_gap','achieved','unachievable','canceled','failed','replan_budget_exhausted'
+         )
+         FOR UPDATE
+       )
+       INSERT INTO workflow_control_round(
          control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
-         evaluation_summary,evaluation_detail_json,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
+         evaluation_summary,evaluation_detail_json,terminal_outcome_id,created_at)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10 FROM writable_control`,
       [
         round.controlId,
         round.roundIndex,
@@ -3900,9 +4828,11 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         round.evaluation.decision,
         round.evaluation.summary,
         JSON.stringify(round.evaluation),
+        round.terminalOutcomeId ?? null,
         round.createdAt,
       ],
     );
+    if (saved.rowCount !== 1) throw new Error('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
   }
 
   async listRounds(controlId: string): Promise<readonly WorkflowControlRound[]> {
@@ -3929,6 +4859,7 @@ function mapWorkflowControlRow(row: WorkflowControlRow): WorkflowControlRecord {
     roundCount: row.round_count,
     replanCount: row.replan_count,
     ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
+    ...(row.terminal_outcome_id === null ? {} : { terminalOutcomeId: row.terminal_outcome_id }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };
@@ -3942,6 +4873,7 @@ function mapWorkflowControlRoundRow(row: WorkflowControlRoundRow): WorkflowContr
     instanceId: row.instance_id,
     workflowVersion: row.workflow_version,
     evaluation: mapWorkflowControlEvaluation(row.evaluation_detail_json),
+    ...(row.terminal_outcome_id === null ? {} : { terminalOutcomeId: row.terminal_outcome_id }),
     createdAt: toIsoString(row.created_at),
   };
 }
@@ -4101,6 +5033,8 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     planId: row.plan_id,
     goalId: row.goal_id,
     goalVersion: row.goal_version,
+    goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+    ...mapWorkflowPlanCompositionAuthority(row),
     ...(row.definition_json === null
       ? {}
       : {
@@ -4118,6 +5052,31 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.confirmed_at === null ? {} : { confirmedAt: toIsoString(row.confirmed_at) }),
     attemptCount: row.attempt_count,
     createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapWorkflowPlanCompositionAuthority(
+  row: WorkflowPlanRow,
+): Pick<
+  WorkflowPlanRecord,
+  'compositionContext' | 'capabilityGapSkillIds' | 'toolExecutionSemantics'
+> {
+  const capabilityGapSkillIds = StringArraySchema.parse(row.capability_gap_skill_ids_json);
+  const toolExecutionSemantics = snapshotWorkflowToolExecutionSemantics(
+    WorkflowToolExecutionSemanticsSchema.parse(row.tool_execution_semantics_json),
+  );
+  return {
+    ...(row.composition_context_json === null
+      ? {}
+      : {
+          compositionContext: snapshotSkillCompositionContext(
+            SkillCompositionContextSchema.parse(
+              row.composition_context_json,
+            ) as SkillCompositionContext,
+          ),
+        }),
+    ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
+    ...(toolExecutionSemantics.length === 0 ? {} : { toolExecutionSemantics }),
   };
 }
 
@@ -4409,7 +5368,8 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listTools(serverId: string): Promise<readonly McpTool[]> {
     const result = await this.#pool.query<McpToolRow>(
       `SELECT server_id, tool_name, title, description, input_schema_json,
-              enhancement_json, discovered_at
+              enhancement_json, declared_execution_semantics_json,
+              admin_execution_semantics_override_json, execution_semantics_json, discovered_at
        FROM mcp_tool WHERE server_id = $1 ORDER BY tool_name`,
       [serverId],
     );
@@ -4472,8 +5432,9 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
         await client.query(
           `INSERT INTO mcp_tool
              (server_id, tool_name, title, description, input_schema_json,
-              enhancement_json, discovered_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              enhancement_json, declared_execution_semantics_json,
+              admin_execution_semantics_override_json, execution_semantics_json, discovered_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             tool.serverId,
             tool.toolName,
@@ -4481,6 +5442,13 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
             tool.description ?? null,
             JSON.stringify(tool.inputSchema),
             tool.enhancement === undefined ? null : JSON.stringify(tool.enhancement),
+            tool.declaredExecutionSemantics === undefined
+              ? null
+              : JSON.stringify(tool.declaredExecutionSemantics),
+            tool.adminExecutionSemanticsOverride === undefined
+              ? null
+              : JSON.stringify(tool.adminExecutionSemanticsOverride),
+            JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
           ],
         );
@@ -4529,8 +5497,8 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
     await this.#pool.query(
       `INSERT INTO mcp_invocation
          (invocation_id, task_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
-          result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
@@ -4540,6 +5508,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
         invocation.serverId,
         invocation.toolName,
         JSON.stringify(invocation.arguments),
+        JSON.stringify(invocation.executionSemantics),
         invocation.result === undefined ? null : JSON.stringify(invocation.result),
         invocation.status,
         invocation.errorCode ?? null,
@@ -4554,7 +5523,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
     );
@@ -4564,7 +5533,7 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
       `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
-              execution_mode, simulation_id, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
+              execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
     );
@@ -4618,6 +5587,51 @@ export class PostgresMcpRegistryRepository implements McpRegistryRepository, Mcp
        WHERE server_id = $1 AND tool_name = $2`,
       [serverId, toolName, JSON.stringify(enhancement)],
     );
+  }
+
+  async updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    adminOverride: McpTool['executionSemantics'],
+    effective: McpTool['executionSemantics'],
+    operation: McpManagementOperation,
+  ): Promise<boolean> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        `UPDATE mcp_tool
+         SET admin_execution_semantics_override_json = $3,
+             execution_semantics_json = $4
+         WHERE server_id = $1 AND tool_name = $2`,
+        [serverId, toolName, JSON.stringify(adminOverride), JSON.stringify(effective)],
+      );
+      if (updated.rowCount !== 1) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      await client.query(
+        `INSERT INTO mcp_management_operation
+           (operation_id, server_id, operation_type, actor, target, summary_json, occurred_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          operation.operationId,
+          operation.serverId,
+          operation.operationType,
+          operation.actor,
+          operation.target ?? null,
+          JSON.stringify(operation.summary),
+          operation.occurredAt,
+        ],
+      );
+      await client.query('COMMIT');
+      return true;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -4855,8 +5869,11 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {
   return {
     selectionId: row.selection_id,
+    goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
     goalDescription: row.goal_description,
-    candidates: z.array(SkillCandidateSchema).parse(row.candidates_json),
+    candidates: z
+      .array(SkillCandidateSchema)
+      .parse(row.candidates_json) as unknown as SkillSelectionRecord['candidates'],
     selectedSkillId: row.selected_skill_id,
     selectedSkillVersion: row.selected_skill_version,
     decisionSummary: row.decision_summary,
@@ -5039,7 +6056,7 @@ function mapPromptVersionRow(row: PromptVersionRow): PromptVersion {
 }
 
 function mapMcpToolRow(row: McpToolRow): McpTool {
-  return {
+  return createMcpTool({
     serverId: row.server_id,
     toolName: row.tool_name,
     ...(row.title === null ? {} : { title: row.title }),
@@ -5048,8 +6065,25 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     ...(row.enhancement_json === null
       ? {}
       : { enhancement: McpEnhancementSchema.parse(row.enhancement_json) }),
+    ...(row.declared_execution_semantics_json === null
+      ? {}
+      : {
+          declaredExecutionSemantics: parseMcpExecutionSemantics(
+            row.declared_execution_semantics_json,
+            'mcp_declared',
+          ),
+        }),
+    ...(row.admin_execution_semantics_override_json === null
+      ? {}
+      : {
+          adminExecutionSemanticsOverride: parseMcpExecutionSemantics(
+            row.admin_execution_semantics_override_json,
+            'admin_override',
+          ),
+        }),
+    executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     discoveredAt: toIsoString(row.discovered_at),
-  };
+  });
 }
 
 function mapMcpWarningRow(row: McpWarningRow): McpDependencyWarning {
@@ -5075,6 +6109,7 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     serverId: row.server_id,
     toolName: row.tool_name,
+    executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     arguments: row.arguments_json,
     ...(row.result_json === null ? {} : { result: row.result_json }),
     status: row.status,
@@ -5084,6 +6119,20 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     completedAt: toIsoString(row.completed_at),
     durationMs: row.duration_ms,
   };
+}
+
+function parseMcpExecutionSemantics(
+  value: unknown,
+  expectedSource?: McpTool['executionSemantics']['source'],
+): McpTool['executionSemantics'] {
+  const parsed = McpExecutionSemanticsSchema.parse(value);
+  if (expectedSource !== undefined && parsed.source !== expectedSource) {
+    throw new DomainError(
+      'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+      'Persisted MCP Tool execution semantics use an invalid authority source.',
+    );
+  }
+  return createMcpToolExecutionSemantics(parsed, parsed.source);
 }
 
 function mapMcpManagementOperationRow(row: McpManagementOperationRow): McpManagementOperation {
@@ -5116,6 +6165,15 @@ function mapTaskRow(row: TaskRow): AgentTask {
     row.output_text === null
       ? {}
       : { output: { text: row.output_text, structured: row.output_structured } };
+  const capabilityGap =
+    row.capability_gap_json === null
+      ? undefined
+      : TaskCapabilityGapSchema.parse(row.capability_gap_json);
+  if (
+    row.phase === 'capability_gap' &&
+    (capabilityGap === undefined || row.error_code !== 'CAPABILITY_GAP')
+  )
+    throw new Error('TASK_CAPABILITY_GAP_TERMINAL_EVIDENCE_INVALID');
   return {
     taskId: row.task_id,
     contextId: row.context_id,
@@ -5132,11 +6190,12 @@ function mapTaskRow(row: TaskRow): AgentTask {
       ? {}
       : { selectedSkillVersion: row.selected_skill_version }),
     ...(row.skill_selection_id === null ? {} : { skillSelectionId: row.skill_selection_id }),
+    ...(row.skill_input_resolution_id === null
+      ? {}
+      : { skillInputResolutionId: row.skill_input_resolution_id }),
     ...(row.temporary_skill_id === null ? {} : { temporarySkillId: row.temporary_skill_id }),
     ...output,
-    ...(row.capability_gap_json === null
-      ? {}
-      : { capabilityGap: TaskCapabilityGapSchema.parse(row.capability_gap_json) }),
+    ...(capabilityGap === undefined ? {} : { capabilityGap }),
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),

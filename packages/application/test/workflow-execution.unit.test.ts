@@ -18,6 +18,14 @@ const validPlan: WorkflowPlanRecord = {
   planId: 'plan-1',
   goalId: 'goal-1',
   goalVersion: 1,
+  goalContract: {
+    goalId: 'goal-1',
+    version: 1,
+    title: 'Execute workflow',
+    description: 'Execute the validated Workflow.',
+    constraints: [],
+    successCriteria: ['done'],
+  },
   definition: {
     workflowDefinitionId: 'workflow-1',
     version: 2,
@@ -42,6 +50,19 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('rejects a plan whose Goal contract does not match its execution identity', async () => {
+    const stale = {
+      ...validPlan,
+      goalContract: { ...validPlan.goalContract, version: 2 },
+    };
+    const service = createService(new MemoryPlans([stale]), new MemoryExecutions(), {
+      execute: vi.fn(),
+    });
+    await expect(service.confirm(stale.planId)).rejects.toMatchObject({
+      code: 'WORKFLOW_GOAL_CONTRACT_MISMATCH',
+    });
+  });
+
   it('persists the confirmation timestamp and triggering Task identity', async () => {
     const awaiting = { ...validPlan, confirmationStatus: 'awaiting_confirmation' as const };
     const plans = new MemoryPlans([awaiting]);
@@ -56,6 +77,19 @@ describe('Workflow execution application service', () => {
     await expect(plans.findPlan(awaiting.planId)).resolves.toMatchObject({
       confirmationTaskId: 'task-confirmation',
       confirmedAt: '2026-07-12T00:00:00.000Z',
+    });
+  });
+
+  it('rejects a stale confirmation after the immutable plan was superseded', async () => {
+    const superseded = { ...validPlan, confirmationStatus: 'superseded' as const };
+    const plans = new MemoryPlans([superseded]);
+    const service = createService(plans, new MemoryExecutions(), { execute: vi.fn() });
+
+    await expect(service.confirm(superseded.planId, 'task-stale')).rejects.toMatchObject({
+      code: 'WORKFLOW_PLAN_NOT_EXECUTABLE',
+    });
+    await expect(plans.findPlan(superseded.planId)).resolves.toMatchObject({
+      confirmationStatus: 'superseded',
     });
   });
 
@@ -236,6 +270,49 @@ describe('Workflow execution application service', () => {
     ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
     expect(resumeHumanConfirmation).toHaveBeenCalledWith('instance-paused', true, undefined);
     expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
+  });
+
+  it('returns a fresh pause checkpoint without waiting for a terminal instance', async () => {
+    const instances = new MemoryExecutions();
+    const execute = vi.fn().mockResolvedValue({
+      status: 'paused',
+      errors: {},
+      budgetUsage: { replanCount: 0, durationMs: 4, llmCalls: 0, mcpCalls: 0, cost: 1 },
+      pendingConfirmation: {
+        nodeId: 'child',
+        prompt: 'Confirm child v2.',
+        kind: 'skill_confirmation',
+        parentPlanId: 'plan-1',
+        childPlanId: 'plan-child-v2',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      },
+      events: [],
+    });
+    const service = createService(new MemoryPlans([validPlan]), instances, { execute });
+    const first = await service.execute({
+      instanceId: 'instance-multi-pause',
+      planId: 'plan-1',
+      input: {},
+    });
+    await instances.saveInstance({
+      ...first,
+      pendingConfirmation: {
+        ...first.pendingConfirmation,
+        nodeId: 'child',
+        prompt: 'Confirm child v3.',
+        kind: 'skill_confirmation',
+        childPlanId: 'plan-child-v3',
+        childSkillVersion: 3,
+      },
+    });
+
+    await expect(
+      service.waitForPauseResolution(first.instanceId, first.pendingConfirmation),
+    ).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: { childPlanId: 'plan-child-v3', childSkillVersion: 3 },
+    });
   });
 
   it('resolves and persists the current Skill budget override before execution', async () => {

@@ -7,7 +7,7 @@ import {
 } from '@a2a-js/sdk/server';
 import { z } from 'zod';
 
-import type { TaskService } from '../../application/src/index.js';
+import type { TaskService, TaskStateNotifier } from '../../application/src/index.js';
 import type { AgentTask } from '../../domain/src/index.js';
 import { buildStatusUpdate } from './compatibility.js';
 import {
@@ -18,23 +18,44 @@ import {
 } from './task-mapping.js';
 
 export interface TaskServiceAgentExecutorOptions {
-  readonly tasks: TaskService;
-  readonly pollIntervalMs?: number;
+  readonly tasks: Pick<TaskService, 'submit' | 'get' | 'followUp' | 'cancel'>;
+  readonly notifier: TaskStateNotifier;
+  readonly safetyPollIntervalMs?: number;
   readonly waitTimeoutMs?: number;
 }
 
+export const MIN_A2A_SAFETY_POLL_INTERVAL_MS = 100;
+
 export class TaskServiceAgentExecutor implements AgentExecutor {
-  readonly #tasks: TaskService;
-  readonly #pollIntervalMs: number;
+  readonly #tasks: Pick<TaskService, 'submit' | 'get' | 'followUp' | 'cancel'>;
+  readonly #notifier: TaskStateNotifier;
+  readonly #safetyPollIntervalMs: number;
   readonly #waitTimeoutMs: number;
+  #closed = false;
 
   constructor(options: TaskServiceAgentExecutorOptions) {
     this.#tasks = options.tasks;
-    this.#pollIntervalMs = options.pollIntervalMs ?? 10;
+    this.#notifier = options.notifier;
+    this.#safetyPollIntervalMs = options.safetyPollIntervalMs ?? 1_000;
     this.#waitTimeoutMs = options.waitTimeoutMs ?? 30_000;
+    if (
+      !Number.isFinite(this.#safetyPollIntervalMs) ||
+      this.#safetyPollIntervalMs < MIN_A2A_SAFETY_POLL_INTERVAL_MS ||
+      !Number.isFinite(this.#waitTimeoutMs) ||
+      this.#waitTimeoutMs <= 0
+    )
+      throw new TaskServiceAgentExecutorError(
+        'A2A_TASK_WAIT_CONFIGURATION_INVALID',
+        `A2A wait timeout must be positive and safety polling must be at least ${String(MIN_A2A_SAFETY_POLL_INTERVAL_MS)} ms.`,
+      );
   }
 
   async execute(request: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
+    if (this.#isClosed())
+      throw new TaskServiceAgentExecutorError(
+        'A2A_TASK_EXECUTOR_CLOSED',
+        'The A2A Task executor is closed.',
+      );
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
       const updated = await this.#tasks.followUp({ taskId: request.taskId, ...followUp });
@@ -50,27 +71,63 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     const initial = withUserHistory(toA2ATask(submitted.task), request.userMessage);
     eventBus.publish(AgentEvent.task(initial));
 
-    let previousPhase = submitted.task.phase;
+    let current = submitted.task;
     const deadline = Date.now() + this.#waitTimeoutMs;
-    while (Date.now() <= deadline) {
-      const current = await this.#tasks.get(submitted.task.taskId);
-      if (current.phase !== previousPhase) {
-        eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
-        previousPhase = current.phase;
-      }
+    for (;;) {
       if (isA2AResponseBoundary(current)) {
         eventBus.finished();
         return;
       }
-      await delay(this.#pollIntervalMs);
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        current = await this.#tasks.get(submitted.task.taskId);
+        eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
+        eventBus.finished();
+        return;
+      }
+      const previous = current;
+      await this.#notifier.waitForChange(
+        current.taskId,
+        current.updatedAt,
+        Math.min(this.#safetyPollIntervalMs, remainingMs),
+      );
+      if (this.#isClosed()) {
+        eventBus.finished();
+        return;
+      }
+      current = await this.#tasks.get(submitted.task.taskId);
+      if (this.#isClosed()) {
+        eventBus.finished();
+        return;
+      }
+      const changed = taskProjectionChanged(previous, current);
+      if (changed) eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
+      if (isA2AResponseBoundary(current)) {
+        eventBus.finished();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        if (!changed) eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
+        eventBus.finished();
+        return;
+      }
     }
-    throw new Error('A2A_TASK_WAIT_TIMEOUT');
   }
 
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
     const canceled = await this.#tasks.cancel(taskId);
     eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(canceled)));
     eventBus.finished();
+  }
+
+  close(): void {
+    if (this.#closed) return;
+    this.#closed = true;
+    this.#notifier.close();
+  }
+
+  #isClosed(): boolean {
+    return this.#closed;
   }
 }
 
@@ -110,6 +167,23 @@ function isA2AResponseBoundary(task: AgentTask): boolean {
   );
 }
 
-async function delay(milliseconds: number): Promise<void> {
-  await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+function taskProjectionChanged(previous: AgentTask, current: AgentTask): boolean {
+  return (
+    previous.phase !== current.phase ||
+    previous.updatedAt !== current.updatedAt ||
+    previous.phaseMessage !== current.phaseMessage
+  );
+}
+
+export type TaskServiceAgentExecutorErrorCode =
+  'A2A_TASK_WAIT_CONFIGURATION_INVALID' | 'A2A_TASK_EXECUTOR_CLOSED';
+
+export class TaskServiceAgentExecutorError extends Error {
+  readonly code: TaskServiceAgentExecutorErrorCode;
+
+  constructor(code: TaskServiceAgentExecutorErrorCode, message: string) {
+    super(message);
+    this.name = 'TaskServiceAgentExecutorError';
+    this.code = code;
+  }
 }

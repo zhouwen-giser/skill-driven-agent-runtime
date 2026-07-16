@@ -1,4 +1,4 @@
-# ADR-076: MCP Tasks Client Boundary
+# ADR-085: MCP Tasks Client Boundary
 
 ## Status
 

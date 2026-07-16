@@ -8,7 +8,10 @@ function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePo
   return {
     executeLlm: vi.fn().mockResolvedValue({ answer: 42 }),
     callMcpTool: vi.fn().mockResolvedValue({ temperature: 21 }),
-    executeSkill: vi.fn().mockResolvedValue({ skill: 'done' }),
+    executeSkill: vi.fn().mockResolvedValue({
+      status: 'completed',
+      output: { skill: 'done' },
+    }),
     executeSubworkflow: vi.fn().mockResolvedValue({ child: 'done' }),
     requestHumanConfirmation: vi.fn().mockResolvedValue(true),
     decideExecutionError: vi.fn().mockResolvedValue({
@@ -105,6 +108,72 @@ describe('LangGraph Workflow compiler', () => {
     expect(executeLlm).toHaveBeenCalledTimes(1);
     expect(callMcpTool).toHaveBeenCalledTimes(1);
     expect(callMcpTool).toHaveBeenCalledWith(expect.objectContaining({ executionContext }));
+  });
+
+  it('pauses for an independently confirmable child Skill and resumes the same node once', async () => {
+    let confirmed = false;
+    const executeSkill = vi.fn(() =>
+      Promise.resolve(
+        confirmed
+          ? ({ status: 'completed', output: { child: 'done' } } as const)
+          : ({
+              status: 'awaiting_confirmation',
+              callId: 'call-1',
+              parentPlanId: 'plan-parent',
+              parentInstanceId: 'execution.child-confirm',
+              parentNodeId: 'child',
+              childPlanId: 'plan-child',
+              childSkillId: 'skill.child',
+              childSkillVersion: 2,
+            } as const),
+      ),
+    );
+    const compiled = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'skill_call',
+            skillId: 'skill.child',
+            input: { request: 'run' },
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'ref', path: ['outputs', 'child', 'child'] },
+          },
+        ],
+        [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+        'child',
+        ['result'],
+      ),
+      'confirmed',
+      ports({ executeSkill }),
+    );
+
+    await expect(
+      compiled.invoke({}, budget, costs, undefined, 'execution.child-confirm'),
+    ).resolves.toMatchObject({
+      status: 'paused',
+      pendingConfirmation: {
+        nodeId: 'child',
+        kind: 'skill_confirmation',
+        parentPlanId: 'plan-parent',
+        childPlanId: 'plan-child',
+        childSkillId: 'skill.child',
+        childSkillVersion: 2,
+      },
+      budgetUsage: { llmCalls: 1 },
+    });
+    confirmed = true;
+    await expect(compiled.resume('execution.child-confirm', true)).resolves.toMatchObject({
+      status: 'succeeded',
+      result: 'done',
+      budgetUsage: { llmCalls: 1 },
+    });
+    expect(executeSkill).toHaveBeenCalledTimes(2);
   });
 
   it('cancels after the active node without starting any subsequent node', async () => {
@@ -299,7 +368,10 @@ describe('LangGraph Workflow compiler', () => {
       expect(Object.isFrozen(input.arguments)).toBe(true);
       return Promise.resolve({ commandId: 'command-1' });
     });
-    const executeSkill = vi.fn().mockResolvedValue({ commandId: 'command-1', accepted: true });
+    const executeSkill = vi.fn().mockResolvedValue({
+      status: 'completed',
+      output: { commandId: 'command-1', accepted: true },
+    });
     const executeSubworkflow = vi.fn().mockResolvedValue({ verified: true });
     const runtime = ports({ executeLlm, callMcpTool, executeSkill, executeSubworkflow });
     const compiled = compileWorkflow(
@@ -695,7 +767,10 @@ describe('LangGraph Workflow compiler', () => {
         .fn()
         .mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'MCP_OFFLINE' }))
         .mockResolvedValue({ recovered: true });
-      const executeSkill = vi.fn().mockResolvedValue({ recovered: true });
+      const executeSkill = vi.fn().mockResolvedValue({
+        status: 'completed',
+        output: { recovered: true },
+      });
       const decideExecutionError = vi.fn().mockResolvedValue({
         strategy: 'goto',
         summary: `Use ${action}.`,

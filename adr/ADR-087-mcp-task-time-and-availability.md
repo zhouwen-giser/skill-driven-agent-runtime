@@ -1,4 +1,4 @@
-# ADR-078: MCP Task Availability and Time Semantics
+# ADR-087: MCP Task Availability and Time Semantics
 
 ## Status
 

@@ -2,6 +2,7 @@ import type {
   AgentTask,
   ConversationContext,
   Goal,
+  GoalExecutionContract,
   McpServer,
   McpDependencyWarning,
   McpInvocation,
@@ -10,6 +11,8 @@ import type {
   McpToolEnhancement,
   McpInvocationOutcome,
   McpProtocolCapabilities,
+  McpToolExecutionSemantics,
+  McpToolExecutionSemanticsValues,
   RemoteTaskOperationAck,
   RemoteTaskBinding,
   RemoteTaskControlEvent,
@@ -29,9 +32,11 @@ import type {
   MemoryRetentionPolicy,
   Skill,
   SkillRelation,
+  SkillRelationType,
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillInputResolutionRecord,
   SkillQualityObservation,
   SkillQualityWarning,
   SkillQualityWarningKind,
@@ -75,6 +80,11 @@ import type {
   TaskInputRequest,
   TaskInputResponse,
   RuntimeExecutionContext,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
 } from '../../domain/src/index.js';
 
@@ -189,6 +199,15 @@ export interface WorkflowControlRepository {
   listRounds(controlId: string): Promise<readonly WorkflowControlRound[]>;
 }
 
+export interface RuntimeTerminalOutcomeRepository {
+  commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitUnachievable(input: RuntimeUnachievableOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitCanceled(input: RuntimeCanceledOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  recordEnhancementWarning(outcomeId: string, warning: RuntimeEnhancementWarning): Promise<void>;
+  find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
+  findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
+}
+
 export interface GoalEvaluator {
   evaluate(
     input: Readonly<{ goal: Goal; instance: WorkflowInstance }>,
@@ -278,6 +297,11 @@ export interface SkillRepository {
 
 export interface SkillGraphRepository {
   listRelations(): Promise<readonly SkillRelation[]>;
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelationType[],
+    limit: number,
+  ): Promise<readonly SkillRelation[]>;
   saveRelation(relation: SkillRelation): Promise<void>;
   deleteRelation(relationId: string): Promise<void>;
 }
@@ -288,6 +312,23 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillInputResolutionRepository {
+  save(record: SkillInputResolutionRecord): Promise<void>;
+  find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined>;
+  findLatest(
+    taskId: string,
+    skillId: string,
+    skillVersion: number,
+    goalVersion: number,
+  ): Promise<SkillInputResolutionRecord | undefined>;
+  listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]>;
+  listProcessedDataByContext(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<readonly Readonly<{ sourceRef: string; value: unknown }>[]>;
 }
 
 export interface SkillQualityRepository {
@@ -308,7 +349,7 @@ export interface SkillQualityRepository {
 
 export interface SkillSemanticRetriever {
   score(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
   ): Promise<Readonly<Record<string, number>>>;
 }
@@ -340,7 +381,7 @@ export interface SkillEmbeddingRepository {
 export interface SkillSelectionDecider {
   decide(
     input: Readonly<{
-      goalDescription: string;
+      goalContract: GoalExecutionContract;
       candidates: SkillSelectionRecord['candidates'];
       mode: 'initial' | 'replacement';
       failedSkillId?: string;
@@ -437,6 +478,13 @@ export interface McpRegistryRepository {
     toolName: string,
     enhancement: McpToolEnhancement,
   ): Promise<void>;
+  updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    adminOverride: McpToolExecutionSemantics,
+    effective: McpToolExecutionSemantics,
+    operation: McpManagementOperation,
+  ): Promise<boolean>;
 }
 
 export interface SecretCipher {
@@ -453,6 +501,7 @@ export interface McpTransportAdapter {
       title?: string;
       description?: string;
       inputSchema: unknown;
+      declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
     }>[]
   >;
   call(

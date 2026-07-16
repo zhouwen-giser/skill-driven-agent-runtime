@@ -27,6 +27,7 @@ export type WorkflowControlStatus =
   | 'capability_gap'
   | 'achieved'
   | 'unachievable'
+  | 'canceled'
   | 'failed'
   | 'replan_budget_exhausted';
 
@@ -44,6 +45,7 @@ export interface WorkflowControlRecord {
   readonly roundCount: number;
   readonly replanCount: number;
   readonly finalInstanceId?: string;
+  readonly terminalOutcomeId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -55,5 +57,22 @@ export interface WorkflowControlRound {
   readonly instanceId: string;
   readonly workflowVersion: number;
   readonly evaluation: GoalEvaluationResult;
+  readonly terminalOutcomeId?: string;
   readonly createdAt: string;
+}
+
+export function isTerminalWorkflowControlStatus(
+  status: WorkflowControlStatus,
+): status is Extract<
+  WorkflowControlStatus,
+  'capability_gap' | 'achieved' | 'unachievable' | 'canceled' | 'failed' | 'replan_budget_exhausted'
+> {
+  return [
+    'capability_gap',
+    'achieved',
+    'unachievable',
+    'canceled',
+    'failed',
+    'replan_budget_exhausted',
+  ].includes(status);
 }

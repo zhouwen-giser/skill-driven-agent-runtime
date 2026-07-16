@@ -10,6 +10,8 @@ import {
   createConversationContext,
   createGoal,
   isTerminalTaskPhase,
+  isTerminalWorkflowControlStatus,
+  recordTaskCapabilityGap,
   transitionTask,
 } from '../src/index.js';
 
@@ -102,5 +104,54 @@ describe('AgentTask state machine', () => {
     expect(() => transitionTask(queued, 'completed', 'Invalid.', timestamp)).toThrow(
       expect.objectContaining({ code: 'TASK_PHASE_TRANSITION_INVALID' }),
     );
+  });
+
+  it('treats capability gap as an immutable terminal Task and WorkflowControl outcome', () => {
+    const queued = createAgentTask({
+      taskId: 'task-gap',
+      contextId: 'context-1',
+      userId: ANONYMOUS_USER_ID,
+      requestText: 'Read pressure.',
+      requestMetadata: {},
+      timestamp,
+    });
+    let task = transitionTask(queued, 'context_loading', 'Loading.', timestamp);
+    task = transitionTask(task, 'goal_deliberation', 'Goal.', timestamp);
+    task = transitionTask(task, 'skill_resolution', 'Skill.', timestamp);
+    task = recordTaskCapabilityGap(
+      task,
+      {
+        evaluationSummary: 'No registered Tool can read pressure.',
+        missingCapability: 'Read pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read device pressure.',
+          inputSchema: { type: 'object' },
+        },
+      },
+      timestamp,
+    );
+
+    expect(task).toMatchObject({ phase: 'capability_gap', errorCode: 'CAPABILITY_GAP' });
+    expect(isTerminalTaskPhase(task.phase)).toBe(true);
+    expect(isTerminalWorkflowControlStatus('capability_gap')).toBe(true);
+    expect(() => transitionTask(task, 'skill_resolution', 'Resume.', timestamp)).toThrow(
+      expect.objectContaining({ code: 'TASK_PHASE_TRANSITION_INVALID' }),
+    );
+    expect(() =>
+      recordTaskCapabilityGap(
+        { ...task, phase: 'skill_resolution' },
+        {
+          evaluationSummary: ' ',
+          missingCapability: 'Read pressure.',
+          suggestedToolContract: {
+            name: 'read_pressure',
+            description: 'Read pressure.',
+            inputSchema: { type: 'object' },
+          },
+        },
+        timestamp,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID' }));
   });
 });

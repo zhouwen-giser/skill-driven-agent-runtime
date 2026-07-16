@@ -5,7 +5,10 @@ import type {
   WorkflowPlanRecord,
   RuntimeExecutionContext,
 } from '../../domain/src/index.js';
-import { resolveWorkflowBudgetLimits } from '../../domain/src/index.js';
+import {
+  assertGoalExecutionContractIdentity,
+  resolveWorkflowBudgetLimits,
+} from '../../domain/src/index.js';
 import type {
   Clock,
   SkillRepository,
@@ -50,10 +53,14 @@ export class WorkflowExecutionService {
 
   async confirm(planId: string, taskId?: string): Promise<WorkflowPlanRecord> {
     const plan = await this.#requirePlan(planId);
-    if (plan.definition === undefined || plan.confirmationStatus === 'failed')
+    if (
+      plan.definition === undefined ||
+      (plan.confirmationStatus !== 'awaiting_confirmation' &&
+        plan.confirmationStatus !== 'confirmed')
+    )
       throw new WorkflowExecutionError(
         'WORKFLOW_PLAN_NOT_EXECUTABLE',
-        'Failed or definition-less plan cannot be confirmed.',
+        'Only an active immutable plan with a definition can be confirmed.',
       );
     if (plan.confirmationStatus === 'confirmed') return plan;
     const confirmedAt = this.#clock.now();
@@ -71,6 +78,10 @@ export class WorkflowExecutionService {
 
   get(instanceId: string): Promise<WorkflowInstance | undefined> {
     return this.#instances.findInstance(instanceId);
+  }
+
+  findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    return this.#instances.findActiveByPlanId(planId);
   }
 
   async trace(
@@ -119,7 +130,17 @@ export class WorkflowExecutionService {
         'WORKFLOW_PLAN_NOT_CONFIRMED',
         'Only a confirmed plan with a validated definition may execute.',
       );
-    const validation = await this.#validator.validate(plan.definition);
+    const validation = await this.#validator.validate(
+      plan.definition,
+      compositionValidationContext(plan),
+    );
+    if (
+      validation.errors.some((error) => error.code === 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION')
+    )
+      throw new WorkflowExecutionError(
+        'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+        'Persisted plan contains a Skill call outside its immutable composition authority.',
+      );
     if (!validation.valid || validation.definition === undefined)
       throw new WorkflowExecutionError(
         'WORKFLOW_PLAN_REVALIDATION_FAILED',
@@ -380,7 +401,11 @@ export class WorkflowExecutionService {
     return { disposition: 'resumed', instance: resumed };
   }
 
-  async waitForPauseResolution(instanceId: string): Promise<WorkflowInstance> {
+  async waitForPauseResolution(
+    instanceId: string,
+    expectedCheckpoint?: WorkflowInstance['pendingConfirmation'],
+  ): Promise<WorkflowInstance> {
+    const expectedCheckpointKey = confirmationCheckpointKey(expectedCheckpoint);
     for (;;) {
       const instance = await this.#instances.findInstance(instanceId);
       if (instance === undefined)
@@ -389,6 +414,11 @@ export class WorkflowExecutionService {
           'Paused Workflow instance was not found.',
         );
       if (instance.status !== 'paused') return instance;
+      if (
+        expectedCheckpoint !== undefined &&
+        confirmationCheckpointKey(instance.pendingConfirmation) !== expectedCheckpointKey
+      )
+        return instance;
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
     }
   }
@@ -435,6 +465,17 @@ export class WorkflowExecutionService {
     const plan = await this.#plans.findPlan(planId);
     if (plan === undefined)
       throw new WorkflowExecutionError('WORKFLOW_PLAN_NOT_FOUND', 'Workflow plan was not found.');
+    try {
+      assertGoalExecutionContractIdentity(plan.goalContract, {
+        goalId: plan.goalId,
+        goalVersion: plan.goalVersion,
+      });
+    } catch {
+      throw new WorkflowExecutionError(
+        'WORKFLOW_GOAL_CONTRACT_MISMATCH',
+        'Workflow plan Goal identity does not match its immutable execution contract.',
+      );
+    }
     return plan;
   }
 
@@ -460,6 +501,19 @@ export class WorkflowExecutionService {
       summary: event.summary,
     }));
   }
+}
+
+function confirmationCheckpointKey(checkpoint: WorkflowInstance['pendingConfirmation']): string {
+  if (checkpoint === undefined) return '';
+  return JSON.stringify({
+    nodeId: checkpoint.nodeId,
+    kind: checkpoint.kind,
+    parentPlanId: checkpoint.parentPlanId,
+    childPlanId: checkpoint.childPlanId,
+    childSkillId: checkpoint.childSkillId,
+    childSkillVersion: checkpoint.childSkillVersion,
+    pausedAt: checkpoint.pausedAt,
+  });
 }
 
 function emptyUsage(replanCount: number) {
@@ -495,11 +549,13 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_PLAN_NOT_EXECUTABLE'
   | 'WORKFLOW_PLAN_NOT_FOUND'
   | 'WORKFLOW_PLAN_REVALIDATION_FAILED'
+  | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_REPLAN_BUDGET_EXHAUSTED'
   | 'WORKFLOW_RESUME_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_TIMEOUT'
   | 'WORKFLOW_SKILL_NOT_ENABLED'
+  | 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION'
   | 'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;
@@ -508,4 +564,13 @@ export class WorkflowExecutionError extends Error {
     this.name = 'WorkflowExecutionError';
     this.code = code;
   }
+}
+
+function compositionValidationContext(plan: WorkflowPlanRecord) {
+  return {
+    enforceSkillComposition:
+      plan.compositionContext !== undefined || plan.capabilityGapSkillIds !== undefined,
+    allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
+    capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
+  } as const;
 }

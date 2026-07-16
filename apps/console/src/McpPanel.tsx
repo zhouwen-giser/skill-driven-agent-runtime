@@ -37,6 +37,14 @@ export function McpPanel({
     commonErrors: '',
     tags: '',
   });
+  const [toolSemantics, setToolSemantics] = useState({
+    toolName: '',
+    effect: 'unknown',
+    execution: 'unknown',
+    cancellation: 'unknown',
+    idempotency: 'unknown',
+    replay: 'unknown',
+  });
   const [form, setForm] = useState({ serverId: '', name: '', endpoint: '', authorization: '' });
   const reload = useCallback(async () => {
     setLoading(true);
@@ -121,6 +129,20 @@ export function McpPanel({
         },
       );
       return `${selectedServer}/${toolMetadata.toolName}: metadata updated`;
+    }, setMessage);
+  }
+
+  async function updateToolSemantics(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (selectedServer === undefined) return;
+    await runAction(async () => {
+      const { toolName, ...semantics } = toolSemantics;
+      await managementRequest(
+        `/api/v1/mcp/servers/${encodeURIComponent(selectedServer)}/tools/${encodeURIComponent(toolName)}/execution-semantics`,
+        { method: 'PUT', body: JSON.stringify(semantics) },
+      );
+      await inspect(selectedServer, 'tools');
+      return `${selectedServer}/${toolName}: execution semantics override retained`;
     }, setMessage);
   }
 
@@ -252,82 +274,176 @@ export function McpPanel({
           <TaskReferenceLinks value={detail} onOpenTask={onOpenTask} />
           <pre className="result">{JSON.stringify(detail, null, 2)}</pre>
           {selectedServer === undefined ? null : (
-            <form
-              className="admin-form tool-form"
-              onSubmit={(event) => void updateToolMetadata(event)}
-            >
-              <label>
-                Tool name
-                <input
-                  required
-                  value={toolMetadata.toolName}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, toolName: event.target.value });
+            <>
+              <form
+                className="admin-form tool-form"
+                aria-label="MCP Tool execution semantics override"
+                onSubmit={(event) => void updateToolSemantics(event)}
+              >
+                <h3>Execution semantics authority</h3>
+                <p>
+                  MCP declarations take priority. This administrator override is retained across
+                  refreshes and is used when the Tool has no MCP declaration.
+                </p>
+                <label>
+                  Tool name
+                  <input
+                    required
+                    value={toolSemantics.toolName}
+                    onChange={(event) => {
+                      setToolSemantics({ ...toolSemantics, toolName: event.target.value });
+                    }}
+                  />
+                </label>
+                <SemanticsSelect
+                  label="Effect"
+                  value={toolSemantics.effect}
+                  values={['read_only', 'side_effecting', 'unknown']}
+                  onChange={(effect) => {
+                    setToolSemantics({ ...toolSemantics, effect });
                   }}
                 />
-              </label>
-              <label>
-                Purpose
-                <input
-                  required
-                  value={toolMetadata.purpose}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, purpose: event.target.value });
+                <SemanticsSelect
+                  label="Execution"
+                  value={toolSemantics.execution}
+                  values={['synchronous', 'task_capable', 'task_required', 'unknown']}
+                  onChange={(execution) => {
+                    setToolSemantics({ ...toolSemantics, execution });
                   }}
                 />
-              </label>
-              <label>
-                Return description
-                <input
-                  required
-                  value={toolMetadata.returnDescription}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, returnDescription: event.target.value });
+                <SemanticsSelect
+                  label="Cancellation"
+                  value={toolSemantics.cancellation}
+                  values={['unsupported', 'cooperative', 'task_cancel', 'unknown']}
+                  onChange={(cancellation) => {
+                    setToolSemantics({ ...toolSemantics, cancellation });
                   }}
                 />
-              </label>
-              <label>
-                Scenarios (comma-separated)
-                <input
-                  value={toolMetadata.scenarios}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, scenarios: event.target.value });
+                <SemanticsSelect
+                  label="Idempotency"
+                  value={toolSemantics.idempotency}
+                  values={['none', 'client_request_key', 'server_managed', 'unknown']}
+                  onChange={(idempotency) => {
+                    setToolSemantics({ ...toolSemantics, idempotency });
                   }}
                 />
-              </label>
-              <label>
-                Constraints (comma-separated)
-                <input
-                  value={toolMetadata.constraints}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, constraints: event.target.value });
+                <SemanticsSelect
+                  label="Replay"
+                  value={toolSemantics.replay}
+                  values={['allowed', 'simulation_only', 'forbidden', 'unknown']}
+                  onChange={(replay) => {
+                    setToolSemantics({ ...toolSemantics, replay });
                   }}
                 />
-              </label>
-              <label>
-                Common errors (comma-separated)
-                <input
-                  value={toolMetadata.commonErrors}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, commonErrors: event.target.value });
-                  }}
-                />
-              </label>
-              <label>
-                Tags (comma-separated)
-                <input
-                  value={toolMetadata.tags}
-                  onChange={(event) => {
-                    setToolMetadata({ ...toolMetadata, tags: event.target.value });
-                  }}
-                />
-              </label>
-              <button type="submit">Save Tool metadata</button>
-            </form>
+                <button type="submit">Save execution semantics override</button>
+              </form>
+              <form
+                className="admin-form tool-form"
+                onSubmit={(event) => void updateToolMetadata(event)}
+              >
+                <label>
+                  Tool name
+                  <input
+                    required
+                    value={toolMetadata.toolName}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, toolName: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Purpose
+                  <input
+                    required
+                    value={toolMetadata.purpose}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, purpose: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Return description
+                  <input
+                    required
+                    value={toolMetadata.returnDescription}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, returnDescription: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Scenarios (comma-separated)
+                  <input
+                    value={toolMetadata.scenarios}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, scenarios: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Constraints (comma-separated)
+                  <input
+                    value={toolMetadata.constraints}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, constraints: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Common errors (comma-separated)
+                  <input
+                    value={toolMetadata.commonErrors}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, commonErrors: event.target.value });
+                    }}
+                  />
+                </label>
+                <label>
+                  Tags (comma-separated)
+                  <input
+                    value={toolMetadata.tags}
+                    onChange={(event) => {
+                      setToolMetadata({ ...toolMetadata, tags: event.target.value });
+                    }}
+                  />
+                </label>
+                <button type="submit">Save Tool metadata</button>
+              </form>
+            </>
           )}
         </section>
       )}
     </div>
+  );
+}
+
+function SemanticsSelect<T extends string>({
+  label,
+  value,
+  values,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: T;
+  readonly values: readonly T[];
+  readonly onChange: (value: T) => void;
+}) {
+  return (
+    <label>
+      {label}
+      <select
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value as T);
+        }}
+      >
+        {values.map((candidate) => (
+          <option key={candidate} value={candidate}>
+            {candidate}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

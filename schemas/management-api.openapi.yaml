@@ -25,10 +25,18 @@ paths:
   /api/v1/memories:
     post:
       operationId: createMemory
-      description: Creates one globally shared, source-linked memory and persists its pgvector embedding.
+      description: Refines one globally shared candidate and persists it only when structured durability is durable; embeddings may use any positive provider dimension.
       responses:
-        '201': { description: Active global memory item }
+        '201': { description: Active durable global memory item with authority and durability reason }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/runtime-terminal-outcomes/{outcomeId}:
+    parameters: [{ name: outcomeId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getRuntimeTerminalOutcome
+      description: Returns authoritative terminal state plus queryable post-commit enhancement warnings.
+      responses:
+        '200': { description: Terminal outcome and append-only Memory/quality/evolution warnings }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/memories/search:
     get:
       operationId: searchMemories
@@ -36,7 +44,7 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
-        '200': { description: Global active memories ordered by pgvector similarity }
+        '200': { description: Same-provider/same-dimension durable active memories ordered by pgvector similarity }
   /api/v1/memories/{memoryId}:
     parameters: [{ name: memoryId, in: path, required: true, schema: { type: string } }]
     get:
@@ -141,6 +149,20 @@ paths:
       operationId: listTaskInputInferences
       responses:
         '200': { description: Ordered missing-input decisions and explainable evidence sources }
+  /api/v1/tasks/{taskId}/skill-input-resolutions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskSkillInputResolutions
+      description: Returns immutable top-level Skill input decisions for every resolution attempt on the Task.
+      responses:
+        '200': { description: Ordered structured input, schema status, source references and decision summaries }
+  /api/v1/skill-input-resolutions/{resolutionId}:
+    parameters: [{ name: resolutionId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getSkillInputResolution
+      responses:
+        '200': { description: One immutable top-level Skill input resolution record }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/processed-results/{resultId}:
     parameters: [{ name: resultId, in: path, required: true, schema: { type: string } }]
     get:
@@ -206,6 +228,40 @@ paths:
   /api/v1/workflows/plan:
     post:
       operationId: planWorkflow
+      description: Every standalone planning request carries one complete immutable Goal execution contract; a registered Goal must match it exactly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                [
+                  planId,
+                  workflowDefinitionId,
+                  workflowVersion,
+                  goalId,
+                  goalVersion,
+                  goalContract,
+                  planningInstruction,
+                ]
+              properties:
+                planId: { type: string, minLength: 1 }
+                workflowDefinitionId: { type: string, minLength: 1 }
+                workflowVersion: { type: integer, minimum: 1 }
+                goalId: { type: string, minLength: 1 }
+                goalVersion: { type: integer, minimum: 1 }
+                goalContract: { $ref: '#/components/schemas/GoalExecutionContract' }
+                planningInstruction: { type: string, minLength: 1 }
+                compositionRoot:
+                  type: object
+                  additionalProperties: false
+                  required: [skillId, skillVersion]
+                  properties:
+                    skillId: { type: string, minLength: 1 }
+                    skillVersion: { type: integer, minimum: 1 }
+                sourceConfirmedPlanId: { type: string, minLength: 1 }
       responses:
         '201': { description: Immutable validated Workflow plan and confirmation status }
         '400': { $ref: '#/components/responses/Error' }
@@ -494,6 +550,21 @@ paths:
             schema: { $ref: '#/components/schemas/ToolEnhancement' }
       responses:
         '204': { description: Updated }
+  /api/v1/mcp/servers/{serverId}/tools/{toolName}/execution-semantics:
+    parameters:
+      - $ref: '#/components/parameters/ServerId'
+      - { name: toolName, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: updateMcpToolExecutionSemantics
+      description: Retains a credential-free administrator semantics override across discovery refreshes. An available MCP declaration remains authoritative.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/McpToolExecutionSemanticsValues' }
+      responses:
+        '204': { description: Override retained and effective semantics recalculated }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/mcp/servers/{serverId}/invocations:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     get:
@@ -558,9 +629,9 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [goalDescription]
+              required: [goalContract]
               properties:
-                goalDescription: { type: string, minLength: 1 }
+                goalContract: { $ref: '#/components/schemas/GoalExecutionContract' }
       responses:
         '201':
           {
@@ -939,6 +1010,24 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    GoalExecutionContract:
+      type: object
+      additionalProperties: false
+      required: [goalId, version, title, description, constraints, successCriteria]
+      properties:
+        goalId: { type: string, minLength: 1 }
+        version: { type: integer, minimum: 1 }
+        title: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        constraints: { type: array, items: { type: string } }
+        successCriteria: { type: array, items: { type: string } }
+      example:
+        goalId: goal-inspect-1
+        version: 2
+        title: Inspect device safely
+        description: Return the current device status.
+        constraints: [read-only, no actuator calls]
+        successCriteria: [status and observation are returned]
     MemoryRetentionPolicy:
       type: object
       additionalProperties: false
@@ -1022,6 +1111,19 @@ components:
         returnDescription: { type: string }
         commonErrors: { type: array, items: { type: string } }
         tags: { type: array, items: { type: string } }
+    McpToolExecutionSemanticsValues:
+      type: object
+      additionalProperties: false
+      required: [effect, execution, cancellation, idempotency, replay]
+      properties:
+        effect: { type: string, enum: [read_only, side_effecting, unknown] }
+        execution:
+          { type: string, enum: [synchronous, task_capable, task_required, unknown] }
+        cancellation:
+          { type: string, enum: [unsupported, cooperative, task_cancel, unknown] }
+        idempotency:
+          { type: string, enum: [none, client_request_key, server_managed, unknown] }
+        replay: { type: string, enum: [allowed, simulation_only, forbidden, unknown] }
     CreateTemporarySkill:
       type: object
       additionalProperties: false

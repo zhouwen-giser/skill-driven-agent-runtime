@@ -9,6 +9,7 @@ const stages = [
   'tool_enhancement',
   'skill_authoring',
   'skill_selection',
+  'skill_input_resolution',
   'workflow_planning',
   'execution_decision',
   'goal_evaluation',
