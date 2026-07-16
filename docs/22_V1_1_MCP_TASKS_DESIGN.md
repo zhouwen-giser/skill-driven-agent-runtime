@@ -1,6 +1,6 @@
 # SDAR v1.1 MCP Tasks 规范化设计
 
-状态：Phase 1 协议边界已验证；Phase 2–6 实现与最终验收尚未完成<br>
+状态：Phase 1 协议边界与 Phase 2 持久化/轮询已验证；Phase 3–6 实现与最终验收尚未完成<br>
 日期：2026-07-16<br>
 执行计划：`execplans/EP-09-v1.1-mcp-tasks.md`
 

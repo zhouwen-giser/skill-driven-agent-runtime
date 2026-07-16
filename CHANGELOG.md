@@ -10,6 +10,9 @@ All notable changes to this project are documented here. The format follows Keep
 - Exact Apache-2.0 official `modelcontextprotocol/ext-tasks` commit and schema-blob Intake as a reference contract; no new runtime dependency or copied source is introduced in Phase 0.
 - Phase 1 domain-owned immediate/remote result union, five-state remote Task snapshots, protocol capability/revision records, bounded attributed Tasks Schema, and `tasks/get`/`tasks/update`/`tasks/cancel` adapter operations.
 - Real modern HTTP Mock Provider contract modes `sync_success`, `async_success`, `rejected_without_task` plus malformed/undeclared negative fixtures.
+- Phase 2 domain-owned `RemoteTaskBinding`, ordered observations, idempotent control events and protocol-attempt audit with explicit Task/Goal/Context/Workflow/node-run/MCP-invocation lineage.
+- Isolated migration 0100, PostgreSQL version/token/lease polling repository, one-attempt BullMQ remote poll queue/dead-letter operations, startup/periodic reconciler and deterministic Provider metadata mapping.
+- Real PostgreSQL/Redis integration evidence for admission uniqueness, simulation/replay identity, concurrent claim CAS, queue-client restart, unreachable backoff/recovery, terminal control idempotency and stale Provider responses.
 
 ### Changed
 
@@ -18,10 +21,13 @@ All notable changes to this project are documented here. The format follows Keep
 - Synchronous MCP `isError=true` results remain immediate but are audited as `failed/MCP_TOOL_BUSINESS_REJECTION`, never as success and never with a remote Task ID.
 - SBOM/license evidence now includes 286 npm packages and the attributed Apache-2.0 ext-tasks Schema adaptation.
 - Phase 1 unified verification passes 283 unit/contract tests, 42 real PostgreSQL/Redis integration tests, 42 real E2E tests, 55 migrations, production builds and both local smoke stages.
+- Ordinary Task and remote Poll Workers now share one single-process `ContextSerialExecutor`; ordinary running Workflow crash recovery remains unchanged.
+- The default migration runner remains on released 0056. Phase 2's 0100 profile fails closed unless explicitly acknowledged and connected to a disposable `sdar_v11_*` database.
+- Phase 2 unified verification passes 292 unit/contract tests, 48 real PostgreSQL/Redis integration tests, 42 real E2E tests, 56 repository migration pairs, production builds and both local smoke stages.
 
 ### Known limitations
 
-- Phase 1 protocol behavior is verified; durable bindings/polling, availability/timing, external continuation, input/cancel lifecycle, management UI and final acceptance remain incomplete. Final v1.1 acceptance cannot start until `v1.0.13-bug-fixed` and its complete migration chain are merged.
+- Phase 1 protocol and Phase 2 persistence/polling behavior are verified. Availability/timing, production Workflow admission/external continuation, input/cancel lifecycle, management UI and final acceptance remain incomplete. Final v1.1 acceptance cannot start until `v1.0.13-bug-fixed` and its complete migration chain are merged.
 
 ### Fixed
 

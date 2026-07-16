@@ -1,4 +1,4 @@
-import type { ContextTaskQueue } from '../../application/src/index.js';
+import type { ContextSerialGate, ContextTaskQueue } from '../../application/src/index.js';
 import { Queue, Worker, type Job } from 'bullmq';
 import { z } from 'zod';
 
@@ -73,13 +73,15 @@ export interface ContextTaskProcessor {
 export interface BullMqContextWorkerOptions extends BullMqContextQueueOptions {
   readonly concurrency?: number;
   readonly processor: ContextTaskProcessor;
+  readonly serial?: ContextSerialGate;
 }
 
 export class BullMqContextWorker {
   readonly #worker: Worker<ContextTaskJob, void>;
-  readonly #serializer = new ContextSerialExecutor();
+  readonly #serializer: ContextSerialGate;
 
   constructor(options: BullMqContextWorkerOptions) {
+    this.#serializer = options.serial ?? new ContextSerialExecutor();
     this.#worker = new Worker<ContextTaskJob, void>(
       options.queueName ?? 'sdar-context-tasks',
       async (job: Job<ContextTaskJob>) => {

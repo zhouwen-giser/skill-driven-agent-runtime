@@ -2,6 +2,7 @@ export * from './ports.js';
 export * from './result-processor.js';
 export * from './result-processing-service.js';
 export * from './runtime-recovery.js';
+export * from './remote-task-polling.js';
 export * from './skill-registry.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';

@@ -19,6 +19,7 @@ import type {
   JsonSchemaValidator,
   McpRegistryRepository,
   McpTransportAdapter,
+  RemoteTaskReadResult,
   SecretCipher,
 } from './ports.js';
 import type { McpToolEnhancer } from './mcp-tool-enhancer.js';
@@ -298,6 +299,45 @@ export class McpRegistryService {
     return this.#repository.listInvocationsByTask(taskId);
   }
 
+  async readRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskReadResult> {
+    try {
+      const record = await this.#requireServer(input.serverId);
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const snapshot = await this.#transport.getTask({
+        endpoint: record.server.endpoint,
+        headers: executionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        remoteTaskId: input.remoteTaskId,
+      });
+      return { kind: 'snapshot', snapshot };
+    } catch (error: unknown) {
+      const code = stableErrorCode(error);
+      if (
+        code === 'MCP_TASK_RESPONSE_INVALID' ||
+        code === 'MCP_TASK_RESPONSE_TOO_LARGE' ||
+        code === 'MCP_TOOL_RESULT_TOO_LARGE'
+      ) {
+        return { kind: 'contract_invalid', errorCode: code };
+      }
+      if (
+        code === 'MCP_TASK_CAPABILITY_REQUIRED' ||
+        code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' ||
+        code === 'MCP_SERVER_NOT_FOUND'
+      ) {
+        return { kind: 'provider_protocol', errorCode: code };
+      }
+      return { kind: 'provider_unreachable', errorCode: 'MCP_TASK_PROVIDER_UNREACHABLE' };
+    }
+  }
+
   listManagementOperations(serverId: string) {
     return this.#repository.listManagementOperations(serverId);
   }
@@ -492,6 +532,11 @@ function compareTools(
     }
   }
   return warnings;
+}
+
+function stableErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
 }
 
 export type McpRegistryErrorCode =

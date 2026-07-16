@@ -268,6 +268,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(runtime.callMcpTool).toHaveBeenCalledWith(
       expect.objectContaining({
         executionId: 'workflow.compiler',
+        workflowNodeRunId: 'workflow.compiler~mcp~1',
         tool: { serverId: 'weather', toolName: 'current' },
         arguments: { city: 'Shanghai' },
         signal: expect.any(AbortSignal),
@@ -449,8 +450,10 @@ describe('LangGraph Workflow compiler', () => {
 
   it('resolves the current loop count for every repeated body invocation', async () => {
     const iterations: number[] = [];
+    const nodeRunIds: string[] = [];
     const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
       iterations.push((input.arguments as { iteration: number }).iteration);
+      nodeRunIds.push(input.workflowNodeRunId);
       return Promise.resolve({ ok: true });
     });
     await compileWorkflow(
@@ -490,6 +493,11 @@ describe('LangGraph Workflow compiler', () => {
     ).invoke({}, budget, costs);
 
     expect(iterations).toEqual([1, 2, 3]);
+    expect(nodeRunIds).toEqual([
+      'workflow.compiler~body~1',
+      'workflow.compiler~body~2',
+      'workflow.compiler~body~3',
+    ]);
   });
 
   it('surfaces runtime Schema rejection after dynamic MCP argument resolution', async () => {

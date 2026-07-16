@@ -45,6 +45,7 @@ export interface WorkflowRuntimePorts {
   readonly callMcpTool: (
     input: Readonly<{
       executionId: string;
+      workflowNodeRunId: string;
       tool: ToolReference;
       arguments: unknown;
       signal?: AbortSignal;
@@ -565,7 +566,14 @@ function createNodeAction(
       summary: `${node.type} node started.`,
     };
     try {
-      const update = await executeNode(node, state, definition, ports, context);
+      const update = await executeNode(
+        node,
+        state,
+        definition,
+        ports,
+        context,
+        workflowNodeRunId(state, node.nodeId),
+      );
       const handler = handlers.get(node.nodeId);
       const successRoute =
         handler === undefined || update.routes?.[node.nodeId] !== undefined
@@ -618,6 +626,7 @@ async function executeNode(
     signal?: AbortSignal;
     executionContext: RuntimeExecutionContext;
   }>,
+  workflowNodeRunId: string,
 ): Promise<StateUpdate> {
   const signal =
     runtimeContext.signal === undefined
@@ -647,6 +656,7 @@ async function executeNode(
       const argumentsSnapshot = resolveWorkflowBoundValue(node.arguments, state);
       const value = await ports.callMcpTool({
         executionId: state.executionId,
+        workflowNodeRunId,
         tool: node.tool,
         arguments: argumentsSnapshot,
         signal: callSignal,
@@ -825,6 +835,13 @@ async function executeNode(
       return { outputs: { [node.nodeId]: decision }, routes: { [node.nodeId]: next ?? END } };
     }
   }
+}
+
+function workflowNodeRunId(state: WorkflowExecutionState, nodeId: string): string {
+  const priorRuns = state.events.filter(
+    (event) => event.nodeId === nodeId && event.type === 'node_started',
+  ).length;
+  return `${state.executionId}~${encodeURIComponent(nodeId)}~${String(priorRuns + 1)}`;
 }
 
 function output(nodeId: string, value: unknown): StateUpdate {

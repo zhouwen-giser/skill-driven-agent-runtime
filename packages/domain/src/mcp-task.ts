@@ -16,6 +16,18 @@ export interface InternalToolResult {
 
 export type McpTaskStatus = 'working' | 'input_required' | 'completed' | 'failed' | 'cancelled';
 
+export type RemoteTaskProviderSubstate =
+  'scheduled' | 'queued' | 'running' | 'paused' | 'resuming' | 'stopping';
+
+export interface RemoteTaskProviderObservation {
+  readonly revision: '1.0';
+  readonly remoteRevision?: string;
+  readonly substate?: RemoteTaskProviderSubstate;
+  readonly eventId?: string;
+  readonly observedAt?: string;
+  readonly progress?: Readonly<{ percent: number }>;
+}
+
 export interface RemoteTaskCreated {
   readonly remoteTaskId: string;
   readonly status: McpTaskStatus;
@@ -24,11 +36,12 @@ export interface RemoteTaskCreated {
   readonly lastUpdatedAt: string;
   readonly ttlMs: number | null;
   readonly pollIntervalMs?: number;
+  readonly protocolRevision: string;
+  readonly tasksSchemaRevision: string;
+  readonly providerObservation?: RemoteTaskProviderObservation;
 }
 
-interface RemoteTaskSnapshotBase extends RemoteTaskCreated {
-  readonly protocolRevision: string;
-}
+type RemoteTaskSnapshotBase = RemoteTaskCreated;
 
 export interface WorkingRemoteTaskSnapshot extends RemoteTaskSnapshotBase {
   readonly status: 'working';

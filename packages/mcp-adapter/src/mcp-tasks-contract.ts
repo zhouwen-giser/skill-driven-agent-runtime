@@ -11,6 +11,7 @@ import type {
   InternalToolResult,
   McpInvocationOutcome,
   RemoteTaskCreated,
+  RemoteTaskProviderObservation,
   RemoteTaskSnapshot,
 } from '../../domain/src/index.js';
 
@@ -50,7 +51,16 @@ const taskIdSchema = z
 const timestampSchema = z.iso.datetime({ offset: true });
 const boundedMillisecondsSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const metadataSchema = z.record(z.string().min(1).max(256), z.unknown());
+const providerObservationSchema = z.strictObject({
+  revision: z.literal('1.0'),
+  remoteRevision: z.string().min(1).max(256).optional(),
+  substate: z.enum(['scheduled', 'queued', 'running', 'paused', 'resuming', 'stopping']).optional(),
+  eventId: z.string().min(1).max(256).optional(),
+  observedAt: timestampSchema.optional(),
+  progress: z.strictObject({ percent: z.number().min(0).max(100) }).optional(),
+});
 const taskStatusSchema = z.enum(['working', 'input_required', 'completed', 'failed', 'cancelled']);
+const MCP_TASK_EXECUTION_METADATA_KEY = 'io.sdar/taskExecution';
 
 const taskBaseShape = {
   taskId: taskIdSchema,
@@ -127,10 +137,11 @@ export function createMcpToolCallResultSchema(bridgeNonce: string) {
 
 export function toMcpInvocationOutcome(
   value: z.output<ReturnType<typeof createMcpToolCallResultSchema>>,
+  protocolRevision: string,
 ): McpInvocationOutcome {
   assertBoundedJson(value, 'MCP_TASK_RESPONSE_TOO_LARGE');
   if ('resultType' in value) {
-    return { kind: 'remote_task', task: toRemoteTaskCreated(value) };
+    return { kind: 'remote_task', task: toRemoteTaskCreated(value, protocolRevision) };
   }
   return { kind: 'immediate', result: toInternalToolResult(value) };
 }
@@ -148,6 +159,8 @@ export function toRemoteTaskSnapshot(
     ttlMs: value.ttlMs,
     ...(value.pollIntervalMs === undefined ? {} : { pollIntervalMs: value.pollIntervalMs }),
     protocolRevision,
+    tasksSchemaRevision: MCP_TASKS_SCHEMA_REVISION,
+    ...providerObservationFields(value._meta, value.status === 'input_required'),
   };
   switch (value.status) {
     case 'working':
@@ -188,7 +201,10 @@ export function assertValidInputResponses(
   return parsed.data;
 }
 
-function toRemoteTaskCreated(value: z.output<typeof wireCreatedTaskSchema>): RemoteTaskCreated {
+function toRemoteTaskCreated(
+  value: z.output<typeof wireCreatedTaskSchema>,
+  protocolRevision: string,
+): RemoteTaskCreated {
   return {
     remoteTaskId: value.taskId,
     status: value.status,
@@ -197,6 +213,44 @@ function toRemoteTaskCreated(value: z.output<typeof wireCreatedTaskSchema>): Rem
     lastUpdatedAt: value.lastUpdatedAt,
     ttlMs: value.ttlMs,
     ...(value.pollIntervalMs === undefined ? {} : { pollIntervalMs: value.pollIntervalMs }),
+    protocolRevision,
+    tasksSchemaRevision: MCP_TASKS_SCHEMA_REVISION,
+    ...providerObservationFields(value._meta, false),
+  };
+}
+
+function providerObservationFields(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  requireRemoteRevision: boolean,
+): Readonly<{ providerObservation?: RemoteTaskProviderObservation }> {
+  const raw = metadata?.[MCP_TASK_EXECUTION_METADATA_KEY];
+  if (raw === undefined) {
+    if (requireRemoteRevision) {
+      throw new McpTasksAdapterError(
+        'MCP_TASK_RESPONSE_INVALID',
+        'input_required Task snapshot must carry a stable remote revision.',
+      );
+    }
+    return {};
+  }
+  const parsed = providerObservationSchema.safeParse(raw);
+  if (!parsed.success || (requireRemoteRevision && parsed.data.remoteRevision === undefined)) {
+    throw new McpTasksAdapterError(
+      'MCP_TASK_RESPONSE_INVALID',
+      'Provider Task observation metadata is malformed.',
+    );
+  }
+  return {
+    providerObservation: {
+      revision: parsed.data.revision,
+      ...(parsed.data.remoteRevision === undefined
+        ? {}
+        : { remoteRevision: parsed.data.remoteRevision }),
+      ...(parsed.data.substate === undefined ? {} : { substate: parsed.data.substate }),
+      ...(parsed.data.eventId === undefined ? {} : { eventId: parsed.data.eventId }),
+      ...(parsed.data.observedAt === undefined ? {} : { observedAt: parsed.data.observedAt }),
+      ...(parsed.data.progress === undefined ? {} : { progress: parsed.data.progress }),
+    },
   };
 }
 

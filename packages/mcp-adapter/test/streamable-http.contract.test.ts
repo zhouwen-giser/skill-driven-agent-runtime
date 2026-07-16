@@ -162,6 +162,14 @@ describe('official MCP Streamable HTTP transport', () => {
       task: expect.objectContaining({
         remoteTaskId: 'remote-task-0000000000000001',
         status: 'working',
+        providerObservation: {
+          revision: '1.0',
+          remoteRevision: 'provider-revision-1',
+          substate: 'queued',
+          eventId: 'provider-event-1',
+          observedAt: '2026-07-16T00:00:00.000Z',
+          progress: { percent: 0 },
+        },
       }),
     });
     const remoteTaskId =
@@ -171,6 +179,14 @@ describe('official MCP Streamable HTTP transport', () => {
         remoteTaskId,
         status: 'completed',
         protocolRevision: MCP_TASKS_TESTED_PROTOCOL_REVISION,
+        providerObservation: {
+          revision: '1.0',
+          remoteRevision: 'provider-revision-2',
+          substate: 'stopping',
+          eventId: 'provider-event-2',
+          observedAt: '2026-07-16T00:01:00.000Z',
+          progress: { percent: 100 },
+        },
         result: expect.objectContaining({ structuredContent: { status: 'remote_complete' } }),
       }),
     );
@@ -231,22 +247,24 @@ describe('official MCP Streamable HTTP transport', () => {
     ).rejects.toMatchObject({ code: 'MCP_TASK_CAPABILITY_REQUIRED' });
   });
 
-  it.each(['malformed_task_id', 'unknown_task_status', 'unknown_task_field'])(
-    'fails closed for malformed Task response %s',
-    async (toolName) => {
-      tasksProvider = await startMcpTasksMockProvider();
-      adapter = new StreamableHttpMcpAdapter();
-      await expect(
-        adapter.call({
-          endpoint: tasksProvider.endpoint.toString(),
-          headers: {},
-          toolName,
-          arguments: {},
-          executionContext: { mode: 'live' },
-        }),
-      ).rejects.toMatchObject({ code: 'MCP_TASK_RESPONSE_INVALID' });
-    },
-  );
+  it.each([
+    'malformed_task_id',
+    'unknown_task_status',
+    'unknown_task_field',
+    'malformed_task_metadata',
+  ])('fails closed for malformed Task response %s', async (toolName) => {
+    tasksProvider = await startMcpTasksMockProvider();
+    adapter = new StreamableHttpMcpAdapter();
+    await expect(
+      adapter.call({
+        endpoint: tasksProvider.endpoint.toString(),
+        headers: {},
+        toolName,
+        arguments: {},
+        executionContext: { mode: 'live' },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_RESPONSE_INVALID' });
+  });
 
   it('keeps a synchronous business rejection immediate and creates no remote Task ID', async () => {
     tasksProvider = await startMcpTasksMockProvider();

@@ -123,6 +123,7 @@ function resultForRequest(
           'malformed_task_id',
           'unknown_task_status',
           'unknown_task_field',
+          'malformed_task_metadata',
         ].map((name) => ({ name, inputSchema: { type: 'object', additionalProperties: false } })),
       };
     case 'tools/call':
@@ -136,6 +137,16 @@ function resultForRequest(
         lastUpdatedAt: FIXED_COMPLETED_AT,
         ttlMs: 3_600_000,
         pollIntervalMs: 50,
+        _meta: {
+          'io.sdar/taskExecution': {
+            revision: '1.0',
+            remoteRevision: 'provider-revision-2',
+            substate: 'stopping',
+            eventId: 'provider-event-2',
+            observedAt: FIXED_COMPLETED_AT,
+            progress: { percent: 100 },
+          },
+        },
         result: {
           content: [{ type: 'text', text: 'remote complete' }],
           structuredContent: { status: 'remote_complete' },
@@ -182,6 +193,19 @@ function toolCallResult(
     lastUpdatedAt: FIXED_CREATED_AT,
     ttlMs: 3_600_000,
     pollIntervalMs: 50,
+    _meta: {
+      'io.sdar/taskExecution':
+        name === 'malformed_task_metadata'
+          ? { revision: '2.0', unexpected: true }
+          : {
+              revision: '1.0',
+              remoteRevision: 'provider-revision-1',
+              substate: 'queued',
+              eventId: 'provider-event-1',
+              observedAt: FIXED_CREATED_AT,
+              progress: { percent: 0 },
+            },
+    },
     ...(name === 'unknown_task_field' ? { unexpectedExecutableField: 'reject-me' } : {}),
   };
   return task;

@@ -11,6 +11,10 @@ import type {
   McpInvocationOutcome,
   McpProtocolCapabilities,
   RemoteTaskOperationAck,
+  RemoteTaskBinding,
+  RemoteTaskControlEvent,
+  RemoteTaskObservation,
+  RemoteTaskProtocolAttempt,
   RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
@@ -504,6 +508,127 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
     }>,
   ): Promise<void>;
+}
+
+export type RemoteTaskReadResult =
+  | Readonly<{ kind: 'snapshot'; snapshot: RemoteTaskSnapshot }>
+  | Readonly<{ kind: 'provider_unreachable'; errorCode: string }>
+  | Readonly<{ kind: 'contract_invalid'; errorCode: string }>
+  | Readonly<{ kind: 'provider_protocol'; errorCode: string }>;
+
+export interface RemoteTaskSnapshotReader {
+  readRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskReadResult>;
+}
+
+export type RemoteTaskMutationResult =
+  | Readonly<{ applied: false; reason: 'missing' | 'stale' | 'closed' }>
+  | Readonly<{
+      applied: true;
+      binding: RemoteTaskBinding;
+      snapshotAccepted?: boolean;
+      controlEvent?: RemoteTaskControlEvent;
+    }>;
+
+export type RemoteTaskPollClaimResult =
+  | Readonly<{ claimed: false; reason: 'missing' | 'stale' | 'closed' | 'leased' }>
+  | Readonly<{ claimed: true; binding: RemoteTaskBinding }>;
+
+export interface RemoteTaskRepository {
+  admit(
+    binding: RemoteTaskBinding,
+    acceptedObservationId: string,
+  ): Promise<Readonly<{ binding: RemoteTaskBinding; created: boolean }>>;
+  findById(bindingId: string): Promise<RemoteTaskBinding | undefined>;
+  findByRemoteIdentity(
+    serverId: string,
+    remoteTaskId: string,
+  ): Promise<RemoteTaskBinding | undefined>;
+  listRequiringPoll(
+    now: string,
+    limit: number,
+    afterBindingId?: string,
+  ): Promise<readonly RemoteTaskBinding[]>;
+  claimPoll(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskPollClaimResult>;
+  recordSnapshot(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      snapshot: RemoteTaskSnapshot;
+      observationId: string;
+      controlEventId?: string;
+      resultHash?: string;
+      observedAt: string;
+      nextPollAt?: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  recordProviderFailure(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      nextPollAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  quarantine(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]>;
+  listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]>;
+  listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
+}
+
+export type RemoteTaskPollJobState = 'missing' | 'scheduled' | 'active' | 'completed' | 'failed';
+
+export interface RemoteTaskPollJob {
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+}
+
+export interface RemoteTaskDeadLetter {
+  readonly jobId: string;
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+  readonly failedReason: string;
+  readonly attemptsMade: number;
+}
+
+export interface RemoteTaskPollQueue {
+  enqueue(input: RemoteTaskPollJob, runAt: string): Promise<void>;
+  state(bindingId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
+  listDeadLetters(limit: number): Promise<readonly RemoteTaskDeadLetter[]>;
+  retryDeadLetter(jobId: string): Promise<void>;
+}
+
+export interface ContextSerialGate {
+  run<T>(contextId: string, operation: () => Promise<T>): Promise<T>;
 }
 
 /** Rebuildable protocol representation; AgentTask remains the system of record. */

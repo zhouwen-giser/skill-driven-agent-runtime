@@ -66,7 +66,7 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
           createMcpToolCallResultSchema(session.bridgeNonce),
           input.signal === undefined ? undefined : { signal: input.signal },
         );
-        const outcome = toMcpInvocationOutcome(value);
+        const outcome = toMcpInvocationOutcome(value, session.capabilities.protocolRevision);
         if (outcome.kind === 'remote_task') this.#requireTasksCapability(session);
         return outcome;
       } catch (error: unknown) {

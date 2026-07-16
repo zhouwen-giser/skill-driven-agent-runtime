@@ -19,6 +19,8 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  RemoteTaskPollingService,
+  RemoteTaskReconciler,
   StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
   ModelRuntimeService,
@@ -62,6 +64,7 @@ import {
   type StructuredModelProvider,
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
+  type RemoteTaskPollingOptions,
 } from '../../../packages/application/src/index.js';
 import type {
   McpInvocationOutcome,
@@ -118,10 +121,14 @@ import {
   PostgresTaskInputRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
+  PostgresRemoteTaskRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
+  BullMqRemoteTaskPollQueue,
+  BullMqRemoteTaskPollWorker,
+  ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
 
@@ -144,6 +151,13 @@ export interface ServerRuntimeOptions {
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
   readonly taskAttemptDispatchIntervalMs?: number;
+  readonly v11McpTasks?: Readonly<{
+    /** Phase 2 safety latch: V1.1 migrations may only run in a disposable sdar_v11_* database. */
+    isolationAcknowledged: true;
+    queueName?: string;
+    reconcileIntervalMs?: number;
+    polling?: RemoteTaskPollingOptions;
+  }>;
 }
 
 export interface ServerRuntimeHandle {
@@ -193,7 +207,16 @@ export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
-  if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
+  if (options.applyMigrations === true) {
+    await applyRuntimeMigrations(
+      pool,
+      options.v11McpTasks === undefined
+        ? { profile: 'released' }
+        : { profile: 'v1.1-isolated', isolationAcknowledged: true },
+    );
+  } else if (options.v11McpTasks !== undefined) {
+    await assertV11RuntimeReady(pool);
+  }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
   const tasks = new PostgresAgentTaskRepository(pool);
@@ -209,6 +232,7 @@ export async function startServerRuntime(
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
+  const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
   const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
@@ -394,6 +418,45 @@ export async function startServerRuntime(
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
   });
+  const remoteTaskRepository =
+    options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+  const remoteTaskQueue =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollQueue({
+          connection: options.redis,
+          ...(options.v11McpTasks.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+        });
+  const remoteTaskPolling =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskPollingService({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          reader: mcpRegistry,
+          serial: contextSerial,
+          clock,
+          ids: {
+            nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+            nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+            nextClaimToken: () => `remote-task-claim-${randomUUID()}`,
+            nextProtocolAttemptId: () => `remote-task-protocol-attempt-${randomUUID()}`,
+          },
+          hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
+          ...(options.v11McpTasks?.polling === undefined
+            ? {}
+            : { options: options.v11McpTasks.polling }),
+        });
+  const remoteTaskReconciler =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskReconciler({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          clock,
+        });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
@@ -1078,8 +1141,44 @@ export async function startServerRuntime(
       });
   }, options.taskAttemptDispatchIntervalMs ?? 1000);
   attemptDispatchTimer.unref();
-  const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
+  const worker = new BullMqContextWorker({
+    connection: options.redis,
+    queueName,
+    processor,
+    serial: contextSerial,
+  });
+  const remoteTaskWorker =
+    remoteTaskPolling === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollWorker({
+          connection: options.redis,
+          ...(options.v11McpTasks?.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+          processor: remoteTaskPolling,
+        });
+  let remoteTaskReconcileRunning = false;
+  const remoteTaskReconcileTimer =
+    remoteTaskReconciler === undefined
+      ? undefined
+      : setInterval(() => {
+          if (remoteTaskReconcileRunning) return;
+          remoteTaskReconcileRunning = true;
+          void remoteTaskReconciler
+            .reconcile()
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'remote_task_reconcile.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              remoteTaskReconcileRunning = false;
+            });
+        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+  remoteTaskReconcileTimer?.unref();
+  if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
   worker.start();
+  remoteTaskWorker?.start();
   let management: ManagementHttpEndpointHandle | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
@@ -1220,9 +1319,12 @@ export async function startServerRuntime(
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
+        if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         await a2a.close();
         await startedManagement.close();
+        await remoteTaskWorker?.close();
         await worker.close();
+        await remoteTaskQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await mcpTransport.close();
@@ -1238,9 +1340,12 @@ export async function startServerRuntime(
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
+    if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     await management?.close();
     await mcpTransport.close();
+    await remoteTaskWorker?.close();
     await worker.close();
+    await remoteTaskQueue?.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -1249,6 +1354,16 @@ export async function startServerRuntime(
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  const record = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(',')}}`;
 }
 
 function unwrapMcpInvocationOutcome(outcome: McpInvocationOutcome): unknown {
@@ -1267,19 +1382,41 @@ class RemoteMcpTaskPhaseNotConnectedError extends Error {
   }
 }
 
-export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+export interface RuntimeMigrationOptions {
+  readonly profile?: 'released' | 'v1.1-isolated';
+  readonly isolationAcknowledged?: boolean;
+}
+
+export async function applyRuntimeMigrations(
+  pool: Pool,
+  options: RuntimeMigrationOptions = {},
+): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   )`);
-  const ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const profile = options.profile ?? 'released';
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (profile === 'v1.1-isolated') {
+    if (options.isolationAcknowledged !== true || !/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+      throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+    }
+  }
+  let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  if (
+    profile === 'released' &&
+    ledger.rows.some((row) => Number.parseInt(row.version.slice(0, 4), 10) >= 100)
+  ) {
+    throw new Error('V11_MIGRATION_PROFILE_REQUIRED');
+  }
   const highestAppliedSequence = Math.max(
     0,
     ...ledger.rows
       .map((row) => Number.parseInt(row.version.slice(0, 4), 10))
       .filter(Number.isFinite),
   );
-  for (const name of [
+  const releasedMigrations = [
     '0002_protocol_domain.up.sql',
     '0003_external_task_projection.up.sql',
     '0004_task_request.up.sql',
@@ -1335,7 +1472,8 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0054_skill_call_history.up.sql',
     '0055_task_input_continuation.up.sql',
     '0056_mcp_execution_mode.up.sql',
-  ]) {
+  ] as const;
+  for (const name of releasedMigrations) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;
     const migration = await readFile(
@@ -1344,4 +1482,34 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     );
     await pool.query(migration);
   }
+  if (profile !== 'v1.1-isolated') return;
+  ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const applied = new Set(ledger.rows.map((row) => row.version));
+  // Historical migrations did not all write ledger rows. The released chain's terminal
+  // marker is therefore the authoritative compatibility guard.
+  if (!applied.has('0056_mcp_execution_mode')) {
+    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  }
+  const v11Migration = '0100_remote_mcp_task_tracking.up.sql';
+  if (!applied.has(v11Migration.replace('.up.sql', ''))) {
+    const migration = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'migrations', v11Migration),
+      'utf8',
+    );
+    await pool.query(migration);
+  }
+}
+
+async function assertV11RuntimeReady(pool: Pool): Promise<void> {
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+    throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+  }
+  const ledger = await pool.query<{ present: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM schema_migration WHERE version = '0100_remote_mcp_task_tracking'
+     ) AS present`,
+  );
+  if (ledger.rows[0]?.present !== true) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

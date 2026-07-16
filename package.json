@@ -21,7 +21,7 @@
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:acceptance": "node scripts/verify-acceptance-map.mjs",
-    "verify:migrations": "node scripts/verify-migration-path.mjs",
+    "verify:migrations": "node scripts/verify-migration-path.mjs && node scripts/verify-v11-migration-path.mjs",
     "format": "prettier --no-error-on-unmatched-pattern --write package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "lint": "eslint .",

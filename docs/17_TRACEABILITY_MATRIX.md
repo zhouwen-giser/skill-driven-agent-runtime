@@ -161,30 +161,30 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | --- | --- | --- | --- | --- |
 | FR-MCPT-001 | 1 | 已验证 | `packages/domain/src/mcp-task.ts`; `packages/application/src/ports.ts`; `packages/mcp-adapter/src/{streamable-http-adapter,mcp-tasks-contract,mcp-tasks-transport-bridge}.ts`; ADR-076/081 | `packages/mcp-adapter/test/streamable-http.contract.test.ts`; real official v2 Client/Streamable HTTP modern loopback + official v1 legacy fallback; `pnpm verify:bootstrap`（57 files/283 tests）和 `reports/v1.1-mcp-tasks/01-protocol-adapter.{json,md}` |
 | FR-MCPT-002 | 1 | 已验证 | `packages/domain/src/mcp-task.ts`; `packages/application/src/mcp-registry.ts`; `packages/mcp-adapter/src/mcp-tasks-contract.ts` | `packages/application/test/mcp-registry.unit.test.ts`; `packages/mcp-adapter/test/streamable-http.contract.test.ts`; immediate success、`isError` rejection、remote handle、unknown/malformed fail closed；同上 Phase 1 report |
-| FR-MCPT-003 | 1–2 | 部分验证（Phase 1 Schema） | `packages/domain/src/mcp-task.ts`; `packages/mcp-adapter/src/mcp-tasks-contract.ts`; Phase 2 observation repository pending | 五态 discriminated Schema、status-specific payload 和 unknown status 合约已过；有序 PostgreSQL observation/reduction 尚待 Phase 2 |
-| FR-MCPT-004 | 2 | 未实现 | binding domain/repository/migration 0100+; ADR-077/080 | PG uniqueness/lineage/restart E2E |
-| FR-MCPT-005 | 2 | 未实现 | Redis poll scheduler/worker/reconciler | Redis+PG duplicate/lost/stale job integration |
-| FR-MCPT-006 | 2 | 未实现 | poll failure policy and observations | unreachable/backoff/recovery clock tests |
+| FR-MCPT-003 | 1–2 | 已验证 | `packages/domain/src/{mcp-task,remote-task}.ts`; `packages/mcp-adapter/src/mcp-tasks-contract.ts`; `packages/persistence-postgres/src/remote-task-repository.ts`; migration 0100 | 五态严格 Schema；Provider revision/substate/progress；`apps/server/test/remote-task-runtime.integration.test.ts` 真实 PG 有序观测、旧快照拒绝且不回滚；`pnpm test:integration`；Phase 2 report |
+| FR-MCPT-004 | 2 | 已验证 | `packages/domain/src/remote-task.ts`; `packages/persistence-postgres/src/remote-task-repository.ts`; `infra/postgres/migrations/0100_remote_mcp_task_tracking.*.sql`; ADR-077/082 | 真实 PG 唯一性、local/remote ID、Task/Goal/Context/Plan/Workflow/node-run/invocation/execution-mode 关联和 simulation/replay 保留；`apps/server/test/remote-task-runtime.integration.test.ts`; `pnpm test:integration` |
+| FR-MCPT-005 | 2 | 已验证 | `packages/application/src/remote-task-polling.ts`; `packages/runtime-redis/src/bullmq-remote-task-poll-queue.ts`; `apps/server/src/runtime.ts` | `{bindingId,expectedVersion}` payload、attempts=1、延迟/幂等、dead letter/manual retry、queue-client restart、startup/periodic reconcile、missing/completed/stale/terminal version 归约；application unit + real Redis/PG integration；Phase 2 report |
+| FR-MCPT-006 | 2 | 已验证 | `packages/application/src/{mcp-registry,remote-task-polling}.ts`; `packages/persistence-postgres/src/remote-task-repository.ts` | unreachable 指数退避、状态不变、恢复后继续；contract/protocol invalid quarantine；unit clock/failure tests + real PG/Redis vertical integration；`pnpm test:unit`; `pnpm test:integration` |
 | FR-MCPT-007 | 4 | 未实现 | LangGraph waiting result; continuation snapshot/service; ADR-079 | no-replay/restart/side-effect E2E |
-| FR-MCPT-008 | 2,4 | 未实现 | observation/control state machine | pause/resume/progress/control E2E |
+| FR-MCPT-008 | 2,4 | 部分验证（Phase 2 观测/控制入箱） | `packages/domain/src/remote-task.ts`; `packages/persistence-postgres/src/remote-task-repository.ts`; migration 0100；Phase 4 continuation consumer pending | working substate/progress 仅产生有序 observation；四种非 working 状态原子生成幂等 control；旧/终态响应仅审计；Phase 4 分支解锁尚待实现 |
 | FR-MCPT-009 | 3 | 未实现 | availability client, planner, validator, runtime guard | plan/pre-call/unknown/disabled/restricted tests |
 | FR-MCPT-010 | 3,5 | 未实现 | timing domain and Provider contract; ADR-078 | Schema/deterministic clock/Mock Provider contract |
 | FR-MCPT-011 | 3,5 | 未实现 | restricted risk decision + Provider admission mapping | zero-local-preemption and accept/reject E2E |
 | FR-MCPT-012 | 5 | 未实现 | remote input link; Task input service; `tasks/update` | A2A input to same remote Task E2E |
 | FR-MCPT-013 | 5 | 未实现 | cancel request/ack/observation state | success/unreachable/race contract+E2E |
 | FR-MCPT-014 | 5–6 | 未实现 | management API/OpenAPI/Console real projections/actions | API contract, Console unit/browser E2E, smoke |
-| NFR-MCPT-001 | 1–6 | 部分验证（Phase 1 protocol boundary） | `packages/mcp-adapter/src/mcp-tasks-contract.ts`; `packages/mcp-adapter/src/mcp-tasks-transport-bridge.ts`; `scripts/check-architecture.mjs` | strict top-level Schema、ID/time/integer/JSON bytes/depth/entry/string bounds、unknown field/status、SDK isolation 已过 11 个 adapter contracts 与 architecture gate；持久快照/API 清洗待后续阶段 |
-| NFR-MCPT-002 | 2–6 | 未实现 | context queue + idempotent repositories/controls | concurrent/duplicate/process failure tests |
-| NFR-MCPT-003 | 2,4,6 | 未实现 | PostgreSQL binding/snapshot + Redis reconciler | real process/Redis restart E2E |
-| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1 invocation/protocol） | `packages/application/src/mcp-registry.ts`; `packages/mcp-adapter/src/streamable-http-adapter.ts`; 后续 binding/observation/API/Console pending | invocation 保留 immediate/remote 结构，adapter 暴露实际 protocol/schema revision；完整相关查询和 UI E2E 待 Phase 2–6 |
+| NFR-MCPT-001 | 1–6 | 部分验证（Phase 1–2 protocol/persistence） | adapter 有界 Schema；`packages/persistence-postgres/src/remote-task-repository.ts`; migration 0100；`scripts/check-architecture.mjs` | 严格 wire/metadata Schema、持久 JSON 1 MiB 上限、非明文 credential/session revision、稳定安全错误分类和 SDK 隔离已过；管理 API/Console 清洗待 Phase 5–6 |
+| NFR-MCPT-002 | 2–6 | 部分验证（Phase 2 polling/idempotency） | shared `ContextSerialExecutor`; version/lease CAS repository; attempts=1 BullMQ; idempotent controls | 真实 CAS 竞争仅一 claim；普通/remote Worker 共享同一串行门；poll/control 至少一次收敛、dead letter 不自动重试；Phase 4 control continuation 并发仍待验证 |
+| NFR-MCPT-003 | 2,4,6 | 部分验证（Phase 2 remote wait authority） | PostgreSQL binding/observations/protocol attempts + Redis scheduler/reconciler；ADR-082 | 真实 queue-client restart 与 PostgreSQL startup reconcile、missing/completed Job repair unit、租约过期可重建；普通 running Workflow 仍保持故障失败；Phase 4 continuation/process restart E2E 待实现 |
+| NFR-MCPT-004 | 2–6 | 部分验证（Phase 1–2 protocol/binding trace） | invocation + `RemoteTaskBinding` + ordered observation/control/protocol-attempt tables | Task/Goal/Context/Plan/Workflow/node-run/MCP invocation/execution-mode/protocol revision/耗时已关联并真实查询；continuation、API/Console 和 Skill lineage 待 Phase 4–6 |
 
 | Acceptance | Phase | Status | Planned evidence |
 | --- | --- | --- | --- |
 | AC-MCPT-01 | 1 | 已验证 | real legacy/modern HTTP `sync_success`；application `isError=true` 记录 `failed/MCP_TOOL_BUSINESS_REJECTION` 且无 remote ID；`pnpm test:unit` + `pnpm test:contract`；Phase 1 report |
-| AC-MCPT-02 | 1–2 | 部分验证（Phase 1 protocol） | real modern negotiation、Task handle、exact method/name Headers、get/update/cancel 和 revision 已过；durable binding/trace 待 Phase 2 |
+| AC-MCPT-02 | 1–2 | 部分验证（Phase 1–2 protocol + durable binding） | real modern negotiation、Task handle、exact Headers/get/update/cancel/revision；真实 PG durable binding/trace 已过；Workflow 调用到 admission 的生产接线随 Phase 4 continuation 完成 |
 | AC-MCPT-03 | 1,3 | 部分验证（Phase 1 fallback） | legacy ordinary Tool fallback 与 undeclared Provider Task rejection 已过；DSL `require_task` mismatch 待 Phase 3 |
-| AC-MCPT-04 | 2,4 | 未实现 | working→completed poll/continue/output/terminal |
-| AC-MCPT-05 | 2,4 | 未实现 | pause/resume observation without Graph continuation |
+| AC-MCPT-04 | 2,4 | 部分验证（Phase 2 poll/terminal） | 真实 PG/Redis working/unreachable→completed、结果快照、有序观测、单一 terminal control 已过；continuation/node output 待 Phase 4 |
+| AC-MCPT-05 | 2,4 | 部分验证（Phase 2 observation） | Provider substate/progress 保存为 observation 且不生成控制；pause/resume 到 Graph 零恢复的 Phase 4 E2E 待实现 |
 | AC-MCPT-06 | 5 | 未实现 | A2A input→tasks/update without Goal replan |
 | AC-MCPT-07 | 5 | 未实现 | cancel request/ack/provider-cancelled sequence |
 | AC-MCPT-08 | 5 | 未实现 | unreachable cancellation uncertainty |
@@ -192,7 +192,7 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 | AC-MCPT-10 | 1,5 | 部分验证（Phase 1 rejection） | real `rejected_without_task` 保持 immediate `isError=true`、invocation 非成功且无 remote ID；Workflow structured error handler 待 Phase 5 |
 | AC-MCPT-11 | 3,5 | 未实现 | Provider-reported start-window-missed |
 | AC-MCPT-12 | 3,5 | 未实现 | Provider-reported deadline-reached after isolation |
-| AC-MCPT-13 | 2 | 未实现 | provider unreachable backoff/no fake terminal/recovery |
-| AC-MCPT-14 | 2,4 | 未实现 | PostgreSQL/Redis/process restart without replay |
+| AC-MCPT-13 | 2 | 已验证 | unit deterministic clock + 真实 PG/Redis vertical integration：unreachable observation、bounded backoff、Provider status 不变、零 control、恢复后完成；Phase 2 report（Provider failure behavior simulated） |
+| AC-MCPT-14 | 2,4 | 部分验证（Phase 2 persistence/reconcile） | 真实 queue-client restart 后 Job 保留并继续；PostgreSQL authority、startup reconcile 和 missing/completed repair 已过；process restart continuation/no-side-effect-replay 待 Phase 4 |
 | AC-MCPT-15 | 4 | 未实现 | parallel and child Workflow independent continuation |
 | AC-MCPT-16 | 4–5 | 未实现 | Goal Patch invalidation and late-event audit-only |

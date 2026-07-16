@@ -1,5 +1,12 @@
 # 已知假设、冲突与待验证项
 
+## v1.1 MCP Tasks Phase 2 决策解释
+
+- 2026-07-16：历史 released migration 并非每个文件都写入 `schema_migration`；0100 隔离升级以 released chain 的终点标记 `0056_mcp_execution_mode` 为前置条件，并通过空库、0056 升级、rollback/reapply 和非隔离库 fail-closed 测试证明路径，未伪造缺失 ledger 行。
+- 2026-07-16：现有 `WorkflowPlanRecord` 没有独立 plan version。Binding 保存 `workflowPlanId`、`workflowDefinitionId`、`workflowDefinitionVersion` 和实际 `workflowNodeRunId`，不新增无权威来源的 plan version。
+- 2026-07-16：credential revision 与 session revision 是非秘密引用；Phase 2 fixture 使用稳定测试值。真实凭据仍只存在于加密的 MCP Server 记录，Binding、观测、协议尝试和错误均不保存 Headers、明文凭据或堆栈。
+- 2026-07-16：Phase 2 只实现远程观测和 control inbox 的可靠生产，不消费 control、不恢复 LangGraph、不豁免普通 running/evaluating Workflow。生产 Workflow admission、`waiting_external` 和 continuation 统一在 Phase 4 接线。
+
 ## 必须在 EP-00 验证
 
 1. A2A 规范锁定 1.0.1，但官方 JavaScript SDK 稳定渠道可能仍实现 0.3，1.0 支持可能来自 `@next`。必须锁定版本并做契约测试。
