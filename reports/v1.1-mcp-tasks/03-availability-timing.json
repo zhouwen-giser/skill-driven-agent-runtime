@@ -3,6 +3,7 @@
   "phase": 3,
   "status": "verified_phase_3_increment",
   "branch": "feature/v1.1-mcp-tasks",
+  "phaseCommit": "b205d5da74ba612d48632575cce767e0836a00ba",
   "hardeningBaseline": {
     "tag": "v1.0.13-bug-fixed",
     "commit": "91cd58d",

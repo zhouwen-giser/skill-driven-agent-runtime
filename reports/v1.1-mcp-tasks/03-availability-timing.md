@@ -2,6 +2,8 @@
 
 Status: **Phase 3 increment verified after hardening convergence**. This report does not claim Phase 4–6 or final v1.1 acceptance.
 
+Published Phase commit: `b205d5da74ba612d48632575cce767e0836a00ba` (`feat(v1.1): validate task availability and time windows`).
+
 ## Intended increment
 
 - Domain-owned Task execution timing, operation availability, readiness, structured risk decisions and deterministic admission guards remain isolated from MCP wire types.
@@ -45,4 +47,4 @@ The pre-convergence focused results recorded in `execplans/EP-09-v1.1-mcp-tasks.
 
 - Verified scope: FR-MCPT-009, the Phase 3 portions of FR-MCPT-010/011, NFR-MCPT-001/004, AC-MCPT-03 and the readiness/confirmation portion of AC-MCPT-09.
 - Unverified scope: Phase 4 external-wait continuation, Phase 5 input/cancellation and Provider business outcomes, Phase 6 final acceptance, external production Provider interoperability.
-- The machine summary truthfully records `dirty=true` because verification ran before the Phase commit. Publication SHA is recorded by the post-commit evidence update.
+- The machine summary truthfully records `dirty=true` because verification ran before the Phase commit; this report records the subsequently pushed publication SHA.
