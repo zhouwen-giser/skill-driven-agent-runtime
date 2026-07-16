@@ -87,6 +87,7 @@ export class SkillCallWorkflowService {
       executionContext?: RuntimeExecutionContext;
     }>,
   ): Promise<SkillCallExecutionResult> {
+    await this.#assertParentCompositionAuthority(input.parentPlanId, input.skillId);
     const skill = await this.#skills.findCurrentVersion(input.skillId);
     if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
     const inputValidation = this.#schemas.validate(skill.inputSchema, input.value);
@@ -300,6 +301,7 @@ export class SkillCallWorkflowService {
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
       goalContract: parentPlan.goalContract,
+      compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
       planningInstruction: childPlanningInstruction(
         skill,
         input.value,
@@ -423,13 +425,34 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_CHILD_PLAN_INVALID',
         'Child Workflow planner returned no executable definition.',
       );
-    const validation = await this.#validator.validate(plan.definition);
+    const validation = await this.#validator.validate(plan.definition, {
+      enforceSkillComposition:
+        plan.compositionContext !== undefined || plan.capabilityGapSkillIds !== undefined,
+      allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
+      capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
+    });
     if (!validation.valid || validation.definition === undefined)
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CHILD_PLAN_INVALID',
         `Child Workflow failed validation: ${validation.errors.map((error) => `${error.code} at ${error.path}`).join('; ')}`,
       );
     return validation.definition;
+  }
+
+  async #assertParentCompositionAuthority(parentPlanId: string, skillId: string): Promise<void> {
+    const plan = await this.#plans.findPlan(parentPlanId);
+    const enforced =
+      plan?.compositionContext !== undefined || plan?.capabilityGapSkillIds !== undefined;
+    if (
+      plan === undefined ||
+      (enforced &&
+        !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
+        !plan.capabilityGapSkillIds?.includes(skillId))
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+        `Skill ${skillId} is not authorized by the immutable parent composition context.`,
+      );
   }
 }
 
@@ -571,6 +594,7 @@ export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
   | 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE'
+  | 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION'
   | 'WORKFLOW_SKILL_RECURSION_INVALID'
   | 'WORKFLOW_SKILL_DEPTH_EXCEEDED';
 

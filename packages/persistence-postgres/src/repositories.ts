@@ -100,6 +100,7 @@ import type {
   GoalTransitionRecord,
   ImplicitFeedbackRecord,
   Skill,
+  SkillCompositionContext,
   SkillRelation,
   SkillPerformanceMetrics,
   SkillQualityObservation,
@@ -209,6 +210,49 @@ const RuntimePolicySchema = z.object({
   cancelStrategy: z.enum(['wait_current', 'try_interrupt', 'cleanup_workflow']).optional(),
   compensationGuidance: z.string().optional(),
 });
+const SkillVersionSnapshotSchema = z
+  .object({
+    skillId: z.string(),
+    version: z.number().int().positive(),
+    name: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    capabilities: z.array(z.string()),
+    workflowGuidance: z.string(),
+    outputInstruction: z.string(),
+    inputSchema: z.unknown(),
+    outputSchema: z.unknown(),
+    toolPolicy: ToolPolicySchema,
+    runtimePolicy: RuntimePolicySchema,
+    createdAt: z.string(),
+  })
+  .strict();
+const SkillRelationSchema = z
+  .object({
+    relationId: z.string(),
+    sourceSkillId: z.string(),
+    targetSkillId: z.string(),
+    relationType: z.enum([
+      'parent_child',
+      'depends_on',
+      'input_output_match',
+      'alternative',
+      'composition',
+      'capability_coverage',
+    ]),
+    metadata: z.record(z.string(), z.unknown()),
+    createdAt: z.string(),
+  })
+  .strict();
+const SkillCompositionContextSchema = z
+  .object({
+    selectedSkill: SkillVersionSnapshotSchema,
+    relatedSkills: z.array(SkillVersionSnapshotSchema),
+    relations: z.array(SkillRelationSchema),
+    allowedChildSkillIds: z.array(z.string()),
+    decisionSummary: z.string(),
+  })
+  .strict();
 const StringArraySchema = z.array(z.string());
 const McpEnhancementSchema = z.object({
   purpose: z.string(),
@@ -3914,6 +3958,8 @@ interface WorkflowPlanRow extends QueryResultRow {
   goal_id: string;
   goal_version: number;
   goal_contract_json: unknown;
+  composition_context_json: unknown;
+  capability_gap_skill_ids_json: unknown;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
   source_plan_id: string | null;
@@ -4097,6 +4143,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       goalId: row.goal_id,
       goalVersion: row.goal_version,
       goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+      ...mapWorkflowPlanCompositionAuthority(row),
       ...(row.definition_json === null
         ? {}
         : {
@@ -4146,11 +4193,17 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan_attempt(plan_id,goal_contract_json,attempt,candidate_json,validation_errors_json,valid,created_at)
-       VALUES($1,$2::jsonb,$3,$4::jsonb,$5::jsonb,$6,$7)`,
+      `INSERT INTO workflow_plan_attempt
+         (plan_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
+          attempt,candidate_json,validation_errors_json,valid,created_at)
+       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7::jsonb,$8,$9)`,
       [
         attempt.planId,
         JSON.stringify(attempt.goalContract),
+        attempt.compositionContext === undefined
+          ? null
+          : JSON.stringify(attempt.compositionContext),
+        JSON.stringify(attempt.capabilityGapSkillIds ?? []),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -4161,13 +4214,18 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,goal_contract_json,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO workflow_plan
+         (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+          capability_gap_skill_ids_json,definition_json,source_confirmed_plan_id,source_plan_id,
+          revision_kind,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13)`,
       [
         plan.planId,
         plan.goalId,
         plan.goalVersion,
         JSON.stringify(plan.goalContract),
+        plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+        JSON.stringify(plan.capabilityGapSkillIds ?? []),
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
@@ -4189,13 +4247,18 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       );
       if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
       await client.query(
-        `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,goal_contract_json,definition_json,source_confirmed_plan_id,source_plan_id,revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+        `INSERT INTO workflow_plan
+           (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+            capability_gap_skill_ids_json,definition_json,source_confirmed_plan_id,source_plan_id,
+            revision_kind,confirmation_status,attempt_count,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13)`,
         [
           plan.planId,
           plan.goalId,
           plan.goalVersion,
           JSON.stringify(plan.goalContract),
+          plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+          JSON.stringify(plan.capabilityGapSkillIds ?? []),
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
@@ -4858,6 +4921,7 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     goalId: row.goal_id,
     goalVersion: row.goal_version,
     goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+    ...mapWorkflowPlanCompositionAuthority(row),
     ...(row.definition_json === null
       ? {}
       : {
@@ -4875,6 +4939,22 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.confirmed_at === null ? {} : { confirmedAt: toIsoString(row.confirmed_at) }),
     attemptCount: row.attempt_count,
     createdAt: toIsoString(row.created_at),
+  };
+}
+
+function mapWorkflowPlanCompositionAuthority(
+  row: WorkflowPlanRow,
+): Pick<WorkflowPlanRecord, 'compositionContext' | 'capabilityGapSkillIds'> {
+  const capabilityGapSkillIds = StringArraySchema.parse(row.capability_gap_skill_ids_json);
+  return {
+    ...(row.composition_context_json === null
+      ? {}
+      : {
+          compositionContext: SkillCompositionContextSchema.parse(
+            row.composition_context_json,
+          ) as SkillCompositionContext,
+        }),
+    ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
   };
 }
 

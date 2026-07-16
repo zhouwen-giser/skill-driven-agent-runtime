@@ -265,6 +265,12 @@ export class WorkflowControllerService {
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
       supersedeSourcePlan: true,
+      ...(sourcePlan.compositionContext === undefined
+        ? {}
+        : { compositionContext: sourcePlan.compositionContext }),
+      ...(sourcePlan.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
       planningInstruction: JSON.stringify({
         operation: 'workflow_control_continue_after_input',
         workflowIdentity: {
@@ -547,6 +553,21 @@ export class WorkflowControllerService {
         sourcePlanId: plan.planId,
         revisionKind: 'replan',
         supersedeSourcePlan: true,
+        ...(replacement === undefined
+          ? {
+              ...(plan.compositionContext === undefined
+                ? {}
+                : { compositionContext: plan.compositionContext }),
+              ...(plan.capabilityGapSkillIds === undefined
+                ? {}
+                : { capabilityGapSkillIds: plan.capabilityGapSkillIds }),
+            }
+          : {
+              compositionRoot: {
+                skillId: replacement.skillId,
+                skillVersion: replacement.skillVersion,
+              },
+            }),
         planningInstruction: JSON.stringify({
           operation: 'workflow_control_replan',
           workflowIdentity: {

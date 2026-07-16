@@ -1,4 +1,5 @@
 import type { GoalExecutionContract } from './goal.js';
+import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
 import type {
   WorkflowBudgetLimits,
@@ -104,6 +105,8 @@ export interface WorkflowDefinition {
 export interface WorkflowPlanAttempt {
   readonly planId: string;
   readonly goalContract: GoalExecutionContract;
+  readonly compositionContext?: SkillCompositionContext;
+  readonly capabilityGapSkillIds?: readonly string[];
   readonly attempt: number;
   readonly candidate: unknown;
   readonly validationErrors: readonly Readonly<{ code: string; path: string; message: string }>[];
@@ -116,6 +119,8 @@ export interface WorkflowPlanRecord {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly goalContract: GoalExecutionContract;
+  readonly compositionContext?: SkillCompositionContext;
+  readonly capabilityGapSkillIds?: readonly string[];
   readonly definition?: WorkflowDefinition;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;

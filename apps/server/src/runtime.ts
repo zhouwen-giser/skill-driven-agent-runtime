@@ -24,6 +24,7 @@ import {
   ModelRuntimeService,
   PromptService,
   SkillGraphService,
+  SkillCompositionPlanner,
   SkillAuthoringService,
   SkillSelectionService,
   SkillInputResolutionService,
@@ -272,6 +273,10 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const schemaValidator = new AjvJsonSchemaValidator();
+  const skillComposition = new SkillCompositionPlanner({
+    skills,
+    graph: skillGraphRepository,
+  });
   const workflowValidator = new WorkflowValidator({
     tools: mcpRepository,
     skills,
@@ -304,6 +309,7 @@ export async function startServerRuntime(
     workflowSchema,
     clock,
     maxAttempts: 3,
+    composition: skillComposition,
     templates: workflowTemplates,
     memories,
   });
@@ -1103,6 +1109,14 @@ export async function startServerRuntime(
           goalId: input.goalId,
           goalVersion: input.goalVersion,
           goalContract: input.goalContract,
+          ...(skill === undefined
+            ? {}
+            : {
+                compositionRoot: {
+                  skillId: skill.skillId,
+                  skillVersion: skill.version,
+                },
+              }),
           templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
@@ -1497,6 +1511,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0059_skill_input_resolution.up.sql',
     '0060_task_skill_input_resolution_binding.up.sql',
     '0061_goal_execution_contract.up.sql',
+    '0062_skill_composition_context.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

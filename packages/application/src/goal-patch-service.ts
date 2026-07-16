@@ -185,6 +185,12 @@ export class GoalPatchService {
       }),
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
+      ...(sourcePlan.compositionContext === undefined
+        ? {}
+        : { compositionContext: sourcePlan.compositionContext }),
+      ...(sourcePlan.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
     });
     return this.get(patch.patchId);
   }

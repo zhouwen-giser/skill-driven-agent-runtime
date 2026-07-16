@@ -121,7 +121,15 @@ describe('SkillCallWorkflowService', () => {
         }),
       ],
     });
-    expect(validator.validate).toHaveBeenCalledWith(definition);
+    expect(planningCall.compositionRoot).toEqual({
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+    });
+    expect(validator.validate).toHaveBeenCalledWith(definition, {
+      enforceSkillComposition: false,
+      allowedChildSkillIds: [],
+      capabilityGapSkillIds: [],
+    });
     expect(confirm).toHaveBeenCalledWith(plan.planId);
     expect(execute).toHaveBeenCalledWith({
       instanceId: 'instance-skill-call-id-1',
@@ -161,6 +169,27 @@ describe('SkillCallWorkflowService', () => {
     expect(harness.plan).not.toHaveBeenCalled();
     expect(harness.execute).not.toHaveBeenCalled();
     expect(harness.saveRecord).not.toHaveBeenCalled();
+  });
+
+  it('rejects a child Skill outside the immutable parent composition authority', async () => {
+    const unauthorizedParent: WorkflowPlanRecord = {
+      ...childPlan(childDefinition('skill.other', 1)),
+      planId: 'plan-parent',
+      compositionContext: {
+        selectedSkill: skillSnapshot('skill.root', 1),
+        relatedSkills: [skillSnapshot('skill.other', 1)],
+        relations: [],
+        allowedChildSkillIds: ['skill.other'],
+        decisionSummary: 'Only skill.other is admitted.',
+      },
+    };
+    const harness = serviceHarness({ parentPlan: unauthorizedParent });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION' });
+    expect(harness.plan).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
   });
 
   it('rejects invalid child output and records the failed Skill evaluation', async () => {
@@ -386,6 +415,7 @@ function serviceHarness(
     child?: WorkflowInstance;
     autoConfirm?: boolean;
     parent?: WorkflowInstance;
+    parentPlan?: WorkflowPlanRecord;
   }> = {},
 ) {
   const skill = childSkill(options.autoConfirm ?? true);
@@ -437,7 +467,12 @@ function serviceHarness(
         findActiveByPlanId: () => Promise.resolve(currentParent),
         resumeHumanConfirmation,
       },
-      plans: { findPlan: () => Promise.resolve(currentPlan) },
+      plans: {
+        findPlan: (planId: string) =>
+          Promise.resolve(
+            planId === 'plan-parent' ? (options.parentPlan ?? currentPlan) : currentPlan,
+          ),
+      },
       confirmation: {
         evaluate: () =>
           Promise.resolve({
@@ -489,6 +524,24 @@ function childSkill(autoConfirmPlan = true) {
     validationPassed: true,
     createdAt: '2026-07-12T00:00:00.000Z',
   });
+}
+
+function skillSnapshot(skillId: string, version: number) {
+  return {
+    skillId,
+    version,
+    name: skillId,
+    summary: skillId,
+    description: skillId,
+    capabilities: [skillId],
+    workflowGuidance: `Use ${skillId}.`,
+    outputInstruction: 'Return a result.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    createdAt: '2026-07-12T00:00:00.000Z',
+  };
 }
 
 function childDefinition(skillId: string, version: number): WorkflowDefinition {

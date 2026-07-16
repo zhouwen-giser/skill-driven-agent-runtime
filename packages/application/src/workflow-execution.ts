@@ -130,7 +130,17 @@ export class WorkflowExecutionService {
         'WORKFLOW_PLAN_NOT_CONFIRMED',
         'Only a confirmed plan with a validated definition may execute.',
       );
-    const validation = await this.#validator.validate(plan.definition);
+    const validation = await this.#validator.validate(
+      plan.definition,
+      compositionValidationContext(plan),
+    );
+    if (
+      validation.errors.some((error) => error.code === 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION')
+    )
+      throw new WorkflowExecutionError(
+        'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+        'Persisted plan contains a Skill call outside its immutable composition authority.',
+      );
     if (!validation.valid || validation.definition === undefined)
       throw new WorkflowExecutionError(
         'WORKFLOW_PLAN_REVALIDATION_FAILED',
@@ -545,6 +555,7 @@ export type WorkflowExecutionErrorCode =
   | 'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE'
   | 'WORKFLOW_EXECUTION_CONTROL_TIMEOUT'
   | 'WORKFLOW_SKILL_NOT_ENABLED'
+  | 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION'
   | 'WORKFLOW_SKILL_TOOL_POLICY_VIOLATION';
 export class WorkflowExecutionError extends Error {
   readonly code: WorkflowExecutionErrorCode;
@@ -553,4 +564,13 @@ export class WorkflowExecutionError extends Error {
     this.name = 'WorkflowExecutionError';
     this.code = code;
   }
+}
+
+function compositionValidationContext(plan: WorkflowPlanRecord) {
+  return {
+    enforceSkillComposition:
+      plan.compositionContext !== undefined || plan.capabilityGapSkillIds !== undefined,
+    allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
+    capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
+  } as const;
 }

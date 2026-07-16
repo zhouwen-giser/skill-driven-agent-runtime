@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  WorkflowDefinition,
-  WorkflowPlanAttempt,
-  WorkflowPlanRecord,
+import {
+  snapshotSkillVersion,
+  type SkillCompositionContext,
+  type SkillVersion,
+  type WorkflowDefinition,
+  type WorkflowPlanAttempt,
+  type WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   WorkflowPlannerService,
   WorkflowValidator,
+  type SkillRepository,
   type StructuredModelProvider,
   type WorkflowPlanRepository,
 } from '../src/index.js';
@@ -240,6 +244,59 @@ describe('WorkflowPlannerService', () => {
     expect(basic.definition?.nodes).not.toEqual(detailed.definition?.nodes);
     expect(detailed.goalContract).toEqual(detailedContract);
   });
+
+  it('offers only persisted graph-admitted children and audits the composition decision', async () => {
+    const repository = new MemoryPlanRepository();
+    const child = compositionSkill('skill.child');
+    const definition = skillCallDefinition(child.skillId);
+    const model = new SequenceModel([definition]);
+    const context = compositionContext(child);
+
+    const planned = await planner(
+      repository,
+      model,
+      undefined,
+      undefined,
+      skillRepository(child),
+    ).plan({ ...input(), compositionContext: context });
+
+    expect(planned.compositionContext).toEqual(context);
+    expect(repository.attempts[0]?.compositionContext).toEqual(context);
+    expect(JSON.parse(model.calls[0]?.instruction ?? '{}')).toMatchObject({
+      skillCompositionContext: {
+        allowedChildSkillIds: [child.skillId],
+        decisionSummary: context.decisionSummary,
+      },
+    });
+  });
+
+  it('rejects an unrelated skill_call and permits an explicit capability-gap target', async () => {
+    const child = compositionSkill('skill.unrelated');
+    const definition = skillCallDefinition(child.skillId);
+    const deniedRepository = new MemoryPlanRepository();
+    await expect(
+      planner(
+        deniedRepository,
+        new SequenceModel([definition, definition]),
+        undefined,
+        undefined,
+        skillRepository(child),
+      ).plan(input()),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_PLANNING_FAILED' });
+    expect(deniedRepository.attempts[0]?.validationErrors).toContainEqual(
+      expect.objectContaining({ code: 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION' }),
+    );
+
+    await expect(
+      planner(
+        new MemoryPlanRepository(),
+        new SequenceModel([definition]),
+        undefined,
+        undefined,
+        skillRepository(child),
+      ).plan({ ...input(), capabilityGapSkillIds: [child.skillId] }),
+    ).resolves.toMatchObject({ capabilityGapSkillIds: [child.skillId] });
+  });
 });
 
 function planner(
@@ -247,6 +304,7 @@ function planner(
   model: StructuredModelProvider,
   templates?: ConstructorParameters<typeof WorkflowPlannerService>[0]['templates'],
   memories?: ConstructorParameters<typeof WorkflowPlannerService>[0]['memories'],
+  skills: SkillRepository = emptySkills(),
 ) {
   return new WorkflowPlannerService({
     model,
@@ -261,10 +319,81 @@ function planner(
         exists: () => Promise.resolve(false),
         getInputSchema: () => Promise.resolve(undefined),
       },
-      skills: emptySkills(),
+      skills,
       schemas: new AjvJsonSchemaValidator(),
     }),
   });
+}
+
+function compositionContext(child: SkillVersion): SkillCompositionContext {
+  const selected = compositionSkill('skill.parent');
+  return {
+    selectedSkill: snapshotSkillVersion(selected),
+    relatedSkills: [snapshotSkillVersion(child)],
+    relations: [
+      {
+        relationId: 'relation-composition',
+        sourceSkillId: selected.skillId,
+        targetSkillId: child.skillId,
+        relationType: 'composition',
+        metadata: {},
+        createdAt: '2026-07-12T00:00:00.000Z',
+      },
+    ],
+    allowedChildSkillIds: [child.skillId],
+    decisionSummary:
+      'The graph admitted one compatible child; the model decides whether to call it.',
+  };
+}
+
+function skillCallDefinition(skillId: string): WorkflowDefinition {
+  return validDefinition({
+    entryNodeId: 'child',
+    nodes: [
+      { nodeId: 'child', name: 'Child', type: 'skill_call', skillId, input: {} },
+      {
+        nodeId: 'result',
+        name: 'Result',
+        type: 'result',
+        value: { op: 'literal', value: true },
+      },
+    ],
+    edges: [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+  });
+}
+
+function compositionSkill(skillId: string): SkillVersion {
+  return {
+    skillId,
+    version: 1,
+    name: skillId,
+    summary: skillId,
+    description: skillId,
+    capabilities: [skillId],
+    workflowGuidance: 'Use when admitted.',
+    outputInstruction: 'Return JSON.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    createdAt: '2026-07-12T00:00:00.000Z',
+  };
+}
+
+function skillRepository(skill: SkillVersion): SkillRepository {
+  return {
+    find: () => Promise.resolve(undefined),
+    findCurrentVersion: (skillId) => Promise.resolve(skillId === skill.skillId ? skill : undefined),
+    findVersion: (skillId, version) =>
+      Promise.resolve(skillId === skill.skillId && version === skill.version ? skill : undefined),
+    listVersions: () => Promise.resolve([]),
+    listEnabledVersions: () => Promise.resolve([skill]),
+    listCurrentVersions: () => Promise.resolve([skill]),
+    saveVersionAndSetCurrent: () => Promise.resolve(),
+  };
 }
 function input() {
   return {

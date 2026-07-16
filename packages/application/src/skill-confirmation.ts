@@ -2,7 +2,13 @@ import type { SkillVersion, WorkflowDefinition } from '../../domain/src/index.js
 
 import type { SkillGraphRepository, SkillRepository } from './ports.js';
 
-const TRANSITIVE_EXECUTION_RELATIONS = new Set(['parent_child', 'depends_on', 'composition']);
+const TRANSITIVE_EXECUTION_RELATIONS = new Set([
+  'parent_child',
+  'depends_on',
+  'input_output_match',
+  'composition',
+  'capability_coverage',
+]);
 
 export interface SkillConfirmationEvaluation {
   readonly autoConfirm: boolean;

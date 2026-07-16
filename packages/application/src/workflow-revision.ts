@@ -51,6 +51,12 @@ export class WorkflowRevisionService {
       sourcePlanId: source.planId,
       revisionKind: 'natural_language',
       supersedeSourcePlan: true,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
     });
   }
 
@@ -65,7 +71,12 @@ export class WorkflowRevisionService {
     const source = await this.#requireActiveSource(input.sourcePlanId);
     const sourceDefinition = source.definition;
     if (sourceDefinition === undefined) throw new Error('WORKFLOW_REVISION_DEFINITION_MISSING');
-    const validation = await this.#validator.validate(input.definition);
+    const validation = await this.#validator.validate(input.definition, {
+      enforceSkillComposition:
+        source.compositionContext !== undefined || source.capabilityGapSkillIds !== undefined,
+      allowedChildSkillIds: source.compositionContext?.allowedChildSkillIds ?? [],
+      capabilityGapSkillIds: source.capabilityGapSkillIds ?? [],
+    });
     if (!validation.valid || validation.definition === undefined)
       throw new WorkflowRevisionError(
         'WORKFLOW_REVISION_INVALID',
@@ -80,6 +91,12 @@ export class WorkflowRevisionService {
       goalId: source.goalId,
       goalVersion: source.goalVersion,
       goalContract,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
       definition: validation.definition,
       sourcePlanId: source.planId,
       revisionKind: input.format === 'dsl' ? 'admin_dsl' : 'admin_dag',
@@ -90,6 +107,12 @@ export class WorkflowRevisionService {
     await this.#plans.saveAttempt({
       planId: plan.planId,
       goalContract,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
       attempt: 1,
       candidate: input.definition,
       validationErrors: [],

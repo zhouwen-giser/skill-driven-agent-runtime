@@ -281,6 +281,13 @@ const PlanWorkflowSchema = z.object({
   goalVersion: z.number().int().positive(),
   goalContract: GoalExecutionContractSchema,
   planningInstruction: z.string().min(1),
+  compositionRoot: z
+    .object({
+      skillId: z.string().min(1),
+      skillVersion: z.number().int().positive(),
+    })
+    .strict()
+    .optional(),
   sourceConfirmedPlanId: z.string().min(1).optional(),
 });
 const ExecuteWorkflowSchema = z.object({
@@ -882,6 +889,9 @@ export async function startManagementHttpEndpoint(
           goalVersion: input.goalVersion,
           goalContract: input.goalContract,
           planningInstruction: input.planningInstruction,
+          ...(input.compositionRoot === undefined
+            ? {}
+            : { compositionRoot: input.compositionRoot }),
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
             : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),

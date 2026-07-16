@@ -70,15 +70,64 @@ function testGoalContract(goalId: string, version = 1) {
   } as const;
 }
 
+function testCompositionContext() {
+  const skillSnapshot = (skillId: string, version: number) => ({
+    skillId,
+    version,
+    name: skillId,
+    summary: `Summary for ${skillId}.`,
+    description: `Description for ${skillId}.`,
+    capabilities: [`capability:${skillId}`],
+    workflowGuidance: `Use ${skillId}.`,
+    outputInstruction: 'Return a verified result.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    createdAt: '2026-07-12T00:00:00.000Z',
+  });
+  return {
+    selectedSkill: skillSnapshot('skill.root.db', 2),
+    relatedSkills: [skillSnapshot('skill.child.db', 3)],
+    relations: [
+      {
+        relationId: 'relation.composition.db',
+        sourceSkillId: 'skill.root.db',
+        targetSkillId: 'skill.child.db',
+        relationType: 'composition' as const,
+        metadata: { reason: 'verified schema bridge' },
+        createdAt: '2026-07-12T00:00:01.000Z',
+      },
+    ],
+    allowedChildSkillIds: ['skill.child.db'],
+    decisionSummary: 'Bounded composition context for persistence verification.',
+  };
+}
+
 beforeAll(async () => {
   const ledger = await pool.query<{ exists: boolean }>(
     "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const goalExecutionContract = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
+    );
+    if (goalExecutionContract.rows[0]?.applied === true) {
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      return;
+    }
     const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
     );
@@ -87,6 +136,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -110,6 +168,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -142,6 +209,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -182,6 +258,15 @@ beforeAll(async () => {
         await readFile(
           new URL(
             '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
             import.meta.url,
           ),
           'utf8',
@@ -235,6 +320,15 @@ beforeAll(async () => {
           'utf8',
         ),
       );
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -249,6 +343,7 @@ beforeAll(async () => {
         '0059_skill_input_resolution.up.sql',
         '0060_task_skill_input_resolution_binding.up.sql',
         '0061_goal_execution_contract.up.sql',
+        '0062_skill_composition_context.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -619,6 +714,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(goalExecutionContractMigration);
+  const skillCompositionContextMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(skillCompositionContextMigration);
 });
 
 beforeEach(async () => {
@@ -871,6 +974,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await repository.saveAttempt({
       planId: 'plan.db',
       goalContract: testGoalContract('goal.db'),
+      compositionContext: testCompositionContext(),
+      capabilityGapSkillIds: ['skill.gap.db'],
       attempt: 1,
       candidate: { invalid: true },
       validationErrors: [{ code: 'INVALID', path: 'nodes', message: 'Invalid.' }],
@@ -880,6 +985,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await repository.saveAttempt({
       planId: 'plan.db',
       goalContract: testGoalContract('goal.db'),
+      compositionContext: testCompositionContext(),
+      capabilityGapSkillIds: ['skill.gap.db'],
       attempt: 2,
       candidate: definition,
       validationErrors: [],
@@ -891,6 +998,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       goalId: 'goal.db',
       goalVersion: 1,
       goalContract: testGoalContract('goal.db'),
+      compositionContext: testCompositionContext(),
+      capabilityGapSkillIds: ['skill.gap.db'],
       definition,
       confirmationStatus: 'awaiting_confirmation',
       attemptCount: 2,
@@ -900,13 +1009,22 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect.objectContaining({
         definition,
         goalContract: testGoalContract('goal.db'),
+        compositionContext: testCompositionContext(),
+        capabilityGapSkillIds: ['skill.gap.db'],
         attemptCount: 2,
         confirmationStatus: 'awaiting_confirmation',
       }),
     );
-    const attempts = await pool.query<{ count: number; contracts: unknown[] }>(
+    const attempts = await pool.query<{
+      count: number;
+      contracts: unknown[];
+      compositionContexts: unknown[];
+      capabilityGaps: unknown[];
+    }>(
       `SELECT COUNT(*)::int count,
-              jsonb_agg(goal_contract_json ORDER BY attempt) contracts
+              jsonb_agg(goal_contract_json ORDER BY attempt) contracts,
+              jsonb_agg(composition_context_json ORDER BY attempt) "compositionContexts",
+              jsonb_agg(capability_gap_skill_ids_json ORDER BY attempt) "capabilityGaps"
        FROM workflow_plan_attempt WHERE plan_id=$1`,
       ['plan.db'],
     );
@@ -915,6 +1033,17 @@ describe('PostgreSQL protocol-domain repositories', () => {
       testGoalContract('goal.db'),
       testGoalContract('goal.db'),
     ]);
+    expect(attempts.rows[0]?.compositionContexts).toEqual([
+      testCompositionContext(),
+      testCompositionContext(),
+    ]);
+    expect(attempts.rows[0]?.capabilityGaps).toEqual([['skill.gap.db'], ['skill.gap.db']]);
+    await expect(
+      pool.query(
+        `UPDATE workflow_plan SET capability_gap_skill_ids_json='{}'::jsonb WHERE plan_id=$1`,
+        ['plan.db'],
+      ),
+    ).rejects.toMatchObject({ constraint: 'workflow_plan_capability_gap_array_check' });
     await expect(
       repository.savePlan({
         planId: 'plan.invalid-contract.db',
@@ -3984,6 +4113,40 @@ describe('PostgreSQL protocol-domain repositories', () => {
               AND column_name='terminal_outcome_id')`,
     );
     expect(restored.rows[0]?.count).toBe('3');
+  });
+
+  it('rolls back and reapplies Skill composition planning authority', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0062_skill_composition_context.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ count: number }>(
+        `SELECT count(*)::integer count FROM information_schema.columns
+         WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json')
+           AND table_name IN ('workflow_plan','workflow_plan_attempt')`,
+      );
+      expect(removed.rows[0]?.count).toBe(0);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer count FROM information_schema.columns
+       WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json')
+         AND table_name IN ('workflow_plan','workflow_plan_attempt')`,
+    );
+    expect(restored.rows[0]?.count).toBe(4);
   });
 
   it('rolls back and reapplies the Goal execution contract snapshots', async () => {

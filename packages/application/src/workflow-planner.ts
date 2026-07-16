@@ -2,7 +2,9 @@ import {
   assertGoalExecutionContractIdentity,
   goalExecutionContractsEqual,
   snapshotGoalExecutionContract,
+  snapshotSkillCompositionContext,
   type GoalExecutionContract,
+  type SkillCompositionContext,
   type WorkflowPlanAttempt,
   type WorkflowPlanRecord,
 } from '../../domain/src/index.js';
@@ -10,6 +12,7 @@ import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './p
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
 import type { WorkflowTemplateService } from './workflow-template.js';
 import type { MemoryService } from './memory-service.js';
+import type { SkillCompositionPlanner, SkillCompositionRoot } from './skill-composition.js';
 
 export interface PlanWorkflowInput {
   readonly planId: string;
@@ -18,6 +21,9 @@ export interface PlanWorkflowInput {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly goalContract: GoalExecutionContract;
+  readonly compositionRoot?: SkillCompositionRoot;
+  readonly compositionContext?: SkillCompositionContext;
+  readonly capabilityGapSkillIds?: readonly string[];
   readonly planningInstruction: string;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;
@@ -35,6 +41,7 @@ export class WorkflowPlannerService {
   readonly #maxAttempts: number;
   readonly #templates: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'> | undefined;
   readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
+  readonly #composition: Pick<SkillCompositionPlanner, 'compose'> | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -46,6 +53,7 @@ export class WorkflowPlannerService {
       maxAttempts: number;
       templates?: Pick<WorkflowTemplateService, 'findPreferred' | 'recordUse'>;
       memories?: Pick<MemoryService, 'searchForStage'>;
+      composition?: Pick<SkillCompositionPlanner, 'compose'>;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -61,6 +69,7 @@ export class WorkflowPlannerService {
     this.#maxAttempts = dependencies.maxAttempts;
     this.#templates = dependencies.templates;
     this.#memories = dependencies.memories;
+    this.#composition = dependencies.composition;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
@@ -77,6 +86,18 @@ export class WorkflowPlannerService {
         'Planner Goal identity does not match the supplied execution contract snapshot.',
       );
     }
+    if (input.compositionRoot !== undefined && input.compositionContext !== undefined)
+      throw new WorkflowPlannerError(
+        'WORKFLOW_COMPOSITION_AUTHORITY_AMBIGUOUS',
+        'Planning must use either an exact graph root or an inherited composition snapshot.',
+      );
+    const compositionContext =
+      input.compositionRoot === undefined
+        ? input.compositionContext === undefined
+          ? undefined
+          : snapshotSkillCompositionContext(input.compositionContext)
+        : await this.#requireComposition().compose(input.compositionRoot);
+    const capabilityGapSkillIds = normalizeSkillIds(input.capabilityGapSkillIds ?? []);
     const source =
       input.sourceConfirmedPlanId === undefined
         ? undefined
@@ -92,6 +113,15 @@ export class WorkflowPlannerService {
         'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
         'Repair source confirmation belongs to a different Goal execution contract.',
       );
+    if (
+      source !== undefined &&
+      (!skillCompositionContextsEqual(source.compositionContext, compositionContext) ||
+        !stringListsEqual(source.capabilityGapSkillIds ?? [], capabilityGapSkillIds))
+    )
+      throw new WorkflowPlannerError(
+        'WORKFLOW_REPAIR_COMPOSITION_CONTEXT_MISMATCH',
+        'Repair source confirmation belongs to different Skill composition authority.',
+      );
     const preferredTemplate =
       input.templateQuery === undefined
         ? undefined
@@ -100,7 +130,12 @@ export class WorkflowPlannerService {
       'workflow_generation',
       input.templateQuery ?? input.planningInstruction,
     );
-    const withContract = addGoalContract(input.planningInstruction, goalContract);
+    const withContract = addPlanningContracts(
+      input.planningInstruction,
+      goalContract,
+      compositionContext,
+      capabilityGapSkillIds,
+    );
     const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
       preferredTemplate === undefined
@@ -114,9 +149,23 @@ export class WorkflowPlannerService {
         responseSchema: this.#schema,
         correctionErrors,
       });
-      const validation = await this.#validateExpected(candidate, input);
+      const validation = await this.#validateExpected(
+        candidate,
+        input,
+        compositionContext,
+        capabilityGapSkillIds,
+      );
       await this.#repository.saveAttempt(
-        toAttempt(input.planId, goalContract, attempt, candidate, validation, this.#clock.now()),
+        toAttempt(
+          input.planId,
+          goalContract,
+          compositionContext,
+          capabilityGapSkillIds,
+          attempt,
+          candidate,
+          validation,
+          this.#clock.now(),
+        ),
       );
       if (validation.valid && validation.definition !== undefined) {
         const plan: WorkflowPlanRecord = {
@@ -124,6 +173,8 @@ export class WorkflowPlannerService {
           goalId: input.goalId,
           goalVersion: input.goalVersion,
           goalContract,
+          ...(compositionContext === undefined ? {} : { compositionContext }),
+          ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
           definition: validation.definition,
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
@@ -156,6 +207,8 @@ export class WorkflowPlannerService {
       goalId: input.goalId,
       goalVersion: input.goalVersion,
       goalContract,
+      ...(compositionContext === undefined ? {} : { compositionContext }),
+      ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
       ...(input.sourceConfirmedPlanId === undefined
         ? {}
         : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
@@ -172,8 +225,14 @@ export class WorkflowPlannerService {
   async #validateExpected(
     candidate: unknown,
     input: PlanWorkflowInput,
+    compositionContext: SkillCompositionContext | undefined,
+    capabilityGapSkillIds: readonly string[],
   ): Promise<WorkflowValidationResult> {
-    const result = await this.#validator.validate(candidate);
+    const result = await this.#validator.validate(candidate, {
+      enforceSkillComposition: true,
+      allowedChildSkillIds: compositionContext?.allowedChildSkillIds ?? [],
+      capabilityGapSkillIds,
+    });
     if (!result.valid || result.definition === undefined) return result;
     const errors: { code: string; path: string; message: string }[] = [];
     if (
@@ -196,20 +255,41 @@ export class WorkflowPlannerService {
       });
     return errors.length === 0 ? result : { valid: false, errors };
   }
+
+  #requireComposition(): Pick<SkillCompositionPlanner, 'compose'> {
+    if (this.#composition === undefined)
+      throw new WorkflowPlannerError(
+        'WORKFLOW_COMPOSITION_PLANNER_UNAVAILABLE',
+        'An exact Skill composition root requires the graph composition planner.',
+      );
+    return this.#composition;
+  }
 }
 
-function addGoalContract(instruction: string, goalContract: GoalExecutionContract): string {
+function addPlanningContracts(
+  instruction: string,
+  goalContract: GoalExecutionContract,
+  compositionContext: SkillCompositionContext | undefined,
+  capabilityGapSkillIds: readonly string[],
+): string {
+  const planningAuthority = {
+    goalContract,
+    skillCompositionContext: compositionContext ?? null,
+    capabilityGapSkillIds,
+    skillCallConstraint:
+      'Every skill_call target must be admitted by allowedChildSkillIds or capabilityGapSkillIds.',
+  } as const;
   try {
     const parsed = JSON.parse(instruction) as unknown;
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
-      return JSON.stringify({ ...parsed, goalContract });
+      return JSON.stringify({ ...parsed, ...planningAuthority });
   } catch {
     // Plain-language instructions remain data inside a structured planning request.
   }
   return JSON.stringify({
     operation: 'plan_with_goal_execution_contract',
     originalInstruction: instruction,
-    goalContract,
+    ...planningAuthority,
   });
 }
 
@@ -272,6 +352,8 @@ function addMemoryContext(
 function toAttempt(
   planId: string,
   goalContract: GoalExecutionContract,
+  compositionContext: SkillCompositionContext | undefined,
+  capabilityGapSkillIds: readonly string[],
   attempt: number,
   candidate: unknown,
   validation: WorkflowValidationResult,
@@ -280,6 +362,8 @@ function toAttempt(
   return {
     planId,
     goalContract,
+    ...(compositionContext === undefined ? {} : { compositionContext }),
+    ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
     attempt,
     candidate,
     validationErrors: validation.errors,
@@ -288,11 +372,37 @@ function toAttempt(
   };
 }
 
+function normalizeSkillIds(values: readonly string[]): readonly string[] {
+  const normalized = values.map((value) => value.trim());
+  if (normalized.some((value) => value === ''))
+    throw new WorkflowPlannerError(
+      'WORKFLOW_CAPABILITY_GAP_SKILL_INVALID',
+      'Capability-gap Skill IDs must be non-empty.',
+    );
+  return Object.freeze([...new Set(normalized)].sort());
+}
+
+function skillCompositionContextsEqual(
+  left: SkillCompositionContext | undefined,
+  right: SkillCompositionContext | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function stringListsEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 export type WorkflowPlannerErrorCode =
   | 'WORKFLOW_PLANNER_ATTEMPTS_INVALID'
   | 'WORKFLOW_PLANNING_FAILED'
   | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'
+  | 'WORKFLOW_CAPABILITY_GAP_SKILL_INVALID'
+  | 'WORKFLOW_COMPOSITION_AUTHORITY_AMBIGUOUS'
+  | 'WORKFLOW_COMPOSITION_PLANNER_UNAVAILABLE'
   | 'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH'
+  | 'WORKFLOW_REPAIR_COMPOSITION_CONTEXT_MISMATCH'
   | 'WORKFLOW_REVISION_SOURCE_REQUIRED'
   | 'WORKFLOW_REPAIR_SOURCE_NOT_CONFIRMED';
 export class WorkflowPlannerError extends Error {

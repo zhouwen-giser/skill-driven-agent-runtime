@@ -1011,6 +1011,7 @@ describe('management HTTP API contract', () => {
       goalVersion: contract.version,
       goalContract: contract,
       planningInstruction: 'Plan from the complete contract.',
+      compositionRoot: { skillId: 'skill.root.contract', skillVersion: 3 },
     };
     const response = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
       method: 'POST',
@@ -1019,6 +1020,10 @@ describe('management HTTP API contract', () => {
     });
     expect(response.status).toBe(201);
     expect(received?.goalContract).toEqual(contract);
+    expect(received?.compositionRoot).toEqual({
+      skillId: 'skill.root.contract',
+      skillVersion: 3,
+    });
 
     const missing = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
       method: 'POST',

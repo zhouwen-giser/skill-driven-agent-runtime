@@ -154,6 +154,12 @@ export interface WorkflowValidationResult {
   readonly definition?: WorkflowDefinition;
 }
 
+export interface WorkflowValidationContext {
+  readonly enforceSkillComposition?: boolean;
+  readonly allowedChildSkillIds?: readonly string[];
+  readonly capabilityGapSkillIds?: readonly string[];
+}
+
 export class WorkflowValidator {
   readonly #tools: McpToolCatalog;
   readonly #skills: SkillRepository;
@@ -169,7 +175,10 @@ export class WorkflowValidator {
     this.#skills = dependencies.skills;
     this.#schemas = dependencies.schemas;
   }
-  async validate(raw: unknown): Promise<WorkflowValidationResult> {
+  async validate(
+    raw: unknown,
+    context: WorkflowValidationContext = {},
+  ): Promise<WorkflowValidationResult> {
     const parsed = WorkflowSchema.safeParse(raw);
     if (!parsed.success)
       return {
@@ -192,7 +201,7 @@ export class WorkflowValidator {
           'Node IDs must be unique.',
         );
       ids.add(node.nodeId);
-      await this.#validateNode(node, index, errors);
+      await this.#validateNode(node, index, errors, context);
     }
     if (!ids.has(definition.entryNodeId))
       add(errors, 'WORKFLOW_ENTRY_INVALID', 'entryNodeId', 'Entry node does not exist.');
@@ -223,6 +232,7 @@ export class WorkflowValidator {
     node: WorkflowNode,
     index: number,
     errors: { code: string; path: string; message: string }[],
+    context: WorkflowValidationContext,
   ) {
     if (node.type === 'llm') {
       const result = this.#schemas.checkSchema(node.responseSchema);
@@ -255,6 +265,17 @@ export class WorkflowValidator {
           );
       }
     } else if (node.type === 'skill_call') {
+      if (
+        context.enforceSkillComposition === true &&
+        !context.allowedChildSkillIds?.includes(node.skillId) &&
+        !context.capabilityGapSkillIds?.includes(node.skillId)
+      )
+        add(
+          errors,
+          'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+          `nodes.${String(index)}.skillId`,
+          'Skill call is not admitted by the persisted composition or capability-gap context.',
+        );
       const skill = await this.#skills.findCurrentVersion(node.skillId);
       if (skill?.status !== 'enabled')
         add(

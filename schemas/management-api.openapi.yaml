@@ -246,6 +246,13 @@ paths:
                 goalVersion: { type: integer, minimum: 1 }
                 goalContract: { $ref: '#/components/schemas/GoalExecutionContract' }
                 planningInstruction: { type: string, minLength: 1 }
+                compositionRoot:
+                  type: object
+                  additionalProperties: false
+                  required: [skillId, skillVersion]
+                  properties:
+                    skillId: { type: string, minLength: 1 }
+                    skillVersion: { type: integer, minimum: 1 }
                 sourceConfirmedPlanId: { type: string, minLength: 1 }
       responses:
         '201': { description: Immutable validated Workflow plan and confirmation status }

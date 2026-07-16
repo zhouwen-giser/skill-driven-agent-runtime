@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-07-16
+
+### Added
+
+- Domain-owned immutable `SkillCompositionContext` snapshots containing the selected exact Skill version, only graph-reachable related versions, accepted relations, allowed child IDs and a decision summary.
+- Bounded initial composition traversal for `parent_child`, `depends_on`, `input_output_match`, `composition` and `capability_coverage`; `alternative` remains excluded from initial planning.
+- Migration 0062 for composition and explicit capability-gap authority on every Workflow plan and planning attempt.
+- Optional management `compositionRoot` input for authoritative standalone graph-aware planning.
+
+### Changed
+
+- Initial Task, child Skill, continuation, revision, Goal Patch and outer replan paths now establish, inherit or recompute exact composition authority before model planning.
+- The Workflow validator, execution service and child Skill service reject `skill_call` targets outside the persisted allowed set unless an internal explicit capability-gap flow admits the ID.
+- Transitive confirmation covers every initial-execution relation except `alternative`; the graph supplies bounded evidence while the LLM still decides which admitted Skill to call.
+
+### Verification
+
+- Required regressions cover dependency admission, composable planning, unrelated/alternative rejection, schema mismatch, multi-level composition, cycles, deep snapshot immutability, persistence audit and execution-time authorization.
+- The operator-managed feature gate passed 270 unit, 59 contract, 58 integration and 46 E2E tests, 181-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0062.
+
 ## [1.0.8] - 2026-07-16
 
 ### Added

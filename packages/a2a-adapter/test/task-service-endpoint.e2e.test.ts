@@ -1174,6 +1174,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.skill-child.${randomUUID()}`;
     const skillId = `skill.child.${randomUUID()}`;
+    const parentSkillId = `skill.parent.${randomUUID()}`;
     try {
       const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
         method: 'POST',
@@ -1212,6 +1213,33 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         skillVersionInput('Child Workflow Skill v1', 'SKILL_CHILD_EXECUTION version one.'),
       );
       expect(first.version).toBe(1);
+      const parent = await runtime.registerSkill({
+        ...skillInput(parentSkillId, 'Parent composition Skill'),
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: {
+            deviceId: { type: 'string' },
+            status: { type: 'string', enum: ['online'] },
+          },
+        },
+      });
+      expect(parent.version).toBe(1);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph/relations`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sourceSkillId: parentSkillId,
+              targetSkillId: skillId,
+              relationType: 'composition',
+              metadata: { purpose: 'child execution E2E' },
+            }),
+          })
+        ).status,
+      ).toBe(201);
       const planId = `plan.skill-call.${randomUUID()}`;
       const instanceId = `instance.skill-call-parent.${randomUUID()}`;
       skillCallWorkflowTarget = {
@@ -1231,10 +1259,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           goalVersion: 1,
           goalContract: standaloneGoalContract(skillCallWorkflowTarget.goalId),
           planningInstruction: 'SKILL_CALL_PLAN',
+          compositionRoot: { skillId: parentSkillId, skillVersion: parent.version },
         }),
       });
       skillCallWorkflowTarget = undefined;
-      expect(planned.status).toBe(201);
+      const plannedBody: unknown = await planned.json();
+      expect(planned.status, JSON.stringify(plannedBody)).toBe(201);
       const second = await runtime.registerSkill(
         skillVersionInput('Child Workflow Skill v2', 'SKILL_CHILD_EXECUTION version two.'),
       );
@@ -1315,6 +1345,15 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       });
       await runtime.registerSkill({
         ...skillInput(parentSkillId, 'Nested confirmation parent'),
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: {
+            deviceId: { type: 'string' },
+            status: { type: 'string', enum: ['online'] },
+          },
+        },
       });
       const childRegistration: RegisterSkillVersionInput = {
         ...skillInput(childSkillId, 'Nested confirmation child'),
@@ -1337,6 +1376,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         },
       };
       await runtime.registerSkill(childRegistration);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph/relations`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sourceSkillId: parentSkillId,
+              targetSkillId: childSkillId,
+              relationType: 'composition',
+              metadata: { purpose: 'nested confirmation E2E' },
+            }),
+          })
+        ).status,
+      ).toBe(201);
 
       const submitted = await runtime.a2a.client.sendMessage(
         SendMessageRequest.fromJSON({
@@ -1376,6 +1429,52 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         phase: 'awaiting_plan_confirmation',
         phaseMessage: expect.stringContaining(`${childSkillId}@1`),
       });
+      const auditedPlan = z
+        .object({
+          planId: z.string(),
+          compositionContext: z.object({
+            selectedSkill: z.object({ skillId: z.string(), version: z.number() }),
+            relatedSkills: z.array(z.object({ skillId: z.string(), version: z.number() })),
+            relations: z.array(
+              z.object({
+                sourceSkillId: z.string(),
+                targetSkillId: z.string(),
+                relationType: z.string(),
+              }),
+            ),
+            allowedChildSkillIds: z.array(z.string()),
+            decisionSummary: z.string(),
+          }),
+          definition: z.object({
+            nodes: z.array(
+              z.object({
+                type: z.string(),
+                skillId: z.string().optional(),
+              }),
+            ),
+          }),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+          ).then((response) => response.json()),
+        );
+      expect(auditedPlan.compositionContext).toMatchObject({
+        selectedSkill: { skillId: parentSkillId, version: 1 },
+        relatedSkills: [{ skillId: childSkillId, version: 1 }],
+        relations: [
+          {
+            sourceSkillId: parentSkillId,
+            targetSkillId: childSkillId,
+            relationType: 'composition',
+          },
+        ],
+        allowedChildSkillIds: [childSkillId],
+        decisionSummary: expect.stringContaining('model decides'),
+      });
+      expect(auditedPlan.definition.nodes).toContainEqual(
+        expect.objectContaining({ type: 'skill_call', skillId: childSkillId }),
+      );
       const trace = z
         .object({
           instance: z.object({
@@ -4821,7 +4920,9 @@ async function startModelLoopback(): Promise<Server> {
         const skillChildExecutionRequest =
           body.messages?.some(
             (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
-          ) && skillSelectionRequest !== true;
+          ) &&
+          skillSelectionRequest !== true &&
+          skillCallWorkflowRequest !== true;
         const skillChildPlanningRequest = body.messages?.some(
           (message) => message.content?.includes('"operation":"skill_call_child_plan"') === true,
         );
@@ -4896,9 +4997,19 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (resultProcessingRequest === true) {
+          const requestData = z
+            .object({ skill: z.object({ outputSchema: z.unknown() }) })
+            .parse(embeddedOperation(body.messages, 'process_workflow_result'));
+          const required = z
+            .looseObject({ required: z.array(z.string()).optional() })
+            .safeParse(requestData.skill.outputSchema);
+          const requiresDeviceId = required.success && required.data.required?.includes('deviceId');
           respondStructured(response, {
             text: 'Device is online.',
-            structured: { status: 'online' },
+            structured: {
+              status: 'online',
+              ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
+            },
             keyFacts: [{ name: 'status', value: 'online', confidence: 1 }],
             valueAssessment: { valuable: true, summary: 'Current device state is useful.' },
             memoryCandidates: [
