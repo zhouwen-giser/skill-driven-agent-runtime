@@ -65,9 +65,14 @@ export function isTerminalWorkflowControlStatus(
   status: WorkflowControlStatus,
 ): status is Extract<
   WorkflowControlStatus,
-  'achieved' | 'unachievable' | 'canceled' | 'failed' | 'replan_budget_exhausted'
+  'capability_gap' | 'achieved' | 'unachievable' | 'canceled' | 'failed' | 'replan_budget_exhausted'
 > {
-  return ['achieved', 'unachievable', 'canceled', 'failed', 'replan_budget_exhausted'].includes(
-    status,
-  );
+  return [
+    'capability_gap',
+    'achieved',
+    'unachievable',
+    'canceled',
+    'failed',
+    'replan_budget_exhausted',
+  ].includes(status);
 }

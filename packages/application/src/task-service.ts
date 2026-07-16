@@ -188,6 +188,7 @@ export class TaskService {
     const task = await this.#dependencies.tasks.findById(taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
+    if (isTerminalTaskPhase(task.phase)) return task;
     const timestamp = this.#dependencies.clock.now();
     if (
       this.#dependencies.planActions !== undefined &&
@@ -270,6 +271,11 @@ export class TaskService {
       throw new TaskApplicationError(
         'TASK_PLAN_DECISION_NOT_AWAITING',
         `Task ${task.taskId} is ${task.phase}; only an awaiting plan may receive a confirmation decision.`,
+      );
+    if (isTerminalTaskPhase(task.phase))
+      throw new TaskApplicationError(
+        'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN',
+        `Task ${task.taskId} is terminal in phase ${task.phase}; submit a new Task instead.`,
       );
     let confirmationTarget: TaskPlanConfirmationTarget | undefined;
     if (command.action === 'provide_input') return this.#provideInput(task, command);
@@ -758,6 +764,7 @@ export class TaskService {
 
 export type TaskApplicationErrorCode =
   | 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID'
+  | 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN'
   | 'TASK_NOT_FOUND'
   | 'TASK_SKILL_INPUT_NOT_RESOLVED'
   | 'TASK_INPUT_NOT_PENDING'

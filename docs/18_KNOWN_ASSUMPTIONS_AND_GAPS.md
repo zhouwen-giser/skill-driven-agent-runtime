@@ -23,6 +23,7 @@
 - v1.0.8 的 0061 历史回填优先使用 Goal Patch 的 before/after snapshot，其次使用当前 Goal 行。若早期记录已失去全部可恢复 Goal 证据，则保存带明确 legacy 描述的兼容快照，仅用于历史可读性；任何新规划、替代、确认继承或执行都必须提交并匹配当前完整 Contract，不能把该兼容快照当作新权限。
 - v1.0.8-bug-fixed 保留未注册 Goal 的管理端 standalone selection/planning 能力，用于低层验证与预注册编排；一旦相同 `goalId` 已在 PostgreSQL 注册，该 Goal 必须仍为 active 且六字段完全一致。终态或内容漂移均在 embedding/model 调用前拒绝。
 - v1.0.9 将任务包的 `composable` 语义映射到仓库既有 `composition` 枚举，不新增同义关系。初始组合只沿 root 出站的 `parent_child`、`depends_on`、`input_output_match`、`composition`、`capability_coverage` 遍历，深度上限 8、相关 Skill 上限 32、关系上限 128、快照 JSON 深度上限 64；`alternative` 仍仅用于失败后替代。0062 前的历史计划保持可读/可执行兼容，但没有组合快照的旧行不得被当作新规划授权来源。
+- v1.0.10 将 capability gap 解释为当前 Task/WorkflowControl 的不可恢复终态，而不是等待状态。注册或刷新 Tool 不扫描、不唤醒、不执行旧 Task；上游必须在同 Context 提交新 Task。旧 Task 和 Control 保留终态证据，Goal 独立保持 active，直至新 Task 推进或显式 Goal cancellation 结束它。现有列与约束已表达该值和证据，因此无新增 Migration。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 

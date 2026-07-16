@@ -1170,10 +1170,18 @@ describe('PostgreSQL protocol-domain repositories', () => {
 
     await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
       phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
       capabilityGap: {
         missingCapability: 'Read device pressure.',
         suggestedToolContract: { name: 'read_pressure' },
       },
+    });
+    await expect(
+      tasks.save({ ...task, phase: 'skill_resolution', phaseMessage: 'Stale Worker resumed.' }),
+    ).rejects.toThrow('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    await expect(tasks.findById(task.taskId)).resolves.toMatchObject({
+      phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
     });
   });
   it('atomically supersedes a plan when persisting its immutable revision', async () => {
@@ -3518,6 +3526,32 @@ describe('PostgreSQL protocol-domain repositories', () => {
         '2026-07-12T00:01:00.000Z',
       ),
     );
+    const gapBase = createAgentTask({
+      taskId: 'task.wait.gap.db',
+      contextId: 'context.wait.db',
+      userId: 'operator',
+      requestText: 'Read pressure.',
+      requestMetadata: {},
+      timestamp: '2026-07-12T00:00:00.000Z',
+    });
+    let gapTask = transitionTask(gapBase, 'context_loading', 'Loaded.', '2026-07-12T00:00:00.000Z');
+    gapTask = transitionTask(gapTask, 'goal_deliberation', 'Goal.', '2026-07-12T00:00:00.000Z');
+    gapTask = transitionTask(gapTask, 'skill_resolution', 'Skill.', '2026-07-12T00:00:00.000Z');
+    await tasks.save(
+      recordTaskCapabilityGap(
+        gapTask,
+        {
+          evaluationSummary: 'No Tool is registered.',
+          missingCapability: 'Read pressure.',
+          suggestedToolContract: {
+            name: 'read_pressure',
+            description: 'Read pressure.',
+            inputSchema: { type: 'object' },
+          },
+        },
+        '2026-07-12T00:00:30.000Z',
+      ),
+    );
     const taskInputs = new PostgresTaskInputRepository(pool);
     await taskInputs.createRequest(
       createTaskInputRequest({
@@ -3553,6 +3587,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await expect(taskInputs.findRequest('input-request.wait.db')).resolves.toMatchObject({
       status: 'expired',
+    });
+    await expect(tasks.findById('task.wait.gap.db')).resolves.toMatchObject({
+      phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
     });
     const event = await pool.query<{ summary: string }>(
       "SELECT summary FROM runtime_event WHERE task_id='task.wait.db'",

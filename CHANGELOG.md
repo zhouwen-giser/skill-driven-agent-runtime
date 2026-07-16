@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-07-16
+
+### Changed
+
+- `capability_gap` is now a terminal Task and WorkflowControl outcome; the original Task has no resume path and keeps `errorCode=CAPABILITY_GAP` with its structured missing-capability evidence.
+- A2A now projects capability gaps as standard `TASK_STATE_FAILED` with `nextAction=register-capability-and-submit-new-task`, never as `input-required`.
+- A new Task in the same Context uses the normal serialized queue and may continue the still-active Goal; Tool registration or refresh never scans, resumes, enqueues or executes the old Task.
+- PostgreSQL terminal mutation guards, Goal/runtime cancellation and implicit-feedback terminal lookup now treat capability gap consistently.
+
+### Verification
+
+- Terminal transition/follow-up/cancellation, structured A2A projection, stale Worker persistence, active-Goal successor submission and wait-timeout exclusion regressions pass.
+- The operator-managed feature gate passed 274 unit, 60 contract, 58 integration and 46 E2E tests, 181-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0062.
+
 ## [1.0.9] - 2026-07-16
 
 ### Added

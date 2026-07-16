@@ -365,12 +365,26 @@ describe('TaskService', () => {
       }),
     ).resolves.toMatchObject({
       phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
       capabilityGap: {
         missingCapability: 'Read device pressure.',
         suggestedToolContract: { name: 'read_pressure' },
       },
     });
     expect(harness.events.at(-1)?.summary).toContain('No registered tool');
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'resume',
+        messageText: 'A Tool is now registered.',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN' });
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({
+      phase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
+    });
+    expect(harness.operations).not.toContain('plan.resume:undefined');
   });
 
   it('applies plan revision, confirmation, pause, and resume through domain transitions', async () => {

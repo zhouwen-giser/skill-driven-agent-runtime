@@ -2,6 +2,8 @@
 
 Date: 2026-07-12
 
+> Historical evidence: ADR-081 and v1.0.10 supersede the `INPUT_REQUIRED` projection below. Current A2A projection is terminal `FAILED` with `CAPABILITY_GAP` evidence and a new-Task action.
+
 ## Scope
 
 This increment verifies FR-RST-006 from fixed Goal evaluation through the authoritative Task and official A2A SDK client.

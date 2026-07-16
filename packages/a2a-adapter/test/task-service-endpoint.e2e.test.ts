@@ -3046,13 +3046,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     await attachPlannedTask(submitted.id);
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
     const controlId = `control-task-${submitted.id}`;
-    const projected = await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
-    expect(projected.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    const projected = await waitForTaskState(submitted.id, TaskState.TASK_STATE_FAILED);
+    expect(projected.status?.state).toBe(TaskState.TASK_STATE_FAILED);
     expect(projected.status?.message?.parts[0]?.content).toMatchObject({
       value: 'Required capability is unavailable: Read device pressure.',
     });
     expect(projected.metadata).toMatchObject({
       internalPhase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
       capabilityGap: {
         evaluationSummary: 'No registered MCP tool can read device pressure.',
         missingCapability: 'Read device pressure.',
@@ -3062,6 +3063,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           inputSchema: { type: 'object', required: ['deviceId'] },
         },
       },
+      nextAction: 'register-capability-and-submit-new-task',
     });
     await expect(
       fetch(
@@ -3077,6 +3079,56 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         },
       ],
     });
+
+    await expect(
+      sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'resume',
+        'A pressure Tool is now registered.',
+      ),
+    ).rejects.toThrow();
+
+    const terminalTask = z
+      .object({ goalId: z.string(), phase: z.literal('capability_gap') })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    const activeGoal = z
+      .object({ status: z.literal('active') })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/goals/${terminalTask.goalId}`).then(
+          (response) => response.json(),
+        ),
+      );
+    expect(activeGoal.status).toBe('active');
+
+    const successor = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          contextId: submitted.contextId,
+          role: 'ROLE_USER',
+          parts: [
+            { text: 'Submit a new Task after capability registration.', mediaType: 'text/plain' },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in successor)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(successor.id).not.toBe(submitted.id);
+    expect(successor.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${successor.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({ goalId: terminalTask.goalId });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: submitted.id }),
+    ).resolves.toMatchObject({ status: { state: TaskState.TASK_STATE_FAILED } });
   });
 
   it('stores source-linked memory and retrieves it globally across user identities', async () => {

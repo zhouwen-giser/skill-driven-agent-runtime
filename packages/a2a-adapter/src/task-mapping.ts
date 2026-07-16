@@ -124,6 +124,9 @@ export function toA2ATask(task: AgentTask): Task {
       userId: task.userId,
       ...(task.errorCode === undefined ? {} : { errorCode: task.errorCode }),
       ...(task.capabilityGap === undefined ? {} : { capabilityGap: task.capabilityGap }),
+      ...(task.phase === 'capability_gap'
+        ? { nextAction: 'register-capability-and-submit-new-task' }
+        : {}),
     },
   });
 }
@@ -132,12 +135,12 @@ export function taskPhaseToA2AState(phase: TaskPhase): TaskState {
   if (phase === 'queued') return TaskState.TASK_STATE_SUBMITTED;
   if (phase === 'completed') return TaskState.TASK_STATE_COMPLETED;
   if (phase === 'canceled') return TaskState.TASK_STATE_CANCELED;
-  if (phase === 'failed' || phase === 'invalidated') return TaskState.TASK_STATE_FAILED;
+  if (phase === 'capability_gap' || phase === 'failed' || phase === 'invalidated')
+    return TaskState.TASK_STATE_FAILED;
   if (
     phase === 'awaiting_plan_confirmation' ||
     phase === 'awaiting_user_input' ||
-    phase === 'paused' ||
-    phase === 'capability_gap'
+    phase === 'paused'
   ) {
     return TaskState.TASK_STATE_INPUT_REQUIRED;
   }

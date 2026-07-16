@@ -20,7 +20,7 @@ export type TaskPhase =
 
 export type TaskTerminalPhase = Extract<
   TaskPhase,
-  'completed' | 'canceled' | 'failed' | 'invalidated'
+  'capability_gap' | 'completed' | 'canceled' | 'failed' | 'invalidated'
 >;
 
 export interface TaskOutput {
@@ -224,7 +224,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
     'canceled',
     'failed',
   ],
-  capability_gap: ['skill_resolution', 'canceled', 'failed'],
+  capability_gap: [],
   completed: [],
   canceled: [],
   failed: [],
@@ -275,13 +275,13 @@ export function recordTaskCapabilityGap(
   capabilityGap: TaskCapabilityGap,
   timestamp: string,
 ): AgentTask {
-  const waiting = transitionTask(
+  const terminal = transitionTask(
     task,
     'capability_gap',
     `Required capability is unavailable: ${capabilityGap.missingCapability}`,
     timestamp,
   );
-  return { ...waiting, capabilityGap };
+  return { ...terminal, capabilityGap, errorCode: 'CAPABILITY_GAP' };
 }
 
 export function failTask(task: AgentTask, errorCode: string, timestamp: string): AgentTask {
@@ -291,6 +291,10 @@ export function failTask(task: AgentTask, errorCode: string, timestamp: string):
 
 export function isTerminalTaskPhase(phase: TaskPhase): phase is TaskTerminalPhase {
   return (
-    phase === 'completed' || phase === 'canceled' || phase === 'failed' || phase === 'invalidated'
+    phase === 'capability_gap' ||
+    phase === 'completed' ||
+    phase === 'canceled' ||
+    phase === 'failed' ||
+    phase === 'invalidated'
   );
 }

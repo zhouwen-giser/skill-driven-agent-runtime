@@ -1039,7 +1039,7 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
       }>(
         `SELECT control_id,task_id,final_instance_id FROM workflow_control
          WHERE goal_id=$1 AND goal_version=$2
-           AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')
+           AND status IN ('running','awaiting_confirmation','awaiting_input')
          ORDER BY control_id FOR UPDATE`,
         [input.goalId, input.goalVersion],
       );
@@ -1053,7 +1053,7 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
          WHERE (goal_id=$1 OR (
            goal_id IS NULL AND context_id=(SELECT context_id FROM goal WHERE goal_id=$1)
            AND created_at <= $2
-         )) AND phase NOT IN ('completed','canceled','failed','invalidated')
+         )) AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
          RETURNING task_id`,
         [input.goalId, input.createdAt],
       );
@@ -1087,7 +1087,7 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         const updatedControl = await client.query(
           `UPDATE workflow_control SET status='canceled',terminal_outcome_id=$2,updated_at=$3
            WHERE control_id=$1
-             AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')`,
+             AND status IN ('running','awaiting_confirmation','awaiting_input')`,
           [control.control_id, outcomeId, input.createdAt],
         );
         if (updatedControl.rowCount !== 1)
@@ -1627,7 +1627,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           `UPDATE agent_task SET phase=$2,phase_message=$3,output_text=$4,
              output_structured=$5::jsonb,error_code=$6,updated_at=$7
            WHERE task_id=$1 AND (
-             ($8='canceled' AND phase NOT IN ('completed','canceled','failed','invalidated'))
+             ($8='canceled' AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated'))
              OR ($8<>'canceled' AND phase IN ('executing','evaluating'))
            )`,
           [
@@ -1657,7 +1657,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         `UPDATE workflow_control SET status=$2,round_count=$3,final_instance_id=$4,
            terminal_outcome_id=$5,updated_at=$6
          WHERE control_id=$1
-           AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')
+           AND status IN ('running','awaiting_confirmation','awaiting_input')
            AND round_count=$7`,
         [
           input.controlId,
@@ -1798,7 +1798,11 @@ function isExpectedTerminalTaskPhase(
 ): boolean {
   if (kind !== 'canceled') return phase === 'executing' || phase === 'evaluating';
   return (
-    phase !== 'completed' && phase !== 'canceled' && phase !== 'failed' && phase !== 'invalidated'
+    phase !== 'capability_gap' &&
+    phase !== 'completed' &&
+    phase !== 'canceled' &&
+    phase !== 'failed' &&
+    phase !== 'invalidated'
   );
 }
 
@@ -1807,12 +1811,7 @@ function isExpectedTerminalControlStatus(
   kind: RuntimeTerminalOutcomeKind,
 ): boolean {
   if (kind !== 'canceled') return status === 'running';
-  return (
-    status === 'running' ||
-    status === 'awaiting_confirmation' ||
-    status === 'awaiting_input' ||
-    status === 'capability_gap'
-  );
+  return status === 'running' || status === 'awaiting_confirmation' || status === 'awaiting_input';
 }
 
 function matchesTerminalRetry(
@@ -2700,7 +2699,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          capability_gap_json = EXCLUDED.capability_gap_json,
          error_code = EXCLUDED.error_code,
          updated_at = EXCLUDED.updated_at
-       WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')`,
+       WHERE agent_task.phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')`,
       [
         task.taskId,
         task.contextId,
@@ -3020,7 +3019,7 @@ export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepos
     const result = await this.#pool.query<TaskRow>(
       `SELECT * FROM agent_task
        WHERE context_id=$1 AND task_id<>$2
-         AND phase IN ('completed','canceled','failed','invalidated')
+         AND phase IN ('capability_gap','completed','canceled','failed','invalidated')
        ORDER BY updated_at DESC,task_id DESC LIMIT 1`,
       [contextId, excludeTaskId],
     );
@@ -4702,7 +4701,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
          final_instance_id=EXCLUDED.final_instance_id,
          terminal_outcome_id=EXCLUDED.terminal_outcome_id,updated_at=EXCLUDED.updated_at
        WHERE workflow_control.status NOT IN (
-         'achieved','unachievable','canceled','failed','replan_budget_exhausted'
+         'capability_gap','achieved','unachievable','canceled','failed','replan_budget_exhausted'
        )`,
       [
         control.controlId,
