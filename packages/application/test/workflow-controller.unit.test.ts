@@ -386,6 +386,32 @@ describe('Workflow outer controller', () => {
     });
     expect(fixture.goals.goal.status).toBe('achieved');
   });
+
+  it('returns committed authority even when enhancement and warning persistence both fail', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Committed.' });
+    fixture.taskOutcomes.enhanceResultMemory.mockRejectedValueOnce(
+      codedError('RESULT_MEMORY_WRITE_FAILED'),
+    );
+    vi.spyOn(fixture.terminalOutcomes, 'recordEnhancementWarning').mockRejectedValueOnce(
+      codedError('WARNING_PERSISTENCE_FAILED'),
+    );
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'achieved',
+      terminalOutcomeId: 'terminal-outcome-task-task-control',
+    });
+    expect(fixture.reportWarning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'result_memory',
+        code: 'WARNING_PERSISTENCE_FAILED',
+        message: expect.stringContaining('Unable to persist enhancement warning'),
+      }),
+    );
+    expect(fixture.reportWarning).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'result_memory', code: 'RESULT_MEMORY_WRITE_FAILED' }),
+    );
+  });
 });
 
 function startInput() {

@@ -27,4 +27,4 @@ Authoritative completion is a single durable commit and can be replayed safely. 
 
 The pre-commit model call can be repeated if a process fails before the PostgreSQL transaction, but it performs no Tool action and its stable result identity makes the later authoritative retry deterministic. Running Workflow checkpoints remain non-recoverable as required by V1.
 
-Goal-wide cancellation still retains its separate atomic cascade record for multiple Tasks and instances. The runtime terminal repository governs cancellation once an individual Task has an active WorkflowControl; broader Goal-cascade reconciliation remains owned by the Goal cancellation boundary.
+Goal-wide cancellation still retains its separate atomic cascade transaction for multiple Tasks and instances. That transaction now creates a canceled Runtime Terminal Outcome for every active Control and cancels waiting Task input in the same commit. The runtime terminal repository governs an individual Task cancellation once it has an active WorkflowControl; bulk lock ordering and cascade evidence remain owned by the Goal cancellation boundary.

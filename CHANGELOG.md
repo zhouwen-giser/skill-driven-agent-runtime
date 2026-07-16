@@ -23,6 +23,20 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Unit, real PostgreSQL fault-injection, migration and real A2A evidence prove full rollback, exact idempotent retry, stale-Worker rejection, canceled waiting Tasks, and completed A2A output despite a post-commit Memory failure.
 
+## [1.0.6-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Generic Task, Goal and WorkflowControl repositories now reject every write once a terminal row exists, including same-status writes that previously could replace terminal output or pointers.
+- Terminal Rounds must match the locked Control, current plan and evaluation decision; final Workflow instances must belong to the same Goal and valid current/prior Control evidence.
+- Active-control cancellation closes waiting Task input inside the terminal transaction, so a cleanup failure cannot turn an already committed A2A cancellation into an error.
+- Goal-wide cancellation creates canceled Runtime Terminal Outcomes for all active Controls, closes waiting input and emits terminal events inside its existing multi-Task cascade transaction.
+- Completion/cancellation races return the already committed terminal Task instead of attempting a second terminal projection.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 82,005 ms: 243 unit, 58 contract, 53 integration, 44 E2E, 175-source architecture enforcement, migration paths, production builds and both smoke gates.
+
 ## [1.0.5] - 2026-07-16
 
 ### Added

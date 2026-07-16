@@ -712,8 +712,7 @@ export class PostgresGoalRepository implements GoalRepository {
          version=EXCLUDED.version,title=EXCLUDED.title,description=EXCLUDED.description,
          constraints_json=EXCLUDED.constraints_json,success_criteria_json=EXCLUDED.success_criteria_json,
          status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at
-       WHERE goal.status='active'
-          OR (goal.status=EXCLUDED.status AND goal.version=EXCLUDED.version)`,
+       WHERE goal.status='active'`,
         [
           goal.goalId,
           goal.contextId,
@@ -946,6 +945,17 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         [input.goalId, input.goalVersion],
       );
       if (goal.rows[0] === undefined) throw new Error('GOAL_CANCELLATION_VERSION_CONFLICT');
+      const controls = await client.query<{
+        control_id: string;
+        task_id: string | null;
+        final_instance_id: string | null;
+      }>(
+        `SELECT control_id,task_id,final_instance_id FROM workflow_control
+         WHERE goal_id=$1 AND goal_version=$2
+           AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')
+         ORDER BY control_id FOR UPDATE`,
+        [input.goalId, input.goalVersion],
+      );
       await client.query("UPDATE goal SET status='canceled',updated_at=$2 WHERE goal_id=$1", [
         input.goalId,
         input.createdAt,
@@ -960,6 +970,55 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
          RETURNING task_id`,
         [input.goalId, input.createdAt],
       );
+      const canceledTaskIds = new Set(tasks.rows.map((row) => row.task_id));
+      if (canceledTaskIds.size > 0)
+        await client.query(
+          `UPDATE task_input_request SET status='canceled'
+           WHERE task_id=ANY($1::text[]) AND status='waiting'`,
+          [[...canceledTaskIds]],
+        );
+      for (const control of controls.rows) {
+        if (control.task_id !== null && !canceledTaskIds.has(control.task_id))
+          throw new Error('GOAL_CANCELLATION_CONTROL_TASK_CONFLICT');
+        const outcomeId = `terminal-outcome-control-${control.control_id}`;
+        await client.query(
+          `INSERT INTO runtime_terminal_outcome(
+             outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
+             round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
+           VALUES($1,'canceled',$2,$3,$4,$5,'canceled',NULL,$6,NULL,$7,'[]'::jsonb,$8)`,
+          [
+            outcomeId,
+            control.task_id,
+            input.goalId,
+            input.goalVersion,
+            control.control_id,
+            control.final_instance_id,
+            input.reason,
+            input.createdAt,
+          ],
+        );
+        const updatedControl = await client.query(
+          `UPDATE workflow_control SET status='canceled',terminal_outcome_id=$2,updated_at=$3
+           WHERE control_id=$1
+             AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')`,
+          [control.control_id, outcomeId, input.createdAt],
+        );
+        if (updatedControl.rowCount !== 1)
+          throw new Error('GOAL_CANCELLATION_CONTROL_UPDATE_CONFLICT');
+        if (control.task_id !== null)
+          await client.query(
+            `INSERT INTO runtime_event(
+               event_id,task_id,context_id,event_type,event_timestamp,summary)
+             VALUES($1,$2,$3,'task.phase_changed',$4,$5)`,
+            [
+              `event-terminal-control-${control.control_id}`,
+              control.task_id,
+              goal.rows[0].context_id,
+              input.createdAt,
+              input.reason,
+            ],
+          );
+      }
       const plans = await client.query<{ plan_id: string }>(
         `UPDATE workflow_plan SET confirmation_status='invalidated'
          WHERE goal_id=$1 AND goal_version=$2
@@ -1243,9 +1302,12 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           goal_version: number;
           task_id: string | null;
           status: WorkflowControlRecord['status'];
+          current_plan_id: string;
+          final_instance_id: string | null;
           round_count: number;
         }>(
-          `SELECT control_id,context_id,goal_id,goal_version,task_id,status,round_count
+          `SELECT control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,
+                  final_instance_id,round_count
            FROM workflow_control WHERE control_id=$1 FOR UPDATE`,
           [input.controlId],
         )
@@ -1276,6 +1338,21 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           : round?.instanceId;
       const processed =
         kind === 'achieved' ? (input as RuntimeAchievedOutcomeInput).processedResult : undefined;
+      const terminalInstance =
+        finalInstanceId === undefined
+          ? undefined
+          : (
+              await client.query<{
+                instance_id: string;
+                plan_id: string;
+                goal_id: string;
+                goal_version: number;
+              }>(
+                `SELECT instance_id,plan_id,goal_id,goal_version
+                 FROM workflow_instance WHERE instance_id=$1`,
+                [finalInstanceId],
+              )
+            ).rows[0];
       if (
         goal.version !== input.goalVersion ||
         goal.status !== 'active' ||
@@ -1283,13 +1360,22 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         control.goal_id !== input.goalId ||
         control.goal_version !== input.goalVersion ||
         !isExpectedTerminalControlStatus(control.status, kind) ||
+        (round !== undefined &&
+          (round.controlId !== input.controlId || round.planId !== control.current_plan_id)) ||
         (roundIndex !== undefined && control.round_count !== roundIndex) ||
         control.task_id !== (input.taskId ?? null) ||
         (task !== undefined &&
           (task.context_id !== control.context_id ||
             task.goal_id !== input.goalId ||
             task.goal_version !== input.goalVersion ||
-            !isExpectedTerminalTaskPhase(task.phase, kind)))
+            !isExpectedTerminalTaskPhase(task.phase, kind))) ||
+        (finalInstanceId !== undefined &&
+          (terminalInstance?.goal_id !== input.goalId ||
+            terminalInstance.goal_version !== input.goalVersion ||
+            (round !== undefined && terminalInstance.plan_id !== round.planId) ||
+            (round === undefined &&
+              finalInstanceId !== control.final_instance_id &&
+              terminalInstance.plan_id !== control.current_plan_id)))
       )
         throw new Error('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
       if (
@@ -1299,6 +1385,13 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         throw new Error('RUNTIME_TERMINAL_RESULT_TASK_MISMATCH');
       if (input.taskId !== undefined && kind === 'achieved' && processed === undefined)
         throw new Error('RUNTIME_TERMINAL_RESULT_REQUIRED');
+      if (
+        (kind === 'achieved' && round?.evaluation.decision !== 'achieved') ||
+        (kind === 'unachievable' &&
+          controlStatus === 'unachievable' &&
+          round?.evaluation.decision !== 'unachievable')
+      )
+        throw new Error('RUNTIME_TERMINAL_DECISION_MISMATCH');
 
       if (processed !== undefined) await insertProcessedResult(client, processed);
       await client.query(
@@ -1373,6 +1466,12 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         throw new Error('RUNTIME_TERMINAL_CONTROL_UPDATE_CONFLICT');
       if (round !== undefined) await insertTerminalRound(client, round, input.outcomeId);
       if (task !== undefined) {
+        if (kind === 'canceled')
+          await client.query(
+            `UPDATE task_input_request SET status='canceled'
+             WHERE task_id=$1 AND status='waiting'`,
+            [task.task_id],
+          );
         await client.query(
           `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
            VALUES($1,$2,$3,'task.phase_changed',$4,$5)`,
@@ -2393,8 +2492,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          capability_gap_json = EXCLUDED.capability_gap_json,
          error_code = EXCLUDED.error_code,
          updated_at = EXCLUDED.updated_at
-       WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')
-          OR agent_task.phase = EXCLUDED.phase`,
+       WHERE agent_task.phase NOT IN ('completed','canceled','failed','invalidated')`,
       [
         task.taskId,
         task.contextId,
@@ -4348,9 +4446,6 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
          terminal_outcome_id=EXCLUDED.terminal_outcome_id,updated_at=EXCLUDED.updated_at
        WHERE workflow_control.status NOT IN (
          'achieved','unachievable','canceled','failed','replan_budget_exhausted'
-       ) OR (
-         workflow_control.status=EXCLUDED.status
-         AND workflow_control.terminal_outcome_id IS NOT DISTINCT FROM EXCLUDED.terminal_outcome_id
        )`,
       [
         control.controlId,

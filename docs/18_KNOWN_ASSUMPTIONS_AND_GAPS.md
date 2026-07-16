@@ -16,7 +16,7 @@
 - “Redis 保存运行 Checkpoint”与“故障不恢复”并不冲突：Checkpoint 用于暂停/恢复和正常运行，不作为崩溃恢复承诺。
 - FR-WF-009 的“费用预算”在 V1 中解释为系统配置的 LLM/MCP/Skill/子工作流调用计费单位，而不是未经配置便猜测供应商货币账单。模型 Token 仍独立审计；未来如增加 Provider 价格元数据，必须通过同一预算计量端口接入并保留执行时价格快照。
 - 外层控制器达到 `maxReplans` 后采用 fail-closed 终止策略：保留最后实例和评估证据，将控制标记为 `replan_budget_exhausted`，并将 Goal 标记为 `unachievable`，避免保留一个没有剩余可执行路径的 active Goal。
-- v1.0.6 的 `commitCanceled` 适用于已拥有一个 active WorkflowControl 的单 Task 运行终态；显式 Goal-wide cancellation 仍由既有 PostgreSQL 多 Task/Plan/Instance cascade transaction 管理。两者不得交叉单写同一 active Control；如未来把 Goal cascade 统一为多个 Runtime Terminal Outcome，必须新增 ADR 说明锁顺序、批量幂等键和部分 Control 不存在时的语义。
+- v1.0.6 的 `commitCanceled` 适用于已拥有一个 active WorkflowControl 的单 Task 运行终态；显式 Goal-wide cancellation 仍由既有 PostgreSQL 多 Task/Plan/Instance cascade transaction 管理，并在该事务内为每个 active Control 创建 canceled Runtime Terminal Outcome。两条路径不得交叉单写同一 active Control；如未来合并 application Port，必须新增 ADR 说明批量锁顺序、幂等键和部分 Control 不存在时的语义。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 

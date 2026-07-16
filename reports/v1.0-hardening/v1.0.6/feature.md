@@ -19,4 +19,4 @@ Runtime terminal authority is now committed atomically. A successful Workflow ca
 
 Goal-wide cancellation retains its existing multi-Task cascade transaction. Runtime terminal outcomes govern an individual Task once it owns an active WorkflowControl. Running LangGraph checkpoints remain process-local and non-recoverable by V1 design.
 
-Feature commit/tag: this feature commit / `v1.0.6`.
+Feature commit/tag: `4df20a9` / `v1.0.6` (published and remotely verified).

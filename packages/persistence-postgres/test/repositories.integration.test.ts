@@ -1790,6 +1790,24 @@ describe('PostgreSQL protocol-domain repositories', () => {
       startedAt: goalToCancel.createdAt,
       completedAt: '2026-07-12T00:00:01.000Z',
     });
+    const controls = new PostgresWorkflowControlRepository(pool);
+    await controls.save({
+      controlId: 'control.goal-cancel.db',
+      contextId: goalToCancel.contextId,
+      goalId: goalToCancel.goalId,
+      goalVersion: goalToCancel.version,
+      taskId: task.taskId,
+      status: 'awaiting_confirmation',
+      currentPlanId: 'plan.goal-cancel.db',
+      input: {},
+      skillIds: [],
+      planningInstruction: 'Cancel this Goal.',
+      roundCount: 0,
+      replanCount: 0,
+      finalInstanceId: 'instance.goal-cancel.db',
+      createdAt: goalToCancel.createdAt,
+      updatedAt: goalToCancel.updatedAt,
+    });
     const cancellations = new PostgresGoalCancellationRepository(pool);
     await expect(
       cancellations.cancel({
@@ -1815,6 +1833,18 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(tasks.save(task)).rejects.toThrow('TASK_TERMINAL_MUTATION_FORBIDDEN');
     await expect(plans.findPlan('plan.goal-cancel.db')).resolves.toMatchObject({
       confirmationStatus: 'invalidated',
+    });
+    await expect(controls.find('control.goal-cancel.db')).resolves.toMatchObject({
+      status: 'canceled',
+      terminalOutcomeId: 'terminal-outcome-control-control.goal-cancel.db',
+    });
+    await expect(
+      new PostgresRuntimeTerminalOutcomeRepository(pool).findByControl('control.goal-cancel.db'),
+    ).resolves.toMatchObject({
+      kind: 'canceled',
+      taskId: task.taskId,
+      goalId: goalToCancel.goalId,
+      controlStatus: 'canceled',
     });
     await expect(cancellations.listByGoal(goalToCancel.goalId)).resolves.toHaveLength(1);
   });
@@ -3334,6 +3364,18 @@ describe('PostgreSQL protocol-domain repositories', () => {
          phase_message='Waiting for confirmation.' WHERE task_id=$1`,
       [canceled.taskId],
     );
+    const canceledInputs = new PostgresTaskInputRepository(pool);
+    await canceledInputs.createRequest({
+      inputRequestId: `input-request-${canceled.taskId}`,
+      taskId: canceled.taskId,
+      contextId: canceled.contextId,
+      source: 'workflow',
+      question: 'Confirm execution?',
+      status: 'waiting',
+      controlId: canceled.controlId,
+      controlRoundIndex: 0,
+      createdAt: '2026-07-16T00:00:03.500Z',
+    });
     await canceled.outcomes.commitCanceled({
       outcomeId: `terminal-outcome-${canceled.taskId}`,
       taskId: canceled.taskId,
@@ -3354,6 +3396,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       roundCount: 0,
       finalInstanceId: canceled.instanceId,
     });
+    await expect(
+      canceledInputs.findRequest(`input-request-${canceled.taskId}`),
+    ).resolves.toMatchObject({ status: 'canceled' });
   });
 
   it.each([
@@ -3428,6 +3473,96 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await expect(fixture.controls.find(fixture.controlId)).resolves.toMatchObject({
       status: 'achieved',
+    });
+    const committedTask = await fixture.tasks.findById(fixture.taskId);
+    const committedGoal = await fixture.goals.findById(fixture.goalId);
+    const committedControl = await fixture.controls.find(fixture.controlId);
+    if (
+      committedTask === undefined ||
+      committedGoal === undefined ||
+      committedControl === undefined
+    )
+      throw new Error('COMMITTED_TERMINAL_FIXTURE_MISSING');
+    await expect(
+      fixture.tasks.save({
+        ...committedTask,
+        output: { text: 'Forged stale output.', structured: false },
+      }),
+    ).rejects.toThrow('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    await expect(
+      fixture.goals.save({ ...committedGoal, title: 'Forged stale Goal.' }),
+    ).rejects.toThrow('GOAL_TERMINAL_STATE_CONFLICT');
+    await expect(fixture.controls.save({ ...committedControl, roundCount: 99 })).rejects.toThrow(
+      'WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT',
+    );
+  });
+
+  it('rejects a terminal Round that does not belong to the locked Control plan', async () => {
+    const wrongControl = await createTerminalOutcomeFixture('wrong-round-control');
+    await expect(
+      wrongControl.outcomes.commitAchieved({
+        ...wrongControl.achievedInput,
+        round: { ...wrongControl.achievedInput.round, controlId: 'control.other' },
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
+    expect(await terminalOutcomeCounts(wrongControl)).toEqual({
+      outcomes: 0,
+      results: 0,
+      events: 0,
+      rounds: 0,
+    });
+
+    const wrongPlan = await createTerminalOutcomeFixture('wrong-round-plan');
+    await expect(
+      wrongPlan.outcomes.commitAchieved({
+        ...wrongPlan.achievedInput,
+        round: { ...wrongPlan.achievedInput.round, planId: 'plan.other' },
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
+    expect(await terminalOutcomeCounts(wrongPlan)).toEqual({
+      outcomes: 0,
+      results: 0,
+      events: 0,
+      rounds: 0,
+    });
+
+    const wrongDecision = await createTerminalOutcomeFixture('wrong-round-decision');
+    await expect(
+      wrongDecision.outcomes.commitAchieved({
+        ...wrongDecision.achievedInput,
+        round: {
+          ...wrongDecision.achievedInput.round,
+          evaluation: { decision: 'unachievable', summary: 'Contradictory decision.' },
+        },
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_DECISION_MISMATCH');
+    expect(await terminalOutcomeCounts(wrongDecision)).toEqual({
+      outcomes: 0,
+      results: 0,
+      events: 0,
+      rounds: 0,
+    });
+
+    const wrongInstance = await createTerminalOutcomeFixture('wrong-final-instance');
+    const foreignInstance = await createTerminalOutcomeFixture('foreign-final-instance');
+    await expect(
+      wrongInstance.outcomes.commitCanceled({
+        outcomeId: `terminal-outcome-${wrongInstance.taskId}`,
+        taskId: wrongInstance.taskId,
+        goalId: wrongInstance.goalId,
+        goalVersion: 1,
+        controlId: wrongInstance.controlId,
+        finalInstanceId: foreignInstance.instanceId,
+        summary: 'Canceled with unrelated instance evidence.',
+        eventId: `event-terminal-${wrongInstance.taskId}`,
+        committedAt: '2026-07-16T00:00:04.000Z',
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
+    expect(await terminalOutcomeCounts(wrongInstance)).toEqual({
+      outcomes: 0,
+      results: 0,
+      events: 0,
+      rounds: 0,
     });
   });
 

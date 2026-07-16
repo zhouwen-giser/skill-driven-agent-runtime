@@ -194,7 +194,6 @@ export class TaskService {
         'Task canceled by user.',
       )) === true
     ) {
-      await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
       const committed = await this.#dependencies.tasks.findById(task.taskId);
       if (committed === undefined || !isTerminalTaskPhase(committed.phase))
         throw new TaskApplicationError(

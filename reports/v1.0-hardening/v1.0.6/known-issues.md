@@ -2,6 +2,5 @@
 
 Date: 2026-07-16
 
-- No known feature correctness issue remains after the focused evidence gate.
-- The task package requires the complete `pnpm verify` gate at `v1.0.6-bug-fixed`; that adversarial audit and publication are intentionally separate from the feature tag.
-- Goal-wide cancellation remains an existing multi-Task cascade boundary; individual active WorkflowControl cancellation uses Runtime Terminal Outcome authority.
+- No known correctness issue remains after the bug-fixed adversarial audit and complete `pnpm verify` gate.
+- Goal-wide cancellation remains an existing multi-Task cascade transaction and now creates per-Control Runtime Terminal Outcomes; individual active WorkflowControl cancellation uses the dedicated Runtime Terminal Outcome repository.

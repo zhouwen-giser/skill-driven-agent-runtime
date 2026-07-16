@@ -8,4 +8,4 @@ Result-model processing is separated into pre-commit preparation and post-commit
 
 Migration 0058 adds `runtime_terminal_outcome`, unique Control/Round references and canceled WorkflowControl status with guarded rollback.
 
-Feature commit/tag: this feature commit / `v1.0.6`.
+Feature commit/tag: `4df20a9` / `v1.0.6`.
