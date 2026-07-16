@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-07-12
+Superseded by ADR-081 — 2026-07-16
 
 ## Context
 
@@ -12,7 +12,7 @@ The Goal evaluator could identify and persist a capability gap, but FR-RST-006 r
 
 - `AgentTask` owns optional structured `capabilityGap` evidence: the displayable evaluation summary, missing capability, and suggested tool name, description, and input schema.
 - A Workflow control may bind a `taskId`. When its fixed Goal evaluation returns `capability_gap`, it calls TaskService to perform the domain transition, persist evidence, and publish a summarized audit event. It starts no further Workflow node.
-- The A2A adapter maps `capability_gap` to protocol `INPUT_REQUIRED`, includes the evidence in Task metadata, and exposes a concise status message.
+- The A2A adapter originally mapped `capability_gap` to protocol `INPUT_REQUIRED`, included the evidence in Task metadata, and exposed a concise status message. ADR-081 replaces this non-terminal projection with the locked terminal contract.
 - On direct Task load, `agent_task` is always authoritative for current domain state. Stored A2A documents contribute protocol history only; their timestamps may not override domain state.
 - Core modules contain no A2A SDK types. PostgreSQL stores the evidence as validated JSON through migration 0030.
 

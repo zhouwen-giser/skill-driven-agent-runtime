@@ -19,15 +19,24 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  RemoteTaskPollingService,
+  RemoteTaskReconciler,
+  McpTaskReadinessService,
+  StructuredTaskRiskDecider,
   StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
+  snapshotMcpToolPlanningExecutionSemantics,
   ModelRuntimeService,
   PromptService,
   SkillGraphService,
+  SkillCompositionPlanner,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillInputResolutionService,
   SkillQualityService,
   SkillCallWorkflowService,
+  TransitiveSkillConfirmationEvaluator,
+  nextSkillCallAncestry,
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
@@ -51,17 +60,29 @@ import {
   GoalInputInferenceService,
   WorkflowRevisionService,
   TaskService,
+  TaskAttemptDispatchService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
+  InMemoryTaskStateNotifier,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
+  type RemoteTaskPollingOptions,
 } from '../../../packages/application/src/index.js';
-import type { SkillVersion, WorkflowBudgetLimits } from '../../../packages/domain/src/index.js';
+import {
+  createGoalExecutionContract,
+  goalExecutionContractsEqual,
+  isTerminalWorkflowControlStatus,
+  type AgentTask,
+  type GoalExecutionContract,
+  type McpInvocationOutcome,
+  type SkillVersion,
+  type WorkflowBudgetLimits,
+} from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
@@ -90,6 +111,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillInputResolutionRepository,
   PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
@@ -101,6 +123,7 @@ import {
   PostgresGoalPatchRepository,
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
+  PostgresRuntimeTerminalOutcomeRepository,
   PostgresTaskQualityReportRepository,
   PostgresEvaluationInfluenceRepository,
   PostgresEvaluationAnalyticsRepository,
@@ -109,12 +132,18 @@ import {
   PostgresMemoryRetentionPolicyRepository,
   PostgresGoalInputInferenceRepository,
   PostgresTaskWaitPolicyRepository,
+  PostgresTaskInputRepository,
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
+  PostgresRemoteTaskRepository,
+  PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
+  BullMqRemoteTaskPollQueue,
+  BullMqRemoteTaskPollWorker,
+  ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
 
@@ -136,6 +165,16 @@ export interface ServerRuntimeOptions {
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
+  readonly taskAttemptDispatchIntervalMs?: number;
+  readonly v11McpTasks?: Readonly<{
+    /** Explicit opt-in for the additive V1.1 migration/runtime profile. */
+    isolationAcknowledged: true;
+    queueName?: string;
+    reconcileIntervalMs?: number;
+    polling?: RemoteTaskPollingOptions;
+  }>;
+  readonly a2aWaitTimeoutMs?: number;
+  readonly a2aSafetyPollIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -185,21 +224,38 @@ export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
-  if (options.applyMigrations === true) await applyRuntimeMigrations(pool);
+  const taskStateNotifier = new InMemoryTaskStateNotifier();
+  const publishTaskState = (task: AgentTask) => {
+    taskStateNotifier.publish(task);
+  };
+  if (options.applyMigrations === true) {
+    await applyRuntimeMigrations(
+      pool,
+      options.v11McpTasks === undefined
+        ? { profile: 'released' }
+        : { profile: 'v1.1-isolated', isolationAcknowledged: true },
+    );
+  } else if (options.v11McpTasks !== undefined) {
+    await assertV11RuntimeReady(pool);
+  }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
-  const tasks = new PostgresAgentTaskRepository(pool);
+  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState);
+  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState);
   const events = new PostgresRuntimeEventPublisher(pool);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
-  const mcpRepository = new PostgresMcpRegistryRepository(pool);
+  const mcpRepository = new PostgresMcpRegistryRepository(pool, {
+    v11TaskMetadata: options.v11McpTasks !== undefined,
+  });
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
+  const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
   const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
@@ -226,13 +282,15 @@ export async function startServerRuntime(
     clock,
   });
   const taskWaitTimeouts = new TaskWaitTimeoutService({
-    repository: new PostgresTaskWaitPolicyRepository(pool),
+    repository: new PostgresTaskWaitPolicyRepository(pool, publishTaskState),
     clock,
   });
   await new RuntimeRecoveryService({
-    repository: new PostgresRuntimeRecoveryRepository(pool),
+    repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState),
     clock,
   }).failInterruptedExecutions();
+  const taskAttemptDispatch = new TaskAttemptDispatchService({ attempts: taskInputs, queue });
+  await taskAttemptDispatch.dispatchQueued();
   const workflowBudgetDefaults = options.workflowBudgetDefaults ?? {
     maxReplans: 3,
     maxDurationSeconds: 300,
@@ -254,6 +312,10 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const schemaValidator = new AjvJsonSchemaValidator();
+  const skillComposition = new SkillCompositionPlanner({
+    skills,
+    graph: skillGraphRepository,
+  });
   const workflowValidator = new WorkflowValidator({
     tools: mcpRepository,
     skills,
@@ -279,16 +341,6 @@ export async function startServerRuntime(
     clock,
     memories,
   });
-  const workflowPlanner = new WorkflowPlannerService({
-    model: modelRuntime,
-    validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool),
-    workflowSchema,
-    clock,
-    maxAttempts: 3,
-    templates: workflowTemplates,
-    memories,
-  });
   const resultProcessor = new ResultProcessor(schemaValidator);
   const resultProcessing = new ResultProcessingService({
     model: modelRuntime,
@@ -298,6 +350,10 @@ export async function startServerRuntime(
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
   });
+  const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(
+    pool,
+    publishTaskState,
+  );
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
     memories,
@@ -364,12 +420,22 @@ export async function startServerRuntime(
           decider:
             options.skillSelection.decider ??
             new StructuredSkillSelectionDecider(modelRuntime, memories),
+          mcpWarnings: mcpRepository,
           clock,
           ids: {
             nextSelectionId: () => `skill-selection-${randomUUID()}`,
             nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
         });
+  const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(pool);
+  const skillInputResolution = new SkillInputResolutionService({
+    model: modelRuntime,
+    schemas: schemaValidator,
+    records: skillInputResolutionRepository,
+    memories,
+    clock,
+    nextId: () => `skill-input-resolution-${randomUUID()}`,
+  });
   const mcpTransport = new StreamableHttpMcpAdapter();
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
@@ -383,17 +449,90 @@ export async function startServerRuntime(
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
   });
+  const taskAvailabilityEvidence =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new PostgresTaskAvailabilityEvidenceRepository(pool);
+  const taskReadiness =
+    taskAvailabilityEvidence === undefined
+      ? undefined
+      : new McpTaskReadinessService({
+          operations: mcpRepository,
+          provider: mcpRegistry,
+          evidence: taskAvailabilityEvidence,
+          riskDecider: new StructuredTaskRiskDecider(modelRuntime),
+          clock,
+          ids: {
+            nextReadinessId: () => `task-readiness-${randomUUID()}`,
+            nextSnapshotId: () => `task-availability-${randomUUID()}`,
+          },
+        });
+  const workflowPlanner = new WorkflowPlannerService({
+    model: modelRuntime,
+    validator: workflowValidator,
+    repository: new PostgresWorkflowPlanRepository(pool),
+    workflowSchema,
+    clock,
+    maxAttempts: 3,
+    composition: skillComposition,
+    templates: workflowTemplates,
+    memories,
+    ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
+  });
+  const remoteTaskRepository =
+    options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+  const remoteTaskQueue =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollQueue({
+          connection: options.redis,
+          ...(options.v11McpTasks.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+        });
+  const remoteTaskPolling =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskPollingService({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          reader: mcpRegistry,
+          serial: contextSerial,
+          clock,
+          ids: {
+            nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+            nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+            nextClaimToken: () => `remote-task-claim-${randomUUID()}`,
+            nextProtocolAttemptId: () => `remote-task-protocol-attempt-${randomUUID()}`,
+          },
+          hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
+          ...(options.v11McpTasks?.polling === undefined
+            ? {}
+            : { options: options.v11McpTasks.polling }),
+        });
+  const remoteTaskReconciler =
+    remoteTaskRepository === undefined || remoteTaskQueue === undefined
+      ? undefined
+      : new RemoteTaskReconciler({
+          repository: remoteTaskRepository,
+          queue: remoteTaskQueue,
+          clock,
+        });
   const workflowPlans = new PostgresWorkflowPlanRepository(pool);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
+  const skillCallAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowPorts: WorkflowRuntimePorts = {
-    async executeLlm({ executionId, instruction, responseSchema }) {
+    async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
       return modelRuntime.generateStructured({
         stage: 'execution_decision',
-        instruction,
+        instruction:
+          context === undefined
+            ? instruction
+            : JSON.stringify({ instruction, dynamicContext: context }),
         responseSchema,
         correctionErrors: [],
         ...(task === undefined
@@ -401,32 +540,104 @@ export async function startServerRuntime(
           : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
       });
     },
-    async callMcpTool({ executionId, tool, arguments: arguments_, signal }) {
+    async callMcpTool({
+      executionId,
+      workflowNodeId,
+      workflowNodeRunId,
+      tool,
+      arguments: arguments_,
+      taskExecution,
+      signal,
+      executionContext,
+    }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
-      return mcpRegistry.call(
-        tool.serverId,
-        tool.toolName,
-        arguments_,
-        signal,
-        task === undefined ? {} : { taskId: task.taskId, contextId: task.contextId },
+      const plan =
+        instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      const planDefinition = plan?.definition;
+      if (taskExecution !== undefined && taskReadiness === undefined)
+        throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
+      if (taskExecution !== undefined && planDefinition === undefined)
+        throw new Error('MCP_TASK_WORKFLOW_DEFINITION_MISSING');
+      const guardedTaskExecution =
+        taskExecution === undefined ||
+        taskReadiness === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? taskExecution
+          : await taskReadiness.assertPreInvocation({
+              planId: plan.planId,
+              planAttempt: plan.attemptCount,
+              definition: planDefinition,
+              planConfirmed: plan.confirmationStatus === 'confirmed',
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              serverId: tool.serverId,
+              operationName: tool.toolName,
+              arguments: arguments_,
+              taskExecution,
+              executionContext,
+              ...(signal === undefined ? {} : { signal }),
+            });
+      return unwrapMcpInvocationOutcome(
+        await mcpRegistry.call(
+          tool.serverId,
+          tool.toolName,
+          arguments_,
+          signal,
+          task === undefined
+            ? {
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              }
+            : {
+                taskId: task.taskId,
+                contextId: task.contextId,
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              },
+        ),
       );
     },
-    async executeSkill({ skillId, input, parentExecutionId, parentNodeId, signal }) {
+    async executeSkill({
+      skillId,
+      input,
+      parentExecutionId,
+      parentNodeId,
+      signal,
+      executionContext,
+    }) {
       const parent = await workflowInstances.findInstance(parentExecutionId);
       if (parent === undefined) throw new Error('WORKFLOW_PARENT_INSTANCE_NOT_FOUND');
-      return skillCallWorkflowService.execute({
-        skillId,
-        value: input,
-        parentInstanceId: parentExecutionId,
-        parentNodeId,
-        parentGoalId: parent.goalId,
-        parentGoalVersion: parent.goalVersion,
-        ...(signal === undefined ? {} : { signal }),
-      });
+      const ancestry = nextSkillCallAncestry(skillCallAncestry.getStore() ?? [], skillId);
+      return skillCallAncestry.run(ancestry, () =>
+        skillCallWorkflowService.execute({
+          skillId,
+          value: input,
+          parentPlanId: parent.planId,
+          parentInstanceId: parentExecutionId,
+          parentNodeId,
+          parentGoalId: parent.goalId,
+          parentGoalVersion: parent.goalVersion,
+          executionContext,
+          ...(signal === undefined ? {} : { signal }),
+        }),
+      );
     },
-    async executeSubworkflow({ workflowDefinitionId, workflowVersion, parentInput, signal }) {
+    async executeSubworkflow({
+      workflowDefinitionId,
+      workflowVersion,
+      input,
+      signal,
+      executionContext,
+    }) {
       const key = `${workflowDefinitionId}@${String(workflowVersion)}`;
       const ancestry = workflowAncestry.getStore() ?? [];
       if (ancestry.includes(key) || ancestry.length >= 16)
@@ -444,7 +655,7 @@ export async function startServerRuntime(
         const outcome = await new LangGraphWorkflowExecutor(
           workflowPorts,
           workflowCallCosts,
-        ).execute(definition, parentInput, workflowBudgetDefaults, signal);
+        ).execute(definition, input, workflowBudgetDefaults, signal, undefined, executionContext);
         if (outcome.status === 'failed') throw new Error('WORKFLOW_SUBWORKFLOW_FAILED');
         return outcome.result;
       });
@@ -468,11 +679,25 @@ export async function startServerRuntime(
     skills,
     systemBudgetDefaults: workflowBudgetDefaults,
   });
+  const skillConfirmation = new TransitiveSkillConfirmationEvaluator({
+    skills,
+    graph: skillGraphRepository,
+  });
   const skillCallWorkflowService = new SkillCallWorkflowService({
     skills,
-    plans: workflowPlans,
+    planner: workflowPlanner,
+    validator: workflowValidator,
     execution: workflowExecution,
+    plans: workflowPlans,
+    confirmation: skillConfirmation,
     records: skillCallWorkflows,
+    schemas: schemaValidator,
+    loadToolPlanningMetadata: (skill) =>
+      buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
+        (await mcpRepository.listTools(reference.serverId)).find(
+          (tool) => tool.toolName === reference.toolName,
+        ),
+      ),
     clock,
     nextId: randomUUID,
   });
@@ -487,13 +712,13 @@ export async function startServerRuntime(
     goals,
     instances: workflowInstances,
     execution: workflowExecution,
-    repository: new PostgresGoalCancellationRepository(pool),
+    repository: new PostgresGoalCancellationRepository(pool, publishTaskState),
     clock,
     nextId: () => `goal-cancellation-${randomUUID()}`,
   });
   const goalPatches = new GoalPatchService({
     goals,
-    patches: new PostgresGoalPatchRepository(pool),
+    patches: new PostgresGoalPatchRepository(pool, publishTaskState),
     plans: workflowPlans,
     planner: workflowPlanner,
     skills,
@@ -502,6 +727,31 @@ export async function startServerRuntime(
     ids: {
       nextPatchId: () => `goal-patch-${randomUUID()}`,
       nextPlanId: () => `plan-goal-patch-${randomUUID()}`,
+    },
+    beforeReplan: {
+      async prepare({ goal, taskId }) {
+        const task = await service.get(taskId);
+        if (task.selectedSkillId === undefined || task.selectedSkillVersion === undefined)
+          return { status: 'ready' } as const;
+        const skill = await skills.findVersion(task.selectedSkillId, task.selectedSkillVersion);
+        if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
+        const resolution = await skillInputResolution.resolve({
+          task: { ...task, goalId: goal.goalId, goalVersion: goal.version },
+          goal,
+          skill,
+          supplementaryInputs: await taskInputs.listResponses(taskId),
+        });
+        if (resolution.status === 'input_required') return { status: 'input_required' } as const;
+        if (resolution.status !== 'resolved') throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
+        return {
+          status: 'ready',
+          planningContext: {
+            resolutionId: resolution.resolutionId,
+            structuredInput: resolution.structuredInput,
+            sourceRefs: resolution.sourceRefs,
+          },
+        } as const;
+      },
     },
   });
   const backgroundExecutions = new Set<Promise<void>>();
@@ -523,6 +773,8 @@ export async function startServerRuntime(
     tasks,
     events,
     skillDrafts,
+    taskInputs,
+    skillInputs: skillInputResolutionRepository,
     queue,
     clock,
     ids,
@@ -531,9 +783,16 @@ export async function startServerRuntime(
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        if (await skillCallWorkflowService.confirmPendingForParentPlan(task.planId, task.taskId))
+          return 'nested_skill_plan';
         await workflowExecution.confirm(task.planId, task.taskId);
+        return 'task_plan';
       },
-      executeConfirmed(task) {
+      async reject(task) {
+        if (task.planId !== undefined)
+          await skillCallWorkflowService.rejectPendingForParentPlan(task.planId);
+      },
+      executeConfirmed(task, confirmationTarget) {
         if (
           task.planId === undefined ||
           task.goalId === undefined ||
@@ -546,6 +805,10 @@ export async function startServerRuntime(
         const goalVersion = task.goalVersion;
         const selectedSkillIds = task.selectedSkillId === undefined ? [] : [task.selectedSkillId];
         const execution = (async () => {
+          if (confirmationTarget === 'nested_skill_plan') {
+            await skillCallWorkflowService.resumeConfirmedForParentPlan(planId);
+            return;
+          }
           const controlId = `control-task-${task.taskId}`;
           try {
             const existing = await workflowController.get(controlId);
@@ -569,7 +832,7 @@ export async function startServerRuntime(
             goalVersion,
             taskId: task.taskId,
             initialPlanId: planId,
-            input: { requestText: task.requestText },
+            input: await service.executionInput(task.taskId),
             skillIds: selectedSkillIds,
             planningInstruction: JSON.stringify({
               operation: 'task_outer_replan',
@@ -612,8 +875,59 @@ export async function startServerRuntime(
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         await workflowExecution.pauseForPlan(task.planId);
       },
+      async commitRuntimeCancellation(task, reason) {
+        if (
+          task.goalId === undefined ||
+          task.goalVersion === undefined ||
+          task.planId === undefined
+        )
+          return false;
+        const controlId = `control-task-${task.taskId}`;
+        let control;
+        try {
+          control = await workflowController.get(controlId);
+        } catch (error: unknown) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'WORKFLOW_CONTROL_NOT_FOUND'
+          )
+            return false;
+          throw error;
+        }
+        if (isTerminalWorkflowControlStatus(control.status)) return true;
+        await skillCallWorkflowService.rejectPendingForParentPlan(control.currentPlanId);
+        const active = await workflowInstances.findActiveByPlanId(control.currentPlanId);
+        const canceled =
+          active === undefined
+            ? undefined
+            : await workflowExecution.cancelForPlan(control.currentPlanId);
+        try {
+          await runtimeTerminalOutcomes.commitCanceled({
+            outcomeId: `terminal-outcome-task-${task.taskId}`,
+            taskId: task.taskId,
+            goalId: task.goalId,
+            goalVersion: task.goalVersion,
+            controlId,
+            ...(canceled?.instanceId === undefined && control.finalInstanceId === undefined
+              ? {}
+              : { finalInstanceId: canceled?.instanceId ?? control.finalInstanceId }),
+            summary: reason,
+            eventId: `event-terminal-${task.taskId}`,
+            committedAt: clock.now(),
+          });
+        } catch (error: unknown) {
+          const latest = await workflowController.get(controlId);
+          if (isTerminalWorkflowControlStatus(latest.status)) return true;
+          throw error;
+        }
+        return true;
+      },
       async cancel(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        if (await skillCallWorkflowService.rejectPendingForParentPlan(task.planId)) return;
+        if (task.phase === 'awaiting_plan_confirmation' || task.phase === 'canceled') return;
         await workflowExecution.cancelForPlan(task.planId);
       },
       async resume(task) {
@@ -630,7 +944,7 @@ export async function startServerRuntime(
     controls: new PostgresWorkflowControlRepository(pool),
     plans: workflowPlans,
     goals,
-    skills,
+    confirmation: skillConfirmation,
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
@@ -638,16 +952,27 @@ export async function startServerRuntime(
     memories,
     taskOutcomes: {
       reportCapabilityGap: (taskId, evaluation) => service.reportCapabilityGap(taskId, evaluation),
-      requestInput: (taskId, question) => service.requestInput(taskId, question),
-      reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
+      requestInput: (taskId, question, controlId, controlRoundIndex) =>
+        service.requestInput(taskId, question, {
+          source: 'goal_evaluation',
+          controlId,
+          controlRoundIndex,
+        }),
+      requestSkillConfirmation: (taskId, input) =>
+        service.requestNestedSkillConfirmation(taskId, input),
       async prepareSkillReplacement(taskId) {
         if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
         const task = await service.get(taskId);
         if (task.skillSelectionId === undefined || task.selectedSkillId === undefined)
           throw new Error('TASK_SKILL_SELECTION_NOT_BOUND');
+        if (task.goalId === undefined || task.goalVersion === undefined)
+          throw new Error('TASK_GOAL_NOT_ATTACHED');
+        const goal = await goals.findById(task.goalId);
+        if (goal?.version !== task.goalVersion) throw new Error('TASK_GOAL_VERSION_STALE');
         const replacement = await skillSelection.planReplacement(
           task.skillSelectionId,
           task.selectedSkillId,
+          createGoalExecutionContract(goal),
         );
         return {
           skillId: replacement.replacementSkillId,
@@ -656,12 +981,15 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
-      async reportAchieved(taskId, instance, evaluation) {
+      reportInputContinuationPlan: (taskId, input) =>
+        service.awaitInputContinuationConfirmation(taskId, input),
+      async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
           const temporary = await temporarySkillRepository.find(task.temporarySkillId);
           if (temporary?.status !== 'active') throw new Error('TEMPORARY_SKILL_NOT_ACTIVE');
-          const processed = await resultProcessing.process({
+          return resultProcessing.prepare({
+            resultId: `processed-result-terminal-${taskId}`,
             taskId,
             skillId: temporary.temporarySkillId,
             skillVersion: 1,
@@ -669,48 +997,13 @@ export async function startServerRuntime(
             outputSchema: temporary.outputSchema,
             rawResult: instance.result,
           });
-          await service.recordResult(
-            taskId,
-            {
-              text: `Temporary Skill ${temporary.name} completed.`,
-              structured: instance.result,
-              outputSchema: temporary.outputSchema,
-            },
-            resultProcessor,
-          );
-          const plan = await workflowPlans.findPlan(instance.planId);
-          const goal = await goals.findById(instance.goalId);
-          if (plan?.definition === undefined || goal === undefined)
-            throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
-          await taskQuality.evaluate({
-            taskId,
-            goal,
-            goalEvaluation: evaluation,
-            workflow: plan.definition,
-            instance,
-            skill: {
-              skillId: temporary.temporarySkillId,
-              version: 1,
-              inputSchema: temporary.inputSchema,
-              outputSchema: temporary.outputSchema,
-            },
-            processedResult: processed,
-            isTemporarySkill: true,
-          });
-          const completed = await temporarySkills.complete(
-            temporary.temporarySkillId,
-            true,
-            'Temporary Skill Workflow completed and its output Schema passed.',
-          );
-          if (completed.formalizationCandidate !== undefined)
-            await skillEvolution.evaluateAndPublish(completed.formalizationCandidate.candidateId);
-          return;
         }
         const selected = instance.skillVersions[0];
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
         const skill = await skills.findVersion(selected.skillId, selected.version);
         if (skill?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
-        const processed = await resultProcessing.process({
+        return resultProcessing.prepare({
+          resultId: `processed-result-terminal-${taskId}`,
           taskId,
           skillId: skill.skillId,
           skillVersion: skill.version,
@@ -718,15 +1011,28 @@ export async function startServerRuntime(
           outputSchema: skill.outputSchema,
           rawResult: instance.result,
         });
-        await service.recordResult(
-          taskId,
-          { ...processed.output, outputSchema: skill.outputSchema },
-          resultProcessor,
-        );
+      },
+      enhanceResultMemory: (processed) => resultProcessing.enhance(processed),
+      async enhanceTaskQuality(taskId, instance, evaluation, processed) {
+        const task = await service.get(taskId);
         const plan = await workflowPlans.findPlan(instance.planId);
         const goal = await goals.findById(instance.goalId);
         if (plan?.definition === undefined || goal === undefined)
           throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
+        const temporary =
+          task.temporarySkillId === undefined
+            ? undefined
+            : await temporarySkillRepository.find(task.temporarySkillId);
+        const skill =
+          temporary === undefined
+            ? await skills.findVersion(processed.skillId, processed.skillVersion)
+            : {
+                skillId: temporary.temporarySkillId,
+                version: 1,
+                inputSchema: temporary.inputSchema,
+                outputSchema: temporary.outputSchema,
+              };
+        if (skill === undefined) throw new Error('TASK_QUALITY_SKILL_EVIDENCE_MISSING');
         await taskQuality.evaluate({
           taskId,
           goal,
@@ -735,9 +1041,28 @@ export async function startServerRuntime(
           instance,
           skill,
           processedResult: processed,
-          isTemporarySkill: false,
+          isTemporarySkill: temporary !== undefined,
         });
       },
+      async enhanceTemporarySkill(taskId) {
+        const task = await service.get(taskId);
+        if (task.temporarySkillId === undefined) return undefined;
+        const completed = await temporarySkills.complete(
+          task.temporarySkillId,
+          true,
+          'Temporary Skill Workflow completed and its output Schema passed.',
+        );
+        return completed.formalizationCandidate?.candidateId;
+      },
+      async enhanceSkillEvolution(candidateId) {
+        await skillEvolution.evaluateAndPublish(candidateId);
+      },
+    },
+    terminalOutcomes: runtimeTerminalOutcomes,
+    reportWarning: (warning) => {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'runtime.enhancement.warning', ...warning })}\n`,
+      );
     },
     clock,
     ids: {
@@ -774,7 +1099,7 @@ export async function startServerRuntime(
     skills: skillRegistry,
     experiences: new PostgresEvolutionExperienceRepository(pool),
     runner: {
-      async run({ proposedSkill, case_ }) {
+      async run({ proposedSkill, case_, executionContext }) {
         const tool = proposedSkill.tools[0];
         if (tool === undefined)
           return { passed: false, summary: 'No Tool is available for simulation.' };
@@ -790,6 +1115,7 @@ export async function startServerRuntime(
         try {
           await mcpRegistry.call(tool.serverId, tool.toolName, case_.input, undefined, {
             contextId: `skill-evolution:${proposedSkill.skillId}`,
+            executionContext,
           });
           return {
             passed: case_.expectedOutcome === 'success',
@@ -808,7 +1134,7 @@ export async function startServerRuntime(
           };
         }
       },
-      async replay({ experience }) {
+      async replay({ experience, executionContext }) {
         try {
           const outcome = await langGraphExecutor.execute(
             experience.workflow,
@@ -816,6 +1142,7 @@ export async function startServerRuntime(
             workflowBudgetDefaults,
             undefined,
             `evolution-replay-${experience.experienceId}-${randomUUID()}`,
+            executionContext,
           );
           return {
             succeeded: outcome.status === 'succeeded',
@@ -858,11 +1185,16 @@ export async function startServerRuntime(
     ids,
     decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
+    skills,
+    skillInputs: skillInputResolution,
     skillSelection: {
-      async select(goalDescription, task) {
-        if (!goalDescription.includes('TEMPORARY_SKILL_GOAL') && skillSelection !== undefined) {
+      async select(goalContract, task) {
+        if (
+          !goalContract.description.includes('TEMPORARY_SKILL_GOAL') &&
+          skillSelection !== undefined
+        ) {
           try {
-            return await skillSelection.select(goalDescription);
+            return await skillSelection.select(goalContract);
           } catch (error: unknown) {
             if (!(
               typeof error === 'object' &&
@@ -873,7 +1205,7 @@ export async function startServerRuntime(
               throw error;
           }
         }
-        const resolved = await temporarySkillResolver.resolve(goalDescription, task);
+        const resolved = await temporarySkillResolver.resolve(goalContract, task);
         return {
           temporarySkillId: resolved.skill.temporarySkillId,
           name: resolved.skill.name,
@@ -884,6 +1216,21 @@ export async function startServerRuntime(
     nextGoalId: () => `goal-${randomUUID()}`,
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
+    taskInputs,
+    requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
+    workflowContinuation: {
+      continueAfterInput(input) {
+        if (input.controlId === undefined || input.controlRoundIndex === undefined)
+          throw new Error('TASK_INPUT_WORKFLOW_CONTROL_ASSOCIATION_REQUIRED');
+        return workflowController.continueAfterInput({
+          controlId: input.controlId,
+          taskId: input.taskId,
+          inputRequestId: input.inputRequestId,
+          controlRoundIndex: input.controlRoundIndex,
+          content: input.content,
+        });
+      },
+    },
     taskPlanning: {
       async prepare(input) {
         const skill =
@@ -896,14 +1243,20 @@ export async function startServerRuntime(
             : await temporarySkillRepository.find(input.temporarySkillId);
         if (skill?.status !== 'enabled' && temporary?.status !== 'active')
           throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
-        const toolPlanningMetadata =
-          skill === undefined
-            ? undefined
-            : await buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
-                (await mcpRepository.listTools(reference.serverId)).find(
-                  (tool) => tool.toolName === reference.toolName,
-                ),
-              );
+        if (skill?.status === 'enabled' && input.skillInputResolution === undefined)
+          throw new Error('SELECTED_SKILL_INPUT_NOT_RESOLVED');
+        const planningToolPolicy = skill?.toolPolicy ?? {
+          required: temporary?.tools ?? [],
+          optional: [],
+          forbidden: [],
+        };
+        const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
+          planningToolPolicy,
+          async (reference) =>
+            (await mcpRepository.listTools(reference.serverId)).find(
+              (tool) => tool.toolName === reference.toolName,
+            ),
+        );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
         const plan = await workflowPlanner.plan({
           planId,
@@ -911,6 +1264,17 @@ export async function startServerRuntime(
           workflowVersion: 1,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
+          toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
+          ...(skill === undefined
+            ? {}
+            : {
+                compositionRoot: {
+                  skillId: skill.skillId,
+                  skillVersion: skill.version,
+                },
+              }),
+          taskId: input.task.taskId,
           templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
@@ -927,6 +1291,7 @@ export async function startServerRuntime(
                     temporarySkillId: temporary?.temporarySkillId,
                     description: temporary?.description,
                     tools: temporary?.tools,
+                    toolPlanningMetadata,
                     inputSchema: temporary?.inputSchema,
                     outputSchema: temporary?.outputSchema,
                   },
@@ -939,6 +1304,8 @@ export async function startServerRuntime(
                     toolPolicy: skill.toolPolicy,
                     toolPlanningMetadata,
                     workflowGuidance: skill.workflowGuidance,
+                    inputSchema: skill.inputSchema,
+                    resolvedInput: input.skillInputResolution,
                     outputSchema: skill.outputSchema,
                   },
                 }),
@@ -953,11 +1320,19 @@ export async function startServerRuntime(
           throw new Error(
             `TASK_PLAN_SKILL_TOOL_POLICY_INVALID:${JSON.stringify(toolPolicyViolations)}`,
           );
-        if (skill?.runtimePolicy.autoConfirmPlan === true)
-          await workflowExecution.confirm(plan.planId, input.task.taskId);
+        const confirmation = await skillConfirmation.evaluate(
+          skill === undefined ? [] : [skill.skillId],
+          plan.definition,
+        );
+        const autoConfirmed =
+          confirmation.autoConfirm &&
+          (plan.executionReadiness === undefined ||
+            (plan.executionReadiness.disposition === 'ready' &&
+              !plan.executionReadiness.confirmationRequired));
+        if (autoConfirmed) await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
-          autoConfirmed: skill?.runtimePolicy.autoConfirmPlan === true,
+          autoConfirmed,
         };
       },
       async executeAuto(input) {
@@ -975,7 +1350,7 @@ export async function startServerRuntime(
           goalVersion: task.goalVersion,
           taskId: task.taskId,
           initialPlanId: input.planId,
-          input: { requestText: task.requestText },
+          input: input.executionInput,
           skillIds: [task.selectedSkillId],
           planningInstruction: JSON.stringify({
             operation: 'task_outer_replan',
@@ -986,15 +1361,80 @@ export async function startServerRuntime(
     },
   });
   const waitSweepTimer = setInterval(() => {
-    void taskWaitTimeouts.sweep().catch((error: unknown) => {
+    void (async () => {
+      const expired = await taskWaitTimeouts.sweep();
+      const releases = await Promise.allSettled(
+        expired.map((task) => service.releaseTimedOutWait(task.taskId)),
+      );
+      const failures: unknown[] = [];
+      for (const release of releases)
+        if (release.status === 'rejected') failures.push(release.reason as unknown);
+      if (failures.length > 0)
+        throw new AggregateError(
+          failures,
+          'One or more expired Task checkpoints were not released.',
+        );
+    })().catch((error: unknown) => {
       process.stderr.write(
         `${JSON.stringify({ event: 'task_wait_sweep.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
       );
     });
   }, options.taskWaitSweepIntervalMs ?? 1000);
   waitSweepTimer.unref();
-  const worker = new BullMqContextWorker({ connection: options.redis, queueName, processor });
+  let attemptDispatchRunning = false;
+  const attemptDispatchTimer = setInterval(() => {
+    if (attemptDispatchRunning) return;
+    attemptDispatchRunning = true;
+    void taskAttemptDispatch
+      .dispatchQueued()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'task_attempt_dispatch.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        attemptDispatchRunning = false;
+      });
+  }, options.taskAttemptDispatchIntervalMs ?? 1000);
+  attemptDispatchTimer.unref();
+  const worker = new BullMqContextWorker({
+    connection: options.redis,
+    queueName,
+    processor,
+    serial: contextSerial,
+  });
+  const remoteTaskWorker =
+    remoteTaskPolling === undefined
+      ? undefined
+      : new BullMqRemoteTaskPollWorker({
+          connection: options.redis,
+          ...(options.v11McpTasks?.queueName === undefined
+            ? {}
+            : { queueName: options.v11McpTasks.queueName }),
+          processor: remoteTaskPolling,
+        });
+  let remoteTaskReconcileRunning = false;
+  const remoteTaskReconcileTimer =
+    remoteTaskReconciler === undefined
+      ? undefined
+      : setInterval(() => {
+          if (remoteTaskReconcileRunning) return;
+          remoteTaskReconcileRunning = true;
+          void remoteTaskReconciler
+            .reconcile()
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'remote_task_reconcile.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              remoteTaskReconcileRunning = false;
+            });
+        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+  remoteTaskReconcileTimer?.unref();
+  if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
   worker.start();
+  remoteTaskWorker?.start();
   let management: ManagementHttpEndpointHandle | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
@@ -1011,15 +1451,37 @@ export async function startServerRuntime(
         evaluationInfluences,
         evaluationAnalytics,
         runtimeEvents: events,
+        runtimeTerminalOutcomes,
         memories,
         memoryRetention,
         goalInputInference,
+        skillInputResolution,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
         models: modelRuntime,
         prompts,
-        ...(skillSelection === undefined ? {} : { skillSelection }),
+        ...(skillSelection === undefined
+          ? {}
+          : {
+              skillSelection: {
+                select: async (goalContract: GoalExecutionContract) => {
+                  const goal = await goals.findById(goalContract.goalId);
+                  if (
+                    goal !== undefined &&
+                    (goal.status !== 'active' ||
+                      !goalExecutionContractsEqual(createGoalExecutionContract(goal), goalContract))
+                  )
+                    throw Object.assign(
+                      new Error(
+                        'Registered Skill selection requires the exact active Goal contract.',
+                      ),
+                      { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' as const },
+                    );
+                  return skillSelection.select(goalContract);
+                },
+              },
+            }),
         skillQuality,
         workflowTemplates,
         temporarySkills: temporarySkillOperations,
@@ -1028,7 +1490,19 @@ export async function startServerRuntime(
         evolutionPolicy,
         workflows: {
           validate: (raw) => workflowValidator.validate(raw),
-          plan: (input) => workflowPlanner.plan(input),
+          plan: async (input) => {
+            const goal = await goals.findById(input.goalId);
+            if (
+              goal !== undefined &&
+              (goal.status !== 'active' ||
+                !goalExecutionContractsEqual(createGoalExecutionContract(goal), input.goalContract))
+            )
+              throw Object.assign(
+                new Error('Registered planning requires the exact active Goal contract.'),
+                { code: 'WORKFLOW_GOAL_CONTRACT_STALE' as const },
+              );
+            return workflowPlanner.plan(input);
+          },
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
           resumeHumanConfirmation: (input) => workflowExecution.resumeHumanConfirmation(input),
@@ -1040,14 +1514,27 @@ export async function startServerRuntime(
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,
+        ...(taskAvailabilityEvidence === undefined
+          ? {}
+          : { taskAvailability: taskAvailabilityEvidence }),
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
       consoleDirectory: resolve('apps/console/dist'),
     });
     management = startedManagement;
+    const taskExecutor = new TaskServiceAgentExecutor({
+      tasks: service,
+      notifier: taskStateNotifier,
+      ...(options.a2aWaitTimeoutMs === undefined
+        ? {}
+        : { waitTimeoutMs: options.a2aWaitTimeoutMs }),
+      ...(options.a2aSafetyPollIntervalMs === undefined
+        ? {}
+        : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
+    });
     const a2a = await startA2AHttpEndpoint({
-      executor: new TaskServiceAgentExecutor({ tasks: service }),
+      executor: taskExecutor,
       taskStore: new A2AProjectionTaskStore(
         new PostgresExternalTaskProjectionRepository(pool),
         tasks,
@@ -1109,8 +1596,10 @@ export async function startServerRuntime(
       refreshMcpServer(serverId) {
         return mcpRegistry.refresh(serverId);
       },
-      callMcpTool(serverId, toolName, arguments_, signal, context) {
-        return mcpRegistry.call(serverId, toolName, arguments_, signal, context);
+      async callMcpTool(serverId, toolName, arguments_, signal, context) {
+        return unwrapMcpInvocationOutcome(
+          await mcpRegistry.call(serverId, toolName, arguments_, signal, context),
+        );
       },
       deleteMcpServer(serverId) {
         return mcpRegistry.delete(serverId);
@@ -1132,9 +1621,14 @@ export async function startServerRuntime(
       },
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
+        clearInterval(attemptDispatchTimer);
+        if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
+        taskExecutor.close();
         await a2a.close();
         await startedManagement.close();
+        await remoteTaskWorker?.close();
         await worker.close();
+        await remoteTaskQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await mcpTransport.close();
@@ -1149,9 +1643,14 @@ export async function startServerRuntime(
     };
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
+    clearInterval(attemptDispatchTimer);
+    if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
+    taskStateNotifier.close();
     await management?.close();
     await mcpTransport.close();
+    await remoteTaskWorker?.close();
     await worker.close();
+    await remoteTaskQueue?.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -1162,19 +1661,67 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  const record = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(',')}}`;
+}
+
+function unwrapMcpInvocationOutcome(outcome: McpInvocationOutcome): unknown {
+  if (outcome.kind === 'immediate') return outcome.result;
+  throw new RemoteMcpTaskPhaseNotConnectedError(outcome.task.remoteTaskId);
+}
+
+class RemoteMcpTaskPhaseNotConnectedError extends Error {
+  readonly code = 'MCP_REMOTE_TASK_PHASE_NOT_CONNECTED';
+
+  constructor(remoteTaskId: string) {
+    super(
+      `Remote MCP Task ${remoteTaskId} was accepted before the Phase 4 continuation is active.`,
+    );
+    this.name = 'RemoteMcpTaskPhaseNotConnectedError';
+  }
+}
+
+export interface RuntimeMigrationOptions {
+  readonly profile?: 'released' | 'v1.1-isolated';
+  readonly isolationAcknowledged?: boolean;
+}
+
+export async function applyRuntimeMigrations(
+  pool: Pool,
+  options: RuntimeMigrationOptions = {},
+): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   )`);
-  const ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const profile = options.profile ?? 'released';
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (profile === 'v1.1-isolated') {
+    if (options.isolationAcknowledged !== true || !/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+      throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+    }
+  }
+  let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  if (
+    profile === 'released' &&
+    ledger.rows.some((row) => Number.parseInt(row.version.slice(0, 4), 10) >= 100)
+  ) {
+    throw new Error('V11_MIGRATION_PROFILE_REQUIRED');
+  }
   const highestAppliedSequence = Math.max(
     0,
     ...ledger.rows
       .map((row) => Number.parseInt(row.version.slice(0, 4), 10))
       .filter(Number.isFinite),
   );
-  for (const name of [
+  const releasedMigrations = [
     '0002_protocol_domain.up.sql',
     '0003_external_task_projection.up.sql',
     '0004_task_request.up.sql',
@@ -1227,7 +1774,19 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0051_workflow_node_duration.up.sql',
     '0052_observability_correlation.up.sql',
     '0053_mcp_tool_enhancement_stage.up.sql',
-  ]) {
+    '0054_skill_call_history.up.sql',
+    '0055_task_input_continuation.up.sql',
+    '0056_mcp_execution_mode.up.sql',
+    '0057_nested_skill_confirmation.up.sql',
+    '0058_runtime_terminal_outcome.up.sql',
+    '0059_skill_input_resolution.up.sql',
+    '0060_task_skill_input_resolution_binding.up.sql',
+    '0061_goal_execution_contract.up.sql',
+    '0062_skill_composition_context.up.sql',
+    '0063_mcp_tool_execution_semantics.up.sql',
+    '0064_memory_production_hardening.up.sql',
+  ] as const;
+  for (const name of releasedMigrations) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;
     const migration = await readFile(
@@ -1236,4 +1795,50 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     );
     await pool.query(migration);
   }
+  if (profile !== 'v1.1-isolated') return;
+  ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const applied = new Set(ledger.rows.map((row) => row.version));
+  // The complete v1.0.13 hardening chain must precede the reserved V1.1 range.
+  if (!applied.has('0064_memory_production_hardening')) {
+    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  }
+  const v11Migrations = [
+    '0100_remote_mcp_task_tracking.up.sql',
+    '0101_task_execution_readiness.up.sql',
+  ] as const;
+  const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
+  for (const [index, version] of v11Versions.entries()) {
+    if (
+      !applied.has(version) &&
+      v11Versions.slice(index + 1).some((laterVersion) => applied.has(laterVersion))
+    )
+      throw new Error('V11_MIGRATION_LEDGER_GAP');
+  }
+  for (const v11Migration of v11Migrations) {
+    if (applied.has(v11Migration.replace('.up.sql', ''))) continue;
+    const migration = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'migrations', v11Migration),
+      'utf8',
+    );
+    await pool.query(migration);
+  }
+}
+
+async function assertV11RuntimeReady(pool: Pool): Promise<void> {
+  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
+  const databaseName = database.rows[0]?.name ?? '';
+  if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
+    throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
+  }
+  const ledger = await pool.query<{ released_present: boolean; v11_count: number }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM schema_migration WHERE version = '0064_memory_production_hardening'
+     ) AS released_present,
+     (SELECT count(*)::integer FROM schema_migration
+      WHERE version IN ('0100_remote_mcp_task_tracking','0101_task_execution_readiness')) AS v11_count`,
+  );
+  const ledgerState = ledger.rows[0];
+  if (ledgerState?.released_present !== true)
+    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  if (ledgerState.v11_count !== 2) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

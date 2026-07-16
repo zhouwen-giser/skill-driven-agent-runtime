@@ -59,6 +59,7 @@ describe('WorkflowRevisionService', () => {
           planId: input.planId,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
           definition: definition({ version: input.workflowVersion }),
           ...(input.sourcePlanId === undefined ? {} : { sourcePlanId: input.sourcePlanId }),
           ...(input.revisionKind === undefined ? {} : { revisionKind: input.revisionKind }),
@@ -122,6 +123,7 @@ function repositoryWithSource(status: 'confirmed' | 'awaiting_confirmation') {
     planId: 'plan-1',
     goalId: 'goal-1',
     goalVersion: 1,
+    goalContract,
     definition: definition(),
     confirmationStatus: status,
     attemptCount: 1,
@@ -145,6 +147,15 @@ function definition(overrides: Partial<WorkflowDefinition> = {}): WorkflowDefini
     ...overrides,
   };
 }
+
+const goalContract = {
+  goalId: 'goal-1',
+  version: 1,
+  title: 'Revise workflow',
+  description: 'Revise the workflow safely.',
+  constraints: ['safe'],
+  successCriteria: ['valid revision'],
+} as const;
 
 class MemoryPlanRepository implements WorkflowPlanRepository {
   attempts: WorkflowPlanAttempt[] = [];

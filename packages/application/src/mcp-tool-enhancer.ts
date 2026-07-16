@@ -4,8 +4,11 @@ import {
   createMcpToolEnhancement,
   type McpTool,
   type McpToolEnhancement,
+  type McpToolExecutionSemantics,
   type SkillToolPolicy,
   type ToolReference,
+  type WorkflowToolExecutionSemanticsSnapshot,
+  type McpTaskOperationSemantics,
 } from '../../domain/src/index.js';
 import type { StructuredModelProvider } from './ports.js';
 
@@ -74,6 +77,8 @@ export interface McpToolPlanningMetadata {
   readonly description?: string;
   readonly enhancement?: McpToolEnhancement;
   readonly inputSchema: unknown;
+  readonly executionSemantics?: McpToolExecutionSemantics;
+  readonly taskExecution?: McpTaskOperationSemantics;
   readonly contractAuthority: 'original_mcp_input_schema';
 }
 
@@ -103,9 +108,21 @@ export async function buildMcpToolPlanningMetadata(
         ...(tool.title === undefined ? {} : { title: tool.title }),
         ...(tool.description === undefined ? {} : { description: tool.description }),
         ...(tool.enhancement === undefined ? {} : { enhancement: tool.enhancement }),
+        ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
         inputSchema: tool.inputSchema,
+        executionSemantics: tool.executionSemantics,
         contractAuthority: 'original_mcp_input_schema' as const,
       };
     }),
+  );
+}
+
+export function snapshotMcpToolPlanningExecutionSemantics(
+  metadata: readonly McpToolPlanningMetadata[],
+): readonly WorkflowToolExecutionSemanticsSnapshot[] {
+  return metadata.flatMap((item) =>
+    item.executionSemantics === undefined
+      ? []
+      : [{ reference: item.reference, executionSemantics: item.executionSemantics }],
   );
 }

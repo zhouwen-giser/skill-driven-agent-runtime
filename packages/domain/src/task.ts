@@ -20,7 +20,7 @@ export type TaskPhase =
 
 export type TaskTerminalPhase = Extract<
   TaskPhase,
-  'completed' | 'canceled' | 'failed' | 'invalidated'
+  'capability_gap' | 'completed' | 'canceled' | 'failed' | 'invalidated'
 >;
 
 export interface TaskOutput {
@@ -52,6 +52,7 @@ export interface AgentTask {
   readonly selectedSkillId?: string;
   readonly selectedSkillVersion?: number;
   readonly skillSelectionId?: string;
+  readonly skillInputResolutionId?: string;
   readonly temporarySkillId?: string;
   readonly output?: TaskOutput;
   readonly capabilityGap?: TaskCapabilityGap;
@@ -62,7 +63,13 @@ export interface AgentTask {
 
 export function bindTaskPlan(
   task: AgentTask,
-  input: Readonly<{ goalId: string; goalVersion: number; planId: string; timestamp: string }>,
+  input: Readonly<{
+    goalId: string;
+    goalVersion: number;
+    planId: string;
+    skillInputResolutionId?: string;
+    timestamp: string;
+  }>,
 ): AgentTask {
   if (task.phase !== 'awaiting_plan_confirmation' && task.phase !== 'planning')
     throw new DomainError(
@@ -74,6 +81,14 @@ export function bindTaskPlan(
     goalId: requireIdentifier(input.goalId, 'GOAL_ID_REQUIRED'),
     goalVersion: input.goalVersion,
     planId: requireIdentifier(input.planId, 'WORKFLOW_PLAN_ID_REQUIRED'),
+    ...(input.skillInputResolutionId === undefined
+      ? {}
+      : {
+          skillInputResolutionId: requireIdentifier(
+            input.skillInputResolutionId,
+            'SKILL_INPUT_RESOLUTION_ID_REQUIRED',
+          ),
+        }),
     updatedAt: input.timestamp,
   };
 }
@@ -112,7 +127,7 @@ export function bindTaskSkill(
   if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
     throw new DomainError('SKILL_VERSION_INVALID', 'Selected Skill version must be positive.');
   return {
-    ...task,
+    ...withoutSkillInputResolution(task),
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
     skillSelectionId: requireIdentifier(input.selectionId, 'SKILL_SELECTION_ID_REQUIRED'),
@@ -137,7 +152,7 @@ export function bindTaskReplacement(
   if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
     throw new DomainError('SKILL_VERSION_INVALID', 'Replacement Skill version must be positive.');
   return {
-    ...task,
+    ...withoutSkillInputResolution(task),
     planId: requireIdentifier(input.planId, 'WORKFLOW_PLAN_ID_REQUIRED'),
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
@@ -155,10 +170,16 @@ export function bindTaskTemporarySkill(
       'A Temporary Skill can be bound only during Skill resolution.',
     );
   return {
-    ...task,
+    ...withoutSkillInputResolution(task),
     temporarySkillId: requireIdentifier(input.temporarySkillId, 'TEMPORARY_SKILL_ID_REQUIRED'),
     updatedAt: input.timestamp,
   };
+}
+
+function withoutSkillInputResolution(task: AgentTask): AgentTask {
+  const unboundTask = { ...task };
+  delete unboundTask.skillInputResolutionId;
+  return unboundTask;
 }
 
 export interface CreateAgentTaskInput {
@@ -174,14 +195,21 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
   queued: ['context_loading', 'canceled', 'failed'],
   context_loading: ['goal_deliberation', 'canceled', 'failed'],
   goal_deliberation: ['skill_resolution', 'awaiting_user_input', 'canceled', 'failed'],
-  skill_resolution: ['planning', 'capability_gap', 'canceled', 'failed'],
-  planning: ['awaiting_plan_confirmation', 'executing', 'canceled', 'failed'],
+  skill_resolution: ['planning', 'awaiting_user_input', 'capability_gap', 'canceled', 'failed'],
+  planning: [
+    'awaiting_plan_confirmation',
+    'awaiting_user_input',
+    'executing',
+    'canceled',
+    'failed',
+  ],
   awaiting_plan_confirmation: ['planning', 'executing', 'canceled', 'failed'],
-  awaiting_user_input: ['goal_deliberation', 'canceled', 'failed'],
+  awaiting_user_input: ['goal_deliberation', 'planning', 'executing', 'canceled', 'failed'],
   paused: ['executing', 'planning', 'canceled', 'failed'],
   executing: [
     'paused',
     'planning',
+    'awaiting_plan_confirmation',
     'evaluating',
     'awaiting_user_input',
     'capability_gap',
@@ -196,7 +224,7 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
     'canceled',
     'failed',
   ],
-  capability_gap: ['skill_resolution', 'canceled', 'failed'],
+  capability_gap: [],
   completed: [],
   canceled: [],
   failed: [],
@@ -247,13 +275,23 @@ export function recordTaskCapabilityGap(
   capabilityGap: TaskCapabilityGap,
   timestamp: string,
 ): AgentTask {
-  const waiting = transitionTask(
+  if (
+    capabilityGap.evaluationSummary.trim() === '' ||
+    capabilityGap.missingCapability.trim() === '' ||
+    capabilityGap.suggestedToolContract.name.trim() === '' ||
+    capabilityGap.suggestedToolContract.description.trim() === ''
+  )
+    throw new DomainError(
+      'TASK_CAPABILITY_GAP_EVIDENCE_INVALID',
+      'Capability-gap terminal evidence requires non-empty displayable fields.',
+    );
+  const terminal = transitionTask(
     task,
     'capability_gap',
     `Required capability is unavailable: ${capabilityGap.missingCapability}`,
     timestamp,
   );
-  return { ...waiting, capabilityGap };
+  return { ...terminal, capabilityGap, errorCode: 'CAPABILITY_GAP' };
 }
 
 export function failTask(task: AgentTask, errorCode: string, timestamp: string): AgentTask {
@@ -263,6 +301,10 @@ export function failTask(task: AgentTask, errorCode: string, timestamp: string):
 
 export function isTerminalTaskPhase(phase: TaskPhase): phase is TaskTerminalPhase {
   return (
-    phase === 'completed' || phase === 'canceled' || phase === 'failed' || phase === 'invalidated'
+    phase === 'capability_gap' ||
+    phase === 'completed' ||
+    phase === 'canceled' ||
+    phase === 'failed' ||
+    phase === 'invalidated'
   );
 }

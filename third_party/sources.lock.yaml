@@ -1,5 +1,5 @@
 schema_version: 1
-updated_at: 2026-07-11
+updated_at: 2026-07-16
 sources:
   - name: Ajv
     repository: https://github.com/ajv-validator/ajv
@@ -73,11 +73,25 @@ sources:
     forbidden: 'SDK models in domain'
   - name: MCP TypeScript SDK
     repository: https://github.com/modelcontextprotocol/typescript-sdk
-    license: 'VERIFY_AT_PIN'
+    license: 'MIT'
     use: direct_dependency
     pin: "npm:@modelcontextprotocol/sdk@1.29.0#commit:e12cbd7078db388152f6e839abdbe09ba01f3f32"
     allowed: 'client and Streamable HTTP behind adapter'
-    forbidden: 'SDK models in domain'
+    forbidden: 'SDK models in domain; legacy experimental tasks/result or tasks/list as the v1.1 Task contract'
+  - name: MCP TypeScript v2 Client Beta
+    repository: https://github.com/modelcontextprotocol/typescript-sdk
+    license: 'MIT package; repository transition license also contains Apache-2.0 and CC-BY-4.0 material'
+    use: direct_dependency
+    pin: "npm:@modelcontextprotocol/client@2.0.0-beta.4#tag-object:5aa0a82829f83b6b62a8ce41531921b34180ff84#commit:e81758caed29f6568ce8873f7f9a3bd65b017d9c#sha512-VNHA/UXDk7mCpVl+jOg5B4WMRRD2OEl+it360Lhi6HiCbrIB2f6pZ0cqSDKXQVUtZvqnhdQHzZAM9h8EKWhq/A=="
+    allowed: 'official extension-era client and Streamable HTTP transport behind packages/mcp-adapter; transitive @modelcontextprotocol/core@2.0.0-beta.4 from the same commit'
+    forbidden: 'SDK models outside adapter; unpinned beta upgrades; built-in legacy Tasks authority; second workflow runtime'
+  - name: MCP Tasks Extension
+    repository: https://github.com/modelcontextprotocol/ext-tasks
+    license: 'Apache-2.0'
+    use: source_adaptation
+    pin: "commit:8966bea9c4f4e6d71060cc8284a539086e9e234f#schema.json-blob:d6ccaff7e3fb2131b5d752dd8b6f34096e58e976#schema.ts-blob:2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc"
+    allowed: 'official io.modelcontextprotocol/tasks extension contract and attributed bounded Schema adaptation behind packages/mcp-adapter'
+    forbidden: 'SDK/domain type leakage, unpinned schema use, legacy tasks/result or tasks/list, source copy without Apache-2.0 attribution'
   - name: React
     repository: https://github.com/facebook/react
     license: 'MIT'

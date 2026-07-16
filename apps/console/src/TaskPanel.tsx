@@ -500,6 +500,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       endpoint: `/api/v1/tasks/${id}/input-inferences`,
     },
     {
+      key: 'skill-input-resolutions',
+      label: 'Skill Input Resolutions',
+      endpoint: `/api/v1/tasks/${id}/skill-input-resolutions`,
+    },
+    {
       key: 'models',
       label: 'Model Invocations',
       endpoint: `/api/v1/models/invocations?taskId=${id}`,

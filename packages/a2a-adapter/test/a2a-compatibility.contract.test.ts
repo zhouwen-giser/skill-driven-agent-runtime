@@ -129,6 +129,57 @@ describe('A2A 1.0.1 compatibility baseline', () => {
     );
   });
 
+  it('projects capability gap as failed with structured terminal guidance', () => {
+    const projected = toA2ATask({
+      taskId: 'task-gap',
+      contextId: 'context-gap',
+      userId: 'anonymous',
+      requestText: 'Read pressure.',
+      requestMetadata: {},
+      phase: 'capability_gap',
+      phaseMessage: 'Required capability is unavailable: Read pressure.',
+      capabilityGap: {
+        evaluationSummary: 'No registered Tool can read pressure.',
+        missingCapability: 'Read pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read device pressure.',
+          inputSchema: { type: 'object', required: ['deviceId'] },
+        },
+      },
+      errorCode: 'CAPABILITY_GAP',
+      createdAt: '2026-07-11T10:00:00.000Z',
+      updatedAt: '2026-07-11T10:01:00.000Z',
+    });
+
+    expect(projected.status?.state).toBe(TaskState.TASK_STATE_FAILED);
+    expect(projected.metadata).toMatchObject({
+      internalPhase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
+      capabilityGap: {
+        missingCapability: 'Read pressure.',
+        suggestedToolContract: { name: 'read_pressure' },
+      },
+      nextAction: 'register-capability-and-submit-new-task',
+    });
+  });
+
+  it('rejects an incomplete capability-gap projection at the A2A boundary', () => {
+    expect(() =>
+      toA2ATask({
+        taskId: 'task-gap-invalid',
+        contextId: 'context-gap',
+        userId: 'anonymous',
+        requestText: 'Read pressure.',
+        requestMetadata: {},
+        phase: 'capability_gap',
+        phaseMessage: 'Capability unavailable.',
+        createdAt: '2026-07-11T10:00:00.000Z',
+        updatedAt: '2026-07-11T10:01:00.000Z',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_CAPABILITY_GAP_EVIDENCE_INVALID' }));
+  });
+
   it('projects only necessary process summaries and never internal request or planning evidence', () => {
     const wire = Task.toJSON(
       toA2ATask({

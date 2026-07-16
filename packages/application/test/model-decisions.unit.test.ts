@@ -77,7 +77,14 @@ describe('structured LLM final decisions', () => {
     const decider = new StructuredSkillSelectionDecider(model, stageMemories('memory-skill'));
     await expect(
       decider.decide({
-        goalDescription: 'Inspect safely.',
+        goalContract: {
+          goalId: 'goal-1',
+          version: 1,
+          title: 'Inspect safely',
+          description: 'Inspect safely.',
+          constraints: ['read-only'],
+          successCriteria: ['status returned'],
+        },
         mode: 'initial',
         candidates: [
           {
@@ -86,6 +93,22 @@ describe('structured LLM final decisions', () => {
             name: 'Safe inspection',
             summary: 'Read-only device inspection.',
             capabilities: ['device-inspection'],
+            inputSchemaSummary: {
+              type: 'object',
+              requiredFields: [],
+              propertyNames: [],
+              allowsAdditionalProperties: 'unspecified',
+            },
+            outputSchemaSummary: {
+              type: 'object',
+              requiredFields: [],
+              propertyNames: [],
+              allowsAdditionalProperties: 'unspecified',
+            },
+            toolPolicy: { required: [], optional: [], forbidden: [] },
+            workflowGuidanceSummary: 'Read then report.',
+            runtimePolicy: { autoConfirmPlan: false },
+            activeMcpDependencyWarnings: [],
             autoConfirmPlan: false,
             createdAt: '2026-07-12T00:00:00.000Z',
             semanticScore: 0.8,
@@ -191,6 +214,9 @@ function stageMemories(memoryId: string) {
             sourceRefs: ['task:source'],
             supersedes: [],
             confidence: 0.9,
+            durability: 'durable' as const,
+            authority: 'skill_experience' as const,
+            durabilityReason: 'The failure lesson is reusable.',
             createdAt: '2026-07-12T00:00:00.000Z',
           },
           score: 0.95,

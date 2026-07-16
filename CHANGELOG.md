@@ -6,6 +6,441 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
+- Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
+- Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
+- Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
+
+### Changed
+
+- v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
+- The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
+
+### Known limitations
+
+- Phase 1 protocol, Phase 2 persistence/polling and the Phase 3 availability/timing increment are verified against merged `v1.0.13-bug-fixed`. Phase 4–6 continuation, lifecycle and final acceptance remain incomplete.
+
+## [1.0.13] - 2026-07-16
+
+### Added
+
+- A bounded process-local `TaskStateNotifier` wakes A2A synchronous/streaming waits after committed
+  Task changes while retaining a low-frequency PostgreSQL safety read.
+- Commit notifications now cover ordinary Task saves, input continuation, wait expiry, process
+  recovery, Goal Patch, Goal cancellation and atomic Runtime Terminal Outcomes.
+
+### Changed
+
+- A2A synchronous waits no longer query PostgreSQL every 10 ms. The default safety interval is one
+  second, configuration below 100 ms is rejected, and every wake reloads PostgreSQL authority.
+- Wait-window expiry returns the current standard Task snapshot instead of throwing
+  `A2A_TASK_WAIT_TIMEOUT`; working Tasks continue in the background and remain pollable/resubscribable.
+- Runtime close releases all notifier waiters before the A2A endpoint and database are closed.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 89,011 ms with 296 unit, 64 contract, 60
+  integration and 46 E2E tests, 185-source architecture, production build, migrations and smoke.
+- Actual local samples recorded 4 reads for one 250 ms wait, 83 reads for 20 concurrent 250 ms waits,
+  94 ms missed-notification recovery at a 100 ms safety interval, and sub-millisecond rounded close
+  release. These are test-environment measurements, not production throughput claims.
+
+## [1.0.13-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- The final safety wake now returns its already-reloaded Task snapshot without an extra deadline read.
+- Runtime close finishes released waiters before another database read or status publication, and an
+  executor already closed rejects new Task submission with `A2A_TASK_EXECUTOR_CLOSED`.
+- Transaction rollback regressions now prove failed terminal commits emit no Task notification.
+- Configuration tests prevent reintroducing the old 10 ms interval or a non-positive wait window.
+
+### Verification
+
+- Required `pnpm verify` passed in 88,363 ms with 298 unit, 64 contract, 60 integration and 46 E2E
+  tests, 185-source architecture, production builds, migrations and both smoke gates.
+- Required `pnpm demo:local` completed its confirmed real A2A task and `pnpm demo:acceptance` passed
+  all 46 E2E scenarios. Operator-managed mode disabled Docker lifecycle commands throughout.
+- Bug-fixed local samples recorded 3 reads for one 250 ms wait, 60 reads for 20 concurrent waits,
+  85 ms missed-notification recovery and zero post-close reads.
+
+## [1.0.12] - 2026-07-16
+
+### Added
+
+- Domain-owned Memory durability (`durable`, `volatile`, `unknown`) and authority (`mcp`, `skill_experience`, `admin`, `model_inferred`) evidence, including a strictly validated seven-field refinement result.
+- Migration 0064 converts new Memory embeddings to generic positive-dimensional pgvector values, adds durability/authority evidence, conservatively classifies legacy rows, and supplies a guarded rollback.
+- A credential-free terminal-outcome query exposes post-commit enhancement warnings without changing the committed Task result.
+
+### Changed
+
+- Automatic long-term admission now embeds, deduplicates and persists only model-refined durable Memory; volatile and unknown candidates are rejected before embedding, and live device state must be requeried from MCP.
+- Similarity search compares only active durable rows with the exact embedding provider and vector dimension, supporting tested 3-, 8- and 1536-dimensional providers without cross-provider comparison.
+- Memory creation, embedding, deduplication or persistence failure after the authoritative terminal transaction records an enhancement warning and never reverses a completed Task or fabricates Memory success.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 86,193 ms with format, lint, strict TypeScript, 284 unit tests, 64 contract tests, 60 integration tests, 46 E2E tests, 182-source architecture, 106-operation OpenAPI, production build, empty/0049→0064 migrations and both smoke gates.
+- Real PostgreSQL migration tests cover provider/dimension isolation, durable-only retrieval, legacy exclusion and guarded rollback. No Docker command ran.
+
+## [1.0.12-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- A structured model can no longer elevate a durable processed-result candidate to administrator or Skill-experience authority; durable authority must match the application-owned source path.
+- Current coordinates, battery, online state, occupancy and device-task state are deterministically forced to `volatile`/`mcp` before embedding even when a model falsely claims they are durable; direct creation cannot bypass the same policy.
+- Memory content is copied, finite-JSON validated, depth/cycle bounded and deeply frozen at the domain boundary; provider embeddings are copied and frozen after finite positive-dimension validation, preventing asynchronous caller mutation from changing persisted evidence.
+
+### Verification
+
+- The required bug-fixed `pnpm verify` passed in 85,277 ms with 287 unit tests, 64 contract tests, 60 integration tests, 46 E2E tests, 182-source architecture, 106-operation OpenAPI, production build, empty/0049→0064 migrations and both smoke gates.
+- Adversarial regressions cover forged durable classifications for every named dynamic-state class, authority elevation, direct-create bypass, cyclic/non-finite content and post-validation vector/content mutation. No Docker command ran.
+
+## [1.0.11] - 2026-07-16
+
+### Added
+
+- Domain-owned MCP Tool execution semantics for effect, execution, cancellation, idempotency, replay and authoritative source.
+- Migration 0063 stores declared, administrator and effective Tool values, call-time Invocation snapshots, and immutable Planner-time Workflow plan/attempt snapshots.
+- Credential-free management API and Console controls for retained administrator overrides, plus semantics display in MCP inventory, plan confirmation and Skill Tool Policy views.
+
+### Changed
+
+- Official MCP SDK annotations, task support and the validated `io.sdar/tool-execution-semantics` metadata extension are translated inside the adapter; SDK types never enter domain/application contracts.
+- Workflow planning and repair use a frozen semantics snapshot. Refresh preserves administrator input, while an available MCP declaration remains higher priority per the task package.
+- LLM Tool Enhancement remains descriptive data and cannot set real execution authority.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 86,700 ms with format, lint, strict TypeScript, 281 unit tests, 62 contract tests, 59 integration tests, 46 E2E tests, 182-source architecture, 105-operation OpenAPI, build, empty/0049→0063 migrations and both smoke gates.
+- Compose daemon/config validation was deferred by operator-managed mode and no Docker command was run.
+
+## [1.0.11-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- `default_unknown` semantics can no longer carry non-unknown values, and accepted semantics snapshots are frozen at the domain boundary.
+- A malformed exact `io.sdar/tool-execution-semantics` declaration now fails discovery instead of silently falling back to weaker annotation or administrator authority.
+- Administrator semantics override and its management audit now commit in one PostgreSQL transaction; concurrent Tool removal returns not-found without a phantom audit, and audit failure rolls back the override.
+- Persisted Tool source fields and Invocation snapshots are revalidated through the domain invariant before becoming runtime evidence.
+
+### Verification
+
+- The operator-managed bug-fixed `pnpm verify` passed in 85,191 ms with 283 unit, 63 contract, 59 integration and 46 E2E tests, 182-source architecture, 105-operation OpenAPI, production build, empty/0049 migrations through 0063 and both smoke gates.
+- Real MCP SDK and PostgreSQL regressions prove fail-closed malformed declarations and atomic override/audit rollback. No Docker command ran.
+
+## [1.0.10] - 2026-07-16
+
+### Changed
+
+- `capability_gap` is now a terminal Task and WorkflowControl outcome; the original Task has no resume path and keeps `errorCode=CAPABILITY_GAP` with its structured missing-capability evidence.
+- A2A now projects capability gaps as standard `TASK_STATE_FAILED` with `nextAction=register-capability-and-submit-new-task`, never as `input-required`.
+- A new Task in the same Context uses the normal serialized queue and may continue the still-active Goal; Tool registration or refresh never scans, resumes, enqueues or executes the old Task.
+- PostgreSQL terminal mutation guards, Goal/runtime cancellation and implicit-feedback terminal lookup now treat capability gap consistently.
+
+### Verification
+
+- Terminal transition/follow-up/cancellation, structured A2A projection, stale Worker persistence, active-Goal successor submission and wait-timeout exclusion regressions pass.
+- The operator-managed feature gate passed 274 unit, 60 contract, 58 integration and 46 E2E tests, 181-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0062.
+
+## [1.0.10-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- A Goal Patch initiated by a newer Task can no longer invalidate an older terminal capability-gap Task sharing the active Goal.
+- WorkflowControl round insertion locks and rechecks non-terminal authority, so a stale Worker cannot append evidence after capability gap.
+- PostgreSQL reads and the A2A projection fail closed when a capability-gap row lacks `CAPABILITY_GAP` or structured evidence; domain evidence fields must be non-empty.
+
+### Verification
+
+- The operator-managed bug-fixed gate passed 274 unit, 61 contract, 58 integration and 46 E2E tests, 181-source architecture, 104-operation OpenAPI, production build and empty/0049 migration paths through 0062.
+
+## [1.0.9] - 2026-07-16
+
+### Added
+
+- Domain-owned immutable `SkillCompositionContext` snapshots containing the selected exact Skill version, only graph-reachable related versions, accepted relations, allowed child IDs and a decision summary.
+- Bounded initial composition traversal for `parent_child`, `depends_on`, `input_output_match`, `composition` and `capability_coverage`; `alternative` remains excluded from initial planning.
+- Migration 0062 for composition and explicit capability-gap authority on every Workflow plan and planning attempt.
+- Optional management `compositionRoot` input for authoritative standalone graph-aware planning.
+
+### Changed
+
+- Initial Task, child Skill, continuation, revision, Goal Patch and outer replan paths now establish, inherit or recompute exact composition authority before model planning.
+- The Workflow validator, execution service and child Skill service reject `skill_call` targets outside the persisted allowed set unless an internal explicit capability-gap flow admits the ID.
+- Transitive confirmation covers every initial-execution relation except `alternative`; the graph supplies bounded evidence while the LLM still decides which admitted Skill to call.
+
+### Verification
+
+- Required regressions cover dependency admission, composable planning, unrelated/alternative rejection, schema mismatch, multi-level composition, cycles, deep snapshot immutability, persistence audit and execution-time authorization.
+- The operator-managed feature gate passed 270 unit, 59 contract, 58 integration and 46 E2E tests, 181-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0062.
+
+## [1.0.9-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Inherited and persistence-loaded composition contexts now revalidate unique Skill/relation/allowlist IDs, selected-root reachability, cycles, depth and size before any model or execution authority is accepted.
+- Skill/relation snapshot JSON is bounded to 64 levels, and accepted relation evidence is capped at 128 entries in addition to the existing 8-level/32-Skill traversal limits.
+- Initial composition uses indexed source/type/limit PostgreSQL reads and requests only remaining capacity instead of loading and sorting the full Skill Graph.
+- Corrupted PostgreSQL context, disconnected injected children, duplicate allowlist IDs, pathological JSON and relation floods fail closed with stable errors.
+
+### Verification
+
+- The required operator-managed `pnpm verify` passed in 87,491 ms with 273 unit, 59 contract, 58 integration and 46 E2E tests, 181-source architecture, A2A baseline, 104-operation OpenAPI, 18 acceptance scenarios, licenses/SBOM, production builds, empty/0049→0062 migrations and both smoke gates.
+
+## [1.0.8] - 2026-07-16
+
+### Added
+
+- Domain-owned immutable `GoalExecutionContract` snapshots containing Goal identity, title, description, constraints and success criteria.
+- Migration 0061 for exact Goal Contract evidence on Skill selection/replacement and Workflow plan/attempt records.
+- Enriched Skill candidate snapshots with schema summaries, Tool and runtime policies, Workflow guidance, quality metrics, active MCP dependency warnings and semantic scores.
+
+### Changed
+
+- Skill retrieval, model selection, replacement, Temporary Skill resolution, top-level/replan/child Workflow planning and Goal Evaluation now receive the same complete Goal Contract.
+- Planning, repair confirmation inheritance, Workflow execution and outer control reject stale or content-mismatched contracts before model or Tool execution.
+- Registered management planning compares the complete submitted snapshot with the authoritative Goal; standalone planning still requires a complete explicit contract.
+- Goal Patch plans only with the proposed new Goal version, while all model invocation and plan-attempt evidence retains the exact snapshot used.
+
+### Verification
+
+- Constraint-sensitive Skill selection, success-criteria-sensitive Workflow generation, safety constraint visibility, replacement retention, patched Goal versions, stale-plan rejection and exact model-audit snapshots are covered across unit, contract, real PostgreSQL migration/integration and real A2A/Model/MCP E2E tests.
+- The operator-managed feature gate passed 259 unit, 59 contract, 57 integration and 46 E2E tests, 178-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0061.
+
+## [1.0.8-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Every asynchronous selection/planning boundary now copies and freezes the complete Goal Contract, preventing caller mutation after invocation from changing retrieval, model input or persisted audit.
+- Management Skill selection and Workflow planning reject content-drifted or terminal registered Goals before any embedding/model call; unregistered standalone contracts remain an explicit low-level capability.
+- Goal Patch rejects a source plan whose complete contract differs from the active Goal even when ID/version match, before patch-model invocation or invalidation.
+- Admin revision uses the same runtime-enforced snapshot as model-planned revisions and Temporary Skill resolution.
+
+### Verification
+
+- Mutation-during-Promise regressions cover formal selection, Workflow planning and Temporary Skill resolution; source-plan drift is rejected before the Goal Patch model.
+- Real management E2E proves valid registered selection, same-version drift rejection, terminal Goal selection/planning rejection and unchanged model invocation counts.
+- The operator-managed bug-fixed gate passed 262 unit, 59 contract, 57 integration, 46 E2E, 179-source architecture, 104-operation OpenAPI, production build and empty/historical-0049 migration paths through 0061.
+
+## [1.0.7] - 2026-07-16
+
+### Added
+
+- Domain-owned immutable `SkillInputResolutionRecord` evidence tied to exact Task, Goal version and enabled Skill version.
+- Fixed `skill_input_resolution` model stage with structured response validation, Provider/Prompt routing, invocation audit and Console configuration.
+- Migration 0059 for resolution history and the durable `skill_input_resolution` Task input-request source.
+- Management API and Console evidence links for Task-scoped and individual input-resolution records.
+
+### Changed
+
+- Formal top-level Skills now resolve and validate their `inputSchema` after selection and before planning.
+- Missing or invalid required input uses the v1.0.3 same-Task continuation path; supplementary answers create a new immutable resolution.
+- The schema-valid structured value becomes Workflow initial input, while raw request text remains auxiliary Task evidence.
+- Ordinary replans retain the fixed structured value, and Goal Patch re-resolves against the new Goal version.
+
+### Verification
+
+- Unit, management contract, real PostgreSQL migration/history and real A2A/MCP E2E cover metadata, text, missing input, continuation, illegal types, source conflict, Goal Patch, child validation and structured MCP binding.
+
+## [1.0.7-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Each formal Task plan now binds the exact immutable Skill input resolution used during planning; execution no longer selects a potentially newer record.
+- Migration 0060 enforces the Task/Goal version/Skill version/resolution identity as one composite PostgreSQL foreign key and clears stale bindings on Skill replacement or Goal Patch.
+- Authoritative metadata removes stale model-reported unresolved markers for fields it actually supplies, while root-level schema failures retain a stable `$` input request marker.
+- Goal Patch preflights patched-Goal Skill input before committing invalidation, so unresolved input or model failure cannot leave an applied Patch without its promised replacement plan.
+
+### Verification
+
+- Regression evidence proves plan-bound input survives a newer resolution, cross-Task evidence is rejected by PostgreSQL, replacement clears stale authority, metadata wins stale model output, root errors remain resumable, and unresolved Goal Patch writes no Patch/plan.
+- The operator-managed bug-fixed gate passed 251 unit, 58 contract, 56 integration, 46 E2E, 178-source architecture, OpenAPI, production build and empty/historical-0049 migration paths through 0060.
+
+## [1.0.6] - 2026-07-16
+
+### Added
+
+- Domain-owned `RuntimeTerminalOutcome` records and an atomic PostgreSQL repository for achieved, unachievable and canceled runtime outcomes.
+- Migration 0058 linking each WorkflowControl and terminal Round to one durable outcome with queryable post-commit enhancement warnings.
+- Fault-injection coverage before Processed Result persistence and after Task, Goal, Control and Runtime Event writes.
+
+### Changed
+
+- Processed Result preparation now completes before the transaction, while Result Memory, evaluation Memory, Task Quality, Evolution Experience, Temporary Skill completion and Skill Evolution run independently after commit.
+- Achieved/unachievable controller paths commit Processed Result, Task output/phase, Goal, Control, terminal Round and Runtime Event in one transaction.
+- Cancellation of a Task with an active WorkflowControl uses the same atomic terminal boundary; early cancellation without a Control remains Task-local.
+- Generic Task, Goal and WorkflowControl saves reject stale attempts to overwrite terminal state, and controller failure handling never reverses a committed terminal outcome.
+
+### Verification
+
+- Unit, real PostgreSQL fault-injection, migration and real A2A evidence prove full rollback, exact idempotent retry, stale-Worker rejection, canceled waiting Tasks, and completed A2A output despite a post-commit Memory failure.
+
+## [1.0.6-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Generic Task, Goal and WorkflowControl repositories now reject every write once a terminal row exists, including same-status writes that previously could replace terminal output or pointers.
+- Terminal Rounds must match the locked Control, current plan and evaluation decision; final Workflow instances must belong to the same Goal and valid current/prior Control evidence.
+- Active-control cancellation closes waiting Task input inside the terminal transaction, so a cleanup failure cannot turn an already committed A2A cancellation into an error.
+- Goal-wide cancellation creates canceled Runtime Terminal Outcomes for all active Controls, closes waiting input and emits terminal events inside its existing multi-Task cascade transaction.
+- Completion/cancellation races return the already committed terminal Task instead of attempting a second terminal projection.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 82,005 ms: 243 unit, 58 contract, 53 integration, 44 E2E, 175-source architecture enforcement, migration paths, production builds and both smoke gates.
+
+## [1.0.5] - 2026-07-16
+
+### Added
+
+- One transitive Skill confirmation evaluator for initial Task planning, outer replanning and runtime child planning.
+- Durable nested confirmation linkage across parent plan/instance/node, child plan, exact child Skill version and confirmation status.
+- LangGraph `skill_confirmation` checkpoints that project the parent Task as A2A input-required and resume the same node after an explicit decision.
+- Migration 0057 for pending/confirmed/rejected/invalidated child confirmation lifecycles.
+
+### Changed
+
+- `skill_call` no longer inherits parent confirmation; a child opts in independently through its current runtime policy.
+- Top-level auto-confirm now requires every governing, directly planned and recursively reachable execution Skill to opt in.
+- Child version changes invalidate a pending linkage and force a fresh child plan and confirmation.
+
+### Verification
+
+- Unit, real PostgreSQL migration/lifecycle and real A2A/MCP E2E evidence covers conservative transitive policy, independent pause/confirm/resume, rejection, cancellation, version drift and zero child MCP calls before confirmation.
+
+## [1.0.5-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Task confirmation/rejection/cancellation decisions are serialized per Task, phase-checked before plan side effects, and carry an explicit top-level-versus-child confirmation target so duplicate child confirmations cannot start an outer execution path.
+- Child decisions now match the complete parent checkpoint identity and revalidate the current Skill version plus immutable child-plan status immediately before confirmation and parent resume.
+- Superseded child plans and changed Skill versions are invalidated and produce a newly projected child checkpoint instead of resuming stale authority or waiting invisibly.
+- User cancellation is durably projected before releasing a child checkpoint; unified wait-timeout cancellation also rejects the nested wait and releases the in-memory parent execution.
+
+### Verification
+
+- Regression evidence covers parent/child pause state, concurrent duplicate confirmation, stale checkpoint metadata, confirmation on a canceled parent Task, superseded confirmed child plans, repeated fresh checkpoints and real version-drift/cancel A2A/MCP flows. The full operator-managed gate passes 238 unit, 58 contract, 43 integration and 43 E2E tests.
+
+## [1.0.4] - 2026-07-15
+
+### Added
+
+- Domain-owned live/simulation/historical-replay execution context with stable non-live identity.
+- Runtime-owned `X-SDAR-Execution-Mode` and `X-SDAR-Simulation-Id` Headers for simulation and historical replay MCP calls.
+- Migration 0056 invocation audit fields for execution mode and simulation identity.
+
+### Changed
+
+- LangGraph MCP, Subworkflow and `skill_call` boundaries explicitly inherit execution context, including paused/resumed execution.
+- Credential configuration rejects reserved Header names case-insensitively; runtime sanitization strips legacy conflicts and writes canonical reserved Headers last.
+- The official-SDK loopback Mock MCP supports multiple isolated Streamable HTTP sessions so live and non-live Header sets are verified concurrently.
+
+### Verification
+
+- Unit, contract, real PostgreSQL migration/audit and real Skill Evolution E2E evidence prove live omission, simulation/replay Headers, stable IDs, child inheritance, credential merging/conflict rejection and sanitized invocation audit.
+
+## [1.0.4-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Non-live simulation identities are limited to 256 visible ASCII characters before they can become an HTTP Header value.
+- Duplicate case variants of reserved Headers in legacy decrypted credentials are stripped before canonical runtime values are written.
+- Non-live transport failures retain execution mode and stable identity in sanitized invocation audit.
+
+### Verification
+
+- Regression evidence covers paused/resumed context retention, repeated stable-ID MCP session reuse, legacy Header conflict normalization and final 276 unit/contract, 42 integration and 42 E2E gates.
+
+## [1.0.3] - 2026-07-15
+
+### Added
+
+- Durable Task input requests, responses and initial/input-response execution attempts in PostgreSQL, including exact Goal-control round linkage.
+- Attempt-aware BullMQ Jobs with one-attempt execution and BullMQ-safe composite Task/attempt identity.
+- `WorkflowControllerService.continueAfterInput` for a fresh, unconfirmed plan after Goal Evaluation requests more input.
+
+### Changed
+
+- `provide_input` now answers the original waiting request, queues continuation on the original Task/Context, and immediately projects working state.
+- Goal deliberation uses persisted supplementary answers; Workflow controls merge the same data into execution input without replaying completed Workflow instances.
+
+### Verification
+
+- Unit, real PostgreSQL restart, real Redis serialization/job-identity, and real A2A/MCP tests cover both recovery paths and prove the supplied value reaches subsequent MCP arguments.
+
+## [1.0.3-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Supplementary-input answer, response, continuation attempt and Task phase projection now commit in one PostgreSQL transaction.
+- Durable queued attempts are reconciled to BullMQ at startup and on a bounded interval; terminal stale Redis Jobs can be replaced only while PostgreSQL still records the attempt as queued.
+- Startup recovery marks interrupted running attempts failed with `PROCESS_EXECUTION_LOST` and never redispatches running or failed attempts.
+- Supplementary input larger than 64,000 characters is rejected before any answer or continuation-attempt write.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` gate passed without Docker lifecycle operations: 270 unit/contract tests, 41 real PostgreSQL/Redis integration tests, 42 real E2E tests, both migration paths, production builds and both smoke stages.
+
+## [1.0.2] - 2026-07-15
+
+### Added
+
+- Real planned child Workflows for `skill_call`, using the current Skill definition, current MCP planning metadata, normal Workflow validation, independent plan/instance persistence and the sole LangGraph runtime.
+- Bounded Skill-call ancestry with stable cycle and maximum-depth errors.
+
+### Changed
+
+- Child results must pass the executed Skill version's output schema; failed, canceled or invalid children propagate to the parent instead of returning a model-fabricated success.
+- Child Skill Tool policy is enforced against its own child Workflow, while parent Workflows retain child version and budget evidence.
+
+### Known issues at feature tag
+
+- Nested confirmation policy will be finalized in v1.0.5.
+- Repeated execution of the same parent `skill_call` node retains only the latest linkage under the current persistence key; the v1.0.2 bug-fixed audit covers this case.
+
+## [1.0.2-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Repeated entry into the same parent `skill_call` node now persists append-only call history keyed by `call_id`; latest-call lookup remains deterministic.
+- Child outputs must be finite JSON and no larger than 64,000 serialized characters before entering parent Workflow state.
+- Integration bootstrap now advances an existing migration ledger monotonically instead of replaying older constraint migrations.
+
+### Verification
+
+- Migration 0054 passes empty and historical-0049 upgrade paths, rollback/reapply, and real PostgreSQL repeated-parent-node repository tests.
+- Unit and real E2E evidence retain child failure/cancellation propagation, plan-save failure, recursion/depth rejection, real MCP audit and output validation.
+
+## [1.0.1] - 2026-07-15
+
+### Added
+
+- Recursive Workflow runtime data binding for initial input, node outputs, errors, loop counts, and result state, including immutable execution snapshots and stable missing-reference errors.
+- Dynamic `llm.context`, MCP arguments, Skill input, and Subworkflow input in the public Workflow DSL.
+
+### Changed
+
+- MCP and Skill business-schema checks are deferred for dynamic templates and enforced again after runtime resolution against the current registered schema.
+- Subworkflows receive their resolved node input instead of the parent Workflow's original input.
+
+### Known issues at feature tag
+
+- No known correctness issue. Bindings intentionally support finite JSON data and restricted path segments only; JSONPath, string interpolation, and executable expressions remain unsupported.
+
+## [1.0.1-bug-fixed] - 2026-07-15
+
+### Fixed
+
+- Bounded recursive template and referenced-value traversal at 64 levels with a stable depth error, preventing stack exhaustion on pathological runtime values.
+- Missing optional `result` state now reports the stable missing-reference code, and error messages include an unambiguous JSON path for node IDs containing dots.
+
+### Verification
+
+- Boundary regression covers the maximum accepted depth, template and referenced-output overflow, missing result, dotted node IDs, error objects, null/empty arrays, immutable snapshots, parallel joins and live Schema rejection.
+
+### Added
+
 - Apache License 2.0 project licensing for copyright holder zhouwen, including canonical `LICENSE`, project `NOTICE`, package metadata, README disclosure, and license-ledger documentation.
 
 - Signed V1 release checklist, isolated clean-checkout/frozen-install evidence, and machine/human release-posture reports.
@@ -27,6 +462,8 @@ All notable changes to this project are documented here. The format follows Keep
 - ADR-072 monotonic migration-ledger high-water rule, preventing legacy startup replay from regressing later constraints.
 
 ### Fixed
+
+- Runtime-hardening baseline verification can reuse operator-managed loopback PostgreSQL/Redis without issuing Docker lifecycle commands; Compose images are again pinned by immutable OCI digest, and the external-infrastructure mode is recorded in verification evidence.
 
 - The 20-Job Redis concurrency test now observes completion in bounded batches, avoiding a false-positive Node EventEmitter warning from BullMQ's temporary `waitUntilFinished` listeners without reducing execution concurrency or assertions.
 

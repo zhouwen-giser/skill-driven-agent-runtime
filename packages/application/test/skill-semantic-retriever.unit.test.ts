@@ -18,7 +18,7 @@ describe('PersistedSkillSemanticRetriever', () => {
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
     });
 
-    await expect(retriever.score('inspect device', [skill()])).resolves.toEqual({
+    await expect(retriever.score(goalContract, [skill()])).resolves.toEqual({
       'skill.device': 0.92,
     });
     expect(repository.saved[0]).toMatchObject({
@@ -39,11 +39,20 @@ describe('PersistedSkillSemanticRetriever', () => {
       repository: new MemoryEmbeddingRepository(),
       clock: { now: () => '2026-07-11T10:00:00.000Z' },
     });
-    await expect(retriever.score('goal', [skill()])).rejects.toMatchObject({
+    await expect(retriever.score(goalContract, [skill()])).rejects.toMatchObject({
       code: 'SKILL_EMBEDDING_INCONSISTENT',
     });
   });
 });
+
+const goalContract = {
+  goalId: 'goal-1',
+  version: 1,
+  title: 'Inspect device',
+  description: 'inspect device',
+  constraints: ['read-only'],
+  successCriteria: ['status returned'],
+} as const;
 
 function skill(): SkillVersion {
   return {

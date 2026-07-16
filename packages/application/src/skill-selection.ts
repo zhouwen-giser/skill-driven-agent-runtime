@@ -1,13 +1,17 @@
-import type {
-  SkillCandidateSnapshot,
-  SkillPerformanceMetrics,
-  SkillReplacementPlan,
-  SkillSelectionRecord,
-  SkillVersion,
+import {
+  goalExecutionContractsEqual,
+  snapshotGoalExecutionContract,
+  type GoalExecutionContract,
+  type SkillCandidateSnapshot,
+  type SkillPerformanceMetrics,
+  type SkillReplacementPlan,
+  type SkillSelectionRecord,
+  type SkillVersion,
 } from '../../domain/src/index.js';
 
 import type {
   Clock,
+  McpRegistryRepository,
   SkillGraphRepository,
   SkillRepository,
   SkillSelectionDecider,
@@ -31,6 +35,7 @@ export class SkillSelectionService {
   readonly #retriever: SkillSemanticRetriever;
   readonly #decider: SkillSelectionDecider;
   readonly #clock: Clock;
+  readonly #mcpWarnings: Pick<McpRegistryRepository, 'listDependencyWarnings'> | undefined;
   readonly #ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
 
   constructor(
@@ -40,6 +45,7 @@ export class SkillSelectionService {
       records: SkillSelectionRepository;
       retriever: SkillSemanticRetriever;
       decider: SkillSelectionDecider;
+      mcpWarnings?: Pick<McpRegistryRepository, 'listDependencyWarnings'>;
       clock: Clock;
       ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
     }>,
@@ -49,12 +55,13 @@ export class SkillSelectionService {
     this.#records = dependencies.records;
     this.#retriever = dependencies.retriever;
     this.#decider = dependencies.decider;
+    this.#mcpWarnings = dependencies.mcpWarnings;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
 
-  async select(goalDescription: string): Promise<SkillSelectionRecord> {
-    const goal = requireGoal(goalDescription);
+  async select(goalContract: GoalExecutionContract): Promise<SkillSelectionRecord> {
+    const goal = requireGoalContract(goalContract);
     const enabled = await this.#skills.listEnabledVersions();
     if (enabled.length === 0) {
       throw new SkillSelectionError(
@@ -64,14 +71,15 @@ export class SkillSelectionService {
     }
     const candidates = await this.#candidateSnapshots(goal, enabled);
     const decision = await this.#decider.decide({
-      goalDescription: goal,
+      goalContract: goal,
       candidates,
       mode: 'initial',
     });
     const selected = requireSelectedCandidate(candidates, decision.selectedSkillId);
     const record: SkillSelectionRecord = {
       selectionId: this.#ids.nextSelectionId(),
-      goalDescription: goal,
+      goalContract: goal,
+      goalDescription: goal.description,
       candidates,
       selectedSkillId: selected.skillId,
       selectedSkillVersion: selected.skillVersion,
@@ -82,7 +90,11 @@ export class SkillSelectionService {
     return record;
   }
 
-  async planReplacement(selectionId: string, failedSkillId: string): Promise<SkillReplacementPlan> {
+  async planReplacement(
+    selectionId: string,
+    failedSkillId: string,
+    goalContract: GoalExecutionContract,
+  ): Promise<SkillReplacementPlan> {
     const selection = await this.#records.findSelection(selectionId);
     if (selection === undefined) {
       throw new SkillSelectionError('SKILL_SELECTION_NOT_FOUND', 'Skill selection was not found.');
@@ -91,6 +103,13 @@ export class SkillSelectionService {
       throw new SkillSelectionError(
         'SKILL_SELECTION_FAILED_SKILL_MISMATCH',
         'Failed Skill does not match the selection.',
+      );
+    }
+    const currentGoal = requireGoalContract(goalContract);
+    if (!goalExecutionContractsEqual(selection.goalContract, currentGoal)) {
+      throw new SkillSelectionError(
+        'SKILL_SELECTION_GOAL_CONTRACT_STALE',
+        'Replacement cannot reuse a selection from a different Goal contract version.',
       );
     }
     const alternativeIds = new Set(
@@ -110,9 +129,9 @@ export class SkillSelectionService {
         'No enabled alternative Skill exists.',
       );
     }
-    const candidates = await this.#candidateSnapshots(selection.goalDescription, alternatives);
+    const candidates = await this.#candidateSnapshots(currentGoal, alternatives);
     const decision = await this.#decider.decide({
-      goalDescription: selection.goalDescription,
+      goalContract: currentGoal,
       candidates,
       mode: 'replacement',
       failedSkillId,
@@ -121,6 +140,7 @@ export class SkillSelectionService {
     const plan: SkillReplacementPlan = {
       replacementPlanId: this.#ids.nextReplacementPlanId(),
       selectionId,
+      goalContract: currentGoal,
       failedSkillId,
       candidates,
       replacementSkillId: selected.skillId,
@@ -134,31 +154,111 @@ export class SkillSelectionService {
   }
 
   async #candidateSnapshots(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
   ): Promise<readonly SkillCandidateSnapshot[]> {
-    const scores = await this.#retriever.score(goalDescription, skills);
+    const scores = await this.#retriever.score(goalContract, skills);
     return Promise.all(
-      skills.map(async (skill) => ({
-        skillId: skill.skillId,
-        skillVersion: skill.version,
-        name: skill.name,
-        summary: skill.summary,
-        capabilities: skill.capabilities,
-        autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
-        createdAt: skill.createdAt,
-        semanticScore: normalizedScore(scores[skill.skillId] ?? 0),
-        metrics: validateMetrics((await this.#records.findMetrics(skill.skillId)) ?? EMPTY_METRICS),
-      })),
+      skills.map(async (skill) => {
+        const serverIds = new Set(
+          [...skill.toolPolicy.required, ...skill.toolPolicy.optional].map(
+            (reference) => reference.serverId,
+          ),
+        );
+        const warnings = (
+          await Promise.all(
+            [...serverIds].map(
+              (serverId) =>
+                this.#mcpWarnings?.listDependencyWarnings(serverId) ?? Promise.resolve([]),
+            ),
+          )
+        )
+          .flat()
+          .filter(
+            (warning) =>
+              warning.skillId === skill.skillId &&
+              warning.skillVersion === skill.version &&
+              warning.acknowledgedAt === undefined,
+          )
+          .map((warning) => ({
+            warningId: warning.warningId,
+            serverId: warning.serverId,
+            toolName: warning.toolName,
+            reason: warning.reason,
+            toolRevision: warning.toolRevision,
+            createdAt: warning.createdAt,
+          }));
+        return {
+          skillId: skill.skillId,
+          skillVersion: skill.version,
+          name: skill.name,
+          summary: skill.summary,
+          capabilities: skill.capabilities,
+          inputSchemaSummary: summarizeSchema(skill.inputSchema),
+          outputSchemaSummary: summarizeSchema(skill.outputSchema),
+          toolPolicy: skill.toolPolicy,
+          workflowGuidanceSummary: summarizeGuidance(skill.workflowGuidance),
+          runtimePolicy: skill.runtimePolicy,
+          activeMcpDependencyWarnings: warnings,
+          autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
+          createdAt: skill.createdAt,
+          semanticScore: normalizedScore(scores[skill.skillId] ?? 0),
+          metrics: validateMetrics(
+            (await this.#records.findMetrics(skill.skillId)) ?? EMPTY_METRICS,
+          ),
+        };
+      }),
     );
   }
 }
 
-function requireGoal(value: string): string {
-  const goal = value.trim();
-  if (goal === '')
-    throw new SkillSelectionError('SKILL_SELECTION_GOAL_REQUIRED', 'Goal description is required.');
-  return goal;
+function requireGoalContract(contract: GoalExecutionContract): GoalExecutionContract {
+  if (
+    contract.goalId.trim() === '' ||
+    !Number.isSafeInteger(contract.version) ||
+    contract.version < 1 ||
+    contract.title.trim() === '' ||
+    contract.description.trim() === ''
+  )
+    throw new SkillSelectionError(
+      'SKILL_SELECTION_GOAL_REQUIRED',
+      'A complete identified Goal execution contract is required.',
+    );
+  return snapshotGoalExecutionContract(contract);
+}
+
+function summarizeSchema(schema: unknown): SkillCandidateSnapshot['inputSchemaSummary'] {
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
+    return {
+      type: 'unspecified',
+      requiredFields: [],
+      propertyNames: [],
+      allowsAdditionalProperties: 'unspecified',
+    };
+  const record = schema as Readonly<Record<string, unknown>>;
+  const properties =
+    typeof record['properties'] === 'object' &&
+    record['properties'] !== null &&
+    !Array.isArray(record['properties'])
+      ? Object.keys(record['properties']).sort()
+      : [];
+  const required = Array.isArray(record['required'])
+    ? record['required'].filter((value): value is string => typeof value === 'string').sort()
+    : [];
+  return {
+    type: typeof record['type'] === 'string' ? record['type'] : 'unspecified',
+    requiredFields: required,
+    propertyNames: properties,
+    allowsAdditionalProperties:
+      typeof record['additionalProperties'] === 'boolean'
+        ? record['additionalProperties']
+        : 'unspecified',
+  };
+}
+
+function summarizeGuidance(value: string): string {
+  const guidance = value.trim();
+  return guidance.length <= 2_000 ? guidance : `${guidance.slice(0, 1_999)}…`;
 }
 
 function requireSelectedCandidate(
@@ -219,6 +319,7 @@ export type SkillSelectionErrorCode =
   | 'SKILL_SELECTION_INVALID_DECISION'
   | 'SKILL_SELECTION_METRICS_INVALID'
   | 'SKILL_SELECTION_NOT_FOUND'
+  | 'SKILL_SELECTION_GOAL_CONTRACT_STALE'
   | 'SKILL_SELECTION_NO_ALTERNATIVE'
   | 'SKILL_SELECTION_NO_CANDIDATES';
 

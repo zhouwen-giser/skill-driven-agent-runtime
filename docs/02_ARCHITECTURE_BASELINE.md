@@ -41,7 +41,7 @@ flowchart TB
 | Workflow Planner     | 根据 Goal/Skill/记忆生成 DSL             | 执行任意代码                 |
 | DSL Validator        | 结构、引用、Schema、预算、循环安全       | 业务推理                     |
 | LangGraph Compiler   | 把合法 DSL 编译为 StateGraph             | 决定 Goal 是否达成           |
-| MCP Adapter          | Tool 发现、Schema、调用、结果封装        | Skill 选择                   |
+| MCP Adapter          | Tool/Task 发现、协议协商、Schema、调用、结果封装与 SDK 隔离 | Skill 选择、远程 Task 领域权威 |
 | Result Processor     | 标准化、摘要、事实提取、记忆候选         | 直接发布 Skill               |
 | Evaluation/Evolution | 多评估器、经验聚类、Skill 模拟验证       | 绕过发布/版本规则            |
 | Console              | 管理和可视化真实运行数据                 | 自建另一套执行状态           |
@@ -71,3 +71,7 @@ A2A Message
 - Schema：JSON Schema 2020-12 + Ajv；领域内部可配合 Zod。
 - 前端：React、Vite、TypeScript、React Flow、TanStack Query。
 - 可观测：OpenTelemetry 语义，首版本地 Trace 存储和控制台展示。
+
+## v1.1 MCP Task readiness 增量
+
+Phase 3 保持现有模块边界：`mcp_tool` 仍由唯一 LangGraph.js Runtime 执行；Domain 定义 task execution、availability、readiness 与 risk decision；Application 批量检查并执行确定性 Guard；MCP Adapter 独占 wire/SDK 映射；PostgreSQL 追加保存 planning/pre-invocation 证据；Management API/Console 只读取投影。Provider 对资源接纳、预约和业务 Timer 权威，SDAR 不申请锁、不暂停远程 Task，也不产生 Provider 终态。

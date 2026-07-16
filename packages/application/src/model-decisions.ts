@@ -202,7 +202,7 @@ export class StructuredSkillSelectionDecider implements SkillSelectionDecider {
   async decide(input: Parameters<SkillSelectionDecider['decide']>[0]) {
     const memoryContext = await this.#memories?.searchForStage(
       'skill_selection',
-      input.goalDescription,
+      input.goalContract.description,
     );
     return SkillSelectionDecisionSchema.parse(
       await this.#model.generateStructured({

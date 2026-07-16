@@ -19,6 +19,7 @@
 - `mcp_tool_warning`
 - `workflow_definition`
 - `workflow_instance`
+- `skill_call_workflow`
 - `workflow_node_run`
 - `mcp_invocation`
 - `model_provider`
@@ -69,3 +70,13 @@
 - 破坏性迁移需要备份与回滚说明；
 - CI 在空库和升级库上都运行 migration test；
 - 种子数据只包含 Mock Skill、Mock MCP 和开发配置，不含真实凭据。
+
+Migration `0054_skill_call_history` 将 `skill_call_workflow` 的主键改为独立 `call_id`，使同一父实例/节点的重复执行保留追加历史；`find(parent,node)` 仍按时间返回最新调用。其 rollback 为兼容旧主键会只保留每个父实例/节点最新一条关系，因此回滚前必须备份需要保留的重复调用审计。
+
+Migration `0055_task_input_continuation` 新增 `task_input_request`、`task_input_response` 与 `task_execution_attempt`。问题和回答以 PostgreSQL 为权威；同一 Task 同时最多一个 `waiting` 问题，回答与新的 `input_response` attempt 在一个事务内创建。Goal Evaluation 问题保存 `control_id` 和 `control_round_index`，BullMQ 只携带 Task/Context/attempt/mode 的临时调度副本。rollback 会删除全部补充输入与 attempt 审计，回滚前必须备份。
+
+Migration `0056_mcp_execution_mode` 为 `mcp_invocation` 增加 `execution_mode` 与 `simulation_id`。`live` 审计不得带 simulation ID；`simulation` 与 `historical-replay` 必须保存稳定 ID。rollback 会删除这两个隔离审计字段，回滚前必须导出需要保留的非 live 调用关联。
+
+Migration `0057_nested_skill_confirmation` 为 `skill_call_workflow` 增加 `parent_plan_id` 与 `confirmation_status`，并允许确认期间的 `child_instance_id`、`completed_at` 暂时为空。`call_id` 确定计划中的子实例身份；实际子实例创建后，终态关联仍受既有外键保护。rollback 仅在全部关联已终态、已完成且具有实际子实例时允许执行。
+
+Migration `0058_runtime_terminal_outcome` 新增 `runtime_terminal_outcome`，并为 `workflow_control` 与 `workflow_control_round` 增加唯一终态引用。Processed Result、Task Output/phase、Goal、Control、当前 Round 与 Runtime Event 在同一 PostgreSQL 事务内提交；Memory、Quality 与 Evolution 警告仅作为提交后增强证据。rollback 仅在终态结果证据为空且没有 canceled Control 时允许执行。

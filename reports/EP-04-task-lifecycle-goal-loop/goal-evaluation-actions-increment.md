@@ -18,4 +18,4 @@ The E2E control scenario executes Workflow version 1, persists `adjust_plan`, ge
 
 ## Verification boundary
 
-Real verification covers the outer controller, persistence, management API path, model loopback, and MCP execution. Model semantic quality is simulated deterministically. FR-RST-006 remains unverified until capability-gap evidence is projected onto a persisted A2A Task waiting state.
+Real verification covers the outer controller, persistence, management API path, model loopback, and MCP execution. Model semantic quality is simulated deterministically. This historical increment left FR-RST-006 unverified; ADR-081 and v1.0.10 now verify capability-gap evidence as a persisted terminal A2A `FAILED` Task rather than a waiting state.

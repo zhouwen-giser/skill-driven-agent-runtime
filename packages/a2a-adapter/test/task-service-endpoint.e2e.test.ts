@@ -11,7 +11,7 @@ import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import { startMcpLoopbackServer } from '../../mcp-adapter/src/index.js';
 
 const postgresUrl =
-  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar';
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const redis = { host: '127.0.0.1', port: 56379 };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
@@ -21,8 +21,16 @@ const failingProviderId = `provider.fail.${randomUUID()}`;
 let workflowPlanningCalls = 0;
 let controlEvaluationCalls = 0;
 let replacementEvaluationCalls = 0;
+let inputContinuationEvaluationCalls = 0;
+let postCommitMemoryFailures = 0;
 let mcpWorkflowTarget:
-  | Readonly<{ serverId: string; workflowId: string; workflowVersion: number; goalId: string }>
+  | Readonly<{
+      serverId: string;
+      workflowId: string;
+      workflowVersion: number;
+      goalId: string;
+      bindDeviceIdFromInput?: boolean;
+    }>
   | undefined;
 let taskWorkflowTarget:
   Readonly<{ workflowId: string; goalId: string; goalVersion: number }> | undefined;
@@ -40,6 +48,7 @@ beforeAll(async () => {
     masterKeyBase64: randomBytes(32).toString('base64'),
     queueName,
     applyMigrations: true,
+    a2aSafetyPollIntervalMs: 5_000,
     skillSelection: {
       embeddings: {
         embed: (text) =>
@@ -139,6 +148,7 @@ beforeAll(async () => {
     'goal',
     'tool_enhancement',
     'skill_selection',
+    'skill_input_resolution',
     'execution_decision',
     'result_processing',
     'evaluation',
@@ -684,10 +694,40 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       });
       expect(response.status).toBe(201);
     }
+    const selectionGoalContract = {
+      goalId: `goal-selection-${randomUUID()}`,
+      version: 1,
+      title: 'Run zebra diagnostics',
+      description: 'Run the zebra diagnostic capability.',
+      constraints: ['read-only'],
+      successCriteria: ['diagnostic returned'],
+    } as const;
+    const contextSeed = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect an unknown target.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in contextSeed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const goalRegistration = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...selectionGoalContract,
+        contextId: contextSeed.contextId,
+      }),
+    });
+    expect(goalRegistration.status).toBe(201);
     const response = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goalDescription: 'Run the zebra diagnostic capability.' }),
+      body: JSON.stringify({
+        goalContract: selectionGoalContract,
+      }),
     });
     expect(response.status).toBe(201);
     const selection = z
@@ -695,20 +735,117 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         selectedSkillId: z.string(),
         selectedSkillVersion: z.number(),
         decisionSummary: z.string(),
+        goalContract: z.object({
+          goalId: z.string(),
+          version: z.number(),
+          title: z.string(),
+          description: z.string(),
+          constraints: z.array(z.string()),
+          successCriteria: z.array(z.string()),
+        }),
         candidates: z.array(
           z.object({
             skillId: z.string(),
             semanticScore: z.number(),
             metrics: z.object({ successRate: z.number(), stabilityScore: z.number() }),
+            inputSchemaSummary: z.object({ type: z.string() }),
+            outputSchemaSummary: z.object({ type: z.string() }),
+            toolPolicy: z.object({
+              required: z.array(z.unknown()),
+              optional: z.array(z.unknown()),
+              forbidden: z.array(z.unknown()),
+            }),
+            workflowGuidanceSummary: z.string(),
+            runtimePolicy: z.object({ autoConfirmPlan: z.boolean() }),
+            activeMcpDependencyWarnings: z.array(z.unknown()),
           }),
         ),
       })
       .parse(await response.json());
+    expect(selection.goalContract).toEqual(selectionGoalContract);
     expect(selection.selectedSkillId).toBe(deviceSkillId);
     expect(selection.candidates.find((item) => item.skillId === deviceSkillId)?.semanticScore).toBe(
       1,
     );
     expect(selection.decisionSummary).toContain('metric snapshot');
+    const audits = z
+      .object({
+        items: z.array(z.object({ request: z.object({ instruction: z.string() }).loose() })),
+      })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_selection`,
+          )
+        ).json(),
+      );
+    const audited = audits.items.find((item) =>
+      item.request.instruction.includes(selectionGoalContract.goalId),
+    );
+    expect(audited?.request.instruction).toContain(JSON.stringify(selectionGoalContract));
+
+    const staleSelection = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        goalContract: { ...selectionGoalContract, constraints: ['write allowed'] },
+      }),
+    });
+    expect(staleSelection.status).toBe(400);
+    await expect(staleSelection.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' },
+    });
+    const canceledGoal = await fetch(
+      `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(selectionGoalContract.goalId)}/cancel`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Verify terminal Goal selection rejection.' }),
+      },
+    );
+    expect(canceledGoal.status).toBe(201);
+    const terminalSelection = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goalContract: selectionGoalContract }),
+    });
+    expect(terminalSelection.status).toBe(400);
+    await expect(terminalSelection.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' },
+    });
+    const planningCallsBeforeTerminalRejection = workflowPlanningCalls;
+    const terminalPlanning = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId: `plan-terminal-goal-${randomUUID()}`,
+        workflowDefinitionId: `workflow-terminal-goal-${randomUUID()}`,
+        workflowVersion: 1,
+        goalId: selectionGoalContract.goalId,
+        goalVersion: selectionGoalContract.version,
+        goalContract: selectionGoalContract,
+        planningInstruction: 'This terminal Goal must never reach the planner.',
+      }),
+    });
+    expect(terminalPlanning.status).toBe(400);
+    await expect(terminalPlanning.json()).resolves.toMatchObject({
+      error: { code: 'WORKFLOW_GOAL_CONTRACT_STALE' },
+    });
+    expect(workflowPlanningCalls).toBe(planningCallsBeforeTerminalRejection);
+    const auditAfterRejection = z
+      .object({ items: z.array(z.object({ request: z.object({ instruction: z.string() }) })) })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_selection`,
+          )
+        ).json(),
+      );
+    expect(
+      auditAfterRejection.items.filter((item) =>
+        item.request.instruction.includes(selectionGoalContract.goalId),
+      ),
+    ).toHaveLength(1);
   });
 
   it('raises a low-quality warning without disabling or repairing the enabled Skill', async () => {
@@ -1035,69 +1172,508 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('executes skill_call as an independent LangGraph child Workflow using the current Skill version', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.skill-child.${randomUUID()}`;
     const skillId = `skill.child.${randomUUID()}`;
-    const first = await runtime.registerSkill({
-      ...skillInput(skillId, 'Child Workflow Skill v1'),
-      workflowGuidance: 'SKILL_CHILD_EXECUTION version one.',
-    });
-    expect(first.version).toBe(1);
-    const planId = `plan.skill-call.${randomUUID()}`;
-    const instanceId = `instance.skill-call-parent.${randomUUID()}`;
-    skillCallWorkflowTarget = {
-      workflowId: `workflow.skill-call.${randomUUID()}`,
-      goalId: `goal.skill-call.${randomUUID()}`,
-      goalVersion: 1,
-      skillId,
-    };
-    const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        planId,
-        workflowDefinitionId: skillCallWorkflowTarget.workflowId,
-        workflowVersion: 1,
-        goalId: skillCallWorkflowTarget.goalId,
-        goalVersion: 1,
-        planningInstruction: 'SKILL_CALL_PLAN',
-      }),
-    });
-    skillCallWorkflowTarget = undefined;
-    expect(planned.status).toBe(201);
-    const second = await runtime.registerSkill({
-      ...skillInput(skillId, 'Child Workflow Skill v2'),
-      workflowGuidance: 'SKILL_CHILD_EXECUTION version two.',
-    });
-    expect(second.version).toBe(2);
-    expect(
-      await fetch(
-        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
-        { method: 'POST' },
-      ),
-    ).toMatchObject({ status: 200 });
-    const execution = await fetch(
-      `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
-      {
+    const parentSkillId = `skill.parent.${randomUUID()}`;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ instanceId, input: { deviceId: 'device-parent' } }),
-      },
-    );
-    expect(execution.status).toBe(201);
-    await expect(execution.json()).resolves.toMatchObject({
-      instanceId,
-      status: 'succeeded',
-      result: { status: 'online' },
-      skillVersions: [{ skillId, version: 2 }],
-    });
-    await expect(runtime.listSkillCallWorkflows(instanceId)).resolves.toEqual([
-      expect.objectContaining({
-        parentNodeId: 'child',
+        body: JSON.stringify({
+          serverId,
+          name: 'Child Skill MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      const skillVersionInput = (name: string, workflowGuidance: string) => ({
+        ...skillInput(skillId, name),
+        runtimePolicy: { autoConfirmPlan: true },
+        workflowGuidance,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId'],
+          properties: { deviceId: { type: 'string' } },
+        },
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: { deviceId: { type: 'string' }, status: { enum: ['online'] } },
+        },
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      });
+      const first = await runtime.registerSkill(
+        skillVersionInput('Child Workflow Skill v1', 'SKILL_CHILD_EXECUTION version one.'),
+      );
+      expect(first.version).toBe(1);
+      const parent = await runtime.registerSkill({
+        ...skillInput(parentSkillId, 'Parent composition Skill'),
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: {
+            deviceId: { type: 'string' },
+            status: { type: 'string', enum: ['online'] },
+          },
+        },
+      });
+      expect(parent.version).toBe(1);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph/relations`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sourceSkillId: parentSkillId,
+              targetSkillId: skillId,
+              relationType: 'composition',
+              metadata: { purpose: 'child execution E2E' },
+            }),
+          })
+        ).status,
+      ).toBe(201);
+      const planId = `plan.skill-call.${randomUUID()}`;
+      const instanceId = `instance.skill-call-parent.${randomUUID()}`;
+      skillCallWorkflowTarget = {
+        workflowId: `workflow.skill-call.${randomUUID()}`,
+        goalId: `goal.skill-call.${randomUUID()}`,
+        goalVersion: 1,
         skillId,
-        skillVersion: 2,
+      };
+      const planned = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          workflowDefinitionId: skillCallWorkflowTarget.workflowId,
+          workflowVersion: 1,
+          goalId: skillCallWorkflowTarget.goalId,
+          goalVersion: 1,
+          goalContract: standaloneGoalContract(skillCallWorkflowTarget.goalId),
+          planningInstruction: 'SKILL_CALL_PLAN',
+          compositionRoot: { skillId: parentSkillId, skillVersion: parent.version },
+        }),
+      });
+      skillCallWorkflowTarget = undefined;
+      const plannedBody: unknown = await planned.json();
+      expect(planned.status, JSON.stringify(plannedBody)).toBe(201);
+      const second = await runtime.registerSkill(
+        skillVersionInput('Child Workflow Skill v2', 'SKILL_CHILD_EXECUTION version two.'),
+      );
+      expect(second.version).toBe(2);
+      expect(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/confirm`,
+          { method: 'POST' },
+        ),
+      ).toMatchObject({ status: 200 });
+      const execution = await fetch(
+        `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/execute`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ instanceId, input: { deviceId: 'device-parent' } }),
+        },
+      );
+      const executionBody: unknown = await execution.json();
+      expect(execution.status, JSON.stringify(executionBody)).toBe(201);
+      expect(executionBody).toMatchObject({
+        instanceId,
         status: 'succeeded',
-        evaluationSummary: expect.stringContaining(`${skillId}@2`),
-      }),
-    ]);
+        result: { deviceId: 'device-child', status: 'online' },
+        skillVersions: [{ skillId, version: 2 }],
+      });
+      await expect(runtime.listSkillCallWorkflows(instanceId)).resolves.toEqual([
+        expect.objectContaining({
+          parentNodeId: 'child',
+          callId: expect.any(String),
+          childInstanceId: expect.stringMatching(/^instance-skill-call-/u),
+          childPlanId: expect.stringMatching(/^plan-skill-call-/u),
+          skillId,
+          skillVersion: 2,
+          status: 'succeeded',
+          evaluationSummary: expect.stringContaining('after executing'),
+        }),
+      ]);
+      const invocations = z
+        .object({
+          items: z.array(
+            z.object({
+              toolName: z.string(),
+              status: z.string(),
+              arguments: z.record(z.string(), z.unknown()),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodeURIComponent(serverId)}/invocations`,
+          ).then((response) => response.json()),
+        );
+      expect(invocations.items).toContainEqual(
+        expect.objectContaining({
+          toolName: 'device_status',
+          status: 'succeeded',
+          arguments: { deviceId: 'device-child' },
+        }),
+      );
+    } finally {
+      skillCallWorkflowTarget = undefined;
+      await mockMcp.close();
+    }
+  });
+
+  it('requires an independent child Skill confirmation before the parent Task can continue', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.nested-confirmation.${randomUUID()}`;
+    const parentSkillId = `skill.nested-parent.${randomUUID()}`;
+    const childSkillId = `skill.nested-child.${randomUUID()}`;
+    try {
+      await runtime.registerMcpServer({
+        serverId,
+        name: 'Nested confirmation MCP',
+        endpoint: mockMcp.endpoint.toString(),
+        credentialHeaders: {},
+      });
+      await runtime.registerSkill({
+        ...skillInput(parentSkillId, 'Nested confirmation parent'),
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: {
+            deviceId: { type: 'string' },
+            status: { type: 'string', enum: ['online'] },
+          },
+        },
+      });
+      const childRegistration: RegisterSkillVersionInput = {
+        ...skillInput(childSkillId, 'Nested confirmation child'),
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId'],
+          properties: { deviceId: { type: 'string' } },
+        },
+        outputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId', 'status'],
+          properties: { deviceId: { type: 'string' }, status: { enum: ['online'] } },
+        },
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      };
+      await runtime.registerSkill(childRegistration);
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/skill-graph/relations`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sourceSkillId: parentSkillId,
+              targetSkillId: childSkillId,
+              relationType: 'composition',
+              metadata: { purpose: 'nested confirmation E2E' },
+            }),
+          })
+        ).status,
+      ).toBe(201);
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+
+      const parentConfirmed = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the parent plan.',
+      );
+      if (!('id' in parentConfirmed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+
+      const task = z
+        .object({ planId: z.string(), phase: z.string(), phaseMessage: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      expect(task).toMatchObject({
+        phase: 'awaiting_plan_confirmation',
+        phaseMessage: expect.stringContaining(`${childSkillId}@1`),
+      });
+      const auditedPlan = z
+        .object({
+          planId: z.string(),
+          compositionContext: z.object({
+            selectedSkill: z.object({ skillId: z.string(), version: z.number() }),
+            relatedSkills: z.array(z.object({ skillId: z.string(), version: z.number() })),
+            relations: z.array(
+              z.object({
+                sourceSkillId: z.string(),
+                targetSkillId: z.string(),
+                relationType: z.string(),
+              }),
+            ),
+            allowedChildSkillIds: z.array(z.string()),
+            decisionSummary: z.string(),
+          }),
+          definition: z.object({
+            nodes: z.array(
+              z.object({
+                type: z.string(),
+                skillId: z.string().optional(),
+              }),
+            ),
+          }),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+          ).then((response) => response.json()),
+        );
+      expect(auditedPlan.compositionContext).toMatchObject({
+        selectedSkill: { skillId: parentSkillId, version: 1 },
+        relatedSkills: [{ skillId: childSkillId, version: 1 }],
+        relations: [
+          {
+            sourceSkillId: parentSkillId,
+            targetSkillId: childSkillId,
+            relationType: 'composition',
+          },
+        ],
+        allowedChildSkillIds: [childSkillId],
+        decisionSummary: expect.stringContaining('model decides'),
+      });
+      expect(auditedPlan.definition.nodes).toContainEqual(
+        expect.objectContaining({ type: 'skill_call', skillId: childSkillId }),
+      );
+      const trace = z
+        .object({
+          instance: z.object({
+            instanceId: z.string(),
+            status: z.literal('paused'),
+            pendingConfirmation: z.object({
+              kind: z.literal('skill_confirmation'),
+              parentPlanId: z.string(),
+              childPlanId: z.string(),
+              childSkillId: z.string(),
+              childSkillVersion: z.number(),
+            }),
+          }),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      expect(trace.instance.pendingConfirmation).toMatchObject({
+        parentPlanId: task.planId,
+        childSkillId,
+        childSkillVersion: 1,
+      });
+      await expect(runtime.listSkillCallWorkflows(trace.instance.instanceId)).resolves.toEqual([
+        expect.objectContaining({
+          parentPlanId: task.planId,
+          childPlanId: trace.instance.pendingConfirmation.childPlanId,
+          skillId: childSkillId,
+          skillVersion: 1,
+          confirmationStatus: 'awaiting_confirmation',
+          status: 'awaiting_confirmation',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(0);
+
+      const completed = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the child plan.',
+      );
+      if (!('id' in completed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listSkillCallWorkflows(trace.instance.instanceId)).resolves.toEqual([
+        expect.objectContaining({
+          childPlanId: trace.instance.pendingConfirmation.childPlanId,
+          confirmationStatus: 'confirmed',
+          status: 'succeeded',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toContainEqual(
+        expect.objectContaining({ status: 'succeeded', toolName: 'device_status' }),
+      );
+
+      const canceledParent = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in canceledParent)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await sendFollowUp(
+        canceledParent.id,
+        canceledParent.contextId,
+        'confirm_plan',
+        'Confirm only the parent plan.',
+      );
+      await waitForInternalTaskPhase(canceledParent.id, 'awaiting_plan_confirmation');
+      const canceledInternal = z
+        .object({ planId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${canceledParent.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      const canceledTrace = z
+        .object({ instance: z.object({ instanceId: z.string(), status: z.literal('paused') }) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(canceledInternal.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      const canceled = await runtime.a2a.client.cancelTask({
+        tenant: '',
+        id: canceledParent.id,
+        metadata: {},
+      });
+      expect(canceled.status?.state).toBe(TaskState.TASK_STATE_CANCELED);
+      const staleConfirmation = await fetch(
+        `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(canceledParent.id)}/actions`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: 'confirm_plan',
+            messageText: 'Attempt a stale child confirmation.',
+          }),
+        },
+      );
+      expect(staleConfirmation.status).toBe(400);
+      await expect(staleConfirmation.json()).resolves.toMatchObject({
+        error: { code: 'TASK_PLAN_DECISION_NOT_AWAITING' },
+      });
+      await expect(
+        runtime.listSkillCallWorkflows(canceledTrace.instance.instanceId),
+      ).resolves.toEqual([
+        expect.objectContaining({ confirmationStatus: 'rejected', status: 'rejected' }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+
+      const versionChangedParent = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `GLOBAL_SHARED_SKILL:${parentSkillId} NESTED_CONFIRMATION_CHILD:${childSkillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in versionChangedParent)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Confirm the version-change parent plan.',
+      );
+      await waitForInternalTaskPhase(versionChangedParent.id, 'awaiting_plan_confirmation');
+      const beforeVersionChange = z
+        .object({ planId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${versionChangedParent.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      const versionChangeTrace = z
+        .object({ instance: z.object({ instanceId: z.string() }) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(beforeVersionChange.planId)}/trace`,
+          ).then((response) => response.json()),
+        );
+      await expect(
+        runtime.registerSkill({
+          ...childRegistration,
+          summary: 'Nested confirmation child version two.',
+          description: 'Nested confirmation child with revised immutable guidance.',
+        }),
+      ).resolves.toMatchObject({ version: 2, previousVersion: 1, status: 'enabled' });
+
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Attempt to confirm the stale child version.',
+      );
+      await waitForInternalTaskPhase(versionChangedParent.id, 'awaiting_plan_confirmation');
+      await expect(
+        runtime.listSkillCallWorkflows(versionChangeTrace.instance.instanceId),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          skillVersion: 1,
+          confirmationStatus: 'invalidated',
+          status: 'invalidated',
+        }),
+        expect.objectContaining({
+          skillVersion: 2,
+          confirmationStatus: 'awaiting_confirmation',
+          status: 'awaiting_confirmation',
+        }),
+      ]);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
+      await sendFollowUp(
+        versionChangedParent.id,
+        versionChangedParent.contextId,
+        'confirm_plan',
+        'Confirm the fresh child version.',
+      );
+      await waitForTaskState(versionChangedParent.id, TaskState.TASK_STATE_COMPLETED);
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(2);
+    } finally {
+      await mockMcp.close();
+    }
   });
 
   it('retrieves the same globally shared formal Skill for different user_id values', async () => {
@@ -1123,6 +1699,169 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ),
       ).resolves.toMatchObject({ userId, selectedSkillId: skillId });
     }
+  });
+
+  it('binds prioritized A2A structured Skill input into real MCP arguments', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.top-level-input.${randomUUID()}`;
+    const skillId = `skill.top-level-input.${randomUUID()}`;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Top-level input MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      await runtime.registerSkill({
+        ...skillInput(skillId, 'Top-level input Skill'),
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId'],
+          properties: { deviceId: { type: 'string', minLength: 1 } },
+        },
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      });
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `Inspect device-from-text with GLOBAL_SHARED_SKILL:${skillId} TOP_LEVEL_INPUT_MCP:${serverId}/device_status`,
+                mediaType: 'text/plain',
+              },
+            ],
+            metadata: {
+              structured_input: { deviceId: 'device-from-metadata' },
+            },
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      const resolutions = z
+        .object({
+          items: z.array(
+            z.object({
+              resolutionId: z.string(),
+              status: z.string(),
+              structuredInput: z.unknown().optional(),
+              sourceRefs: z.array(z.string()),
+            }),
+          ),
+        })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+            )
+          ).json(),
+        );
+      expect(resolutions.items).toContainEqual(
+        expect.objectContaining({
+          status: 'resolved',
+          structuredInput: { deviceId: 'device-from-metadata' },
+          sourceRefs: expect.arrayContaining(['a2a-metadata:structured_input']),
+        }),
+      );
+
+      await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the schema-validated plan.',
+      );
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([
+        expect.objectContaining({
+          taskId: submitted.id,
+          toolName: 'device_status',
+          arguments: { deviceId: 'device-from-metadata' },
+          status: 'succeeded',
+        }),
+      ]);
+    } finally {
+      await runtime.deleteMcpServer(serverId);
+    }
+  });
+
+  it('continues the same Task after a top-level Skill input-required checkpoint', async () => {
+    const skillId = `skill.top-level-missing.${randomUUID()}`;
+    await runtime.registerSkill({
+      ...skillInput(skillId, 'Top-level missing input Skill'),
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['deviceId'],
+        properties: { deviceId: { type: 'string', minLength: 1 } },
+      },
+    });
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [
+            {
+              text: `TOP_LEVEL_INPUT_MISSING GLOBAL_SHARED_SKILL:${skillId}`,
+              mediaType: 'text/plain',
+            },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_user_input',
+      phaseMessage: 'Additional Skill input is required for: deviceId.',
+    });
+
+    await sendFollowUp(submitted.id, submitted.contextId, 'provide_input', 'device-from-follow-up');
+    await waitForInternalTaskPhase(submitted.id, 'awaiting_plan_confirmation');
+    const evidence = z
+      .object({
+        items: z.array(
+          z.object({
+            status: z.enum(['resolved', 'input_required', 'failed']),
+            structuredInput: z.unknown().optional(),
+            unresolvedFields: z.array(z.string()),
+          }),
+        ),
+      })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+          )
+        ).json(),
+      );
+    expect(evidence.items).toMatchObject([
+      { status: 'input_required', unresolvedFields: ['deviceId'] },
+      {
+        status: 'resolved',
+        structuredInput: { deviceId: 'device-from-follow-up' },
+        unresolvedFields: [],
+      },
+    ]);
   });
 
   it('rejects a generated Task plan when the selected Skill required Tool is missing', async () => {
@@ -1406,6 +2145,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         workflowVersion: 1,
         goalId: 'goal.planned.e2e',
         goalVersion: 1,
+        goalContract: standaloneGoalContract('goal.planned.e2e'),
         planningInstruction: 'PLAN_WORKFLOW',
       }),
     });
@@ -1434,6 +2174,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         workflowVersion: 1,
         goalId: 'goal.planned.e2e',
         goalVersion: 1,
+        goalContract: standaloneGoalContract('goal.planned.e2e'),
         planningInstruction: 'PLAN_WORKFLOW',
       }),
     });
@@ -1504,13 +2245,19 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
-  it('blocks an unconfirmed plan then executes its compiled LangGraph against a real MCP server', async () => {
+  it('binds Workflow input into a real MCP call only after plan confirmation', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.execution.${randomUUID()}`;
     const planId = `plan.execution.${randomUUID()}`;
     const workflowId = `workflow.execution.${randomUUID()}`;
     const goalId = `goal.execution.${randomUUID()}`;
-    mcpWorkflowTarget = { serverId, workflowId, workflowVersion: 1, goalId };
+    mcpWorkflowTarget = {
+      serverId,
+      workflowId,
+      workflowVersion: 1,
+      goalId,
+      bindDeviceIdFromInput: true,
+    };
     try {
       const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
         method: 'POST',
@@ -1532,6 +2279,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 1,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
         }),
       });
@@ -1563,7 +2311,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ instanceId: `instance-${randomUUID()}`, input: {} }),
+          body: JSON.stringify({
+            instanceId: `instance-${randomUUID()}`,
+            input: { deviceId: 'device-runtime' },
+          }),
         },
       );
       expect(executed.status).toBe(201);
@@ -1588,6 +2339,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 2,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           sourceConfirmedPlanId: planId,
         }),
@@ -1629,6 +2381,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 3,
           goalId,
           goalVersion: 1,
+          goalContract: standaloneGoalContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           sourceConfirmedPlanId: repairedPlanId,
         }),
@@ -1706,6 +2459,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId,
             goalVersion: 1,
+            goalContract: standaloneGoalContract(goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -1838,6 +2592,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId,
             goalVersion: 1,
+            goalContract: standaloneGoalContract(goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -1974,6 +2729,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             workflowVersion: 1,
             goalId: prepared.goalId,
             goalVersion: prepared.goalVersion,
+            goalContract: await loadGoalExecutionContract(prepared.goalId),
             planningInstruction: 'EXECUTE_MCP_WORKFLOW',
           }),
         }),
@@ -2047,6 +2803,26 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       ).then((response) => response.json() as Promise<Record<string, unknown>>);
       expect(patchedTask).toMatchObject({ phase: 'planning', goalVersion: 2 });
       expect(patchedTask).not.toHaveProperty('planId');
+      const inputResolutions = z
+        .object({
+          items: z.array(
+            z.object({
+              goalVersion: z.number(),
+              status: z.string(),
+              resolutionId: z.string(),
+            }),
+          ),
+        })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+            )
+          ).json(),
+        );
+      expect(inputResolutions.items).toContainEqual(
+        expect.objectContaining({ goalVersion: 2, status: 'resolved' }),
+      );
       const blocked = await fetch(
         `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(patch.newPlanId)}/execute`,
         {
@@ -2145,10 +2921,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           workflowVersion: 1,
           goalId,
           goalVersion: 1,
+          goalContract: await loadGoalExecutionContract(goalId),
           planningInstruction: 'EXECUTE_MCP_WORKFLOW',
         }),
       });
-      expect(initialPlan.status).toBe(201);
+      if (initialPlan.status !== 201)
+        throw new Error(
+          `CONTROL_INITIAL_PLAN_FAILED:${String(initialPlan.status)}:${await initialPlan.text()}`,
+        );
       expect(
         (
           await fetch(
@@ -2267,13 +3047,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     await attachPlannedTask(submitted.id);
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
     const controlId = `control-task-${submitted.id}`;
-    const projected = await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
-    expect(projected.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    const projected = await waitForTaskState(submitted.id, TaskState.TASK_STATE_FAILED);
+    expect(projected.status?.state).toBe(TaskState.TASK_STATE_FAILED);
     expect(projected.status?.message?.parts[0]?.content).toMatchObject({
       value: 'Required capability is unavailable: Read device pressure.',
     });
     expect(projected.metadata).toMatchObject({
       internalPhase: 'capability_gap',
+      errorCode: 'CAPABILITY_GAP',
       capabilityGap: {
         evaluationSummary: 'No registered MCP tool can read device pressure.',
         missingCapability: 'Read device pressure.',
@@ -2283,6 +3064,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           inputSchema: { type: 'object', required: ['deviceId'] },
         },
       },
+      nextAction: 'register-capability-and-submit-new-task',
     });
     await expect(
       fetch(
@@ -2298,6 +3080,56 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         },
       ],
     });
+
+    await expect(
+      sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'resume',
+        'A pressure Tool is now registered.',
+      ),
+    ).rejects.toThrow();
+
+    const terminalTask = z
+      .object({ goalId: z.string(), phase: z.literal('capability_gap') })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    const activeGoal = z
+      .object({ status: z.literal('active') })
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/goals/${terminalTask.goalId}`).then(
+          (response) => response.json(),
+        ),
+      );
+    expect(activeGoal.status).toBe('active');
+
+    const successor = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          contextId: submitted.contextId,
+          role: 'ROLE_USER',
+          parts: [
+            { text: 'Submit a new Task after capability registration.', mediaType: 'text/plain' },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in successor)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(successor.id).not.toBe(submitted.id);
+    expect(successor.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${successor.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({ goalId: terminalTask.goalId });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: submitted.id }),
+    ).resolves.toMatchObject({ status: { state: TaskState.TASK_STATE_FAILED } });
   });
 
   it('stores source-linked memory and retrieves it globally across user identities', async () => {
@@ -2343,6 +3175,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       memoryId,
       status: 'active',
       sourceRefs: [source.id],
+      durability: 'durable',
+      authority: 'admin',
     });
     const search = await fetch(
       `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('target device')}&limit=5`,
@@ -2389,6 +3223,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       memoryId: replacementId,
       status: 'active',
       supersedes: [memoryId],
+      durability: 'durable',
+      authority: 'admin',
     });
     await expect(
       fetch(`${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}`).then(
@@ -2490,21 +3326,114 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       ],
     });
 
-    const unresolved = await runtime.a2a.client.sendMessage(
-      SendMessageRequest.fromJSON({
-        message: {
-          messageId: `message-${randomUUID()}`,
-          role: 'ROLE_USER',
-          parts: [{ text: 'Inspect the unknown target.', mediaType: 'text/plain' }],
-        },
-        configuration: { returnImmediately: false },
-      }),
-    );
-    if (!('id' in unresolved)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-    expect(unresolved.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
-    expect(unresolved.status?.message?.parts[0]?.content).toMatchObject({
-      value: 'Which device should be inspected?',
-    });
+    const continuationMcp = await startMcpLoopbackServer();
+    const continuationServerId = `mcp.input-continuation.${randomUUID()}`;
+    try {
+      await runtime.registerMcpServer({
+        serverId: continuationServerId,
+        name: 'Input continuation MCP',
+        endpoint: continuationMcp.endpoint.toString(),
+        credentialHeaders: {},
+      });
+      const unresolved = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `INPUT_CONTINUATION_MCP TEMPORARY_TOOL:${continuationServerId}/device_status Inspect the unknown target.`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in unresolved)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(unresolved.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      expect(unresolved.status?.message?.parts[0]?.content).toMatchObject({
+        value: 'Which device should be inspected?',
+      });
+
+      const queued = await sendFollowUp(
+        unresolved.id,
+        unresolved.contextId,
+        'provide_input',
+        'device-17',
+      );
+      expectTaskState(queued, TaskState.TASK_STATE_WORKING);
+      await waitForInternalTaskPhase(unresolved.id, 'awaiting_plan_confirmation');
+      await sendFollowUp(unresolved.id, unresolved.contextId, 'confirm_plan', 'Confirm.');
+      await waitForTaskState(unresolved.id, TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listMcpInvocations(continuationServerId)).resolves.toContainEqual(
+        expect.objectContaining({
+          toolName: 'device_status',
+          status: 'succeeded',
+          arguments: { deviceId: 'device-17' },
+        }),
+      );
+    } finally {
+      await continuationMcp.close();
+    }
+  });
+
+  it('continues a Goal-evaluation input request with a new plan and real MCP argument', async () => {
+    const continuationMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.evaluation-input.${randomUUID()}`;
+    inputContinuationEvaluationCalls = 0;
+    try {
+      await runtime.registerMcpServer({
+        serverId,
+        name: 'Evaluation input MCP',
+        endpoint: continuationMcp.endpoint.toString(),
+        credentialHeaders: {},
+      });
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `INPUT_AFTER_EVALUATION TEMPORARY_TOOL:${serverId}/device_status inspect a device.`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expectTaskState(submitted, TaskState.TASK_STATE_INPUT_REQUIRED);
+      await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm initial.');
+      await waitForInternalTaskPhase(submitted.id, 'awaiting_user_input');
+      const waiting = await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
+      expect(waiting.status?.message?.parts[0]?.content).toMatchObject({
+        value: 'Which final device should be inspected?',
+      });
+
+      const queued = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'provide_input',
+        'device-99',
+      );
+      expectTaskState(queued, TaskState.TASK_STATE_WORKING);
+      await waitForInternalTaskPhase(submitted.id, 'awaiting_plan_confirmation');
+      await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm continued.');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+
+      await expect(runtime.listMcpInvocations(serverId)).resolves.toContainEqual(
+        expect.objectContaining({
+          toolName: 'device_status',
+          status: 'succeeded',
+          arguments: { deviceId: 'device-99' },
+        }),
+      );
+    } finally {
+      await continuationMcp.close();
+    }
   });
 
   it('configures Memory retention fields while V1 keeps automatic cleanup disabled', async () => {
@@ -2760,6 +3689,32 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'boundary',
         'exception',
       ]);
+      const candidateId = third.formalizationCandidate?.candidateId;
+      if (candidateId === undefined) throw new Error('FORMALIZATION_CANDIDATE_ID_MISSING');
+      const invocationModes = await runtime.listMcpInvocations(serverId);
+      expect(invocationModes).toContainEqual(expect.objectContaining({ executionMode: 'live' }));
+      expect(invocationModes).toContainEqual(
+        expect.objectContaining({
+          executionMode: 'simulation',
+          simulationId: `skill-evolution:${candidateId}:simulation:normal-device`,
+        }),
+      );
+      expect(invocationModes).toContainEqual(
+        expect.objectContaining({
+          executionMode: 'historical-replay',
+          simulationId: expect.stringContaining(`skill-evolution:${candidateId}:historical:`),
+        }),
+      );
+      expect(
+        mockMcp.receivedHeaders.some((headers) => headers['x-sdar-execution-mode'] === undefined),
+      ).toBe(true);
+      for (const invocation of invocationModes.filter((item) => item.executionMode !== 'live'))
+        expect(mockMcp.receivedHeaders).toContainEqual(
+          expect.objectContaining({
+            'x-sdar-execution-mode': invocation.executionMode,
+            'x-sdar-simulation-id': invocation.simulationId,
+          }),
+        );
       const triggers = z
         .object({
           items: z.array(
@@ -3091,7 +4046,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       goalVersion: 1,
       phase: 'awaiting_plan_confirmation',
     });
-    for (const stage of ['intent', 'goal', 'skill_selection'] as const) {
+    for (const stage of ['intent', 'goal', 'skill_selection', 'skill_input_resolution'] as const) {
       const invocations = z
         .object({ items: z.array(z.object({ stage: z.string(), status: z.string() })) })
         .parse(
@@ -3515,12 +4470,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ).then((response) => response.json()),
       );
     expect(
-      memorySearch.items.find((hit) => hit.item.summary === 'The device was online.')?.item,
-    ).toMatchObject({
-      type: 'fact',
-      content: { kind: 'fact', statement: 'The device was online.' },
-      sourceRefs: [expect.stringMatching(/^task:/), expect.stringMatching(/^processed-result:/)],
-    });
+      memorySearch.items.find((hit) => hit.item.summary === 'The device was online.'),
+    ).toBeUndefined();
     const qualityDeadline = Date.now() + 5_000;
     let qualityResponse: Response;
     do {
@@ -3543,6 +4494,72 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { component: 'tool_call', evidenceRefs: ['tool_call:evidence'] },
       ],
     });
+  });
+
+  it('returns the A2A terminal result even when post-commit Memory enhancement fails', async () => {
+    const skillId = `skill.result.memory-fault.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Result skill with Memory fault'));
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect device status.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await attachPlannedTask(submitted.id);
+    const internalTask = z
+      .object({ goalId: z.string() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+        ).then((response) => response.json()),
+      );
+    postCommitMemoryFailures = 1;
+    try {
+      await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
+      const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      expect(completed.artifacts[0]?.parts[0]?.content).toMatchObject({
+        $case: 'text',
+        value: 'Device is online.',
+      });
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/goals/${internalTask.goalId}`).then(
+          (response) => response.json(),
+        ),
+      ).resolves.toMatchObject({ status: 'achieved' });
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflow-controls/control-task-${submitted.id}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        status: 'achieved',
+        terminalOutcomeId: `terminal-outcome-task-${submitted.id}`,
+      });
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/processed-results`).then(
+          (response) => response.json(),
+        ),
+      ).resolves.toMatchObject({ items: [expect.objectContaining({ taskId: submitted.id })] });
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/runtime-terminal-outcomes/terminal-outcome-task-${submitted.id}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        kind: 'achieved',
+        enhancementWarnings: [
+          expect.objectContaining({
+            source: 'evaluation_memory',
+            code: 'MODEL_INVOCATION_FAILED',
+          }),
+        ],
+      });
+    } finally {
+      postCommitMemoryFailures = 0;
+    }
   });
 
   it('routes a low-quality report into Skill evidence and an inactive Prompt candidate', async () => {
@@ -3736,6 +4753,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
               type: z.string(),
               sourceRefs: z.array(z.string()),
               content: z.record(z.string(), z.unknown()),
+              durability: z.string(),
+              authority: z.string(),
             }),
           }),
         ),
@@ -3749,6 +4768,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(items).toContainEqual(
       expect.objectContaining({
         type: 'prompt_learning',
+        durability: 'durable',
+        authority: 'skill_experience',
         sourceRefs: [`prompt:${promptId}:${String(promptVersion)}`],
         content: expect.objectContaining({ evolutionKind: 'prompt_correction' }),
       }),
@@ -3951,6 +4972,9 @@ async function startModelLoopback(): Promise<Server> {
         const skillSelectionRequest = body.messages?.some(
           (message) => message.content?.includes('select_skill') === true,
         );
+        const skillInputResolutionRequest = body.messages?.some(
+          (message) => message.content?.includes('resolve_top_level_skill_input') === true,
+        );
         const exceptionDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('decide_execution_exception') === true,
         );
@@ -3963,8 +4987,14 @@ async function startModelLoopback(): Promise<Server> {
         const skillCallWorkflowRequest = body.messages?.some(
           (message) => message.content?.includes('SKILL_CALL_PLAN') === true,
         );
-        const skillChildExecutionRequest = body.messages?.some(
-          (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
+        const skillChildExecutionRequest =
+          body.messages?.some(
+            (message) => message.content?.includes('SKILL_CHILD_EXECUTION') === true,
+          ) &&
+          skillSelectionRequest !== true &&
+          skillCallWorkflowRequest !== true;
+        const skillChildPlanningRequest = body.messages?.some(
+          (message) => message.content?.includes('"operation":"skill_call_child_plan"') === true,
         );
         const primarySkillFailureRequest = body.messages?.some(
           (message) => message.content?.includes('FAIL_PRIMARY_SKILL_EXECUTION') === true,
@@ -3994,23 +5024,36 @@ async function startModelLoopback(): Promise<Server> {
             message.content?.includes('workflow_control_replan') === true &&
             message.content.includes('replacementSkill'),
         );
-        const controlEvaluationRequest =
-          body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
-          true;
-        const capabilityGapEvaluationRequest =
-          body.messages?.some(
-            (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
-          ) === true;
-        const autoTaskEvaluationRequest =
-          body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
-          true;
-        const replacementEvaluationRequest = body.messages?.some(
-          (message) => message.content?.includes('REPLACE_SKILL_GOAL') === true,
+        const workflowControlInputContinuationRequest = body.messages?.some(
+          (message) => message.content?.includes('workflow_control_continue_after_input') === true,
         );
         const genericTaskEvaluationRequest =
           body.messages?.some(
             (message) => message.content?.includes('"workflow":{"instanceId"') === true,
           ) === true;
+        const controlEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some((message) => message.content?.includes('CONTROL_GOAL') === true) ===
+            true;
+        const capabilityGapEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('CAPABILITY_GAP_GOAL') === true,
+          ) === true;
+        const autoTaskEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some((message) => message.content?.includes('AUTO_TASK_GOAL') === true) ===
+            true;
+        const replacementEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('REPLACE_SKILL_GOAL') === true,
+          );
+        const inputContinuationEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('INPUT_AFTER_EVALUATION') === true,
+          );
         if (primarySkillFailureRequest === true) {
           response.statusCode = 500;
           response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
@@ -4024,9 +5067,19 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (resultProcessingRequest === true) {
+          const requestData = z
+            .object({ skill: z.object({ outputSchema: z.unknown() }) })
+            .parse(embeddedOperation(body.messages, 'process_workflow_result'));
+          const required = z
+            .looseObject({ required: z.array(z.string()).optional() })
+            .safeParse(requestData.skill.outputSchema);
+          const requiresDeviceId = required.success && required.data.required?.includes('deviceId');
           respondStructured(response, {
             text: 'Device is online.',
-            structured: { status: 'online' },
+            structured: {
+              status: 'online',
+              ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
+            },
             keyFacts: [{ name: 'status', value: 'online', confidence: 1 }],
             valueAssessment: { valuable: true, summary: 'Current device state is useful.' },
             memoryCandidates: [
@@ -4047,6 +5100,12 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (memoryRefinementRequest === true) {
+          if (postCommitMemoryFailures > 0) {
+            postCommitMemoryFailures -= 1;
+            response.statusCode = 500;
+            response.end(JSON.stringify({ error: 'Injected post-commit Memory failure.' }));
+            return;
+          }
           const requestData = z
             .object({
               candidate: z.object({
@@ -4054,10 +5113,25 @@ async function startModelLoopback(): Promise<Server> {
                 content: z.record(z.string(), z.unknown()),
                 summary: z.string(),
                 confidence: z.number(),
+                authorityHint: z.enum(['mcp', 'skill_experience', 'admin', 'model_inferred']),
               }),
             })
             .parse(embeddedOperation(body.messages, 'refine_memory'));
-          respondStructured(response, requestData.candidate);
+          const dynamicState =
+            /\b(online|battery|coordinate|occupancy|current device task)\b/iu.test(
+              requestData.candidate.summary,
+            );
+          respondStructured(response, {
+            type: requestData.candidate.type,
+            content: requestData.candidate.content,
+            summary: requestData.candidate.summary,
+            confidence: requestData.candidate.confidence,
+            durability: dynamicState ? 'volatile' : 'durable',
+            authority: dynamicState ? 'mcp' : requestData.candidate.authorityHint,
+            durabilityReason: dynamicState
+              ? 'Current device state changes and must be queried from MCP again.'
+              : 'The evidence is stable and reusable across future tasks.',
+          });
           return;
         }
         if (taskQualityEvaluationRequest === true) {
@@ -4086,6 +5160,56 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (skillChildPlanningRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number().int().positive(),
+                goalId: z.string(),
+                goalVersion: z.number().int().positive(),
+              }),
+              toolPlanningMetadata: z.array(
+                z.object({
+                  policy: z.string(),
+                  reference: z.object({ serverId: z.string(), toolName: z.string() }),
+                }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'skill_call_child_plan'));
+          const tool = requestData.toolPlanningMetadata.find(
+            (candidate) => candidate.policy === 'required',
+          )?.reference;
+          if (tool === undefined) throw new Error('SKILL_CHILD_REQUIRED_TOOL_MISSING');
+          respondStructured(response, {
+            workflowDefinitionId: requestData.workflowIdentity.workflowDefinitionId,
+            version: requestData.workflowIdentity.version,
+            goalId: requestData.workflowIdentity.goalId,
+            goalVersion: requestData.workflowIdentity.goalVersion,
+            entryNodeId: 'tool',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'tool',
+                name: 'Execute child Tool',
+                type: 'mcp_tool',
+                tool,
+                arguments: { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
+              },
+              {
+                nodeId: 'result',
+                name: 'Return child Tool result',
+                type: 'result',
+                value: {
+                  op: 'ref',
+                  path: ['nodes', 'tool', 'data', 'structuredContent'],
+                },
+              },
+            ],
+            edges: [{ sourceNodeId: 'tool', targetNodeId: 'result' }],
+          });
+          return;
+        }
         if (skillChildExecutionRequest === true) {
           respondStructured(response, { status: 'online' });
           return;
@@ -4099,12 +5223,36 @@ async function startModelLoopback(): Promise<Server> {
               ),
             })
             .parse(embeddedOperation(body.messages, 'infer_missing_goal_input'));
-          if (requestData.requestText.includes('unknown target')) {
+          if (
+            requestData.requestText.includes('unknown target') &&
+            !requestData.requestText.includes('device-17')
+          ) {
             respondStructured(response, {
               outcome: 'input_required',
               decisionSummary: 'Available evidence does not identify the requested target.',
               usedSourceIds: [],
               clarificationQuestion: 'Which device should be inspected?',
+            });
+            return;
+          }
+          if (requestData.requestText.includes('unknown target')) {
+            const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(
+              requestData.requestText,
+            );
+            if (temporaryTool === null) throw new Error('INPUT_CONTINUATION_TOOL_REQUIRED');
+            const [, serverId, toolName] = temporaryTool;
+            if (serverId === undefined || toolName === undefined)
+              throw new Error('INPUT_CONTINUATION_TOOL_REQUIRED');
+            respondStructured(response, {
+              outcome: 'inferred',
+              decisionSummary: 'The supplementary answer identifies device-17.',
+              usedSourceIds: [],
+              inferredGoal: {
+                title: 'Inspect supplemented target',
+                description: `INPUT_CONTINUATION_MCP TEMPORARY_SKILL_GOAL:${serverId}/${toolName}`,
+                constraints: [],
+                successCriteria: ['Device inspection returned'],
+              },
             });
             return;
           }
@@ -4139,15 +5287,24 @@ async function startModelLoopback(): Promise<Server> {
           );
           const templateReuse = requestData.requestText.includes('TEMPLATE_REUSE');
           const lowQualityEvaluation = requestData.requestText.includes('LOW_QUALITY_EVALUATION');
+          const inputContinuationMcp = requestData.requestText.includes('INPUT_CONTINUATION_MCP');
+          const inputAfterEvaluation = requestData.requestText.includes('INPUT_AFTER_EVALUATION');
           const temporaryTool = /TEMPORARY_TOOL:([^/\s]+)\/([^\s]+)/.exec(requestData.requestText);
           const temporaryServerId = temporaryTool?.[1] ?? '';
           const temporaryToolName = temporaryTool?.[2] ?? '';
           const sharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
             requestData.requestText,
           )?.[1];
+          const nestedConfirmationSkill = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
+            requestData.requestText,
+          )?.[1];
+          const topLevelInputMcp = /TOP_LEVEL_INPUT_MCP:([^/\s]+)\/([^\s]+)/u.exec(
+            requestData.requestText,
+          );
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
-            requestData.requestText.includes('unknown target');
+            (requestData.requestText.includes('unknown target') &&
+              !requestData.requestText.includes('device-17'));
           respondStructured(response, {
             title:
               controlGoal || capabilityGapGoal || autoTaskGoal
@@ -4160,13 +5317,13 @@ async function startModelLoopback(): Promise<Server> {
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined
-                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}`
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
                     : capabilityGapGoal
                       ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                       : controlGoal
                         ? 'CONTROL_GOAL collect two observations.'
                         : temporaryTool !== null
-                          ? `TEMPORARY_SKILL_GOAL:${temporaryServerId}/${temporaryToolName}`
+                          ? `${inputContinuationMcp ? 'INPUT_CONTINUATION_MCP ' : inputAfterEvaluation ? 'INPUT_AFTER_EVALUATION ' : ''}TEMPORARY_SKILL_GOAL:${temporaryServerId}/${temporaryToolName}`
                           : 'Complete the user request using an enabled Skill.',
             constraints: [],
             successCriteria: [
@@ -4182,14 +5339,14 @@ async function startModelLoopback(): Promise<Server> {
         if (temporarySkillResolutionRequest === true) {
           const requestData = z
             .object({
-              goalDescription: z.string(),
+              goalContract: z.object({ description: z.string() }).loose(),
               tools: z.array(
                 z.object({ serverId: z.string(), toolName: z.string(), description: z.string() }),
               ),
             })
             .parse(embeddedOperation(body.messages, 'resolve_temporary_skill'));
           const requested = /TEMPORARY_SKILL_GOAL:([^/\s]+)\/([^\s]+)/.exec(
-            requestData.goalDescription,
+            requestData.goalContract.description,
           );
           if (requested === null) throw new Error('TEMPORARY_TOOL_MARKER_MISSING');
           const requestedServerId = requested[1] ?? '';
@@ -4297,11 +5454,82 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (skillInputResolutionRequest === true) {
+          const requestData = z
+            .object({
+              skill: z.object({ inputSchema: z.unknown() }),
+              sources: z.array(
+                z.object({
+                  sourceRef: z.string(),
+                  kind: z.string(),
+                  value: z.unknown(),
+                }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'resolve_top_level_skill_input'));
+          const explicit = requestData.sources.find(
+            (source) => source.kind === 'a2a_metadata_structured_input',
+          );
+          const supplementary = [...requestData.sources]
+            .reverse()
+            .find((source) => source.kind === 'supplementary_input');
+          const requestText = requestData.sources.find(
+            (source) => source.kind === 'task_request_text',
+          );
+          const required =
+            typeof requestData.skill.inputSchema === 'object' &&
+            requestData.skill.inputSchema !== null &&
+            !Array.isArray(requestData.skill.inputSchema) &&
+            Array.isArray(
+              (requestData.skill.inputSchema as Readonly<Record<string, unknown>>)['required'],
+            )
+              ? (
+                  (requestData.skill.inputSchema as Readonly<Record<string, unknown>>)[
+                    'required'
+                  ] as readonly unknown[]
+                ).filter((field): field is string => typeof field === 'string')
+              : [];
+          const missingMarker =
+            typeof requestText?.value === 'string' &&
+            requestText.value.includes('TOP_LEVEL_INPUT_MISSING');
+          const supplementalDeviceId =
+            typeof supplementary?.value === 'string' && supplementary.value.trim() !== ''
+              ? supplementary.value.trim()
+              : undefined;
+          const explicitValue = explicit?.value;
+          const structuredInput =
+            typeof explicitValue === 'object' &&
+            explicitValue !== null &&
+            !Array.isArray(explicitValue)
+              ? explicitValue
+              : required.includes('deviceId')
+                ? supplementalDeviceId === undefined && missingMarker
+                  ? {}
+                  : { deviceId: supplementalDeviceId ?? 'device-top-level' }
+                : {};
+          const unresolvedFields =
+            required.includes('deviceId') && !('deviceId' in structuredInput) ? ['deviceId'] : [];
+          respondStructured(response, {
+            structuredInput,
+            unresolvedFields,
+            sourceRefs: [
+              explicit?.sourceRef ??
+                supplementary?.sourceRef ??
+                requestText?.sourceRef ??
+                'task:unknown:request-text',
+            ],
+            decisionSummary:
+              unresolvedFields.length === 0
+                ? 'Resolved top-level Skill input by the declared priority.'
+                : 'The required deviceId is not available from current evidence.',
+          });
+          return;
+        }
         if (skillSelectionRequest === true) {
           const requestData = embeddedOperation(body.messages, 'select_skill');
           const candidates = z
             .object({
-              goalDescription: z.string(),
+              goalContract: z.object({ description: z.string() }).loose(),
               candidates: z.array(
                 z.looseObject({
                   skillId: z.string(),
@@ -4313,11 +5541,11 @@ async function startModelLoopback(): Promise<Server> {
               ),
             })
             .parse(requestData);
-          const eligibleCandidates = candidates.goalDescription.includes('AUTO_TASK_GOAL')
+          const eligibleCandidates = candidates.goalContract.description.includes('AUTO_TASK_GOAL')
             ? candidates.candidates.filter((candidate) => candidate.autoConfirmPlan)
             : candidates.candidates.filter((candidate) => !candidate.autoConfirmPlan);
           const requestedSharedSkill = /GLOBAL_SHARED_SKILL:([A-Za-z0-9._-]+)/.exec(
-            candidates.goalDescription,
+            candidates.goalContract.description,
           )?.[1];
           const exactSharedCandidate = eligibleCandidates.find(
             (candidate) => candidate.skillId === requestedSharedSkill,
@@ -4410,6 +5638,54 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (workflowControlInputContinuationRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number(),
+                goalId: z.string(),
+                goalVersion: z.number(),
+              }),
+              sourceDefinition: z.object({
+                nodes: z.array(z.record(z.string(), z.unknown())),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'workflow_control_continue_after_input'));
+          const sourceToolNode = requestData.sourceDefinition.nodes.find(
+            (node) => node['type'] === 'mcp_tool',
+          );
+          const tool = z
+            .object({ serverId: z.string(), toolName: z.string() })
+            .parse(sourceToolNode?.['tool']);
+          respondStructured(response, {
+            ...requestData.workflowIdentity,
+            entryNodeId: 'tool',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'tool',
+                name: 'Execute with supplementary input',
+                type: 'mcp_tool',
+                tool,
+                arguments: {
+                  deviceId: {
+                    op: 'ref',
+                    path: ['input', 'supplementaryInputs', '0', 'content'],
+                  },
+                },
+              },
+              {
+                nodeId: 'result',
+                name: 'Return continued result',
+                type: 'result',
+                value: { op: 'ref', path: ['nodes', 'tool', 'data', 'structuredContent'] },
+              },
+            ],
+            edges: [{ sourceNodeId: 'tool', targetNodeId: 'result' }],
+          });
+          return;
+        }
         if (initialTaskPlanRequest === true) {
           const requestData = z
             .object({
@@ -4439,6 +5715,7 @@ async function startModelLoopback(): Promise<Server> {
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
           const temporaryTool = requestData.selectedTemporarySkill?.tools[0];
           const historicalTool = requestData.selectedSkill?.toolPolicy.required[0];
+          const topLevelInputMcp = requestData.goalDescription.includes('TOP_LEVEL_INPUT_MCP:');
           const historicalSuccess = requestData.goalDescription.includes(
             'HISTORICAL_REPLAY_SUCCESS',
           );
@@ -4446,17 +5723,24 @@ async function startModelLoopback(): Promise<Server> {
             'HISTORICAL_REPLAY_FAILURE',
           );
           const historical = historicalSuccess || historicalFailure;
+          const inputContinuationMcp =
+            requestData.goalDescription.includes('INPUT_CONTINUATION_MCP');
+          const nestedConfirmationSkillId = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
+            requestData.goalDescription,
+          )?.[1];
           respondStructured(response, {
             ...requestData.workflowIdentity,
             entryNodeId:
               failPrimary || historicalFailure
                 ? 'execute'
-                : temporaryTool !== undefined || historicalSuccess
+                : temporaryTool !== undefined || historicalSuccess || topLevelInputMcp
                   ? 'tool'
-                  : 'result',
+                  : nestedConfirmationSkillId !== undefined
+                    ? 'child'
+                    : 'result',
             exitNodeIds: ['result'],
             nodes:
-              historical && historicalTool !== undefined
+              (historical || topLevelInputMcp) && historicalTool !== undefined
                 ? [
                     ...(historicalFailure
                       ? [
@@ -4471,10 +5755,14 @@ async function startModelLoopback(): Promise<Server> {
                       : []),
                     {
                       nodeId: 'tool',
-                      name: 'Historical device call',
+                      name: topLevelInputMcp
+                        ? 'Top-level resolved device call'
+                        : 'Historical device call',
                       type: 'mcp_tool',
                       tool: historicalTool,
-                      arguments: { deviceId: 'device-history' },
+                      arguments: topLevelInputMcp
+                        ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                        : { deviceId: 'device-history' },
                     },
                     {
                       nodeId: 'result',
@@ -4490,7 +5778,14 @@ async function startModelLoopback(): Promise<Server> {
                         name: 'Execute task-scoped Tool',
                         type: 'mcp_tool',
                         tool: temporaryTool,
-                        arguments: { deviceId: 'device-temporary' },
+                        arguments: inputContinuationMcp
+                          ? {
+                              deviceId: {
+                                op: 'ref',
+                                path: ['input', 'supplementaryInputs', '0', 'content'],
+                              },
+                            }
+                          : { deviceId: 'device-temporary' },
                       },
                       {
                         nodeId: 'result',
@@ -4499,42 +5794,61 @@ async function startModelLoopback(): Promise<Server> {
                         value: { op: 'ref', path: ['nodes', 'tool'] },
                       },
                     ]
-                  : failPrimary
+                  : nestedConfirmationSkillId !== undefined
                     ? [
                         {
-                          nodeId: 'execute',
-                          name: 'Fail primary Skill execution',
-                          type: 'llm',
-                          instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                          responseSchema: { type: 'object' },
+                          nodeId: 'child',
+                          name: 'Execute independently confirmed child Skill',
+                          type: 'skill_call',
+                          skillId: nestedConfirmationSkillId,
+                          input: { deviceId: 'device-nested-confirmation' },
                         },
                         {
                           nodeId: 'result',
-                          name: 'Primary result',
+                          name: 'Return child result',
                           type: 'result',
-                          value: { op: 'ref', path: ['nodes', 'execute'] },
+                          value: { op: 'ref', path: ['nodes', 'child'] },
                         },
                       ]
-                    : [
-                        {
-                          nodeId: 'result',
-                          name: 'Initial Task result',
-                          type: 'result',
-                          value: { op: 'literal', value: 'online' },
-                        },
-                      ],
-            edges: historical
-              ? historicalFailure
-                ? [
-                    { sourceNodeId: 'execute', targetNodeId: 'tool' },
-                    { sourceNodeId: 'tool', targetNodeId: 'result' },
-                  ]
-                : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-              : temporaryTool !== undefined
-                ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                : failPrimary
-                  ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
-                  : [],
+                    : failPrimary
+                      ? [
+                          {
+                            nodeId: 'execute',
+                            name: 'Fail primary Skill execution',
+                            type: 'llm',
+                            instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                            responseSchema: { type: 'object' },
+                          },
+                          {
+                            nodeId: 'result',
+                            name: 'Primary result',
+                            type: 'result',
+                            value: { op: 'ref', path: ['nodes', 'execute'] },
+                          },
+                        ]
+                      : [
+                          {
+                            nodeId: 'result',
+                            name: 'Initial Task result',
+                            type: 'result',
+                            value: { op: 'literal', value: 'online' },
+                          },
+                        ],
+            edges:
+              historical || topLevelInputMcp
+                ? historicalFailure
+                  ? [
+                      { sourceNodeId: 'execute', targetNodeId: 'tool' },
+                      { sourceNodeId: 'tool', targetNodeId: 'result' },
+                    ]
+                  : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                : temporaryTool !== undefined
+                  ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                  : nestedConfirmationSkillId !== undefined
+                    ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
+                    : failPrimary
+                      ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                      : [],
           });
           return;
         }
@@ -4556,6 +5870,23 @@ async function startModelLoopback(): Promise<Server> {
                   actionInstruction: 'Use the selected alternative Skill.',
                 }
               : { decision: 'achieved', summary: 'The replacement Skill satisfied the Goal.' },
+          );
+          return;
+        }
+        if (inputContinuationEvaluationRequest) {
+          inputContinuationEvaluationCalls += 1;
+          respondStructured(
+            response,
+            inputContinuationEvaluationCalls === 1
+              ? {
+                  decision: 'request_input',
+                  summary: 'The final device identifier is required.',
+                  question: 'Which final device should be inspected?',
+                }
+              : {
+                  decision: 'achieved',
+                  summary: 'The supplemented device result satisfies the Goal.',
+                },
           );
           return;
         }
@@ -4728,7 +6059,10 @@ async function startModelLoopback(): Promise<Server> {
                 name: 'Read device',
                 type: 'mcp_tool',
                 tool: { serverId: target.serverId, toolName: 'device_status' },
-                arguments: { deviceId: 'device-runtime' },
+                arguments:
+                  target.bindDeviceIdFromInput === true
+                    ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                    : { deviceId: 'device-runtime' },
               },
               {
                 nodeId: 'result',
@@ -4797,6 +6131,35 @@ async function sendFollowUp(taskId: string, contextId: string, action: string, t
   );
 }
 
+function standaloneGoalContract(goalId: string, version = 1) {
+  return {
+    goalId,
+    version,
+    title: 'Standalone planning Goal',
+    description: 'Exercise the standalone management planning surface.',
+    constraints: ['test-only'],
+    successCriteria: ['a validated Workflow is produced'],
+  } as const;
+}
+
+async function loadGoalExecutionContract(goalId: string) {
+  const response = await fetch(
+    `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(goalId)}`,
+  );
+  if (!response.ok) throw new Error(`GOAL_CONTRACT_LOAD_FAILED:${String(response.status)}`);
+  const goal = z
+    .object({
+      goalId: z.string(),
+      version: z.number().int().positive(),
+      title: z.string(),
+      description: z.string(),
+      constraints: z.array(z.string()),
+      successCriteria: z.array(z.string()),
+    })
+    .parse(await response.json());
+  return goal;
+}
+
 async function attachPlannedTask(taskId: string): Promise<string> {
   const task = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
@@ -4813,11 +6176,13 @@ async function attachPlannedTask(taskId: string): Promise<string> {
       workflowVersion: 1,
       goalId: task.goalId,
       goalVersion: task.goalVersion,
+      goalContract: await loadGoalExecutionContract(task.goalId),
       planningInstruction: 'TASK_ATTACHED_PLAN',
     }),
   });
   taskWorkflowTarget = undefined;
-  if (planned.status !== 201) throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}`);
+  if (planned.status !== 201)
+    throw new Error(`TASK_PLAN_CREATE_FAILED:${String(planned.status)}:${await planned.text()}`);
   const attached = await fetch(
     `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/plan`,
     {
@@ -4854,6 +6219,22 @@ async function waitForTaskState(taskId: string, expected: TaskState): Promise<Ta
   }
   expect(task.status?.state).toBe(expected);
   return task;
+}
+
+async function waitForInternalTaskPhase(taskId: string, expected: string): Promise<void> {
+  let phase = '';
+  for (let attempt = 0; attempt < 150; attempt += 1) {
+    phase = z
+      .object({ phase: z.string() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`,
+        ).then((response) => response.json()),
+      ).phase;
+    if (phase === expected) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`TASK_PHASE_NOT_REACHED:${expected}:${phase}`);
 }
 
 async function waitForManagementJson(path: string): Promise<unknown> {

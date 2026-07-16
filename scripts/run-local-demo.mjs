@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
+import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+
 const root = process.cwd();
 const runAllScenarios = process.argv.includes('--all');
 const pnpmCli = process.env['npm_execpath'];
@@ -10,11 +12,7 @@ if (pnpmCli === undefined || pnpmCli === '') {
 
 try {
   run(process.execPath, [pnpmCli, 'build'], 180_000);
-  run(
-    'docker',
-    ['compose', '-f', 'compose.yaml', 'up', '-d', '--wait', 'postgres', 'redis'],
-    180_000,
-  );
+  startInfrastructure(root);
   const testArguments = ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e'];
   if (!runAllScenarios) {
     testArguments.push(
@@ -29,11 +27,16 @@ try {
       : 'Local demo passed: PostgreSQL, Redis, Mock Model, Mock MCP, Server, Console bundle, and example A2A Client completed a confirmed task.\n',
   );
 } finally {
-  run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);
+  stopInfrastructure(root);
 }
 
 function run(command, args, timeout, ignoreFailure = false) {
-  const result = spawnSync(command, args, { cwd: root, env: process.env, stdio: 'inherit', timeout });
+  const result = spawnSync(command, args, {
+    cwd: root,
+    env: process.env,
+    stdio: 'inherit',
+    timeout,
+  });
   if (result.error !== undefined && !ignoreFailure) throw result.error;
   if (result.status !== 0 && !ignoreFailure) {
     throw new Error(`LOCAL_DEMO_COMMAND_FAILED:${command} ${args.join(' ')}`);

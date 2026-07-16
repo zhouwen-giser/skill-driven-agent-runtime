@@ -1,15 +1,13 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
+import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+
 try {
-  run(
-    'docker',
-    ['compose', '-f', 'compose.yaml', 'up', '-d', '--wait', 'postgres', 'redis'],
-    180_000,
-  );
+  startInfrastructure();
   run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e'], 120_000);
 } finally {
-  run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);
+  stopInfrastructure();
 }
 
 function run(command, args, timeout, ignoreFailure = false) {

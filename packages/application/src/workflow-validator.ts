@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { normalizeTaskTimestamp } from '../../domain/src/index.js';
 import type {
+  WorkflowBoundValue,
   WorkflowDefinition,
   WorkflowExpression,
   WorkflowNode,
+  McpTaskExecutionSpec,
 } from '../../domain/src/index.js';
 import type { JsonSchemaValidator, McpToolCatalog, SkillRepository } from './ports.js';
 
@@ -25,6 +28,57 @@ const ExpressionSchema: z.ZodType<WorkflowExpression> = z.lazy(() =>
     ),
   ]),
 );
+const BoundScalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const BoundReferenceSchema = z
+  .object({ op: z.literal('ref'), path: z.array(Identifier).min(1) })
+  .strict();
+const BoundValueSchema: z.ZodType<WorkflowBoundValue> = z.lazy(() =>
+  z.union([
+    BoundScalarSchema,
+    z.array(BoundValueSchema),
+    BoundReferenceSchema,
+    z
+      .record(z.string(), BoundValueSchema)
+      .refine(
+        (value) => value['op'] !== 'ref' || !Array.isArray(value['path']),
+        'The object shape { op: "ref", path: [...] } is reserved for an exact Workflow binding reference.',
+      ),
+  ]),
+);
+const TaskStartSchema = z.discriminatedUnion('mode', [
+  z
+    .object({
+      mode: z.literal('immediate'),
+      startToleranceMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('scheduled'),
+      scheduledAt: z.union([z.string().min(1), BoundReferenceSchema]),
+      startToleranceMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict(),
+]);
+const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z
+  .object({
+    mode: z.enum(['allow_task', 'require_task']),
+    availabilityCheck: z.enum(['required', 'best_effort']).optional(),
+    timing: z
+      .object({
+        start: TaskStartSchema,
+        maxElapsedMs: z
+          .number()
+          .int()
+          .positive()
+          .max(Number.MAX_SAFE_INTEGER)
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 const BaseNode = { nodeId: Identifier, name: z.string().min(1) };
 const JsonSchemaValue = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
@@ -33,6 +87,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       ...BaseNode,
       type: z.literal('llm'),
       instruction: z.string().min(1),
+      context: BoundValueSchema.optional(),
       responseSchema: JsonSchemaValue,
     })
     .strict(),
@@ -41,7 +96,8 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       ...BaseNode,
       type: z.literal('mcp_tool'),
       tool: z.object({ serverId: Identifier, toolName: Identifier }).strict(),
-      arguments: z.unknown(),
+      arguments: BoundValueSchema,
+      taskExecution: TaskExecutionSchema.optional(),
     })
     .strict(),
   z.object({ ...BaseNode, type: z.literal('result'), value: ExpressionSchema }).strict(),
@@ -68,6 +124,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('subworkflow'),
       workflowDefinitionId: Identifier,
       workflowVersion: z.number().int().positive(),
+      input: BoundValueSchema,
     })
     .strict(),
   z
@@ -97,7 +154,12 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
     })
     .strict(),
   z
-    .object({ ...BaseNode, type: z.literal('skill_call'), skillId: Identifier, input: z.unknown() })
+    .object({
+      ...BaseNode,
+      type: z.literal('skill_call'),
+      skillId: Identifier,
+      input: BoundValueSchema,
+    })
     .strict(),
 ]);
 const WorkflowSchema: z.ZodType<WorkflowDefinition> = z
@@ -129,6 +191,12 @@ export interface WorkflowValidationResult {
   readonly definition?: WorkflowDefinition;
 }
 
+export interface WorkflowValidationContext {
+  readonly enforceSkillComposition?: boolean;
+  readonly allowedChildSkillIds?: readonly string[];
+  readonly capabilityGapSkillIds?: readonly string[];
+}
+
 export class WorkflowValidator {
   readonly #tools: McpToolCatalog;
   readonly #skills: SkillRepository;
@@ -144,7 +212,10 @@ export class WorkflowValidator {
     this.#skills = dependencies.skills;
     this.#schemas = dependencies.schemas;
   }
-  async validate(raw: unknown): Promise<WorkflowValidationResult> {
+  async validate(
+    raw: unknown,
+    context: WorkflowValidationContext = {},
+  ): Promise<WorkflowValidationResult> {
     const parsed = WorkflowSchema.safeParse(raw);
     if (!parsed.success)
       return {
@@ -167,7 +238,7 @@ export class WorkflowValidator {
           'Node IDs must be unique.',
         );
       ids.add(node.nodeId);
-      await this.#validateNode(node, index, errors);
+      await this.#validateNode(node, index, errors, context);
     }
     if (!ids.has(definition.entryNodeId))
       add(errors, 'WORKFLOW_ENTRY_INVALID', 'entryNodeId', 'Entry node does not exist.');
@@ -198,6 +269,7 @@ export class WorkflowValidator {
     node: WorkflowNode,
     index: number,
     errors: { code: string; path: string; message: string }[],
+    context: WorkflowValidationContext,
   ) {
     if (node.type === 'llm') {
       const result = this.#schemas.checkSchema(node.responseSchema);
@@ -209,6 +281,17 @@ export class WorkflowValidator {
           result.errors.join('; '),
         );
     } else if (node.type === 'mcp_tool') {
+      if (
+        node.taskExecution?.timing?.start.mode === 'scheduled' &&
+        typeof node.taskExecution.timing.start.scheduledAt === 'string' &&
+        !isRfc3339WithTimezone(node.taskExecution.timing.start.scheduledAt)
+      )
+        add(
+          errors,
+          'WORKFLOW_TASK_SCHEDULED_AT_INVALID',
+          `nodes.${String(index)}.taskExecution.timing.start.scheduledAt`,
+          'scheduledAt must be a real RFC 3339 timestamp with an explicit timezone.',
+        );
       const schema = await this.#tools.getInputSchema(node.tool);
       if (schema === undefined)
         add(
@@ -218,7 +301,9 @@ export class WorkflowValidator {
           'Registered MCP Tool was not found.',
         );
       else {
-        const result = this.#schemas.validate(schema, node.arguments);
+        const result = containsWorkflowBindingReference(node.arguments)
+          ? { valid: true, errors: [] }
+          : this.#schemas.validate(schema, node.arguments);
         if (!result.valid)
           add(
             errors,
@@ -228,6 +313,17 @@ export class WorkflowValidator {
           );
       }
     } else if (node.type === 'skill_call') {
+      if (
+        context.enforceSkillComposition === true &&
+        !context.allowedChildSkillIds?.includes(node.skillId) &&
+        !context.capabilityGapSkillIds?.includes(node.skillId)
+      )
+        add(
+          errors,
+          'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+          `nodes.${String(index)}.skillId`,
+          'Skill call is not admitted by the persisted composition or capability-gap context.',
+        );
       const skill = await this.#skills.findCurrentVersion(node.skillId);
       if (skill?.status !== 'enabled')
         add(
@@ -237,7 +333,9 @@ export class WorkflowValidator {
           'Current enabled Skill was not found.',
         );
       else {
-        const result = this.#schemas.validate(skill.inputSchema, node.input);
+        const result = containsWorkflowBindingReference(node.input)
+          ? { valid: true, errors: [] }
+          : this.#schemas.validate(skill.inputSchema, node.input);
         if (!result.valid)
           add(
             errors,
@@ -248,6 +346,23 @@ export class WorkflowValidator {
       }
     }
   }
+}
+
+function isRfc3339WithTimezone(value: string): boolean {
+  try {
+    normalizeTaskTimestamp(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function containsWorkflowBindingReference(value: WorkflowBoundValue): boolean {
+  if (Array.isArray(value)) return value.some(containsWorkflowBindingReference);
+  if (value === null || typeof value !== 'object') return false;
+  const record = value as Readonly<Record<string, WorkflowBoundValue>>;
+  if (record['op'] === 'ref' && Array.isArray(record['path'])) return true;
+  return Object.values(record).some(containsWorkflowBindingReference);
 }
 
 function validateNodeReferences(

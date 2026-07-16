@@ -55,3 +55,7 @@ pnpm verify
 ## 证据
 
 测试报告必须输出：commit、环境、命令、开始/结束时间、通过/失败数、失败详情和关联需求。`pnpm verify` 生成 `reports/verification/summary.json` 与 Markdown 摘要。
+
+## v1.1 Phase 3 readiness 证据
+
+Phase 3 增加严格 DSL/metadata/availability 合约、确定性时钟与风险 Guard 单元、官方 Client 真实 loopback HTTP 合约、真实 PostgreSQL 追加证据集成，以及 planner→confirmation→LangGraph→pre-call→Provider 的垂直 E2E。Provider 资源状态和业务行为由确定性 Mock 模拟；PostgreSQL/Redis、HTTP transport、迁移 SQL 和生产构建是真实本地验证。远程 Binding/continuation 与 Provider 业务终态仍分别属于 Phase 4/5，不由本阶段测试冒充。

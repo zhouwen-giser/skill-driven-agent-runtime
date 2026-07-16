@@ -11,6 +11,7 @@ import type {
   PromptService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillInputResolutionService,
   SkillQualityService,
   RegisterSkillVersionInput,
   SkillRegistryService,
@@ -39,6 +40,8 @@ import type {
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   RuntimeEventQuery,
+  RuntimeTerminalOutcomeRepository,
+  TaskAvailabilityEvidenceRepository,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -69,8 +72,18 @@ const MemoryRetentionPolicySchema = z.object({
 });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
 const TaskActionSchema = z.object({
-  action: z.enum(['confirm_plan', 'reject_plan', 'revise_plan']),
+  action: z.enum([
+    'confirm_plan',
+    'reject_plan',
+    'revise_plan',
+    'patch_goal',
+    'cancel_goal',
+    'provide_input',
+    'pause',
+    'resume',
+  ]),
   messageText: z.string().min(1),
+  inputRequestId: z.string().min(1).optional(),
 });
 const EvaluationAnalyticsFilterSchema = z
   .object({
@@ -103,6 +116,12 @@ const SupersedeMemorySchema = CreateMemorySchema.omit({ supersedes: true }).exte
   reason: z.string().min(1),
 });
 const InvalidateMemorySchema = z.object({ actor: z.string().min(1), reason: z.string().min(1) });
+const TaskReadinessQuerySchema = z
+  .object({
+    phase: z.enum(['planning', 'pre_invocation']).optional(),
+    limit: z.coerce.number().int().min(1).max(1_000).optional(),
+  })
+  .strict();
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -122,6 +141,15 @@ const ToolEnhancementSchema = z.object({
   commonErrors: z.array(z.string()),
   tags: z.array(z.string()),
 });
+const ToolExecutionSemanticsValuesSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+  })
+  .strict();
 const ToolReferenceSchema = z.object({ serverId: z.string().min(1), toolName: z.string().min(1) });
 const SkillRelationSchema = z.object({
   sourceSkillId: z.string().min(1),
@@ -213,7 +241,17 @@ const PublishSkillDraftSchema = z.object({
   runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
   status: z.enum(['enabled', 'disabled']),
 });
-const SelectSkillSchema = z.object({ goalDescription: z.string().min(1) });
+const GoalExecutionContractSchema = z
+  .object({
+    goalId: z.string().min(1),
+    version: z.number().int().positive(),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    constraints: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+  })
+  .strict();
+const SelectSkillSchema = z.object({ goalContract: GoalExecutionContractSchema }).strict();
 const SkillQualityObservationSchema = z.object({
   skillVersion: z.number().int().positive(),
   evaluationRef: z.string().min(1),
@@ -226,6 +264,7 @@ const ModelStageSchema = z.enum([
   'tool_enhancement',
   'skill_authoring',
   'skill_selection',
+  'skill_input_resolution',
   'workflow_planning',
   'execution_decision',
   'goal_evaluation',
@@ -257,7 +296,15 @@ const PlanWorkflowSchema = z.object({
   workflowVersion: z.number().int().positive(),
   goalId: z.string().min(1),
   goalVersion: z.number().int().positive(),
+  goalContract: GoalExecutionContractSchema,
   planningInstruction: z.string().min(1),
+  compositionRoot: z
+    .object({
+      skillId: z.string().min(1),
+      skillVersion: z.number().int().positive(),
+    })
+    .strict()
+    .optional(),
   sourceConfirmedPlanId: z.string().min(1).optional(),
 });
 const ExecuteWorkflowSchema = z.object({
@@ -313,12 +360,14 @@ export interface ManagementOperations {
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
   readonly runtimeEvents: RuntimeEventQuery;
+  readonly runtimeTerminalOutcomes: Pick<RuntimeTerminalOutcomeRepository, 'find'>;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
   >;
   readonly memoryRetention: Pick<MemoryRetentionPolicyService, 'getPolicy' | 'updatePolicy'>;
   readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
+  readonly skillInputResolution: Pick<SkillInputResolutionService, 'get' | 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -333,6 +382,7 @@ export interface ManagementOperations {
     | 'refresh'
     | 'register'
     | 'updateToolEnhancement'
+    | 'updateToolExecutionSemantics'
     | 'updateCredentials'
   >;
   readonly skills: Pick<
@@ -390,6 +440,7 @@ export interface ManagementOperations {
     'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
   >;
   readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
+  readonly taskAvailability?: Pick<TaskAvailabilityEvidenceRepository, 'listByPlan'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -424,6 +475,20 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+  app.get(
+    '/api/v1/runtime-terminal-outcomes/:outcomeId',
+    asyncRoute(async (request, response) => {
+      const outcome = await options.operations.runtimeTerminalOutcomes.find(
+        pathValue(request, 'outcomeId'),
+      );
+      if (outcome === undefined)
+        throw new HttpInputError(
+          'RUNTIME_TERMINAL_OUTCOME_NOT_FOUND',
+          'Runtime terminal outcome was not found.',
+        );
+      response.json(outcome);
+    }),
+  );
   app.post(
     '/api/v1/memories',
     asyncRoute(async (request, response) => {
@@ -740,6 +805,7 @@ export async function startManagementHttpEndpoint(
           taskId: pathValue(request, 'taskId'),
           action: input.action,
           messageText: input.messageText,
+          ...(input.inputRequestId === undefined ? {} : { inputRequestId: input.inputRequestId }),
         }),
       );
     }),
@@ -799,6 +865,32 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/tasks/:taskId/skill-input-resolutions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.skillInputResolution.list(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/skill-input-resolutions/:resolutionId',
+    asyncRoute(async (request, response) => {
+      const record = await options.operations.skillInputResolution.get(
+        pathValue(request, 'resolutionId'),
+      );
+      if (record === undefined) {
+        response.status(404).json({
+          error: {
+            code: 'SKILL_INPUT_RESOLUTION_NOT_FOUND',
+            message: 'Skill input resolution was not found.',
+          },
+        });
+        return;
+      }
+      response.json(record);
+    }),
+  );
+  app.get(
     '/api/v1/processed-results/:resultId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.resultProcessing.get(pathValue(request, 'resultId')));
@@ -829,7 +921,11 @@ export async function startManagementHttpEndpoint(
           workflowVersion: input.workflowVersion,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
+          goalContract: input.goalContract,
           planningInstruction: input.planningInstruction,
+          ...(input.compositionRoot === undefined
+            ? {}
+            : { compositionRoot: input.compositionRoot }),
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
             : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
@@ -899,6 +995,64 @@ export async function startManagementHttpEndpoint(
     '/api/v1/workflows/plans/:planId/trace',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.workflows.traceForPlan(pathValue(request, 'planId')));
+    }),
+  );
+  app.get(
+    '/api/v1/workflows/plans/:planId/task-readiness',
+    asyncRoute(async (request, response) => {
+      const query = TaskReadinessQuerySchema.parse(request.query);
+      const evidence =
+        options.operations.taskAvailability === undefined
+          ? []
+          : await options.operations.taskAvailability.listByPlan(
+              pathValue(request, 'planId'),
+              query,
+            );
+      response.json({
+        warning:
+          'Availability is a time-bounded Provider forecast, not authoritative device state or a resource lock. Provider owns final admission and business timers.',
+        items: evidence.map((item) => ({
+          readiness: item.readiness,
+          snapshots: item.snapshots.map((snapshot) => ({
+            snapshotId: snapshot.snapshotId,
+            nodeId: snapshot.nodeId,
+            serverId: snapshot.serverId,
+            operationName: snapshot.operationName,
+            argumentsHash: snapshot.argumentsHash,
+            ...(snapshot.arguments.unresolved
+              ? { unresolvedPaths: snapshot.arguments.unresolvedPaths }
+              : {}),
+            ...(snapshot.timing === undefined ? {} : { timing: snapshot.timing }),
+            availability: snapshot.result.availability,
+            riskLevel: snapshot.result.riskLevel,
+            ...(snapshot.result.reasonCode === undefined
+              ? {}
+              : { reasonCode: snapshot.result.reasonCode }),
+            ...(snapshot.result.description === undefined
+              ? {}
+              : { description: snapshot.result.description }),
+            ...(snapshot.result.validUntil === undefined
+              ? {}
+              : { validUntil: snapshot.result.validUntil }),
+            ...(snapshot.result.earliestStartTime === undefined
+              ? {}
+              : { earliestStartTime: snapshot.result.earliestStartTime }),
+            nextAvailableWindows: snapshot.result.nextAvailableWindows,
+            ...(snapshot.result.estimatedDelayMs === undefined
+              ? {}
+              : { estimatedDelayMs: snapshot.result.estimatedDelayMs }),
+            reservationMode: snapshot.result.reservationMode,
+            ...(snapshot.result.reservationMode === 'guaranteed' &&
+            snapshot.result.reservationRef !== undefined
+              ? { reservationRef: snapshot.result.reservationRef }
+              : {}),
+            possibleEffects: snapshot.result.possibleEffects,
+            sourceRevision: snapshot.sourceRevision,
+            checkedAt: snapshot.checkedAt,
+            normalizationReasonCodes: snapshot.normalizationReasonCodes,
+          })),
+        })),
+      });
     }),
   );
   app.get(
@@ -1127,6 +1281,17 @@ export async function startManagementHttpEndpoint(
       response.status(204).end();
     }),
   );
+  app.put(
+    '/api/v1/mcp/servers/:serverId/tools/:toolName/execution-semantics',
+    asyncRoute(async (request, response) => {
+      await options.operations.mcp.updateToolExecutionSemantics(
+        pathValue(request, 'serverId'),
+        pathValue(request, 'toolName'),
+        ToolExecutionSemanticsValuesSchema.parse(request.body),
+      );
+      response.status(204).end();
+    }),
+  );
   app.delete(
     '/api/v1/mcp/servers/:serverId',
     asyncRoute(async (request, response) => {
@@ -1322,9 +1487,7 @@ export async function startManagementHttpEndpoint(
         );
       }
       const input = SelectSkillSchema.parse(request.body);
-      response
-        .status(201)
-        .json(await options.operations.skillSelection.select(input.goalDescription));
+      response.status(201).json(await options.operations.skillSelection.select(input.goalContract));
     }),
   );
   app.post(

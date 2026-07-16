@@ -108,6 +108,25 @@ export class ResultProcessingService {
 
   async process(
     input: Readonly<{
+      resultId?: string;
+      taskId: string;
+      skillId: string;
+      skillVersion: number;
+      outputInstruction: string;
+      outputSchema: unknown;
+      rawResult: unknown;
+      errors?: readonly Readonly<{ code: string; message: string }>[];
+    }>,
+  ): Promise<ProcessedResultRecord> {
+    const record = await this.prepare(input);
+    await this.#repository.save(record);
+    await this.enhance(record);
+    return record;
+  }
+
+  async prepare(
+    input: Readonly<{
+      resultId?: string;
       taskId: string;
       skillId: string;
       skillVersion: number;
@@ -146,7 +165,7 @@ export class ResultProcessingService {
       outputSchema: input.outputSchema,
     });
     const record: ProcessedResultRecord = {
-      resultId: this.#nextId(),
+      resultId: input.resultId ?? this.#nextId(),
       taskId: input.taskId,
       skillId: input.skillId,
       skillVersion: input.skillVersion,
@@ -158,9 +177,11 @@ export class ResultProcessingService {
       memoryCandidates: decision.memoryCandidates,
       createdAt: this.#clock.now(),
     };
-    await this.#repository.save(record);
-    await this.#memories?.admitProcessedResult(record);
     return record;
+  }
+
+  async enhance(record: ProcessedResultRecord): Promise<void> {
+    await this.#memories?.admitProcessedResult(record);
   }
 
   async get(resultId: string): Promise<ProcessedResultRecord> {

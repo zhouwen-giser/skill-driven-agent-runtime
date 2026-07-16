@@ -6,6 +6,7 @@ interface WorkflowNodeRecord {
   readonly nodeId: string;
   readonly name: string;
   readonly type: string;
+  readonly tool?: Readonly<{ serverId: string; toolName: string }>;
 }
 interface WorkflowEdgeRecord {
   readonly sourceNodeId: string;
@@ -28,6 +29,10 @@ interface WorkflowPlanRecord {
   readonly sourcePlanId?: string;
   readonly revisionKind?: string;
   readonly definition?: WorkflowDefinitionRecord;
+  readonly toolExecutionSemantics?: readonly Readonly<{
+    reference: Readonly<{ serverId: string; toolName: string }>;
+    executionSemantics: WorkflowToolSemanticsRecord['executionSemantics'];
+  }>[];
 }
 interface WorkflowTraceRecord {
   readonly instance: Readonly<{
@@ -44,6 +49,42 @@ interface WorkflowTraceRecord {
     timestamp: string;
     durationMs?: number;
     summary: string;
+  }>[];
+}
+interface TaskReadinessResponse {
+  readonly warning: string;
+  readonly items: readonly Readonly<{
+    readiness: Readonly<{
+      readinessId: string;
+      checkPhase: 'planning' | 'pre_invocation';
+      disposition: string;
+      guardAction: string;
+      confirmationRequired: boolean;
+      createdAt: string;
+    }>;
+    snapshots: readonly Readonly<{
+      snapshotId: string;
+      nodeId: string;
+      operationName: string;
+      argumentsHash: string;
+      timing?: Readonly<{
+        start: Readonly<{
+          mode: 'immediate' | 'scheduled';
+          scheduledAt?: string;
+          startToleranceMs: number;
+        }>;
+        maxElapsedMs: number | null;
+      }>;
+      availability: string;
+      riskLevel: string;
+      validUntil?: string;
+      earliestStartTime?: string;
+      nextAvailableWindows: readonly Readonly<{ startTime: string; endTime: string }>[];
+      estimatedDelayMs?: number;
+      reservationMode: 'none' | 'best_effort' | 'guaranteed';
+      reservationRef?: string;
+      checkedAt: string;
+    }>[];
   }>[];
 }
 
@@ -108,6 +149,11 @@ export function parseVisualWorkflowDefinition(
         nodeId: String(node.nodeId),
         name: String(node.name),
         type: String(node.type),
+        ...(isObject(node.tool) &&
+        typeof node.tool.serverId === 'string' &&
+        typeof node.tool.toolName === 'string'
+          ? { tool: { serverId: node.tool.serverId, toolName: node.tool.toolName } }
+          : {}),
       })),
       edges: edges.map((edge) => ({
         sourceNodeId: String(edge.sourceNodeId),
@@ -172,6 +218,50 @@ export function WorkflowEventDuration({ durationMs }: { readonly durationMs: num
   return durationMs === undefined ? null : <small>Node duration · {durationMs} ms</small>;
 }
 
+interface WorkflowToolSemanticsRecord {
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly executionSemantics: Readonly<{
+    effect: string;
+    execution: string;
+    cancellation: string;
+    idempotency: string;
+    replay: string;
+    source: string;
+  }>;
+}
+
+export function WorkflowToolSemanticsSummary({
+  items,
+}: {
+  readonly items: readonly WorkflowToolSemanticsRecord[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="panel" aria-label="Plan confirmation Tool execution semantics">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">CONFIRMATION AUTHORITY</span>
+          <h2>Tool execution semantics</h2>
+        </div>
+      </div>
+      <div className="record-list">
+        {items.map((item) => (
+          <article key={`${item.serverId}/${item.toolName}`}>
+            <strong>
+              {item.serverId} / {item.toolName}
+            </strong>
+            <small>
+              {item.executionSemantics.effect} · {item.executionSemantics.execution} · replay{' '}
+              {item.executionSemantics.replay} · source {item.executionSemantics.source}
+            </small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function WorkflowPanel({
   initialPlanId,
   onOpenTask,
@@ -189,12 +279,14 @@ export function WorkflowPanel({
   const [message, setMessage] = useState<string>();
   const [replayIndex, setReplayIndex] = useState(0);
   const [linkedTaskId, setLinkedTaskId] = useState<string>();
+  const [taskReadiness, setTaskReadiness] = useState<TaskReadinessResponse>();
   const replayEvents = trace?.events.slice(0, replayIndex) ?? [];
   const nodeStates = useMemo(
     () => new Map(replayEvents.map((event) => [event.nodeId, event.eventType])),
     [replayEvents],
   );
   const visualDefinition = useMemo(() => parseVisualWorkflowDefinition(editor), [editor]);
+  const definition = visualDefinition ?? plan?.definition;
 
   async function loadPlanById(id: string) {
     await run(async () => {
@@ -204,7 +296,11 @@ export function WorkflowPanel({
       const linked = await managementRequest<{
         readonly items: readonly Readonly<{ taskId: string }>[];
       }>(`/api/v1/tasks?planId=${encodeURIComponent(id)}&limit=1`);
+      const readiness = await managementRequest<TaskReadinessResponse>(
+        `/api/v1/workflows/plans/${encodeURIComponent(id)}/task-readiness?limit=100`,
+      );
       setPlan(loaded);
+      setTaskReadiness(readiness);
       setLinkedTaskId(linked.items[0]?.taskId);
       setEditor(loaded.definition === undefined ? '' : JSON.stringify(loaded.definition, null, 2));
       return `${loaded.planId}: plan loaded`;
@@ -269,7 +365,6 @@ export function WorkflowPanel({
     }
   }
 
-  const definition = visualDefinition ?? plan?.definition;
   const visualEditingEnabled = visualDefinition !== undefined;
   return (
     <div className="stack">
@@ -312,6 +407,13 @@ export function WorkflowPanel({
         {message === undefined ? null : <p className="action-message">{message}</p>}
         <WorkflowTaskLink taskId={linkedTaskId} onOpenTask={onOpenTask} />
       </section>
+      <WorkflowToolSemanticsSummary
+        items={(plan?.toolExecutionSemantics ?? []).map((snapshot) => ({
+          ...snapshot.reference,
+          executionSemantics: snapshot.executionSemantics,
+        }))}
+      />
+      <TaskReadinessPanel evidence={taskReadiness} />
       {definition === undefined ? null : (
         <section className="workflow-grid">
           <div className="panel dag-board">
@@ -571,6 +673,83 @@ export function WorkflowPanel({
         </section>
       )}
     </div>
+  );
+}
+
+export function TaskReadinessPanel({
+  evidence,
+}: {
+  readonly evidence: TaskReadinessResponse | undefined;
+}) {
+  if (evidence === undefined || evidence.items.length === 0) return null;
+  return (
+    <section className="panel" aria-label="MCP Task readiness evidence">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">TIME-BOUNDED PROVIDER FORECAST</span>
+          <h2>Task Availability & Guard</h2>
+        </div>
+      </div>
+      <p className="risk-banner">{evidence.warning}</p>
+      <ol className="timeline">
+        {evidence.items.flatMap((item) =>
+          item.snapshots.map((snapshot) => (
+            <li key={snapshot.snapshotId} className="visible">
+              <span>{item.readiness.checkPhase}</span>
+              <div>
+                <strong>
+                  {snapshot.nodeId} · {snapshot.availability} / {snapshot.riskLevel}
+                </strong>
+                <small>
+                  checked {snapshot.checkedAt}
+                  {snapshot.validUntil === undefined ? '' : ` · valid until ${snapshot.validUntil}`}
+                </small>
+                <p>
+                  Guard: {item.readiness.guardAction} ({item.readiness.disposition})
+                  {item.readiness.confirmationRequired ? ' · confirmation required' : ''}
+                </p>
+                {snapshot.earliestStartTime === undefined ? null : (
+                  <p>Earliest start: {snapshot.earliestStartTime}</p>
+                )}
+                {snapshot.nextAvailableWindows.length === 0 ? null : (
+                  <ul>
+                    {snapshot.nextAvailableWindows.map((window) => (
+                      <li key={`${window.startTime}-${window.endTime}`}>
+                        {window.startTime} → {window.endTime}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p>
+                  Reservation: {snapshot.reservationMode}
+                  {snapshot.reservationMode === 'guaranteed' &&
+                  snapshot.reservationRef !== undefined
+                    ? ` · ${snapshot.reservationRef}`
+                    : ' · forecast only'}
+                  {snapshot.estimatedDelayMs === undefined
+                    ? ''
+                    : ` · estimated delay ${String(snapshot.estimatedDelayMs)} ms`}
+                </p>
+                {snapshot.timing === undefined ? null : (
+                  <p>
+                    Timing: {snapshot.timing.start.mode}
+                    {snapshot.timing.start.scheduledAt === undefined
+                      ? ''
+                      : ` at ${snapshot.timing.start.scheduledAt}`}
+                    {' · tolerance '}
+                    {snapshot.timing.start.startToleranceMs} ms · max elapsed{' '}
+                    {snapshot.timing.maxElapsedMs === null
+                      ? 'Provider default/unbounded request'
+                      : `${String(snapshot.timing.maxElapsedMs)} ms`}
+                  </p>
+                )}
+                <small>Arguments hash: {snapshot.argumentsHash}</small>
+              </div>
+            </li>
+          )),
+        )}
+      </ol>
+    </section>
   );
 }
 

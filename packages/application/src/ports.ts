@@ -2,12 +2,23 @@ import type {
   AgentTask,
   ConversationContext,
   Goal,
+  GoalExecutionContract,
   McpServer,
   McpDependencyWarning,
   McpInvocation,
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
+  McpInvocationOutcome,
+  McpProtocolCapabilities,
+  McpToolExecutionSemantics,
+  McpToolExecutionSemanticsValues,
+  RemoteTaskOperationAck,
+  RemoteTaskBinding,
+  RemoteTaskControlEvent,
+  RemoteTaskObservation,
+  RemoteTaskProtocolAttempt,
+  RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   ModelStage,
@@ -21,9 +32,11 @@ import type {
   MemoryRetentionPolicy,
   Skill,
   SkillRelation,
+  SkillRelationType,
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillInputResolutionRecord,
   SkillQualityObservation,
   SkillQualityWarning,
   SkillQualityWarningKind,
@@ -64,6 +77,22 @@ import type {
   ProcessedResultRecord,
   TaskWaitPolicy,
   TaskQualityReport,
+  TaskInputRequest,
+  TaskInputResponse,
+  RuntimeExecutionContext,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
+  TaskExecutionAttempt,
+  McpTaskOperationSemantics,
+  ResolvedMcpTaskExecution,
+  TaskAvailabilityCheckRequest,
+  TaskAvailabilityCheckResult,
+  TaskAvailabilityReadResult,
+  TaskAvailabilitySnapshot,
+  DslExecutionReadiness,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -167,7 +196,7 @@ export interface GoalInputInferenceRepository {
 export interface RuntimeRecoveryRepository {
   failInterrupted(
     timestamp: string,
-  ): Promise<Readonly<{ tasks: number; workflowInstances: number }>>;
+  ): Promise<Readonly<{ tasks: number; workflowInstances: number; taskAttempts: number }>>;
 }
 
 export interface WorkflowControlRepository {
@@ -175,6 +204,15 @@ export interface WorkflowControlRepository {
   save(control: WorkflowControlRecord): Promise<void>;
   saveRound(round: WorkflowControlRound): Promise<void>;
   listRounds(controlId: string): Promise<readonly WorkflowControlRound[]>;
+}
+
+export interface RuntimeTerminalOutcomeRepository {
+  commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitUnachievable(input: RuntimeUnachievableOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitCanceled(input: RuntimeCanceledOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  recordEnhancementWarning(outcomeId: string, warning: RuntimeEnhancementWarning): Promise<void>;
+  find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
+  findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
 }
 
 export interface GoalEvaluator {
@@ -197,6 +235,40 @@ export interface AgentTaskRepository {
     }>,
   ): Promise<readonly AgentTask[]>;
   save(task: AgentTask): Promise<void>;
+}
+
+export interface TaskInputRepository {
+  createRequest(request: TaskInputRequest): Promise<void>;
+  findRequest(inputRequestId: string): Promise<TaskInputRequest | undefined>;
+  findPendingByTask(taskId: string): Promise<TaskInputRequest | undefined>;
+  cancelPending(
+    taskId: string,
+    status: Extract<TaskInputRequest['status'], 'expired' | 'canceled'>,
+  ): Promise<void>;
+  listResponses(taskId: string): Promise<readonly TaskInputResponse[]>;
+  createInitialAttempt(attempt: TaskExecutionAttempt): Promise<void>;
+  answerAndCreateAttempt(
+    input: Readonly<{
+      inputRequestId: string;
+      taskId: string;
+      response: TaskInputResponse;
+      attempt: TaskExecutionAttempt;
+      answeredAt: string;
+      continuationPhase: Extract<AgentTask['phase'], 'goal_deliberation' | 'planning'>;
+      phaseMessage: string;
+    }>,
+  ): Promise<AgentTask>;
+  listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]>;
+  findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined>;
+  findResponseForAttempt(
+    attemptId: string,
+  ): Promise<Readonly<{ request: TaskInputRequest; response: TaskInputResponse }> | undefined>;
+  updateAttempt(
+    attemptId: string,
+    status: Exclude<TaskExecutionAttempt['status'], 'queued'>,
+    timestamp: string,
+    errorCode?: string,
+  ): Promise<void>;
 }
 
 export interface TaskWaitPolicyRepository {
@@ -232,6 +304,11 @@ export interface SkillRepository {
 
 export interface SkillGraphRepository {
   listRelations(): Promise<readonly SkillRelation[]>;
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelationType[],
+    limit: number,
+  ): Promise<readonly SkillRelation[]>;
   saveRelation(relation: SkillRelation): Promise<void>;
   deleteRelation(relationId: string): Promise<void>;
 }
@@ -242,6 +319,23 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillInputResolutionRepository {
+  save(record: SkillInputResolutionRecord): Promise<void>;
+  find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined>;
+  findLatest(
+    taskId: string,
+    skillId: string,
+    skillVersion: number,
+    goalVersion: number,
+  ): Promise<SkillInputResolutionRecord | undefined>;
+  listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]>;
+  listProcessedDataByContext(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<readonly Readonly<{ sourceRef: string; value: unknown }>[]>;
 }
 
 export interface SkillQualityRepository {
@@ -262,7 +356,7 @@ export interface SkillQualityRepository {
 
 export interface SkillSemanticRetriever {
   score(
-    goalDescription: string,
+    goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
   ): Promise<Readonly<Record<string, number>>>;
 }
@@ -294,7 +388,7 @@ export interface SkillEmbeddingRepository {
 export interface SkillSelectionDecider {
   decide(
     input: Readonly<{
-      goalDescription: string;
+      goalContract: GoalExecutionContract;
       candidates: SkillSelectionRecord['candidates'];
       mode: 'initial' | 'replacement';
       failedSkillId?: string;
@@ -365,6 +459,49 @@ export interface McpToolCatalog {
   getInputSchema(reference: ToolReference): Promise<unknown>;
 }
 
+export interface McpTaskOperationCatalog {
+  getTaskOperationSemantics(
+    reference: ToolReference,
+  ): Promise<McpTaskOperationSemantics | undefined>;
+}
+
+export interface TaskAvailabilityBatchReader {
+  checkTaskAvailability(
+    input: Readonly<{
+      serverId: string;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult>;
+}
+
+export interface TaskAvailabilityEvidenceRepository {
+  saveEvaluation(
+    readiness: DslExecutionReadiness,
+    snapshots: readonly TaskAvailabilitySnapshot[],
+  ): Promise<void>;
+  listByPlan(
+    planId: string,
+    filter?: Readonly<{
+      phase?: DslExecutionReadiness['checkPhase'] | undefined;
+      limit?: number | undefined;
+    }>,
+  ): Promise<
+    readonly Readonly<{
+      readiness: DslExecutionReadiness;
+      snapshots: readonly TaskAvailabilitySnapshot[];
+    }>[]
+  >;
+  findLatestPlanning(planId: string): Promise<
+    | Readonly<{
+        readiness: DslExecutionReadiness;
+        snapshots: readonly TaskAvailabilitySnapshot[];
+      }>
+    | undefined
+  >;
+}
+
 export interface McpServerRecord {
   readonly server: McpServer;
   readonly encryptedCredential: string;
@@ -391,6 +528,13 @@ export interface McpRegistryRepository {
     toolName: string,
     enhancement: McpToolEnhancement,
   ): Promise<void>;
+  updateToolExecutionSemantics(
+    serverId: string,
+    toolName: string,
+    adminOverride: McpToolExecutionSemantics,
+    effective: McpToolExecutionSemantics,
+    operation: McpManagementOperation,
+  ): Promise<boolean>;
 }
 
 export interface SecretCipher {
@@ -407,6 +551,8 @@ export interface McpTransportAdapter {
       title?: string;
       description?: string;
       inputSchema: unknown;
+      declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
+      taskExecution?: McpTaskOperationSemantics;
     }>[]
   >;
   call(
@@ -415,9 +561,56 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
+      taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
     }>,
-  ): Promise<unknown>;
+  ): Promise<McpInvocationOutcome>;
+  capabilities(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+    }>,
+  ): Promise<McpProtocolCapabilities>;
+  checkTaskAvailability?(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      signal?: AbortSignal;
+    }>,
+  ): Promise<
+    Readonly<{
+      protocolRevision: string;
+      availabilitySchemaRevision: string;
+      results: readonly TaskAvailabilityCheckResult[];
+    }>
+  >;
+  getTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskSnapshot>;
+  updateTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+  cancelTask(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
   disconnect(
     input: Readonly<{
       endpoint: string;
@@ -430,6 +623,127 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
     }>,
   ): Promise<void>;
+}
+
+export type RemoteTaskReadResult =
+  | Readonly<{ kind: 'snapshot'; snapshot: RemoteTaskSnapshot }>
+  | Readonly<{ kind: 'provider_unreachable'; errorCode: string }>
+  | Readonly<{ kind: 'contract_invalid'; errorCode: string }>
+  | Readonly<{ kind: 'provider_protocol'; errorCode: string }>;
+
+export interface RemoteTaskSnapshotReader {
+  readRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskReadResult>;
+}
+
+export type RemoteTaskMutationResult =
+  | Readonly<{ applied: false; reason: 'missing' | 'stale' | 'closed' }>
+  | Readonly<{
+      applied: true;
+      binding: RemoteTaskBinding;
+      snapshotAccepted?: boolean;
+      controlEvent?: RemoteTaskControlEvent;
+    }>;
+
+export type RemoteTaskPollClaimResult =
+  | Readonly<{ claimed: false; reason: 'missing' | 'stale' | 'closed' | 'leased' }>
+  | Readonly<{ claimed: true; binding: RemoteTaskBinding }>;
+
+export interface RemoteTaskRepository {
+  admit(
+    binding: RemoteTaskBinding,
+    acceptedObservationId: string,
+  ): Promise<Readonly<{ binding: RemoteTaskBinding; created: boolean }>>;
+  findById(bindingId: string): Promise<RemoteTaskBinding | undefined>;
+  findByRemoteIdentity(
+    serverId: string,
+    remoteTaskId: string,
+  ): Promise<RemoteTaskBinding | undefined>;
+  listRequiringPoll(
+    now: string,
+    limit: number,
+    afterBindingId?: string,
+  ): Promise<readonly RemoteTaskBinding[]>;
+  claimPoll(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskPollClaimResult>;
+  recordSnapshot(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      snapshot: RemoteTaskSnapshot;
+      observationId: string;
+      controlEventId?: string;
+      resultHash?: string;
+      observedAt: string;
+      nextPollAt?: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  recordProviderFailure(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      nextPollAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  quarantine(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      errorCode: string;
+      observedAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]>;
+  listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]>;
+  listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
+}
+
+export type RemoteTaskPollJobState = 'missing' | 'scheduled' | 'active' | 'completed' | 'failed';
+
+export interface RemoteTaskPollJob {
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+}
+
+export interface RemoteTaskDeadLetter {
+  readonly jobId: string;
+  readonly bindingId: string;
+  readonly expectedVersion: number;
+  readonly failedReason: string;
+  readonly attemptsMade: number;
+}
+
+export interface RemoteTaskPollQueue {
+  enqueue(input: RemoteTaskPollJob, runAt: string): Promise<void>;
+  state(bindingId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
+  listDeadLetters(limit: number): Promise<readonly RemoteTaskDeadLetter[]>;
+  retryDeadLetter(jobId: string): Promise<void>;
+}
+
+export interface ContextSerialGate {
+  run<T>(contextId: string, operation: () => Promise<T>): Promise<T>;
 }
 
 /** Rebuildable protocol representation; AgentTask remains the system of record. */
@@ -537,6 +851,7 @@ export interface WorkflowExecutor {
     budgetLimits: WorkflowBudgetLimits,
     signal?: AbortSignal,
     executionId?: string,
+    executionContext?: RuntimeExecutionContext,
   ): Promise<
     Readonly<{
       status: 'paused' | 'succeeded' | 'failed' | 'canceled';
@@ -624,7 +939,14 @@ export interface ModelTransportAdapter {
 }
 
 export interface ContextTaskQueue {
-  enqueue(input: Readonly<{ taskId: string; contextId: string }>): Promise<void>;
+  enqueue(
+    input: Readonly<{
+      taskId: string;
+      contextId: string;
+      attemptId: string;
+      mode: 'initial' | 'continue_after_input';
+    }>,
+  ): Promise<void>;
 }
 
 export interface RuntimeEventPublisher {
@@ -650,5 +972,7 @@ export interface Clock {
 }
 
 export interface IdentifierGenerator {
-  nextId(kind: 'context' | 'task' | 'event'): string;
+  nextId(
+    kind: 'context' | 'task' | 'event' | 'input-request' | 'input-response' | 'attempt',
+  ): string;
 }

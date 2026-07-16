@@ -1,4 +1,8 @@
-import type { WorkflowDefinition, WorkflowPlanRecord } from '../../domain/src/index.js';
+import {
+  snapshotGoalExecutionContract,
+  type WorkflowDefinition,
+  type WorkflowPlanRecord,
+} from '../../domain/src/index.js';
 import type { Clock, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
@@ -38,6 +42,7 @@ export class WorkflowRevisionService {
       workflowVersion: definition.version + 1,
       goalId: source.goalId,
       goalVersion: source.goalVersion,
+      goalContract: source.goalContract,
       planningInstruction: JSON.stringify({
         operation: 'natural_language_plan_revision',
         instruction: input.instruction,
@@ -46,6 +51,12 @@ export class WorkflowRevisionService {
       sourcePlanId: source.planId,
       revisionKind: 'natural_language',
       supersedeSourcePlan: true,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
     });
   }
 
@@ -60,7 +71,12 @@ export class WorkflowRevisionService {
     const source = await this.#requireActiveSource(input.sourcePlanId);
     const sourceDefinition = source.definition;
     if (sourceDefinition === undefined) throw new Error('WORKFLOW_REVISION_DEFINITION_MISSING');
-    const validation = await this.#validator.validate(input.definition);
+    const validation = await this.#validator.validate(input.definition, {
+      enforceSkillComposition:
+        source.compositionContext !== undefined || source.capabilityGapSkillIds !== undefined,
+      allowedChildSkillIds: source.compositionContext?.allowedChildSkillIds ?? [],
+      capabilityGapSkillIds: source.capabilityGapSkillIds ?? [],
+    });
     if (!validation.valid || validation.definition === undefined)
       throw new WorkflowRevisionError(
         'WORKFLOW_REVISION_INVALID',
@@ -69,10 +85,18 @@ export class WorkflowRevisionService {
       );
     assertRevisionIdentity(sourceDefinition, validation.definition);
     const timestamp = this.#clock.now();
+    const goalContract = snapshotGoalExecutionContract(source.goalContract);
     const plan: WorkflowPlanRecord = {
       planId: input.newPlanId,
       goalId: source.goalId,
       goalVersion: source.goalVersion,
+      goalContract,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
       definition: validation.definition,
       sourcePlanId: source.planId,
       revisionKind: input.format === 'dsl' ? 'admin_dsl' : 'admin_dag',
@@ -82,6 +106,13 @@ export class WorkflowRevisionService {
     };
     await this.#plans.saveAttempt({
       planId: plan.planId,
+      goalContract,
+      ...(source.compositionContext === undefined
+        ? {}
+        : { compositionContext: source.compositionContext }),
+      ...(source.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
       attempt: 1,
       candidate: input.definition,
       validationErrors: [],

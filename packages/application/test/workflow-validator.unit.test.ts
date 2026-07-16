@@ -126,6 +126,101 @@ describe('WorkflowValidator', () => {
       ]),
     );
   });
+
+  it('defers current MCP and Skill schemas for structurally valid runtime bindings', async () => {
+    const source = validWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool'
+          ? {
+              ...node,
+              arguments: { deviceId: { op: 'ref' as const, path: ['input', 'deviceId'] } },
+            }
+          : node.type === 'skill_call'
+            ? {
+                ...node,
+                input: { deviceId: { op: 'ref' as const, path: ['nodes', 'tool', 'deviceId'] } },
+              }
+            : node,
+      ),
+    });
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects malformed reserved references before catalog validation', async () => {
+    const source = validWorkflow();
+    const result = await validator().validate({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool'
+          ? { ...node, arguments: { op: 'ref', path: ['input'], extra: true } }
+          : node,
+      ),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'WORKFLOW_SCHEMA_INVALID' })]),
+    );
+  });
+
+  it('accepts bounded Task timing and defers only a constrained scheduledAt reference', async () => {
+    const source = validWorkflow();
+    for (const scheduledAt of [
+      '2026-07-17T01:00:00.000Z',
+      '2026-07-17T09:00:00+08:00',
+      { op: 'ref', path: ['input', 'scheduledAt'] },
+    ]) {
+      const result = await validator().validate({
+        ...source,
+        nodes: source.nodes.map((node) =>
+          node.type === 'mcp_tool'
+            ? {
+                ...node,
+                taskExecution: {
+                  mode: 'require_task',
+                  timing: {
+                    start: { mode: 'scheduled', scheduledAt, startToleranceMs: 0 },
+                    maxElapsedMs: null,
+                  },
+                },
+              }
+            : node,
+        ),
+      });
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it.each(['2026-07-17T01:00:00', '2026-02-30T01:00:00Z', 'not-a-date'])(
+    'rejects invalid literal scheduledAt %s',
+    async (scheduledAt) => {
+      const source = validWorkflow();
+      const result = await validator().validate({
+        ...source,
+        nodes: source.nodes.map((node) =>
+          node.type === 'mcp_tool'
+            ? {
+                ...node,
+                taskExecution: {
+                  mode: 'require_task',
+                  timing: {
+                    start: { mode: 'scheduled', scheduledAt, startToleranceMs: 1 },
+                  },
+                },
+              }
+            : node,
+        ),
+      });
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'WORKFLOW_TASK_SCHEDULED_AT_INVALID' }),
+        ]),
+      );
+    },
+  );
 });
 
 function recoveryWorkflow() {
@@ -311,6 +406,7 @@ function validWorkflow() {
         type: 'subworkflow' as const,
         workflowDefinitionId: 'workflow.child',
         workflowVersion: 1,
+        input: { op: 'ref' as const, path: ['input'] },
       },
       {
         nodeId: 'loop',

@@ -4,15 +4,16 @@
 
 The Server loads `.env` when present and then validates environment variables strictly.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `SDAR_POSTGRES_URL` | `postgresql://sdar:sdar_local_only@127.0.0.1:54329/sdar` | PostgreSQL/pgvector authority |
-| `SDAR_REDIS_HOST` | `127.0.0.1` | Redis/BullMQ host |
-| `SDAR_REDIS_PORT` | `56379` | Redis/BullMQ port |
-| `SDAR_A2A_HOST` / `SDAR_A2A_PORT` | `127.0.0.1` / `9999` | A2A listener |
-| `SDAR_MANAGEMENT_HOST` / `SDAR_MANAGEMENT_PORT` | `127.0.0.1` / `9998` | Management API and Console listener |
-| `SDAR_MASTER_KEY_BASE64` | required | 32-byte AES-256-GCM master key, Base64 encoded; never persisted |
-| `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE` | `false` | Required only after reviewing an explicitly trusted non-loopback bind; adds no authentication |
+| Variable                                        | Default                                                  | Purpose                                                                                                                          |
+| ----------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SDAR_POSTGRES_URL`                             | `postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar` | PostgreSQL/pgvector authority                                                                                                    |
+| `SDAR_REDIS_HOST`                               | `127.0.0.1`                                              | Redis/BullMQ host                                                                                                                |
+| `SDAR_REDIS_PORT`                               | `56379`                                                  | Redis/BullMQ port                                                                                                                |
+| `SDAR_A2A_HOST` / `SDAR_A2A_PORT`               | `127.0.0.1` / `9999`                                     | A2A listener                                                                                                                     |
+| `SDAR_MANAGEMENT_HOST` / `SDAR_MANAGEMENT_PORT` | `127.0.0.1` / `9998`                                     | Management API and Console listener                                                                                              |
+| `SDAR_MASTER_KEY_BASE64`                        | required                                                 | 32-byte AES-256-GCM master key, Base64 encoded; never persisted                                                                  |
+| `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE`     | `false`                                                  | Required only after reviewing an explicitly trusted non-loopback bind; adds no authentication                                    |
+| `SDAR_REUSE_EXISTING_INFRA`                     | `false`                                                  | Verification/demo scripts reuse already-running loopback PostgreSQL/Redis and never invoke Docker lifecycle commands when `true` |
 
 Model Providers, fixed stage routes, Prompts, MCP Servers, wait policy, retention values, and evolution thresholds are managed through the API/Console and persisted in PostgreSQL. Provider/MCP credentials are write-only at the management boundary and AES-256-GCM encrypted at rest.
 
@@ -28,6 +29,8 @@ pnpm start:server
 ```
 
 Stop the process gracefully, then run `docker compose stop postgres redis`. Graceful shutdown closes ingress, drains the Worker and tracked Task controls, then closes MCP transport and PostgreSQL. An abrupt process failure intentionally fails running Tasks/instances on the next start and never resumes or retries them. Queued BullMQ jobs remain eligible for dispatch.
+
+When an operator already owns the PostgreSQL/Redis lifecycle, set `SDAR_REUSE_EXISTING_INFRA=true` in `.env`. Verification and demo scripts then connect through `SDAR_POSTGRES_URL`, `SDAR_REDIS_HOST`, and `SDAR_REDIS_PORT` without starting, stopping, or executing commands inside containers. The external services must already be healthy and use isolated local development data; migration-path verification creates and removes the temporary databases `sdar_verify_empty` and `sdar_verify_upgrade`.
 
 The repository Compose file publishes PostgreSQL and Redis only on `127.0.0.1`; do not remove the loopback host binding or create a public route.
 
@@ -46,7 +49,7 @@ Historical data is retained indefinitely in V1. Automatic archive/delete are dis
 
 ### Docker or database is unavailable
 
-Run `docker version`, `docker compose ps`, and `pnpm smoke:infra`. Confirm ports 54329 and 56379 are free and that Docker Desktop is healthy. Do not substitute static Compose validation for a real smoke pass.
+Run `docker version`, `docker compose ps`, and `pnpm smoke:infra`. Confirm ports 55432 and 56379 are free and that Docker Desktop is healthy. Do not substitute static Compose validation for a real smoke pass.
 
 ### Server rejects startup
 

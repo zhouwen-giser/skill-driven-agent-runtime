@@ -22,6 +22,7 @@ export class A2AMappingError extends Error {
     | 'A2A_MESSAGE_TEXT_REQUIRED'
     | 'A2A_METADATA_INVALID'
     | 'A2A_ACTION_INVALID'
+    | 'A2A_CAPABILITY_GAP_EVIDENCE_INVALID'
     | 'A2A_USER_ID_INVALID';
 
   constructor(code: A2AMappingError['code'], message: string) {
@@ -33,7 +34,7 @@ export class A2AMappingError extends Error {
 
 export function toTaskFollowUp(
   message: Message,
-): Readonly<{ action: TaskFollowUpAction; messageText: string }> {
+): Readonly<{ action: TaskFollowUpAction; messageText: string; inputRequestId?: string }> {
   const command = toSubmitTaskCommand(message, 'follow-up', 'follow-up');
   const result = FollowUpActionSchema.safeParse(command.metadata['sdar_action']);
   if (!result.success) {
@@ -42,7 +43,17 @@ export function toTaskFollowUp(
       'A2A follow-up metadata sdar_action must name a supported task action.',
     );
   }
-  return { action: result.data, messageText: command.messageText };
+  const inputRequestId = command.metadata['input_request_id'];
+  if (inputRequestId !== undefined && typeof inputRequestId !== 'string')
+    throw new A2AMappingError(
+      'A2A_METADATA_INVALID',
+      'A2A follow-up metadata input_request_id must be a string.',
+    );
+  return {
+    action: result.data,
+    messageText: command.messageText,
+    ...(inputRequestId === undefined ? {} : { inputRequestId }),
+  };
 }
 
 export function toSubmitTaskCommand(
@@ -91,6 +102,14 @@ export function toSubmitTaskCommand(
 }
 
 export function toA2ATask(task: AgentTask): Task {
+  if (
+    task.phase === 'capability_gap' &&
+    (task.errorCode !== 'CAPABILITY_GAP' || task.capabilityGap === undefined)
+  )
+    throw new A2AMappingError(
+      'A2A_CAPABILITY_GAP_EVIDENCE_INVALID',
+      'A terminal capability-gap Task requires its stable error code and structured evidence.',
+    );
   const statusMessage = Message.fromJSON({
     messageId: `${task.taskId}:status:${task.updatedAt}`,
     contextId: task.contextId,
@@ -114,6 +133,9 @@ export function toA2ATask(task: AgentTask): Task {
       userId: task.userId,
       ...(task.errorCode === undefined ? {} : { errorCode: task.errorCode }),
       ...(task.capabilityGap === undefined ? {} : { capabilityGap: task.capabilityGap }),
+      ...(task.phase === 'capability_gap'
+        ? { nextAction: 'register-capability-and-submit-new-task' }
+        : {}),
     },
   });
 }
@@ -122,12 +144,12 @@ export function taskPhaseToA2AState(phase: TaskPhase): TaskState {
   if (phase === 'queued') return TaskState.TASK_STATE_SUBMITTED;
   if (phase === 'completed') return TaskState.TASK_STATE_COMPLETED;
   if (phase === 'canceled') return TaskState.TASK_STATE_CANCELED;
-  if (phase === 'failed' || phase === 'invalidated') return TaskState.TASK_STATE_FAILED;
+  if (phase === 'capability_gap' || phase === 'failed' || phase === 'invalidated')
+    return TaskState.TASK_STATE_FAILED;
   if (
     phase === 'awaiting_plan_confirmation' ||
     phase === 'awaiting_user_input' ||
-    phase === 'paused' ||
-    phase === 'capability_gap'
+    phase === 'paused'
   ) {
     return TaskState.TASK_STATE_INPUT_REQUIRED;
   }

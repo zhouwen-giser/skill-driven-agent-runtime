@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import type { Goal, GoalPatchChanges, GoalPatchRecord } from '../../domain/src/index.js';
+import {
+  createGoalExecutionContract,
+  goalExecutionContractsEqual,
+  type Goal,
+  type GoalPatchChanges,
+  type GoalPatchRecord,
+} from '../../domain/src/index.js';
 import type {
   Clock,
   GoalPatchRepository,
@@ -52,6 +58,16 @@ export class GoalPatchService {
   readonly #model: StructuredModelProvider;
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextPatchId(): string; nextPlanId(): string }>;
+  readonly #beforeReplan:
+    | Readonly<{
+        prepare(
+          input: Readonly<{ goal: Goal; taskId: string }>,
+        ): Promise<
+          | Readonly<{ status: 'ready'; planningContext?: unknown }>
+          | Readonly<{ status: 'input_required' }>
+        >;
+      }>
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -63,6 +79,14 @@ export class GoalPatchService {
       model: StructuredModelProvider;
       clock: Clock;
       ids: Readonly<{ nextPatchId(): string; nextPlanId(): string }>;
+      beforeReplan?: Readonly<{
+        prepare(
+          input: Readonly<{ goal: Goal; taskId: string }>,
+        ): Promise<
+          | Readonly<{ status: 'ready'; planningContext?: unknown }>
+          | Readonly<{ status: 'input_required' }>
+        >;
+      }>;
     }>,
   ) {
     this.#goals = dependencies.goals;
@@ -73,6 +97,7 @@ export class GoalPatchService {
     this.#model = dependencies.model;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#beforeReplan = dependencies.beforeReplan;
   }
 
   async apply(
@@ -86,6 +111,7 @@ export class GoalPatchService {
       sourcePlan?.definition === undefined ||
       sourcePlan.goalId !== goal.goalId ||
       sourcePlan.goalVersion !== goal.version ||
+      !goalExecutionContractsEqual(sourcePlan.goalContract, createGoalExecutionContract(goal)) ||
       !['awaiting_confirmation', 'confirmed'].includes(sourcePlan.confirmationStatus)
     )
       throw new GoalPatchError(
@@ -125,6 +151,15 @@ export class GoalPatchService {
       afterGoal,
       createdAt: timestamp,
     };
+    const readiness =
+      input.taskId === undefined || this.#beforeReplan === undefined
+        ? ({ status: 'ready' } as const)
+        : await this.#beforeReplan.prepare({ goal: afterGoal, taskId: input.taskId });
+    if (readiness.status === 'input_required')
+      throw new GoalPatchError(
+        'GOAL_PATCH_SKILL_INPUT_REQUIRED',
+        'Goal Patch was not applied because its formal Skill input is unresolved.',
+      );
     const patch = await this.#patches.apply(baseRecord, input.taskId);
     await this.#planner.plan({
       planId: newPlanId,
@@ -132,6 +167,7 @@ export class GoalPatchService {
       workflowVersion: sourcePlan.definition.version + 1,
       goalId: goal.goalId,
       goalVersion: afterGoal.version,
+      goalContract: createGoalExecutionContract(afterGoal),
       planningInstruction: JSON.stringify({
         operation: 'goal_patch_replan',
         patch,
@@ -142,10 +178,19 @@ export class GoalPatchService {
           goalVersion: afterGoal.version,
         },
         compensationGuidance: compensation.guidance,
+        ...(readiness.planningContext === undefined
+          ? {}
+          : { skillInputResolution: readiness.planningContext }),
         confirmationPolicy: 'always_require_confirmation',
       }),
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
+      ...(sourcePlan.compositionContext === undefined
+        ? {}
+        : { compositionContext: sourcePlan.compositionContext }),
+      ...(sourcePlan.capabilityGapSkillIds === undefined
+        ? {}
+        : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
     });
     return this.get(patch.patchId);
   }
@@ -209,6 +254,7 @@ export type GoalPatchErrorCode =
   | 'GOAL_PATCH_EMPTY'
   | 'GOAL_PATCH_GOAL_NOT_ACTIVE'
   | 'GOAL_PATCH_NOT_FOUND'
+  | 'GOAL_PATCH_SKILL_INPUT_REQUIRED'
   | 'GOAL_PATCH_SOURCE_PLAN_INVALID';
 export class GoalPatchError extends Error {
   readonly code: GoalPatchErrorCode;

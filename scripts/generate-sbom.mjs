@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pnpmStore = path.join(root, 'node_modules', '.pnpm');
 const outputDir = path.join(root, 'reports', 'EP-00-repo-bootstrap');
 const checkOnly = process.argv.includes('--check');
+const projectManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const activePackageKeys = parsePackageKeys(
   await readFile(path.join(root, 'pnpm-lock.yaml'), 'utf8'),
 );
@@ -42,6 +43,11 @@ async function collectPackage(packageDir) {
     return;
   }
   if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') return;
+  // Optional native leaf packages vary by the host used for a frozen install. The
+  // portable source-distribution SBOM records their cross-platform wrapper package
+  // instead, whose license and dependency declaration cover the selected binary.
+  // This keeps the checked-in evidence identical on Linux, macOS, and Windows.
+  if (Array.isArray(manifest.os) || Array.isArray(manifest.cpu)) return;
   const key = `${manifest.name}@${manifest.version}`;
   if (!activePackageKeys.has(key)) return;
   if (packages.has(key)) return;
@@ -112,6 +118,21 @@ const components = packageList.map((item) => ({
 }));
 components.push(
   {
+    type: 'library',
+    'bom-ref': 'pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f',
+    name: 'modelcontextprotocol/ext-tasks',
+    version: '8966bea9c4f4e6d71060cc8284a539086e9e234f',
+    hashes: [
+      {
+        alg: 'SHA-256',
+        content: '72d9dae54a96d7b2c9acd13338d3407b7413d5d04076bf82ef0724007742df75',
+      },
+    ],
+    licenses: [{ license: { id: 'Apache-2.0' } }],
+    externalReferences: [{ type: 'vcs', url: 'https://github.com/modelcontextprotocol/ext-tasks' }],
+    purl: 'pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f',
+  },
+  {
     type: 'container',
     'bom-ref': 'pkg:docker/pgvector/pgvector@0.8.4-pg17-bookworm',
     name: 'pgvector/pgvector',
@@ -150,7 +171,7 @@ const sbom = `${JSON.stringify(
       component: {
         type: 'application',
         name: 'skill-driven-agent-runtime',
-        version: '0.0.0',
+        version: projectManifest.version,
         licenses: [{ license: { id: 'Apache-2.0' } }],
       },
     },
@@ -171,6 +192,16 @@ const licenseJson = `${JSON.stringify(
       { name: 'pgvector/pgvector', version: '0.8.4-pg17-bookworm', license: 'PostgreSQL' },
       { name: 'redis', version: '8.2.7-alpine3.22', license: 'AGPL-3.0-only' },
     ],
+    adapted_sources: [
+      {
+        name: 'modelcontextprotocol/ext-tasks',
+        commit: '8966bea9c4f4e6d71060cc8284a539086e9e234f',
+        schema_blob: '2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc',
+        license: 'Apache-2.0',
+        modified_by: 'zhouwen',
+        local_file: 'packages/mcp-adapter/src/mcp-tasks-contract.ts',
+      },
+    ],
   },
   null,
   2,
@@ -178,7 +209,11 @@ const licenseJson = `${JSON.stringify(
 
 const notices = `# Third-Party Notices
 
-Generated from the exact pnpm lockfile installation for the EP-00 baseline. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+Generated from the exact pnpm lockfile installation and pinned adapted sources. Host-specific optional native leaf packages are represented by their portable wrapper packages so this source-distribution evidence is reproducible across operating systems. This file is not legal advice. Package license texts remain available at the recorded package-relative locators and must be bundled or reproduced as required for a release artifact.
+
+## Adapted protocol source
+
+- modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 
 ## External services
 

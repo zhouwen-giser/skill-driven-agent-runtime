@@ -4,12 +4,10 @@ import { get, request } from 'node:http';
 import process from 'node:process';
 import { setTimeout } from 'node:timers/promises';
 
+import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+
 run(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'], 120_000);
-run(
-  'docker',
-  ['compose', '-f', 'compose.yaml', 'up', '-d', '--wait', 'postgres', 'redis'],
-  180_000,
-);
+startInfrastructure();
 const server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
   cwd: process.cwd(),
   stdio: 'inherit',
@@ -57,7 +55,7 @@ try {
   );
 } finally {
   server.kill();
-  run('docker', ['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, true);
+  stopInfrastructure();
 }
 
 function run(command, args, timeout, ignoreFailure = false) {

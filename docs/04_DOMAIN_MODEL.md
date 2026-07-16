@@ -82,3 +82,11 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - 任何 MCP Tool 参数都必须通过原始 Tool input schema。
 - 任何最终结构化结果必须通过主 Skill output schema。
 - 不允许将展示层或 SDK 状态直接当作领域状态的唯一来源。
+
+### MCP Task Execution Readiness（v1.1）
+
+- `McpTaskOperationSemantics` 是发现元数据的领域投影，不包含 SDK 类型。
+- `TaskExecutionTiming` 明确区分 immediate/scheduled、启动容差与可空 `maxElapsedMs`。
+- `TaskAvailabilitySnapshot` 追加保存计划/节点/Server/operation、已知参数或 unresolved paths、规范化参数 hash、timing、Provider 结果、来源修订与检查时间。
+- `DslExecutionReadiness` 保存允许动作、结构化模型决定、最终 Guard 动作和确认要求；disabled、非法能力/合约与无引用 guaranteed 预约不可被模型覆盖。
+- pre-invocation 必须引用真实 Workflow Definition 与 node-run，并使用解析后不可变参数/timing。旧确认只覆盖同节点、规划时已经 restricted 且风险未升级的刷新结果。

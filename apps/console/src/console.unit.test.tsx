@@ -8,6 +8,8 @@ import {
   WorkflowEventDuration,
   WorkflowPanel,
   WorkflowTaskLink,
+  WorkflowToolSemanticsSummary,
+  TaskReadinessPanel,
 } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
@@ -21,10 +23,46 @@ import { McpPanel } from './McpPanel.js';
 import { SystemPanel } from './SystemPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
-import { openRelatedSkillTasks, SkillTaskNavigation } from './SkillsPanel.js';
+import {
+  openRelatedSkillTasks,
+  SkillTaskNavigation,
+  SkillToolPolicySemantics,
+} from './SkillsPanel.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders execution semantics in plan confirmation and Skill Tool Policy views', () => {
+    const tool = {
+      serverId: 'mcp.devices',
+      toolName: 'device_status',
+      executionSemantics: {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      },
+    };
+    const markup = renderToStaticMarkup(
+      <>
+        <WorkflowToolSemanticsSummary items={[tool]} />
+        <SkillToolPolicySemantics
+          policy={{
+            required: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+            optional: [],
+            forbidden: [],
+          }}
+          tools={[tool]}
+        />
+      </>,
+    );
+    expect(markup).toContain('CONFIRMATION AUTHORITY');
+    expect(markup).toContain('required: mcp.devices/device_status');
+    expect(markup).toContain('source mcp_declared');
+    expect(markup).toContain('replay allowed');
+  });
+
   it('renders navigation and the persistent trusted-intranet warning without authentication', () => {
     const markup = renderToStaticMarkup(<App />);
     expect(markup).toContain('aria-label="主导航"');
@@ -40,6 +78,49 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Instance ID');
     expect(markup).not.toContain('plan-1');
     expect(markup).not.toContain('instance-1');
+  });
+
+  it('renders Task forecast expiry, windows and best-effort semantics without claiming a lock', () => {
+    const evidence: React.ComponentProps<typeof TaskReadinessPanel>['evidence'] = {
+      warning: 'Provider forecast only; no resource lock.',
+      items: [
+        {
+          readiness: {
+            readinessId: 'readiness-1',
+            checkPhase: 'planning',
+            disposition: 'confirmation_required',
+            guardAction: 'request_confirmation',
+            confirmationRequired: true,
+            createdAt: '2026-07-16T22:00:00.000Z',
+          },
+          snapshots: [
+            {
+              snapshotId: 'snapshot-1',
+              nodeId: 'patrol',
+              operationName: 'vehicle_patrol',
+              argumentsHash: 'a'.repeat(64),
+              availability: 'restricted',
+              riskLevel: 'high',
+              validUntil: '2026-07-16T22:10:00.000Z',
+              earliestStartTime: '2026-07-16T22:02:00.000Z',
+              nextAvailableWindows: [
+                {
+                  startTime: '2026-07-16T22:02:00.000Z',
+                  endTime: '2026-07-16T22:12:00.000Z',
+                },
+              ],
+              reservationMode: 'best_effort',
+              checkedAt: '2026-07-16T22:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(<TaskReadinessPanel evidence={evidence} />);
+    expect(markup).toContain('2026-07-16T22:10:00.000Z');
+    expect(markup).toContain('best_effort');
+    expect(markup).toContain('forecast only');
+    expect(markup).not.toContain('Guaranteed reservation');
   });
 
   it('edits Workflow topology as restricted data while preserving node configuration', () => {
@@ -205,8 +286,10 @@ describe('operational console static accessibility contract', () => {
       .join('');
     expect(markup).toContain('Prompt Lifecycle');
     expect(markup).toContain('anonymous shared');
+    expect(markup).toContain('Volatile device state and unknown durability are rejected');
     expect(markup).toContain('warning-only policy');
     expect(markup).toContain('FILTERED OPERATING METRICS');
+    expect(markup).toContain('skill_input_resolution');
     expect(markup).not.toContain('66.67%');
     expect(markup).not.toContain('prompt-1');
     expect(markup).not.toContain('memory-1');
@@ -230,6 +313,7 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Automatic archive: OFF');
     expect(markup).toContain('Automatic archive and delete remain disabled');
     expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
+    expect(markup).toContain('skill_input_resolution');
     expect(markup).not.toContain('Bearer fixture');
   });
 

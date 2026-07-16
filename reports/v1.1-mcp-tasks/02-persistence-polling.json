@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "phase": 2,
+  "status": "passed",
+  "branch": "feature/v1.1-mcp-tasks",
+  "startingCommit": "cf153bc0a6298582dc2d130b16f1ad4c94b64991",
+  "scope": [
+    "FR-MCPT-003",
+    "FR-MCPT-004",
+    "FR-MCPT-005",
+    "FR-MCPT-006",
+    "FR-MCPT-008-observation-and-control-production",
+    "NFR-MCPT-001-persistence-boundary",
+    "NFR-MCPT-002-polling-idempotency",
+    "NFR-MCPT-003-remote-wait-authority",
+    "NFR-MCPT-004-binding-trace",
+    "AC-MCPT-02-durable-binding",
+    "AC-MCPT-04-polling-and-terminal-control",
+    "AC-MCPT-05-observation-only",
+    "AC-MCPT-13",
+    "AC-MCPT-14-persistence-and-reconciliation"
+  ],
+  "implementation": [
+    "packages/domain/src/remote-task.ts",
+    "packages/domain/src/mcp-task.ts",
+    "packages/application/src/ports.ts",
+    "packages/application/src/remote-task-polling.ts",
+    "packages/application/src/mcp-registry.ts",
+    "packages/persistence-postgres/src/remote-task-repository.ts",
+    "packages/runtime-redis/src/bullmq-remote-task-poll-queue.ts",
+    "packages/runtime-redis/src/bullmq-context-queue.ts",
+    "packages/langgraph-runtime/src/workflow-compiler.ts",
+    "packages/mcp-adapter/src/mcp-tasks-contract.ts",
+    "apps/server/src/runtime.ts",
+    "infra/postgres/migrations/0100_remote_mcp_task_tracking.up.sql",
+    "infra/postgres/migrations/0100_remote_mcp_task_tracking.down.sql",
+    "scripts/verify-v11-migration-path.mjs",
+    "adr/ADR-091-versioned-remote-task-polling.md"
+  ],
+  "tests": [
+    "packages/application/test/remote-task-polling.unit.test.ts",
+    "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+    "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+    "packages/runtime-redis/test/bullmq-remote-task-poll-queue.integration.test.ts",
+    "apps/server/test/remote-task-runtime.integration.test.ts",
+    "scripts/verify-v11-migration-path.mjs"
+  ],
+  "verification": {
+    "focused": [
+      {
+        "command": "pnpm format:check",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm lint",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm typecheck",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm verify:architecture",
+        "status": "passed",
+        "typescriptFiles": 183
+      },
+      {
+        "command": "pnpm test:unit",
+        "status": "passed",
+        "files": 51,
+        "tests": 227
+      },
+      {
+        "command": "pnpm test:contract",
+        "status": "passed",
+        "files": 7,
+        "tests": 65
+      },
+      {
+        "command": "pnpm test:integration",
+        "status": "passed",
+        "files": 4,
+        "tests": 48
+      },
+      {
+        "command": "pnpm verify:migrations",
+        "status": "passed",
+        "paths": [
+          "released-empty",
+          "released-0049",
+          "v11-isolated-empty",
+          "v11-isolated-0056-upgrade",
+          "v11-isolated-rollback-reapply",
+          "default-profile-no-0100",
+          "non-isolated-fail-closed"
+        ]
+      },
+      {
+        "command": "pnpm verify:infra",
+        "status": "passed",
+        "repositoryMigrationPairs": 56,
+        "defaultRuntimeTerminalMigration": "0056_mcp_execution_mode"
+      }
+    ],
+    "unified": {
+      "command": "pnpm verify",
+      "status": "passed",
+      "startedAt": "2026-07-16T00:48:08.959Z",
+      "finishedAt": "2026-07-16T00:50:38.303Z",
+      "durationMs": 149344,
+      "dirty": true,
+      "unitAndContractFiles": 58,
+      "unitAndContractTests": 292,
+      "integrationFiles": 4,
+      "integrationTests": 48,
+      "e2eFiles": 1,
+      "e2eTests": 42,
+      "architectureFiles": 183,
+      "repositoryMigrationPairs": 56,
+      "infrastructureSmoke": "passed",
+      "serverConsoleSmoke": "passed"
+    }
+  },
+  "classification": {
+    "real": [
+      "PostgreSQL/pgvector and Redis/BullMQ ran in local containers for repository, CAS, queue, dead-letter, restart and reconciliation integration tests.",
+      "Migration verification created disposable databases and executed empty, released-upgrade, rollback/reapply and fail-closed paths.",
+      "The MCP adapter metadata contract used the official v2 Client and real loopback Streamable HTTP transport."
+    ],
+    "simulated": [
+      "Provider business states, remote revisions, progress, unreachable behavior and recovery order are deterministic test doubles or loopback Mock Provider behavior.",
+      "No external production MCP Provider, production credentials or production system was used."
+    ],
+    "unverified": [
+      "Phase 3 availability and timing guards.",
+      "Phase 4 Workflow admission, waiting_external continuation, control consumption and process-restart no-replay behavior.",
+      "Phase 5 input/cancellation outcomes and Phase 6 management Console/final acceptance."
+    ]
+  },
+  "limitations": [
+    "Migration 0100 is development-only behind an acknowledged sdar_v11_* database profile until v1.0.13-bug-fixed is merged.",
+    "The Server composes polling and reconciliation, but Workflow remote-task admission remains deliberately disconnected until Phase 4 can durably terminate and continue the graph.",
+    "Ordinary running/evaluating Workflow recovery remains PROCESS_EXECUTION_LOST; Phase 2 does not broaden recovery semantics."
+  ]
+}

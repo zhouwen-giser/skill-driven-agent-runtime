@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { EvolutionExperience } from '../../domain/src/index.js';
+import {
+  DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+  type EvolutionExperience,
+} from '../../domain/src/index.js';
 
 import {
   startManagementHttpEndpoint,
@@ -49,6 +52,83 @@ describe('management HTTP API contract', () => {
     await expect(uses.json()).resolves.toEqual({ items: [] });
   });
 
+  it('projects Task readiness windows without exposing full argument snapshots', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskAvailability: {
+          listByPlan: () =>
+            Promise.resolve([
+              {
+                readiness: {
+                  readinessId: 'readiness-1',
+                  workflowPlanId: 'plan-1',
+                  planAttempt: 1,
+                  checkPhase: 'planning' as const,
+                  dslHash: 'a'.repeat(64),
+                  disposition: 'confirmation_required' as const,
+                  permittedActions: ['request_confirmation' as const],
+                  guardAction: 'request_confirmation' as const,
+                  guardReasonCodes: ['MCP_TASK_RISK_CONFIRMATION_REQUIRED:patrol'],
+                  confirmationRequired: true,
+                  createdAt: '2026-07-16T22:00:00.000Z',
+                },
+                snapshots: [
+                  {
+                    snapshotId: 'snapshot-1',
+                    readinessId: 'readiness-1',
+                    workflowPlanId: 'plan-1',
+                    planAttempt: 1,
+                    checkPhase: 'planning' as const,
+                    nodeId: 'patrol',
+                    serverId: 'provider',
+                    operationName: 'vehicle_patrol',
+                    arguments: {
+                      unresolved: false as const,
+                      value: { credential: 'must-not-leak', route: 'A' },
+                    },
+                    argumentsHash: 'b'.repeat(64),
+                    timing: {
+                      start: { mode: 'immediate' as const, startToleranceMs: 0 },
+                      maxElapsedMs: null,
+                    },
+                    result: {
+                      nodeId: 'patrol',
+                      operationName: 'vehicle_patrol',
+                      availability: 'restricted' as const,
+                      riskLevel: 'high' as const,
+                      validUntil: '2026-07-16T22:10:00.000Z',
+                      earliestStartTime: '2026-07-16T22:02:00.000Z',
+                      nextAvailableWindows: [
+                        {
+                          startTime: '2026-07-16T22:02:00.000Z',
+                          endTime: '2026-07-16T22:12:00.000Z',
+                        },
+                      ],
+                      reservationMode: 'best_effort' as const,
+                      possibleEffects: ['start_rejection' as const],
+                    },
+                    sourceRevision: '2026-07-28/1.0',
+                    checkedAt: '2026-07-16T22:00:00.000Z',
+                    normalizationReasonCodes: [],
+                  },
+                ],
+              },
+            ]),
+        },
+      },
+    });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/workflows/plans/plan-1/task-readiness?phase=planning&limit=10`,
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain('best_effort');
+    expect(body).toContain('2026-07-16T22:10:00.000Z');
+    expect(body).toContain('forecast');
+    expect(body).not.toContain('must-not-leak');
+  });
+
   it('exposes credential-safe MCP management operation evidence', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -76,6 +156,71 @@ describe('management HTTP API contract', () => {
       items: [expect.objectContaining({ operationType: 'credentials_update' })],
     });
     expect(JSON.stringify(payload)).not.toContain('Bearer');
+  });
+
+  it('exposes Tool semantics and validates credential-free administrator overrides', async () => {
+    let captured: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        mcp: {
+          ...operations().mcp,
+          listTools: (serverId) =>
+            Promise.resolve([
+              {
+                serverId,
+                toolName: 'device_status',
+                inputSchema: { type: 'object' },
+                executionSemantics: {
+                  effect: 'read_only',
+                  execution: 'synchronous',
+                  cancellation: 'cooperative',
+                  idempotency: 'client_request_key',
+                  replay: 'allowed',
+                  source: 'mcp_declared',
+                },
+                discoveredAt: '2026-07-16T00:00:00.000Z',
+              },
+            ]),
+          updateToolExecutionSemantics: (serverId, toolName, values) => {
+            captured = { serverId, toolName, values };
+            return Promise.resolve();
+          },
+        },
+      },
+    });
+
+    const tools = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/tools`);
+    const toolsPayload = await tools.json();
+    expect(toolsPayload).toEqual({
+      items: [
+        expect.objectContaining({
+          executionSemantics: expect.objectContaining({ source: 'mcp_declared' }),
+        }),
+      ],
+    });
+    expect(JSON.stringify(toolsPayload)).not.toContain('credential');
+
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/mcp.devices/tools/device_status/execution-semantics`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          effect: 'side_effecting',
+          execution: 'synchronous',
+          cancellation: 'unsupported',
+          idempotency: 'none',
+          replay: 'forbidden',
+        }),
+      },
+    );
+    expect(response.status).toBe(204);
+    expect(captured).toEqual({
+      serverId: 'mcp.devices',
+      toolName: 'device_status',
+      values: expect.objectContaining({ effect: 'side_effecting', replay: 'forbidden' }),
+    });
   });
 
   it('exposes persisted MCP dependency warnings for management display', async () => {
@@ -338,6 +483,45 @@ describe('management HTTP API contract', () => {
         response.json(),
       ),
     ).resolves.toMatchObject({ items: [expect.objectContaining({ valuable: true })] });
+  });
+
+  it('exposes queryable post-terminal enhancement failures without changing authority', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        runtimeTerminalOutcomes: {
+          find: (outcomeId) =>
+            Promise.resolve({
+              outcomeId,
+              kind: 'achieved' as const,
+              taskId: 'task-1',
+              goalId: 'goal-1',
+              goalVersion: 1,
+              controlId: 'control-1',
+              controlStatus: 'achieved' as const,
+              resultId: 'result-1',
+              summary: 'Committed before enhancement.',
+              enhancementWarnings: [
+                {
+                  source: 'result_memory' as const,
+                  code: 'MEMORY_EMBEDDING_INVALID',
+                  message: 'Embedding failed.',
+                  occurredAt: '2026-07-16T00:00:01.000Z',
+                },
+              ],
+              committedAt: '2026-07-16T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/runtime-terminal-outcomes/outcome-1`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      kind: 'achieved',
+      enhancementWarnings: [{ source: 'result_memory', code: 'MEMORY_EMBEDDING_INVALID' }],
+    });
   });
 
   it('exposes the five-component Task quality report', async () => {
@@ -716,7 +900,16 @@ describe('management HTTP API contract', () => {
     const response = await fetch(`${endpoint.baseUrl}/api/v1/skill-selections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goalDescription: 'Inspect a device.' }),
+      body: JSON.stringify({
+        goalContract: {
+          goalId: 'goal-1',
+          version: 1,
+          title: 'Inspect device',
+          description: 'Inspect a device.',
+          constraints: [],
+          successCriteria: ['status returned'],
+        },
+      }),
     });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -902,6 +1095,14 @@ describe('management HTTP API contract', () => {
         planId,
         goalId: 'goal-1',
         goalVersion: 1,
+        goalContract: {
+          goalId: 'goal-1',
+          version: 1,
+          title: 'Manage workflow',
+          description: 'Manage the workflow.',
+          constraints: [],
+          successCriteria: ['done'],
+        },
         confirmationStatus: 'confirmed' as const,
         confirmedAt: '2026-07-12T00:00:01.000Z',
         attemptCount: 1,
@@ -953,6 +1154,67 @@ describe('management HTTP API contract', () => {
       planId: 'plan-1',
       status: 'succeeded',
     });
+  });
+
+  it('requires and forwards one complete Goal contract for standalone Workflow planning', async () => {
+    const configured = operations();
+    const contract = {
+      goalId: 'goal-plan-contract',
+      version: 2,
+      title: 'Plan safely',
+      description: 'Produce a safe Workflow.',
+      constraints: ['read-only'],
+      successCriteria: ['validated Workflow returned'],
+    } as const;
+    let received: Parameters<ManagementOperations['workflows']['plan']>[0] | undefined;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        workflows: {
+          ...configured.workflows,
+          plan: (input) => {
+            received = input;
+            return Promise.resolve({
+              planId: input.planId,
+              goalId: input.goalId,
+              goalVersion: input.goalVersion,
+              goalContract: input.goalContract,
+              confirmationStatus: 'failed' as const,
+              attemptCount: 1,
+              createdAt: '2026-07-12T00:00:00.000Z',
+            });
+          },
+        },
+      },
+    });
+    const body = {
+      planId: 'plan-contract',
+      workflowDefinitionId: 'workflow-contract',
+      workflowVersion: 1,
+      goalId: contract.goalId,
+      goalVersion: contract.version,
+      goalContract: contract,
+      planningInstruction: 'Plan from the complete contract.',
+      compositionRoot: { skillId: 'skill.root.contract', skillVersion: 3 },
+    };
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    expect(response.status).toBe(201);
+    expect(received?.goalContract).toEqual(contract);
+    expect(received?.compositionRoot).toEqual({
+      skillId: 'skill.root.contract',
+      skillVersion: 3,
+    });
+
+    const missing = await fetch(`${endpoint.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, goalContract: undefined }),
+    });
+    expect(missing.status).toBe(400);
   });
 
   it('exposes persisted human-confirmation resume for a paused Workflow instance', async () => {
@@ -1094,8 +1356,10 @@ describe('management HTTP API contract', () => {
                 invocationId: 'mcp-invocation-1',
                 taskId,
                 contextId: 'context-1',
+                executionMode: 'live' as const,
                 serverId: 'server-1',
                 toolName: 'tool-1',
+                executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
                 arguments: {},
                 status: 'succeeded' as const,
                 startedAt: '2026-07-13T00:00:00.000Z',
@@ -1414,6 +1678,14 @@ describe('management HTTP API contract', () => {
               planId: input.newPlanId,
               goalId: 'goal-1',
               goalVersion: 1,
+              goalContract: {
+                goalId: 'goal-1',
+                version: 1,
+                title: 'Revise workflow',
+                description: 'Revise the workflow.',
+                constraints: [],
+                successCriteria: ['valid'],
+              },
               sourcePlanId: input.sourcePlanId,
               revisionKind:
                 input.format === 'dsl' ? ('admin_dsl' as const) : ('admin_dag' as const),
@@ -1464,6 +1736,9 @@ describe('management HTTP API contract', () => {
       sourceRefs: ['task-source'],
       supersedes: [],
       confidence: 0.9,
+      durability: 'durable' as const,
+      authority: 'admin' as const,
+      durabilityReason: 'The operator supplied a stable target identifier.',
       createdAt: '2026-07-12T00:00:00.000Z',
     };
     endpoint = await startManagementHttpEndpoint({
@@ -1564,6 +1839,11 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({
       items: [{ outcome: 'inferred', usedSources: [{ sourceId: 'memory:memory-1' }] }],
     });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/skill-input-resolutions`).then((value) =>
+        value.json(),
+      ),
+    ).resolves.toEqual({ items: [] });
   });
 });
 
@@ -1589,8 +1869,10 @@ function operations(failServerList = false): ManagementOperations {
       listTransitions: () => Promise.resolve([]),
     },
     runtimeEvents: { listByTask: () => Promise.resolve([]) },
+    runtimeTerminalOutcomes: { find: unused },
     memoryRetention: { getPolicy: unused, updatePolicy: unused },
     goalInputInference: { list: () => Promise.resolve([]) },
+    skillInputResolution: { get: unused, list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     workflowTemplates: {
       listTemplates: () => Promise.resolve([]),
@@ -1627,6 +1909,7 @@ function operations(failServerList = false): ManagementOperations {
       refresh: unused,
       register: unused,
       updateToolEnhancement: unused,
+      updateToolExecutionSemantics: unused,
       updateCredentials: unused,
     },
     models: {

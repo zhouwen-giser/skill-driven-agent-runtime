@@ -8,7 +8,9 @@ import type {
   SkillFormalizationCandidate,
   SkillSimulationCaseResult,
   SkillVersion,
+  RuntimeExecutionContext,
 } from '../../domain/src/index.js';
+import { createRuntimeExecutionContext } from '../../domain/src/index.js';
 
 import type {
   Clock,
@@ -95,10 +97,14 @@ export interface SkillSimulationRunner {
         input: Readonly<Record<string, unknown>>;
         expectedOutcome: 'success' | 'failure';
       }>;
+      executionContext: RuntimeExecutionContext;
     }>,
   ): Promise<Readonly<{ passed: boolean; summary: string }>>;
   replay(
-    input: Readonly<{ experience: EvolutionExperience }>,
+    input: Readonly<{
+      experience: EvolutionExperience;
+      executionContext: RuntimeExecutionContext;
+    }>,
   ): Promise<Readonly<{ succeeded: boolean; summary: string }>>;
 }
 
@@ -318,7 +324,13 @@ export class SkillEvolutionService {
       for (const history of await this.#experiences.listByTool(tool))
         histories.set(history.experienceId, history);
     for (const history of histories.values()) {
-      const replay = await this.#runner.replay({ experience: history });
+      const replay = await this.#runner.replay({
+        experience: history,
+        executionContext: createRuntimeExecutionContext({
+          mode: 'historical-replay',
+          simulationId: `skill-evolution:${candidate.candidateId}:historical:${history.experienceId}`,
+        }),
+      });
       cases.push({
         caseId: `historical-${history.experienceId}`,
         kind: 'historical_replay',
@@ -336,7 +348,14 @@ export class SkillEvolutionService {
     )
       throw new Error('SKILL_EVOLUTION_TEST_KINDS_INCOMPLETE');
     for (const case_ of supplementalCases) {
-      const outcome = await this.#runner.run({ proposedSkill, case_ });
+      const outcome = await this.#runner.run({
+        proposedSkill,
+        case_,
+        executionContext: createRuntimeExecutionContext({
+          mode: 'simulation',
+          simulationId: `skill-evolution:${candidate.candidateId}:simulation:${case_.caseId}`,
+        }),
+      });
       cases.push({ ...case_, passed: outcome.passed, summary: outcome.summary });
     }
     const inductionPassed =
