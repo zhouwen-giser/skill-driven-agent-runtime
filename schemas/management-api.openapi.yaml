@@ -141,6 +141,20 @@ paths:
       operationId: listTaskInputInferences
       responses:
         '200': { description: Ordered missing-input decisions and explainable evidence sources }
+  /api/v1/tasks/{taskId}/skill-input-resolutions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskSkillInputResolutions
+      description: Returns immutable top-level Skill input decisions for every resolution attempt on the Task.
+      responses:
+        '200': { description: Ordered structured input, schema status, source references and decision summaries }
+  /api/v1/skill-input-resolutions/{resolutionId}:
+    parameters: [{ name: resolutionId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getSkillInputResolution
+      responses:
+        '200': { description: One immutable top-level Skill input resolution record }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/processed-results/{resultId}:
     parameters: [{ name: resultId, in: path, required: true, schema: { type: string } }]
     get:

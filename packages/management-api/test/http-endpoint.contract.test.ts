@@ -1565,6 +1565,11 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({
       items: [{ outcome: 'inferred', usedSources: [{ sourceId: 'memory:memory-1' }] }],
     });
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/skill-input-resolutions`).then((value) =>
+        value.json(),
+      ),
+    ).resolves.toEqual({ items: [] });
   });
 });
 
@@ -1592,6 +1597,7 @@ function operations(failServerList = false): ManagementOperations {
     runtimeEvents: { listByTask: () => Promise.resolve([]) },
     memoryRetention: { getPolicy: unused, updatePolicy: unused },
     goalInputInference: { list: () => Promise.resolve([]) },
+    skillInputResolution: { get: unused, list: () => Promise.resolve([]) },
     skillQuality: { record: unused, listWarnings: () => Promise.resolve([]) },
     workflowTemplates: {
       listTemplates: () => Promise.resolve([]),

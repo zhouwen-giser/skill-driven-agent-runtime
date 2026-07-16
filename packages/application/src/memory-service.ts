@@ -349,6 +349,12 @@ function stagePolicy(stage: MemoryRetrievalStage): Readonly<{
         types: ['skill_learning', 'success_experience', 'failure_experience'],
         queryTemplate: (subject) => `Skill selection outcomes and lessons for Goal: ${subject}`,
       };
+    case 'skill_input_resolution':
+      return {
+        types: ['fact', 'success_experience', 'failure_experience'],
+        queryTemplate: (subject) =>
+          `Non-authoritative historical evidence for resolving Skill input: ${subject}`,
+      };
     case 'workflow_generation':
       return {
         types: ['workflow_pattern', 'success_experience', 'failure_experience'],

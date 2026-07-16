@@ -26,6 +26,7 @@ import type {
   IdentifierGenerator,
   RuntimeEventPublisher,
   SkillDraftRepository,
+  SkillInputResolutionRepository,
   TaskInputRepository,
 } from './ports.js';
 import type { ResultCandidate, ResultProcessor } from './result-processor.js';
@@ -75,6 +76,7 @@ export interface TaskServiceDependencies {
   readonly events: RuntimeEventPublisher;
   readonly skillDrafts: SkillDraftRepository;
   readonly taskInputs: TaskInputRepository;
+  readonly skillInputs?: Pick<SkillInputResolutionRepository, 'findLatest'>;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
   readonly memories?: Pick<MemoryService, 'recordEvolution'>;
@@ -432,7 +434,7 @@ export class TaskService {
     taskId: string,
     reason: string,
     origin: Readonly<{
-      source: 'goal_deliberation' | 'goal_evaluation' | 'workflow';
+      source: 'goal_deliberation' | 'skill_input_resolution' | 'goal_evaluation' | 'workflow';
       controlId?: string;
       controlRoundIndex?: number;
     }> = { source: 'workflow' },
@@ -495,6 +497,29 @@ export class TaskService {
 
   async executionInput(taskId: string): Promise<unknown> {
     const task = await this.get(taskId);
+    if (task.selectedSkillId !== undefined) {
+      if (
+        task.selectedSkillVersion === undefined ||
+        task.goalVersion === undefined ||
+        this.#dependencies.skillInputs === undefined
+      )
+        throw new TaskApplicationError(
+          'TASK_SKILL_INPUT_NOT_RESOLVED',
+          'Task has no configured top-level Skill input authority.',
+        );
+      const resolution = await this.#dependencies.skillInputs.findLatest(
+        task.taskId,
+        task.selectedSkillId,
+        task.selectedSkillVersion,
+        task.goalVersion,
+      );
+      if (resolution?.status !== 'resolved' || resolution.structuredInput === undefined)
+        throw new TaskApplicationError(
+          'TASK_SKILL_INPUT_NOT_RESOLVED',
+          'Task has no schema-validated top-level Skill input for its current Goal version.',
+        );
+      return resolution.structuredInput;
+    }
     const responses = await this.#dependencies.taskInputs.listResponses(taskId);
     return {
       requestText: task.requestText,
@@ -731,6 +756,7 @@ export class TaskService {
 export type TaskApplicationErrorCode =
   | 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID'
   | 'TASK_NOT_FOUND'
+  | 'TASK_SKILL_INPUT_NOT_RESOLVED'
   | 'TASK_INPUT_NOT_PENDING'
   | 'TASK_INPUT_TASK_MISMATCH'
   | 'TASK_INPUT_ALREADY_RESOLVED'

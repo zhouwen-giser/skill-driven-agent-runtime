@@ -24,6 +24,7 @@ import type {
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillInputResolutionRecord,
   SkillQualityObservation,
   SkillQualityWarning,
   SkillQualityWarningKind,
@@ -294,6 +295,23 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillInputResolutionRepository {
+  save(record: SkillInputResolutionRecord): Promise<void>;
+  find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined>;
+  findLatest(
+    taskId: string,
+    skillId: string,
+    skillVersion: number,
+    goalVersion: number,
+  ): Promise<SkillInputResolutionRecord | undefined>;
+  listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]>;
+  listProcessedDataByContext(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<readonly Readonly<{ sourceRef: string; value: unknown }>[]>;
 }
 
 export interface SkillQualityRepository {

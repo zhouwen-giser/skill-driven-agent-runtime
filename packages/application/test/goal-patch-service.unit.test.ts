@@ -67,6 +67,7 @@ describe('GoalPatchService', () => {
   it('invalidates first, records compensation risk, and always replans awaiting confirmation', async () => {
     let persisted: GoalPatchRecord | undefined;
     const planning: PlanWorkflowInput[] = [];
+    const reparsedGoalVersions: number[] = [];
     const service = new GoalPatchService({
       goals: {
         findById: () => Promise.resolve(goal),
@@ -120,6 +121,18 @@ describe('GoalPatchService', () => {
       },
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
       ids: { nextPatchId: () => 'patch-1', nextPlanId: () => 'plan-2' },
+      beforeReplan: {
+        prepare: ({ goal: patchedGoal }) => {
+          reparsedGoalVersions.push(patchedGoal.version);
+          return Promise.resolve({
+            status: 'ready' as const,
+            planningContext: {
+              resolutionId: 'skill-input-resolution-patch-1',
+              structuredInput: { deviceId: 'device-1' },
+            },
+          });
+        },
+      },
     });
 
     await expect(
@@ -143,7 +156,9 @@ describe('GoalPatchService', () => {
       revisionKind: 'replan',
     });
     expect(JSON.stringify(planning[0])).toContain('always_require_confirmation');
+    expect(JSON.stringify(planning[0])).toContain('skill-input-resolution-patch-1');
     expect(JSON.stringify(planning[0])).toContain('Restore the prior calibration value.');
+    expect(reparsedGoalVersions).toEqual([2]);
   });
 });
 

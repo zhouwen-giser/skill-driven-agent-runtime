@@ -59,6 +59,10 @@ describe('Workflow outer controller', () => {
       2,
       expect.objectContaining({ planId: 'plan-control-1-1', replanCount: 1 }),
     );
+    expect(fixture.execution.execute.mock.calls.map(([request]) => request.input)).toEqual([
+      { request: 'run' },
+      { request: 'run' },
+    ]);
     expect(fixture.controls.rounds.map((round) => round.workflowVersion)).toEqual([1, 2]);
     expect(fixture.goals.goal.status).toBe('achieved');
   });
@@ -467,10 +471,11 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
       return next;
     }),
   };
-  const execute = vi.fn((request: { instanceId: string; planId: string; replanCount?: number }) =>
-    Promise.resolve(
-      instance(request.instanceId, request.planId, request.replanCount ?? 0, input.maxReplans),
-    ),
+  const execute = vi.fn(
+    (request: { instanceId: string; planId: string; input: unknown; replanCount?: number }) =>
+      Promise.resolve(
+        instance(request.instanceId, request.planId, request.replanCount ?? 0, input.maxReplans),
+      ),
   );
   const get = vi.fn<(instanceId: string) => Promise<WorkflowInstance | undefined>>(() =>
     Promise.resolve(undefined),

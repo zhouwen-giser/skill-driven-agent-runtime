@@ -6,6 +6,7 @@ import {
   type AgentTask,
   type ConversationContext,
   type SkillDraft,
+  type SkillInputResolutionRecord,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
@@ -39,6 +40,39 @@ describe('TaskService', () => {
         createdAt: timestamp,
       }),
     ).toThrow(expect.objectContaining({ code: 'TASK_INPUT_CONTROL_ROUND_INVALID' }));
+  });
+  it('uses the current resolved formal Skill input as the immutable Workflow input', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submit({
+      messageText: 'Inspect device-from-text.',
+      metadata: { structured_input: { deviceId: 'device-22' } },
+    });
+    harness.tasks.set(submitted.task.taskId, {
+      ...submitted.task,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      selectedSkillId: 'skill.inspect',
+      selectedSkillVersion: 3,
+      skillSelectionId: 'selection-1',
+    });
+    harness.skillInputResolutions.set(submitted.task.taskId, {
+      resolutionId: 'resolution-1',
+      taskId: submitted.task.taskId,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      skillId: 'skill.inspect',
+      skillVersion: 3,
+      structuredInput: { deviceId: 'device-22' },
+      unresolvedFields: [],
+      sourceRefs: ['a2a-metadata:structured_input'],
+      decisionSummary: 'Resolved.',
+      status: 'resolved',
+      createdAt: timestamp,
+    });
+
+    await expect(harness.service.executionInput(submitted.task.taskId)).resolves.toEqual({
+      deviceId: 'device-22',
+    });
   });
   it('creates default anonymous/context values, persists first, then enqueues by context', async () => {
     const harness = createHarness();
@@ -624,6 +658,7 @@ function createHarness(
   inputRequests: Map<string, TaskInputRequest>;
   inputResponses: Map<string, TaskInputResponse>;
   attempts: Map<string, TaskExecutionAttempt>;
+  skillInputResolutions: Map<string, SkillInputResolutionRecord>;
   queue: ContextTaskQueue;
 }> {
   const contexts = new Map<string, ConversationContext>();
@@ -633,6 +668,7 @@ function createHarness(
   const inputRequests = new Map<string, TaskInputRequest>();
   const inputResponses = new Map<string, TaskInputResponse>();
   const attempts = new Map<string, TaskExecutionAttempt>();
+  const skillInputResolutions = new Map<string, SkillInputResolutionRecord>();
   const operations: string[] = [];
   const contextRepository: ConversationContextRepository = {
     findById: (contextId) => Promise.resolve(contexts.get(contextId)),
@@ -762,6 +798,18 @@ function createHarness(
       events: publisher,
       skillDrafts,
       taskInputs,
+      skillInputs: {
+        findLatest: (taskId, skillId, skillVersion, goalVersion) => {
+          const record = skillInputResolutions.get(taskId);
+          return Promise.resolve(
+            record?.skillId === skillId &&
+              record.skillVersion === skillVersion &&
+              record.goalVersion === goalVersion
+              ? record
+              : undefined,
+          );
+        },
+      },
       clock: { now: () => timestamp },
       ids,
       planActions: {
@@ -812,6 +860,7 @@ function createHarness(
     inputRequests,
     inputResponses,
     attempts,
+    skillInputResolutions,
     queue,
   };
 }

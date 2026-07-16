@@ -31,6 +31,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillInputResolutionRepository,
   PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
@@ -64,9 +65,23 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const terminalOutcome = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
+    );
+    if (terminalOutcome.rows[0]?.applied === true) {
+      const forward = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(forward);
+      return;
+    }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
     );
@@ -79,6 +94,14 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(forward);
+      const skillInputResolution = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(skillInputResolution);
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -101,6 +124,14 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(terminalOutcome);
+      const skillInputResolution = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(skillInputResolution);
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -112,6 +143,7 @@ beforeAll(async () => {
         '0056_mcp_execution_mode.up.sql',
         '0057_nested_skill_confirmation.up.sql',
         '0058_runtime_terminal_outcome.up.sql',
+        '0059_skill_input_resolution.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -458,6 +490,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(runtimeTerminalOutcomeMigration);
+  const skillInputResolutionMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(skillInputResolutionMigration);
 });
 
 beforeEach(async () => {
@@ -467,7 +507,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -2479,6 +2519,141 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(persisted.rows[0]?.status).toBe('awaiting_confirmation');
   });
 
+  it('persists immutable top-level Skill input decisions and context result evidence', async () => {
+    const timestamp = '2026-07-16T01:00:00.000Z';
+    const contexts = new PostgresConversationContextRepository(pool);
+    await contexts.save({
+      contextId: 'context.skill-input.db',
+      userId: 'operator',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    const goals = new PostgresGoalRepository(pool);
+    await goals.save({
+      goalId: 'goal.skill-input.db',
+      contextId: 'context.skill-input.db',
+      version: 1,
+      title: 'Inspect device',
+      description: 'Inspect one device.',
+      constraints: [],
+      successCriteria: ['Return status'],
+      status: 'active',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    const skills = new PostgresSkillRepository(pool);
+    const skill = createSkillVersion({
+      skillId: 'skill.input.db',
+      version: 1,
+      name: 'Input Skill',
+      summary: 'Read a device.',
+      description: 'Read a device by ID.',
+      capabilities: ['device-status'],
+      workflowGuidance: 'Read once.',
+      outputInstruction: 'Return status.',
+      inputSchema: {
+        type: 'object',
+        required: ['deviceId'],
+        properties: { deviceId: { type: 'string' } },
+      },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: timestamp,
+    });
+    await skills.saveVersionAndSetCurrent(skill, timestamp);
+    const tasks = new PostgresAgentTaskRepository(pool);
+    const currentTask = createAgentTask({
+      taskId: 'task.skill-input.db',
+      contextId: 'context.skill-input.db',
+      userId: 'operator',
+      requestText: 'Inspect the device.',
+      requestMetadata: {},
+      timestamp,
+    });
+    await tasks.save(currentTask);
+    await tasks.save({
+      ...createAgentTask({
+        taskId: 'task.skill-input.prior.db',
+        contextId: 'context.skill-input.db',
+        userId: 'operator',
+        requestText: 'Prior task.',
+        requestMetadata: {},
+        timestamp,
+      }),
+      phase: 'completed',
+      phaseMessage: 'Completed.',
+      output: { text: 'Online.', structured: { deviceId: 'device-prior' } },
+    });
+    await new PostgresProcessedResultRepository(pool).save({
+      resultId: 'processed-result.skill-input.prior.db',
+      taskId: 'task.skill-input.prior.db',
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      normalized: {
+        data: { deviceId: 'device-prior' },
+        errors: [],
+        originalSize: 27,
+        contextValue: { deviceId: 'device-prior' },
+        contextTruncated: false,
+        summary: 'Prior device result.',
+      },
+      output: { text: 'Online.', structured: { deviceId: 'device-prior' } },
+      facts: [],
+      valuable: true,
+      valueSummary: 'Useful prior result.',
+      memoryCandidates: [],
+      createdAt: '2026-07-16T01:00:01.000Z',
+    });
+
+    const repository = new PostgresSkillInputResolutionRepository(pool);
+    await repository.save({
+      resolutionId: 'skill-input-resolution.db.1',
+      taskId: currentTask.taskId,
+      goalId: 'goal.skill-input.db',
+      goalVersion: 1,
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      structuredInput: {},
+      unresolvedFields: ['deviceId'],
+      sourceRefs: ['task:task.skill-input.db:request-text'],
+      decisionSummary: 'Device ID is missing.',
+      status: 'input_required',
+      createdAt: '2026-07-16T01:00:02.000Z',
+    });
+    const resolved = {
+      resolutionId: 'skill-input-resolution.db.2',
+      taskId: currentTask.taskId,
+      goalId: 'goal.skill-input.db',
+      goalVersion: 1,
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      structuredInput: { deviceId: 'device-22' },
+      unresolvedFields: [],
+      sourceRefs: ['task-input-response:response.db.1'],
+      decisionSummary: 'Supplementary input supplied device-22.',
+      status: 'resolved' as const,
+      createdAt: '2026-07-16T01:00:03.000Z',
+    };
+    await repository.save(resolved);
+
+    await expect(
+      repository.findLatest(currentTask.taskId, skill.skillId, skill.version, 1),
+    ).resolves.toEqual(resolved);
+    await expect(repository.listByTask(currentTask.taskId)).resolves.toHaveLength(2);
+    await expect(
+      repository.listProcessedDataByContext(currentTask.contextId, currentTask.taskId, 5),
+    ).resolves.toEqual([
+      {
+        sourceRef: 'processed-result:processed-result.skill-input.prior.db',
+        value: { deviceId: 'device-prior' },
+      },
+    ]);
+  });
+
   it('persists and deletes typed Skill graph relations with metadata', async () => {
     const skills = new PostgresSkillRepository(pool);
     for (const skillId of ['skill.graph.a', 'skill.graph.b']) {
@@ -3597,6 +3772,48 @@ describe('PostgreSQL protocol-domain repositories', () => {
               AND column_name='terminal_outcome_id')`,
     );
     expect(restored.rows[0]?.count).toBe('3');
+  });
+
+  it('rolls back and reapplies the top-level Skill input resolution schema', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0059_skill_input_resolution.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ exists: boolean }>(
+        "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
+      );
+      expect(removed.rows[0]?.exists).toBe(false);
+      const stageConstraint = await pool.query<{ definition: string }>(
+        `SELECT pg_get_constraintdef(oid) definition FROM pg_constraint
+         WHERE conrelid='stage_model_route'::regclass
+           AND conname='stage_model_route_stage_check'`,
+      );
+      expect(stageConstraint.rows[0]?.definition).not.toContain('skill_input_resolution');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ exists: boolean }>(
+      "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
+    );
+    expect(restored.rows[0]?.exists).toBe(true);
+    const sources = await pool.query<{ definition: string }>(
+      `SELECT pg_get_constraintdef(oid) definition FROM pg_constraint
+       WHERE conrelid='task_input_request'::regclass
+         AND conname='task_input_request_source_check'`,
+    );
+    expect(sources.rows[0]?.definition).toContain('skill_input_resolution');
   });
 
   it('rolls back and reapplies MCP execution-mode audit columns', async () => {

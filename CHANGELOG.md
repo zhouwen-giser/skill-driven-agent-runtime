@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-07-16
+
+### Added
+
+- Domain-owned immutable `SkillInputResolutionRecord` evidence tied to exact Task, Goal version and enabled Skill version.
+- Fixed `skill_input_resolution` model stage with structured response validation, Provider/Prompt routing, invocation audit and Console configuration.
+- Migration 0059 for resolution history and the durable `skill_input_resolution` Task input-request source.
+- Management API and Console evidence links for Task-scoped and individual input-resolution records.
+
+### Changed
+
+- Formal top-level Skills now resolve and validate their `inputSchema` after selection and before planning.
+- Missing or invalid required input uses the v1.0.3 same-Task continuation path; supplementary answers create a new immutable resolution.
+- The schema-valid structured value becomes Workflow initial input, while raw request text remains auxiliary Task evidence.
+- Ordinary replans retain the fixed structured value, and Goal Patch re-resolves against the new Goal version.
+
+### Verification
+
+- Unit, management contract, real PostgreSQL migration/history and real A2A/MCP E2E cover metadata, text, missing input, continuation, illegal types, source conflict, Goal Patch, child validation and structured MCP binding.
+
 ## [1.0.6] - 2026-07-16
 
 ### Added

@@ -52,6 +52,16 @@ export class GoalPatchService {
   readonly #model: StructuredModelProvider;
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextPatchId(): string; nextPlanId(): string }>;
+  readonly #beforeReplan:
+    | Readonly<{
+        prepare(
+          input: Readonly<{ goal: Goal; taskId: string }>,
+        ): Promise<
+          | Readonly<{ status: 'ready'; planningContext?: unknown }>
+          | Readonly<{ status: 'input_required' }>
+        >;
+      }>
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -63,6 +73,14 @@ export class GoalPatchService {
       model: StructuredModelProvider;
       clock: Clock;
       ids: Readonly<{ nextPatchId(): string; nextPlanId(): string }>;
+      beforeReplan?: Readonly<{
+        prepare(
+          input: Readonly<{ goal: Goal; taskId: string }>,
+        ): Promise<
+          | Readonly<{ status: 'ready'; planningContext?: unknown }>
+          | Readonly<{ status: 'input_required' }>
+        >;
+      }>;
     }>,
   ) {
     this.#goals = dependencies.goals;
@@ -73,6 +91,7 @@ export class GoalPatchService {
     this.#model = dependencies.model;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#beforeReplan = dependencies.beforeReplan;
   }
 
   async apply(
@@ -126,6 +145,11 @@ export class GoalPatchService {
       createdAt: timestamp,
     };
     const patch = await this.#patches.apply(baseRecord, input.taskId);
+    const readiness =
+      input.taskId === undefined || this.#beforeReplan === undefined
+        ? ({ status: 'ready' } as const)
+        : await this.#beforeReplan.prepare({ goal: afterGoal, taskId: input.taskId });
+    if (readiness.status === 'input_required') return patch;
     await this.#planner.plan({
       planId: newPlanId,
       workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
@@ -142,6 +166,9 @@ export class GoalPatchService {
           goalVersion: afterGoal.version,
         },
         compensationGuidance: compensation.guidance,
+        ...(readiness.planningContext === undefined
+          ? {}
+          : { skillInputResolution: readiness.planningContext }),
         confirmationPolicy: 'always_require_confirmation',
       }),
       sourcePlanId: sourcePlan.planId,

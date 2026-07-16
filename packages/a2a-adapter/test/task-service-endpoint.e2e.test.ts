@@ -147,6 +147,7 @@ beforeAll(async () => {
     'goal',
     'tool_enhancement',
     'skill_selection',
+    'skill_input_resolution',
     'execution_decision',
     'result_processing',
     'evaluation',
@@ -1472,6 +1473,169 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it('binds prioritized A2A structured Skill input into real MCP arguments', async () => {
+    const mockMcp = await startMcpLoopbackServer();
+    const serverId = `mcp.top-level-input.${randomUUID()}`;
+    const skillId = `skill.top-level-input.${randomUUID()}`;
+    try {
+      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Top-level input MCP',
+          endpoint: mockMcp.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registration.status).toBe(201);
+      await runtime.registerSkill({
+        ...skillInput(skillId, 'Top-level input Skill'),
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['deviceId'],
+          properties: { deviceId: { type: 'string', minLength: 1 } },
+        },
+        toolPolicy: {
+          required: [{ serverId, toolName: 'device_status' }],
+          optional: [],
+          forbidden: [],
+        },
+      });
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `Inspect device-from-text with GLOBAL_SHARED_SKILL:${skillId} TOP_LEVEL_INPUT_MCP:${serverId}/device_status`,
+                mediaType: 'text/plain',
+              },
+            ],
+            metadata: {
+              structured_input: { deviceId: 'device-from-metadata' },
+            },
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      const resolutions = z
+        .object({
+          items: z.array(
+            z.object({
+              resolutionId: z.string(),
+              status: z.string(),
+              structuredInput: z.unknown().optional(),
+              sourceRefs: z.array(z.string()),
+            }),
+          ),
+        })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+            )
+          ).json(),
+        );
+      expect(resolutions.items).toContainEqual(
+        expect.objectContaining({
+          status: 'resolved',
+          structuredInput: { deviceId: 'device-from-metadata' },
+          sourceRefs: expect.arrayContaining(['a2a-metadata:structured_input']),
+        }),
+      );
+
+      await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the schema-validated plan.',
+      );
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([
+        expect.objectContaining({
+          taskId: submitted.id,
+          toolName: 'device_status',
+          arguments: { deviceId: 'device-from-metadata' },
+          status: 'succeeded',
+        }),
+      ]);
+    } finally {
+      await runtime.deleteMcpServer(serverId);
+    }
+  });
+
+  it('continues the same Task after a top-level Skill input-required checkpoint', async () => {
+    const skillId = `skill.top-level-missing.${randomUUID()}`;
+    await runtime.registerSkill({
+      ...skillInput(skillId, 'Top-level missing input Skill'),
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['deviceId'],
+        properties: { deviceId: { type: 'string', minLength: 1 } },
+      },
+    });
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [
+            {
+              text: `TOP_LEVEL_INPUT_MISSING GLOBAL_SHARED_SKILL:${skillId}`,
+              mediaType: 'text/plain',
+            },
+          ],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_user_input',
+      phaseMessage: 'Additional Skill input is required for: deviceId.',
+    });
+
+    await sendFollowUp(submitted.id, submitted.contextId, 'provide_input', 'device-from-follow-up');
+    await waitForInternalTaskPhase(submitted.id, 'awaiting_plan_confirmation');
+    const evidence = z
+      .object({
+        items: z.array(
+          z.object({
+            status: z.enum(['resolved', 'input_required', 'failed']),
+            structuredInput: z.unknown().optional(),
+            unresolvedFields: z.array(z.string()),
+          }),
+        ),
+      })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+          )
+        ).json(),
+      );
+    expect(evidence.items).toMatchObject([
+      { status: 'input_required', unresolvedFields: ['deviceId'] },
+      {
+        status: 'resolved',
+        structuredInput: { deviceId: 'device-from-follow-up' },
+        unresolvedFields: [],
+      },
+    ]);
+  });
+
   it('rejects a generated Task plan when the selected Skill required Tool is missing', async () => {
     const skillId = `skill.required-tool.${randomUUID()}`;
     const serverId = `mcp.required-missing.${randomUUID()}`;
@@ -2403,6 +2567,26 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       ).then((response) => response.json() as Promise<Record<string, unknown>>);
       expect(patchedTask).toMatchObject({ phase: 'planning', goalVersion: 2 });
       expect(patchedTask).not.toHaveProperty('planId');
+      const inputResolutions = z
+        .object({
+          items: z.array(
+            z.object({
+              goalVersion: z.number(),
+              status: z.string(),
+              resolutionId: z.string(),
+            }),
+          ),
+        })
+        .parse(
+          await (
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+            )
+          ).json(),
+        );
+      expect(inputResolutions.items).toContainEqual(
+        expect.objectContaining({ goalVersion: 2, status: 'resolved' }),
+      );
       const blocked = await fetch(
         `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(patch.newPlanId)}/execute`,
         {
@@ -3566,7 +3750,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       goalVersion: 1,
       phase: 'awaiting_plan_confirmation',
     });
-    for (const stage of ['intent', 'goal', 'skill_selection'] as const) {
+    for (const stage of ['intent', 'goal', 'skill_selection', 'skill_input_resolution'] as const) {
       const invocations = z
         .object({ items: z.array(z.object({ stage: z.string(), status: z.string() })) })
         .parse(
@@ -4479,6 +4663,9 @@ async function startModelLoopback(): Promise<Server> {
         const skillSelectionRequest = body.messages?.some(
           (message) => message.content?.includes('select_skill') === true,
         );
+        const skillInputResolutionRequest = body.messages?.some(
+          (message) => message.content?.includes('resolve_top_level_skill_input') === true,
+        );
         const exceptionDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('decide_execution_exception') === true,
         );
@@ -4767,6 +4954,9 @@ async function startModelLoopback(): Promise<Server> {
           const nestedConfirmationSkill = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
             requestData.requestText,
           )?.[1];
+          const topLevelInputMcp = /TOP_LEVEL_INPUT_MCP:([^/\s]+)\/([^\s]+)/u.exec(
+            requestData.requestText,
+          );
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
             (requestData.requestText.includes('unknown target') &&
@@ -4783,7 +4973,7 @@ async function startModelLoopback(): Promise<Server> {
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined
-                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}`
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
                     : capabilityGapGoal
                       ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                       : controlGoal
@@ -4917,6 +5107,77 @@ async function startModelLoopback(): Promise<Server> {
               successCriteria: ['Return status and temperature.'],
             },
             decisionSummary: 'Added temperature to the active Goal.',
+          });
+          return;
+        }
+        if (skillInputResolutionRequest === true) {
+          const requestData = z
+            .object({
+              skill: z.object({ inputSchema: z.unknown() }),
+              sources: z.array(
+                z.object({
+                  sourceRef: z.string(),
+                  kind: z.string(),
+                  value: z.unknown(),
+                }),
+              ),
+            })
+            .parse(embeddedOperation(body.messages, 'resolve_top_level_skill_input'));
+          const explicit = requestData.sources.find(
+            (source) => source.kind === 'a2a_metadata_structured_input',
+          );
+          const supplementary = [...requestData.sources]
+            .reverse()
+            .find((source) => source.kind === 'supplementary_input');
+          const requestText = requestData.sources.find(
+            (source) => source.kind === 'task_request_text',
+          );
+          const required =
+            typeof requestData.skill.inputSchema === 'object' &&
+            requestData.skill.inputSchema !== null &&
+            !Array.isArray(requestData.skill.inputSchema) &&
+            Array.isArray(
+              (requestData.skill.inputSchema as Readonly<Record<string, unknown>>)['required'],
+            )
+              ? (
+                  (requestData.skill.inputSchema as Readonly<Record<string, unknown>>)[
+                    'required'
+                  ] as readonly unknown[]
+                ).filter((field): field is string => typeof field === 'string')
+              : [];
+          const missingMarker =
+            typeof requestText?.value === 'string' &&
+            requestText.value.includes('TOP_LEVEL_INPUT_MISSING');
+          const supplementalDeviceId =
+            typeof supplementary?.value === 'string' && supplementary.value.trim() !== ''
+              ? supplementary.value.trim()
+              : undefined;
+          const explicitValue = explicit?.value;
+          const structuredInput =
+            typeof explicitValue === 'object' &&
+            explicitValue !== null &&
+            !Array.isArray(explicitValue)
+              ? explicitValue
+              : required.includes('deviceId')
+                ? supplementalDeviceId === undefined && missingMarker
+                  ? {}
+                  : { deviceId: supplementalDeviceId ?? 'device-top-level' }
+                : {};
+          const unresolvedFields =
+            required.includes('deviceId') && !('deviceId' in structuredInput) ? ['deviceId'] : [];
+          respondStructured(response, {
+            structuredInput,
+            unresolvedFields,
+            sourceRefs: [
+              explicit?.sourceRef ??
+                supplementary?.sourceRef ??
+                requestText?.sourceRef ??
+                'task:unknown:request-text',
+            ],
+            decisionSummary:
+              unresolvedFields.length === 0
+                ? 'Resolved top-level Skill input by the declared priority.'
+                : 'The required deviceId is not available from current evidence.',
           });
           return;
         }
@@ -5110,6 +5371,7 @@ async function startModelLoopback(): Promise<Server> {
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
           const temporaryTool = requestData.selectedTemporarySkill?.tools[0];
           const historicalTool = requestData.selectedSkill?.toolPolicy.required[0];
+          const topLevelInputMcp = requestData.goalDescription.includes('TOP_LEVEL_INPUT_MCP:');
           const historicalSuccess = requestData.goalDescription.includes(
             'HISTORICAL_REPLAY_SUCCESS',
           );
@@ -5127,14 +5389,14 @@ async function startModelLoopback(): Promise<Server> {
             entryNodeId:
               failPrimary || historicalFailure
                 ? 'execute'
-                : temporaryTool !== undefined || historicalSuccess
+                : temporaryTool !== undefined || historicalSuccess || topLevelInputMcp
                   ? 'tool'
                   : nestedConfirmationSkillId !== undefined
                     ? 'child'
                     : 'result',
             exitNodeIds: ['result'],
             nodes:
-              historical && historicalTool !== undefined
+              (historical || topLevelInputMcp) && historicalTool !== undefined
                 ? [
                     ...(historicalFailure
                       ? [
@@ -5149,10 +5411,14 @@ async function startModelLoopback(): Promise<Server> {
                       : []),
                     {
                       nodeId: 'tool',
-                      name: 'Historical device call',
+                      name: topLevelInputMcp
+                        ? 'Top-level resolved device call'
+                        : 'Historical device call',
                       type: 'mcp_tool',
                       tool: historicalTool,
-                      arguments: { deviceId: 'device-history' },
+                      arguments: topLevelInputMcp
+                        ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                        : { deviceId: 'device-history' },
                     },
                     {
                       nodeId: 'result',
@@ -5224,20 +5490,21 @@ async function startModelLoopback(): Promise<Server> {
                             value: { op: 'literal', value: 'online' },
                           },
                         ],
-            edges: historical
-              ? historicalFailure
-                ? [
-                    { sourceNodeId: 'execute', targetNodeId: 'tool' },
-                    { sourceNodeId: 'tool', targetNodeId: 'result' },
-                  ]
-                : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-              : temporaryTool !== undefined
-                ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                : nestedConfirmationSkillId !== undefined
-                  ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
-                  : failPrimary
-                    ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
-                    : [],
+            edges:
+              historical || topLevelInputMcp
+                ? historicalFailure
+                  ? [
+                      { sourceNodeId: 'execute', targetNodeId: 'tool' },
+                      { sourceNodeId: 'tool', targetNodeId: 'result' },
+                    ]
+                  : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                : temporaryTool !== undefined
+                  ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                  : nestedConfirmationSkillId !== undefined
+                    ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
+                    : failPrimary
+                      ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                      : [],
           });
           return;
         }

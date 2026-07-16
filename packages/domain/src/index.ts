@@ -13,6 +13,7 @@ export * from './skill-draft.js';
 export * from './skill.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
+export * from './skill-input-resolution.js';
 export * from './skill-quality.js';
 export * from './skill-call-workflow.js';
 export * from './temporary-skill.js';

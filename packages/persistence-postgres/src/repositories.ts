@@ -34,6 +34,7 @@ import type {
   SkillGraphRepository,
   SkillEmbeddingRepository,
   SkillSelectionRepository,
+  SkillInputResolutionRepository,
   SkillQualityRepository,
   TemporarySkillRepository,
   SkillRepository,
@@ -104,6 +105,7 @@ import type {
   SkillQualityWarning,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillInputResolutionRecord,
   SkillFormalizationCandidate,
   SkillEvolutionCorrectionExperience,
   SkillInductionReport,
@@ -1167,6 +1169,126 @@ export class PostgresProcessedResultRepository implements ProcessedResultReposit
     );
     return result.rows.map(mapProcessedResultRow);
   }
+}
+
+interface SkillInputResolutionRow extends QueryResultRow {
+  resolution_id: string;
+  task_id: string;
+  goal_id: string;
+  goal_version: number;
+  skill_id: string;
+  skill_version: number;
+  structured_input_json: unknown;
+  unresolved_fields_json: unknown;
+  source_refs_json: unknown;
+  decision_summary: string;
+  status: SkillInputResolutionRecord['status'];
+  created_at: Date | string;
+}
+
+export class PostgresSkillInputResolutionRepository implements SkillInputResolutionRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async save(record: SkillInputResolutionRecord): Promise<void> {
+    await this.#pool.query(
+      `INSERT INTO skill_input_resolution(
+         resolution_id,task_id,goal_id,goal_version,skill_id,skill_version,
+         structured_input_json,unresolved_fields_json,source_refs_json,
+         decision_summary,status,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12)`,
+      [
+        record.resolutionId,
+        record.taskId,
+        record.goalId,
+        record.goalVersion,
+        record.skillId,
+        record.skillVersion,
+        record.structuredInput === undefined ? null : JSON.stringify(record.structuredInput),
+        JSON.stringify(record.unresolvedFields),
+        JSON.stringify(record.sourceRefs),
+        record.decisionSummary,
+        record.status,
+        record.createdAt,
+      ],
+    );
+  }
+
+  async find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      'SELECT * FROM skill_input_resolution WHERE resolution_id=$1',
+      [resolutionId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
+  }
+
+  async findLatest(
+    taskId: string,
+    skillId: string,
+    skillVersion: number,
+    goalVersion: number,
+  ): Promise<SkillInputResolutionRecord | undefined> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      `SELECT * FROM skill_input_resolution
+       WHERE task_id=$1 AND skill_id=$2 AND skill_version=$3 AND goal_version=$4
+       ORDER BY created_at DESC,resolution_id DESC LIMIT 1`,
+      [taskId, skillId, skillVersion, goalVersion],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
+  }
+
+  async listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]> {
+    const result = await this.#pool.query<SkillInputResolutionRow>(
+      `SELECT * FROM skill_input_resolution
+       WHERE task_id=$1 ORDER BY created_at,resolution_id`,
+      [taskId],
+    );
+    return result.rows.map(mapSkillInputResolutionRow);
+  }
+
+  async listProcessedDataByContext(
+    contextId: string,
+    excludeTaskId: string,
+    limit: number,
+  ): Promise<readonly Readonly<{ sourceRef: string; value: unknown }>[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+      throw new Error('SKILL_INPUT_CONTEXT_EVIDENCE_LIMIT_INVALID');
+    const result = await this.#pool.query<{
+      result_id: string;
+      context_value: unknown;
+    }>(
+      `SELECT r.result_id,r.normalized_json->'contextValue' context_value
+       FROM processed_result r
+       JOIN agent_task t ON t.task_id=r.task_id
+       WHERE t.context_id=$1 AND t.task_id<>$2 AND t.phase='completed'
+       ORDER BY r.created_at DESC,r.result_id DESC LIMIT $3`,
+      [contextId, excludeTaskId, limit],
+    );
+    return result.rows.map((row) => ({
+      sourceRef: `processed-result:${row.result_id}`,
+      value: row.context_value,
+    }));
+  }
+}
+
+function mapSkillInputResolutionRow(row: SkillInputResolutionRow): SkillInputResolutionRecord {
+  return {
+    resolutionId: row.resolution_id,
+    taskId: row.task_id,
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    ...(row.status === 'failed' ? {} : { structuredInput: row.structured_input_json }),
+    unresolvedFields: StringArraySchema.parse(row.unresolved_fields_json),
+    sourceRefs: StringArraySchema.parse(row.source_refs_json),
+    decisionSummary: row.decision_summary,
+    status: row.status,
+    createdAt: toIsoString(row.created_at),
+  };
 }
 
 interface RuntimeTerminalOutcomeRow extends QueryResultRow {

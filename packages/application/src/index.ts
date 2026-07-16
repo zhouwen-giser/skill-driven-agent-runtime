@@ -5,6 +5,7 @@ export * from './runtime-recovery.js';
 export * from './skill-registry.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
+export * from './skill-input-resolution.js';
 export * from './skill-quality.js';
 export * from './skill-call-workflow.js';
 export * from './skill-confirmation.js';

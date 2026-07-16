@@ -84,7 +84,8 @@ Invariants for every increment:
 - [x] 2026-07-16 10:28 v1.0.5 feature commit `6decc5d` and annotated `v1.0.5` tag published after ADR-076, migration 0057, 229 unit, 58 contract, 43 integration, 43 E2E, architecture, build and migration paths passed.
 - [x] 2026-07-16 11:12 v1.0.5 bug-fixed commit `8d82427` and annotated `v1.0.5-bug-fixed` published after 238 unit, 58 contract, 43 integration, 43 E2E and the complete operator-managed gate passed.
 - [x] 2026-07-16 12:05 v1.0.6 feature commit `4df20a9` and annotated `v1.0.6` published after 242 unit, 58 contract, 52 integration, 44 E2E, 175-source architecture, build and migrations passed.
-- [ ] 2026-07-16 12:26 v1.0.6 bug-fixed audit hardens same-status terminal immutability, Round/plan/instance identity, atomic waiting-input cleanup and Goal-wide Control outcomes. Complete operator-managed `pnpm verify` passes in 82,005 ms; publish the exact bug-fixed commit/tag after evidence reconciliation.
+- [x] 2026-07-16 12:26 v1.0.6 bug-fixed commit `967d555` and annotated `v1.0.6-bug-fixed` published after the complete operator-managed `pnpm verify` passed in 82,005 ms.
+- [ ] 2026-07-16 v1.0.7 feature implements ADR-078, migration 0059, the fixed input-resolution stage, durable continuation, structured Workflow input, Goal Patch re-resolution and management/Console evidence. Feature gate passes format/lint/typecheck, 249 unit, 58 contract, 55 integration, 46 E2E, 178-source architecture, OpenAPI, build and empty/0049 migrations; publication remains.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
 - [ ] Complete v1.0.13 feature and bug-fixed increments; run full gate and both demos.
@@ -108,6 +109,7 @@ Invariants for every increment:
 - 2026-07-16: the first real v1.0.5 E2E exposed that the v1.0.2 child-instance foreign key cannot accept a relation before the child instance exists. Migration 0057 preserves that foreign key and instead allows a null child instance during confirmation; the deterministic `call_id` supplies the planned identity and the final upsert attaches the materialized instance.
 - 2026-07-16: A2A confirmation returns after the authoritative Task transition while Workflow execution continues in the background. Nested confirmation E2E therefore polls the Task projection and proves the persisted checkpoint rather than assuming the immediate response means the child node has already paused.
 - 2026-07-16: the v1.0.5 bug-fixed audit found that invalidating a child version could produce a second LangGraph pause while `WorkflowControllerService` still waited only for a terminal status. Pause waiting now detects checkpoint identity changes and reprojects every fresh child plan; real v1-to-v2 E2E proves the second checkpoint is visible and executes no stale MCP call.
+- 2026-07-16: the former top-level formal Skill path passed a generic request envelope and never enforced the selected Skill version's `inputSchema`; only child `skill_call` input had an independent validation boundary. The first new real MCP E2E also exposed an unreachable result node in its deterministic mock plan, proving the test uses the real Workflow validator before Tool execution.
 - 2026-07-15: continuation binding paths use string path segments (`"0"`) like the public DSL; numeric array indices are rejected at validation rather than reaching runtime. Both real MCP E2E paths assert the supplied value, preventing state-only false positives.
 
 ## Decision Log
@@ -117,6 +119,7 @@ Invariants for every increment:
 - 2026-07-15: use one ExecPlan for all thirteen versions because the task package mandates strict ordering and cross-version dependencies; each version still has separate reports, commits and tags.
 - 2026-07-15: `WorkflowBoundValue` is owned by the Workflow domain and resolved only inside the sole LangGraph Runtime. Planning validates the restricted template shape, while current MCP/Skill business schemas are enforced after resolution at their existing application boundaries. This preserves ADR-001/004/042 and requires no new ADR.
 - 2026-07-15: accept ADR-074. Task input requests/responses/attempts are Task-domain state in PostgreSQL; Redis only schedules attempt-identified work. Evaluation continuation always creates an unconfirmed immutable plan outside LangGraph and never replays the completed prior instance.
+- 2026-07-16: accept ADR-078. A versioned Task/Goal/Skill resolution record owns formal top-level input evidence; `structured_input` metadata is canonical, Memory is non-authoritative, and only a schema-valid structured value enters the sole LangGraph runtime. Goal Patch creates a new resolution for the patched Goal version.
 
 ## Implementation Steps
 

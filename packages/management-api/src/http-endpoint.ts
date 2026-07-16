@@ -11,6 +11,7 @@ import type {
   PromptService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillInputResolutionService,
   SkillQualityService,
   RegisterSkillVersionInput,
   SkillRegistryService,
@@ -236,6 +237,7 @@ const ModelStageSchema = z.enum([
   'tool_enhancement',
   'skill_authoring',
   'skill_selection',
+  'skill_input_resolution',
   'workflow_planning',
   'execution_decision',
   'goal_evaluation',
@@ -329,6 +331,7 @@ export interface ManagementOperations {
   >;
   readonly memoryRetention: Pick<MemoryRetentionPolicyService, 'getPolicy' | 'updatePolicy'>;
   readonly goalInputInference: Pick<GoalInputInferenceService, 'list'>;
+  readonly skillInputResolution: Pick<SkillInputResolutionService, 'get' | 'list'>;
   readonly graph: Pick<SkillGraphService, 'create' | 'delete' | 'list'>;
   readonly mcp: Pick<
     McpRegistryService,
@@ -807,6 +810,32 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.goalInputInference.list(pathValue(request, 'taskId')),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/skill-input-resolutions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.skillInputResolution.list(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/skill-input-resolutions/:resolutionId',
+    asyncRoute(async (request, response) => {
+      const record = await options.operations.skillInputResolution.get(
+        pathValue(request, 'resolutionId'),
+      );
+      if (record === undefined) {
+        response.status(404).json({
+          error: {
+            code: 'SKILL_INPUT_RESOLUTION_NOT_FOUND',
+            message: 'Skill input resolution was not found.',
+          },
+        });
+        return;
+      }
+      response.json(record);
     }),
   );
   app.get(

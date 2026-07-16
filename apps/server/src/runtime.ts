@@ -26,6 +26,7 @@ import {
   SkillGraphService,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillInputResolutionService,
   SkillQualityService,
   SkillCallWorkflowService,
   TransitiveSkillConfirmationEvaluator,
@@ -97,6 +98,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillInputResolutionRepository,
   PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
   PostgresTemporarySkillRepository,
@@ -384,6 +386,15 @@ export async function startServerRuntime(
             nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
         });
+  const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(pool);
+  const skillInputResolution = new SkillInputResolutionService({
+    model: modelRuntime,
+    schemas: schemaValidator,
+    records: skillInputResolutionRepository,
+    memories,
+    clock,
+    nextId: () => `skill-input-resolution-${randomUUID()}`,
+  });
   const mcpTransport = new StreamableHttpMcpAdapter();
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
@@ -555,6 +566,38 @@ export async function startServerRuntime(
       nextPatchId: () => `goal-patch-${randomUUID()}`,
       nextPlanId: () => `plan-goal-patch-${randomUUID()}`,
     },
+    beforeReplan: {
+      async prepare({ goal, taskId }) {
+        const task = await service.get(taskId);
+        if (task.selectedSkillId === undefined || task.selectedSkillVersion === undefined)
+          return { status: 'ready' } as const;
+        const skill = await skills.findVersion(task.selectedSkillId, task.selectedSkillVersion);
+        if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
+        const resolution = await skillInputResolution.resolve({
+          task: { ...task, goalId: goal.goalId, goalVersion: goal.version },
+          goal,
+          skill,
+          supplementaryInputs: await taskInputs.listResponses(taskId),
+        });
+        if (resolution.status === 'input_required') {
+          await service.requestInput(
+            taskId,
+            `Additional Skill input is required for: ${resolution.unresolvedFields.join(', ')}.`,
+            { source: 'skill_input_resolution' },
+          );
+          return { status: 'input_required' } as const;
+        }
+        if (resolution.status !== 'resolved') throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
+        return {
+          status: 'ready',
+          planningContext: {
+            resolutionId: resolution.resolutionId,
+            structuredInput: resolution.structuredInput,
+            sourceRefs: resolution.sourceRefs,
+          },
+        } as const;
+      },
+    },
   });
   const backgroundExecutions = new Set<Promise<void>>();
   const backgroundExecutionErrors: unknown[] = [];
@@ -576,6 +619,7 @@ export async function startServerRuntime(
     events,
     skillDrafts,
     taskInputs,
+    skillInputs: skillInputResolutionRepository,
     queue,
     clock,
     ids,
@@ -981,6 +1025,8 @@ export async function startServerRuntime(
     ids,
     decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
+    skills,
+    skillInputs: skillInputResolution,
     skillSelection: {
       async select(goalDescription, task) {
         if (!goalDescription.includes('TEMPORARY_SKILL_GOAL') && skillSelection !== undefined) {
@@ -1034,6 +1080,8 @@ export async function startServerRuntime(
             : await temporarySkillRepository.find(input.temporarySkillId);
         if (skill?.status !== 'enabled' && temporary?.status !== 'active')
           throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
+        if (skill?.status === 'enabled' && input.skillInputResolution === undefined)
+          throw new Error('SELECTED_SKILL_INPUT_NOT_RESOLVED');
         const toolPlanningMetadata =
           skill === undefined
             ? undefined
@@ -1077,6 +1125,8 @@ export async function startServerRuntime(
                     toolPolicy: skill.toolPolicy,
                     toolPlanningMetadata,
                     workflowGuidance: skill.workflowGuidance,
+                    inputSchema: skill.inputSchema,
+                    resolvedInput: input.skillInputResolution,
                     outputSchema: skill.outputSchema,
                   },
                 }),
@@ -1185,6 +1235,7 @@ export async function startServerRuntime(
         memories,
         memoryRetention,
         goalInputInference,
+        skillInputResolution,
         mcp: mcpRegistry,
         skills: skillRegistry,
         skillAuthoring,
@@ -1405,6 +1456,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0056_mcp_execution_mode.up.sql',
     '0057_nested_skill_confirmation.up.sql',
     '0058_runtime_terminal_outcome.up.sql',
+    '0059_skill_input_resolution.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

@@ -88,9 +88,14 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0058_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0059_MISSING:${label}`);
+  const inputResolutionTable = await pool.query(
+    "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
+  );
+  if (inputResolutionTable.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_SKILL_INPUT_RESOLUTION_MISSING:${label}`);
   const terminalOutcomeTables = await pool.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id') OR (table_name IN ('workflow_control','workflow_control_round') AND column_name='terminal_outcome_id')",
   );
@@ -126,7 +131,16 @@ async function verifyCurrentSchema(pool, label) {
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='stage_model_route_stage_check'",
   );
   const definition = constraint.rows[0]?.definition;
-  if (typeof definition !== 'string' || !definition.includes('tool_enhancement')) {
+  if (
+    typeof definition !== 'string' ||
+    !definition.includes('tool_enhancement') ||
+    !definition.includes('skill_input_resolution')
+  ) {
     throw new Error(`MIGRATION_STAGE_CONSTRAINT_STALE:${label}`);
   }
+  const inputSourceConstraint = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='task_input_request'::regclass AND conname='task_input_request_source_check'",
+  );
+  if (!inputSourceConstraint.rows[0]?.definition?.includes('skill_input_resolution'))
+    throw new Error(`MIGRATION_TASK_INPUT_SOURCE_STALE:${label}`);
 }

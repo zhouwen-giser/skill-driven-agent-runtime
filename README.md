@@ -61,6 +61,24 @@ The standalone example client can target a configured running Server:
 pnpm demo:client -- "Complete the local example task."
 ```
 
+### Supplying formal Skill input
+
+For a formal top-level Skill, the runtime resolves and validates a structured value against the selected Skill version's `inputSchema` before planning. The highest-priority source is A2A message metadata under `structured_input`:
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [{ "kind": "text", "text": "Inspect the requested device." }],
+    "metadata": {
+      "structured_input": { "deviceId": "device-17" }
+    }
+  }
+}
+```
+
+If required fields cannot be resolved, the same Task returns `input-required`; a follow-up message supplies the missing value and creates a new immutable resolution. The structured value—not the raw request envelope—becomes the Workflow initial input. Operators must configure a Provider route and enabled Prompt for the fixed `skill_input_resolution` model stage; its invocation and source-linked resolution history are available through the management API and Console.
+
 ## Verification
 
 ```powershell

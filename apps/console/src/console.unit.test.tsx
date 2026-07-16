@@ -207,6 +207,7 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('anonymous shared');
     expect(markup).toContain('warning-only policy');
     expect(markup).toContain('FILTERED OPERATING METRICS');
+    expect(markup).toContain('skill_input_resolution');
     expect(markup).not.toContain('66.67%');
     expect(markup).not.toContain('prompt-1');
     expect(markup).not.toContain('memory-1');
@@ -230,6 +231,7 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Automatic archive: OFF');
     expect(markup).toContain('Automatic archive and delete remain disabled');
     expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
+    expect(markup).toContain('skill_input_resolution');
     expect(markup).not.toContain('Bearer fixture');
   });
 
