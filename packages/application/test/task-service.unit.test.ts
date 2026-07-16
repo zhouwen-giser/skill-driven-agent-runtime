@@ -41,7 +41,7 @@ describe('TaskService', () => {
       }),
     ).toThrow(expect.objectContaining({ code: 'TASK_INPUT_CONTROL_ROUND_INVALID' }));
   });
-  it('uses the current resolved formal Skill input as the immutable Workflow input', async () => {
+  it('uses the plan-bound formal Skill input even when a newer resolution exists', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({
       messageText: 'Inspect device-from-text.',
@@ -54,6 +54,7 @@ describe('TaskService', () => {
       selectedSkillId: 'skill.inspect',
       selectedSkillVersion: 3,
       skillSelectionId: 'selection-1',
+      skillInputResolutionId: 'resolution-1',
     });
     harness.skillInputResolutions.set(submitted.task.taskId, {
       resolutionId: 'resolution-1',
@@ -68,6 +69,20 @@ describe('TaskService', () => {
       decisionSummary: 'Resolved.',
       status: 'resolved',
       createdAt: timestamp,
+    });
+    harness.skillInputResolutions.set('newer-resolution', {
+      resolutionId: 'resolution-2',
+      taskId: submitted.task.taskId,
+      goalId: 'goal-1',
+      goalVersion: 2,
+      skillId: 'skill.inspect',
+      skillVersion: 3,
+      structuredInput: { deviceId: 'device-newer-but-not-planned' },
+      unresolvedFields: [],
+      sourceRefs: ['task-input-response:newer'],
+      decisionSummary: 'Created after the plan.',
+      status: 'resolved',
+      createdAt: '2026-07-11T10:00:01.000Z',
     });
 
     await expect(harness.service.executionInput(submitted.task.taskId)).resolves.toEqual({
@@ -449,6 +464,7 @@ describe('TaskService', () => {
       selectedSkillId: 'skill-old',
       selectedSkillVersion: 1,
       skillSelectionId: 'selection-1',
+      skillInputResolutionId: 'resolution-old',
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -467,6 +483,7 @@ describe('TaskService', () => {
       selectedSkillVersion: 2,
       skillSelectionId: 'selection-1',
     });
+    expect(harness.tasks.get('task-replacement')).not.toHaveProperty('skillInputResolutionId');
   });
 
   it('rejects a confirmation-bound plan through the shared follow-up transition', async () => {
@@ -799,16 +816,12 @@ function createHarness(
       skillDrafts,
       taskInputs,
       skillInputs: {
-        findLatest: (taskId, skillId, skillVersion, goalVersion) => {
-          const record = skillInputResolutions.get(taskId);
-          return Promise.resolve(
-            record?.skillId === skillId &&
-              record.skillVersion === skillVersion &&
-              record.goalVersion === goalVersion
-              ? record
-              : undefined,
-          );
-        },
+        find: (resolutionId) =>
+          Promise.resolve(
+            [...skillInputResolutions.values()].find(
+              (record) => record.resolutionId === resolutionId,
+            ),
+          ),
       },
       clock: { now: () => timestamp },
       ids,

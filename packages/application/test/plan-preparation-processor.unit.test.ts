@@ -172,6 +172,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     expect(tasks.value).toMatchObject({
       phase: 'awaiting_plan_confirmation',
       planId: 'plan-task-1',
+      skillInputResolutionId: 'skill-input-resolution-1',
     });
     expect(tasks.planningInput).toMatchObject({
       skillInputResolution: {

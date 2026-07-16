@@ -126,7 +126,7 @@ export class SkillInputResolutionService {
       const candidate = overlayExplicit(decision.structuredInput ?? {}, explicit?.value);
       const validation = this.#schemas.validate(input.skill.inputSchema, candidate);
       const unresolvedFields = normalizeStrings([
-        ...decision.unresolvedFields,
+        ...decision.unresolvedFields.filter((field) => !hasResolvedField(candidate, field)),
         ...missingRequiredFields(input.skill.inputSchema, candidate),
         ...validationErrorFields(validation.errors),
       ]);
@@ -310,8 +310,17 @@ function missingRequiredFields(schema: unknown, value: unknown): readonly string
 function validationErrorFields(errors: readonly string[]): readonly string[] {
   return errors.flatMap((error) => {
     const path = /^\/([^ /]+)/u.exec(error)?.[1];
-    return path === undefined ? [] : [path.replaceAll('~1', '/').replaceAll('~0', '~')];
+    if (path !== undefined) return [path.replaceAll('~1', '/').replaceAll('~0', '~')];
+    const required = /must have required property ['"]?([^'"\s]+)['"]?/u.exec(error)?.[1];
+    return [required ?? '$'];
   });
+}
+
+function hasResolvedField(value: unknown, field: string): boolean {
+  if (!isRecord(value)) return false;
+  const normalized = field.startsWith('/') ? field.slice(1) : field;
+  const topLevel = normalized.split(/[./]/u, 1)[0];
+  return topLevel !== undefined && topLevel !== '' && topLevel in value;
 }
 
 function normalizeStrings(values: readonly string[]): readonly string[] {

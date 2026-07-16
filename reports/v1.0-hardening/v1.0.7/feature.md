@@ -15,4 +15,4 @@ Formal top-level Skills now enforce their published `inputSchema` on the real A2
 - Real A2A/MCP E2E proves metadata conflict resolution, same-Task missing-input continuation, Goal Patch re-resolution and direct `input.deviceId` MCP binding.
 - Existing child `skill_call` schema validation remains independent and unchanged.
 
-Feature commit/tag: pending / `v1.0.7`.
+Feature commit/tag: `9bf6ba3` / `v1.0.7` (published and remotely verified).

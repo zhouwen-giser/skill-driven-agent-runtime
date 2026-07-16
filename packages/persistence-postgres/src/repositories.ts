@@ -262,6 +262,7 @@ interface TaskRow extends QueryResultRow {
   selected_skill_id: string | null;
   selected_skill_version: number | null;
   skill_selection_id: string | null;
+  skill_input_resolution_id: string | null;
   temporary_skill_id: string | null;
   output_text: string | null;
   output_structured: unknown;
@@ -847,7 +848,7 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
         `UPDATE agent_task SET
            phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
            phase_message='Goal Patch invalidated the old plan and intermediate result.',
-           goal_version=$2,plan_id=NULL,output_text=NULL,output_structured=NULL,
+           goal_version=$2,plan_id=NULL,skill_input_resolution_id=NULL,output_text=NULL,output_structured=NULL,
            error_code='GOAL_PATCH_INVALIDATED',updated_at=$4
          WHERE goal_id=$1 AND goal_version=$5 AND phase NOT IN ('canceled','failed','invalidated')`,
         [
@@ -2534,7 +2535,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -2547,7 +2548,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findByPlanId(planId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task WHERE plan_id=$1 ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
       [planId],
@@ -2568,7 +2569,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   ): Promise<readonly AgentTask[]> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE ($1::text IS NULL OR context_id=$1)
@@ -2594,9 +2595,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,
+         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -2608,6 +2609,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          selected_skill_id = EXCLUDED.selected_skill_id,
          selected_skill_version = EXCLUDED.selected_skill_version,
          skill_selection_id = EXCLUDED.skill_selection_id,
+         skill_input_resolution_id = EXCLUDED.skill_input_resolution_id,
          temporary_skill_id = EXCLUDED.temporary_skill_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
@@ -2629,6 +2631,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.selectedSkillId ?? null,
         task.selectedSkillVersion ?? null,
         task.skillSelectionId ?? null,
+        task.skillInputResolutionId ?? null,
         task.temporarySkillId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
@@ -3016,7 +3019,7 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
        SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,temporary_skill_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
+         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
        FROM expired ORDER BY task_id`,
       [cutoff, timestamp],
     );
@@ -5841,6 +5844,9 @@ function mapTaskRow(row: TaskRow): AgentTask {
       ? {}
       : { selectedSkillVersion: row.selected_skill_version }),
     ...(row.skill_selection_id === null ? {} : { skillSelectionId: row.skill_selection_id }),
+    ...(row.skill_input_resolution_id === null
+      ? {}
+      : { skillInputResolutionId: row.skill_input_resolution_id }),
     ...(row.temporary_skill_id === null ? {} : { temporarySkillId: row.temporary_skill_id }),
     ...output,
     ...(row.capability_gap_json === null

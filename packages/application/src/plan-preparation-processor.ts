@@ -411,6 +411,9 @@ export class PlanPreparationProcessor {
       planId: prepared.planId,
       goalId: goal.goalId,
       goalVersion: goal.version,
+      ...('temporarySkillId' in selected
+        ? {}
+        : { skillInputResolutionId: selected.resolution.resolutionId }),
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);

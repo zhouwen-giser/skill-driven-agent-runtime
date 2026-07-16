@@ -36,6 +36,58 @@ describe('SkillInputResolutionService', () => {
     expect(JSON.stringify(model.calls[0])).toContain('a2a_metadata_structured_input');
   });
 
+  it('drops a stale model unresolved marker when authoritative metadata supplied the field', async () => {
+    const result = await resolutionService(
+      new MemoryRepository(),
+      new DecisionModel({
+        structuredInput: {},
+        unresolvedFields: ['deviceId'],
+        sourceRefs: ['task:task-1:request-text'],
+        decisionSummary: 'The lower-priority request text omitted the device.',
+      }),
+    ).resolve({
+      task: task({ structured_input: { deviceId: 'device-authoritative' } }),
+      goal,
+      skill,
+      supplementaryInputs: [],
+    });
+
+    expect(result).toMatchObject({
+      status: 'resolved',
+      structuredInput: { deviceId: 'device-authoritative' },
+      unresolvedFields: [],
+    });
+  });
+
+  it('uses a stable root marker when schema validation fails without a field path', async () => {
+    const rootInvalidValidator = {
+      checkSchema: (): JsonSchemaValidationResult => ({ valid: true, errors: [] }),
+      validate: (): JsonSchemaValidationResult => ({
+        valid: false,
+        errors: ['/ must be object'],
+      }),
+    };
+    const result = await new SkillInputResolutionService({
+      model: new DecisionModel({
+        structuredInput: 'not-an-object',
+        unresolvedFields: [],
+        sourceRefs: ['task:task-1:request-text'],
+        decisionSummary: 'The request produced an invalid root value.',
+      }),
+      schemas: rootInvalidValidator,
+      records: new MemoryRepository(),
+      clock: { now: () => timestamp },
+      nextId: () => 'resolution-root-invalid',
+    }).resolve({
+      task: task(),
+      goal,
+      skill: { ...skill, inputSchema: { type: 'object' } },
+      supplementaryInputs: [],
+    });
+
+    expect(result).toMatchObject({ status: 'input_required', unresolvedFields: ['$'] });
+  });
+
   it('accepts a schema-valid value extracted from request text', async () => {
     const repository = new MemoryRepository();
     const service = resolutionService(

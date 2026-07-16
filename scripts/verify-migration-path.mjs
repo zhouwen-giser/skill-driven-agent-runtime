@@ -88,14 +88,19 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0059_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0060_MISSING:${label}`);
   const inputResolutionTable = await pool.query(
     "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
   );
   if (inputResolutionTable.rows[0]?.exists !== true)
     throw new Error(`MIGRATION_SKILL_INPUT_RESOLUTION_MISSING:${label}`);
+  const taskBinding = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='agent_task' AND column_name='skill_input_resolution_id') AS exists",
+  );
+  if (taskBinding.rows[0]?.exists !== true)
+    throw new Error(`MIGRATION_TASK_SKILL_INPUT_BINDING_MISSING:${label}`);
   const terminalOutcomeTables = await pool.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id') OR (table_name IN ('workflow_control','workflow_control_round') AND column_name='terminal_outcome_id')",
   );

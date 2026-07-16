@@ -65,9 +65,23 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const skillInputResolution = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
+    );
+    if (skillInputResolution.rows[0]?.applied === true) {
+      const forward = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(forward);
+      return;
+    }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
     );
@@ -80,6 +94,15 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(forward);
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
@@ -102,6 +125,15 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(skillInputResolution);
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -132,6 +164,15 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(skillInputResolution);
+      await pool.query(
+        await readFile(
+          new URL(
+            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -144,6 +185,7 @@ beforeAll(async () => {
         '0057_nested_skill_confirmation.up.sql',
         '0058_runtime_terminal_outcome.up.sql',
         '0059_skill_input_resolution.up.sql',
+        '0060_task_skill_input_resolution_binding.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -498,6 +540,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(skillInputResolutionMigration);
+  const taskSkillInputBindingMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(taskSkillInputBindingMigration);
 });
 
 beforeEach(async () => {
@@ -2640,10 +2690,41 @@ describe('PostgreSQL protocol-domain repositories', () => {
     };
     await repository.save(resolved);
 
+    await tasks.save({
+      ...currentTask,
+      goalId: 'goal.skill-input.db',
+      goalVersion: 1,
+      selectedSkillId: skill.skillId,
+      selectedSkillVersion: skill.version,
+      skillInputResolutionId: resolved.resolutionId,
+    });
+
     await expect(
       repository.findLatest(currentTask.taskId, skill.skillId, skill.version, 1),
     ).resolves.toEqual(resolved);
     await expect(repository.listByTask(currentTask.taskId)).resolves.toHaveLength(2);
+    await expect(tasks.findById(currentTask.taskId)).resolves.toMatchObject({
+      skillInputResolutionId: resolved.resolutionId,
+    });
+    const foreignTask = createAgentTask({
+      taskId: 'task.skill-input.foreign.db',
+      contextId: currentTask.contextId,
+      userId: 'operator',
+      requestText: 'Another Task.',
+      requestMetadata: {},
+      timestamp,
+    });
+    await tasks.save(foreignTask);
+    await expect(
+      tasks.save({
+        ...foreignTask,
+        goalId: 'goal.skill-input.db',
+        goalVersion: 1,
+        selectedSkillId: skill.skillId,
+        selectedSkillVersion: skill.version,
+        skillInputResolutionId: resolved.resolutionId,
+      }),
+    ).rejects.toThrow();
     await expect(
       repository.listProcessedDataByContext(currentTask.contextId, currentTask.taskId, 5),
     ).resolves.toEqual([
@@ -3775,6 +3856,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
 
   it('rolls back and reapplies the top-level Skill input resolution schema', async () => {
+    const bindingDown = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const bindingUp = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
     const down = await readFile(
       new URL(
         '../../../infra/postgres/migrations/0059_skill_input_resolution.down.sql',
@@ -3789,6 +3884,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ),
       'utf8',
     );
+    await pool.query(bindingDown);
     await pool.query(down);
     try {
       const removed = await pool.query<{ exists: boolean }>(
@@ -3803,6 +3899,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect(stageConstraint.rows[0]?.definition).not.toContain('skill_input_resolution');
     } finally {
       await pool.query(up);
+      await pool.query(bindingUp);
     }
     const restored = await pool.query<{ exists: boolean }>(
       "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
@@ -3814,6 +3911,42 @@ describe('PostgreSQL protocol-domain repositories', () => {
          AND conname='task_input_request_source_check'`,
     );
     expect(sources.rows[0]?.definition).toContain('skill_input_resolution');
+  });
+
+  it('rolls back and reapplies the Task Skill input binding schema', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM information_schema.columns
+           WHERE table_name='agent_task' AND column_name='skill_input_resolution_id'
+         ) AS exists`,
+      );
+      expect(removed.rows[0]?.exists).toBe(false);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='agent_task_skill_input_resolution_identity_fkey'
+       ) AS exists`,
+    );
+    expect(restored.rows[0]?.exists).toBe(true);
   });
 
   it('rolls back and reapplies MCP execution-mode audit columns', async () => {

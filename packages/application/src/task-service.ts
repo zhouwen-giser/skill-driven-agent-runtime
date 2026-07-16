@@ -76,7 +76,7 @@ export interface TaskServiceDependencies {
   readonly events: RuntimeEventPublisher;
   readonly skillDrafts: SkillDraftRepository;
   readonly taskInputs: TaskInputRepository;
-  readonly skillInputs?: Pick<SkillInputResolutionRepository, 'findLatest'>;
+  readonly skillInputs?: Pick<SkillInputResolutionRepository, 'find'>;
   readonly clock: Clock;
   readonly ids: IdentifierGenerator;
   readonly memories?: Pick<MemoryService, 'recordEvolution'>;
@@ -501,19 +501,22 @@ export class TaskService {
       if (
         task.selectedSkillVersion === undefined ||
         task.goalVersion === undefined ||
+        task.skillInputResolutionId === undefined ||
         this.#dependencies.skillInputs === undefined
       )
         throw new TaskApplicationError(
           'TASK_SKILL_INPUT_NOT_RESOLVED',
           'Task has no configured top-level Skill input authority.',
         );
-      const resolution = await this.#dependencies.skillInputs.findLatest(
-        task.taskId,
-        task.selectedSkillId,
-        task.selectedSkillVersion,
-        task.goalVersion,
-      );
-      if (resolution?.status !== 'resolved' || resolution.structuredInput === undefined)
+      const resolution = await this.#dependencies.skillInputs.find(task.skillInputResolutionId);
+      if (
+        resolution?.status !== 'resolved' ||
+        resolution.structuredInput === undefined ||
+        resolution.taskId !== task.taskId ||
+        resolution.goalVersion !== task.goalVersion ||
+        resolution.skillId !== task.selectedSkillId ||
+        resolution.skillVersion !== task.selectedSkillVersion
+      )
         throw new TaskApplicationError(
           'TASK_SKILL_INPUT_NOT_RESOLVED',
           'Task has no schema-validated top-level Skill input for its current Goal version.',

@@ -21,6 +21,7 @@ Date: 2026-07-16
 - `apps/console/src/SystemPanel.tsx`
 - `apps/console/src/TaskPanel.tsx`
 - `infra/postgres/migrations/0059_skill_input_resolution.{up,down}.sql`
+- `infra/postgres/migrations/0060_task_skill_input_resolution_binding.{up,down}.sql`
 
 ## Verification and evidence
 

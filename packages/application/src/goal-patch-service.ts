@@ -144,12 +144,16 @@ export class GoalPatchService {
       afterGoal,
       createdAt: timestamp,
     };
-    const patch = await this.#patches.apply(baseRecord, input.taskId);
     const readiness =
       input.taskId === undefined || this.#beforeReplan === undefined
         ? ({ status: 'ready' } as const)
         : await this.#beforeReplan.prepare({ goal: afterGoal, taskId: input.taskId });
-    if (readiness.status === 'input_required') return patch;
+    if (readiness.status === 'input_required')
+      throw new GoalPatchError(
+        'GOAL_PATCH_SKILL_INPUT_REQUIRED',
+        'Goal Patch was not applied because its formal Skill input is unresolved.',
+      );
+    const patch = await this.#patches.apply(baseRecord, input.taskId);
     await this.#planner.plan({
       planId: newPlanId,
       workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
@@ -236,6 +240,7 @@ export type GoalPatchErrorCode =
   | 'GOAL_PATCH_EMPTY'
   | 'GOAL_PATCH_GOAL_NOT_ACTIVE'
   | 'GOAL_PATCH_NOT_FOUND'
+  | 'GOAL_PATCH_SKILL_INPUT_REQUIRED'
   | 'GOAL_PATCH_SOURCE_PLAN_INVALID';
 export class GoalPatchError extends Error {
   readonly code: GoalPatchErrorCode;

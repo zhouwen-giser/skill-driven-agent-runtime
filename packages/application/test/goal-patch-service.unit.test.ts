@@ -68,6 +68,8 @@ describe('GoalPatchService', () => {
     let persisted: GoalPatchRecord | undefined;
     const planning: PlanWorkflowInput[] = [];
     const reparsedGoalVersions: number[] = [];
+    let applyCount = 0;
+    let inputRequired = false;
     const service = new GoalPatchService({
       goals: {
         findById: () => Promise.resolve(goal),
@@ -87,6 +89,7 @@ describe('GoalPatchService', () => {
       },
       patches: {
         apply: (record, triggeringTaskId) => {
+          applyCount += 1;
           persisted = {
             ...record,
             ...(triggeringTaskId === undefined ? {} : { triggeringTaskId }),
@@ -124,6 +127,7 @@ describe('GoalPatchService', () => {
       beforeReplan: {
         prepare: ({ goal: patchedGoal }) => {
           reparsedGoalVersions.push(patchedGoal.version);
+          if (inputRequired) return Promise.resolve({ status: 'input_required' as const });
           return Promise.resolve({
             status: 'ready' as const,
             planningContext: {
@@ -159,6 +163,17 @@ describe('GoalPatchService', () => {
     expect(JSON.stringify(planning[0])).toContain('skill-input-resolution-patch-1');
     expect(JSON.stringify(planning[0])).toContain('Restore the prior calibration value.');
     expect(reparsedGoalVersions).toEqual([2]);
+    inputRequired = true;
+    await expect(
+      service.apply({
+        goalId: goal.goalId,
+        sourcePlanId: sourcePlan.planId,
+        instruction: 'Also include humidity.',
+        taskId: 'task-1',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PATCH_SKILL_INPUT_REQUIRED' });
+    expect(applyCount).toBe(1);
+    expect(planning).toHaveLength(1);
   });
 });
 

@@ -579,14 +579,7 @@ export async function startServerRuntime(
           skill,
           supplementaryInputs: await taskInputs.listResponses(taskId),
         });
-        if (resolution.status === 'input_required') {
-          await service.requestInput(
-            taskId,
-            `Additional Skill input is required for: ${resolution.unresolvedFields.join(', ')}.`,
-            { source: 'skill_input_resolution' },
-          );
-          return { status: 'input_required' } as const;
-        }
+        if (resolution.status === 'input_required') return { status: 'input_required' } as const;
         if (resolution.status !== 'resolved') throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
         return {
           status: 'ready',
@@ -1457,6 +1450,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0057_nested_skill_confirmation.up.sql',
     '0058_runtime_terminal_outcome.up.sql',
     '0059_skill_input_resolution.up.sql',
+    '0060_task_skill_input_resolution_binding.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

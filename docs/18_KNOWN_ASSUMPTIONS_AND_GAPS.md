@@ -19,6 +19,7 @@
 - v1.0.6 的 `commitCanceled` 适用于已拥有一个 active WorkflowControl 的单 Task 运行终态；显式 Goal-wide cancellation 仍由既有 PostgreSQL 多 Task/Plan/Instance cascade transaction 管理，并在该事务内为每个 active Control 创建 canceled Runtime Terminal Outcome。两条路径不得交叉单写同一 active Control；如未来合并 application Port，必须新增 ADR 说明批量锁顺序、幂等键和部分 Control 不存在时的语义。
 - v1.0.7 将 A2A message metadata 的 `structured_input` 作为正式顶层 Skill 结构化输入的规范键，并兼容既有客户端可能发送的 `sdar_structured_input`；两者同时出现时规范键优先。请求文本、Goal Contract、同 Context 已处理数据、补充输入和长期 Memory 依次降级，长期 Memory 只能作为历史证据，不能声明设备当前状态。
 - v1.0.7 的正式 Skill 重规划固定使用 WorkflowControl 已保存的结构化输入；仅新的持久化 Task input response 或 Goal Patch 触发新的输入解析记录。子 Skill 继续在各自调用边界独立校验，父级解析结果不授予子级输入权限。
+- v1.0.7-bug-fixed 将 Goal Patch 后的输入解析解释为 Patch 提交前置条件：若新 Goal Contract 无法为同一正式 Skill 产生 schema-valid 输入，Patch 不改变 Goal/Task/Plan，调用方需先澄清请求再重试 Patch。这一 fail-closed 语义避免 `newPlanId` 指向不存在计划的部分提交。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
