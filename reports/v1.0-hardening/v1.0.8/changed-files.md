@@ -5,6 +5,7 @@ Date: 2026-07-16
 ## Domain and runtime
 
 - `packages/domain/src/goal.ts`
+- `packages/domain/test/goal.unit.test.ts`
 - `packages/domain/src/skill-selection.ts`
 - `packages/domain/src/workflow.ts`
 - Skill retrieval/selection/replacement/Temporary Skill application services

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   createGoalExecutionContract,
+  goalExecutionContractsEqual,
   type Goal,
   type GoalPatchChanges,
   type GoalPatchRecord,
@@ -110,6 +111,7 @@ export class GoalPatchService {
       sourcePlan?.definition === undefined ||
       sourcePlan.goalId !== goal.goalId ||
       sourcePlan.goalVersion !== goal.version ||
+      !goalExecutionContractsEqual(sourcePlan.goalContract, createGoalExecutionContract(goal)) ||
       !['awaiting_confirmation', 'confirmed'].includes(sourcePlan.confirmationStatus)
     )
       throw new GoalPatchError(

@@ -122,6 +122,26 @@ describe('SkillSelectionService', () => {
     ).resolves.toMatchObject({ selectedSkillId: 'skill.b' });
   });
 
+  it('retains an immutable snapshot when the caller mutates its contract during selection', async () => {
+    const service = createService(new MemorySelectionRepository(), [], 'skill.a');
+    const mutableContract = {
+      ...goalContract,
+      constraints: ['read-only'],
+      successCriteria: ['status returned'],
+    };
+
+    const pending = service.select(mutableContract);
+    mutableContract.constraints.push('caller mutation');
+    mutableContract.successCriteria.push('caller mutation');
+
+    await expect(pending).resolves.toMatchObject({
+      goalContract: {
+        constraints: ['read-only'],
+        successCriteria: ['status returned'],
+      },
+    });
+  });
+
   it('includes active matching MCP dependency warnings in candidate evidence', async () => {
     const service = createService(new MemorySelectionRepository(), [], 'skill.a', {
       toolPolicy: {

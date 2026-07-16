@@ -1,6 +1,7 @@
 import {
   assertGoalExecutionContractIdentity,
   goalExecutionContractsEqual,
+  snapshotGoalExecutionContract,
   type GoalExecutionContract,
   type WorkflowPlanAttempt,
   type WorkflowPlanRecord,
@@ -63,8 +64,10 @@ export class WorkflowPlannerService {
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
+    let goalContract: GoalExecutionContract;
     try {
-      assertGoalExecutionContractIdentity(input.goalContract, {
+      goalContract = snapshotGoalExecutionContract(input.goalContract);
+      assertGoalExecutionContractIdentity(goalContract, {
         goalId: input.goalId,
         goalVersion: input.goalVersion,
       });
@@ -84,10 +87,7 @@ export class WorkflowPlannerService {
         'Repair source plan is not confirmed.',
       );
     }
-    if (
-      source !== undefined &&
-      !goalExecutionContractsEqual(source.goalContract, input.goalContract)
-    )
+    if (source !== undefined && !goalExecutionContractsEqual(source.goalContract, goalContract))
       throw new WorkflowPlannerError(
         'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
         'Repair source confirmation belongs to a different Goal execution contract.',
@@ -100,7 +100,7 @@ export class WorkflowPlannerService {
       'workflow_generation',
       input.templateQuery ?? input.planningInstruction,
     );
-    const withContract = addGoalContract(input.planningInstruction, input.goalContract);
+    const withContract = addGoalContract(input.planningInstruction, goalContract);
     const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
       preferredTemplate === undefined
@@ -116,21 +116,14 @@ export class WorkflowPlannerService {
       });
       const validation = await this.#validateExpected(candidate, input);
       await this.#repository.saveAttempt(
-        toAttempt(
-          input.planId,
-          input.goalContract,
-          attempt,
-          candidate,
-          validation,
-          this.#clock.now(),
-        ),
+        toAttempt(input.planId, goalContract, attempt, candidate, validation, this.#clock.now()),
       );
       if (validation.valid && validation.definition !== undefined) {
         const plan: WorkflowPlanRecord = {
           planId: input.planId,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
-          goalContract: input.goalContract,
+          goalContract,
           definition: validation.definition,
           ...(input.sourceConfirmedPlanId === undefined
             ? {}
@@ -162,7 +155,7 @@ export class WorkflowPlannerService {
       planId: input.planId,
       goalId: input.goalId,
       goalVersion: input.goalVersion,
-      goalContract: input.goalContract,
+      goalContract,
       ...(input.sourceConfirmedPlanId === undefined
         ? {}
         : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),

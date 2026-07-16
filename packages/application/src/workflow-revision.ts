@@ -1,4 +1,8 @@
-import type { WorkflowDefinition, WorkflowPlanRecord } from '../../domain/src/index.js';
+import {
+  snapshotGoalExecutionContract,
+  type WorkflowDefinition,
+  type WorkflowPlanRecord,
+} from '../../domain/src/index.js';
 import type { Clock, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
@@ -70,11 +74,12 @@ export class WorkflowRevisionService {
       );
     assertRevisionIdentity(sourceDefinition, validation.definition);
     const timestamp = this.#clock.now();
+    const goalContract = snapshotGoalExecutionContract(source.goalContract);
     const plan: WorkflowPlanRecord = {
       planId: input.newPlanId,
       goalId: source.goalId,
       goalVersion: source.goalVersion,
-      goalContract: source.goalContract,
+      goalContract,
       definition: validation.definition,
       sourcePlanId: source.planId,
       revisionKind: input.format === 'dsl' ? 'admin_dsl' : 'admin_dag',
@@ -84,7 +89,7 @@ export class WorkflowRevisionService {
     };
     await this.#plans.saveAttempt({
       planId: plan.planId,
-      goalContract: source.goalContract,
+      goalContract,
       attempt: 1,
       candidate: input.definition,
       validationErrors: [],

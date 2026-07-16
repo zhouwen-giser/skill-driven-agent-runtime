@@ -701,6 +701,26 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       constraints: ['read-only'],
       successCriteria: ['diagnostic returned'],
     } as const;
+    const contextSeed = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect an unknown target.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in contextSeed)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const goalRegistration = await fetch(`${runtime.management.baseUrl}/api/v1/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...selectionGoalContract,
+        contextId: contextSeed.contextId,
+      }),
+    });
+    expect(goalRegistration.status).toBe(201);
     const response = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -762,6 +782,69 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       item.request.instruction.includes(selectionGoalContract.goalId),
     );
     expect(audited?.request.instruction).toContain(JSON.stringify(selectionGoalContract));
+
+    const staleSelection = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        goalContract: { ...selectionGoalContract, constraints: ['write allowed'] },
+      }),
+    });
+    expect(staleSelection.status).toBe(400);
+    await expect(staleSelection.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' },
+    });
+    const canceledGoal = await fetch(
+      `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(selectionGoalContract.goalId)}/cancel`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Verify terminal Goal selection rejection.' }),
+      },
+    );
+    expect(canceledGoal.status).toBe(201);
+    const terminalSelection = await fetch(`${runtime.management.baseUrl}/api/v1/skill-selections`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goalContract: selectionGoalContract }),
+    });
+    expect(terminalSelection.status).toBe(400);
+    await expect(terminalSelection.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' },
+    });
+    const planningCallsBeforeTerminalRejection = workflowPlanningCalls;
+    const terminalPlanning = await fetch(`${runtime.management.baseUrl}/api/v1/workflows/plan`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId: `plan-terminal-goal-${randomUUID()}`,
+        workflowDefinitionId: `workflow-terminal-goal-${randomUUID()}`,
+        workflowVersion: 1,
+        goalId: selectionGoalContract.goalId,
+        goalVersion: selectionGoalContract.version,
+        goalContract: selectionGoalContract,
+        planningInstruction: 'This terminal Goal must never reach the planner.',
+      }),
+    });
+    expect(terminalPlanning.status).toBe(400);
+    await expect(terminalPlanning.json()).resolves.toMatchObject({
+      error: { code: 'WORKFLOW_GOAL_CONTRACT_STALE' },
+    });
+    expect(workflowPlanningCalls).toBe(planningCallsBeforeTerminalRejection);
+    const auditAfterRejection = z
+      .object({ items: z.array(z.object({ request: z.object({ instruction: z.string() }) })) })
+      .parse(
+        await (
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/models/invocations?stage=skill_selection`,
+          )
+        ).json(),
+      );
+    expect(
+      auditAfterRejection.items.filter((item) =>
+        item.request.instruction.includes(selectionGoalContract.goalId),
+      ),
+    ).toHaveLength(1);
   });
 
   it('raises a low-quality warning without disabling or repairing the enabled Skill', async () => {

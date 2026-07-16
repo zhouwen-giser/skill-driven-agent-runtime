@@ -23,18 +23,22 @@ const goalContract = {
 describe('TemporarySkillResolver', () => {
   it('authors a task-scoped Skill only from an enabled registered MCP Tool', async () => {
     let created: unknown;
+    let modelGoalContract: unknown;
     const resolver = new TemporarySkillResolver({
       mcp: registry(),
       model: {
-        generateStructured: () =>
-          Promise.resolve({
+        generateStructured: ({ instruction }) => {
+          modelGoalContract = (JSON.parse(instruction) as Readonly<{ goalContract: unknown }>)
+            .goalContract;
+          return Promise.resolve({
             serverId: 'mcp.devices',
             toolName: 'device_status',
             name: 'Temporary device status',
             description: 'Read status for this Task only.',
             outputSchema: { type: 'object' },
             decisionSummary: 'The registered Tool directly satisfies the capability gap.',
-          }),
+          });
+        },
       },
       temporarySkills: {
         create: (input) => {
@@ -44,7 +48,15 @@ describe('TemporarySkillResolver', () => {
       },
     });
 
-    const result = await resolver.resolve(goalContract, task);
+    const mutableContract = {
+      ...goalContract,
+      constraints: ['read-only'],
+      successCriteria: ['status returned'],
+    };
+    const pending = resolver.resolve(mutableContract, task);
+    mutableContract.constraints.push('caller mutation');
+    mutableContract.successCriteria.push('caller mutation');
+    const result = await pending;
 
     expect(result).toMatchObject({
       skill: { temporarySkillId: 'temporary-1', taskId: 'task-1', contextId: 'context-1' },
@@ -52,6 +64,10 @@ describe('TemporarySkillResolver', () => {
     expect(created).toMatchObject({
       tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
       inputSchema: { type: 'object', required: ['deviceId'] },
+    });
+    expect(modelGoalContract).toMatchObject({
+      constraints: ['read-only'],
+      successCriteria: ['status returned'],
     });
   });
 

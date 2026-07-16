@@ -24,6 +24,21 @@ All notable changes to this project are documented here. The format follows Keep
 - Constraint-sensitive Skill selection, success-criteria-sensitive Workflow generation, safety constraint visibility, replacement retention, patched Goal versions, stale-plan rejection and exact model-audit snapshots are covered across unit, contract, real PostgreSQL migration/integration and real A2A/Model/MCP E2E tests.
 - The operator-managed feature gate passed 259 unit, 59 contract, 57 integration and 46 E2E tests, 178-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0061.
 
+## [1.0.8-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- Every asynchronous selection/planning boundary now copies and freezes the complete Goal Contract, preventing caller mutation after invocation from changing retrieval, model input or persisted audit.
+- Management Skill selection and Workflow planning reject content-drifted or terminal registered Goals before any embedding/model call; unregistered standalone contracts remain an explicit low-level capability.
+- Goal Patch rejects a source plan whose complete contract differs from the active Goal even when ID/version match, before patch-model invocation or invalidation.
+- Admin revision uses the same runtime-enforced snapshot as model-planned revisions and Temporary Skill resolution.
+
+### Verification
+
+- Mutation-during-Promise regressions cover formal selection, Workflow planning and Temporary Skill resolution; source-plan drift is rejected before the Goal Patch model.
+- Real management E2E proves valid registered selection, same-version drift rejection, terminal Goal selection/planning rejection and unchanged model invocation counts.
+- The operator-managed bug-fixed gate passed 262 unit, 59 contract, 57 integration, 46 E2E, 179-source architecture, 104-operation OpenAPI, production build and empty/historical-0049 migration paths through 0061.
+
 ## [1.0.7] - 2026-07-16
 
 ### Added

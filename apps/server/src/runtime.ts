@@ -69,6 +69,7 @@ import {
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
+  type GoalExecutionContract,
   type SkillVersion,
   type WorkflowBudgetLimits,
 } from '../../../packages/domain/src/index.js';
@@ -1246,7 +1247,27 @@ export async function startServerRuntime(
         skillAuthoring,
         models: modelRuntime,
         prompts,
-        ...(skillSelection === undefined ? {} : { skillSelection }),
+        ...(skillSelection === undefined
+          ? {}
+          : {
+              skillSelection: {
+                select: async (goalContract: GoalExecutionContract) => {
+                  const goal = await goals.findById(goalContract.goalId);
+                  if (
+                    goal !== undefined &&
+                    (goal.status !== 'active' ||
+                      !goalExecutionContractsEqual(createGoalExecutionContract(goal), goalContract))
+                  )
+                    throw Object.assign(
+                      new Error(
+                        'Registered Skill selection requires the exact active Goal contract.',
+                      ),
+                      { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' as const },
+                    );
+                  return skillSelection.select(goalContract);
+                },
+              },
+            }),
         skillQuality,
         workflowTemplates,
         temporarySkills: temporarySkillOperations,
@@ -1259,9 +1280,13 @@ export async function startServerRuntime(
             const goal = await goals.findById(input.goalId);
             if (
               goal !== undefined &&
-              !goalExecutionContractsEqual(createGoalExecutionContract(goal), input.goalContract)
+              (goal.status !== 'active' ||
+                !goalExecutionContractsEqual(createGoalExecutionContract(goal), input.goalContract))
             )
-              throw new Error('WORKFLOW_GOAL_CONTRACT_STALE');
+              throw Object.assign(
+                new Error('Registered planning requires the exact active Goal contract.'),
+                { code: 'WORKFLOW_GOAL_CONTRACT_STALE' as const },
+              );
             return workflowPlanner.plan(input);
           },
           confirm: (planId) => workflowExecution.confirm(planId),

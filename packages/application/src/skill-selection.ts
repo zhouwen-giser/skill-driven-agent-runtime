@@ -1,5 +1,6 @@
 import {
   goalExecutionContractsEqual,
+  snapshotGoalExecutionContract,
   type GoalExecutionContract,
   type SkillCandidateSnapshot,
   type SkillPerformanceMetrics,
@@ -223,7 +224,7 @@ function requireGoalContract(contract: GoalExecutionContract): GoalExecutionCont
       'SKILL_SELECTION_GOAL_REQUIRED',
       'A complete identified Goal execution contract is required.',
     );
-  return contract;
+  return snapshotGoalExecutionContract(contract);
 }
 
 function summarizeSchema(schema: unknown): SkillCandidateSnapshot['inputSchemaSummary'] {

@@ -71,7 +71,9 @@ describe('GoalPatchService', () => {
     const planning: PlanWorkflowInput[] = [];
     const reparsedGoalVersions: number[] = [];
     let applyCount = 0;
+    let modelCallCount = 0;
     let inputRequired = false;
+    let loadedSourcePlan = sourcePlan;
     const service = new GoalPatchService({
       goals: {
         findById: () => Promise.resolve(goal),
@@ -82,7 +84,7 @@ describe('GoalPatchService', () => {
         save: () => Promise.resolve(),
       },
       plans: {
-        findPlan: () => Promise.resolve(sourcePlan),
+        findPlan: () => Promise.resolve(loadedSourcePlan),
         findConfirmedDefinition: () => Promise.resolve(undefined),
         confirmPlan: () => Promise.resolve(),
         saveAttempt: () => Promise.resolve(),
@@ -119,11 +121,13 @@ describe('GoalPatchService', () => {
       },
       skills: skillsWithCompensation(),
       model: {
-        generateStructured: () =>
-          Promise.resolve({
+        generateStructured: () => {
+          modelCallCount += 1;
+          return Promise.resolve({
             changes: { constraints: ['read-only', 'include temperature'] },
             decisionSummary: 'Added the requested constraint.',
-          }),
+          });
+        },
       },
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
       ids: { nextPatchId: () => 'patch-1', nextPlanId: () => 'plan-2' },
@@ -182,6 +186,21 @@ describe('GoalPatchService', () => {
     ).rejects.toMatchObject({ code: 'GOAL_PATCH_SKILL_INPUT_REQUIRED' });
     expect(applyCount).toBe(1);
     expect(planning).toHaveLength(1);
+
+    loadedSourcePlan = {
+      ...sourcePlan,
+      goalContract: { ...sourcePlan.goalContract, constraints: ['write allowed'] },
+    };
+    const modelCallsBeforeStalePatch = modelCallCount;
+    await expect(
+      service.apply({
+        goalId: goal.goalId,
+        sourcePlanId: sourcePlan.planId,
+        instruction: 'Use the stale plan.',
+        taskId: 'task-1',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PATCH_SOURCE_PLAN_INVALID' });
+    expect(modelCallCount).toBe(modelCallsBeforeStalePatch);
   });
 });
 

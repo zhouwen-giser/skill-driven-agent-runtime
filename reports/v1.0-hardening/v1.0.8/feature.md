@@ -14,4 +14,4 @@ Skill choice, Workflow planning/execution and Goal evaluation now operate on one
 - Goal Patch advances the version; repair, revision, replan and child planning cannot inherit authority from mismatched Goal content.
 - Real A2A/Model/MCP E2E proves enriched Skill evidence and exact model-visible contract content.
 
-Feature commit/tag: reconciled after publication / `v1.0.8`.
+Feature commit/tag: `f6501a9` / `v1.0.8` (published and remotely verified).

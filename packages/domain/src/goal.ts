@@ -28,13 +28,20 @@ export interface GoalExecutionContract {
 }
 
 export function createGoalExecutionContract(goal: Goal): GoalExecutionContract {
+  return snapshotGoalExecutionContract(goal);
+}
+
+/** Copies a contract at an asynchronous decision boundary so readonly is enforced at runtime. */
+export function snapshotGoalExecutionContract(
+  contract: GoalExecutionContract,
+): GoalExecutionContract {
   return Object.freeze({
-    goalId: requireIdentifier(goal.goalId, 'GOAL_ID_REQUIRED'),
-    version: assertGoalVersion(goal.version),
-    title: goal.title,
-    description: goal.description,
-    constraints: Object.freeze([...goal.constraints]),
-    successCriteria: Object.freeze([...goal.successCriteria]),
+    goalId: requireIdentifier(contract.goalId, 'GOAL_ID_REQUIRED'),
+    version: assertGoalVersion(contract.version),
+    title: contract.title,
+    description: contract.description,
+    constraints: Object.freeze([...contract.constraints]),
+    successCriteria: Object.freeze([...contract.successCriteria]),
   });
 }
 

@@ -21,6 +21,7 @@
 - v1.0.7 的正式 Skill 重规划固定使用 WorkflowControl 已保存的结构化输入；仅新的持久化 Task input response 或 Goal Patch 触发新的输入解析记录。子 Skill 继续在各自调用边界独立校验，父级解析结果不授予子级输入权限。
 - v1.0.7-bug-fixed 将 Goal Patch 后的输入解析解释为 Patch 提交前置条件：若新 Goal Contract 无法为同一正式 Skill 产生 schema-valid 输入，Patch 不改变 Goal/Task/Plan，调用方需先澄清请求再重试 Patch。这一 fail-closed 语义避免 `newPlanId` 指向不存在计划的部分提交。
 - v1.0.8 的 0061 历史回填优先使用 Goal Patch 的 before/after snapshot，其次使用当前 Goal 行。若早期记录已失去全部可恢复 Goal 证据，则保存带明确 legacy 描述的兼容快照，仅用于历史可读性；任何新规划、替代、确认继承或执行都必须提交并匹配当前完整 Contract，不能把该兼容快照当作新权限。
+- v1.0.8-bug-fixed 保留未注册 Goal 的管理端 standalone selection/planning 能力，用于低层验证与预注册编排；一旦相同 `goalId` 已在 PostgreSQL 注册，该 Goal 必须仍为 active 且六字段完全一致。终态或内容漂移均在 embedding/model 调用前拒绝。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 

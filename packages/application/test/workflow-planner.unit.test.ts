@@ -169,6 +169,35 @@ describe('WorkflowPlannerService', () => {
     expect(repository.attempts[0]?.goalContract).toEqual(goalContract);
   });
 
+  it('snapshots the Goal contract before asynchronous planner dependencies run', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    const mutableContract = {
+      ...goalContract,
+      constraints: ['read-only'],
+      successCriteria: ['status returned'],
+    };
+
+    const pending = planner(repository, model).plan({
+      ...input(),
+      goalContract: mutableContract,
+    });
+    mutableContract.constraints.push('caller mutation');
+    mutableContract.successCriteria.push('caller mutation');
+
+    const planned = await pending;
+    expect(planned.goalContract).toMatchObject({
+      constraints: ['read-only'],
+      successCriteria: ['status returned'],
+    });
+    expect(JSON.parse(model.calls[0]?.instruction ?? '{}')).toMatchObject({
+      goalContract: {
+        constraints: ['read-only'],
+        successCriteria: ['status returned'],
+      },
+    });
+  });
+
   it('produces a different Workflow when the Goal success criteria change', async () => {
     const repository = new MemoryPlanRepository();
     const model: StructuredModelProvider = {
