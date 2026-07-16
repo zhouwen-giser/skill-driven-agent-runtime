@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-07-16
+
+### Added
+
+- Domain-owned `RuntimeTerminalOutcome` records and an atomic PostgreSQL repository for achieved, unachievable and canceled runtime outcomes.
+- Migration 0058 linking each WorkflowControl and terminal Round to one durable outcome with queryable post-commit enhancement warnings.
+- Fault-injection coverage before Processed Result persistence and after Task, Goal, Control and Runtime Event writes.
+
+### Changed
+
+- Processed Result preparation now completes before the transaction, while Result Memory, evaluation Memory, Task Quality, Evolution Experience, Temporary Skill completion and Skill Evolution run independently after commit.
+- Achieved/unachievable controller paths commit Processed Result, Task output/phase, Goal, Control, terminal Round and Runtime Event in one transaction.
+- Cancellation of a Task with an active WorkflowControl uses the same atomic terminal boundary; early cancellation without a Control remains Task-local.
+- Generic Task, Goal and WorkflowControl saves reject stale attempts to overwrite terminal state, and controller failure handling never reverses a committed terminal outcome.
+
+### Verification
+
+- Unit, real PostgreSQL fault-injection, migration and real A2A evidence prove full rollback, exact idempotent retry, stale-Worker rejection, canceled waiting Tasks, and completed A2A output despite a post-commit Memory failure.
+
 ## [1.0.5] - 2026-07-16
 
 ### Added

@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   Goal,
   GoalEvaluationResult,
+  ProcessedResultRecord,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalControlStatus,
+  RuntimeTerminalOutcomeKind,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
   SkillVersion,
   WorkflowControlRecord,
   WorkflowControlRound,
@@ -12,6 +20,7 @@ import type {
 import type {
   GoalEvaluator,
   GoalRepository,
+  RuntimeTerminalOutcomeRepository,
   SkillRepository,
   WorkflowControlRepository,
   WorkflowPlanRepository,
@@ -309,6 +318,74 @@ describe('Workflow outer controller', () => {
       expect.objectContaining({ planId: 'plan-control-1-1' }),
     );
   });
+
+  it('keeps authoritative achievement when every independent post-commit enhancement fails', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Committed first.' });
+    fixture.experiences.record.mockRejectedValueOnce(codedError('EVOLUTION_WRITE_FAILED'));
+    fixture.memories.recordEvolution.mockRejectedValueOnce(codedError('MEMORY_WRITE_FAILED'));
+    fixture.taskOutcomes.enhanceResultMemory.mockRejectedValueOnce(
+      codedError('RESULT_MEMORY_WRITE_FAILED'),
+    );
+    fixture.taskOutcomes.enhanceTaskQuality.mockRejectedValueOnce(
+      codedError('TASK_QUALITY_WRITE_FAILED'),
+    );
+    fixture.taskOutcomes.enhanceTemporarySkill.mockResolvedValueOnce('candidate-1');
+    fixture.taskOutcomes.enhanceSkillEvolution.mockRejectedValueOnce(
+      codedError('SKILL_EVOLUTION_WRITE_FAILED'),
+    );
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'achieved',
+      terminalOutcomeId: 'terminal-outcome-task-task-control',
+    });
+    await expect(
+      fixture.terminalOutcomes.find('terminal-outcome-task-task-control'),
+    ).resolves.toMatchObject({
+      enhancementWarnings: expect.arrayContaining([
+        expect.objectContaining({ source: 'evolution_experience' }),
+        expect.objectContaining({ source: 'evaluation_memory' }),
+        expect.objectContaining({ source: 'result_memory' }),
+        expect.objectContaining({ source: 'task_quality' }),
+        expect.objectContaining({ source: 'skill_evolution' }),
+      ]),
+    });
+    expect(fixture.goals.goal.status).toBe('achieved');
+  });
+
+  it('does not commit any terminal projection when result-model audit fails during preparation', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Would be achieved.' });
+    fixture.taskOutcomes.prepareAchieved.mockRejectedValueOnce(
+      codedError('MODEL_AUDIT_WRITE_FAILED'),
+    );
+
+    await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+      code: 'MODEL_AUDIT_WRITE_FAILED',
+    });
+    expect(fixture.terminalOutcomes.outcomes.size).toBe(0);
+    expect(fixture.goals.goal.status).toBe('active');
+    expect(fixture.controls.controls.get('control-1')).toMatchObject({ status: 'failed' });
+  });
+
+  it('never reverses a committed terminal control when an error escapes after commit', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Committed.' });
+    const commit = fixture.terminalOutcomes.commitAchieved.bind(fixture.terminalOutcomes);
+    vi.spyOn(fixture.terminalOutcomes, 'commitAchieved').mockImplementationOnce(async (input) => {
+      await commit(input);
+      throw codedError('AFTER_TERMINAL_COMMIT');
+    });
+
+    await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+      code: 'AFTER_TERMINAL_COMMIT',
+    });
+    expect(fixture.controls.controls.get('control-1')).toMatchObject({
+      status: 'achieved',
+      terminalOutcomeId: 'terminal-outcome-task-task-control',
+    });
+    expect(fixture.goals.goal.status).toBe('achieved');
+  });
 });
 
 function startInput() {
@@ -334,10 +411,15 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   const evaluator = new SequenceEvaluator();
   const taskOutcomes = {
     reportCapabilityGap: vi.fn(() => Promise.resolve()),
-    reportAchieved: vi.fn(() => Promise.resolve()),
+    prepareAchieved: vi.fn(() => Promise.resolve(processedResult())),
+    enhanceResultMemory: vi.fn(() => Promise.resolve()),
+    enhanceTaskQuality: vi.fn(() => Promise.resolve()),
+    enhanceTemporarySkill: vi.fn<() => Promise<string | undefined>>(() =>
+      Promise.resolve(undefined),
+    ),
+    enhanceSkillEvolution: vi.fn(() => Promise.resolve()),
     requestInput: vi.fn(() => Promise.resolve()),
     requestSkillConfirmation: vi.fn(() => Promise.resolve()),
-    reportUnachievable: vi.fn(() => Promise.resolve()),
     prepareSkillReplacement: vi.fn(() =>
       Promise.resolve({
         skillId: 'skill-replacement',
@@ -348,6 +430,10 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     reportReplacementPlan: vi.fn(() => Promise.resolve()),
     reportInputContinuationPlan: vi.fn(() => Promise.resolve()),
   };
+  const terminalOutcomes = new MemoryTerminalOutcomes(controls, goals);
+  const experiences = { record: vi.fn(() => Promise.resolve(undefined as never)) };
+  const memories = { recordEvolution: vi.fn(() => Promise.resolve(undefined as never)) };
+  const reportWarning = vi.fn();
   const planner = {
     plan: vi.fn(async (request: { planId: string; workflowVersion: number }) => {
       const next = plan(request.planId, request.workflowVersion, 'awaiting_confirmation');
@@ -395,14 +481,57 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     planner,
     execution,
     evaluator,
+    experiences,
+    memories,
     taskOutcomes,
+    terminalOutcomes,
+    reportWarning,
     clock: { now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z` },
     ids: {
       nextPlanId: (controlId, replanCount) => `plan-${controlId}-${String(replanCount)}`,
       nextInstanceId: (_controlId, roundIndex) => `instance-${String(roundIndex)}`,
     },
   });
-  return { controller, controls, goals, evaluator, execution, planner, taskOutcomes };
+  return {
+    controller,
+    controls,
+    goals,
+    evaluator,
+    execution,
+    planner,
+    taskOutcomes,
+    terminalOutcomes,
+    experiences,
+    memories,
+    reportWarning,
+  };
+}
+
+function codedError(code: string): Error & { readonly code: string } {
+  return Object.assign(new Error(code), { code });
+}
+
+function processedResult(): ProcessedResultRecord {
+  return {
+    resultId: 'processed-result-terminal-task-control',
+    taskId: 'task-control',
+    skillId: 'skill-control',
+    skillVersion: 1,
+    normalized: {
+      data: true,
+      errors: [],
+      originalSize: 4,
+      contextValue: true,
+      contextTruncated: false,
+      summary: 'Successful result with 4 JSON characters.',
+    },
+    output: { text: 'Done.', structured: true },
+    facts: [],
+    valuable: true,
+    valueSummary: 'Useful.',
+    memoryCandidates: [],
+    createdAt: '2026-07-12T00:00:03.000Z',
+  };
 }
 
 function plan(
@@ -511,6 +640,99 @@ class MemoryControls implements WorkflowControlRepository {
   }
   listRounds(id: string) {
     return Promise.resolve(this.rounds.filter((round) => round.controlId === id));
+  }
+}
+
+class MemoryTerminalOutcomes implements RuntimeTerminalOutcomeRepository {
+  readonly #controls: MemoryControls;
+  readonly #goals: MemoryGoals;
+  readonly outcomes = new Map<string, RuntimeTerminalOutcomeRecord>();
+
+  constructor(controls: MemoryControls, goals: MemoryGoals) {
+    this.#controls = controls;
+    this.#goals = goals;
+  }
+
+  commitAchieved(input: RuntimeAchievedOutcomeInput) {
+    return this.#commit('achieved', 'achieved', input);
+  }
+
+  commitUnachievable(input: RuntimeUnachievableOutcomeInput) {
+    return this.#commit('unachievable', input.controlStatus, input);
+  }
+
+  commitCanceled(input: RuntimeCanceledOutcomeInput) {
+    return this.#commit('canceled', 'canceled', input);
+  }
+
+  recordEnhancementWarning(outcomeId: string, warning: RuntimeEnhancementWarning) {
+    const existing = this.outcomes.get(outcomeId);
+    if (existing === undefined)
+      return Promise.reject(new Error('RUNTIME_TERMINAL_OUTCOME_NOT_FOUND'));
+    this.outcomes.set(outcomeId, {
+      ...existing,
+      enhancementWarnings: [...existing.enhancementWarnings, warning],
+    });
+    return Promise.resolve();
+  }
+
+  find(outcomeId: string) {
+    return Promise.resolve(this.outcomes.get(outcomeId));
+  }
+
+  findByControl(controlId: string) {
+    return Promise.resolve(
+      [...this.outcomes.values()].find((outcome) => outcome.controlId === controlId),
+    );
+  }
+
+  async #commit(
+    kind: RuntimeTerminalOutcomeKind,
+    controlStatus: RuntimeTerminalControlStatus,
+    input:
+      RuntimeAchievedOutcomeInput | RuntimeUnachievableOutcomeInput | RuntimeCanceledOutcomeInput,
+  ): Promise<RuntimeTerminalOutcomeRecord> {
+    const existing = this.outcomes.get(input.outcomeId);
+    if (existing !== undefined) return existing;
+    const round = input.round;
+    const resultId =
+      kind === 'achieved'
+        ? (input as RuntimeAchievedOutcomeInput).processedResult?.resultId
+        : undefined;
+    const record: RuntimeTerminalOutcomeRecord = {
+      outcomeId: input.outcomeId,
+      kind,
+      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+      goalId: input.goalId,
+      goalVersion: input.goalVersion,
+      controlId: input.controlId,
+      controlStatus,
+      ...(round === undefined ? {} : { roundIndex: round.roundIndex }),
+      ...(round === undefined ? {} : { finalInstanceId: round.instanceId }),
+      ...(resultId === undefined ? {} : { resultId }),
+      summary: input.summary,
+      enhancementWarnings: [],
+      committedAt: input.committedAt,
+    };
+    this.outcomes.set(input.outcomeId, record);
+    this.#goals.goal = {
+      ...this.#goals.goal,
+      status: kind === 'achieved' ? 'achieved' : kind === 'canceled' ? 'canceled' : 'unachievable',
+      updatedAt: input.committedAt,
+    };
+    const control = this.#controls.controls.get(input.controlId);
+    if (control === undefined) throw new Error('WORKFLOW_CONTROL_NOT_FOUND');
+    if (round !== undefined)
+      await this.#controls.saveRound({ ...round, terminalOutcomeId: input.outcomeId });
+    await this.#controls.save({
+      ...control,
+      status: controlStatus,
+      roundCount: round === undefined ? control.roundCount : round.roundIndex + 1,
+      ...(round === undefined ? {} : { finalInstanceId: round.instanceId }),
+      terminalOutcomeId: input.outcomeId,
+      updatedAt: input.committedAt,
+    });
+    return record;
   }
 }
 

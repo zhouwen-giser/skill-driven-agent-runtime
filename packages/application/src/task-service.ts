@@ -92,6 +92,7 @@ export interface TaskServiceDependencies {
     ): Promise<Readonly<{ planId: string; goalId: string; goalVersion: number }>>;
     patchGoal(task: AgentTask, instruction: string): Promise<void>;
     pause(task: AgentTask): Promise<void>;
+    commitRuntimeCancellation?(task: AgentTask, reason: string): Promise<boolean>;
     cancel(task: AgentTask): Promise<void>;
     resume(task: AgentTask): Promise<'resumed' | 'replan_required'>;
     cancelGoal(task: AgentTask, reason: string): Promise<void>;
@@ -186,6 +187,22 @@ export class TaskService {
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
     const timestamp = this.#dependencies.clock.now();
+    if (
+      this.#dependencies.planActions !== undefined &&
+      (await this.#dependencies.planActions.commitRuntimeCancellation?.(
+        task,
+        'Task canceled by user.',
+      )) === true
+    ) {
+      await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
+      const committed = await this.#dependencies.tasks.findById(task.taskId);
+      if (committed === undefined || !isTerminalTaskPhase(committed.phase))
+        throw new TaskApplicationError(
+          'TASK_RUNTIME_CANCELLATION_INCOMPLETE',
+          'Runtime cancellation did not project a canceled Task.',
+        );
+      return committed;
+    }
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
     await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
@@ -721,6 +738,7 @@ export type TaskApplicationErrorCode =
   | 'TASK_INPUT_RESPONSE_TOO_LARGE'
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
   | 'TASK_PLAN_NOT_ATTACHED'
+  | 'TASK_RUNTIME_CANCELLATION_INCOMPLETE'
   | 'TASK_PLAN_DECISION_NOT_AWAITING';
 
 export class TaskApplicationError extends Error {

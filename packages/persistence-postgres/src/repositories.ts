@@ -28,6 +28,7 @@ import type {
   GoalInputInferenceRepository,
   RuntimeEventPublisher,
   RuntimeRecoveryRepository,
+  RuntimeTerminalOutcomeRepository,
   RuntimeTaskEvent,
   SkillDraftRepository,
   SkillGraphRepository,
@@ -77,6 +78,13 @@ import type {
   GoalPatchRecord,
   GoalCancellationRecord,
   ProcessedResultRecord,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalControlStatus,
+  RuntimeTerminalOutcomeKind,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
   TaskQualityReport,
   EvaluationInfluenceRecord,
   EvaluationAnalyticsFilter,
@@ -695,7 +703,7 @@ export class PostgresGoalRepository implements GoalRepository {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
+      const savedGoal = await client.query(
         `INSERT INTO goal(
          goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
          status,previous_goal_id,created_at,updated_at)
@@ -703,7 +711,9 @@ export class PostgresGoalRepository implements GoalRepository {
        ON CONFLICT(goal_id) DO UPDATE SET
          version=EXCLUDED.version,title=EXCLUDED.title,description=EXCLUDED.description,
          constraints_json=EXCLUDED.constraints_json,success_criteria_json=EXCLUDED.success_criteria_json,
-         status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at`,
+         status=EXCLUDED.status,previous_goal_id=EXCLUDED.previous_goal_id,updated_at=EXCLUDED.updated_at
+       WHERE goal.status='active'
+          OR (goal.status=EXCLUDED.status AND goal.version=EXCLUDED.version)`,
         [
           goal.goalId,
           goal.contextId,
@@ -718,6 +728,7 @@ export class PostgresGoalRepository implements GoalRepository {
           goal.updatedAt,
         ],
       );
+      if (savedGoal.rowCount !== 1) throw new Error('GOAL_TERMINAL_STATE_CONFLICT');
       if (transition !== undefined)
         await client.query(
           `INSERT INTO goal_transition(
@@ -1097,6 +1108,451 @@ export class PostgresProcessedResultRepository implements ProcessedResultReposit
     );
     return result.rows.map(mapProcessedResultRow);
   }
+}
+
+interface RuntimeTerminalOutcomeRow extends QueryResultRow {
+  outcome_id: string;
+  outcome_kind: RuntimeTerminalOutcomeKind;
+  task_id: string | null;
+  goal_id: string;
+  goal_version: number;
+  control_id: string;
+  control_status: RuntimeTerminalControlStatus;
+  round_index: number | null;
+  final_instance_id: string | null;
+  result_id: string | null;
+  summary: string;
+  enhancement_warnings_json: unknown;
+  committed_at: Date | string;
+}
+
+const RuntimeEnhancementWarningsSchema = z.array(
+  z
+    .object({
+      source: z.enum([
+        'result_memory',
+        'task_quality',
+        'evolution_experience',
+        'evaluation_memory',
+        'temporary_skill',
+        'skill_evolution',
+      ]),
+      code: z.string(),
+      message: z.string(),
+      occurredAt: z.string(),
+    })
+    .strict(),
+);
+
+type RuntimeTerminalCommitInput =
+  RuntimeAchievedOutcomeInput | RuntimeUnachievableOutcomeInput | RuntimeCanceledOutcomeInput;
+
+export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminalOutcomeRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('achieved', 'achieved', input);
+  }
+
+  commitUnachievable(
+    input: RuntimeUnachievableOutcomeInput,
+  ): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('unachievable', input.controlStatus, input);
+  }
+
+  commitCanceled(input: RuntimeCanceledOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
+    return this.#commit('canceled', 'canceled', input);
+  }
+
+  async recordEnhancementWarning(
+    outcomeId: string,
+    warning: RuntimeEnhancementWarning,
+  ): Promise<void> {
+    const warningJson = JSON.stringify([warning]);
+    const result = await this.#pool.query(
+      `UPDATE runtime_terminal_outcome
+       SET enhancement_warnings_json=enhancement_warnings_json || $2::jsonb
+       WHERE outcome_id=$1 AND NOT enhancement_warnings_json @> $2::jsonb`,
+      [outcomeId, warningJson],
+    );
+    if (result.rowCount === 0 && (await this.find(outcomeId)) === undefined)
+      throw new Error('RUNTIME_TERMINAL_OUTCOME_NOT_FOUND');
+  }
+
+  async find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
+      'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1',
+      [outcomeId],
+    );
+    return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
+  }
+
+  async findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
+      'SELECT * FROM runtime_terminal_outcome WHERE control_id=$1',
+      [controlId],
+    );
+    return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
+  }
+
+  async #commit(
+    kind: RuntimeTerminalOutcomeKind,
+    controlStatus: RuntimeTerminalControlStatus,
+    input: RuntimeTerminalCommitInput,
+  ): Promise<RuntimeTerminalOutcomeRecord> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const task =
+        input.taskId === undefined
+          ? undefined
+          : (
+              await client.query<{
+                task_id: string;
+                context_id: string;
+                phase: AgentTask['phase'];
+                goal_id: string | null;
+                goal_version: number | null;
+              }>(
+                `SELECT task_id,context_id,phase,goal_id,goal_version
+                 FROM agent_task WHERE task_id=$1 FOR UPDATE`,
+                [input.taskId],
+              )
+            ).rows[0];
+      if (input.taskId !== undefined && task === undefined)
+        throw new Error('RUNTIME_TERMINAL_TASK_NOT_FOUND');
+      const goal = (
+        await client.query<{
+          goal_id: string;
+          context_id: string;
+          version: number;
+          status: Goal['status'];
+        }>('SELECT goal_id,context_id,version,status FROM goal WHERE goal_id=$1 FOR UPDATE', [
+          input.goalId,
+        ])
+      ).rows[0];
+      const control = (
+        await client.query<{
+          control_id: string;
+          context_id: string;
+          goal_id: string;
+          goal_version: number;
+          task_id: string | null;
+          status: WorkflowControlRecord['status'];
+          round_count: number;
+        }>(
+          `SELECT control_id,context_id,goal_id,goal_version,task_id,status,round_count
+           FROM workflow_control WHERE control_id=$1 FOR UPDATE`,
+          [input.controlId],
+        )
+      ).rows[0];
+      if (goal === undefined) throw new Error('RUNTIME_TERMINAL_GOAL_NOT_FOUND');
+      if (control === undefined) throw new Error('RUNTIME_TERMINAL_CONTROL_NOT_FOUND');
+
+      const existing = (
+        await client.query<RuntimeTerminalOutcomeRow>(
+          'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1 OR control_id=$2 FOR UPDATE',
+          [input.outcomeId, input.controlId],
+        )
+      ).rows[0];
+      if (existing !== undefined) {
+        const mapped = mapRuntimeTerminalOutcome(existing);
+        if (matchesTerminalRetry(mapped, kind, controlStatus, input)) {
+          await client.query('COMMIT');
+          return mapped;
+        }
+        throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+      }
+
+      const round = input.round;
+      const roundIndex = round?.roundIndex;
+      const finalInstanceId =
+        kind === 'canceled'
+          ? ((input as RuntimeCanceledOutcomeInput).finalInstanceId ?? round?.instanceId)
+          : round?.instanceId;
+      const processed =
+        kind === 'achieved' ? (input as RuntimeAchievedOutcomeInput).processedResult : undefined;
+      if (
+        goal.version !== input.goalVersion ||
+        goal.status !== 'active' ||
+        goal.context_id !== control.context_id ||
+        control.goal_id !== input.goalId ||
+        control.goal_version !== input.goalVersion ||
+        !isExpectedTerminalControlStatus(control.status, kind) ||
+        (roundIndex !== undefined && control.round_count !== roundIndex) ||
+        control.task_id !== (input.taskId ?? null) ||
+        (task !== undefined &&
+          (task.context_id !== control.context_id ||
+            task.goal_id !== input.goalId ||
+            task.goal_version !== input.goalVersion ||
+            !isExpectedTerminalTaskPhase(task.phase, kind)))
+      )
+        throw new Error('RUNTIME_TERMINAL_EXPECTED_STATE_CONFLICT');
+      if (
+        processed !== undefined &&
+        (input.taskId === undefined || processed.taskId !== input.taskId)
+      )
+        throw new Error('RUNTIME_TERMINAL_RESULT_TASK_MISMATCH');
+      if (input.taskId !== undefined && kind === 'achieved' && processed === undefined)
+        throw new Error('RUNTIME_TERMINAL_RESULT_REQUIRED');
+
+      if (processed !== undefined) await insertProcessedResult(client, processed);
+      await client.query(
+        `INSERT INTO runtime_terminal_outcome(
+           outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
+           round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'[]'::jsonb,$12)`,
+        [
+          input.outcomeId,
+          kind,
+          input.taskId ?? null,
+          input.goalId,
+          input.goalVersion,
+          input.controlId,
+          controlStatus,
+          roundIndex ?? null,
+          finalInstanceId ?? null,
+          processed?.resultId ?? null,
+          input.summary,
+          input.committedAt,
+        ],
+      );
+      if (task !== undefined) {
+        const terminalTask = terminalTaskProjection(kind, input.summary, processed);
+        const updated = await client.query(
+          `UPDATE agent_task SET phase=$2,phase_message=$3,output_text=$4,
+             output_structured=$5::jsonb,error_code=$6,updated_at=$7
+           WHERE task_id=$1 AND (
+             ($8='canceled' AND phase NOT IN ('completed','canceled','failed','invalidated'))
+             OR ($8<>'canceled' AND phase IN ('executing','evaluating'))
+           )`,
+          [
+            task.task_id,
+            terminalTask.phase,
+            terminalTask.phaseMessage,
+            terminalTask.output?.text ?? null,
+            terminalTask.output === undefined
+              ? null
+              : JSON.stringify(terminalTask.output.structured),
+            terminalTask.errorCode ?? null,
+            input.committedAt,
+            kind,
+          ],
+        );
+        if (updated.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_TASK_UPDATE_CONFLICT');
+      }
+      const goalStatus =
+        kind === 'achieved' ? 'achieved' : kind === 'canceled' ? 'canceled' : 'unachievable';
+      const updatedGoal = await client.query(
+        `UPDATE goal SET status=$3,updated_at=$4
+         WHERE goal_id=$1 AND version=$2 AND status='active'`,
+        [input.goalId, input.goalVersion, goalStatus, input.committedAt],
+      );
+      if (updatedGoal.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_GOAL_UPDATE_CONFLICT');
+      const updatedControl = await client.query(
+        `UPDATE workflow_control SET status=$2,round_count=$3,final_instance_id=$4,
+           terminal_outcome_id=$5,updated_at=$6
+         WHERE control_id=$1
+           AND status IN ('running','awaiting_confirmation','awaiting_input','capability_gap')
+           AND round_count=$7`,
+        [
+          input.controlId,
+          controlStatus,
+          roundIndex === undefined ? control.round_count : roundIndex + 1,
+          finalInstanceId ?? null,
+          input.outcomeId,
+          input.committedAt,
+          control.round_count,
+        ],
+      );
+      if (updatedControl.rowCount !== 1)
+        throw new Error('RUNTIME_TERMINAL_CONTROL_UPDATE_CONFLICT');
+      if (round !== undefined) await insertTerminalRound(client, round, input.outcomeId);
+      if (task !== undefined) {
+        await client.query(
+          `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
+           VALUES($1,$2,$3,'task.phase_changed',$4,$5)`,
+          [
+            input.eventId ?? `event-${input.outcomeId}`,
+            task.task_id,
+            task.context_id,
+            input.committedAt,
+            input.summary,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+      return {
+        outcomeId: input.outcomeId,
+        kind,
+        ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+        goalId: input.goalId,
+        goalVersion: input.goalVersion,
+        controlId: input.controlId,
+        controlStatus,
+        ...(roundIndex === undefined ? {} : { roundIndex }),
+        ...(finalInstanceId === undefined ? {} : { finalInstanceId }),
+        ...(processed === undefined ? {} : { resultId: processed.resultId }),
+        summary: input.summary,
+        enhancementWarnings: [],
+        committedAt: input.committedAt,
+      };
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+async function insertProcessedResult(
+  client: PoolClient,
+  record: ProcessedResultRecord,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO processed_result(
+       result_id,task_id,skill_id,skill_version,normalized_json,output_json,
+       facts_json,valuable,value_summary,memory_candidates_json,created_at)
+     VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11)`,
+    [
+      record.resultId,
+      record.taskId,
+      record.skillId,
+      record.skillVersion,
+      JSON.stringify(record.normalized),
+      JSON.stringify(record.output),
+      JSON.stringify(record.facts),
+      record.valuable,
+      record.valueSummary,
+      JSON.stringify(record.memoryCandidates),
+      record.createdAt,
+    ],
+  );
+}
+
+async function insertTerminalRound(
+  client: PoolClient,
+  round: WorkflowControlRound,
+  outcomeId: string,
+): Promise<void> {
+  const result = await client.query(
+    `INSERT INTO workflow_control_round(
+       control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
+       evaluation_summary,evaluation_detail_json,terminal_outcome_id,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)
+     ON CONFLICT(control_id,round_index) DO UPDATE SET terminal_outcome_id=EXCLUDED.terminal_outcome_id
+     WHERE workflow_control_round.plan_id=EXCLUDED.plan_id
+       AND workflow_control_round.instance_id=EXCLUDED.instance_id
+       AND workflow_control_round.workflow_version=EXCLUDED.workflow_version
+       AND workflow_control_round.evaluation_detail_json=EXCLUDED.evaluation_detail_json
+       AND workflow_control_round.terminal_outcome_id IS NULL`,
+    [
+      round.controlId,
+      round.roundIndex,
+      round.planId,
+      round.instanceId,
+      round.workflowVersion,
+      round.evaluation.decision,
+      round.evaluation.summary,
+      JSON.stringify(round.evaluation),
+      outcomeId,
+      round.createdAt,
+    ],
+  );
+  if (result.rowCount !== 1) throw new Error('RUNTIME_TERMINAL_ROUND_CONFLICT');
+}
+
+function terminalTaskProjection(
+  kind: RuntimeTerminalOutcomeKind,
+  summary: string,
+  processed: ProcessedResultRecord | undefined,
+): Readonly<{
+  phase: Extract<AgentTask['phase'], 'completed' | 'failed' | 'canceled'>;
+  phaseMessage: string;
+  output?: ProcessedResultRecord['output'];
+  errorCode?: string;
+}> {
+  if (kind === 'achieved') {
+    if (processed === undefined) throw new Error('RUNTIME_TERMINAL_RESULT_REQUIRED');
+    return { phase: 'completed', phaseMessage: 'Task completed.', output: processed.output };
+  }
+  if (kind === 'canceled')
+    return { phase: 'canceled', phaseMessage: summary, errorCode: 'RUNTIME_CANCELED' };
+  return { phase: 'failed', phaseMessage: summary, errorCode: 'GOAL_UNACHIEVABLE' };
+}
+
+function isExpectedTerminalTaskPhase(
+  phase: AgentTask['phase'],
+  kind: RuntimeTerminalOutcomeKind,
+): boolean {
+  if (kind !== 'canceled') return phase === 'executing' || phase === 'evaluating';
+  return (
+    phase !== 'completed' && phase !== 'canceled' && phase !== 'failed' && phase !== 'invalidated'
+  );
+}
+
+function isExpectedTerminalControlStatus(
+  status: WorkflowControlRecord['status'],
+  kind: RuntimeTerminalOutcomeKind,
+): boolean {
+  if (kind !== 'canceled') return status === 'running';
+  return (
+    status === 'running' ||
+    status === 'awaiting_confirmation' ||
+    status === 'awaiting_input' ||
+    status === 'capability_gap'
+  );
+}
+
+function matchesTerminalRetry(
+  existing: RuntimeTerminalOutcomeRecord,
+  kind: RuntimeTerminalOutcomeKind,
+  controlStatus: RuntimeTerminalControlStatus,
+  input: RuntimeTerminalCommitInput,
+): boolean {
+  const round = input.round;
+  const processed =
+    kind === 'achieved' ? (input as RuntimeAchievedOutcomeInput).processedResult : undefined;
+  const finalInstanceId =
+    kind === 'canceled'
+      ? ((input as RuntimeCanceledOutcomeInput).finalInstanceId ?? round?.instanceId)
+      : round?.instanceId;
+  return (
+    existing.outcomeId === input.outcomeId &&
+    existing.kind === kind &&
+    existing.taskId === input.taskId &&
+    existing.goalId === input.goalId &&
+    existing.goalVersion === input.goalVersion &&
+    existing.controlId === input.controlId &&
+    existing.controlStatus === controlStatus &&
+    existing.roundIndex === round?.roundIndex &&
+    existing.finalInstanceId === finalInstanceId &&
+    existing.resultId === processed?.resultId &&
+    existing.summary === input.summary
+  );
+}
+
+function mapRuntimeTerminalOutcome(row: RuntimeTerminalOutcomeRow): RuntimeTerminalOutcomeRecord {
+  return {
+    outcomeId: row.outcome_id,
+    kind: row.outcome_kind,
+    ...(row.task_id === null ? {} : { taskId: row.task_id }),
+    goalId: row.goal_id,
+    goalVersion: row.goal_version,
+    controlId: row.control_id,
+    controlStatus: row.control_status,
+    ...(row.round_index === null ? {} : { roundIndex: row.round_index }),
+    ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
+    ...(row.result_id === null ? {} : { resultId: row.result_id }),
+    summary: row.summary,
+    enhancementWarnings: RuntimeEnhancementWarningsSchema.parse(row.enhancement_warnings_json),
+    committedAt: toIsoString(row.committed_at),
+  };
 }
 
 interface TaskQualityReportRow extends QueryResultRow {
@@ -3845,6 +4301,7 @@ interface WorkflowControlRow extends QueryResultRow {
   round_count: number;
   replan_count: number;
   final_instance_id: string | null;
+  terminal_outcome_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -3858,6 +4315,7 @@ interface WorkflowControlRoundRow extends QueryResultRow {
   evaluation_decision: WorkflowControlRound['evaluation']['decision'];
   evaluation_summary: string;
   evaluation_detail_json: unknown;
+  terminal_outcome_id: string | null;
   created_at: Date | string;
 }
 
@@ -3876,17 +4334,24 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
   }
 
   async save(control: WorkflowControlRecord): Promise<void> {
-    await this.#pool.query(
+    const saved = await this.#pool.query(
       `INSERT INTO workflow_control(
          control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
          skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
-         created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15)
+         terminal_outcome_id,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT(control_id) DO UPDATE SET
          status=EXCLUDED.status,current_plan_id=EXCLUDED.current_plan_id,
          input_json=EXCLUDED.input_json,
          round_count=EXCLUDED.round_count,replan_count=EXCLUDED.replan_count,
-         final_instance_id=EXCLUDED.final_instance_id,updated_at=EXCLUDED.updated_at`,
+         final_instance_id=EXCLUDED.final_instance_id,
+         terminal_outcome_id=EXCLUDED.terminal_outcome_id,updated_at=EXCLUDED.updated_at
+       WHERE workflow_control.status NOT IN (
+         'achieved','unachievable','canceled','failed','replan_budget_exhausted'
+       ) OR (
+         workflow_control.status=EXCLUDED.status
+         AND workflow_control.terminal_outcome_id IS NOT DISTINCT FROM EXCLUDED.terminal_outcome_id
+       )`,
       [
         control.controlId,
         control.contextId,
@@ -3901,18 +4366,20 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         control.roundCount,
         control.replanCount,
         control.finalInstanceId ?? null,
+        control.terminalOutcomeId ?? null,
         control.createdAt,
         control.updatedAt,
       ],
     );
+    if (saved.rowCount !== 1) throw new Error('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
   }
 
   async saveRound(round: WorkflowControlRound): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_control_round(
          control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
-         evaluation_summary,evaluation_detail_json,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
+         evaluation_summary,evaluation_detail_json,terminal_outcome_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)`,
       [
         round.controlId,
         round.roundIndex,
@@ -3922,6 +4389,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         round.evaluation.decision,
         round.evaluation.summary,
         JSON.stringify(round.evaluation),
+        round.terminalOutcomeId ?? null,
         round.createdAt,
       ],
     );
@@ -3951,6 +4419,7 @@ function mapWorkflowControlRow(row: WorkflowControlRow): WorkflowControlRecord {
     roundCount: row.round_count,
     replanCount: row.replan_count,
     ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
+    ...(row.terminal_outcome_id === null ? {} : { terminalOutcomeId: row.terminal_outcome_id }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };
@@ -3964,6 +4433,7 @@ function mapWorkflowControlRoundRow(row: WorkflowControlRoundRow): WorkflowContr
     instanceId: row.instance_id,
     workflowVersion: row.workflow_version,
     evaluation: mapWorkflowControlEvaluation(row.evaluation_detail_json),
+    ...(row.terminal_outcome_id === null ? {} : { terminalOutcomeId: row.terminal_outcome_id }),
     createdAt: toIsoString(row.created_at),
   };
 }

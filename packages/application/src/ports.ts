@@ -67,6 +67,11 @@ import type {
   TaskInputRequest,
   TaskInputResponse,
   RuntimeExecutionContext,
+  RuntimeAchievedOutcomeInput,
+  RuntimeCanceledOutcomeInput,
+  RuntimeEnhancementWarning,
+  RuntimeTerminalOutcomeRecord,
+  RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
 } from '../../domain/src/index.js';
 
@@ -179,6 +184,15 @@ export interface WorkflowControlRepository {
   save(control: WorkflowControlRecord): Promise<void>;
   saveRound(round: WorkflowControlRound): Promise<void>;
   listRounds(controlId: string): Promise<readonly WorkflowControlRound[]>;
+}
+
+export interface RuntimeTerminalOutcomeRepository {
+  commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitUnachievable(input: RuntimeUnachievableOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  commitCanceled(input: RuntimeCanceledOutcomeInput): Promise<RuntimeTerminalOutcomeRecord>;
+  recordEnhancementWarning(outcomeId: string, warning: RuntimeEnhancementWarning): Promise<void>;
+  find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
+  findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined>;
 }
 
 export interface GoalEvaluator {

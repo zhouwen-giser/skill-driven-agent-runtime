@@ -88,9 +88,14 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
   );
-  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0057_MISSING:${label}`);
+  if (latest.rows[0]?.applied !== true) throw new Error(`MIGRATION_0058_MISSING:${label}`);
+  const terminalOutcomeTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id') OR (table_name IN ('workflow_control','workflow_control_round') AND column_name='terminal_outcome_id')",
+  );
+  if (terminalOutcomeTables.rows[0]?.count !== 3)
+    throw new Error(`MIGRATION_RUNTIME_TERMINAL_OUTCOME_MISSING:${label}`);
   const continuationTables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
   );

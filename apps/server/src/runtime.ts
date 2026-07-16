@@ -64,7 +64,11 @@ import {
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
 } from '../../../packages/application/src/index.js';
-import type { SkillVersion, WorkflowBudgetLimits } from '../../../packages/domain/src/index.js';
+import {
+  isTerminalWorkflowControlStatus,
+  type SkillVersion,
+  type WorkflowBudgetLimits,
+} from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
@@ -104,6 +108,7 @@ import {
   PostgresGoalPatchRepository,
   PostgresGoalCancellationRepository,
   PostgresProcessedResultRepository,
+  PostgresRuntimeTerminalOutcomeRepository,
   PostgresTaskQualityReportRepository,
   PostgresEvaluationInfluenceRepository,
   PostgresEvaluationAnalyticsRepository,
@@ -306,6 +311,7 @@ export async function startServerRuntime(
     nextId: () => `processed-result-${randomUUID()}`,
     memories,
   });
+  const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(pool);
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
     memories,
@@ -670,6 +676,55 @@ export async function startServerRuntime(
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         await workflowExecution.pauseForPlan(task.planId);
       },
+      async commitRuntimeCancellation(task, reason) {
+        if (
+          task.goalId === undefined ||
+          task.goalVersion === undefined ||
+          task.planId === undefined
+        )
+          return false;
+        const controlId = `control-task-${task.taskId}`;
+        let control;
+        try {
+          control = await workflowController.get(controlId);
+        } catch (error: unknown) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'WORKFLOW_CONTROL_NOT_FOUND'
+          )
+            return false;
+          throw error;
+        }
+        if (isTerminalWorkflowControlStatus(control.status)) return true;
+        await skillCallWorkflowService.rejectPendingForParentPlan(control.currentPlanId);
+        const active = await workflowInstances.findActiveByPlanId(control.currentPlanId);
+        const canceled =
+          active === undefined
+            ? undefined
+            : await workflowExecution.cancelForPlan(control.currentPlanId);
+        try {
+          await runtimeTerminalOutcomes.commitCanceled({
+            outcomeId: `terminal-outcome-task-${task.taskId}`,
+            taskId: task.taskId,
+            goalId: task.goalId,
+            goalVersion: task.goalVersion,
+            controlId,
+            ...(canceled?.instanceId === undefined && control.finalInstanceId === undefined
+              ? {}
+              : { finalInstanceId: canceled?.instanceId ?? control.finalInstanceId }),
+            summary: reason,
+            eventId: `event-terminal-${task.taskId}`,
+            committedAt: clock.now(),
+          });
+        } catch (error: unknown) {
+          const latest = await workflowController.get(controlId);
+          if (isTerminalWorkflowControlStatus(latest.status)) return true;
+          throw error;
+        }
+        return true;
+      },
       async cancel(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
         if (await skillCallWorkflowService.rejectPendingForParentPlan(task.planId)) return;
@@ -706,7 +761,6 @@ export async function startServerRuntime(
         }),
       requestSkillConfirmation: (taskId, input) =>
         service.requestNestedSkillConfirmation(taskId, input),
-      reportUnachievable: (taskId, summary) => service.fail(taskId, 'GOAL_UNACHIEVABLE', summary),
       async prepareSkillReplacement(taskId) {
         if (skillSelection === undefined) throw new Error('SKILL_SELECTION_RUNTIME_NOT_CONFIGURED');
         const task = await service.get(taskId);
@@ -725,12 +779,13 @@ export async function startServerRuntime(
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
       reportInputContinuationPlan: (taskId, input) =>
         service.awaitInputContinuationConfirmation(taskId, input),
-      async reportAchieved(taskId, instance, evaluation) {
+      async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
           const temporary = await temporarySkillRepository.find(task.temporarySkillId);
           if (temporary?.status !== 'active') throw new Error('TEMPORARY_SKILL_NOT_ACTIVE');
-          const processed = await resultProcessing.process({
+          return resultProcessing.prepare({
+            resultId: `processed-result-terminal-${taskId}`,
             taskId,
             skillId: temporary.temporarySkillId,
             skillVersion: 1,
@@ -738,48 +793,13 @@ export async function startServerRuntime(
             outputSchema: temporary.outputSchema,
             rawResult: instance.result,
           });
-          await service.recordResult(
-            taskId,
-            {
-              text: `Temporary Skill ${temporary.name} completed.`,
-              structured: instance.result,
-              outputSchema: temporary.outputSchema,
-            },
-            resultProcessor,
-          );
-          const plan = await workflowPlans.findPlan(instance.planId);
-          const goal = await goals.findById(instance.goalId);
-          if (plan?.definition === undefined || goal === undefined)
-            throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
-          await taskQuality.evaluate({
-            taskId,
-            goal,
-            goalEvaluation: evaluation,
-            workflow: plan.definition,
-            instance,
-            skill: {
-              skillId: temporary.temporarySkillId,
-              version: 1,
-              inputSchema: temporary.inputSchema,
-              outputSchema: temporary.outputSchema,
-            },
-            processedResult: processed,
-            isTemporarySkill: true,
-          });
-          const completed = await temporarySkills.complete(
-            temporary.temporarySkillId,
-            true,
-            'Temporary Skill Workflow completed and its output Schema passed.',
-          );
-          if (completed.formalizationCandidate !== undefined)
-            await skillEvolution.evaluateAndPublish(completed.formalizationCandidate.candidateId);
-          return;
         }
         const selected = instance.skillVersions[0];
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
         const skill = await skills.findVersion(selected.skillId, selected.version);
         if (skill?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
-        const processed = await resultProcessing.process({
+        return resultProcessing.prepare({
+          resultId: `processed-result-terminal-${taskId}`,
           taskId,
           skillId: skill.skillId,
           skillVersion: skill.version,
@@ -787,15 +807,28 @@ export async function startServerRuntime(
           outputSchema: skill.outputSchema,
           rawResult: instance.result,
         });
-        await service.recordResult(
-          taskId,
-          { ...processed.output, outputSchema: skill.outputSchema },
-          resultProcessor,
-        );
+      },
+      enhanceResultMemory: (processed) => resultProcessing.enhance(processed),
+      async enhanceTaskQuality(taskId, instance, evaluation, processed) {
+        const task = await service.get(taskId);
         const plan = await workflowPlans.findPlan(instance.planId);
         const goal = await goals.findById(instance.goalId);
         if (plan?.definition === undefined || goal === undefined)
           throw new Error('TASK_QUALITY_EVIDENCE_MISSING');
+        const temporary =
+          task.temporarySkillId === undefined
+            ? undefined
+            : await temporarySkillRepository.find(task.temporarySkillId);
+        const skill =
+          temporary === undefined
+            ? await skills.findVersion(processed.skillId, processed.skillVersion)
+            : {
+                skillId: temporary.temporarySkillId,
+                version: 1,
+                inputSchema: temporary.inputSchema,
+                outputSchema: temporary.outputSchema,
+              };
+        if (skill === undefined) throw new Error('TASK_QUALITY_SKILL_EVIDENCE_MISSING');
         await taskQuality.evaluate({
           taskId,
           goal,
@@ -804,9 +837,28 @@ export async function startServerRuntime(
           instance,
           skill,
           processedResult: processed,
-          isTemporarySkill: false,
+          isTemporarySkill: temporary !== undefined,
         });
       },
+      async enhanceTemporarySkill(taskId) {
+        const task = await service.get(taskId);
+        if (task.temporarySkillId === undefined) return undefined;
+        const completed = await temporarySkills.complete(
+          task.temporarySkillId,
+          true,
+          'Temporary Skill Workflow completed and its output Schema passed.',
+        );
+        return completed.formalizationCandidate?.candidateId;
+      },
+      async enhanceSkillEvolution(candidateId) {
+        await skillEvolution.evaluateAndPublish(candidateId);
+      },
+    },
+    terminalOutcomes: runtimeTerminalOutcomes,
+    reportWarning: (warning) => {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'runtime.enhancement.warning', ...warning })}\n`,
+      );
     },
     clock,
     ids: {
@@ -1352,6 +1404,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0055_task_input_continuation.up.sql',
     '0056_mcp_execution_mode.up.sql',
     '0057_nested_skill_confirmation.up.sql',
+    '0058_runtime_terminal_outcome.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;

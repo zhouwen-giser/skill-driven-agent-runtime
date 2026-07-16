@@ -29,6 +29,7 @@ export * from './memory-retention.js';
 export * from './prompt.js';
 export * from './processed-result.js';
 export * from './runtime-execution.js';
+export * from './runtime-terminal-outcome.js';
 export * from './task.js';
 export * from './task-input.js';
 export * from './task-quality.js';

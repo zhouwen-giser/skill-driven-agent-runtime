@@ -22,6 +22,7 @@ let workflowPlanningCalls = 0;
 let controlEvaluationCalls = 0;
 let replacementEvaluationCalls = 0;
 let inputContinuationEvaluationCalls = 0;
+let postCommitMemoryFailures = 0;
 let mcpWorkflowTarget:
   | Readonly<{
       serverId: string;
@@ -4019,6 +4020,59 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
   });
 
+  it('returns the A2A terminal result even when post-commit Memory enhancement fails', async () => {
+    const skillId = `skill.result.memory-fault.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Result skill with Memory fault'));
+    const submitted = await runtime.a2a.client.sendMessage(
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: `message-${randomUUID()}`,
+          role: 'ROLE_USER',
+          parts: [{ text: 'Inspect device status.', mediaType: 'text/plain' }],
+        },
+        configuration: { returnImmediately: false },
+      }),
+    );
+    if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await attachPlannedTask(submitted.id);
+    const internalTask = z
+      .object({ goalId: z.string() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+        ).then((response) => response.json()),
+      );
+    postCommitMemoryFailures = 1;
+    try {
+      await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
+      const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      expect(completed.artifacts[0]?.parts[0]?.content).toMatchObject({
+        $case: 'text',
+        value: 'Device is online.',
+      });
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/goals/${internalTask.goalId}`).then(
+          (response) => response.json(),
+        ),
+      ).resolves.toMatchObject({ status: 'achieved' });
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflow-controls/control-task-${submitted.id}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        status: 'achieved',
+        terminalOutcomeId: `terminal-outcome-task-${submitted.id}`,
+      });
+      await expect(
+        fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/processed-results`).then(
+          (response) => response.json(),
+        ),
+      ).resolves.toMatchObject({ items: [expect.objectContaining({ taskId: submitted.id })] });
+    } finally {
+      postCommitMemoryFailures = 0;
+    }
+  });
+
   it('routes a low-quality report into Skill evidence and an inactive Prompt candidate', async () => {
     const skillId = `skill.evaluation-influence.${randomUUID()}`;
     await runtime.registerSkill(skillInput(skillId, 'Zebra Evaluation Influence'));
@@ -4530,6 +4584,12 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (memoryRefinementRequest === true) {
+          if (postCommitMemoryFailures > 0) {
+            postCommitMemoryFailures -= 1;
+            response.statusCode = 500;
+            response.end(JSON.stringify({ error: 'Injected post-commit Memory failure.' }));
+            return;
+          }
           const requestData = z
             .object({
               candidate: z.object({

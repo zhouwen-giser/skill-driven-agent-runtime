@@ -82,8 +82,8 @@ Invariants for every increment:
 - [x] 2026-07-15 18:55 v1.0.4 feature commit `82a90ab` and annotated `v1.0.4` tag published after the complete feature gate passed.
 - [x] 2026-07-15 19:07 v1.0.4 bug-fixed commit `fa4b050` and annotated `v1.0.4-bug-fixed` tag published after the final 218 unit, 58 contract, 42 integration and 42 E2E gates passed.
 - [x] 2026-07-16 10:28 v1.0.5 feature commit `6decc5d` and annotated `v1.0.5` tag published after ADR-076, migration 0057, 229 unit, 58 contract, 43 integration, 43 E2E, architecture, build and migration paths passed.
-- [ ] 2026-07-16 11:12 v1.0.5 bug-fixed audit passes 238 unit, 58 contract, 43 integration, 43 E2E and the complete operator-managed gate. Publish the exact bug-fixed commit/tag after evidence reconciliation.
-- [ ] Complete v1.0.6 feature and bug-fixed increments; run the required full gate at v1.0.6-bug-fixed.
+- [x] 2026-07-16 11:12 v1.0.5 bug-fixed commit `8d82427` and annotated `v1.0.5-bug-fixed` published after 238 unit, 58 contract, 43 integration, 43 E2E and the complete operator-managed gate passed.
+- [ ] 2026-07-16 12:05 v1.0.6 feature implementation and evidence gate pass 242 unit, 58 contract, 52 integration, 44 E2E, 175-source architecture, build and migrations. Publish the exact feature commit/tag after evidence reconciliation, then run the required full gate at v1.0.6-bug-fixed.
 - [ ] Complete v1.0.7–v1.0.9 in order; run full gate at v1.0.9-bug-fixed.
 - [ ] Complete v1.0.10–v1.0.12 in order; run full gate at v1.0.12-bug-fixed.
 - [ ] Complete v1.0.13 feature and bug-fixed increments; run full gate and both demos.

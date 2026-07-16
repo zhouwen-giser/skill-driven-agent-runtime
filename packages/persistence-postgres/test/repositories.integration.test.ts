@@ -16,6 +16,7 @@ import {
   PostgresMemoryRetentionPolicyRepository,
   PostgresPromptRepository,
   PostgresProcessedResultRepository,
+  PostgresRuntimeTerminalOutcomeRepository,
   PostgresWorkflowPlanRepository,
   PostgresWorkflowTemplateRepository,
   PostgresWorkflowExecutionRepository,
@@ -63,9 +64,23 @@ beforeAll(async () => {
   );
   if (ledger.rows[0]?.exists === true) {
     const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
     );
     if (latest.rows[0]?.applied === true) return;
+    const nestedConfirmation = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
+    );
+    if (nestedConfirmation.rows[0]?.applied === true) {
+      const forward = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(forward);
+      return;
+    }
     const previous = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
     );
@@ -78,6 +93,14 @@ beforeAll(async () => {
         'utf8',
       );
       await pool.query(forward);
+      const terminalOutcome = await readFile(
+        new URL(
+          '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await pool.query(terminalOutcome);
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -88,6 +111,7 @@ beforeAll(async () => {
         '0055_task_input_continuation.up.sql',
         '0056_mcp_execution_mode.up.sql',
         '0057_nested_skill_confirmation.up.sql',
+        '0058_runtime_terminal_outcome.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -426,6 +450,14 @@ beforeAll(async () => {
     'utf8',
   );
   await pool.query(nestedSkillConfirmationMigration);
+  const runtimeTerminalOutcomeMigration = await readFile(
+    new URL(
+      '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  await pool.query(runtimeTerminalOutcomeMigration);
 });
 
 beforeEach(async () => {
@@ -435,7 +467,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -3223,6 +3255,215 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(restored.rows[0]?.count).toBe('3');
   });
 
+  it('atomically commits and idempotently replays an achieved runtime outcome', async () => {
+    const fixture = await createTerminalOutcomeFixture('achieved');
+
+    const first = await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
+
+    expect(repeated).toEqual(first);
+    await expect(fixture.tasks.findById(fixture.taskId)).resolves.toMatchObject({
+      phase: 'completed',
+      output: { text: 'Terminal result.', structured: { ok: true } },
+    });
+    await expect(fixture.goals.findById(fixture.goalId)).resolves.toMatchObject({
+      status: 'achieved',
+    });
+    await expect(fixture.controls.find(fixture.controlId)).resolves.toMatchObject({
+      status: 'achieved',
+      roundCount: 1,
+      terminalOutcomeId: fixture.achievedInput.outcomeId,
+    });
+    await expect(fixture.controls.listRounds(fixture.controlId)).resolves.toEqual([
+      expect.objectContaining({
+        roundIndex: 0,
+        terminalOutcomeId: fixture.achievedInput.outcomeId,
+      }),
+    ]);
+    const counts = await terminalOutcomeCounts(fixture);
+    expect(counts).toEqual({ outcomes: 1, results: 1, events: 1, rounds: 1 });
+
+    const warning = {
+      source: 'result_memory' as const,
+      code: 'MEMORY_WRITE_FAILED',
+      message: 'Injected post-commit Memory failure.',
+      occurredAt: '2026-07-16T00:00:05.000Z',
+    };
+    await fixture.outcomes.recordEnhancementWarning(first.outcomeId, warning);
+    await fixture.outcomes.recordEnhancementWarning(first.outcomeId, warning);
+    await expect(fixture.outcomes.find(first.outcomeId)).resolves.toMatchObject({
+      enhancementWarnings: [warning],
+    });
+  });
+
+  it('atomically commits unachievable and canceled terminal projections', async () => {
+    const unachievable = await createTerminalOutcomeFixture('unachievable');
+    await unachievable.outcomes.commitUnachievable({
+      outcomeId: `terminal-outcome-${unachievable.taskId}`,
+      taskId: unachievable.taskId,
+      goalId: unachievable.goalId,
+      goalVersion: 1,
+      controlId: unachievable.controlId,
+      controlStatus: 'unachievable',
+      round: {
+        ...unachievable.achievedInput.round,
+        evaluation: { decision: 'unachievable', summary: 'No valid route remains.' },
+      },
+      summary: 'No valid route remains.',
+      eventId: `event-terminal-${unachievable.taskId}`,
+      committedAt: '2026-07-16T00:00:04.000Z',
+    });
+    await expect(unachievable.tasks.findById(unachievable.taskId)).resolves.toMatchObject({
+      phase: 'failed',
+      errorCode: 'GOAL_UNACHIEVABLE',
+    });
+    await expect(unachievable.goals.findById(unachievable.goalId)).resolves.toMatchObject({
+      status: 'unachievable',
+    });
+
+    const canceled = await createTerminalOutcomeFixture('canceled');
+    const waitingControl = await canceled.controls.find(canceled.controlId);
+    if (waitingControl === undefined) throw new Error('TERMINAL_CONTROL_FIXTURE_MISSING');
+    await canceled.controls.save({
+      ...waitingControl,
+      status: 'awaiting_confirmation',
+      updatedAt: '2026-07-16T00:00:03.500Z',
+    });
+    await pool.query(
+      `UPDATE agent_task SET phase='awaiting_plan_confirmation',
+         phase_message='Waiting for confirmation.' WHERE task_id=$1`,
+      [canceled.taskId],
+    );
+    await canceled.outcomes.commitCanceled({
+      outcomeId: `terminal-outcome-${canceled.taskId}`,
+      taskId: canceled.taskId,
+      goalId: canceled.goalId,
+      goalVersion: 1,
+      controlId: canceled.controlId,
+      finalInstanceId: canceled.instanceId,
+      summary: 'Operator canceled execution.',
+      eventId: `event-terminal-${canceled.taskId}`,
+      committedAt: '2026-07-16T00:00:04.000Z',
+    });
+    await expect(canceled.tasks.findById(canceled.taskId)).resolves.toMatchObject({
+      phase: 'canceled',
+      errorCode: 'RUNTIME_CANCELED',
+    });
+    await expect(canceled.controls.find(canceled.controlId)).resolves.toMatchObject({
+      status: 'canceled',
+      roundCount: 0,
+      finalInstanceId: canceled.instanceId,
+    });
+  });
+
+  it.each([
+    ['before_processed_result', 'processed_result', 'BEFORE', 'INSERT'],
+    ['after_task', 'agent_task', 'AFTER', 'UPDATE'],
+    ['after_goal', 'goal', 'AFTER', 'UPDATE'],
+    ['after_control', 'workflow_control', 'AFTER', 'UPDATE'],
+    ['runtime_event', 'runtime_event', 'BEFORE', 'INSERT'],
+  ] as const)(
+    'rolls back every authoritative write when fault %s is injected',
+    async (suffix, table, timing, operation) => {
+      const fixture = await createTerminalOutcomeFixture(`fault-${suffix}`);
+      await installTerminalOutcomeFault(table, timing, operation);
+      try {
+        await expect(fixture.outcomes.commitAchieved(fixture.achievedInput)).rejects.toThrow(
+          'INJECTED_RUNTIME_TERMINAL_FAULT',
+        );
+      } finally {
+        await removeTerminalOutcomeFault(table);
+      }
+
+      const task = await fixture.tasks.findById(fixture.taskId);
+      expect(task).toMatchObject({ phase: 'evaluating' });
+      expect(task?.output).toBeUndefined();
+      await expect(fixture.goals.findById(fixture.goalId)).resolves.toMatchObject({
+        status: 'active',
+      });
+      const control = await fixture.controls.find(fixture.controlId);
+      expect(control).toMatchObject({
+        status: 'running',
+        roundCount: 0,
+      });
+      expect(control?.terminalOutcomeId).toBeUndefined();
+      expect(await terminalOutcomeCounts(fixture)).toEqual({
+        outcomes: 0,
+        results: 0,
+        events: 0,
+        rounds: 0,
+      });
+    },
+  );
+
+  it('prevents stale workers and conflicting retries from reviving committed terminal state', async () => {
+    const fixture = await createTerminalOutcomeFixture('stale');
+    const staleTask = await fixture.tasks.findById(fixture.taskId);
+    const staleGoal = await fixture.goals.findById(fixture.goalId);
+    const staleControl = await fixture.controls.find(fixture.controlId);
+    if (staleTask === undefined || staleGoal === undefined || staleControl === undefined)
+      throw new Error('TERMINAL_FIXTURE_INCOMPLETE');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+
+    await expect(fixture.tasks.save(staleTask)).rejects.toThrow('TASK_TERMINAL_MUTATION_FORBIDDEN');
+    await expect(fixture.goals.save(staleGoal)).rejects.toThrow('GOAL_TERMINAL_STATE_CONFLICT');
+    await expect(
+      fixture.controls.save({
+        ...staleControl,
+        status: 'failed',
+        updatedAt: '2026-07-16T00:00:06.000Z',
+      }),
+    ).rejects.toThrow('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
+    await expect(
+      fixture.outcomes.commitAchieved({
+        ...fixture.achievedInput,
+        outcomeId: `${fixture.achievedInput.outcomeId}-conflict`,
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+    await expect(fixture.tasks.findById(fixture.taskId)).resolves.toMatchObject({
+      phase: 'completed',
+    });
+    await expect(fixture.goals.findById(fixture.goalId)).resolves.toMatchObject({
+      status: 'achieved',
+    });
+    await expect(fixture.controls.find(fixture.controlId)).resolves.toMatchObject({
+      status: 'achieved',
+    });
+  });
+
+  it('rolls back and reapplies the runtime terminal outcome schema', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(down);
+    try {
+      const removed = await pool.query<{ exists: boolean }>(
+        "SELECT to_regclass('public.runtime_terminal_outcome') IS NOT NULL AS exists",
+      );
+      expect(removed.rows[0]?.exists).toBe(false);
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+       WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id')
+          OR (table_name IN ('workflow_control','workflow_control_round')
+              AND column_name='terminal_outcome_id')`,
+    );
+    expect(restored.rows[0]?.count).toBe('3');
+  });
+
   it('rolls back and reapplies MCP execution-mode audit columns', async () => {
     const down = await readFile(
       new URL(
@@ -3294,6 +3535,221 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(restored.rows[0]?.count).toBe('2');
   });
 });
+
+async function createTerminalOutcomeFixture(suffix: string) {
+  const contextId = `context.terminal.${suffix}`;
+  const taskId = `task.terminal.${suffix}`;
+  const goalId = `goal.terminal.${suffix}`;
+  const planId = `plan.terminal.${suffix}`;
+  const instanceId = `instance.terminal.${suffix}`;
+  const controlId = `control.terminal.${suffix}`;
+  const contexts = new PostgresConversationContextRepository(pool);
+  const tasks = new PostgresAgentTaskRepository(pool);
+  const goals = new PostgresGoalRepository(pool);
+  const plans = new PostgresWorkflowPlanRepository(pool);
+  const executions = new PostgresWorkflowExecutionRepository(pool);
+  const controls = new PostgresWorkflowControlRepository(pool);
+  const outcomes = new PostgresRuntimeTerminalOutcomeRepository(pool);
+  await contexts.save({
+    contextId,
+    userId: 'operator',
+    createdAt: '2026-07-16T00:00:00.000Z',
+    updatedAt: '2026-07-16T00:00:00.000Z',
+  });
+  await tasks.save(
+    createAgentTask({
+      taskId,
+      contextId,
+      userId: 'operator',
+      requestText: 'Commit one authoritative terminal outcome.',
+      requestMetadata: {},
+      timestamp: '2026-07-16T00:00:00.000Z',
+    }),
+  );
+  await goals.save({
+    goalId,
+    contextId,
+    version: 1,
+    title: 'Terminal outcome',
+    description: 'Commit all authoritative terminal projections together.',
+    constraints: [],
+    successCriteria: ['All projections agree'],
+    status: 'active',
+    createdAt: '2026-07-16T00:00:00.000Z',
+    updatedAt: '2026-07-16T00:00:00.000Z',
+  });
+  await plans.savePlan({
+    planId,
+    goalId,
+    goalVersion: 1,
+    definition: {
+      workflowDefinitionId: `workflow.terminal.${suffix}`,
+      version: 1,
+      goalId,
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'literal', value: true },
+        },
+      ],
+      edges: [],
+    },
+    confirmationStatus: 'confirmed',
+    attemptCount: 1,
+    createdAt: '2026-07-16T00:00:01.000Z',
+  });
+  await executions.saveInstance({
+    instanceId,
+    planId,
+    workflowDefinitionId: `workflow.terminal.${suffix}`,
+    workflowVersion: 1,
+    goalId,
+    goalVersion: 1,
+    skillVersions: [{ skillId: 'skill.terminal', version: 1 }],
+    budgetLimits: {
+      maxReplans: 1,
+      maxDurationSeconds: 60,
+      maxLlmCalls: 2,
+      maxMcpCalls: 2,
+      maxCost: 1,
+    },
+    budgetUsage: { replanCount: 0, durationMs: 10, llmCalls: 1, mcpCalls: 0, cost: 0.01 },
+    status: 'succeeded',
+    input: {},
+    result: { ok: true },
+    errors: {},
+    startedAt: '2026-07-16T00:00:01.000Z',
+    completedAt: '2026-07-16T00:00:02.000Z',
+  });
+  await pool.query(
+    `UPDATE agent_task SET phase='evaluating',phase_message='Evaluating.',goal_id=$2,
+       goal_version=1,plan_id=$3,updated_at='2026-07-16T00:00:03.000Z'
+     WHERE task_id=$1`,
+    [taskId, goalId, planId],
+  );
+  await controls.save({
+    controlId,
+    contextId,
+    goalId,
+    goalVersion: 1,
+    taskId,
+    status: 'running',
+    currentPlanId: planId,
+    input: {},
+    skillIds: ['skill.terminal'],
+    planningInstruction: 'Complete atomically.',
+    roundCount: 0,
+    replanCount: 0,
+    createdAt: '2026-07-16T00:00:01.000Z',
+    updatedAt: '2026-07-16T00:00:03.000Z',
+  });
+  const round = {
+    controlId,
+    roundIndex: 0,
+    planId,
+    instanceId,
+    workflowVersion: 1,
+    evaluation: { decision: 'achieved' as const, summary: 'All criteria are satisfied.' },
+    createdAt: '2026-07-16T00:00:03.000Z',
+  };
+  const processedResult = {
+    resultId: `processed-result-terminal-${taskId}`,
+    taskId,
+    skillId: 'skill.terminal',
+    skillVersion: 1,
+    normalized: {
+      data: { ok: true },
+      errors: [],
+      originalSize: 11,
+      contextValue: { ok: true },
+      contextTruncated: false,
+      summary: 'Successful result with 11 JSON characters.',
+    },
+    output: { text: 'Terminal result.', structured: { ok: true } },
+    facts: [],
+    valuable: true,
+    valueSummary: 'Authoritative Task output.',
+    memoryCandidates: [],
+    createdAt: '2026-07-16T00:00:03.000Z',
+  };
+  return {
+    contextId,
+    taskId,
+    goalId,
+    planId,
+    instanceId,
+    controlId,
+    tasks,
+    goals,
+    controls,
+    outcomes,
+    achievedInput: {
+      outcomeId: `terminal-outcome-${taskId}`,
+      taskId,
+      goalId,
+      goalVersion: 1,
+      controlId,
+      round,
+      processedResult,
+      summary: 'All criteria are satisfied.',
+      eventId: `event-terminal-${taskId}`,
+      committedAt: '2026-07-16T00:00:04.000Z',
+    },
+  };
+}
+
+async function terminalOutcomeCounts(
+  fixture: Awaited<ReturnType<typeof createTerminalOutcomeFixture>>,
+) {
+  const result = await pool.query<{
+    outcomes: number;
+    results: number;
+    events: number;
+    rounds: number;
+  }>(
+    `SELECT
+       (SELECT count(*)::integer FROM runtime_terminal_outcome WHERE control_id=$1) AS outcomes,
+       (SELECT count(*)::integer FROM processed_result WHERE task_id=$2) AS results,
+       (SELECT count(*)::integer FROM runtime_event WHERE task_id=$2) AS events,
+       (SELECT count(*)::integer FROM workflow_control_round WHERE control_id=$1) AS rounds`,
+    [fixture.controlId, fixture.taskId],
+  );
+  const counts = result.rows[0];
+  if (counts === undefined) throw new Error('TERMINAL_OUTCOME_COUNT_FAILED');
+  return counts;
+}
+
+async function installTerminalOutcomeFault(
+  table: 'processed_result' | 'agent_task' | 'goal' | 'workflow_control' | 'runtime_event',
+  timing: 'BEFORE' | 'AFTER',
+  operation: 'INSERT' | 'UPDATE',
+): Promise<void> {
+  await pool.query(
+    `CREATE OR REPLACE FUNCTION sdar_test_terminal_outcome_fault()
+     RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN
+       RAISE EXCEPTION 'INJECTED_RUNTIME_TERMINAL_FAULT';
+     END;
+     $$`,
+  );
+  await pool.query(
+    `CREATE TRIGGER sdar_test_terminal_outcome_fault
+     ${timing} ${operation} ON ${table}
+     FOR EACH ROW EXECUTE FUNCTION sdar_test_terminal_outcome_fault()`,
+  );
+}
+
+async function removeTerminalOutcomeFault(
+  table: 'processed_result' | 'agent_task' | 'goal' | 'workflow_control' | 'runtime_event',
+): Promise<void> {
+  await pool.query(`DROP TRIGGER IF EXISTS sdar_test_terminal_outcome_fault ON ${table}`);
+  await pool.query('DROP FUNCTION IF EXISTS sdar_test_terminal_outcome_fault()');
+}
 
 async function stageRouteConstraint(): Promise<string> {
   const result = await pool.query<{ definition: string }>(
