@@ -265,6 +265,21 @@ class SelectionGraphRepository implements SkillGraphRepository {
   listRelations(): Promise<readonly SkillRelation[]> {
     return Promise.resolve(this.relations);
   }
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelation['relationType'][],
+    limit: number,
+  ): Promise<readonly SkillRelation[]> {
+    return Promise.resolve(
+      this.relations
+        .filter(
+          (relation) =>
+            relation.sourceSkillId === sourceSkillId &&
+            relationTypes.includes(relation.relationType),
+        )
+        .slice(0, limit),
+    );
+  }
   saveRelation(): Promise<void> {
     return Promise.resolve();
   }

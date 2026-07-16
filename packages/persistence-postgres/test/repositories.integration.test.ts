@@ -1105,6 +1105,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(templates.listUses('template.db')).resolves.toMatchObject([
       { useId: 'template-use.db', status: 'succeeded', durationMs: 25 },
     ]);
+    const validComposition = testCompositionContext();
+    const admitted = validComposition.relatedSkills[0];
+    if (admitted === undefined) throw new Error('EXPECTED_COMPOSITION_CHILD');
+    const disconnected = {
+      ...admitted,
+      skillId: 'skill.disconnected.db',
+    };
+    await pool.query(
+      `UPDATE workflow_plan SET composition_context_json=$2::jsonb WHERE plan_id=$1`,
+      [
+        'plan.db',
+        JSON.stringify({
+          ...validComposition,
+          relatedSkills: [...validComposition.relatedSkills, disconnected],
+          allowedChildSkillIds: [...validComposition.allowedChildSkillIds, disconnected.skillId],
+        }),
+      ],
+    );
+    await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
+      code: 'SKILL_COMPOSITION_CONTEXT_INVALID',
+    });
   });
   it('round-trips structured Task capability-gap evidence', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
@@ -3028,6 +3049,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
     };
     await graph.saveRelation(relation);
     await expect(graph.listRelations()).resolves.toEqual([relation]);
+    await expect(graph.listRelationsFrom('skill.graph.a', ['composition'], 10)).resolves.toEqual([
+      relation,
+    ]);
+    await expect(graph.listRelationsFrom('skill.graph.a', ['alternative'], 10)).resolves.toEqual(
+      [],
+    );
+    await expect(graph.listRelationsFrom('skill.graph.b', ['composition'], 10)).resolves.toEqual(
+      [],
+    );
     await graph.deleteRelation(relation.relationId);
     await expect(graph.listRelations()).resolves.toEqual([]);
   });

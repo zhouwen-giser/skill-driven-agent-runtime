@@ -1,4 +1,7 @@
 import {
+  MAX_SKILL_COMPOSITION_DEPTH,
+  MAX_SKILL_COMPOSITION_RELATED_SKILLS,
+  MAX_SKILL_COMPOSITION_RELATIONS,
   snapshotSkillCompositionContext,
   snapshotSkillVersion,
   type SkillCompositionContext,
@@ -9,16 +12,20 @@ import {
 
 import type { SkillGraphRepository, SkillRepository } from './ports.js';
 
-export const MAX_COMPOSITION_DEPTH = 8;
-export const MAX_COMPOSITION_RELATED_SKILLS = 32;
+export const MAX_COMPOSITION_DEPTH = MAX_SKILL_COMPOSITION_DEPTH;
+export const MAX_COMPOSITION_RELATED_SKILLS = MAX_SKILL_COMPOSITION_RELATED_SKILLS;
+export const MAX_COMPOSITION_RELATIONS = MAX_SKILL_COMPOSITION_RELATIONS;
 
-const INITIAL_COMPOSITION_RELATIONS: ReadonlySet<SkillRelationType> = new Set([
+const INITIAL_COMPOSITION_RELATION_TYPES: readonly SkillRelationType[] = [
   'parent_child',
   'depends_on',
   'input_output_match',
   'composition',
   'capability_coverage',
-]);
+];
+const INITIAL_COMPOSITION_RELATIONS: ReadonlySet<SkillRelationType> = new Set(
+  INITIAL_COMPOSITION_RELATION_TYPES,
+);
 
 export interface SkillCompositionRoot {
   readonly skillId: string;
@@ -28,12 +35,12 @@ export interface SkillCompositionRoot {
 /** Builds a bounded, exact-version Skill Graph snapshot; the model still chooses a subset. */
 export class SkillCompositionPlanner {
   readonly #skills: Pick<SkillRepository, 'findCurrentVersion' | 'findVersion'>;
-  readonly #graph: Pick<SkillGraphRepository, 'listRelations'>;
+  readonly #graph: Pick<SkillGraphRepository, 'listRelationsFrom'>;
 
   constructor(
     dependencies: Readonly<{
       skills: Pick<SkillRepository, 'findCurrentVersion' | 'findVersion'>;
-      graph: Pick<SkillGraphRepository, 'listRelations'>;
+      graph: Pick<SkillGraphRepository, 'listRelationsFrom'>;
     }>,
   ) {
     this.#skills = dependencies.skills;
@@ -41,10 +48,9 @@ export class SkillCompositionPlanner {
   }
 
   async compose(root: SkillCompositionRoot): Promise<SkillCompositionContext> {
-    const [selected, current, allRelations] = await Promise.all([
+    const [selected, current] = await Promise.all([
       this.#skills.findVersion(root.skillId, root.skillVersion),
       this.#skills.findCurrentVersion(root.skillId),
-      this.#graph.listRelations(),
     ]);
     if (
       selected?.status !== 'enabled' ||
@@ -55,16 +61,6 @@ export class SkillCompositionPlanner {
         'SKILL_COMPOSITION_ROOT_STALE',
         'Composition requires the exact current enabled selected Skill version.',
       );
-
-    const relations = [...allRelations]
-      .filter((relation) => INITIAL_COMPOSITION_RELATIONS.has(relation.relationType))
-      .sort(compareRelations);
-    const bySource = new Map<string, SkillRelation[]>();
-    for (const relation of relations)
-      bySource.set(relation.sourceSkillId, [
-        ...(bySource.get(relation.sourceSkillId) ?? []),
-        relation,
-      ]);
 
     const related = new Map<string, SkillVersion>();
     const acceptedRelations: SkillRelation[] = [];
@@ -84,7 +80,21 @@ export class SkillCompositionPlanner {
         );
       if (visited.has(source.skillId)) return;
       visiting.add(source.skillId);
-      for (const relation of bySource.get(source.skillId) ?? []) {
+      const remainingRelationCapacity = MAX_COMPOSITION_RELATIONS - acceptedRelations.length;
+      const boundedRelations = await this.#graph.listRelationsFrom(
+        source.skillId,
+        INITIAL_COMPOSITION_RELATION_TYPES,
+        remainingRelationCapacity + 1,
+      );
+      if (boundedRelations.length > remainingRelationCapacity)
+        throw new SkillCompositionError(
+          'SKILL_COMPOSITION_SIZE_EXCEEDED',
+          `Skill composition exceeds ${String(MAX_COMPOSITION_RELATIONS)} accepted relations.`,
+        );
+      const relations = boundedRelations
+        .filter((relation) => INITIAL_COMPOSITION_RELATIONS.has(relation.relationType))
+        .sort(compareRelations);
+      for (const relation of relations) {
         const target = await this.#skills.findCurrentVersion(relation.targetSkillId);
         if (target?.status !== 'enabled')
           throw new SkillCompositionError(

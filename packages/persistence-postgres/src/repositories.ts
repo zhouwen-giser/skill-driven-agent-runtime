@@ -45,6 +45,9 @@ import type {
 } from '../../application/src/index.js';
 import {
   DomainError,
+  MAX_SKILL_COMPOSITION_RELATED_SKILLS,
+  MAX_SKILL_COMPOSITION_RELATIONS,
+  snapshotSkillCompositionContext,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
@@ -247,9 +250,9 @@ const SkillRelationSchema = z
 const SkillCompositionContextSchema = z
   .object({
     selectedSkill: SkillVersionSnapshotSchema,
-    relatedSkills: z.array(SkillVersionSnapshotSchema),
-    relations: z.array(SkillRelationSchema),
-    allowedChildSkillIds: z.array(z.string()),
+    relatedSkills: z.array(SkillVersionSnapshotSchema).max(MAX_SKILL_COMPOSITION_RELATED_SKILLS),
+    relations: z.array(SkillRelationSchema).max(MAX_SKILL_COMPOSITION_RELATIONS),
+    allowedChildSkillIds: z.array(z.string()).max(MAX_SKILL_COMPOSITION_RELATED_SKILLS),
     decisionSummary: z.string(),
   })
   .strict();
@@ -3430,6 +3433,28 @@ export class PostgresSkillGraphRepository implements SkillGraphRepository {
     }));
   }
 
+  async listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelation['relationType'][],
+    limit: number,
+  ): Promise<readonly SkillRelation[]> {
+    const result = await this.#pool.query<SkillRelationRow>(
+      `SELECT relation_id, source_skill_id, target_skill_id, relation_type,
+              metadata_json, created_at
+       FROM skill_relation WHERE source_skill_id=$1 AND relation_type=ANY($2::text[])
+       ORDER BY relation_type, target_skill_id, relation_id LIMIT $3`,
+      [sourceSkillId, relationTypes, limit],
+    );
+    return result.rows.map((row) => ({
+      relationId: row.relation_id,
+      sourceSkillId: row.source_skill_id,
+      targetSkillId: row.target_skill_id,
+      relationType: row.relation_type,
+      metadata: row.metadata_json,
+      createdAt: toIsoString(row.created_at),
+    }));
+  }
+
   async saveRelation(relation: SkillRelation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO skill_relation
@@ -4950,9 +4975,11 @@ function mapWorkflowPlanCompositionAuthority(
     ...(row.composition_context_json === null
       ? {}
       : {
-          compositionContext: SkillCompositionContextSchema.parse(
-            row.composition_context_json,
-          ) as SkillCompositionContext,
+          compositionContext: snapshotSkillCompositionContext(
+            SkillCompositionContextSchema.parse(
+              row.composition_context_json,
+            ) as SkillCompositionContext,
+          ),
         }),
     ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
   };

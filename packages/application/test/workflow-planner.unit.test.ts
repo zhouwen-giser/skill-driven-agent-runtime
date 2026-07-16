@@ -270,6 +270,37 @@ describe('WorkflowPlannerService', () => {
     });
   });
 
+  it('rejects forged inherited composition snapshots before model invocation', async () => {
+    const child = compositionSkill('skill.child');
+    const attacker = compositionSkill('skill.disconnected');
+    const valid = compositionContext(child);
+    const forgedContexts: readonly SkillCompositionContext[] = [
+      {
+        ...valid,
+        relatedSkills: [...valid.relatedSkills, snapshotSkillVersion(attacker)],
+        allowedChildSkillIds: [...valid.allowedChildSkillIds, attacker.skillId],
+      },
+      {
+        ...valid,
+        allowedChildSkillIds: [child.skillId, child.skillId],
+      },
+    ];
+
+    for (const compositionContext of forgedContexts) {
+      const model = new SequenceModel([skillCallDefinition(child.skillId)]);
+      await expect(
+        planner(
+          new MemoryPlanRepository(),
+          model,
+          undefined,
+          undefined,
+          skillRepository(child),
+        ).plan({ ...input(), compositionContext }),
+      ).rejects.toMatchObject({ code: 'SKILL_COMPOSITION_CONTEXT_INVALID' });
+      expect(model.calls).toHaveLength(0);
+    }
+  });
+
   it('rejects an unrelated skill_call and permits an explicit capability-gap target', async () => {
     const child = compositionSkill('skill.unrelated');
     const definition = skillCallDefinition(child.skillId);

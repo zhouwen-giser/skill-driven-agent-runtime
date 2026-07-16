@@ -95,6 +95,21 @@ class MemoryGraphRepository implements SkillGraphRepository {
   listRelations() {
     return Promise.resolve(this.relations);
   }
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelation['relationType'][],
+    limit: number,
+  ) {
+    return Promise.resolve(
+      this.relations
+        .filter(
+          (relation) =>
+            relation.sourceSkillId === sourceSkillId &&
+            relationTypes.includes(relation.relationType),
+        )
+        .slice(0, limit),
+    );
+  }
   saveRelation(relation: SkillRelation) {
     this.relations = [...this.relations, relation];
     return Promise.resolve();

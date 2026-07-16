@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Skill, SkillRelation, SkillVersion } from '../../domain/src/index.js';
 import {
+  MAX_COMPOSITION_RELATIONS,
   SkillCompositionPlanner,
   type SkillGraphRepository,
   type SkillRepository,
@@ -116,6 +117,32 @@ describe('SkillCompositionPlanner', () => {
     expect(Object.isFrozen(context.selectedSkill.outputSchema)).toBe(true);
     expect(Object.isFrozen(context.relations[0]?.metadata['audit'])).toBe(true);
   });
+
+  it('rejects unbounded relation fanout instead of flooding planner context', async () => {
+    const root = skill('skill.root', objectSchema([]), objectSchema(['payload']));
+    const child = skill('skill.child', objectSchema(['payload']), objectSchema([]));
+    const relations = Array.from({ length: MAX_COMPOSITION_RELATIONS + 1 }, (_, index) =>
+      relation(`compose-${String(index)}`, root.skillId, child.skillId, 'composition'),
+    );
+
+    await expect(
+      compositionPlanner([root, child], relations).compose({
+        skillId: root.skillId,
+        skillVersion: root.version,
+      }),
+    ).rejects.toMatchObject({ code: 'SKILL_COMPOSITION_SIZE_EXCEEDED' });
+  });
+
+  it('rejects pathologically deep Skill snapshot JSON', async () => {
+    const root = skill('skill.root', deeplyNestedSchema(66), objectSchema([]));
+
+    await expect(
+      compositionPlanner([root], []).compose({
+        skillId: root.skillId,
+        skillVersion: root.version,
+      }),
+    ).rejects.toMatchObject({ code: 'SKILL_COMPOSITION_CONTEXT_INVALID' });
+  });
 });
 
 function compositionPlanner(
@@ -135,6 +162,13 @@ function objectSchema(required: readonly string[]) {
     required,
     additionalProperties: false,
   } as const;
+}
+
+function deeplyNestedSchema(depth: number): unknown {
+  let schema: unknown = { type: 'string' };
+  for (let index = 0; index < depth; index += 1)
+    schema = { type: 'object', properties: { nested: schema } };
+  return schema;
 }
 
 function skill(skillId: string, inputSchema: unknown, outputSchema: unknown): SkillVersion {
@@ -181,6 +215,21 @@ class MemoryGraph implements SkillGraphRepository {
   }
   listRelations() {
     return Promise.resolve(this.#relations);
+  }
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelation['relationType'][],
+    limit: number,
+  ) {
+    return Promise.resolve(
+      this.#relations
+        .filter(
+          (relation) =>
+            relation.sourceSkillId === sourceSkillId &&
+            relationTypes.includes(relation.relationType),
+        )
+        .slice(0, limit),
+    );
   }
   saveRelation(): Promise<void> {
     return Promise.resolve();

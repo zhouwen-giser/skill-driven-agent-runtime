@@ -2,6 +2,11 @@ import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { SkillRuntimePolicy, SkillToolPolicy, SkillVersion } from './skill.js';
 
+export const MAX_SKILL_COMPOSITION_DEPTH = 8;
+export const MAX_SKILL_COMPOSITION_RELATED_SKILLS = 32;
+export const MAX_SKILL_COMPOSITION_RELATIONS = 128;
+export const MAX_SKILL_COMPOSITION_JSON_DEPTH = 64;
+
 export type SkillRelationType =
   | 'parent_child'
   | 'depends_on'
@@ -51,12 +56,27 @@ export function snapshotSkillVersion(skill: SkillVersion): SkillVersionSnapshot 
 export function snapshotSkillCompositionContext(
   context: SkillCompositionContext,
 ): SkillCompositionContext {
+  if (
+    context.relatedSkills.length > MAX_SKILL_COMPOSITION_RELATED_SKILLS ||
+    context.allowedChildSkillIds.length > MAX_SKILL_COMPOSITION_RELATED_SKILLS ||
+    context.relations.length > MAX_SKILL_COMPOSITION_RELATIONS
+  )
+    throw new DomainError(
+      'SKILL_COMPOSITION_CONTEXT_INVALID',
+      'Skill composition context exceeds its bounded Skill or relation capacity.',
+    );
   const selectedSkill = copySkillVersionSnapshot(context.selectedSkill);
   const relatedSkills = context.relatedSkills.map(copySkillVersionSnapshot);
   const relatedIds = new Set(relatedSkills.map((skill) => skill.skillId));
   const allowedIds = new Set(context.allowedChildSkillIds);
+  const relationIds = new Set(context.relations.map((relation) => relation.relationId));
   if (
     context.decisionSummary.trim() === '' ||
+    !validSkillSnapshotIdentity(selectedSkill) ||
+    relatedSkills.some((skill) => !validSkillSnapshotIdentity(skill)) ||
+    relatedIds.size !== relatedSkills.length ||
+    allowedIds.size !== context.allowedChildSkillIds.length ||
+    relationIds.size !== context.relations.length ||
     context.allowedChildSkillIds.includes(selectedSkill.skillId) ||
     allowedIds.size !== relatedIds.size ||
     context.allowedChildSkillIds.some((skillId) => !relatedIds.has(skillId)) ||
@@ -64,10 +84,15 @@ export function snapshotSkillCompositionContext(
     context.relations.some(
       (relation) =>
         relation.relationType === 'alternative' ||
+        relation.relationId.trim() === '' ||
+        relation.sourceSkillId.trim() === '' ||
+        relation.targetSkillId.trim() === '' ||
+        relation.sourceSkillId === relation.targetSkillId ||
         (!relatedIds.has(relation.sourceSkillId) &&
           relation.sourceSkillId !== selectedSkill.skillId) ||
         !relatedIds.has(relation.targetSkillId),
-    )
+    ) ||
+    !hasValidCompositionGraph(selectedSkill.skillId, relatedIds, context.relations)
   )
     throw new DomainError(
       'SKILL_COMPOSITION_CONTEXT_INVALID',
@@ -87,6 +112,37 @@ export function snapshotSkillCompositionContext(
     allowedChildSkillIds: Object.freeze([...context.allowedChildSkillIds]),
     decisionSummary: context.decisionSummary,
   });
+}
+
+function validSkillSnapshotIdentity(skill: SkillVersionSnapshot): boolean {
+  return skill.skillId.trim() !== '' && Number.isInteger(skill.version) && skill.version > 0;
+}
+
+function hasValidCompositionGraph(
+  selectedSkillId: string,
+  relatedSkillIds: ReadonlySet<string>,
+  relations: readonly SkillRelation[],
+): boolean {
+  const bySource = new Map<string, string[]>();
+  for (const relation of relations)
+    bySource.set(relation.sourceSkillId, [
+      ...(bySource.get(relation.sourceSkillId) ?? []),
+      relation.targetSkillId,
+    ]);
+  const visited = new Set<string>();
+  const active = new Set<string>();
+  const visit = (skillId: string, depth: number): boolean => {
+    if (depth > MAX_SKILL_COMPOSITION_DEPTH) return false;
+    if (active.has(skillId)) return false;
+    if (visited.has(skillId)) return true;
+    active.add(skillId);
+    for (const targetSkillId of bySource.get(skillId) ?? [])
+      if (!visit(targetSkillId, depth + 1)) return false;
+    active.delete(skillId);
+    visited.add(skillId);
+    return true;
+  };
+  return visit(selectedSkillId, 0) && [...relatedSkillIds].every((skillId) => visited.has(skillId));
 }
 
 function copySkillVersionSnapshot(skill: SkillVersionSnapshot): SkillVersionSnapshot {
@@ -117,7 +173,12 @@ function copySkillVersionSnapshot(skill: SkillVersionSnapshot): SkillVersionSnap
   });
 }
 
-function snapshotJsonValue(value: unknown, active = new WeakSet()): unknown {
+function snapshotJsonValue(value: unknown, active = new WeakSet(), depth = 0): unknown {
+  if (depth > MAX_SKILL_COMPOSITION_JSON_DEPTH)
+    throw new DomainError(
+      'SKILL_COMPOSITION_CONTEXT_INVALID',
+      `Skill composition JSON exceeds depth ${String(MAX_SKILL_COMPOSITION_JSON_DEPTH)}.`,
+    );
   if (
     value === null ||
     typeof value === 'string' ||
@@ -138,7 +199,7 @@ function snapshotJsonValue(value: unknown, active = new WeakSet()): unknown {
   active.add(value);
   try {
     if (Array.isArray(value))
-      return Object.freeze(value.map((item) => snapshotJsonValue(item, active)));
+      return Object.freeze(value.map((item) => snapshotJsonValue(item, active, depth + 1)));
     const prototype = Reflect.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null)
       throw new DomainError(
@@ -147,7 +208,10 @@ function snapshotJsonValue(value: unknown, active = new WeakSet()): unknown {
       );
     return Object.freeze(
       Object.fromEntries(
-        Object.entries(value).map(([key, item]) => [key, snapshotJsonValue(item, active)]),
+        Object.entries(value).map(([key, item]) => [
+          key,
+          snapshotJsonValue(item, active, depth + 1),
+        ]),
       ),
     );
   } finally {

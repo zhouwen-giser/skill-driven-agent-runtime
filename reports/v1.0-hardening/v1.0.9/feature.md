@@ -14,4 +14,4 @@ The Skill Graph now supplies bounded, exact-version composition evidence to init
 - Plan and attempt audit retain complete Skill/relation snapshots, allowlists and decision summaries through migration 0062.
 - Real A2A/Model/MCP E2E proves an admitted composable child enters the plan, remains independently confirmable and executes through the existing child Workflow runtime.
 
-Feature commit/tag: this feature commit / `v1.0.9` (publication pending).
+Feature commit/tag: `8f7bba9` / `v1.0.9` (published and remotely verified).

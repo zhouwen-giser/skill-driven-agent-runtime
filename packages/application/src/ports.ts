@@ -22,6 +22,7 @@ import type {
   MemoryRetentionPolicy,
   Skill,
   SkillRelation,
+  SkillRelationType,
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
@@ -286,6 +287,11 @@ export interface SkillRepository {
 
 export interface SkillGraphRepository {
   listRelations(): Promise<readonly SkillRelation[]>;
+  listRelationsFrom(
+    sourceSkillId: string,
+    relationTypes: readonly SkillRelationType[],
+    limit: number,
+  ): Promise<readonly SkillRelation[]>;
   saveRelation(relation: SkillRelation): Promise<void>;
   deleteRelation(relationId: string): Promise<void>;
 }
