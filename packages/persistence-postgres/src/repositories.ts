@@ -934,7 +934,8 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
            phase_message='Goal Patch invalidated the old plan and intermediate result.',
            goal_version=$2,plan_id=NULL,skill_input_resolution_id=NULL,output_text=NULL,output_structured=NULL,
            error_code='GOAL_PATCH_INVALIDATED',updated_at=$4
-         WHERE goal_id=$1 AND goal_version=$5 AND phase NOT IN ('canceled','failed','invalidated')`,
+         WHERE goal_id=$1 AND goal_version=$5
+           AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')`,
         [
           record.goalId,
           record.toVersion,
@@ -4726,11 +4727,18 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
   }
 
   async saveRound(round: WorkflowControlRound): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO workflow_control_round(
+    const saved = await this.#pool.query(
+      `WITH writable_control AS (
+         SELECT control_id FROM workflow_control
+         WHERE control_id=$1 AND status NOT IN (
+           'capability_gap','achieved','unachievable','canceled','failed','replan_budget_exhausted'
+         )
+         FOR UPDATE
+       )
+       INSERT INTO workflow_control_round(
          control_id,round_index,plan_id,instance_id,workflow_version,evaluation_decision,
          evaluation_summary,evaluation_detail_json,terminal_outcome_id,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)`,
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10 FROM writable_control`,
       [
         round.controlId,
         round.roundIndex,
@@ -4744,6 +4752,7 @@ export class PostgresWorkflowControlRepository implements WorkflowControlReposit
         round.createdAt,
       ],
     );
+    if (saved.rowCount !== 1) throw new Error('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
   }
 
   async listRounds(controlId: string): Promise<readonly WorkflowControlRound[]> {
@@ -5982,6 +5991,15 @@ function mapTaskRow(row: TaskRow): AgentTask {
     row.output_text === null
       ? {}
       : { output: { text: row.output_text, structured: row.output_structured } };
+  const capabilityGap =
+    row.capability_gap_json === null
+      ? undefined
+      : TaskCapabilityGapSchema.parse(row.capability_gap_json);
+  if (
+    row.phase === 'capability_gap' &&
+    (capabilityGap === undefined || row.error_code !== 'CAPABILITY_GAP')
+  )
+    throw new Error('TASK_CAPABILITY_GAP_TERMINAL_EVIDENCE_INVALID');
   return {
     taskId: row.task_id,
     contextId: row.context_id,
@@ -6003,9 +6021,7 @@ function mapTaskRow(row: TaskRow): AgentTask {
       : { skillInputResolutionId: row.skill_input_resolution_id }),
     ...(row.temporary_skill_id === null ? {} : { temporarySkillId: row.temporary_skill_id }),
     ...output,
-    ...(row.capability_gap_json === null
-      ? {}
-      : { capabilityGap: TaskCapabilityGapSchema.parse(row.capability_gap_json) }),
+    ...(capabilityGap === undefined ? {} : { capabilityGap }),
     ...(row.error_code === null ? {} : { errorCode: row.error_code }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),

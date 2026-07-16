@@ -2,6 +2,7 @@
 
 - `package.json`
 - `packages/domain/src/task.ts`
+- `packages/domain/src/errors.ts`
 - `packages/domain/src/workflow-control.ts`
 - `packages/application/src/task-service.ts`
 - `packages/a2a-adapter/src/task-mapping.ts`

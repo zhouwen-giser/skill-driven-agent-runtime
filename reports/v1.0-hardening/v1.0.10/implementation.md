@@ -10,4 +10,6 @@ PostgreSQL generic Task and WorkflowControl saves reject capability-gap terminal
 
 Migration: none. Existing Task phase, WorkflowControl status, error and capability-gap JSON columns already store the contract.
 
-Feature commit/tag: pending / `v1.0.10`.
+The bug-fixed audit additionally protects terminal Tasks from same-Goal bulk Patch mutation, serializes Round writes against non-terminal WorkflowControl authority, and rejects persistence/A2A evidence drift.
+
+Feature commit/tag: `f8ae410` / `v1.0.10`.

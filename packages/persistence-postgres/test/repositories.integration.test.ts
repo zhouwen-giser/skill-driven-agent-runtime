@@ -1183,6 +1183,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
       phase: 'capability_gap',
       errorCode: 'CAPABILITY_GAP',
     });
+    await pool.query('UPDATE agent_task SET capability_gap_json=NULL WHERE task_id=$1', [
+      task.taskId,
+    ]);
+    await expect(tasks.findById(task.taskId)).rejects.toThrow(
+      'TASK_CAPABILITY_GAP_TERMINAL_EVIDENCE_INVALID',
+    );
   });
   it('atomically supersedes a plan when persisting its immutable revision', async () => {
     const repository = new PostgresWorkflowPlanRepository(pool);
@@ -1778,6 +1784,31 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
       }),
     ]);
+    const runningControl = await controls.find('control.db');
+    if (runningControl === undefined) throw new Error('WORKFLOW_CONTROL_NOT_FOUND');
+    await controls.save({
+      ...runningControl,
+      status: 'capability_gap',
+      roundCount: 1,
+      finalInstanceId: 'instance.control.db',
+      updatedAt: '2026-07-12T00:00:03.000Z',
+    });
+    await expect(
+      controls.saveRound({
+        controlId: 'control.db',
+        roundIndex: 1,
+        planId: 'plan.control.db',
+        instanceId: 'instance.control.db',
+        workflowVersion: 1,
+        evaluation: {
+          decision: 'adjust_plan',
+          summary: 'A stale Worker attempted another round.',
+          actionInstruction: 'This must not persist.',
+        },
+        createdAt: '2026-07-12T00:00:04.000Z',
+      }),
+    ).rejects.toThrow('WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT');
+    await expect(controls.listRounds('control.db')).resolves.toHaveLength(1);
     const experiences = new PostgresEvolutionExperienceRepository(pool);
     const experience = {
       experienceId: 'evolution-experience-db-1',
@@ -2247,6 +2278,49 @@ describe('PostgreSQL protocol-domain repositories', () => {
       { goalId: beforeGoal.goalId, goalVersion: 1, timestamp: beforeGoal.createdAt },
     );
     await tasks.save(triggeringTask);
+    let terminalSibling = createAgentTask({
+      taskId: 'task.patch.capability-gap.db',
+      contextId: beforeGoal.contextId,
+      userId: 'operator',
+      requestText: 'Read pressure.',
+      requestMetadata: {},
+      timestamp: beforeGoal.createdAt,
+    });
+    terminalSibling = transitionTask(
+      terminalSibling,
+      'context_loading',
+      'Loading context.',
+      beforeGoal.createdAt,
+    );
+    terminalSibling = bindTaskGoal(
+      transitionTask(
+        terminalSibling,
+        'goal_deliberation',
+        'Continuing active Goal.',
+        beforeGoal.createdAt,
+      ),
+      { goalId: beforeGoal.goalId, goalVersion: 1, timestamp: beforeGoal.createdAt },
+    );
+    terminalSibling = transitionTask(
+      terminalSibling,
+      'skill_resolution',
+      'Resolving capability.',
+      beforeGoal.createdAt,
+    );
+    terminalSibling = recordTaskCapabilityGap(
+      terminalSibling,
+      {
+        evaluationSummary: 'Pressure Tool is unavailable.',
+        missingCapability: 'Read pressure.',
+        suggestedToolContract: {
+          name: 'read_pressure',
+          description: 'Read device pressure.',
+          inputSchema: { type: 'object' },
+        },
+      },
+      '2026-07-12T00:00:02.000Z',
+    );
+    await tasks.save(terminalSibling);
     await plans.savePlan({
       planId: 'plan.patch.db',
       goalId: beforeGoal.goalId,
@@ -2332,6 +2406,11 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(goals.findById(beforeGoal.goalId)).resolves.toMatchObject({
       version: 2,
       successCriteria: afterGoal.successCriteria,
+    });
+    await expect(tasks.findById(terminalSibling.taskId)).resolves.toMatchObject({
+      phase: 'capability_gap',
+      goalVersion: 1,
+      errorCode: 'CAPABILITY_GAP',
     });
     await expect(plans.findPlan('plan.patch.db')).resolves.toMatchObject({
       confirmationStatus: 'invalidated',

@@ -275,6 +275,16 @@ export function recordTaskCapabilityGap(
   capabilityGap: TaskCapabilityGap,
   timestamp: string,
 ): AgentTask {
+  if (
+    capabilityGap.evaluationSummary.trim() === '' ||
+    capabilityGap.missingCapability.trim() === '' ||
+    capabilityGap.suggestedToolContract.name.trim() === '' ||
+    capabilityGap.suggestedToolContract.description.trim() === ''
+  )
+    throw new DomainError(
+      'TASK_CAPABILITY_GAP_EVIDENCE_INVALID',
+      'Capability-gap terminal evidence requires non-empty displayable fields.',
+    );
   const terminal = transitionTask(
     task,
     'capability_gap',

@@ -21,3 +21,10 @@ The runtime already records structured capability-gap evidence, but the Task dom
 ## Consequences
 
 The original Task has one monotonic, auditable outcome. Upstream capability registration is deliberately decoupled from execution, so no newly discovered Tool can trigger work without a newly submitted Task. The Goal can continue across that new Task in the same Context, while LangGraph remains the only Workflow execution runtime and no MCP Tasks behavior is introduced.
+
+### v1.0.10 Bug-fixed Evidence
+
+- Goal Patch bulk mutation excludes `capability_gap` and every other Task terminal phase, so a successor Task cannot rewrite the original outcome while advancing the shared Goal.
+- Round insertion obtains a PostgreSQL lock on non-terminal WorkflowControl authority. A post-gap stale Worker receives `WORKFLOW_CONTROL_TERMINAL_STATE_CONFLICT` and persists no new round.
+- Persistence mapping requires both structured evidence and `CAPABILITY_GAP` for every capability-gap row. The A2A boundary applies the same cross-field requirement, and the domain rejects blank display fields.
+- The operator-managed bug-fixed gate passes 274 unit, 61 contract, 58 integration, 46 E2E, 181-source architecture, 104-operation OpenAPI, production build and empty/0049 migrations through 0062. No Docker command ran.

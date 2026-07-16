@@ -164,6 +164,22 @@ describe('A2A 1.0.1 compatibility baseline', () => {
     });
   });
 
+  it('rejects an incomplete capability-gap projection at the A2A boundary', () => {
+    expect(() =>
+      toA2ATask({
+        taskId: 'task-gap-invalid',
+        contextId: 'context-gap',
+        userId: 'anonymous',
+        requestText: 'Read pressure.',
+        requestMetadata: {},
+        phase: 'capability_gap',
+        phaseMessage: 'Capability unavailable.',
+        createdAt: '2026-07-11T10:00:00.000Z',
+        updatedAt: '2026-07-11T10:01:00.000Z',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_CAPABILITY_GAP_EVIDENCE_INVALID' }));
+  });
+
   it('projects only necessary process summaries and never internal request or planning evidence', () => {
     const wire = Task.toJSON(
       toA2ATask({

@@ -138,5 +138,20 @@ describe('AgentTask state machine', () => {
     expect(() => transitionTask(task, 'skill_resolution', 'Resume.', timestamp)).toThrow(
       expect.objectContaining({ code: 'TASK_PHASE_TRANSITION_INVALID' }),
     );
+    expect(() =>
+      recordTaskCapabilityGap(
+        { ...task, phase: 'skill_resolution' },
+        {
+          evaluationSummary: ' ',
+          missingCapability: 'Read pressure.',
+          suggestedToolContract: {
+            name: 'read_pressure',
+            description: 'Read pressure.',
+            inputSchema: { type: 'object' },
+          },
+        },
+        timestamp,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID' }));
   });
 });

@@ -18,6 +18,18 @@ All notable changes to this project are documented here. The format follows Keep
 - Terminal transition/follow-up/cancellation, structured A2A projection, stale Worker persistence, active-Goal successor submission and wait-timeout exclusion regressions pass.
 - The operator-managed feature gate passed 274 unit, 60 contract, 58 integration and 46 E2E tests, 181-source architecture enforcement, 104-operation OpenAPI verification, production build and empty/historical-0049 migration paths through 0062.
 
+## [1.0.10-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- A Goal Patch initiated by a newer Task can no longer invalidate an older terminal capability-gap Task sharing the active Goal.
+- WorkflowControl round insertion locks and rechecks non-terminal authority, so a stale Worker cannot append evidence after capability gap.
+- PostgreSQL reads and the A2A projection fail closed when a capability-gap row lacks `CAPABILITY_GAP` or structured evidence; domain evidence fields must be non-empty.
+
+### Verification
+
+- The operator-managed bug-fixed gate passed 274 unit, 61 contract, 58 integration and 46 E2E tests, 181-source architecture, 104-operation OpenAPI, production build and empty/0049 migration paths through 0062.
+
 ## [1.0.9] - 2026-07-16
 
 ### Added

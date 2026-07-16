@@ -22,6 +22,7 @@ export class A2AMappingError extends Error {
     | 'A2A_MESSAGE_TEXT_REQUIRED'
     | 'A2A_METADATA_INVALID'
     | 'A2A_ACTION_INVALID'
+    | 'A2A_CAPABILITY_GAP_EVIDENCE_INVALID'
     | 'A2A_USER_ID_INVALID';
 
   constructor(code: A2AMappingError['code'], message: string) {
@@ -101,6 +102,14 @@ export function toSubmitTaskCommand(
 }
 
 export function toA2ATask(task: AgentTask): Task {
+  if (
+    task.phase === 'capability_gap' &&
+    (task.errorCode !== 'CAPABILITY_GAP' || task.capabilityGap === undefined)
+  )
+    throw new A2AMappingError(
+      'A2A_CAPABILITY_GAP_EVIDENCE_INVALID',
+      'A terminal capability-gap Task requires its stable error code and structured evidence.',
+    );
   const statusMessage = Message.fromJSON({
     messageId: `${task.taskId}:status:${task.updatedAt}`,
     contextId: task.contextId,
