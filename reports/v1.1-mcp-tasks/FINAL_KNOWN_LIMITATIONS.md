@@ -6,7 +6,7 @@
 2. **No external production Model claim.** Planning, structured risk and evaluation behavior use a deterministic local Mock Model. Schema validation and runtime boundaries are real; model quality in production is outside this evidence.
 3. **DOCX visual QA is unverified.** `source/Agent通用模板Server需求规格说明书_V1.0.docx` was read through direct OOXML structure extraction and compared with the baseline/traceability identifiers. The environment has no `soffice`, so page rendering, pagination, font substitution and visual layout were not verified. The source DOCX was not modified.
 4. **Local clean evidence is not external certification.** `V11-ACCEPTANCE` and `V11-LOCAL-DEMO` record merged commit `df8b6e0` with `dirty=false`; the latest verification summary records `13194b8` with `dirty=false`. They attest the local pinned environment, not every external Provider or production deployment.
-5. **Release publication is pending.** The final feature-to-main PR and `v1.1.0-rc.1` tag do not exist at audit time. They must not be represented as completed until the verified branch is published through the protected workflow.
+5. **Stable release is pending.** Ready PR #4 and `v1.1.0-rc.1` are published, but PR review/merge has not occurred. The RC must not be represented as stable `v1.1.0`, and no stable tag may be created before the protected merge commit exists.
 
 ## Accepted product/protocol constraints
 

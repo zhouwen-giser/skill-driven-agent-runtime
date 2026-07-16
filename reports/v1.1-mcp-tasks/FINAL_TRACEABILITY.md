@@ -56,4 +56,4 @@ The detailed authoritative mappings, including exact implementation and test pat
 
 ## Release provenance boundary
 
-The evidence set has zero unverified MCPT requirement rows. Acceptance reports record merged commit `df8b6e0` with `dirty=false`, and the unified gate records evidence commit `13194b8` with `dirty=false`. The feature-to-main PR and `v1.1.0-rc.1` tag remain publication tasks, not requirement evidence. External production Provider interoperability and DOCX page rendering remain explicitly unverified.
+The evidence set has zero unverified MCPT requirement rows. Acceptance reports record merged commit `df8b6e0` with `dirty=false`, the unified gate records evidence commit `13194b8` with `dirty=false`, and exact RC commit `38356ea` passes isolated frozen install, unified verification and local demo. Ready PR #4 and `v1.1.0-rc.1` are published. External production Provider interoperability, DOCX page rendering, protected merge and stable release remain explicitly outside this RC evidence.

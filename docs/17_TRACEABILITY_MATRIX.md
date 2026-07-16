@@ -148,7 +148,7 @@ Codex 必须持续更新本表。状态只允许：未实现 / 开发中 / 已�
 
 本节追踪 `docs/22_V1_1_MCP_TASKS_DESIGN.md` 的增量需求，不修改 V1.0 基线。状态只反映功能与验收证据；发布 PR、RC 标签和 clean-commit 重跑单独列为发布门禁，不反向否定已通过的功能证据。
 
-统一可复现证据：`pnpm verify`（结果见 `reports/verification/summary.{md,json}`）、`pnpm demo:acceptance`（结果见 `reports/v1.1-mcp-tasks/V11-LOCAL-DEMO.{md,json}`）和 `pnpm verify:v11-acceptance`（结果见 `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{md,json}`）。acceptance 报告记录合并提交 `df8b6e0` 且 `dirty=false`；统一门禁报告记录提交 `13194b8` 且 `dirty=false`。两者均保留精确命令、时间、退出码和真实/模拟分类。
+统一可复现证据：`pnpm verify`（结果见 `reports/verification/summary.{md,json}`）、`pnpm demo:acceptance`（结果见 `reports/v1.1-mcp-tasks/V11-LOCAL-DEMO.{md,json}`）和 `pnpm verify:v11-acceptance`（结果见 `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{md,json}`）。acceptance 报告记录合并提交 `df8b6e0` 且 `dirty=false`；统一门禁报告记录提交 `13194b8` 且 `dirty=false`。精确 RC 提交 `38356ea` 另在隔离 worktree 通过 frozen install、`pnpm verify` 和 `pnpm demo:local`，其 annotated `v1.1.0-rc.1` 远程 peeled ref 一致，ready PR #4 指向 `main`。证据保留精确命令、时间、退出码和真实/模拟分类。
 
 | Requirement | Phase | Status | Implementation | Tests | Focused command / evidence |
 | --- | --- | --- | --- | --- | --- |

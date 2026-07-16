@@ -31,7 +31,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Known limitations
 
-- Phase 1–6 functionality and clean local acceptance are verified against merged `v1.0.13-bug-fixed`. External production Provider interoperability, the RC tag, final PR and publication remain pending; this entry is not a v1.1 release announcement.
+- Phase 1–6 functionality and clean local acceptance are verified against merged `v1.0.13-bug-fixed`; `v1.1.0-rc.1` and ready PR #4 are published. External production Provider interoperability, protected review/merge and stable `v1.1.0` remain pending; this entry is not a stable v1.1 release announcement.
 
 ## [1.0.13] - 2026-07-16
 

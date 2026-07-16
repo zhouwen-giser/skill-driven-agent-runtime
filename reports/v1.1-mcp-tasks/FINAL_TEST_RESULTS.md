@@ -54,4 +54,4 @@ Source: `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{md,json}`.
 
 ## Interpretation
 
-The merged candidate commits pass every recorded gate and MCPT acceptance scenario with `dirty=false`. The remaining publication work is the protected feature-to-main PR, RC tag creation and external review; external production Provider interoperability remains outside this local attestation.
+The merged candidate commits pass every recorded gate and MCPT acceptance scenario with `dirty=false`; exact RC commit `38356ea` additionally passes isolated frozen install, `pnpm verify` and `pnpm demo:local`. The RC branch, tag and ready PR #4 are published. Protected review/merge, stable `v1.1.0` and external production Provider interoperability remain outside this local attestation.

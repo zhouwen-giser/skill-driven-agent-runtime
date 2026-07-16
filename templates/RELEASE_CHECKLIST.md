@@ -23,9 +23,9 @@
 - [x] Migration 0104 persists `node_waiting_external` and its guarded rollback rejects lossy removal of existing external-wait evidence.
 - [x] Restart evidence deletes ephemeral queues, reconciles only PostgreSQL-proven external waits without replaying `tools/call`, and preserves `PROCESS_EXECUTION_LOST` for ordinary running work.
 - [x] Test helpers importing PostgreSQL, BullMQ or A2A SDK dependencies reside in their owning `test-support` boundary; the architecture gate is not weakened.
-- [ ] Phase 6 Conventional Commit exists and the release worktree is clean.
-- [ ] Clean-commit release gate/report has been rerun or explicitly validated against the committed tree.
-- [ ] RC tag is created on the intended commit and pushed without force or branch-protection bypass.
-- [ ] Final PR exists with required remote checks complete.
+- [x] Phase 6 Conventional Commit exists and the release worktree is clean.
+- [x] Exact commit `38356ea` passes isolated `pnpm install --frozen-lockfile`, `pnpm verify` and `pnpm demo:local`.
+- [x] Annotated `v1.1.0-rc.1` points to `38356ea` locally and remotely and was pushed without force or branch-protection bypass.
+- [x] Ready PR #4 targets protected `main`, is `MERGEABLE`, and GitHub currently reports no configured status-check runs; review/merge remains a separate protected action.
 
-The checked functional items are pre-release evidence only. Do not announce or publish v1.1 until every unchecked publication item is complete.
+The RC checklist is complete. Do not create or announce stable `v1.1.0` until PR #4 is reviewed and merged through branch protection.

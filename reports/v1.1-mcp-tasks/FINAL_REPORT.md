@@ -4,7 +4,7 @@
 
 The implementation and local acceptance evidence verify all 14 functional requirements (`FR-MCPT-001..014`), all four non-functional requirements (`NFR-MCPT-001..004`), and all 16 acceptance scenarios (`AC-MCPT-01..16`). The authoritative row-level mapping is in `docs/17_TRACEABILITY_MATRIX.md`; the condensed release mapping is in `FINAL_TRACEABILITY.md`.
 
-This is a **clean locally accepted release-candidate tree**, not a published release. The acceptance reports were generated against merged Git commit `df8b6e0fa0d0934ca4412d409c1749ede1911aa3` with `dirty=false`; the unified report was generated against evidence commit `13194b89f3be7e39ec9a0609db5eec4ccb553538` with `dirty=false`. A feature-to-main pull request and `v1.1.0-rc.1` tag have not yet been created.
+This is a **published, clean locally accepted release candidate**, not a stable release. The acceptance reports were generated against merged Git commit `df8b6e0fa0d0934ca4412d409c1749ede1911aa3` with `dirty=false`; the unified report was generated against evidence commit `13194b89f3be7e39ec9a0609db5eec4ccb553538` with `dirty=false`; and exact RC commit `38356eaef3a75eeaef50ca578b6dfca557c46f85` passed an isolated frozen install, `pnpm verify` and `pnpm demo:local`. Ready PR #4 targets `main`, and annotated tag `v1.1.0-rc.1` resolves to the exact audited commit.
 
 ## Reproducible evidence
 
@@ -25,7 +25,7 @@ The management boundary exposes Task-rooted remote lifecycle history and safe re
 
 - **Real local:** PostgreSQL/pgvector SQL and migrations; Redis/BullMQ queues; HTTP negotiation; A2A endpoint and streaming/task lifecycle; LangGraph compilation/execution/continuation; management API; Console production bundle smoke; ServerRuntime restart/reconstruction; parallel and child composition.
 - **Deterministic simulated:** Mock Model decisions and Mock MCP Tasks Provider business behavior, including pause/resume, input, cancellation acknowledgements, business rejection, start-window/deadline outcomes and injected unreachability.
-- **Unverified:** interoperability with an external production MCP Tasks Provider; original DOCX page-level visual rendering; published PR/RC artifact and external production deployment.
+- **Unverified:** interoperability with an external production MCP Tasks Provider; original DOCX page-level visual rendering; protected PR review/merge and external production deployment.
 
 No private chain-of-thought is required or retained by this evidence. The tests and projections use bounded inputs, displayable responses, structured decisions, Tool arguments/results, timing, tokens where available, and stable errors.
 
@@ -37,4 +37,6 @@ Annotated tag `v1.0.13-bug-fixed` resolves to commit `91cd58ddcff57acf3ed846914f
 
 Functional acceptance: **PASS**.
 
-Release publication: **PENDING** until the clean verified branch is pushed, a normal feature-to-main PR is created and reviewed under repository protection, and `v1.1.0-rc.1` is created without bypassing those protections. See `FINAL_HARDENING_MERGE.md` and `FINAL_KNOWN_LIMITATIONS.md`.
+RC publication: **PASS**. The branch and `v1.1.0-rc.1` are pushed without force, and ready PR #4 targets protected `main` with GitHub reporting `MERGEABLE` and no configured status-check runs.
+
+Stable release: **PENDING**. Do not create `v1.1.0` until PR #4 is reviewed and merged through repository protection. See `FINAL_HARDENING_MERGE.md` and `FINAL_KNOWN_LIMITATIONS.md`.
