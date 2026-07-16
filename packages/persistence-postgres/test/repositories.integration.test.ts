@@ -4365,6 +4365,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         roundCount: 0,
       });
       expect(control?.terminalOutcomeId).toBeUndefined();
+      expect(fixture.outcomeNotifications).toEqual([]);
       expect(await terminalOutcomeCounts(fixture)).toEqual({
         outcomes: 0,
         results: 0,

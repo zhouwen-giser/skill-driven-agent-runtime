@@ -71,7 +71,7 @@ describe('TaskServiceAgentExecutor notification wait', () => {
 
     expect(elapsedMs).toBeGreaterThanOrEqual(200);
     expect(elapsedMs).toBeLessThan(1_000);
-    expect(tasks.getCalls).toBeLessThanOrEqual(4);
+    expect(tasks.getCalls).toBeLessThanOrEqual(3);
     expect(statuses(events).at(-1)).toBe(TaskState.TASK_STATE_WORKING);
     process.stdout.write(
       `${JSON.stringify({ event: 'a2a.wait.single-performance', environment: 'vitest-node-local', waitWindowMs: 250, safetyPollIntervalMs: MIN_A2A_SAFETY_POLL_INTERVAL_MS, databaseReads: tasks.getCalls, elapsedMs: Math.round(elapsedMs) })}\n`,
@@ -125,7 +125,7 @@ describe('TaskServiceAgentExecutor notification wait', () => {
     );
     const elapsedMs = performance.now() - startedAt;
     const databaseReads = tasks.getCalls;
-    expect(databaseReads).toBeLessThanOrEqual(taskCount * 5);
+    expect(databaseReads).toBeLessThanOrEqual(taskCount * 4);
 
     const closingTasks = new FakeTasks('executing');
     const closingNotifier = new InMemoryTaskStateNotifier();
@@ -143,12 +143,48 @@ describe('TaskServiceAgentExecutor notification wait', () => {
     await pending;
     const closeElapsedMs = performance.now() - closeStartedAt;
     expect(closeElapsedMs).toBeLessThan(500);
-    expect(closingTasks.getCalls).toBe(1);
+    expect(closingTasks.getCalls).toBe(0);
 
     process.stdout.write(
       `${JSON.stringify({ event: 'a2a.wait.performance', environment: 'vitest-node-local', concurrentWaiters: taskCount, waitWindowMs: 250, safetyPollIntervalMs: MIN_A2A_SAFETY_POLL_INTERVAL_MS, databaseReads, elapsedMs: Math.round(elapsedMs), closeElapsedMs: Math.round(closeElapsedMs) })}\n`,
     );
     executor.close();
+  });
+
+  it('rejects the former busy-poll interval and non-positive wait windows', () => {
+    const notifier = new InMemoryTaskStateNotifier();
+    expect(
+      () =>
+        new TaskServiceAgentExecutor({
+          tasks: new FakeTasks(),
+          notifier,
+          safetyPollIntervalMs: 10,
+        }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_TASK_WAIT_CONFIGURATION_INVALID' }));
+    expect(
+      () =>
+        new TaskServiceAgentExecutor({
+          tasks: new FakeTasks(),
+          notifier,
+          waitTimeoutMs: 0,
+        }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_TASK_WAIT_CONFIGURATION_INVALID' }));
+    notifier.close();
+  });
+
+  it('rejects new execution after close without submitting a Task', async () => {
+    const tasks = new FakeTasks();
+    const executor = new TaskServiceAgentExecutor({
+      tasks,
+      notifier: new InMemoryTaskStateNotifier(),
+    });
+    executor.close();
+    const { bus } = eventCollector();
+
+    await expect(executor.execute(request('task-after-close'), bus)).rejects.toMatchObject({
+      code: 'A2A_TASK_EXECUTOR_CLOSED',
+    });
+    expect(tasks.submitCalls).toBe(0);
   });
 });
 
@@ -156,12 +192,14 @@ class FakeTasks {
   readonly #tasks = new Map<string, AgentTask>();
   readonly #initialPhase: AgentTask['phase'];
   getCalls = 0;
+  submitCalls = 0;
 
   constructor(initialPhase: AgentTask['phase'] = 'queued') {
     this.#initialPhase = initialPhase;
   }
 
   submit(command: SubmitTaskCommand): Promise<SubmitTaskResult> {
+    this.submitCalls += 1;
     const timestamp = new Date().toISOString();
     const created = createAgentTask({
       taskId: command.taskId ?? 'task-generated',

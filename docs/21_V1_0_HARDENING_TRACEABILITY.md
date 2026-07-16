@@ -20,7 +20,7 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 | v1.0.10 | terminal capability-gap contract      | ADR-081; monotonic Task/Control terminal; active Goal; new-Task-only continuation | domain/application/A2A/PostgreSQL vertical path | none | unit+contract+integration+real A2A/Model E2E | `f8ae410` / `v1.0.10` | `2eba64e` / `v1.0.10-bug-fixed` | feature: 274 unit, 60 contract, 58 integration, 46 E2E; bug-fixed: 274 unit, 61 contract, 58 integration, 46 E2E, 181-source architecture, 104-operation OpenAPI, build and migrations passed | original Task never resumes; MCP Tasks remain out of scope | bug-fixed gate passed |
 | v1.0.11 | MCP Tool execution semantics          | ADR-082; MCP-declared → retained Admin override → unknown; immutable Planner/Invocation snapshots; atomic override/audit | domain/application/MCP adapter/PostgreSQL/management/Console vertical path | `0063_mcp_tool_execution_semantics` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `2efbef6` / `v1.0.11` | `fe3b126` / `v1.0.11-bug-fixed` | feature: 281 unit, 62 contract, 59 integration, 46 E2E; bug-fixed full `pnpm verify`: 283 unit, 63 contract, 59 integration, 46 E2E, 182-source architecture, 105-operation OpenAPI, build+migrations+smoke passed in 85,191 ms | no MCP Task binding/polling/device authority | published; bug-fixed gate passed |
 | v1.0.12 | Memory durability/embedding hardening | ADR-083; strict seven-field refinement; durable-only admission; generic positive vectors with exact provider/dimension matching; post-commit warning query; provenance/dynamic-state/immutable-snapshot audit | domain/application/PostgreSQL/management/Console vertical path | `0064_memory_production_hardening` | unit+contract+integration+migration+real A2A/Model/MCP E2E | `01e2d44` / `v1.0.12` | `21b9f79` / `v1.0.12-bug-fixed` | feature full gate: 284 unit, 64 contract, 60 integration, 46 E2E in 86,193 ms; bug-fixed full `pnpm verify`: 287 unit, 64 contract, 60 integration, 46 E2E, 182-source architecture, 106-operation OpenAPI, build+migrations+smoke passed in 85,277 ms | legacy rows are unknown/excluded; rollback rejects non-3D rows; MCP remains live-state authority | published; bug-fixed gate passed |
-| v1.0.13 | A2A state notification wait           | ADR-084; post-commit process-local notification; PostgreSQL reload; low-frequency safety poll | application/A2A/PostgreSQL/runtime vertical path | none | unit+integration+real A2A E2E+performance sample | this feature commit / `v1.0.13` pending | pending | feature full `pnpm verify`: 296 unit, 64 contract, 60 integration, 46 E2E, 185-source architecture, build+migrations+smoke passed in 89,011 ms; bug-fixed must add both demos | process-local only; missed notification latency is bounded by safety interval | feature gate passed; publication pending |
+| v1.0.13 | A2A state notification wait           | ADR-084; post-commit process-local notification; PostgreSQL reload; low-frequency safety poll; no post-close/deadline duplicate I/O | application/A2A/PostgreSQL/runtime vertical path | none | unit+integration+real A2A E2E+performance sample | `a13d8e7` / `v1.0.13` | this bug-fixed commit / `v1.0.13-bug-fixed` pending | feature full `pnpm verify`: 296 unit, 64 contract, 60 integration, 46 E2E in 89,011 ms; bug-fixed full `pnpm verify`: 298 unit, 64 contract, 60 integration, 46 E2E in 88,363 ms; both required demos passed | process-local only; missed notification latency is bounded by safety interval | bug-fixed gate passed; publication pending |
 
 ## Baseline Evidence
 
@@ -178,3 +178,18 @@ The table is updated only from reproducible implementation/test evidence. `pendi
 - Complete operator-managed `pnpm verify` passed in 89,011 ms with 296 unit, 64 contract, 60 real
   integration, 46 real E2E, 185-source architecture, A2A/OpenAPI/acceptance/license/SBOM gates,
   production builds, empty/0049 migrations through 0064 and both smoke stages. No Docker command ran.
+
+### v1.0.13 Bug-fixed Evidence
+
+- The timeout edge reuses the Task already loaded after the final safety wait instead of issuing a
+  second deadline read. The full-gate sample is 3 reads in 252 ms for one waiter and 60 reads in
+  267 ms for 20 concurrent waiters.
+- Closing the notifier finishes released event buses before another Task read or status publish;
+  close performs zero Task reads and releases in less than one rounded millisecond. New execution
+  after close fails before submission with `A2A_TASK_EXECUTOR_CLOSED`.
+- Configuration regressions reject the former 10 ms busy-poll interval and a non-positive wait
+  window. Five PostgreSQL fault-injection positions prove rollback emits no Task notification.
+- Required operator-managed `pnpm verify` passed in 88,363 ms with 298 unit, 64 contract, 60 real
+  integration, 46 real E2E and all static/build/migration/smoke gates. `pnpm demo:local` completed its
+  confirmed Task, and `pnpm demo:acceptance` passed all 46 E2E scenarios. Docker lifecycle commands
+  were disabled for all three required commands.

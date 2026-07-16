@@ -51,6 +51,11 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
   }
 
   async execute(request: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
+    if (this.#isClosed())
+      throw new TaskServiceAgentExecutorError(
+        'A2A_TASK_EXECUTOR_CLOSED',
+        'The A2A Task executor is closed.',
+      );
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
       const updated = await this.#tasks.followUp({ taskId: request.taskId, ...followUp });
@@ -86,12 +91,23 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
         current.updatedAt,
         Math.min(this.#safetyPollIntervalMs, remainingMs),
       );
+      if (this.#isClosed()) {
+        eventBus.finished();
+        return;
+      }
       current = await this.#tasks.get(submitted.task.taskId);
-      if (taskProjectionChanged(previous, current))
-        eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
-      if (this.#closed) {
-        if (!taskProjectionChanged(previous, current))
-          eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
+      if (this.#isClosed()) {
+        eventBus.finished();
+        return;
+      }
+      const changed = taskProjectionChanged(previous, current);
+      if (changed) eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
+      if (isA2AResponseBoundary(current)) {
+        eventBus.finished();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        if (!changed) eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(current)));
         eventBus.finished();
         return;
       }
@@ -108,6 +124,10 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     if (this.#closed) return;
     this.#closed = true;
     this.#notifier.close();
+  }
+
+  #isClosed(): boolean {
+    return this.#closed;
   }
 }
 
@@ -155,7 +175,8 @@ function taskProjectionChanged(previous: AgentTask, current: AgentTask): boolean
   );
 }
 
-export type TaskServiceAgentExecutorErrorCode = 'A2A_TASK_WAIT_CONFIGURATION_INVALID';
+export type TaskServiceAgentExecutorErrorCode =
+  'A2A_TASK_WAIT_CONFIGURATION_INVALID' | 'A2A_TASK_EXECUTOR_CLOSED';
 
 export class TaskServiceAgentExecutorError extends Error {
   readonly code: TaskServiceAgentExecutorErrorCode;

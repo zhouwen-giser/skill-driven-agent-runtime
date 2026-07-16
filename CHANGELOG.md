@@ -29,6 +29,25 @@ All notable changes to this project are documented here. The format follows Keep
   94 ms missed-notification recovery at a 100 ms safety interval, and sub-millisecond rounded close
   release. These are test-environment measurements, not production throughput claims.
 
+## [1.0.13-bug-fixed] - 2026-07-16
+
+### Fixed
+
+- The final safety wake now returns its already-reloaded Task snapshot without an extra deadline read.
+- Runtime close finishes released waiters before another database read or status publication, and an
+  executor already closed rejects new Task submission with `A2A_TASK_EXECUTOR_CLOSED`.
+- Transaction rollback regressions now prove failed terminal commits emit no Task notification.
+- Configuration tests prevent reintroducing the old 10 ms interval or a non-positive wait window.
+
+### Verification
+
+- Required `pnpm verify` passed in 88,363 ms with 298 unit, 64 contract, 60 integration and 46 E2E
+  tests, 185-source architecture, production builds, migrations and both smoke gates.
+- Required `pnpm demo:local` completed its confirmed real A2A task and `pnpm demo:acceptance` passed
+  all 46 E2E scenarios. Operator-managed mode disabled Docker lifecycle commands throughout.
+- Bug-fixed local samples recorded 3 reads for one 250 ms wait, 60 reads for 20 concurrent waits,
+  85 ms missed-notification recovery and zero post-close reads.
+
 ## [1.0.12] - 2026-07-16
 
 ### Added

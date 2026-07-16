@@ -22,4 +22,4 @@ commit notification path for terminal, input-required, capability-gap, return-im
 disconnect, polling, resubscribe, cancellation and timeout behavior. PostgreSQL remains the system
 of record and no migration or second runtime was introduced.
 
-Feature commit/tag: this feature commit / `v1.0.13` pending publication.
+Feature commit/tag: `a13d8e7` / `v1.0.13`, remotely verified.
