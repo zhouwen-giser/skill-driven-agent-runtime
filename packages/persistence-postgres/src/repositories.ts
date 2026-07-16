@@ -44,6 +44,7 @@ import type {
   TaskInputRepository,
 } from '../../application/src/index.js';
 import {
+  createMemoryItem,
   createMcpTool,
   createMcpToolExecutionSemantics,
   DomainError,
@@ -2182,6 +2183,9 @@ interface MemoryItemRow extends QueryResultRow {
   source_refs_json: unknown;
   supersedes_json: unknown;
   confidence: number;
+  durability: MemoryItem['durability'];
+  authority: MemoryItem['authority'];
+  durability_reason: string;
   created_at: Date | string;
   score?: number;
 }
@@ -2212,8 +2216,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
     await this.#pool.query(
       `INSERT INTO memory_item(
          memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+         durability,authority,durability_reason,
          embedding_provider_id,embedding_dimensions,embedding,created_at)
-       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
       [
         item.memoryId,
         item.type,
@@ -2223,6 +2228,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
         JSON.stringify(item.sourceRefs),
         JSON.stringify(item.supersedes),
         item.confidence,
+        item.durability,
+        item.authority,
+        item.durabilityReason,
         embedding.providerId,
         embedding.vector.length,
         vectorLiteral(embedding.vector),
@@ -2245,7 +2253,8 @@ export class PostgresMemoryRepository implements MemoryRepository {
     const result = await this.#pool.query<MemoryItemRow>(
       `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
        FROM memory_item
-       WHERE status='active' AND embedding_provider_id=$2 AND embedding_dimensions=$3
+       WHERE status='active' AND durability='durable'
+         AND embedding_provider_id=$2 AND embedding_dimensions=$3
        ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $4`,
       [vectorLiteral(query.vector), query.providerId, query.vector.length, query.limit],
     );
@@ -2263,8 +2272,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
       await client.query(
         `INSERT INTO memory_item(
            memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+           durability,authority,durability_reason,
            embedding_provider_id,embedding_dimensions,embedding,created_at)
-         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11::vector,$12)`,
+         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
         [
           replacement.memoryId,
           replacement.type,
@@ -2274,6 +2284,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
           JSON.stringify(replacement.sourceRefs),
           JSON.stringify(replacement.supersedes),
           replacement.confidence,
+          replacement.durability,
+          replacement.authority,
+          replacement.durabilityReason,
           embedding.providerId,
           embedding.vector.length,
           vectorLiteral(embedding.vector),
@@ -2508,7 +2521,7 @@ function mapGoalInputInferenceRow(row: GoalInputInferenceRow): GoalInputInferenc
 }
 
 function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
-  return {
+  return createMemoryItem({
     memoryId: row.memory_id,
     type: row.type,
     content: MemoryContentSchema.parse(row.content_json),
@@ -2517,8 +2530,11 @@ function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
     sourceRefs: StringArraySchema.parse(row.source_refs_json),
     supersedes: StringArraySchema.parse(row.supersedes_json),
     confidence: row.confidence,
+    durability: row.durability,
+    authority: row.authority,
+    durabilityReason: row.durability_reason,
     createdAt: toIsoString(row.created_at),
-  };
+  });
 }
 
 async function insertMemoryTransition(

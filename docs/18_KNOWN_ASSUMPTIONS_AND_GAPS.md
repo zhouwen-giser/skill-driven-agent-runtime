@@ -25,6 +25,7 @@
 - v1.0.9 将任务包的 `composable` 语义映射到仓库既有 `composition` 枚举，不新增同义关系。初始组合只沿 root 出站的 `parent_child`、`depends_on`、`input_output_match`、`composition`、`capability_coverage` 遍历，深度上限 8、相关 Skill 上限 32、关系上限 128、快照 JSON 深度上限 64；`alternative` 仍仅用于失败后替代。0062 前的历史计划保持可读/可执行兼容，但没有组合快照的旧行不得被当作新规划授权来源。
 - v1.0.10 将 capability gap 解释为当前 Task/WorkflowControl 的不可恢复终态，而不是等待状态。注册或刷新 Tool 不扫描、不唤醒、不执行旧 Task；上游必须在同 Context 提交新 Task。旧 Task 和 Control 保留终态证据，Goal 独立保持 active，直至新 Task 推进或显式 Goal cancellation 结束它。后续 Task 的 Goal Patch/Goal cancellation 不改写旧终态，Round 追加按 PostgreSQL 非终态行锁授权。现有列与约束已表达该值和证据，因此无新增 Migration。
 - v1.0.11 按任务包的字面优先级将可用 MCP 声明置于 Admin override 之前；override 会跨 refresh 保留，但在 MCP 声明存在时处于 dormant 状态，声明消失后才生效。SDK `execution.taskSupport` 与明确的 read-only/destructive annotation 被翻译为保守项目语义；精确五字段扩展使用 `_meta["io.sdar/tool-execution-semantics"]`，键存在但内容畸形时整个发现失败并保留旧注册快照，不静默降级。`idempotentHint` 不足以证明 request-key 或 server dedup，因此不会升级为 `server_managed`。LLM Enhancement 永远不是权威。Workflow plan/attempt 和 Invocation 保存发生时快照；本版本仍不实现 MCP Task Binding、远程 Task polling、设备状态权威或冲突控制。
+- v1.0.12 将 0064 前的 Memory 行保守回填为 `unknown` / `model_inferred` 并排除在语义检索之外，直至未来通过显式再精炼生成新的 durable 证据；不会从旧文本猜测耐久性。模型必须返回严格七字段精炼结果，调用方的 `authorityHint` 只是候选来源上下文而非权限证明。新 embedding 必须是有限数值的正维度向量，检索仅比较完全相同 provider 和维度。0064 down migration 仅在全部剩余向量都是三维时允许执行，否则以稳定错误拒绝潜在数据损失。动态坐标、电量、在线、占用等设备状态不得成为长期 Memory，当前值继续实时查询 MCP；终态后的 Memory 增强失败只形成可查询 warning，不改变已提交 Task/Goal/WorkflowControl。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 

@@ -16,4 +16,4 @@ snapshots, fail the whole discovery before replacement on malformed exact declar
 PostgreSQL transaction for override plus audit. Real regressions prove duplicate-audit failure rolls
 back the Tool update and a missing Tool creates no audit row.
 
-Bug-fixed publication: pending / annotated `v1.0.11-bug-fixed`.
+Bug-fixed publication: `fe3b126` / annotated `v1.0.11-bug-fixed`, remotely verified.

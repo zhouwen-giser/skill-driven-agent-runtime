@@ -242,6 +242,7 @@ describe('operational console static accessibility contract', () => {
       .join('');
     expect(markup).toContain('Prompt Lifecycle');
     expect(markup).toContain('anonymous shared');
+    expect(markup).toContain('Volatile device state and unknown durability are rejected');
     expect(markup).toContain('warning-only policy');
     expect(markup).toContain('FILTERED OPERATING METRICS');
     expect(markup).toContain('skill_input_resolution');

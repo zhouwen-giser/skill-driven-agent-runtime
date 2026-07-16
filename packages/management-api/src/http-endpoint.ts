@@ -40,6 +40,7 @@ import type {
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   RuntimeEventQuery,
+  RuntimeTerminalOutcomeRepository,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -352,6 +353,7 @@ export interface ManagementOperations {
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
   readonly runtimeEvents: RuntimeEventQuery;
+  readonly runtimeTerminalOutcomes: Pick<RuntimeTerminalOutcomeRepository, 'find'>;
   readonly memories: Pick<
     MemoryService,
     'refine' | 'get' | 'search' | 'supersede' | 'invalidate' | 'listTransitions'
@@ -465,6 +467,20 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+  app.get(
+    '/api/v1/runtime-terminal-outcomes/:outcomeId',
+    asyncRoute(async (request, response) => {
+      const outcome = await options.operations.runtimeTerminalOutcomes.find(
+        pathValue(request, 'outcomeId'),
+      );
+      if (outcome === undefined)
+        throw new HttpInputError(
+          'RUNTIME_TERMINAL_OUTCOME_NOT_FOUND',
+          'Runtime terminal outcome was not found.',
+        );
+      response.json(outcome);
+    }),
+  );
   app.post(
     '/api/v1/memories',
     asyncRoute(async (request, response) => {

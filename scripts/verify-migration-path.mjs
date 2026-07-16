@@ -88,10 +88,18 @@ function databasePool(database) {
 
 async function verifyCurrentSchema(pool, label) {
   const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
+    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
   );
   if (latest.rows[0]?.applied !== true)
-    throw new Error(`MIGRATION_0063_MISSING:${label}`);
+    throw new Error(`MIGRATION_0064_MISSING:${label}`);
+  const memoryHardening = await pool.query(
+    "SELECT a.atttypmod, count(c.column_name)::integer AS semantic_columns FROM pg_attribute a CROSS JOIN information_schema.columns c WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding' AND NOT a.attisdropped AND c.table_name='memory_item' AND c.column_name IN ('durability','authority','durability_reason') GROUP BY a.atttypmod",
+  );
+  if (
+    memoryHardening.rows[0]?.atttypmod !== -1 ||
+    memoryHardening.rows[0]?.semantic_columns !== 3
+  )
+    throw new Error(`MIGRATION_MEMORY_PRODUCTION_HARDENING_MISSING:${label}`);
   const semanticsColumns = await pool.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='mcp_tool' AND column_name IN ('declared_execution_semantics_json','admin_execution_semantics_override_json','execution_semantics_json')) OR (table_name='mcp_invocation' AND column_name='execution_semantics_json') OR (table_name IN ('workflow_plan','workflow_plan_attempt') AND column_name='tool_execution_semantics_json')",
   );

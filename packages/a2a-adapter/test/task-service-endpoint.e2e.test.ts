@@ -3174,6 +3174,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       memoryId,
       status: 'active',
       sourceRefs: [source.id],
+      durability: 'durable',
+      authority: 'admin',
     });
     const search = await fetch(
       `${runtime.management.baseUrl}/api/v1/memories/search?q=${encodeURIComponent('target device')}&limit=5`,
@@ -3220,6 +3222,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       memoryId: replacementId,
       status: 'active',
       supersedes: [memoryId],
+      durability: 'durable',
+      authority: 'admin',
     });
     await expect(
       fetch(`${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(memoryId)}`).then(
@@ -4465,12 +4469,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ).then((response) => response.json()),
       );
     expect(
-      memorySearch.items.find((hit) => hit.item.summary === 'The device was online.')?.item,
-    ).toMatchObject({
-      type: 'fact',
-      content: { kind: 'fact', statement: 'The device was online.' },
-      sourceRefs: [expect.stringMatching(/^task:/), expect.stringMatching(/^processed-result:/)],
-    });
+      memorySearch.items.find((hit) => hit.item.summary === 'The device was online.'),
+    ).toBeUndefined();
     const qualityDeadline = Date.now() + 5_000;
     let qualityResponse: Response;
     do {
@@ -4543,6 +4543,19 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           (response) => response.json(),
         ),
       ).resolves.toMatchObject({ items: [expect.objectContaining({ taskId: submitted.id })] });
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/runtime-terminal-outcomes/terminal-outcome-task-${submitted.id}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({
+        kind: 'achieved',
+        enhancementWarnings: [
+          expect.objectContaining({
+            source: 'evaluation_memory',
+            code: 'MODEL_INVOCATION_FAILED',
+          }),
+        ],
+      });
     } finally {
       postCommitMemoryFailures = 0;
     }
@@ -4739,6 +4752,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
               type: z.string(),
               sourceRefs: z.array(z.string()),
               content: z.record(z.string(), z.unknown()),
+              durability: z.string(),
+              authority: z.string(),
             }),
           }),
         ),
@@ -4752,6 +4767,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(items).toContainEqual(
       expect.objectContaining({
         type: 'prompt_learning',
+        durability: 'durable',
+        authority: 'skill_experience',
         sourceRefs: [`prompt:${promptId}:${String(promptVersion)}`],
         content: expect.objectContaining({ evolutionKind: 'prompt_correction' }),
       }),
@@ -5095,10 +5112,25 @@ async function startModelLoopback(): Promise<Server> {
                 content: z.record(z.string(), z.unknown()),
                 summary: z.string(),
                 confidence: z.number(),
+                authorityHint: z.enum(['mcp', 'skill_experience', 'admin', 'model_inferred']),
               }),
             })
             .parse(embeddedOperation(body.messages, 'refine_memory'));
-          respondStructured(response, requestData.candidate);
+          const dynamicState =
+            /\b(online|battery|coordinate|occupancy|current device task)\b/iu.test(
+              requestData.candidate.summary,
+            );
+          respondStructured(response, {
+            type: requestData.candidate.type,
+            content: requestData.candidate.content,
+            summary: requestData.candidate.summary,
+            confidence: requestData.candidate.confidence,
+            durability: dynamicState ? 'volatile' : 'durable',
+            authority: dynamicState ? 'mcp' : requestData.candidate.authorityHint,
+            durabilityReason: dynamicState
+              ? 'Current device state changes and must be queried from MCP again.'
+              : 'The evidence is stable and reusable across future tasks.',
+          });
           return;
         }
         if (taskQualityEvaluationRequest === true) {

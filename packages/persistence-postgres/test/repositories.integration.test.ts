@@ -116,15 +116,23 @@ beforeAll(async () => {
     "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
   );
   if (ledger.rows[0]?.exists === true) {
+    const memoryHardening = await pool.query<{ applied: boolean }>(
+      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
+    );
+    if (memoryHardening.rows[0]?.applied === true) return;
     const latest = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
     );
-    if (latest.rows[0]?.applied === true) return;
+    if (latest.rows[0]?.applied === true) {
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
+      return;
+    }
     const skillCompositionContext = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
     );
     if (skillCompositionContext.rows[0]?.applied === true) {
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const goalExecutionContract = await pool.query<{ applied: boolean }>(
@@ -141,6 +149,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
@@ -166,6 +175,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const skillInputResolution = await pool.query<{ applied: boolean }>(
@@ -199,6 +209,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
@@ -241,6 +252,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
@@ -291,6 +303,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -349,6 +362,7 @@ beforeAll(async () => {
         ),
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+      await applyTestMigration('0064_memory_production_hardening.up.sql');
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -365,6 +379,7 @@ beforeAll(async () => {
         '0061_goal_execution_contract.up.sql',
         '0062_skill_composition_context.up.sql',
         '0063_mcp_tool_execution_semantics.up.sql',
+        '0064_memory_production_hardening.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -744,6 +759,7 @@ beforeAll(async () => {
   );
   await pool.query(skillCompositionContextMigration);
   await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
+  await applyTestMigration('0064_memory_production_hardening.up.sql');
 });
 
 beforeEach(async () => {
@@ -886,7 +902,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
         sourceRefs: ['task.user-a'],
         supersedes: [],
         confidence: 0.9,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'An operator supplied a stable target identifier.',
         createdAt: '2026-07-12T00:00:00.000Z',
+      },
+      { providerId: 'embedding.db', vector: [1, 0, 0] },
+    );
+    await repository.save(
+      {
+        memoryId: 'memory.global.db.unknown',
+        type: 'fact',
+        content: { state: 'unclassified' },
+        summary: 'Unclassified durability.',
+        status: 'active',
+        sourceRefs: ['legacy:unknown'],
+        supersedes: [],
+        confidence: 0.5,
+        durability: 'unknown',
+        authority: 'model_inferred',
+        durabilityReason: 'The legacy evidence has not been reviewed.',
+        createdAt: '2026-07-12T00:00:05.000Z',
       },
       { providerId: 'embedding.db', vector: [1, 0, 0] },
     );
@@ -902,6 +938,51 @@ describe('PostgreSQL protocol-domain repositories', () => {
         score: 1,
       },
     ]);
+    const vector8 = [1, 0, 0, 0, 0, 0, 0, 0];
+    const vector1536 = [1, ...Array<number>(1535).fill(0)];
+    await repository.save(
+      {
+        memoryId: 'memory.global.db.8',
+        type: 'workflow_pattern',
+        content: { dimensions: 8 },
+        summary: 'Eight-dimensional provider memory.',
+        status: 'active',
+        sourceRefs: ['skill-experience:8'],
+        supersedes: [],
+        confidence: 0.9,
+        durability: 'durable',
+        authority: 'skill_experience',
+        durabilityReason: 'The workflow pattern is reusable.',
+        createdAt: '2026-07-12T00:00:10.000Z',
+      },
+      { providerId: 'embedding.db', vector: vector8 },
+    );
+    await repository.save(
+      {
+        memoryId: 'memory.global.db.1536',
+        type: 'skill_learning',
+        content: { dimensions: 1536 },
+        summary: 'Large provider memory.',
+        status: 'active',
+        sourceRefs: ['skill-experience:1536'],
+        supersedes: [],
+        confidence: 0.95,
+        durability: 'durable',
+        authority: 'skill_experience',
+        durabilityReason: 'The Skill lesson is reusable.',
+        createdAt: '2026-07-12T00:00:20.000Z',
+      },
+      { providerId: 'embedding.large', vector: vector1536 },
+    );
+    await expect(
+      repository.search({ providerId: 'embedding.db', vector: vector8, limit: 5 }),
+    ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.db.8' }, score: 1 }]);
+    await expect(
+      repository.search({ providerId: 'embedding.large', vector: vector1536, limit: 5 }),
+    ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.db.1536' }, score: 1 }]);
+    await expect(
+      repository.search({ providerId: 'embedding.other', vector: vector8, limit: 5 }),
+    ).resolves.toEqual([]);
     const replacement = {
       memoryId: 'memory.global.db.v2',
       type: 'fact' as const,
@@ -911,6 +992,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       sourceRefs: ['task.user-b'],
       supersedes: ['memory.global.db'],
       confidence: 0.95,
+      durability: 'durable' as const,
+      authority: 'admin' as const,
+      durabilityReason: 'New operator evidence replaces the target identifier.',
       createdAt: '2026-07-12T00:01:00.000Z',
     };
     await repository.saveAndSupersede(
@@ -4482,6 +4566,72 @@ describe('PostgreSQL protocol-domain repositories', () => {
               AND column_name='tool_execution_semantics_json')`,
     );
     expect(restored.rows[0]?.count).toBe(6);
+  });
+
+  it('guards and verifies rollback/reapply of generic Memory embeddings', async () => {
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0064_memory_production_hardening.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0064_memory_production_hardening.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `INSERT INTO memory_item(
+           memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
+           durability,authority,durability_reason,
+           embedding_provider_id,embedding_dimensions,embedding,created_at)
+         VALUES('memory.rollback.8','fact','{}','Eight dimensions','active','["source"]','[]',1,
+           'durable','admin','Rollback guard','provider.rollback',8,'[1,0,0,0,0,0,0,0]'::vector,now())`,
+      );
+      await expect(client.query(down)).rejects.toThrow(
+        'MIGRATION_0064_ROLLBACK_REQUIRES_THREE_DIMENSIONAL_MEMORY',
+      );
+      await client.query('ROLLBACK');
+      await client.query("DELETE FROM memory_item WHERE memory_id='memory.rollback.8'");
+    } finally {
+      client.release();
+    }
+
+    await pool.query(down);
+    try {
+      const downgraded = await pool.query<{ embedding_type: string; semantic_columns: number }>(
+        `SELECT format_type(a.atttypid,a.atttypmod) embedding_type,
+                count(c.column_name)::integer semantic_columns
+         FROM pg_attribute a CROSS JOIN information_schema.columns c
+         WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding'
+           AND NOT a.attisdropped AND c.table_name='memory_item'
+           AND c.column_name IN ('durability','authority','durability_reason')
+         GROUP BY a.atttypid,a.atttypmod`,
+      );
+      expect(downgraded.rows).toEqual([]);
+      const type = await pool.query<{ embedding_type: string }>(
+        `SELECT format_type(atttypid,atttypmod) embedding_type FROM pg_attribute
+         WHERE attrelid='memory_item'::regclass AND attname='embedding' AND NOT attisdropped`,
+      );
+      expect(type.rows[0]?.embedding_type).toBe('vector(3)');
+    } finally {
+      await pool.query(up);
+    }
+    const restored = await pool.query<{ embedding_type: string; semantic_columns: number }>(
+      `SELECT format_type(a.atttypid,a.atttypmod) embedding_type,
+              count(c.column_name)::integer semantic_columns
+       FROM pg_attribute a CROSS JOIN information_schema.columns c
+       WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding'
+         AND NOT a.attisdropped AND c.table_name='memory_item'
+         AND c.column_name IN ('durability','authority','durability_reason')
+       GROUP BY a.atttypid,a.atttypmod`,
+    );
+    expect(restored.rows).toEqual([{ embedding_type: 'vector', semantic_columns: 3 }]);
   });
 
   it('rolls back and reapplies the Goal execution contract snapshots', async () => {

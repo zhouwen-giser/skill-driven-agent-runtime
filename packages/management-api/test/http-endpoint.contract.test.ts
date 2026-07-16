@@ -408,6 +408,45 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [expect.objectContaining({ valuable: true })] });
   });
 
+  it('exposes queryable post-terminal enhancement failures without changing authority', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        runtimeTerminalOutcomes: {
+          find: (outcomeId) =>
+            Promise.resolve({
+              outcomeId,
+              kind: 'achieved' as const,
+              taskId: 'task-1',
+              goalId: 'goal-1',
+              goalVersion: 1,
+              controlId: 'control-1',
+              controlStatus: 'achieved' as const,
+              resultId: 'result-1',
+              summary: 'Committed before enhancement.',
+              enhancementWarnings: [
+                {
+                  source: 'result_memory' as const,
+                  code: 'MEMORY_EMBEDDING_INVALID',
+                  message: 'Embedding failed.',
+                  occurredAt: '2026-07-16T00:00:01.000Z',
+                },
+              ],
+              committedAt: '2026-07-16T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/runtime-terminal-outcomes/outcome-1`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      kind: 'achieved',
+      enhancementWarnings: [{ source: 'result_memory', code: 'MEMORY_EMBEDDING_INVALID' }],
+    });
+  });
+
   it('exposes the five-component Task quality report', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -1620,6 +1659,9 @@ describe('management HTTP API contract', () => {
       sourceRefs: ['task-source'],
       supersedes: [],
       confidence: 0.9,
+      durability: 'durable' as const,
+      authority: 'admin' as const,
+      durabilityReason: 'The operator supplied a stable target identifier.',
       createdAt: '2026-07-12T00:00:00.000Z',
     };
     endpoint = await startManagementHttpEndpoint({
@@ -1750,6 +1792,7 @@ function operations(failServerList = false): ManagementOperations {
       listTransitions: () => Promise.resolve([]),
     },
     runtimeEvents: { listByTask: () => Promise.resolve([]) },
+    runtimeTerminalOutcomes: { find: unused },
     memoryRetention: { getPolicy: unused, updatePolicy: unused },
     goalInputInference: { list: () => Promise.resolve([]) },
     skillInputResolution: { get: unused, list: () => Promise.resolve([]) },

@@ -1,6 +1,9 @@
 import {
   createMemoryItem,
+  createMemoryRefinement,
+  type MemoryAuthority,
   type MemoryItem,
+  type MemoryRefinement,
   type MemoryRetrievalStage,
   type MemoryStatusTransition,
   type MemoryType,
@@ -27,13 +30,24 @@ const RefinedMemorySchema = z
     content: z.record(z.string(), z.unknown()),
     summary: z.string().min(1),
     confidence: z.number().min(0).max(1),
+    durability: z.enum(['durable', 'volatile', 'unknown']),
+    authority: z.enum(['mcp', 'skill_experience', 'admin', 'model_inferred']),
+    durabilityReason: z.string().min(1),
   })
   .strict();
 
 const refinedMemoryResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['type', 'content', 'summary', 'confidence'],
+  required: [
+    'type',
+    'content',
+    'summary',
+    'confidence',
+    'durability',
+    'authority',
+    'durabilityReason',
+  ],
   properties: {
     type: {
       enum: [
@@ -48,6 +62,9 @@ const refinedMemoryResponseSchema = {
     content: { type: 'object' },
     summary: { type: 'string', minLength: 1 },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
+    durability: { enum: ['durable', 'volatile', 'unknown'] },
+    authority: { enum: ['mcp', 'skill_experience', 'admin', 'model_inferred'] },
+    durabilityReason: { type: 'string', minLength: 1 },
   },
 } as const;
 
@@ -91,8 +108,12 @@ export class MemoryService {
       sourceRefs: input.sourceRefs,
       supersedes: input.supersedes ?? [],
       confidence: input.confidence,
+      durability: input.durability,
+      authority: input.authority,
+      durabilityReason: input.durabilityReason,
       createdAt: this.#clock.now(),
     });
+    assertDurableAdmission(item);
     const embedding = await this.#embeddings.embed(searchableText(item));
     validateEmbedding(embedding);
     await this.#repository.save(item, embedding);
@@ -135,26 +156,39 @@ export class MemoryService {
   async admitProcessedResult(result: ProcessedResultRecord) {
     const admitted: MemoryItem[] = [];
     const duplicateMemoryIds: string[] = [];
-    if (!result.valuable) return { admitted, duplicateMemoryIds };
+    const rejected: MemoryRefinement[] = [];
+    if (!result.valuable) return { admitted, duplicateMemoryIds, rejected };
     for (const candidate of result.memoryCandidates) {
       const summary = normalizeCandidate(candidate.content);
       const type = candidateType(candidate.kind, result.normalized.errors.length > 0);
-      const duplicate = await this.#findDuplicate(type, summary);
+      const refined = await this.#refineData({
+        type,
+        summary,
+        content: { kind: candidate.kind, statement: summary },
+        confidence: candidate.confidence,
+        authorityHint: 'model_inferred',
+        sourceRefs: [`task:${result.taskId}`, `processed-result:${result.resultId}`],
+      });
+      if (refined.durability !== 'durable') {
+        rejected.push(refined);
+        continue;
+      }
+      const duplicate = await this.#findDuplicate(
+        refined.type,
+        normalizeCandidate(refined.summary),
+      );
       if (duplicate !== undefined) {
         duplicateMemoryIds.push(duplicate.memoryId);
         continue;
       }
       admitted.push(
         await this.create({
-          type,
-          summary,
-          content: { kind: candidate.kind, statement: summary },
+          ...refined,
           sourceRefs: [`task:${result.taskId}`, `processed-result:${result.resultId}`],
-          confidence: candidate.confidence,
         }),
       );
     }
-    return { admitted, duplicateMemoryIds };
+    return { admitted, duplicateMemoryIds, rejected };
   }
 
   async refine(
@@ -166,9 +200,15 @@ export class MemoryService {
       sourceRefs: readonly string[];
       confidence: number;
       supersedes?: readonly string[];
+      authorityHint?: MemoryAuthority;
     }>,
   ): Promise<MemoryItem> {
-    const refined = await this.#refineData(input);
+    const refined = await this.#refineData({
+      ...input,
+      authorityHint: input.authorityHint ?? 'admin',
+      sourceRefs: input.sourceRefs,
+    });
+    assertDurableAdmission(refined);
     const duplicate = await this.#findDuplicate(refined.type, normalizeCandidate(refined.summary));
     if (duplicate !== undefined) return duplicate;
     return this.create({
@@ -198,7 +238,12 @@ export class MemoryService {
         'MEMORY_STATUS_CONFLICT',
         'Only active Memory may be superseded.',
       );
-    const refined = await this.#refineData(input);
+    const refined = await this.#refineData({
+      ...input,
+      authorityHint: 'admin',
+      sourceRefs: input.sourceRefs,
+    });
+    assertDurableAdmission(refined);
     const replacement = createMemoryItem({
       ...refined,
       memoryId: input.memoryId ?? this.#nextId(),
@@ -266,6 +311,7 @@ export class MemoryService {
       summary: input.summary,
       sourceRefs: [input.sourceRef],
       confidence: input.confidence,
+      authorityHint: 'skill_experience',
     });
   }
 
@@ -275,14 +321,16 @@ export class MemoryService {
       content: Readonly<Record<string, unknown>>;
       summary: string;
       confidence: number;
+      authorityHint: MemoryAuthority;
+      sourceRefs: readonly string[];
     }>,
-  ) {
+  ): Promise<MemoryRefinement> {
     if (this.#model === undefined)
       throw new MemoryApplicationError(
         'MEMORY_REFINEMENT_UNAVAILABLE',
         'Memory refinement model is unavailable.',
       );
-    return RefinedMemorySchema.parse(
+    const refined = RefinedMemorySchema.parse(
       await this.#model.generateStructured({
         stage: 'result_processing',
         instruction: JSON.stringify({
@@ -292,14 +340,17 @@ export class MemoryService {
             content: input.content,
             summary: input.summary,
             confidence: input.confidence,
+            authorityHint: input.authorityHint,
+            sourceRefs: input.sourceRefs,
           },
           instruction:
-            'Extract, deduplicate in wording, and return only structured durable knowledge. Do not copy raw task traces.',
+            'Return all seven schema fields. Current coordinates, battery, online status, occupancy and device-task state are volatile MCP authority and must not become durable Memory. Stable reusable Skill experience may be durable. When durability is uncertain, return unknown. Do not copy raw task traces or treat the authority hint as proof.',
         }),
         responseSchema: refinedMemoryResponseSchema,
         correctionErrors: [],
       }),
     );
+    return createMemoryRefinement(refined);
   }
 
   async #findDuplicate(type: MemoryType, summary: string): Promise<MemoryItem | undefined> {
@@ -380,18 +431,27 @@ function searchableText(item: MemoryItem): string {
 function validateEmbedding(value: Readonly<{ providerId: string; vector: readonly number[] }>) {
   if (
     value.providerId.trim() === '' ||
-    value.vector.length !== 3 ||
+    value.vector.length === 0 ||
     value.vector.some((x) => !Number.isFinite(x))
   )
     throw new MemoryApplicationError(
       'MEMORY_EMBEDDING_INVALID',
-      'Memory embedding requires a provider ID and three finite dimensions.',
+      'Memory embedding requires a provider ID and a non-empty finite vector.',
+    );
+}
+
+function assertDurableAdmission(value: Pick<MemoryRefinement, 'durability' | 'durabilityReason'>) {
+  if (value.durability !== 'durable')
+    throw new MemoryApplicationError(
+      'MEMORY_DURABILITY_NOT_ADMITTED',
+      `Only durable knowledge enters long-term Memory: ${value.durabilityReason}`,
     );
 }
 
 export type MemoryApplicationErrorCode =
   | 'MEMORY_ACTOR_REQUIRED'
   | 'MEMORY_EMBEDDING_INVALID'
+  | 'MEMORY_DURABILITY_NOT_ADMITTED'
   | 'MEMORY_LIMIT_INVALID'
   | 'MEMORY_NOT_FOUND'
   | 'MEMORY_QUERY_REQUIRED'

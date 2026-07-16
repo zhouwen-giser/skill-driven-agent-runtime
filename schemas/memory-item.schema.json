@@ -2,7 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "MemoryItem",
   "type": "object",
-  "required": ["memory_id", "type", "content", "status", "source_refs", "created_at"],
+  "required": [
+    "memory_id",
+    "type",
+    "content",
+    "summary",
+    "status",
+    "source_refs",
+    "confidence",
+    "durability",
+    "authority",
+    "durability_reason",
+    "created_at"
+  ],
   "properties": {
     "memory_id": {
       "type": "string"
@@ -43,6 +55,16 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "durability": {
+      "enum": ["durable", "volatile", "unknown"]
+    },
+    "authority": {
+      "enum": ["mcp", "skill_experience", "admin", "model_inferred"]
+    },
+    "durability_reason": {
+      "type": "string",
+      "minLength": 1
     },
     "created_at": {
       "type": "string",

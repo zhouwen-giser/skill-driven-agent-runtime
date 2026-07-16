@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-07-16
+
+### Added
+
+- Domain-owned Memory durability (`durable`, `volatile`, `unknown`) and authority (`mcp`, `skill_experience`, `admin`, `model_inferred`) evidence, including a strictly validated seven-field refinement result.
+- Migration 0064 converts new Memory embeddings to generic positive-dimensional pgvector values, adds durability/authority evidence, conservatively classifies legacy rows, and supplies a guarded rollback.
+- A credential-free terminal-outcome query exposes post-commit enhancement warnings without changing the committed Task result.
+
+### Changed
+
+- Automatic long-term admission now embeds, deduplicates and persists only model-refined durable Memory; volatile and unknown candidates are rejected before embedding, and live device state must be requeried from MCP.
+- Similarity search compares only active durable rows with the exact embedding provider and vector dimension, supporting tested 3-, 8- and 1536-dimensional providers without cross-provider comparison.
+- Memory creation, embedding, deduplication or persistence failure after the authoritative terminal transaction records an enhancement warning and never reverses a completed Task or fabricates Memory success.
+
+### Verification
+
+- The complete operator-managed `pnpm verify` passed in 86,193 ms with format, lint, strict TypeScript, 284 unit tests, 64 contract tests, 60 integration tests, 46 E2E tests, 182-source architecture, 106-operation OpenAPI, production build, empty/0049→0064 migrations and both smoke gates.
+- Real PostgreSQL migration tests cover provider/dimension isolation, durable-only retrieval, legacy exclusion and guarded rollback. No Docker command ran.
+
 ## [1.0.11] - 2026-07-16
 
 ### Added

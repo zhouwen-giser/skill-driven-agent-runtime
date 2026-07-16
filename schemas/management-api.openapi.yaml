@@ -25,10 +25,18 @@ paths:
   /api/v1/memories:
     post:
       operationId: createMemory
-      description: Creates one globally shared, source-linked memory and persists its pgvector embedding.
+      description: Refines one globally shared candidate and persists it only when structured durability is durable; embeddings may use any positive provider dimension.
       responses:
-        '201': { description: Active global memory item }
+        '201': { description: Active durable global memory item with authority and durability reason }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/runtime-terminal-outcomes/{outcomeId}:
+    parameters: [{ name: outcomeId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getRuntimeTerminalOutcome
+      description: Returns authoritative terminal state plus queryable post-commit enhancement warnings.
+      responses:
+        '200': { description: Terminal outcome and append-only Memory/quality/evolution warnings }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/memories/search:
     get:
       operationId: searchMemories
@@ -36,7 +44,7 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
-        '200': { description: Global active memories ordered by pgvector similarity }
+        '200': { description: Same-provider/same-dimension durable active memories ordered by pgvector similarity }
   /api/v1/memories/{memoryId}:
     parameters: [{ name: memoryId, in: path, required: true, schema: { type: string } }]
     get:

@@ -1259,6 +1259,7 @@ export async function startServerRuntime(
         evaluationInfluences,
         evaluationAnalytics,
         runtimeEvents: events,
+        runtimeTerminalOutcomes,
         memories,
         memoryRetention,
         goalInputInference,
@@ -1520,6 +1521,7 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
     '0061_goal_execution_contract.up.sql',
     '0062_skill_composition_context.up.sql',
     '0063_mcp_tool_execution_semantics.up.sql',
+    '0064_memory_production_hardening.up.sql',
   ]) {
     const sequence = Number.parseInt(name.slice(0, 4), 10);
     if (sequence <= highestAppliedSequence) continue;
