@@ -2,6 +2,8 @@
 
 Status: **Phase 4 increment verified**. This report does not claim Phase 5 lifecycle handling or final v1.1 acceptance.
 
+Published Phase commit: `e9250995cb42b0b72afe6eae7e57d99b3508385b` (`feat(v1.1): continue workflows from remote task events`). The subsequent `eb69947` merge synchronizes the remote hardening branch topology; `6677f00` contained no tree delta beyond the already merged Phase 0–3 branch.
+
 ## Intended increment
 
 - A remote MCP Task ends the active LangGraph invocation with a typed `waiting_external` result. PostgreSQL stores a bounded, versioned frontier snapshot; Redis stores only a one-attempt control reference.
