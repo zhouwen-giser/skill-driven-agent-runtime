@@ -21,6 +21,8 @@ import {
   McpRegistryService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
+  McpTaskReadinessService,
+  StructuredTaskRiskDecider,
   StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
   snapshotMcpToolPlanningExecutionSemantics,
@@ -134,6 +136,7 @@ import {
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
+  PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -244,7 +247,9 @@ export async function startServerRuntime(
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
-  const mcpRepository = new PostgresMcpRegistryRepository(pool);
+  const mcpRepository = new PostgresMcpRegistryRepository(pool, {
+    v11TaskMetadata: options.v11McpTasks !== undefined,
+  });
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
@@ -334,17 +339,6 @@ export async function startServerRuntime(
   const prompts = new PromptService({
     repository: new PostgresPromptRepository(pool),
     clock,
-    memories,
-  });
-  const workflowPlanner = new WorkflowPlannerService({
-    model: modelRuntime,
-    validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool),
-    workflowSchema,
-    clock,
-    maxAttempts: 3,
-    composition: skillComposition,
-    templates: workflowTemplates,
     memories,
   });
   const resultProcessor = new ResultProcessor(schemaValidator);
@@ -455,6 +449,36 @@ export async function startServerRuntime(
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
   });
+  const taskAvailabilityEvidence =
+    options.v11McpTasks === undefined
+      ? undefined
+      : new PostgresTaskAvailabilityEvidenceRepository(pool);
+  const taskReadiness =
+    taskAvailabilityEvidence === undefined
+      ? undefined
+      : new McpTaskReadinessService({
+          operations: mcpRepository,
+          provider: mcpRegistry,
+          evidence: taskAvailabilityEvidence,
+          riskDecider: new StructuredTaskRiskDecider(modelRuntime),
+          clock,
+          ids: {
+            nextReadinessId: () => `task-readiness-${randomUUID()}`,
+            nextSnapshotId: () => `task-availability-${randomUUID()}`,
+          },
+        });
+  const workflowPlanner = new WorkflowPlannerService({
+    model: modelRuntime,
+    validator: workflowValidator,
+    repository: new PostgresWorkflowPlanRepository(pool),
+    workflowSchema,
+    clock,
+    maxAttempts: 3,
+    composition: skillComposition,
+    templates: workflowTemplates,
+    memories,
+    ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
+  });
   const remoteTaskRepository =
     options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
   const remoteTaskQueue =
@@ -516,10 +540,48 @@ export async function startServerRuntime(
           : { taskId: task.taskId, context: { taskId: task.taskId, contextId: task.contextId } }),
       });
     },
-    async callMcpTool({ executionId, tool, arguments: arguments_, signal, executionContext }) {
+    async callMcpTool({
+      executionId,
+      workflowNodeId,
+      workflowNodeRunId,
+      tool,
+      arguments: arguments_,
+      taskExecution,
+      signal,
+      executionContext,
+    }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
+      const plan =
+        instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
+      const planDefinition = plan?.definition;
+      if (taskExecution !== undefined && taskReadiness === undefined)
+        throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
+      if (taskExecution !== undefined && planDefinition === undefined)
+        throw new Error('MCP_TASK_WORKFLOW_DEFINITION_MISSING');
+      const guardedTaskExecution =
+        taskExecution === undefined ||
+        taskReadiness === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? taskExecution
+          : await taskReadiness.assertPreInvocation({
+              planId: plan.planId,
+              planAttempt: plan.attemptCount,
+              definition: planDefinition,
+              planConfirmed: plan.confirmationStatus === 'confirmed',
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              serverId: tool.serverId,
+              operationName: tool.toolName,
+              arguments: arguments_,
+              taskExecution,
+              executionContext,
+              ...(signal === undefined ? {} : { signal }),
+            });
       return unwrapMcpInvocationOutcome(
         await mcpRegistry.call(
           tool.serverId,
@@ -527,8 +589,20 @@ export async function startServerRuntime(
           arguments_,
           signal,
           task === undefined
-            ? { executionContext }
-            : { taskId: task.taskId, contextId: task.contextId, executionContext },
+            ? {
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              }
+            : {
+                taskId: task.taskId,
+                contextId: task.contextId,
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+              },
         ),
       );
     },
@@ -1200,6 +1274,7 @@ export async function startServerRuntime(
                   skillVersion: skill.version,
                 },
               }),
+          taskId: input.task.taskId,
           templateQuery: input.goalDescription,
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
@@ -1249,11 +1324,15 @@ export async function startServerRuntime(
           skill === undefined ? [] : [skill.skillId],
           plan.definition,
         );
-        if (confirmation.autoConfirm)
-          await workflowExecution.confirm(plan.planId, input.task.taskId);
+        const autoConfirmed =
+          confirmation.autoConfirm &&
+          (plan.executionReadiness === undefined ||
+            (plan.executionReadiness.disposition === 'ready' &&
+              !plan.executionReadiness.confirmationRequired));
+        if (autoConfirmed) await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
-          autoConfirmed: confirmation.autoConfirm,
+          autoConfirmed,
         };
       },
       async executeAuto(input) {
@@ -1435,6 +1514,9 @@ export async function startServerRuntime(
         },
         workflowControls: workflowController,
         workflowRevisions: workflowRevision,
+        ...(taskAvailabilityEvidence === undefined
+          ? {}
+          : { taskAvailability: taskAvailabilityEvidence }),
       },
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
@@ -1720,8 +1802,20 @@ export async function applyRuntimeMigrations(
   if (!applied.has('0064_memory_production_hardening')) {
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
   }
-  const v11Migration = '0100_remote_mcp_task_tracking.up.sql';
-  if (!applied.has(v11Migration.replace('.up.sql', ''))) {
+  const v11Migrations = [
+    '0100_remote_mcp_task_tracking.up.sql',
+    '0101_task_execution_readiness.up.sql',
+  ] as const;
+  const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
+  for (const [index, version] of v11Versions.entries()) {
+    if (
+      !applied.has(version) &&
+      v11Versions.slice(index + 1).some((laterVersion) => applied.has(laterVersion))
+    )
+      throw new Error('V11_MIGRATION_LEDGER_GAP');
+  }
+  for (const v11Migration of v11Migrations) {
+    if (applied.has(v11Migration.replace('.up.sql', ''))) continue;
     const migration = await readFile(
       resolve(process.cwd(), 'infra', 'postgres', 'migrations', v11Migration),
       'utf8',
@@ -1736,15 +1830,15 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
   if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
     throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
   }
-  const ledger = await pool.query<{ released_present: boolean; v11_present: boolean }>(
+  const ledger = await pool.query<{ released_present: boolean; v11_count: number }>(
     `SELECT EXISTS (
        SELECT 1 FROM schema_migration WHERE version = '0064_memory_production_hardening'
      ) AS released_present,
-     EXISTS (
-       SELECT 1 FROM schema_migration WHERE version = '0100_remote_mcp_task_tracking'
-     ) AS v11_present`,
+     (SELECT count(*)::integer FROM schema_migration
+      WHERE version IN ('0100_remote_mcp_task_tracking','0101_task_execution_readiness')) AS v11_count`,
   );
-  if (ledger.rows[0]?.released_present !== true)
+  const ledgerState = ledger.rows[0];
+  if (ledgerState?.released_present !== true)
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledger.rows[0]?.v11_present !== true) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (ledgerState.v11_count !== 2) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

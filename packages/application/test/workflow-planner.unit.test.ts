@@ -13,6 +13,7 @@ import {
   WorkflowValidator,
   type SkillRepository,
   type StructuredModelProvider,
+  type WorkflowCandidateReadinessPolicy,
   type WorkflowPlanRepository,
 } from '../src/index.js';
 
@@ -379,6 +380,77 @@ describe('WorkflowPlannerService', () => {
       ).plan({ ...input(), capabilityGapSkillIds: [child.skillId] }),
     ).resolves.toMatchObject({ capabilityGapSkillIds: [child.skillId] });
   });
+
+  it('runs Task readiness after structural validation and requires plan confirmation for risk', async () => {
+    const repository = new MemoryPlanRepository();
+    repository.plans.set('confirmed-plan', {
+      planId: 'confirmed-plan',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      goalContract,
+      definition: validDefinition(),
+      confirmationStatus: 'confirmed',
+      attemptCount: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    });
+    const readiness: WorkflowCandidateReadinessPolicy = {
+      assess: () =>
+        Promise.resolve({
+          accepted: true,
+          readiness: readinessRecord('confirmation_required'),
+        }),
+    };
+    const plan = await planner(
+      repository,
+      new SequenceModel([validDefinition({ workflowDefinitionId: 'workflow-2', version: 2 })]),
+      undefined,
+      undefined,
+      emptySkills(),
+      readiness,
+    ).plan({
+      ...input(),
+      planId: 'plan-2',
+      workflowDefinitionId: 'workflow-2',
+      workflowVersion: 2,
+      sourceConfirmedPlanId: 'confirmed-plan',
+    });
+    expect(plan).toMatchObject({
+      confirmationStatus: 'awaiting_confirmation',
+      executionReadiness: { disposition: 'confirmation_required' },
+    });
+  });
+
+  it('feeds Task readiness revision errors into the next bounded model attempt', async () => {
+    let calls = 0;
+    const readiness: WorkflowCandidateReadinessPolicy = {
+      assess: () => {
+        calls += 1;
+        return Promise.resolve(
+          calls === 1
+            ? {
+                accepted: false as const,
+                readiness: readinessRecord('revision_required'),
+                correctionErrors: ['DSL_RISK_RESCHEDULE:patrol:2026-07-17T01:00:00.000Z'],
+                terminal: false,
+              }
+            : { accepted: true as const, readiness: readinessRecord('ready') },
+        );
+      },
+    };
+    const model = new SequenceModel([validDefinition(), validDefinition()]);
+    const plan = await planner(
+      new MemoryPlanRepository(),
+      model,
+      undefined,
+      undefined,
+      emptySkills(),
+      readiness,
+    ).plan(input());
+    expect(plan.attemptCount).toBe(2);
+    expect(model.calls[1]?.correctionErrors).toContain(
+      'DSL_RISK_RESCHEDULE:patrol:2026-07-17T01:00:00.000Z',
+    );
+  });
 });
 
 function planner(
@@ -387,6 +459,7 @@ function planner(
   templates?: ConstructorParameters<typeof WorkflowPlannerService>[0]['templates'],
   memories?: ConstructorParameters<typeof WorkflowPlannerService>[0]['memories'],
   skills: SkillRepository = emptySkills(),
+  readiness?: WorkflowCandidateReadinessPolicy,
 ) {
   return new WorkflowPlannerService({
     model,
@@ -396,6 +469,7 @@ function planner(
     maxAttempts: 2,
     ...(templates === undefined ? {} : { templates }),
     ...(memories === undefined ? {} : { memories }),
+    ...(readiness === undefined ? {} : { readiness }),
     validator: new WorkflowValidator({
       tools: {
         exists: () => Promise.resolve(false),
@@ -475,6 +549,23 @@ function skillRepository(skill: SkillVersion): SkillRepository {
     listEnabledVersions: () => Promise.resolve([skill]),
     listCurrentVersions: () => Promise.resolve([skill]),
     saveVersionAndSetCurrent: () => Promise.resolve(),
+  };
+}
+
+function readinessRecord(disposition: 'ready' | 'confirmation_required' | 'revision_required') {
+  return {
+    readinessId: `readiness-${disposition}`,
+    workflowPlanId: 'plan-1',
+    planAttempt: 1,
+    checkPhase: 'planning' as const,
+    dslHash: 'a'.repeat(64),
+    disposition,
+    permittedActions: ['proceed'] as const,
+    guardAction:
+      disposition === 'revision_required' ? ('reschedule' as const) : ('proceed' as const),
+    guardReasonCodes: [],
+    confirmationRequired: disposition === 'confirmation_required',
+    createdAt: '2026-07-12T00:00:00.000Z',
   };
 }
 function input() {

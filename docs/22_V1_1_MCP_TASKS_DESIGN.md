@@ -1,6 +1,6 @@
 # SDAR v1.1 MCP Tasks 规范化设计
 
-状态：Phase 1 协议边界与 Phase 2 持久化/轮询已验证；Phase 3–6 实现与最终验收尚未完成<br>
+状态：Phase 1 协议边界、Phase 2 持久化/轮询和 Phase 3 availability/timing 增量已验证；Phase 4–6 与最终验收尚未完成<br>
 日期：2026-07-16<br>
 执行计划：`execplans/EP-09-v1.1-mcp-tasks.md`
 
@@ -141,6 +141,8 @@ interface TaskExecutionTiming {
 ```
 
 Provider 执行启动窗口与最大墙钟时间。`start_window_missed` 与 `deadline_reached` 是 Provider 的 completed+isError Tool Result；SDAR 只验证和映射，绝不因本地 poll/TTL/网络故障伪造。
+
+Phase 3 的已实现 Guard 还要求：执行前 restricted 只有在计划已确认、同一节点的规划快照也是 restricted 且刷新风险未升级时才可继续；否则返回重新确认原因并保持零 Tool 调用。规划证据与执行前证据追加保存在 0101 表中，Console/API 只展示清洗后的 hash、窗口、有效期、timing 和真实预约引用。
 
 ## 8. 轮询、等待与继续
 

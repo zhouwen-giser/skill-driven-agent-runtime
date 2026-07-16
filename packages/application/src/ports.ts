@@ -86,6 +86,13 @@ import type {
   RuntimeTerminalOutcomeRecord,
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
+  McpTaskOperationSemantics,
+  ResolvedMcpTaskExecution,
+  TaskAvailabilityCheckRequest,
+  TaskAvailabilityCheckResult,
+  TaskAvailabilityReadResult,
+  TaskAvailabilitySnapshot,
+  DslExecutionReadiness,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -452,6 +459,49 @@ export interface McpToolCatalog {
   getInputSchema(reference: ToolReference): Promise<unknown>;
 }
 
+export interface McpTaskOperationCatalog {
+  getTaskOperationSemantics(
+    reference: ToolReference,
+  ): Promise<McpTaskOperationSemantics | undefined>;
+}
+
+export interface TaskAvailabilityBatchReader {
+  checkTaskAvailability(
+    input: Readonly<{
+      serverId: string;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult>;
+}
+
+export interface TaskAvailabilityEvidenceRepository {
+  saveEvaluation(
+    readiness: DslExecutionReadiness,
+    snapshots: readonly TaskAvailabilitySnapshot[],
+  ): Promise<void>;
+  listByPlan(
+    planId: string,
+    filter?: Readonly<{
+      phase?: DslExecutionReadiness['checkPhase'] | undefined;
+      limit?: number | undefined;
+    }>,
+  ): Promise<
+    readonly Readonly<{
+      readiness: DslExecutionReadiness;
+      snapshots: readonly TaskAvailabilitySnapshot[];
+    }>[]
+  >;
+  findLatestPlanning(planId: string): Promise<
+    | Readonly<{
+        readiness: DslExecutionReadiness;
+        snapshots: readonly TaskAvailabilitySnapshot[];
+      }>
+    | undefined
+  >;
+}
+
 export interface McpServerRecord {
   readonly server: McpServer;
   readonly encryptedCredential: string;
@@ -502,6 +552,7 @@ export interface McpTransportAdapter {
       description?: string;
       inputSchema: unknown;
       declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
+      taskExecution?: McpTaskOperationSemantics;
     }>[]
   >;
   call(
@@ -511,6 +562,7 @@ export interface McpTransportAdapter {
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
       executionContext: RuntimeExecutionContext;
+      taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
     }>,
   ): Promise<McpInvocationOutcome>;
@@ -520,6 +572,20 @@ export interface McpTransportAdapter {
       headers: Readonly<Record<string, string>>;
     }>,
   ): Promise<McpProtocolCapabilities>;
+  checkTaskAvailability?(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      signal?: AbortSignal;
+    }>,
+  ): Promise<
+    Readonly<{
+      protocolRevision: string;
+      availabilitySchemaRevision: string;
+      results: readonly TaskAvailabilityCheckResult[];
+    }>
+  >;
   getTask(
     input: Readonly<{
       endpoint: string;

@@ -337,6 +337,27 @@ paths:
             and optional triggering Task identity,
           }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/workflows/plans/{planId}/task-readiness:
+    parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listWorkflowTaskReadiness
+      description: Returns append-only, time-bounded Provider forecasts and deterministic guard decisions. Forecasts are not locks or authoritative device state; full argument snapshots are not exposed.
+      parameters:
+        - { name: phase, in: query, schema: { type: string, enum: [planning, pre_invocation] } }
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 1000, default: 100 },
+          }
+      responses:
+        '200':
+          {
+            description: Availability windows,
+            expiry,
+            reservation semantics,
+            risk and guard evidence,
+          }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/plans/{planId}/trace:
     parameters: [{ name: planId, in: path, required: true, schema: { type: string } }]
     get:

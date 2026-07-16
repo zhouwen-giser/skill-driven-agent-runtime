@@ -41,6 +41,7 @@ import type {
   EvaluationAnalyticsService,
   RuntimeEventQuery,
   RuntimeTerminalOutcomeRepository,
+  TaskAvailabilityEvidenceRepository,
 } from '../../application/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
@@ -115,6 +116,12 @@ const SupersedeMemorySchema = CreateMemorySchema.omit({ supersedes: true }).exte
   reason: z.string().min(1),
 });
 const InvalidateMemorySchema = z.object({ actor: z.string().min(1), reason: z.string().min(1) });
+const TaskReadinessQuerySchema = z
+  .object({
+    phase: z.enum(['planning', 'pre_invocation']).optional(),
+    limit: z.coerce.number().int().min(1).max(1_000).optional(),
+  })
+  .strict();
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 const RegisterMcpServerSchema = z.object({
@@ -433,6 +440,7 @@ export interface ManagementOperations {
     'continueAfterConfirmation' | 'get' | 'listRounds' | 'start'
   >;
   readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
+  readonly taskAvailability?: Pick<TaskAvailabilityEvidenceRepository, 'listByPlan'>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -987,6 +995,64 @@ export async function startManagementHttpEndpoint(
     '/api/v1/workflows/plans/:planId/trace',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.workflows.traceForPlan(pathValue(request, 'planId')));
+    }),
+  );
+  app.get(
+    '/api/v1/workflows/plans/:planId/task-readiness',
+    asyncRoute(async (request, response) => {
+      const query = TaskReadinessQuerySchema.parse(request.query);
+      const evidence =
+        options.operations.taskAvailability === undefined
+          ? []
+          : await options.operations.taskAvailability.listByPlan(
+              pathValue(request, 'planId'),
+              query,
+            );
+      response.json({
+        warning:
+          'Availability is a time-bounded Provider forecast, not authoritative device state or a resource lock. Provider owns final admission and business timers.',
+        items: evidence.map((item) => ({
+          readiness: item.readiness,
+          snapshots: item.snapshots.map((snapshot) => ({
+            snapshotId: snapshot.snapshotId,
+            nodeId: snapshot.nodeId,
+            serverId: snapshot.serverId,
+            operationName: snapshot.operationName,
+            argumentsHash: snapshot.argumentsHash,
+            ...(snapshot.arguments.unresolved
+              ? { unresolvedPaths: snapshot.arguments.unresolvedPaths }
+              : {}),
+            ...(snapshot.timing === undefined ? {} : { timing: snapshot.timing }),
+            availability: snapshot.result.availability,
+            riskLevel: snapshot.result.riskLevel,
+            ...(snapshot.result.reasonCode === undefined
+              ? {}
+              : { reasonCode: snapshot.result.reasonCode }),
+            ...(snapshot.result.description === undefined
+              ? {}
+              : { description: snapshot.result.description }),
+            ...(snapshot.result.validUntil === undefined
+              ? {}
+              : { validUntil: snapshot.result.validUntil }),
+            ...(snapshot.result.earliestStartTime === undefined
+              ? {}
+              : { earliestStartTime: snapshot.result.earliestStartTime }),
+            nextAvailableWindows: snapshot.result.nextAvailableWindows,
+            ...(snapshot.result.estimatedDelayMs === undefined
+              ? {}
+              : { estimatedDelayMs: snapshot.result.estimatedDelayMs }),
+            reservationMode: snapshot.result.reservationMode,
+            ...(snapshot.result.reservationMode === 'guaranteed' &&
+            snapshot.result.reservationRef !== undefined
+              ? { reservationRef: snapshot.result.reservationRef }
+              : {}),
+            possibleEffects: snapshot.result.possibleEffects,
+            sourceRevision: snapshot.sourceRevision,
+            checkedAt: snapshot.checkedAt,
+            normalizationReasonCodes: snapshot.normalizationReasonCodes,
+          })),
+        })),
+      });
     }),
   );
   app.get(

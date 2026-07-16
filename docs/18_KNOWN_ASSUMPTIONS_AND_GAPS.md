@@ -63,3 +63,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - 2026-07-16：Provider 执行 `startToleranceMs` 和 `maxElapsedMs` 业务合同并产生 `start_window_missed`/`deadline_reached`。SDAR 不启动该业务 Timer，Provider 不可达也不得被解释为期限终态。
 - 2026-07-16：v1.1 migration 预留 0100+，但当前 high-water runner 会跳过更低未应用编号。0100+ 在 v1.0.13 前只能进入 disposable isolated database；支持的最终路径必须是完整 v1.0.13-bug-fixed ledger 后再应用 0100+。
 - 2026-07-16：DOCX 已完成结构提取，但当前环境缺少 `soffice`，无法生成页面渲染证据。Phase 0 不修改/交付 DOCX，因此记录为阅读工具限制而非功能完成证据。
+
+## v1.1 MCP Tasks Phase 3 决策解释
+
+- 2026-07-16：Phase 3 开始前已 fetch 所有远端，最新可用 hardening 仍为 `v1.0.4-bug-fixed`/`fa4b050`；未发现 v1.0.5 或 v1.0.11 发布标签。实现因此只增加 V1.1 Task metadata/readiness 接口，不改写 transitive Skill confirmation 核心或通用 Tool Semantics。后续标签合并时必须补做兼容收敛，当前不得声称覆盖其尚未发布语义。
+- 2026-07-16：restricted 的既有计划确认只适用于同一节点规划时已经 restricted 且执行前风险未升级的刷新结果。available→restricted、风险等级/可能影响增加、预约减弱、有效期提前或最早开始推迟都要求重新确认，并在 Tool 网络调用前失败关闭。
+- 2026-07-16：availability 结果是 Provider 预测证据。只有 `reservationMode=guaranteed` 且存在有效 `reservationRef` 才可展示为预约；best-effort/窗口永远不代表设备锁或 Provider 权威资源状态。
+- 2026-07-16：0101 仍属于 disposable `sdar_v11_*` 隔离迁移链。受支持发布升级路径继续等待完整 `v1.0.13-bug-fixed` ledger；Phase 3 的真实 PostgreSQL 验证不等于最终发布迁移兼容声明。

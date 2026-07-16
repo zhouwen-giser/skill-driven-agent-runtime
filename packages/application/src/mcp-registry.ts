@@ -15,6 +15,9 @@ import {
   type McpToolEnhancement,
   type McpToolExecutionSemanticsValues,
   type RuntimeExecutionContext,
+  type ResolvedMcpTaskExecution,
+  type TaskAvailabilityReadResult,
+  type TaskAvailabilityCheckRequest,
 } from '../../domain/src/index.js';
 
 import type {
@@ -47,6 +50,7 @@ export interface McpCallContext {
   readonly taskId?: string;
   readonly contextId?: string;
   readonly executionContext?: RuntimeExecutionContext;
+  readonly taskExecution?: ResolvedMcpTaskExecution;
 }
 
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
@@ -182,6 +186,7 @@ export class McpRegistryService {
         executionContext,
         toolName,
         arguments: arguments_,
+        ...(context.taskExecution === undefined ? {} : { taskExecution: context.taskExecution }),
         ...(signal === undefined ? {} : { signal }),
       });
     } catch (error: unknown) {
@@ -343,6 +348,51 @@ export class McpRegistryService {
     }
   }
 
+  async checkTaskAvailability(
+    input: Readonly<{
+      serverId: string;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult> {
+    try {
+      const record = await this.#requireServer(input.serverId);
+      if (this.#transport.checkTaskAvailability === undefined)
+        return {
+          kind: 'capability_missing',
+          errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
+        };
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const response = await this.#transport.checkTaskAvailability({
+        endpoint: record.server.endpoint,
+        headers: executionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        requests: input.requests,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+      });
+      return { kind: 'results', ...response };
+    } catch (error: unknown) {
+      const code = stableErrorCode(error);
+      if (
+        code === 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID' ||
+        code === 'MCP_TASK_AVAILABILITY_RESPONSE_TOO_LARGE' ||
+        code === 'MCP_TASK_AVAILABILITY_RESERVATION_INVALID'
+      )
+        return { kind: 'contract_invalid', errorCode: code };
+      if (code === 'MCP_TASK_CAPABILITY_REQUIRED')
+        return { kind: 'capability_missing', errorCode: code };
+      if (code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' || code === 'MCP_SERVER_NOT_FOUND')
+        return { kind: 'provider_protocol', errorCode: code };
+      return {
+        kind: 'provider_unreachable',
+        errorCode: 'MCP_TASK_AVAILABILITY_PROVIDER_UNREACHABLE',
+      };
+    }
+  }
+
   listManagementOperations(serverId: string) {
     return this.#repository.listManagementOperations(serverId);
   }
@@ -471,6 +521,7 @@ export class McpRegistryService {
                 'mcp_declared',
               ),
             }),
+        ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
         discoveredAt: timestamp,
       });
     });
@@ -489,6 +540,7 @@ export class McpRegistryService {
           ...(tool.declaredExecutionSemantics === undefined
             ? {}
             : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
+          ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
           discoveredAt: tool.discoveredAt,
         });
         return previousTool?.adminExecutionSemanticsOverride === undefined

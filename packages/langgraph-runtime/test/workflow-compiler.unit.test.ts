@@ -935,6 +935,107 @@ describe('LangGraph Workflow compiler', () => {
     expect(result.terminationReason).toBe('duration_exhausted');
     expect(executeLlm).not.toHaveBeenCalled();
   });
+  it('resolves and freezes dynamic scheduledAt immediately before the existing MCP call', async () => {
+    const callMcpTool = vi.fn().mockResolvedValue({ accepted: true });
+    const compiled = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'patrol',
+            name: 'Patrol',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'vehicle_patrol' },
+            arguments: { route: { op: 'ref', path: ['input', 'route'] } },
+            taskExecution: {
+              mode: 'require_task',
+              availabilityCheck: 'required',
+              timing: {
+                start: {
+                  mode: 'scheduled',
+                  scheduledAt: { op: 'ref', path: ['input', 'scheduledAt'] },
+                  startToleranceMs: 0,
+                },
+                maxElapsedMs: null,
+              },
+            },
+          },
+        ],
+        [],
+        'patrol',
+        ['patrol'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    );
+
+    await compiled.invoke(
+      { route: 'A', scheduledAt: '2026-07-17T09:00:00+08:00' },
+      budget,
+      costs,
+      undefined,
+      'execution.tasks',
+    );
+
+    expect(callMcpTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowNodeId: 'patrol',
+        arguments: { route: 'A' },
+        taskExecution: {
+          mode: 'require_task',
+          availabilityCheck: 'required',
+          timing: {
+            start: {
+              mode: 'scheduled',
+              scheduledAt: '2026-07-17T01:00:00.000Z',
+              startToleranceMs: 0,
+            },
+            maxElapsedMs: null,
+          },
+        },
+      }),
+    );
+    const supplied = callMcpTool.mock.calls[0]?.[0] as
+      Parameters<WorkflowRuntimePorts['callMcpTool']>[0] | undefined;
+    expect(Object.isFrozen(supplied?.arguments)).toBe(true);
+    expect(Object.isFrozen(supplied?.taskExecution?.timing)).toBe(true);
+  });
+
+  it('rejects a dynamic non-string scheduledAt before an MCP call', async () => {
+    const callMcpTool = vi.fn();
+    const compiled = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'patrol',
+            name: 'Patrol',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'vehicle_patrol' },
+            arguments: {},
+            taskExecution: {
+              mode: 'require_task',
+              timing: {
+                start: {
+                  mode: 'scheduled',
+                  scheduledAt: { op: 'ref', path: ['input', 'scheduledAt'] },
+                  startToleranceMs: 1,
+                },
+              },
+            },
+          },
+        ],
+        [],
+        'patrol',
+        ['patrol'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    );
+
+    await expect(
+      compiled.invoke({ scheduledAt: 42 }, budget, costs, undefined, 'execution.bad-time'),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_SCHEDULED_AT_UNRESOLVED' });
+    expect(callMcpTool).not.toHaveBeenCalled();
+  });
 });
 
 function recoveryDefinition(option: {

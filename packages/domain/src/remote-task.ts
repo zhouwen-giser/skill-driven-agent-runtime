@@ -5,6 +5,7 @@ import type {
   RemoteTaskProviderSubstate,
   RemoteTaskSnapshot,
 } from './mcp-task.js';
+import type { TaskExecutionTiming } from './mcp-task-availability.js';
 import {
   createRuntimeExecutionContext,
   type RuntimeExecutionContext,
@@ -60,7 +61,7 @@ export interface RemoteTaskBinding {
   readonly providerSubstate?: RemoteTaskProviderSubstate;
   readonly remoteRevision?: string;
   readonly localState: RemoteTaskLocalState;
-  readonly requestedTiming?: Readonly<Record<string, unknown>>;
+  readonly requestedTiming?: TaskExecutionTiming;
   readonly executionContext: RuntimeExecutionContext;
   readonly credentialRevision: string;
   readonly sessionRevision: string;
@@ -110,7 +111,7 @@ export interface RemoteTaskAdmission {
   readonly tasksSchemaRevision: string;
   readonly providerSubstate?: RemoteTaskProviderSubstate;
   readonly remoteRevision?: string;
-  readonly requestedTiming?: Readonly<Record<string, unknown>>;
+  readonly requestedTiming?: TaskExecutionTiming;
   readonly executionContext: RuntimeExecutionContext;
   readonly credentialRevision: string;
   readonly sessionRevision: string;

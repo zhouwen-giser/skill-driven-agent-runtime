@@ -9,6 +9,7 @@ import type {
   McpToolExecutionSemanticsValues,
   RemoteTaskOperationAck,
   RemoteTaskSnapshot,
+  TaskAvailabilityCheckResult,
 } from '../../domain/src/index.js';
 import { DomainError } from '../../domain/src/index.js';
 import {
@@ -26,6 +27,14 @@ import {
   toRemoteTaskSnapshot,
 } from './mcp-tasks-contract.js';
 import {
+  MCP_TASK_AVAILABILITY_SCHEMA_REVISION,
+  parseTaskOperationSemantics,
+  taskAvailabilityResponseSchema,
+  taskExecutionCallMetadata,
+  toTaskAvailabilityResults,
+  validateAvailabilityRequests,
+} from './mcp-task-availability-contract.js';
+import {
   McpTasksTransportBridge,
   createMcpTasksRoutingFetch,
 } from './mcp-tasks-transport-bridge.js';
@@ -42,16 +51,20 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   readonly #clients = new Map<string, Promise<ClientSession>>();
 
   async discover(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
-    return this.#withSession(input, async ({ client }) => {
+    return this.#withSession(input, async (session) => {
+      const { client } = session;
       const response = await client.listTools();
       return response.tools.map((tool) => {
         const semantics = declaredExecutionSemantics(tool);
+        const taskExecution = parseTaskOperationSemantics(tool._meta);
+        if (taskExecution?.execution === 'task_required') this.#requireTasksCapability(session);
         return {
           name: tool.name,
           ...(tool.title === undefined ? {} : { title: tool.title }),
           ...(tool.description === undefined ? {} : { description: tool.description }),
           inputSchema: tool.inputSchema,
           ...(semantics === undefined ? {} : { declaredExecutionSemantics: semantics }),
+          ...(taskExecution === undefined ? {} : { taskExecution }),
         };
       });
     });
@@ -66,17 +79,61 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
   async call(input: Parameters<McpTransportAdapter['call']>[0]): Promise<McpInvocationOutcome> {
     return this.#withSession(input, async (session) => {
       try {
+        if (input.taskExecution !== undefined) this.#requireTasksCapability(session);
         const value = await session.client.request(
           {
             method: MCP_TASKS_METHOD_ALIASES.callTool,
-            params: { name: input.toolName, arguments: input.arguments },
+            params: {
+              name: input.toolName,
+              arguments: input.arguments,
+              ...(input.taskExecution === undefined
+                ? {}
+                : { _meta: taskExecutionCallMetadata(input.taskExecution) }),
+            },
           },
           createMcpToolCallResultSchema(session.bridgeNonce),
           input.signal === undefined ? undefined : { signal: input.signal },
         );
         const outcome = toMcpInvocationOutcome(value, session.capabilities.protocolRevision);
         if (outcome.kind === 'remote_task') this.#requireTasksCapability(session);
+        if (input.taskExecution?.mode === 'require_task' && outcome.kind === 'immediate')
+          throw new McpTasksAdapterError(
+            'MCP_TASK_REQUIRED_RESULT_MISMATCH',
+            'Provider returned a synchronous result for require_task execution.',
+          );
         return outcome;
+      } catch (error: unknown) {
+        throw normalizeTasksProtocolError(error);
+      }
+    });
+  }
+
+  checkTaskAvailability(
+    input: Parameters<NonNullable<McpTransportAdapter['checkTaskAvailability']>>[0],
+  ): Promise<
+    Readonly<{
+      protocolRevision: string;
+      availabilitySchemaRevision: string;
+      results: readonly TaskAvailabilityCheckResult[];
+    }>
+  > {
+    return this.#withSession(input, async (session) => {
+      this.#requireTasksCapability(session);
+      const requests = validateAvailabilityRequests(input.requests);
+      try {
+        const value = await session.client.request(
+          {
+            method: MCP_TASKS_METHOD_ALIASES.availability,
+            params: { revision: MCP_TASK_AVAILABILITY_SCHEMA_REVISION, requests },
+          },
+          taskAvailabilityResponseSchema,
+          input.signal === undefined ? undefined : { signal: input.signal },
+        );
+        return {
+          protocolRevision: session.capabilities.protocolRevision,
+          availabilitySchemaRevision: MCP_TASK_AVAILABILITY_SCHEMA_REVISION,
+          results: toTaskAvailabilityResults(value, requests),
+        };
       } catch (error: unknown) {
         throw normalizeTasksProtocolError(error);
       }

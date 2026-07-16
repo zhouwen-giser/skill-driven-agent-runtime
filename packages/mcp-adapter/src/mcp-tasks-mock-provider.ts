@@ -124,8 +124,28 @@ function resultForRequest(
           'unknown_task_status',
           'unknown_task_field',
           'malformed_task_metadata',
-        ].map((name) => ({ name, inputSchema: { type: 'object', additionalProperties: false } })),
+        ].map((name) => ({
+          name,
+          inputSchema: { type: 'object', additionalProperties: false },
+          ...(name === 'async_success'
+            ? {
+                _meta: {
+                  'io.sdar/taskExecution': {
+                    execution: 'task_required',
+                    availability: 'dynamic',
+                    supportsScheduling: true,
+                    supportsMaxElapsed: true,
+                    supportsObservations: true,
+                    cancellation: 'task_cancel',
+                    revision: '1.0',
+                  },
+                },
+              }
+            : {}),
+        })),
       };
+    case 'io.sdar/tasks/checkAvailability':
+      return availabilityResult(params);
     case 'tools/call':
       return toolCallResult(params);
     case 'tasks/get':
@@ -159,6 +179,28 @@ function resultForRequest(
     default:
       throw new Error(`Unsupported Mock Provider method ${method}.`);
   }
+}
+
+function availabilityResult(
+  params: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  if (params['revision'] !== '1.0' || !Array.isArray(params['requests']))
+    throw new Error('Invalid availability request.');
+  return {
+    resultType: 'complete',
+    revision: '1.0',
+    results: params['requests'].map((request: unknown) => {
+      if (!isRecord(request)) throw new Error('Invalid availability item.');
+      return {
+        nodeId: stringParam(request, 'nodeId'),
+        operationName: stringParam(request, 'operationName'),
+        availability: 'available',
+        riskLevel: 'low',
+        reservationMode: 'none',
+        possibleEffects: [],
+      };
+    }),
+  };
 }
 
 function toolCallResult(

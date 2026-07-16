@@ -51,6 +51,42 @@ interface WorkflowTraceRecord {
     summary: string;
   }>[];
 }
+interface TaskReadinessResponse {
+  readonly warning: string;
+  readonly items: readonly Readonly<{
+    readiness: Readonly<{
+      readinessId: string;
+      checkPhase: 'planning' | 'pre_invocation';
+      disposition: string;
+      guardAction: string;
+      confirmationRequired: boolean;
+      createdAt: string;
+    }>;
+    snapshots: readonly Readonly<{
+      snapshotId: string;
+      nodeId: string;
+      operationName: string;
+      argumentsHash: string;
+      timing?: Readonly<{
+        start: Readonly<{
+          mode: 'immediate' | 'scheduled';
+          scheduledAt?: string;
+          startToleranceMs: number;
+        }>;
+        maxElapsedMs: number | null;
+      }>;
+      availability: string;
+      riskLevel: string;
+      validUntil?: string;
+      earliestStartTime?: string;
+      nextAvailableWindows: readonly Readonly<{ startTime: string; endTime: string }>[];
+      estimatedDelayMs?: number;
+      reservationMode: 'none' | 'best_effort' | 'guaranteed';
+      reservationRef?: string;
+      checkedAt: string;
+    }>[];
+  }>[];
+}
 
 type VisualWorkflowEdit =
   | Readonly<{ kind: 'rename_node'; nodeId: string; name: string }>
@@ -243,6 +279,7 @@ export function WorkflowPanel({
   const [message, setMessage] = useState<string>();
   const [replayIndex, setReplayIndex] = useState(0);
   const [linkedTaskId, setLinkedTaskId] = useState<string>();
+  const [taskReadiness, setTaskReadiness] = useState<TaskReadinessResponse>();
   const replayEvents = trace?.events.slice(0, replayIndex) ?? [];
   const nodeStates = useMemo(
     () => new Map(replayEvents.map((event) => [event.nodeId, event.eventType])),
@@ -259,7 +296,11 @@ export function WorkflowPanel({
       const linked = await managementRequest<{
         readonly items: readonly Readonly<{ taskId: string }>[];
       }>(`/api/v1/tasks?planId=${encodeURIComponent(id)}&limit=1`);
+      const readiness = await managementRequest<TaskReadinessResponse>(
+        `/api/v1/workflows/plans/${encodeURIComponent(id)}/task-readiness?limit=100`,
+      );
       setPlan(loaded);
+      setTaskReadiness(readiness);
       setLinkedTaskId(linked.items[0]?.taskId);
       setEditor(loaded.definition === undefined ? '' : JSON.stringify(loaded.definition, null, 2));
       return `${loaded.planId}: plan loaded`;
@@ -372,6 +413,7 @@ export function WorkflowPanel({
           executionSemantics: snapshot.executionSemantics,
         }))}
       />
+      <TaskReadinessPanel evidence={taskReadiness} />
       {definition === undefined ? null : (
         <section className="workflow-grid">
           <div className="panel dag-board">
@@ -631,6 +673,83 @@ export function WorkflowPanel({
         </section>
       )}
     </div>
+  );
+}
+
+export function TaskReadinessPanel({
+  evidence,
+}: {
+  readonly evidence: TaskReadinessResponse | undefined;
+}) {
+  if (evidence === undefined || evidence.items.length === 0) return null;
+  return (
+    <section className="panel" aria-label="MCP Task readiness evidence">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">TIME-BOUNDED PROVIDER FORECAST</span>
+          <h2>Task Availability & Guard</h2>
+        </div>
+      </div>
+      <p className="risk-banner">{evidence.warning}</p>
+      <ol className="timeline">
+        {evidence.items.flatMap((item) =>
+          item.snapshots.map((snapshot) => (
+            <li key={snapshot.snapshotId} className="visible">
+              <span>{item.readiness.checkPhase}</span>
+              <div>
+                <strong>
+                  {snapshot.nodeId} · {snapshot.availability} / {snapshot.riskLevel}
+                </strong>
+                <small>
+                  checked {snapshot.checkedAt}
+                  {snapshot.validUntil === undefined ? '' : ` · valid until ${snapshot.validUntil}`}
+                </small>
+                <p>
+                  Guard: {item.readiness.guardAction} ({item.readiness.disposition})
+                  {item.readiness.confirmationRequired ? ' · confirmation required' : ''}
+                </p>
+                {snapshot.earliestStartTime === undefined ? null : (
+                  <p>Earliest start: {snapshot.earliestStartTime}</p>
+                )}
+                {snapshot.nextAvailableWindows.length === 0 ? null : (
+                  <ul>
+                    {snapshot.nextAvailableWindows.map((window) => (
+                      <li key={`${window.startTime}-${window.endTime}`}>
+                        {window.startTime} → {window.endTime}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p>
+                  Reservation: {snapshot.reservationMode}
+                  {snapshot.reservationMode === 'guaranteed' &&
+                  snapshot.reservationRef !== undefined
+                    ? ` · ${snapshot.reservationRef}`
+                    : ' · forecast only'}
+                  {snapshot.estimatedDelayMs === undefined
+                    ? ''
+                    : ` · estimated delay ${String(snapshot.estimatedDelayMs)} ms`}
+                </p>
+                {snapshot.timing === undefined ? null : (
+                  <p>
+                    Timing: {snapshot.timing.start.mode}
+                    {snapshot.timing.start.scheduledAt === undefined
+                      ? ''
+                      : ` at ${snapshot.timing.start.scheduledAt}`}
+                    {' · tolerance '}
+                    {snapshot.timing.start.startToleranceMs} ms · max elapsed{' '}
+                    {snapshot.timing.maxElapsedMs === null
+                      ? 'Provider default/unbounded request'
+                      : `${String(snapshot.timing.maxElapsedMs)} ms`}
+                  </p>
+                )}
+                <small>Arguments hash: {snapshot.argumentsHash}</small>
+              </div>
+            </li>
+          )),
+        )}
+      </ol>
+    </section>
   );
 }
 

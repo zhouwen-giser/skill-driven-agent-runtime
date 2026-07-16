@@ -160,4 +160,73 @@ describe('Workflow DSL JSON Schema contract', () => {
     ) as unknown;
     expect(validator.validate(schema, runtimeBindingExample)).toEqual({ valid: true, errors: [] });
   });
+
+  it('strictly constrains MCP Task timing without adding an executable node kind', async () => {
+    const schema = JSON.parse(
+      await readFile(new URL('../../../schemas/workflow-dsl.schema.json', import.meta.url), 'utf8'),
+    ) as unknown;
+    const validator = new AjvJsonSchemaValidator();
+    const candidate = {
+      workflowDefinitionId: 'workflow.tasks',
+      version: 1,
+      goalId: 'goal.tasks',
+      goalVersion: 1,
+      entryNodeId: 'task',
+      exitNodeIds: ['task'],
+      nodes: [
+        {
+          nodeId: 'task',
+          name: 'Scheduled Task',
+          type: 'mcp_tool',
+          tool: { serverId: 'provider', toolName: 'patrol' },
+          arguments: { route: 'A' },
+          taskExecution: {
+            mode: 'require_task',
+            availabilityCheck: 'required',
+            timing: {
+              start: {
+                mode: 'scheduled',
+                scheduledAt: { op: 'ref', path: ['input', 'scheduledAt'] },
+                startToleranceMs: 0,
+              },
+              maxElapsedMs: null,
+            },
+          },
+        },
+      ],
+      edges: [],
+    };
+    expect(validator.validate(schema, candidate)).toEqual({ valid: true, errors: [] });
+    for (const mutate of [
+      (node: Record<string, unknown>) => {
+        node['source'] = 'globalThis';
+      },
+      (node: Record<string, unknown>) => {
+        node['tool'] = { serverId: 'provider', toolName: 'patrol', source: 'evil' };
+      },
+      (node: Record<string, unknown>) => {
+        node['taskExecution'] = { mode: 'require_task', extra: true };
+      },
+      (node: Record<string, unknown>) => {
+        node['taskExecution'] = {
+          mode: 'require_task',
+          timing: {
+            start: { mode: 'scheduled', scheduledAt: '$.input.time', startToleranceMs: -1 },
+          },
+        };
+      },
+      (node: Record<string, unknown>) => {
+        node['taskExecution'] = {
+          mode: 'require_task',
+          timing: { start: { mode: 'immediate', startToleranceMs: 1 }, maxElapsedMs: 0 },
+        };
+      },
+    ]) {
+      const invalid = structuredClone(candidate) as { nodes: Record<string, unknown>[] };
+      const node = invalid.nodes[0];
+      if (node === undefined) throw new Error('TASK_NODE_FIXTURE_MISSING');
+      mutate(node);
+      expect(validator.validate(schema, invalid).valid).toBe(false);
+    }
+  });
 });

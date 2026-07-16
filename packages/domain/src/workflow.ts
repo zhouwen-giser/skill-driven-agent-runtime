@@ -4,6 +4,11 @@ import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from 
 import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
 import type {
+  DslExecutionReadiness,
+  McpTaskAvailabilityCheckMode,
+  McpTaskExecutionMode,
+} from './mcp-task-availability.js';
+import type {
   WorkflowBudgetLimits,
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
@@ -47,6 +52,25 @@ export interface WorkflowRecoveryOption {
   readonly maxAttempts: number;
 }
 
+export type McpTaskStartSpec =
+  | Readonly<{ mode: 'immediate'; startToleranceMs: number }>
+  | Readonly<{
+      mode: 'scheduled';
+      scheduledAt: string | Readonly<{ op: 'ref'; path: readonly string[] }>;
+      startToleranceMs: number;
+    }>;
+
+export interface McpTaskExecutionSpec {
+  readonly mode: McpTaskExecutionMode;
+  readonly timing?:
+    | Readonly<{
+        readonly start: McpTaskStartSpec;
+        readonly maxElapsedMs?: number | null | undefined;
+      }>
+    | undefined;
+  readonly availabilityCheck?: McpTaskAvailabilityCheckMode | undefined;
+}
+
 export type WorkflowNode =
   | (WorkflowNodeBase &
       Readonly<{
@@ -56,7 +80,12 @@ export type WorkflowNode =
         responseSchema: unknown;
       }>)
   | (WorkflowNodeBase &
-      Readonly<{ type: 'mcp_tool'; tool: ToolReference; arguments: WorkflowBoundValue }>)
+      Readonly<{
+        type: 'mcp_tool';
+        tool: ToolReference;
+        arguments: WorkflowBoundValue;
+        taskExecution?: McpTaskExecutionSpec | undefined;
+      }>)
   | (WorkflowNodeBase & Readonly<{ type: 'result'; value: WorkflowExpression }>)
   | (WorkflowNodeBase & Readonly<{ type: 'condition'; expression: WorkflowExpression }>)
   | (WorkflowNodeBase & Readonly<{ type: 'parallel'; branchEntryNodeIds: readonly string[] }>)
@@ -136,6 +165,8 @@ export interface WorkflowPlanRecord {
   readonly confirmedAt?: string;
   readonly attemptCount: number;
   readonly createdAt: string;
+  /** Latest projection; PostgreSQL stores the authoritative append-only evidence. */
+  readonly executionReadiness?: DslExecutionReadiness;
 }
 
 export interface WorkflowToolExecutionSemanticsSnapshot {

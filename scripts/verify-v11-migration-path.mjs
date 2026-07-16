@@ -11,7 +11,8 @@ const root = process.cwd();
 const databases = [
   'sdar_v11_verify_empty',
   'sdar_v11_verify_upgrade',
-  'sdar_verify_v11_guard',
+  'sdar_v11_verify_guard',
+  'sdar_v11_verify_gap',
 ];
 
 try {
@@ -50,26 +51,27 @@ try {
   try {
     await upgrade.query(bootstrap);
     await applyRuntimeMigrations(upgrade);
-    await assertMigration(upgrade, '0056_mcp_execution_mode', true, 'upgrade-released');
+    await assertMigration(upgrade, '0064_memory_production_hardening', true, 'upgrade-released');
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'upgrade-released');
+    await assertMigration(upgrade, '0101_task_execution_readiness', false, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
-    await verifyV11Schema(upgrade, 'upgrade-from-0056');
-    const rollback = await readFile(
-      resolve(
-        root,
-        'infra',
-        'postgres',
-        'migrations',
-        '0100_remote_mcp_task_tracking.down.sql',
-      ),
-      'utf8',
-    );
-    await upgrade.query(rollback);
-    await assertMigration(upgrade, '0056_mcp_execution_mode', true, 'rollback');
+    await verifyV11Schema(upgrade, 'upgrade-from-0064');
+    for (const name of [
+      '0101_task_execution_readiness.down.sql',
+      '0100_remote_mcp_task_tracking.down.sql',
+    ]) {
+      const rollback = await readFile(
+        resolve(root, 'infra', 'postgres', 'migrations', name),
+        'utf8',
+      );
+      await upgrade.query(rollback);
+    }
+    await assertMigration(upgrade, '0064_memory_production_hardening', true, 'rollback');
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'rollback');
+    await assertMigration(upgrade, '0101_task_execution_readiness', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -83,21 +85,52 @@ try {
   try {
     await guard.query(bootstrap);
     await applyRuntimeMigrations(guard);
+    await assertMigration(guard, '0064_memory_production_hardening', true, 'default-profile');
     await assertMigration(guard, '0100_remote_mcp_task_tracking', false, 'default-profile');
+    await assertMigration(guard, '0101_task_execution_readiness', false, 'default-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
           profile: 'v1.1-isolated',
-          isolationAcknowledged: true,
         }),
       'V11_MIGRATION_ISOLATION_REQUIRED',
     );
+    const v11Migration = await readFile(
+      resolve(root, 'infra', 'postgres', 'migrations', '0100_remote_mcp_task_tracking.up.sql'),
+      'utf8',
+    );
+    await guard.query(v11Migration);
+    await expectRejection(() => applyRuntimeMigrations(guard), 'V11_MIGRATION_PROFILE_REQUIRED');
+    await assertMigration(guard, '0101_task_execution_readiness', false, 'profile-guard');
   } finally {
     await guard.end();
   }
 
+  const gap = databasePool(databases[3]);
+  try {
+    await gap.query(bootstrap);
+    await applyRuntimeMigrations(gap);
+    const outOfOrder = await readFile(
+      resolve(root, 'infra', 'postgres', 'migrations', '0101_task_execution_readiness.up.sql'),
+      'utf8',
+    );
+    await gap.query(outOfOrder);
+    await expectRejection(
+      () =>
+        applyRuntimeMigrations(gap, {
+          profile: 'v1.1-isolated',
+          isolationAcknowledged: true,
+        }),
+      'V11_MIGRATION_LEDGER_GAP',
+    );
+    await assertMigration(gap, '0100_remote_mcp_task_tracking', false, 'ledger-gap');
+    await assertMigration(gap, '0101_task_execution_readiness', true, 'ledger-gap');
+  } finally {
+    await gap.end();
+  }
+
   process.stdout.write(
-    'Isolated v1.1 migration path verified: empty, 0056 upgrade, rollback/reapply, and default fail-closed.\n',
+    'Isolated v1.1 migration path verified: empty, 0064 upgrade, rollback/reapply, profile guards, and ledger-gap fail-closed.\n',
   );
 } finally {
   const admin = databasePool('sdar');
@@ -136,8 +169,9 @@ async function assertMigration(pool, version, expected, label) {
 }
 
 async function verifyV11Schema(pool, label) {
-  await assertMigration(pool, '0056_mcp_execution_mode', true, label);
+  await assertMigration(pool, '0064_memory_production_hardening', true, label);
   await assertMigration(pool, '0100_remote_mcp_task_tracking', true, label);
+  await assertMigration(pool, '0101_task_execution_readiness', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -147,6 +181,18 @@ async function verifyV11Schema(pool, label) {
   );
   if ((constraints.rows[0]?.count ?? 0) < 3) {
     throw new Error(`V11_REMOTE_TASK_UNIQUENESS_MISSING:${label}`);
+  }
+  const readinessTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_execution_readiness','task_availability_snapshot') AND relkind='r'",
+  );
+  if (readinessTables.rows[0]?.count !== 2) {
+    throw new Error(`V11_TASK_READINESS_TABLES_MISSING:${label}`);
+  }
+  const metadataColumn = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='mcp_tool' AND column_name='task_execution_json'",
+  );
+  if (metadataColumn.rows[0]?.count !== 1) {
+    throw new Error(`V11_TASK_METADATA_COLUMN_MISSING:${label}`);
   }
 }
 

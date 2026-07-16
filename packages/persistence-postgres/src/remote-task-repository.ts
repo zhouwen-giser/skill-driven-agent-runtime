@@ -27,6 +27,7 @@ import {
   type RemoteTaskProviderSubstate,
   type RemoteTaskSnapshot,
   type RuntimeExecutionMode,
+  type TaskExecutionTiming,
 } from '../../domain/src/index.js';
 
 const InternalToolResultSchema = z
@@ -44,7 +45,23 @@ const FailureSnapshotSchema = z
     data: z.unknown().optional(),
   })
   .strict();
-const JsonRecordSchema = z.record(z.string(), z.unknown());
+const TaskExecutionTimingSchema: z.ZodType<TaskExecutionTiming> = z
+  .object({
+    start: z.discriminatedUnion('mode', [
+      z
+        .object({ mode: z.literal('immediate'), startToleranceMs: z.number().int().nonnegative() })
+        .strict(),
+      z
+        .object({
+          mode: z.literal('scheduled'),
+          scheduledAt: z.string(),
+          startToleranceMs: z.number().int().nonnegative(),
+        })
+        .strict(),
+    ]),
+    maxElapsedMs: z.number().int().positive().nullable(),
+  })
+  .strict();
 
 interface RemoteTaskBindingRow extends QueryResultRow {
   binding_id: string;
@@ -759,7 +776,7 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
     localState: row.local_state,
     ...(row.requested_timing_json === null
       ? {}
-      : { requestedTiming: JsonRecordSchema.parse(row.requested_timing_json) }),
+      : { requestedTiming: TaskExecutionTimingSchema.parse(row.requested_timing_json) }),
     executionContext: createRuntimeExecutionContext({
       mode: row.execution_mode,
       ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),

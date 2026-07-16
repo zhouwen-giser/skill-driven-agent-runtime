@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-07-16. This ADR supersedes only the client-version decision in ADR-076; ADR-076's adapter isolation, pinned extension contract and fail-closed validation decisions remain in force.
+Accepted on 2026-07-16. This ADR supersedes only the client-version decision in ADR-085; ADR-085's adapter isolation, pinned extension contract and fail-closed validation decisions remain in force.
 
 ## Context
 

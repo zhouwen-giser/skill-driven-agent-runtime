@@ -111,12 +111,31 @@ export function createMcpTasksRoutingFetch(
   baseFetch: typeof globalThis.fetch = globalThis.fetch,
 ): typeof globalThis.fetch {
   return async (input, init) => {
+    const method = methodFromRequestBody(init?.body);
+    if (method === 'io.sdar/tasks/checkAvailability') {
+      const headers = new Headers(init?.headers);
+      headers.delete('Mcp-Name');
+      headers.delete('Mcp-Method');
+      return baseFetch(input, { ...init, headers });
+    }
     const taskId = taskIdFromRequestBody(init?.body);
     if (taskId === undefined) return baseFetch(input, init);
     const headers = new Headers(init?.headers);
     headers.set('Mcp-Name', taskId);
     return baseFetch(input, { ...init, headers });
   };
+}
+
+function methodFromRequestBody(body: RequestInit['body']): string | undefined {
+  if (typeof body !== 'string') return undefined;
+  try {
+    const message = JSON.parse(body) as unknown;
+    return isRecord(message) && typeof message['method'] === 'string'
+      ? message['method']
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function taskIdFromRequestBody(body: RequestInit['body']): string | undefined {

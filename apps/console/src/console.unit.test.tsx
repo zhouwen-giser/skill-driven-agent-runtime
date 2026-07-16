@@ -9,6 +9,7 @@ import {
   WorkflowPanel,
   WorkflowTaskLink,
   WorkflowToolSemanticsSummary,
+  TaskReadinessPanel,
 } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
@@ -77,6 +78,49 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Instance ID');
     expect(markup).not.toContain('plan-1');
     expect(markup).not.toContain('instance-1');
+  });
+
+  it('renders Task forecast expiry, windows and best-effort semantics without claiming a lock', () => {
+    const evidence: React.ComponentProps<typeof TaskReadinessPanel>['evidence'] = {
+      warning: 'Provider forecast only; no resource lock.',
+      items: [
+        {
+          readiness: {
+            readinessId: 'readiness-1',
+            checkPhase: 'planning',
+            disposition: 'confirmation_required',
+            guardAction: 'request_confirmation',
+            confirmationRequired: true,
+            createdAt: '2026-07-16T22:00:00.000Z',
+          },
+          snapshots: [
+            {
+              snapshotId: 'snapshot-1',
+              nodeId: 'patrol',
+              operationName: 'vehicle_patrol',
+              argumentsHash: 'a'.repeat(64),
+              availability: 'restricted',
+              riskLevel: 'high',
+              validUntil: '2026-07-16T22:10:00.000Z',
+              earliestStartTime: '2026-07-16T22:02:00.000Z',
+              nextAvailableWindows: [
+                {
+                  startTime: '2026-07-16T22:02:00.000Z',
+                  endTime: '2026-07-16T22:12:00.000Z',
+                },
+              ],
+              reservationMode: 'best_effort',
+              checkedAt: '2026-07-16T22:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(<TaskReadinessPanel evidence={evidence} />);
+    expect(markup).toContain('2026-07-16T22:10:00.000Z');
+    expect(markup).toContain('best_effort');
+    expect(markup).toContain('forecast only');
+    expect(markup).not.toContain('Guaranteed reservation');
   });
 
   it('edits Workflow topology as restricted data while preserving node configuration', () => {

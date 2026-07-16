@@ -25,7 +25,11 @@ import {
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
-import { PostgresRemoteTaskRepository } from '../../../packages/persistence-postgres/src/index.js';
+import {
+  PostgresMcpRegistryRepository,
+  PostgresRemoteTaskRepository,
+  PostgresTaskAvailabilityEvidenceRepository,
+} from '../../../packages/persistence-postgres/src/index.js';
 
 const databaseName = 'sdar_v11_remote_task_integration';
 const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -34,6 +38,7 @@ const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
 const resources: { close(): Promise<void> }[] = [];
 let pool: Pool;
 let repository: PostgresRemoteTaskRepository;
+let availabilityRepository: PostgresTaskAvailabilityEvidenceRepository;
 
 beforeAll(async () => {
   const admin = new Pool({ connectionString: adminConnection });
@@ -59,11 +64,12 @@ beforeAll(async () => {
   });
   await seedAuthorityRecords();
   repository = new PostgresRemoteTaskRepository(pool);
+  availabilityRepository = new PostgresTaskAvailabilityEvidenceRepository(pool);
 }, 60_000);
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
+    'TRUNCATE task_availability_snapshot,task_execution_readiness,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
   );
   await pool.query("DELETE FROM mcp_invocation WHERE invocation_id LIKE 'remote-invocation-%'");
 });
@@ -87,6 +93,160 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL remote MCP Task authority', () => {
+  it('round-trips generic Tool semantics with isolated V1.1 task metadata', async () => {
+    const v11Registry = new PostgresMcpRegistryRepository(pool, { v11TaskMetadata: true });
+    const defaultRegistry = new PostgresMcpRegistryRepository(pool);
+    const declaredExecutionSemantics = {
+      effect: 'side_effecting',
+      execution: 'task_capable',
+      cancellation: 'task_cancel',
+      idempotency: 'client_request_key',
+      replay: 'simulation_only',
+      source: 'mcp_declared',
+    } as const;
+    const adminExecutionSemanticsOverride = {
+      effect: 'read_only',
+      execution: 'synchronous',
+      cancellation: 'cooperative',
+      idempotency: 'server_managed',
+      replay: 'allowed',
+      source: 'admin_override',
+    } as const;
+    const taskExecution = {
+      execution: 'task_capable',
+      availability: 'dynamic',
+      supportsScheduling: true,
+      supportsMaxElapsed: true,
+      supportsObservations: true,
+      cancellation: 'task_cancel',
+      revision: '1.0',
+    } as const;
+    const reference = { serverId: 'mcp-semantics-coexistence', toolName: 'dispatch' };
+
+    await v11Registry.saveServerAndReplaceTools(
+      {
+        server: {
+          serverId: reference.serverId,
+          name: 'MCP semantics coexistence fixture',
+          endpoint: 'http://127.0.0.1:1/mcp',
+          transport: 'streamable_http',
+          status: 'enabled',
+          toolRevision: 1,
+          createdAt: '2026-07-16T08:00:00.000Z',
+          updatedAt: '2026-07-16T08:00:00.000Z',
+        },
+        encryptedCredential: 'encrypted-test-value',
+      },
+      [
+        {
+          ...reference,
+          inputSchema: { type: 'object', additionalProperties: false },
+          declaredExecutionSemantics,
+          adminExecutionSemanticsOverride,
+          executionSemantics: declaredExecutionSemantics,
+          taskExecution,
+          discoveredAt: '2026-07-16T08:00:00.000Z',
+        },
+      ],
+    );
+
+    await expect(v11Registry.listTools(reference.serverId)).resolves.toEqual([
+      expect.objectContaining({
+        ...reference,
+        declaredExecutionSemantics,
+        adminExecutionSemanticsOverride,
+        executionSemantics: declaredExecutionSemantics,
+        taskExecution,
+      }),
+    ]);
+    await expect(v11Registry.getTaskOperationSemantics(reference)).resolves.toEqual(taskExecution);
+
+    const defaultTools = await defaultRegistry.listTools(reference.serverId);
+    expect(defaultTools).toEqual([
+      expect.objectContaining({
+        ...reference,
+        declaredExecutionSemantics,
+        adminExecutionSemanticsOverride,
+        executionSemantics: declaredExecutionSemantics,
+      }),
+    ]);
+    expect(defaultTools[0]).not.toHaveProperty('taskExecution');
+    await expect(defaultRegistry.getTaskOperationSemantics(reference)).resolves.toBeUndefined();
+  });
+
+  it('appends immutable planning and pre-invocation availability evidence', async () => {
+    const planning = {
+      readinessId: 'readiness-planning-1',
+      workflowPlanId: 'remote-plan',
+      planAttempt: 1,
+      checkPhase: 'planning' as const,
+      dslHash: 'a'.repeat(64),
+      disposition: 'confirmation_required' as const,
+      permittedActions: ['request_confirmation' as const],
+      guardAction: 'request_confirmation' as const,
+      guardReasonCodes: ['MCP_TASK_RISK_CONFIRMATION_REQUIRED:remote-node'],
+      confirmationRequired: true,
+      createdAt: '2026-07-16T08:00:01.000Z',
+    };
+    const snapshot = {
+      snapshotId: 'availability-planning-1',
+      readinessId: planning.readinessId,
+      workflowPlanId: 'remote-plan',
+      planAttempt: 1,
+      checkPhase: 'planning' as const,
+      nodeId: 'remote-node',
+      serverId: 'remote-server',
+      operationName: 'remote_operation',
+      arguments: { unresolved: false as const, value: { route: 'A' } },
+      argumentsHash: 'b'.repeat(64),
+      timing: {
+        start: { mode: 'immediate' as const, startToleranceMs: 0 },
+        maxElapsedMs: null,
+      },
+      result: {
+        nodeId: 'remote-node',
+        operationName: 'remote_operation',
+        availability: 'restricted' as const,
+        riskLevel: 'high' as const,
+        validUntil: '2026-07-16T08:10:00.000Z',
+        earliestStartTime: '2026-07-16T08:02:00.000Z',
+        nextAvailableWindows: [],
+        reservationMode: 'best_effort' as const,
+        possibleEffects: ['start_rejection' as const],
+      },
+      sourceRevision: '2026-07-28/1.0',
+      checkedAt: '2026-07-16T08:00:01.000Z',
+      normalizationReasonCodes: [],
+    };
+    await availabilityRepository.saveEvaluation(planning, [snapshot]);
+    await expect(availabilityRepository.listByPlan('remote-plan')).resolves.toEqual([
+      { readiness: planning, snapshots: [snapshot] },
+    ]);
+    await expect(availabilityRepository.saveEvaluation(planning, [snapshot])).rejects.toMatchObject(
+      { code: 'TASK_READINESS_EVIDENCE_CONFLICT' },
+    );
+
+    const preInvocation = {
+      ...planning,
+      readinessId: 'readiness-precall-1',
+      checkPhase: 'pre_invocation' as const,
+      workflowInstanceId: 'remote-instance',
+      workflowNodeRunId: 'remote-node-run-1',
+      disposition: 'ready' as const,
+      permittedActions: ['proceed' as const],
+      guardAction: 'proceed' as const,
+      guardReasonCodes: [],
+      confirmationRequired: false,
+      createdAt: '2026-07-16T08:00:02.000Z',
+    };
+    await availabilityRepository.saveEvaluation(preInvocation, []);
+    const evidence = await availabilityRepository.listByPlan('remote-plan');
+    expect(evidence.map((item) => item.readiness.checkPhase)).toEqual([
+      'pre_invocation',
+      'planning',
+    ]);
+  });
+
   it('preserves correlation and simulation identity while enforcing admission and poll CAS', async () => {
     await seedInvocation(1, 'simulation', 'simulation-1');
     await seedInvocation(2, 'simulation', 'simulation-1');
@@ -319,10 +479,17 @@ async function seedAuthorityRecords(): Promise<void> {
             '2026-07-16T08:00:00.000Z','2026-07-16T08:00:00.000Z')`,
   );
   await pool.query(
-    `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,definition_json,confirmation_status,attempt_count,created_at)
+    `INSERT INTO workflow_plan(plan_id,goal_id,goal_version,goal_contract_json,definition_json,confirmation_status,attempt_count,created_at)
      VALUES('remote-plan','remote-goal',1,
+            '{"goalId":"remote-goal","version":1,"title":"Remote Goal","description":"Remote MCP Task integration","constraints":[],"successCriteria":[]}'::jsonb,
             '{"workflowDefinitionId":"remote-workflow","version":1}'::jsonb,
             'confirmed',1,'2026-07-16T08:00:00.000Z')`,
+  );
+  await pool.query(
+    `INSERT INTO workflow_plan_attempt(plan_id,attempt,goal_contract_json,candidate_json,validation_errors_json,valid,created_at)
+     VALUES('remote-plan',1,
+            '{"goalId":"remote-goal","version":1,"title":"Remote Goal","description":"Remote MCP Task integration","constraints":[],"successCriteria":[]}'::jsonb,
+            '{}'::jsonb,'[]'::jsonb,true,'2026-07-16T08:00:00.000Z')`,
   );
   await pool.query(
     `INSERT INTO agent_task(task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,

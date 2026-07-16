@@ -19,9 +19,11 @@ import type {
   WorkflowEdge,
   WorkflowNode,
   WorkflowRecoveryOption,
+  ResolvedMcpTaskExecution,
 } from '../../domain/src/index.js';
 import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
+import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
 
 export interface WorkflowExecutionEvent {
@@ -47,8 +49,10 @@ export interface WorkflowRuntimePorts {
     input: Readonly<{
       executionId: string;
       workflowNodeRunId: string;
+      workflowNodeId: string;
       tool: ToolReference;
       arguments: unknown;
+      taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -690,11 +694,17 @@ async function executeNode(
       budgetMeter.reserve('mcp');
       const callSignal = budgetMeter.signal(signal);
       const argumentsSnapshot = resolveWorkflowBoundValue(node.arguments, state);
+      const taskExecution =
+        node.taskExecution === undefined
+          ? undefined
+          : resolveMcpTaskExecution(node.taskExecution, state);
       const value = await ports.callMcpTool({
         executionId: state.executionId,
         workflowNodeRunId,
+        workflowNodeId: node.nodeId,
         tool: node.tool,
         arguments: argumentsSnapshot,
+        ...(taskExecution === undefined ? {} : { taskExecution }),
         signal: callSignal,
         executionContext: runtimeContext.executionContext,
       });

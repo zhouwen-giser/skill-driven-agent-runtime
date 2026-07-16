@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
-  "currentPhase": "phase-2-complete",
+  "currentPhase": "phase-3",
   "branch": "feature/v1.1-mcp-tasks",
-  "phaseStartSha": "cf153bc0a6298582dc2d130b16f1ad4c94b64991",
-  "lastMergedHardeningTag": "v1.0.4-bug-fixed",
-  "lastMergedHardeningSha": "fa4b0509971fc73c474211b871eeefaf4e76eb54",
-  "lastObservedHardeningSha": "fa4b0509971fc73c474211b871eeefaf4e76eb54",
+  "phaseStartSha": "a64d44d720f91cbfdf2c3522425cda7855302764",
+  "lastMergedHardeningTag": "v1.0.13-bug-fixed",
+  "lastMergedHardeningSha": "91cd58ddcff57acf3ed846914feafaff603c69f2",
+  "lastObservedHardeningSha": "91cd58ddcff57acf3ed846914feafaff603c69f2",
+  "hardeningMergeSha": "4007b38decd0b7b8f8a7f30b7331210cdf82819a",
   "blockedFiles": [],
   "blockers": [],
-  "requiredNextCheckpoint": "before phase-3 implementation",
-  "updatedAt": "2026-07-16T08:51:26+08:00"
+  "requiredNextCheckpoint": "before phase-4 implementation",
+  "updatedAt": "2026-07-16T22:22:12+08:00"
 }

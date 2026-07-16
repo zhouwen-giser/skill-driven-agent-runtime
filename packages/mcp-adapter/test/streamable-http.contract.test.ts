@@ -310,6 +310,121 @@ describe('official MCP Streamable HTTP transport', () => {
     expect(JSON.stringify(outcome)).not.toContain('remoteTaskId');
   });
 
+  it('discovers Task execution metadata and checks availability over exact loopback wire', async () => {
+    tasksProvider = await startMcpTasksMockProvider();
+    adapter = new StreamableHttpMcpAdapter();
+    const endpoint = tasksProvider.endpoint.toString();
+    const tools = await adapter.discover({ endpoint, headers: { Authorization: 'Bearer test' } });
+    expect(tools.find((tool) => tool.name === 'async_success')?.taskExecution).toEqual({
+      execution: 'task_required',
+      availability: 'dynamic',
+      supportsScheduling: true,
+      supportsMaxElapsed: true,
+      supportsObservations: true,
+      cancellation: 'task_cancel',
+      revision: '1.0',
+    });
+
+    await expect(
+      adapter.checkTaskAvailability({
+        endpoint,
+        headers: {
+          Authorization: 'Bearer test',
+          'X-SDAR-Execution-Mode': 'simulation',
+          'X-SDAR-Simulation-Id': 'simulation-availability-1',
+        },
+        requests: [
+          {
+            nodeId: 'patrol',
+            operationName: 'async_success',
+            arguments: { unresolved: false, value: { route: 'A' } },
+            timing: {
+              start: { mode: 'immediate', startToleranceMs: 0 },
+              maxElapsedMs: null,
+            },
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({
+      availabilitySchemaRevision: '1.0',
+      results: [{ nodeId: 'patrol', availability: 'available', riskLevel: 'low' }],
+    });
+    const request = tasksProvider.requests.find(
+      (item) => item.method === 'io.sdar/tasks/checkAvailability',
+    );
+    expect(request).toMatchObject({
+      params: {
+        revision: '1.0',
+        requests: [
+          expect.objectContaining({
+            nodeId: 'patrol',
+            arguments: { unresolved: false, value: { route: 'A' } },
+          }),
+        ],
+      },
+      headers: {
+        authorization: 'Bearer test',
+        'x-sdar-execution-mode': 'simulation',
+        'x-sdar-simulation-id': 'simulation-availability-1',
+      },
+    });
+    expect(request?.headers['mcp-name']).toBeUndefined();
+    expect(request?.headers['mcp-method']).toBeUndefined();
+  });
+
+  it('puts resolved execution metadata outside business arguments and rejects require_task sync', async () => {
+    tasksProvider = await startMcpTasksMockProvider();
+    adapter = new StreamableHttpMcpAdapter();
+    const endpoint = tasksProvider.endpoint.toString();
+    const taskExecution = {
+      mode: 'require_task' as const,
+      availabilityCheck: 'required' as const,
+      timing: {
+        start: {
+          mode: 'scheduled' as const,
+          scheduledAt: '2026-07-17T01:00:00.000Z',
+          startToleranceMs: 30_000,
+        },
+        maxElapsedMs: 900_000,
+      },
+      reservationRef: 'reservation-123',
+    };
+    await adapter.call({
+      endpoint,
+      headers: {},
+      toolName: 'async_success',
+      arguments: {},
+      executionContext: { mode: 'live' },
+      taskExecution,
+    });
+    const request = tasksProvider.requests.find(
+      (item) => item.method === 'tools/call' && item.params['name'] === 'async_success',
+    );
+    expect(request?.params).toMatchObject({
+      name: 'async_success',
+      arguments: {},
+      _meta: {
+        'io.sdar/taskExecution': {
+          revision: '1.0',
+          mode: 'require_task',
+          timing: taskExecution.timing,
+          reservationRef: 'reservation-123',
+        },
+      },
+    });
+    expect(request?.params['arguments']).toEqual({});
+    await expect(
+      adapter.call({
+        endpoint,
+        headers: {},
+        toolName: 'sync_success',
+        arguments: {},
+        executionContext: { mode: 'live' },
+        taskExecution,
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_REQUIRED_RESULT_MISMATCH' });
+  });
+
   it('propagates client cancellation to the remote Tool AbortSignal', async () => {
     handle = await startMcpStreamableHttpSpike();
     const controller = new AbortController();

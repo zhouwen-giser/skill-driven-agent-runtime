@@ -18,5 +18,6 @@
 | ADR-089 | v1.1 使用 0100+，受支持升级必须基于完整 v1.0.13 迁移链 |
 | ADR-090 | MCP extension era 使用精确官方 v2 beta Client，v1 仅保留 legacy Server fixture |
 | ADR-091 | 远程 Task 使用 PostgreSQL 版本租约、共享 context 串行和 0100 migration profile |
+| ADR-092 | MCP Task readiness 由领域模型与确定性 Guard 控制，并叠加通用 Tool semantics 与传递确认 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

@@ -25,6 +25,7 @@ export const MCP_TASKS_METHOD_ALIASES = Object.freeze({
   get: 'io.sdar.mcp-tasks-bridge/tasks/get',
   update: 'io.sdar.mcp-tasks-bridge/tasks/update',
   cancel: 'io.sdar.mcp-tasks-bridge/tasks/cancel',
+  availability: 'io.sdar.mcp-tasks-bridge/io.sdar/tasks/checkAvailability',
 });
 
 export const MCP_TASKS_WIRE_METHODS = Object.freeze({
@@ -32,6 +33,7 @@ export const MCP_TASKS_WIRE_METHODS = Object.freeze({
   [MCP_TASKS_METHOD_ALIASES.get]: 'tasks/get',
   [MCP_TASKS_METHOD_ALIASES.update]: 'tasks/update',
   [MCP_TASKS_METHOD_ALIASES.cancel]: 'tasks/cancel',
+  [MCP_TASKS_METHOD_ALIASES.availability]: 'io.sdar/tasks/checkAvailability',
 } as const);
 
 const MAX_TASK_ID_LENGTH = 512;
@@ -313,7 +315,11 @@ export type McpTasksAdapterErrorCode =
   | 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED'
   | 'MCP_TASK_RESPONSE_INVALID'
   | 'MCP_TASK_RESPONSE_TOO_LARGE'
-  | 'MCP_TOOL_RESULT_TOO_LARGE';
+  | 'MCP_TOOL_RESULT_TOO_LARGE'
+  | 'MCP_TASK_AVAILABILITY_RESERVATION_INVALID'
+  | 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID'
+  | 'MCP_TASK_AVAILABILITY_RESPONSE_TOO_LARGE'
+  | 'MCP_TASK_REQUIRED_RESULT_MISMATCH';
 
 export class McpTasksAdapterError extends Error {
   readonly code: McpTasksAdapterErrorCode;
