@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 11 append-only Skill execution records with exact Goal/Skill/selection/policy/Workflow/Task identity, ordered lifecycle evidence, parent/child lineage, thin Provider/resource/RemoteTaskBinding/evidence/hard-gate/intervention/outcome references and queryable management trees.
 - Phase 10 exact selected Usage evidence, bounded composition/interpretation and immutable policy wiring through the existing Task→Workflow Planner→Validator→outer confirmation path, including policy persistence and replan/revision/Goal Patch inheritance.
 - Phase 9 exact-version Skill Usage planning policy, bounded guidance context, deterministic template/procedure-to-Workflow compilation, explicit Skill failure-policy DSL metadata and post-plan compliance checks through the existing Validator.
 - Phase 8 exact Skill Task Type resolution, deterministic validated-semantics candidate attributes, required/preferred/forbidden Provider policy filtering and immutable v1.1 live-readiness summaries in the production Skill selection path.
@@ -30,10 +31,11 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
-- The post-main released migration profile now applies the single monotonic chain through 0105; the disposable `v1.1-isolated` profile guard remains for compatibility tests and ledger gaps still fail closed.
+- The post-main released migration profile now applies the single monotonic chain through 0106; the disposable `v1.1-isolated` profile guard remains for compatibility tests and ledger gaps still fail closed.
+- Skill execution status is an append-only evidence projection of existing Task/Workflow/Provider authority; terminal projections cannot transition, and evidence-write failure never rewrites an authoritative terminal outcome.
 - Skill Usage confirmation uses the existing outer Workflow Plan boundary. The complete policy remains immutable review data and no duplicate in-graph confirmation node is generated.
 - Usage-aware selection is always wired when Skill selection is enabled; deployments without v1.1 Task metadata return no candidates for native Task bindings and fail closed, while the existing exact-argument pre-invocation readiness guard remains final.
-- V1.2 applied migration high-water is now 0105 for Skill usage/import persistence; 0106 remains reserved for minimal Skill execution records.
+- V1.2 applied migration high-water is now 0106 for minimal Skill execution records.
 - ADR-096 keeps capability classification and lifecycle single-authority: catalog domains/tags derive from exact capabilities and lifecycle derives from existing Skill status.
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
@@ -43,6 +45,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 11 clean-feature-SHA format/lint/typecheck, 562 unit/contract tests, 256-source architecture, 116-operation OpenAPI and production build passed at `dc55f47`; real PostgreSQL repositories passed 57/57, final remote continuation runtimes passed 10/10, and the 0106 released/rollback/reapply/gap path passed.
 - SDAR v1.2 Phase 10 clean-tree `pnpm verify` passed at `efb03e8` in 106,796 ms with 556 unit/contract tests, 81 real integration tests, 50 real E2E tests, 251-source architecture, 69 migrations, production builds and both smoke stages.
 - SDAR v1.2 Phase 9 passed 68 focused planning/Validator/schema/LangGraph tests, all 448 unit tests and all 107 contract tests, including bounded repair, outer-plan confirmation preservation and adversarial normative/Provider/depth/failure/context/evidence compliance rejection.
 - SDAR v1.2 Phase 8 passed 23 focused readiness/usage/selection tests, 8 real MCP registry integration tests, 56 real PostgreSQL plan-snapshot repository tests and 48 real A2A/MCP E2E tests, including every required Provider policy/readiness edge and the selection-before-planning availability request.
