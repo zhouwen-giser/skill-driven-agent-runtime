@@ -9,6 +9,7 @@ import {
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   type EvolutionExperience,
   type RemoteTaskBinding,
+  type SkillExecutionView,
 } from '../../domain/src/index.js';
 
 import {
@@ -2197,6 +2198,94 @@ describe('management HTTP API contract', () => {
         value.json(),
       ),
     ).resolves.toEqual({ items: [] });
+  });
+
+  it('queries Skill execution evidence, tree, hard gates and degraded reasons', async () => {
+    const execution: SkillExecutionView = {
+      executionId: 'execution-root',
+      taskId: 'task-skill-execution',
+      goalId: 'goal-skill-execution',
+      goalVersion: 1,
+      skillId: 'skill-root',
+      skillVersion: 2,
+      selectionRef: 'selection-root',
+      applicabilityStatus: 'satisfied',
+      usagePolicy: {} as SkillExecutionView['usagePolicy'],
+      workflowPlanId: 'plan-root',
+      workflowDefinitionId: 'workflow-root',
+      workflowDefinitionVersion: 1,
+      status: 'degraded',
+      events: [
+        {
+          eventId: 'event-degraded',
+          executionId: 'execution-root',
+          eventType: 'skill.execution_degraded',
+          statusAfter: 'degraded',
+          summary: 'Provider completed with bounded fallback evidence.',
+          details: { reasonCode: 'PROVIDER_FALLBACK' },
+          occurredAt: '2026-07-17T12:00:03.000Z',
+        },
+      ],
+      references: [
+        {
+          linkId: 'link-provider',
+          executionId: 'execution-root',
+          kind: 'provider',
+          referenceId: 'provider-1',
+          referenceType: 'task.provider',
+          sourceSystem: 'mcp_registry',
+          producerRefs: [],
+          metadata: {},
+          createdAt: '2026-07-17T12:00:00.000Z',
+        },
+        {
+          linkId: 'link-gate',
+          executionId: 'execution-root',
+          kind: 'hard_gate',
+          referenceId: 'final-position',
+          referenceType: 'position.observation',
+          sourceSystem: 'skill_policy',
+          producerRefs: [],
+          metadata: { required: true },
+          createdAt: '2026-07-17T12:00:00.000Z',
+        },
+      ],
+      createdAt: '2026-07-17T12:00:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        skillExecutions: {
+          find: (executionId) =>
+            Promise.resolve(executionId === execution.executionId ? execution : undefined),
+          listByTask: () => Promise.resolve([execution]),
+          listChildren: () => Promise.resolve([]),
+        },
+      },
+    });
+
+    const collection = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-skill-execution/skill-executions`,
+    );
+    expect(collection.status).toBe(200);
+    await expect(collection.json()).resolves.toMatchObject({
+      warnings: expect.arrayContaining([expect.stringContaining('Task and Workflow')]),
+      items: [
+        {
+          executionId: 'execution-root',
+          taskProviderReferences: [{ referenceId: 'provider-1' }],
+          hardGates: [{ referenceId: 'final-position' }],
+          degradedReason: { details: { reasonCode: 'PROVIDER_FALLBACK' } },
+        },
+      ],
+      tree: [{ item: { executionId: 'execution-root' }, children: [] }],
+    });
+    const detail = await fetch(`${endpoint.baseUrl}/api/v1/skill-executions/execution-root`);
+    expect(detail.status).toBe(200);
+    await expect(detail.json()).resolves.toMatchObject({
+      item: { executionId: 'execution-root', status: 'degraded' },
+      tree: { item: { executionId: 'execution-root' } },
+    });
   });
 });
 

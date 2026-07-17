@@ -40,6 +40,10 @@ import type {
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillExecutionEvent,
+  SkillExecutionRecord,
+  SkillExecutionReference,
+  SkillExecutionView,
   SkillInputResolutionRecord,
   SkillQualityObservation,
   SkillQualityWarning,
@@ -340,6 +344,20 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillExecutionRepository {
+  create(
+    record: SkillExecutionRecord,
+    events: readonly SkillExecutionEvent[],
+    references: readonly SkillExecutionReference[],
+  ): Promise<SkillExecutionView>;
+  appendEvent(event: SkillExecutionEvent): Promise<SkillExecutionView>;
+  appendReference(reference: SkillExecutionReference): Promise<SkillExecutionView>;
+  find(executionId: string): Promise<SkillExecutionView | undefined>;
+  findByPlan(workflowPlanId: string): Promise<SkillExecutionView | undefined>;
+  listByTask(taskId: string): Promise<readonly SkillExecutionView[]>;
+  listChildren(parentExecutionId: string): Promise<readonly SkillExecutionView[]>;
 }
 
 export interface SkillInputResolutionRepository {
@@ -1232,7 +1250,7 @@ export interface RuntimeTaskEvent {
   readonly eventId: string;
   readonly taskId: string;
   readonly contextId: string;
-  readonly eventType: 'task.created' | 'task.phase_changed';
+  readonly eventType: 'task.created' | 'task.phase_changed' | SkillExecutionEvent['eventType'];
   readonly timestamp: string;
   readonly summary: string;
 }

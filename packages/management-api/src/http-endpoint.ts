@@ -46,8 +46,9 @@ import type {
   RemoteTaskLifecycleEvidence,
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
+  SkillExecutionRepository,
 } from '../../application/src/index.js';
-import type { SkillUsageSpecification } from '../../domain/src/index.js';
+import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const AgentTaskPhaseSchema = z.enum([
@@ -391,6 +392,7 @@ export interface ManagementOperations {
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
   readonly runtimeEvents: RuntimeEventQuery;
+  readonly skillExecutions?: Pick<SkillExecutionRepository, 'find' | 'listByTask' | 'listChildren'>;
   readonly runtimeTerminalOutcomes: Pick<RuntimeTerminalOutcomeRepository, 'find'>;
   readonly memories: Pick<
     MemoryService,
@@ -836,6 +838,42 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       response.json({
         items: await options.operations.runtimeEvents.listByTask(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/skill-executions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillExecutions === undefined) {
+        response.status(503).json({ code: 'SKILL_EXECUTION_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const items = await options.operations.skillExecutions.listByTask(
+        pathValue(request, 'taskId'),
+      );
+      response.json(skillExecutionCollection(items));
+    }),
+  );
+  app.get(
+    '/api/v1/skill-executions/:executionId',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillExecutions === undefined) {
+        response.status(503).json({ code: 'SKILL_EXECUTION_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const execution = await options.operations.skillExecutions.find(
+        pathValue(request, 'executionId'),
+      );
+      if (execution === undefined) {
+        response.status(404).json({ code: 'SKILL_EXECUTION_NOT_FOUND' });
+        return;
+      }
+      const taskExecutions = await options.operations.skillExecutions.listByTask(execution.taskId);
+      const collection = skillExecutionCollection(taskExecutions);
+      response.json({
+        warnings: collection.warnings,
+        item: presentSkillExecution(execution),
+        tree: collection.tree.find((node) => containsExecution(node, execution.executionId)),
       });
     }),
   );
@@ -2043,6 +2081,66 @@ function compactRuntimePolicy(policy: z.infer<typeof RegisterSkillSchema>['runti
       ? {}
       : { compensationGuidance: policy.compensationGuidance }),
   };
+}
+
+function presentSkillExecution(execution: SkillExecutionView) {
+  const taskProviderReferences = execution.references.filter((reference) =>
+    ['provider', 'resource', 'remote_task_binding'].includes(reference.kind),
+  );
+  const evidenceReferences = execution.references.filter(
+    (reference) => reference.kind === 'evidence' || reference.kind === 'outcome',
+  );
+  const hardGates = execution.references.filter((reference) => reference.kind === 'hard_gate');
+  const degraded = [...execution.events]
+    .reverse()
+    .find((event) => event.eventType === 'skill.execution_degraded');
+  return {
+    ...execution,
+    taskProviderReferences,
+    evidenceReferences,
+    hardGates,
+    ...(degraded === undefined
+      ? {}
+      : { degradedReason: { summary: degraded.summary, details: degraded.details } }),
+  };
+}
+
+interface SkillExecutionTreeNode {
+  readonly item: ReturnType<typeof presentSkillExecution>;
+  readonly children: readonly SkillExecutionTreeNode[];
+}
+
+function skillExecutionCollection(items: readonly SkillExecutionView[]) {
+  const children = new Map<string, SkillExecutionView[]>();
+  for (const item of items) {
+    if (item.parentExecutionId === undefined) continue;
+    const existing = children.get(item.parentExecutionId) ?? [];
+    existing.push(item);
+    children.set(item.parentExecutionId, existing);
+  }
+  const node = (item: SkillExecutionView): SkillExecutionTreeNode => ({
+    item: presentSkillExecution(item),
+    children: (children.get(item.executionId) ?? []).map(node),
+  });
+  const ids = new Set(items.map((item) => item.executionId));
+  return {
+    warnings: [
+      'Skill execution status is an evidence projection; Task and Workflow remain authoritative.',
+      'Evidence references are thin links and do not embed credentials or private model reasoning.',
+      'Trusted-intranet V1 has no authentication; do not expose this endpoint publicly.',
+    ],
+    items: items.map(presentSkillExecution),
+    tree: items
+      .filter((item) => item.parentExecutionId === undefined || !ids.has(item.parentExecutionId))
+      .map(node),
+  };
+}
+
+function containsExecution(node: SkillExecutionTreeNode, executionId: string): boolean {
+  return (
+    node.item.executionId === executionId ||
+    node.children.some((child) => containsExecution(child, executionId))
+  );
 }
 
 function asyncRoute(

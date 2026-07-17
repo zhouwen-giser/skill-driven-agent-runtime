@@ -17,6 +17,7 @@ export * from './skill-catalog.js';
 export * from './skill-applicability.js';
 export * from './skill-usage-composition.js';
 export * from './skill-usage-planning.js';
+export * from './skill-execution.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
 export * from './skill-input-resolution.js';

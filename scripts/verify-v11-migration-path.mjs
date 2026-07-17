@@ -63,12 +63,14 @@ try {
     );
     await assertMigration(upgrade, '0104_workflow_external_wait_event', true, 'upgrade-released');
     await assertMigration(upgrade, '0105_skill_usage_specification', true, 'upgrade-released');
+    await assertMigration(upgrade, '0106_skill_execution_record', true, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0106_skill_execution_record.down.sql',
       '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
       '0103_remote_task_input_and_cancellation.down.sql',
@@ -89,6 +91,7 @@ try {
     await assertMigration(upgrade, '0103_remote_task_input_and_cancellation', false, 'rollback');
     await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
     await assertMigration(upgrade, '0105_skill_usage_specification', false, 'rollback');
+    await assertMigration(upgrade, '0106_skill_execution_record', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -121,6 +124,7 @@ try {
     await gap.query(bootstrap);
     await applyRuntimeMigrations(gap);
     for (const name of [
+      '0106_skill_execution_record.down.sql',
       '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
       '0103_remote_task_input_and_cancellation.down.sql',
@@ -144,12 +148,13 @@ try {
     await assertMigration(gap, '0103_remote_task_input_and_cancellation', false, 'ledger-gap');
     await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
     await assertMigration(gap, '0105_skill_usage_specification', false, 'ledger-gap');
+    await assertMigration(gap, '0106_skill_execution_record', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
 
   process.stdout.write(
-    'Post-main migration path verified through 0105: released empty/0064 upgrade, rollback/reapply, isolated-profile guards, and ledger-gap fail-closed.\n',
+    'Post-main migration path verified through 0106: released empty/0064 upgrade, rollback/reapply, isolated-profile guards, and ledger-gap fail-closed.\n',
   );
 } finally {
   const admin = databasePool('sdar');
@@ -195,6 +200,7 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
   await assertMigration(pool, '0104_workflow_external_wait_event', true, label);
   await assertMigration(pool, '0105_skill_usage_specification', true, label);
+  await assertMigration(pool, '0106_skill_execution_record', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -281,6 +287,12 @@ async function verifyV11Schema(pool, label) {
   );
   if (packageAudit.rows[0]?.present !== true) {
     throw new Error(`V12_SKILL_PACKAGE_IMPORT_AUDIT_MISSING:${label}`);
+  }
+  const executionTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('skill_execution_record','skill_execution_event','skill_execution_reference') AND relkind='r'",
+  );
+  if (executionTables.rows[0]?.count !== 3) {
+    throw new Error(`V12_SKILL_EXECUTION_TABLES_MISSING:${label}`);
   }
 }
 
