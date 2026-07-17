@@ -2,11 +2,13 @@
 
 Date: 2026-07-17
 
-Status: Passed; publication SHA pending evidence follow-up
+Status: Passed and published
 
 Dependency: V11-MAIN-BASELINE-DEPENDENT
 
 Input SHA: `cb1faf112b6f5c9346f11fc475a1184c9ff31fc2`
+
+Feature SHA: `7cdee9e08d2dd1d0f5a2d56df135e387482a6927`
 
 ## Result
 

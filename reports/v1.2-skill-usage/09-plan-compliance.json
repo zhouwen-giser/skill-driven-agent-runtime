@@ -5,7 +5,7 @@
   "goal": "Compile all Skill Usage modes into the existing Workflow planning authority and reject non-compliant plans deterministically.",
   "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
   "phaseInputSha": "cb1faf112b6f5c9346f11fc475a1184c9ff31fc2",
-  "resultingSha": null,
+  "resultingSha": "7cdee9e08d2dd1d0f5a2d56df135e387482a6927",
   "authority": {
     "policy": "Domain SkillUsagePlanPolicy",
     "planner": "existing WorkflowPlannerService",
@@ -62,8 +62,8 @@
     "Natural-language policy requires exact human confirmation projection; it is not claimed as machine-proven semantic compliance."
   ],
   "push": {
-    "status": "pending",
+    "status": "passed",
     "remote": "origin",
-    "remoteSha": null
+    "remoteSha": "7cdee9e08d2dd1d0f5a2d56df135e387482a6927"
   }
 }
