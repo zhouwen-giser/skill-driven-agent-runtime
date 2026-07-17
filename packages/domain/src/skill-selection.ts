@@ -1,6 +1,7 @@
 import type { GoalExecutionContract } from './goal.js';
 import type { McpDependencyWarningReason } from './mcp.js';
 import type { SkillRuntimePolicy, SkillToolPolicy } from './skill.js';
+import type { SkillUsageSummary } from './skill-catalog.js';
 
 export interface SkillPerformanceMetrics {
   readonly sampleCount: number;
@@ -38,6 +39,8 @@ export interface SkillCandidateSnapshot {
   readonly toolPolicy: SkillToolPolicy;
   readonly workflowGuidanceSummary: string;
   readonly runtimePolicy: SkillRuntimePolicy;
+  /** Optional only for backward-compatible reads of pre-v1.2 selection records. */
+  readonly usageSummary?: SkillUsageSummary;
   readonly activeMcpDependencyWarnings: readonly SkillCandidateMcpDependencyWarning[];
   readonly autoConfirmPlan: boolean;
   readonly createdAt: string;

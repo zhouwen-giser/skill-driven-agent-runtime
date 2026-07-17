@@ -64,6 +64,17 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - 2026-07-16：v1.1 migration 预留 0100+，但当前 high-water runner 会跳过更低未应用编号。0100+ 在 v1.0.13 前只能进入 disposable isolated database；支持的最终路径必须是完整 v1.0.13-bug-fixed ledger 后再应用 0100+。
 - 2026-07-16：DOCX 已完成结构提取，但当前环境缺少 `soffice`，无法生成页面渲染证据。Phase 0 不修改/交付 DOCX，因此记录为阅读工具限制而非功能完成证据。
 
+## v1.2 Skill usage Phase 3A assumptions (2026-07-17)
+
+- The frozen Goal requires `domain` and `tag` catalog filters but neither the baseline `SkillVersion`
+  nor the suggested `SkillUsageSpecification` introduces independent domain/tag authority. Phase 3A
+  therefore derives a domain from the first dot, colon or slash-delimited capability segment and uses
+  each exact capability as a tag. Matching is exact and case-sensitive. This preserves one catalog
+  classification authority; an independent taxonomy requires an additive ADR and migration in Phase 7
+  or later.
+- Lifecycle is an operational projection, not a second state machine: `enabled → active`,
+  `disabled → inactive`, and the other existing `SkillStatus` values project without translation.
+
 ## v1.1 MCP Tasks Phase 3 决策解释
 
 - 2026-07-16：Phase 3 开始前已 fetch 所有远端，最新可用 hardening 仍为 `v1.0.4-bug-fixed`/`fa4b050`；未发现 v1.0.5 或 v1.0.11 发布标签。实现因此只增加 V1.1 Task metadata/readiness 接口，不改写 transitive Skill confirmation 核心或通用 Tool Semantics。后续标签合并时必须补做兼容收敛，当前不得声称覆盖其尚未发布语义。

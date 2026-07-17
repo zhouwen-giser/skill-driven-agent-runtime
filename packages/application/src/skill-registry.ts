@@ -1,4 +1,13 @@
-import { createSkillVersion, type SkillStatus, type SkillVersion } from '../../domain/src/index.js';
+import {
+  createSkillCatalogVersionSnapshot,
+  createSkillVersion,
+  matchesSkillCatalogFilter,
+  type SkillCatalogFilter,
+  type SkillCatalogVersionSnapshot,
+  type SkillPackageImportCandidate,
+  type SkillStatus,
+  type SkillVersion,
+} from '../../domain/src/index.js';
 
 import type { Clock, JsonSchemaValidator, SkillRepository } from './ports.js';
 import { ResultProcessingError } from './result-processor.js';
@@ -48,6 +57,30 @@ export class SkillRegistryService {
     return version;
   }
 
+  async importPackage(candidate: SkillPackageImportCandidate): Promise<SkillVersion> {
+    const input = candidate.skillVersion;
+    if (input.usageSpecification === undefined)
+      throw new SkillRegistryError(
+        'SKILL_IMPORT_USAGE_REQUIRED',
+        'Imported Skill packages require a native usage specification.',
+      );
+    this.#assertSchema(input.inputSchema, 'input');
+    this.#assertSchema(input.outputSchema, 'output');
+    const current = await this.#skills.findCurrentVersion(input.skillId);
+    const expectedVersion = (current?.version ?? 0) + 1;
+    if (
+      input.version !== expectedVersion ||
+      input.previousVersion !== (current === undefined ? undefined : current.version)
+    )
+      throw new SkillRegistryError(
+        'SKILL_IMPORT_VERSION_CONFLICT',
+        'Imported Skill package does not extend the exact current version.',
+      );
+    const version = createSkillVersion(input);
+    await this.#skills.saveVersionAndSetCurrent(version, this.#clock.now());
+    return version;
+  }
+
   async setEnabled(skillId: string, enabled: boolean): Promise<SkillVersion> {
     const current = await this.#requireCurrent(skillId);
     return this.#copyAsNewVersion(current, enabled ? 'enabled' : 'disabled');
@@ -69,20 +102,56 @@ export class SkillRegistryService {
     return current.outputSchema;
   }
 
-  listCurrentVersions(): Promise<readonly SkillVersion[]> {
-    return this.#skills.listCurrentVersions();
+  async listCurrentVersions(): Promise<readonly SkillVersion[]> {
+    return Object.freeze(
+      (await this.#skills.listCurrentVersions()).map((version) => createSkillVersion(version)),
+    );
   }
 
-  listVersions(skillId: string): Promise<readonly SkillVersion[]> {
-    return this.#skills.listVersions(skillId);
+  async listVersions(skillId: string): Promise<readonly SkillVersion[]> {
+    return Object.freeze(
+      (await this.#skills.listVersions(skillId)).map((version) => createSkillVersion(version)),
+    );
+  }
+
+  async getCurrentSummary(skillId: string): Promise<SkillCatalogVersionSnapshot> {
+    return createSkillCatalogVersionSnapshot(await this.#requireCurrent(skillId), true);
+  }
+
+  async getVersionSummary(skillId: string, version: number): Promise<SkillCatalogVersionSnapshot> {
+    const exact = await this.#skills.findVersion(skillId, version);
+    if (exact === undefined)
+      throw new SkillRegistryError('SKILL_VERSION_NOT_FOUND', 'Skill version was not found.');
+    const current = await this.#skills.findCurrentVersion(skillId);
+    return createSkillCatalogVersionSnapshot(exact, current?.version === version);
+  }
+
+  async readExactVersion(skillId: string, version: number): Promise<SkillVersion> {
+    const exact = await this.#skills.findVersion(skillId, version);
+    if (exact === undefined)
+      throw new SkillRegistryError('SKILL_VERSION_NOT_FOUND', 'Skill version was not found.');
+    return createSkillVersion(exact);
+  }
+
+  async listCatalog(
+    filter: SkillCatalogFilter = {},
+  ): Promise<readonly SkillCatalogVersionSnapshot[]> {
+    const versions = await this.#skills.listCurrentVersions();
+    return Object.freeze(
+      versions
+        .map((version) => createSkillCatalogVersionSnapshot(version, true))
+        .filter((snapshot) => matchesSkillCatalogFilter(snapshot, filter)),
+    );
   }
 
   async diff(skillId: string, fromVersion: number, toVersion: number): Promise<SkillVersionDiff> {
-    const from = await this.#skills.findVersion(skillId, fromVersion);
-    const to = await this.#skills.findVersion(skillId, toVersion);
-    if (from === undefined || to === undefined) {
+    const foundFrom = await this.#skills.findVersion(skillId, fromVersion);
+    const foundTo = await this.#skills.findVersion(skillId, toVersion);
+    if (foundFrom === undefined || foundTo === undefined) {
       throw new SkillRegistryError('SKILL_VERSION_NOT_FOUND', 'Skill version was not found.');
     }
+    const from = createSkillVersion(foundFrom);
+    const to = createSkillVersion(foundTo);
     const fields: readonly (keyof SkillVersion)[] = [
       'name',
       'summary',
@@ -97,6 +166,7 @@ export class SkillRegistryService {
       'status',
       'sourceKind',
       'validationPassed',
+      'usageSpecification',
     ];
     return {
       skillId,
@@ -123,7 +193,7 @@ export class SkillRegistryService {
     const current = await this.#skills.findCurrentVersion(skillId);
     if (current === undefined)
       throw new SkillRegistryError('SKILL_NOT_FOUND', 'Skill was not found.');
-    return current;
+    return createSkillVersion(current);
   }
 
   #assertSchema(schema: unknown, label: string): void {
@@ -139,7 +209,11 @@ export class SkillRegistryService {
 }
 
 export type SkillRegistryErrorCode =
-  'SKILL_NOT_ENABLED' | 'SKILL_NOT_FOUND' | 'SKILL_VERSION_NOT_FOUND';
+  | 'SKILL_IMPORT_USAGE_REQUIRED'
+  | 'SKILL_IMPORT_VERSION_CONFLICT'
+  | 'SKILL_NOT_ENABLED'
+  | 'SKILL_NOT_FOUND'
+  | 'SKILL_VERSION_NOT_FOUND';
 export class SkillRegistryError extends Error {
   readonly code: SkillRegistryErrorCode;
   constructor(code: SkillRegistryErrorCode, message: string) {

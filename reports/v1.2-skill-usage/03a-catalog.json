@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "phase": "3A",
+  "status": "passed",
+  "goal": "Extend the existing in-memory Skill catalog/version path with usage summaries and filters.",
+  "dependencyClass": "V11-INDEPENDENT",
+  "baseSha": "467c96b501f82c955940509ffaa31ed6d7aa1180",
+  "resultingSha": "pending-publication",
+  "changedFiles": [
+    "packages/domain/src/skill-catalog.ts",
+    "packages/domain/src/skill-selection.ts",
+    "packages/application/src/skill-registry.ts",
+    "packages/application/src/skill-selection.ts",
+    "packages/application/test/skill-registry.unit.test.ts",
+    "packages/application/test/skill-selection.unit.test.ts",
+    "adr/ADR-096-skill-catalog-derived-classification-and-lifecycle.md"
+  ],
+  "architecture": {
+    "owner": "existing Skill Domain/Application/Repository path",
+    "preservedInvariants": [
+      "No parallel Skill Registry, taxonomy or lifecycle state machine",
+      "Catalog and exact-version results are immutable snapshots",
+      "No persistence, API, Console, Provider, Workflow or Runtime graph wiring",
+      "Legacy persisted candidate snapshots remain readable"
+    ],
+    "adr": "ADR-096"
+  },
+  "testsActuallyRun": [
+    { "command": "vitest run skill-registry and skill-selection unit tests", "status": "passed", "files": 2, "tests": 12 },
+    { "command": "vitest run --project unit", "status": "passed", "files": 67, "tests": 417 },
+    { "command": "prettier --check configured source globs", "status": "passed" },
+    { "command": "eslint .", "status": "passed" },
+    { "command": "tsc -p tsconfig.json --noEmit", "status": "passed" },
+    { "command": "node scripts/check-architecture.mjs", "status": "passed", "files": 240 }
+  ],
+  "knownLimitations": [
+    "Classification is derived from exact capabilities; no independent taxonomy is stored.",
+    "PostgreSQL and import audit persistence are Phase 7.",
+    "Management API, Console and Runtime graph wiring are intentionally absent."
+  ],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true
+  },
+  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+}

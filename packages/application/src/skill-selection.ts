@@ -1,5 +1,6 @@
 import {
   goalExecutionContractsEqual,
+  createSkillUsageSummary,
   snapshotGoalExecutionContract,
   type GoalExecutionContract,
   type SkillCandidateSnapshot,
@@ -199,6 +200,7 @@ export class SkillSelectionService {
           toolPolicy: skill.toolPolicy,
           workflowGuidanceSummary: summarizeGuidance(skill.workflowGuidance),
           runtimePolicy: skill.runtimePolicy,
+          usageSummary: createSkillUsageSummary(skill),
           activeMcpDependencyWarnings: warnings,
           autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
           createdAt: skill.createdAt,

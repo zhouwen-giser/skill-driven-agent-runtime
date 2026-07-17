@@ -39,6 +39,11 @@ describe('SkillSelectionService', () => {
       toolPolicy: { required: [], optional: [], forbidden: [] },
       workflowGuidanceSummary: 'Inspect.',
       runtimePolicy: { autoConfirmPlan: false },
+      usageSummary: {
+        source: 'legacy_projection',
+        supportedModes: ['guidance'],
+        defaultMode: 'guidance',
+      },
       activeMcpDependencyWarnings: [],
       autoConfirmPlan: false,
       createdAt: '2026-07-11T10:00:00.000Z',
