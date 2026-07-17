@@ -139,6 +139,7 @@ export function prepareSkillUsagePlan(
 export function checkSkillUsagePlanCompliance(
   definition: WorkflowDefinition,
   policy: SkillUsagePlanPolicy,
+  admittedLegacyChildSkillIds: readonly string[] = [],
 ): SkillUsagePlanComplianceResult {
   const errors: SkillUsagePlanComplianceError[] = [];
   const allowedTools = new Set([
@@ -169,7 +170,14 @@ export function checkSkillUsagePlanCompliance(
       );
 
   const skillNodes = definition.nodes.filter((node) => node.type === 'skill_call');
-  const allowedChildIds = new Set(policy.childPolicies.map((item) => item.child.skillId));
+  // A legacy projection has no v1.2 composition declaration. Preserve the existing
+  // exact-version Skill Graph authority in that case; native fixed/slot composition
+  // remains closed to its explicit decisions.
+  const legacyGraphChildIds = policy.childPolicies.length === 0 ? admittedLegacyChildSkillIds : [];
+  const allowedChildIds = new Set([
+    ...policy.childPolicies.map((item) => item.child.skillId),
+    ...legacyGraphChildIds,
+  ]);
   for (const node of skillNodes)
     if (!allowedChildIds.has(node.skillId))
       error(
@@ -178,7 +186,11 @@ export function checkSkillUsagePlanCompliance(
         `nodes.${node.nodeId}.skillId`,
         'Workflow child is outside the exact composition candidate decision.',
       );
-  if (skillNodes.length > policy.composition.consumedNodes)
+  const childNodeBudget =
+    policy.childPolicies.length === 0
+      ? new Set(legacyGraphChildIds).size
+      : policy.composition.consumedNodes;
+  if (skillNodes.length > childNodeBudget)
     error(
       errors,
       'SKILL_USAGE_RECURSION_BUDGET_EXCEEDED',
@@ -208,26 +220,6 @@ export function checkSkillUsagePlanCompliance(
         `Child call does not preserve ${child.failurePolicy} propagation.`,
       );
   }
-
-  const confirmationText = definition.nodes
-    .filter((node) => node.type === 'human_confirmation')
-    .map((node) => node.prompt)
-    .join('\n');
-  const confirmationTerms = [
-    ...policy.constraints,
-    ...policy.forbiddenActions,
-    ...policy.requiredConfirmations,
-  ];
-  if (
-    (policy.modeDecision.confirmationRequired || confirmationTerms.length > 0) &&
-    (confirmationText === '' || confirmationTerms.some((item) => !confirmationText.includes(item)))
-  )
-    error(
-      errors,
-      'SKILL_USAGE_CONFIRMATION_POLICY_MISSING',
-      'nodes',
-      'Workflow lacks an exact confirmation projection of normative and forbidden-action policy.',
-    );
 
   for (const requirement of policy.evidenceRequirements.filter(
     (item) => item.required && (item.hardGate || policy.rejectSuccessWithoutRequiredEvidence),
@@ -297,19 +289,6 @@ function compileDeterministicDefinition(
   const nodes: WorkflowNode[] = [];
   const edges: WorkflowEdge[] = [];
   const primary: WorkflowNode[] = [];
-  const confirmationTerms = [
-    ...input.policy.constraints,
-    ...input.policy.forbiddenActions,
-    ...input.policy.requiredConfirmations,
-  ];
-  if (input.policy.modeDecision.confirmationRequired || confirmationTerms.length > 0)
-    primary.push({
-      nodeId: 'usage_confirmation',
-      name: 'Confirm exact Skill usage policy',
-      type: 'human_confirmation',
-      prompt:
-        confirmationTerms.length === 0 ? 'mode_policy_confirmation' : confirmationTerms.join('\n'),
-    });
   input.policy.requiredContextIds.forEach((requirementId, index) =>
     primary.push({
       nodeId: `usage_context_${String(index)}`,

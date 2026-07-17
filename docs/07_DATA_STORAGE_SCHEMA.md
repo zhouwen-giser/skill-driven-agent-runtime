@@ -97,7 +97,7 @@ Migration `0057_nested_skill_confirmation` 为 `skill_call_workflow` 增加 `par
 
 Migration `0058_runtime_terminal_outcome` 新增 `runtime_terminal_outcome`，并为 `workflow_control` 与 `workflow_control_round` 增加唯一终态引用。Processed Result、Task Output/phase、Goal、Control、当前 Round 与 Runtime Event 在同一 PostgreSQL 事务内提交；Memory、Quality 与 Evolution 警告仅作为提交后增强证据。rollback 仅在终态结果证据为空且没有 canceled Control 时允许执行。
 
-V1.1 使用保留的 `0100+` 范围并要求显式 `v1.1-isolated` profile、acknowledgement 和 `sdar_v11_*` disposable database；V1.2 Phase 7 在不放宽该隔离门禁的前提下把同一 append-only 链延伸到 0105。支持的升级顺序是完整 `v1.0.13-bug-fixed` ledger 后再按文件名应用：
+V1.1 开发期使用保留的 `0100+` 范围和显式 `v1.1-isolated` disposable-database profile。V1.1 合并进入 `main` 后，ADR-106 将默认 `released` profile 单调推进到 0105；isolated profile、acknowledgement 和 `sdar_v11_*` 名称约束继续用于隔离测试。支持的生产升级顺序是完整 `v1.0.13-bug-fixed` ledger 后再按文件名应用：
 
 - `0100_remote_mcp_task_tracking`：Binding、ordered observation、control inbox 和 protocol attempt；
 - `0101_task_execution_readiness`：Tool Task 语义、planning/pre-call readiness 与 availability snapshot；
@@ -106,4 +106,4 @@ V1.1 使用保留的 `0100+` 范围并要求显式 `v1.1-isolated` profile、ack
 - `0104_workflow_external_wait_event`：把 `node_waiting_external` 加入 `workflow_node_event.event_type` CHECK 约束。
 - `0105_skill_usage_specification`：向现有 `skill_version` 增加 exact-version Usage JSONB snapshot，并以同一 `(skill_id, version)` 记录 package root、package/file checksum、validation/import time 审计；不新增平行 Registry 或 lifecycle authority。
 
-`0104` 的 down migration 在存在任何 `node_waiting_external` 证据时以 `MIGRATION_0104_ROLLBACK_REQUIRES_NO_EXTERNAL_WAIT_EVENTS` 拒绝，避免删除仍被引用的审计语义。`0105` 在存在原生 Usage 或 package import evidence 时以 `MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE` 拒绝回滚。Phase 7 migration gate验证 released profile 仍停在 0064，以及显式 isolated profile 的 0064→0105 upgrade、空证据 rollback/reapply、profile/isolation guard 和 ledger gap fail-closed；当前记录共检查 69 个可逆 migration pairs。
+`0104` 的 down migration 在存在任何 `node_waiting_external` 证据时以 `MIGRATION_0104_ROLLBACK_REQUIRES_NO_EXTERNAL_WAIT_EVENTS` 拒绝，避免删除仍被引用的审计语义。`0105` 在存在原生 Usage 或 package import evidence 时以 `MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE` 拒绝回滚。Phase 10 migration gate 验证 released profile 的空库/0064→0105 upgrade、幂等、空证据 rollback/reapply、isolated profile guard 和 ledger gap fail-closed；当前记录共检查 69 个可逆 migration pairs。

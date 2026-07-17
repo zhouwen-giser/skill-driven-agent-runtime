@@ -54,6 +54,7 @@ import {
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
   snapshotSkillCompositionContext,
+  snapshotSkillUsagePlanPolicy,
   snapshotWorkflowToolExecutionSemantics,
   type TaskExecutionAttempt,
   type TaskInputRequest,
@@ -133,6 +134,7 @@ import type {
   SkillVersion,
   SkillPackageImportAudit,
   SkillUsageSpecification,
+  SkillUsagePlanPolicy,
   SkillCallWorkflowRecord,
   EvolutionExperience,
   EvolutionPolicy,
@@ -316,6 +318,131 @@ const SkillMetricsSchema = z.object({
   failureCount: z.number().int().nonnegative(),
   stabilityScore: z.number().min(0).max(1),
 });
+const SkillUsageSummarySchema = z
+  .object({
+    source: z.enum(['native', 'legacy_projection']),
+    apiVersion: z.literal('sdar.io/v1alpha1'),
+    visibility: z
+      .object({
+        userSelectable: z.boolean(),
+        composable: z.boolean(),
+        internalOnly: z.boolean(),
+      })
+      .strict(),
+    supportedModes: z.array(z.enum(['guidance', 'template', 'procedure'])),
+    defaultMode: z.enum(['guidance', 'template', 'procedure']),
+    taskTypes: z.array(z.string()),
+    hasComposition: z.boolean(),
+    requiredContextCount: z.number().int().nonnegative(),
+    requiredEvidenceCount: z.number().int().nonnegative(),
+  })
+  .strict();
+const SkillContextSourceSchema = z.enum([
+  'authoritative_context',
+  'read_only_query',
+  'deterministic_derivation',
+  'user_input',
+]);
+const SkillTaskProviderCandidateReadinessSchema = z
+  .object({
+    providerId: z.string(),
+    operationName: z.string(),
+    attributes: z.array(z.string()),
+    disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+    riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+    validUntil: z.string().optional(),
+    earliestStartTime: z.string().optional(),
+    nextAvailableWindows: z.array(
+      z.object({ startTime: z.string(), endTime: z.string() }).strict(),
+    ),
+    reservationMode: z.enum(['none', 'best_effort', 'guaranteed']),
+    reservationRef: z.string().optional(),
+    possibleEffects: z.array(
+      z.enum([
+        'task_preemption',
+        'task_pause',
+        'start_rejection',
+        'start_window_missed',
+        'deadline_reached',
+        'partial_completion',
+      ]),
+    ),
+    selected: z.boolean(),
+    reasonCodes: z.array(z.string()),
+  })
+  .strict();
+const SkillUsageCandidateSchema = z
+  .object({
+    skillId: z.string(),
+    skillVersion: z.number().int().positive(),
+    applicability: z
+      .object({
+        skillId: z.string(),
+        skillVersion: z.number().int().positive(),
+        status: z.enum(['satisfied', 'partial', 'unsatisfied', 'unknown']),
+        reasonCodes: z.array(z.string()),
+        context: z
+          .object({
+            requirements: z.array(
+              z
+                .object({
+                  requirementId: z.string(),
+                  required: z.boolean(),
+                  status: z.enum(['satisfied', 'input_required', 'unsatisfied', 'unknown']),
+                  source: SkillContextSourceSchema.optional(),
+                  evidenceRef: z.string().optional(),
+                  attemptedSources: z.array(SkillContextSourceSchema),
+                })
+                .strict(),
+            ),
+            satisfied: z.number().int().nonnegative(),
+            total: z.number().int().nonnegative(),
+            complete: z.boolean(),
+            inputRequiredIds: z.array(z.string()),
+            unsatisfiedIds: z.array(z.string()),
+            unknownIds: z.array(z.string()),
+          })
+          .strict(),
+        readiness: z
+          .object({
+            overall: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+            bindings: z.array(
+              z
+                .object({
+                  bindingId: z.string(),
+                  taskType: z.string(),
+                  disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+                  confirmationRequired: z.boolean(),
+                  reasonCodes: z.array(z.string()),
+                  selectedProviderId: z.string().optional(),
+                  selectedOperationName: z.string().optional(),
+                  candidates: z.array(SkillTaskProviderCandidateReadinessSchema).optional(),
+                })
+                .strict(),
+            ),
+          })
+          .strict(),
+      })
+      .strict(),
+    modeDecision: z.discriminatedUnion('decision', [
+      z
+        .object({
+          decision: z.literal('selected'),
+          mode: z.enum(['guidance', 'template', 'procedure']),
+          confirmationRequired: z.boolean(),
+          confirmationSatisfied: z.boolean(),
+          reasonCodes: z.array(z.string()),
+        })
+        .strict(),
+      z
+        .object({
+          decision: z.literal('blocked'),
+          reasonCodes: z.array(z.string()),
+        })
+        .strict(),
+    ]),
+  })
+  .strict();
 const SkillCandidateSchema = z.object({
   skillId: z.string(),
   skillVersion: z.number().int().positive(),
@@ -337,6 +464,8 @@ const SkillCandidateSchema = z.object({
   toolPolicy: ToolPolicySchema,
   workflowGuidanceSummary: z.string(),
   runtimePolicy: RuntimePolicySchema,
+  usageSummary: SkillUsageSummarySchema.optional(),
+  usageCandidate: SkillUsageCandidateSchema.optional(),
   activeMcpDependencyWarnings: z.array(
     z.object({
       warningId: z.string(),
@@ -4287,8 +4416,23 @@ const StoredWorkflowDefinitionSchema = z
     exitNodeIds: z.array(z.string()),
     nodes: z.array(z.unknown()),
     edges: z.array(z.unknown()),
+    skillUsagePolicy: z.unknown().optional(),
   })
   .strict();
+
+function mapStoredWorkflowDefinition(value: unknown): WorkflowDefinition {
+  const parsed = StoredWorkflowDefinitionSchema.parse(value);
+  return {
+    ...parsed,
+    ...(parsed.skillUsagePolicy === undefined
+      ? {}
+      : {
+          skillUsagePolicy: snapshotSkillUsagePlanPolicy(
+            parsed.skillUsagePolicy as SkillUsagePlanPolicy,
+          ),
+        }),
+  } as unknown as WorkflowDefinition;
+}
 
 export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepository {
   readonly #pool: Pool;
@@ -4453,9 +4597,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       ...(row.definition_json === null
         ? {}
         : {
-            definition: StoredWorkflowDefinitionSchema.parse(
-              row.definition_json,
-            ) as unknown as WorkflowDefinition,
+            definition: mapStoredWorkflowDefinition(row.definition_json),
           }),
       ...(row.source_confirmed_plan_id === null
         ? {}
@@ -5226,9 +5368,7 @@ function mapEvolutionExperienceRow(row: EvolutionExperienceRow): EvolutionExperi
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
     contextId: row.context_id,
     goal: EvolutionGoalSchema.parse(row.goal_json),
-    workflow: StoredWorkflowDefinitionSchema.parse(
-      row.workflow_json,
-    ) as unknown as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     instanceId: row.instance_id,
     skillVersions: WorkflowSkillVersionsSchema.parse(row.skill_versions_json),
     tools: ToolReferencesSchema.parse(row.tools_json),
@@ -5252,9 +5392,7 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.definition_json === null
       ? {}
       : {
-          definition: StoredWorkflowDefinitionSchema.parse(
-            row.definition_json,
-          ) as unknown as WorkflowDefinition,
+          definition: mapStoredWorkflowDefinition(row.definition_json),
         }),
     ...(row.source_confirmed_plan_id === null
       ? {}
@@ -6050,7 +6188,7 @@ function mapWorkflowTemplateOccurrenceRow(
     ...(row.quality_report_id === null ? {} : { qualityReportId: row.quality_report_id }),
     goalKey: row.goal_key,
     structureKey: row.structure_key,
-    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     durationMs: row.duration_ms,
     createdAt: toIsoString(row.created_at),
   };
@@ -6062,7 +6200,7 @@ function mapWorkflowTemplateRow(row: WorkflowTemplateRow): WorkflowTemplate {
     version: row.version,
     goalKey: row.goal_key,
     structureKey: row.structure_key,
-    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     sourceExperienceIds: z.array(z.string()).parse(row.source_experience_ids_json),
     sourceSuccessCount: row.source_success_count,
     useCount: row.use_count,

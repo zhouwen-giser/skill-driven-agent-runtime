@@ -23,25 +23,26 @@ cannot safely be converted into executable predicates by a model.
   never supplies package files, unbounded Markdown, history or private reasoning.
 - Template and procedure IR compile deterministically to the existing `WorkflowDefinition`. Exact
   composition mappings become restricted Workflow references, Task bindings become exact selected
-  MCP operation nodes, confirmations remain existing human-confirmation nodes, and context/evidence
-  hard gates use restricted `ref` conditions whose false branch terminates unsuccessfully.
+  MCP operation nodes, and context/evidence hard gates use restricted `ref` conditions whose false
+  branch terminates unsuccessfully.
 - Every deterministic candidate and every model-generated or repaired candidate runs through the
   existing `WorkflowValidator`, then the Skill Usage compliance checker. A deterministic candidate is
   the first bounded attempt; an invalid candidate may consume only the Planner's existing remaining
   repair attempts.
 - Compliance structurally checks Tool/Task and Provider allowlists, selected bindings, composition
-  node budget, exact admitted children, failure handlers, confirmation projection and context/evidence
-  false-to-failure gates. Natural-language normative and forbidden-action items must be reproduced in
-  a human-confirmation node; a model explanation is not evidence of compliance.
+  node budget, exact admitted children, failure handlers and context/evidence false-to-failure gates.
+  The complete immutable policy remains attached to the plan, and required confirmation is enforced
+  by the existing outer Workflow Plan confirmation boundary. A model explanation is not evidence of
+  compliance and no duplicate in-graph confirmation is introduced.
 - Confirmation, exact-argument V1.1 readiness, Workflow immutability and LangGraph execution remain
   unchanged. Phase 9 adds no runtime, persistence state or migration.
 
 ## Consequences
 
 All three modes converge on one validated Workflow authority. Mechanically enforceable policy fails
-closed. Textual safety policy remains visible to a human instead of being misrepresented as a proven
-semantic predicate. Phase 10 may wire this prepared policy into the existing runtime without changing
-the compiled graph contract.
+closed. Textual safety policy remains attached to the plan for human review instead of being
+misrepresented as a proven semantic predicate. Phase 10 may wire this prepared policy into the
+existing runtime without changing the compiled graph contract.
 
 ## Rejected Alternatives
 

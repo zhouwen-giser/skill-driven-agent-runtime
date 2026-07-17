@@ -4,6 +4,7 @@ import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from 
 import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
 import type { SkillFailurePolicy } from './skill-usage.js';
+import type { SkillUsagePlanPolicy } from './skill-usage-planning.js';
 import type {
   DslExecutionReadiness,
   McpTaskAvailabilityCheckMode,
@@ -133,6 +134,8 @@ export interface WorkflowDefinition {
   readonly exitNodeIds: readonly string[];
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
+  /** Validated immutable planning authority; execution never interprets this as code. */
+  readonly skillUsagePolicy?: SkillUsagePlanPolicy | undefined;
 }
 
 export interface WorkflowPlanAttempt {

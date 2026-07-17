@@ -176,7 +176,7 @@ Continuation 原子 claim 控制，验证 Goal/plan/instance/binding仍有效，
 
 ## 11. Migration 与 hardening 同步
 
-v1.1 使用 `0100+` 避免文件冲突，并保持显式 `v1.1-isolated` profile、acknowledgement 和 `sdar_v11_*` disposable database 保护。已验证的支持路径是完整 `v1.0.13-bug-fixed` schema 后依次应用：`0100` tracking、`0101` readiness、`0102` continuation、`0103` input/cancellation、`0104` external-wait event constraint。迁移 gate 覆盖空库、精确 upgrade、rollback/reapply、默认 profile 拒绝和 ledger gap fail-closed；记录共 68 个 migration pairs。
+v1.1 使用 `0100+` 避免文件冲突；开发期的显式 `v1.1-isolated` profile、acknowledgement 和 `sdar_v11_*` disposable database 保护仍用于隔离测试。合并进入 `main` 后，ADR-106 使默认 released profile 在完整 `v1.0.13-bug-fixed` schema 后依次应用：`0100` tracking、`0101` readiness、`0102` continuation、`0103` input/cancellation、`0104` external-wait event constraint，以及后续单调迁移。迁移 gate 覆盖 released 空库/精确 upgrade、rollback/reapply、isolated profile guard 和 ledger gap fail-closed。
 
 ## 12. 验收场景
 

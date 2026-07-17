@@ -191,6 +191,9 @@ export class GoalPatchService {
       ...(sourcePlan.capabilityGapSkillIds === undefined
         ? {}
         : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
+      ...(sourcePlan.definition.skillUsagePolicy === undefined
+        ? {}
+        : { skillUsagePolicy: sourcePlan.definition.skillUsagePolicy }),
     });
     return this.get(patch.patchId);
   }

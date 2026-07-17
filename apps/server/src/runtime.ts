@@ -43,6 +43,7 @@ import {
   SkillApplicabilityAssessor,
   SkillModeSelector,
   SkillUsageCandidateAssessor,
+  prepareSkillUsagePlan,
   V11SkillTaskReadinessAdapter,
   SkillInputResolutionService,
   SkillQualityService,
@@ -1784,6 +1785,38 @@ export async function startServerRuntime(
             ),
         );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const preparedUsage =
+          skill === undefined
+            ? undefined
+            : await (async () => {
+                if (input.task.skillSelectionId === undefined)
+                  throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
+                const selection = await skillSelectionRepository.findSelection(
+                  input.task.skillSelectionId,
+                );
+                const candidate = selection?.candidates.find(
+                  (item) => item.skillId === skill.skillId && item.skillVersion === skill.version,
+                )?.usageCandidate;
+                if (candidate === undefined)
+                  throw new Error('SKILL_USAGE_SELECTION_EVIDENCE_REQUIRED');
+                const composition = await skillComposition.composeUsage({
+                  skillId: skill.skillId,
+                  skillVersion: skill.version,
+                });
+                const interpretation = skillComposition.interpretUsage(
+                  skill,
+                  candidate.modeDecision,
+                  composition,
+                );
+                return prepareSkillUsagePlan({
+                  skill,
+                  candidate,
+                  interpretation,
+                  goalContract: input.goalContract,
+                  workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+                  workflowVersion: 1,
+                });
+              })();
         const plan = await workflowPlanner.plan({
           planId,
           workflowDefinitionId: `workflow-task-${input.task.taskId}`,
@@ -1802,6 +1835,14 @@ export async function startServerRuntime(
               }),
           taskId: input.task.taskId,
           templateQuery: input.goalDescription,
+          ...(preparedUsage === undefined
+            ? {}
+            : {
+                skillUsagePolicy: preparedUsage.policy,
+                ...(preparedUsage.deterministicDefinition === undefined
+                  ? {}
+                  : { deterministicDefinition: preparedUsage.deterministicDefinition }),
+              }),
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
             workflowIdentity: {
@@ -2347,12 +2388,6 @@ export async function applyRuntimeMigrations(
     }
   }
   let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
-  if (
-    profile === 'released' &&
-    ledger.rows.some((row) => Number.parseInt(row.version.slice(0, 4), 10) >= 100)
-  ) {
-    throw new Error('V11_MIGRATION_PROFILE_REQUIRED');
-  }
   const highestAppliedSequence = Math.max(
     0,
     ...ledger.rows
@@ -2433,7 +2468,6 @@ export async function applyRuntimeMigrations(
     );
     await pool.query(migration);
   }
-  if (profile !== 'v1.1-isolated') return;
   ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
   const applied = new Set(ledger.rows.map((row) => row.version));
   // The complete v1.0.13 hardening chain must precede the reserved V1.1 range.

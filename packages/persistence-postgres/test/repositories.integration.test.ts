@@ -56,6 +56,8 @@ import {
   createWorkflowContinuationSnapshot,
   createSkillVersion,
   createSkillUsageSpecification,
+  snapshotSkillUsageCompositionPlan,
+  snapshotSkillUsagePlanPolicy,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
@@ -134,6 +136,50 @@ function testCompositionContext() {
     allowedChildSkillIds: ['skill.child.db'],
     decisionSummary: 'Bounded composition context for persistence verification.',
   };
+}
+
+function testUsagePlanPolicy() {
+  const composition = snapshotSkillUsageCompositionPlan({
+    root: { skillId: 'skill.root.db', skillVersion: 2 },
+    expandedSkills: [{ skillId: 'skill.root.db', skillVersion: 2 }],
+    edges: [],
+    maxDepth: 3,
+    consumedDepth: 0,
+    consumedSkills: 1,
+    consumedNodes: 0,
+  });
+  return snapshotSkillUsagePlanPolicy({
+    skill: composition.root,
+    mode: 'guidance',
+    modeDecision: {
+      decision: 'selected',
+      mode: 'guidance',
+      confirmationRequired: true,
+      confirmationSatisfied: false,
+      reasonCodes: ['plan_confirmation_required'],
+    },
+    constraints: ['Use the exact plan authority.'],
+    forbiddenActions: [],
+    adaptiveInstructions: ['Plan safely.'],
+    requiredConfirmations: ['confirm-plan'],
+    requiredContextIds: [],
+    allowedTools: [],
+    taskOperations: [],
+    childPolicies: [],
+    evidenceRequirements: [],
+    rejectSuccessWithoutRequiredEvidence: false,
+    composition,
+    context: {
+      requirements: [],
+      satisfied: 0,
+      total: 0,
+      complete: true,
+      inputRequiredIds: [],
+      unsatisfiedIds: [],
+      unknownIds: [],
+    },
+    readiness: { overall: 'ready', bindings: [] },
+  });
 }
 
 async function applyTestMigration(name: string): Promise<void> {
@@ -1163,6 +1209,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
       ],
       edges: [],
+      skillUsagePolicy: testUsagePlanPolicy(),
     };
     await repository.saveAttempt({
       planId: 'plan.db',
@@ -1212,6 +1259,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
         confirmationStatus: 'awaiting_confirmation',
       }),
     );
+    await pool.query(
+      `UPDATE workflow_plan
+       SET definition_json=jsonb_set(
+         definition_json,
+         '{skillUsagePolicy,skill,skillVersion}',
+         '999'::jsonb
+       )
+       WHERE plan_id=$1`,
+      ['plan.db'],
+    );
+    await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
+      code: 'SKILL_USAGE_PLAN_POLICY_INVALID',
+    });
+    await pool.query('UPDATE workflow_plan SET definition_json=$2::jsonb WHERE plan_id=$1', [
+      'plan.db',
+      JSON.stringify(definition),
+    ]);
     const attempts = await pool.query<{
       count: number;
       contracts: unknown[];
@@ -3141,6 +3205,44 @@ describe('PostgreSQL protocol-domain repositories', () => {
         toolPolicy: version.toolPolicy,
         workflowGuidanceSummary: version.workflowGuidance,
         runtimePolicy: version.runtimePolicy,
+        usageSummary: {
+          source: 'legacy_projection' as const,
+          apiVersion: 'sdar.io/v1alpha1' as const,
+          visibility: { userSelectable: true, composable: true, internalOnly: false },
+          supportedModes: ['guidance' as const],
+          defaultMode: 'guidance' as const,
+          taskTypes: [],
+          hasComposition: false,
+          requiredContextCount: 0,
+          requiredEvidenceCount: 0,
+        },
+        usageCandidate: {
+          skillId: version.skillId,
+          skillVersion: version.version,
+          applicability: {
+            skillId: version.skillId,
+            skillVersion: version.version,
+            status: 'satisfied' as const,
+            reasonCodes: ['all_requirements_satisfied'],
+            context: {
+              requirements: [],
+              satisfied: 0,
+              total: 0,
+              complete: true,
+              inputRequiredIds: [],
+              unsatisfiedIds: [],
+              unknownIds: [],
+            },
+            readiness: { overall: 'ready' as const, bindings: [] },
+          },
+          modeDecision: {
+            decision: 'selected' as const,
+            mode: 'guidance' as const,
+            confirmationRequired: false,
+            confirmationSatisfied: true,
+            reasonCodes: ['default_or_preferred_mode'],
+          },
+        },
         activeMcpDependencyWarnings: [],
         autoConfirmPlan: false,
         createdAt: version.createdAt,

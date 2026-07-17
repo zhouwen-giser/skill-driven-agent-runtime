@@ -20,7 +20,9 @@
 | ADR-091     | 远程 Task 使用 PostgreSQL 版本租约、共享 context 串行和 0100 migration profile         |
 | ADR-092     | MCP Task readiness 由领域模型与确定性 Guard 控制，并叠加通用 Tool semantics 与传递确认 |
 | ADR-093     | 远程 Task 使用 PostgreSQL 持久 frontier，并通过 fresh LangGraph invocation 继续        |
-| ADR-094     | 远程输入复用 Task input，update/cancel ack 不越权，取消后继续 Provider 权威轮询       |
-| ADR-095     | 远程 Task 管理面只投影 PostgreSQL 权威状态，并以 CAS/幂等键约束刷新、输入和协作取消 |
+| ADR-094     | 远程输入复用 Task input，update/cancel ack 不越权，取消后继续 Provider 权威轮询        |
+| ADR-095     | 远程 Task 管理面只投影 PostgreSQL 权威状态，并以 CAS/幂等键约束刷新、输入和协作取消    |
+| ADR-097–105 | v1.2 Skill Usage 的版本、策略、组合、导入、Provider、执行记录边界与计划合规决策        |
+| ADR-106     | v1.1 合并后 released migration 单调推进到 0105，isolated profile 仅保留测试保护        |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

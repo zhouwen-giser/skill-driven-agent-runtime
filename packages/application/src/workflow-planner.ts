@@ -131,6 +131,7 @@ export class WorkflowPlannerService {
         'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
         'Repair source confirmation belongs to a different Goal execution contract.',
       );
+    const skillUsagePolicy = input.skillUsagePolicy ?? source?.definition?.skillUsagePolicy;
     if (
       source !== undefined &&
       suppliedToolExecutionSemantics !== undefined &&
@@ -168,7 +169,7 @@ export class WorkflowPlannerService {
       compositionContext,
       capabilityGapSkillIds,
       toolExecutionSemantics,
-      input.skillUsagePolicy,
+      skillUsagePolicy,
     );
     const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
@@ -191,6 +192,7 @@ export class WorkflowPlannerService {
         input,
         compositionContext,
         capabilityGapSkillIds,
+        skillUsagePolicy,
       );
       await this.#repository.saveAttempt(
         toAttempt(
@@ -236,6 +238,7 @@ export class WorkflowPlannerService {
           ...(input.revisionKind === undefined ? {} : { revisionKind: input.revisionKind }),
           confirmationStatus:
             source?.confirmationStatus === 'confirmed' &&
+            !requiresSkillUsagePlanConfirmation(skillUsagePolicy) &&
             (readiness === undefined ||
               (readiness.readiness.disposition === 'ready' &&
                 !readiness.readiness.confirmationRequired))
@@ -287,12 +290,13 @@ export class WorkflowPlannerService {
     input: PlanWorkflowInput,
     compositionContext: SkillCompositionContext | undefined,
     capabilityGapSkillIds: readonly string[],
+    skillUsagePolicy: SkillUsagePlanPolicy | undefined,
   ): Promise<WorkflowValidationResult> {
     const result = await this.#validator.validate(candidate, {
       enforceSkillComposition: true,
       allowedChildSkillIds: compositionContext?.allowedChildSkillIds ?? [],
       capabilityGapSkillIds,
-      ...(input.skillUsagePolicy === undefined ? {} : { skillUsagePolicy: input.skillUsagePolicy }),
+      ...(skillUsagePolicy === undefined ? {} : { skillUsagePolicy }),
     });
     if (!result.valid || result.definition === undefined) return result;
     const errors: { code: string; path: string; message: string }[] = [];
@@ -466,6 +470,13 @@ function skillCompositionContextsEqual(
 
 function stringListsEqual(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function requiresSkillUsagePlanConfirmation(policy: SkillUsagePlanPolicy | undefined): boolean {
+  return (
+    policy !== undefined &&
+    (policy.modeDecision.confirmationRequired || policy.requiredConfirmations.length > 0)
+  );
 }
 
 export type WorkflowPlannerErrorCode =

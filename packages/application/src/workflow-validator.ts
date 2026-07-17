@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { normalizeTaskTimestamp } from '../../domain/src/index.js';
+import { normalizeTaskTimestamp, snapshotSkillUsagePlanPolicy } from '../../domain/src/index.js';
 import type {
   WorkflowBoundValue,
   WorkflowDefinition,
@@ -185,6 +185,7 @@ const WorkflowSchema: z.ZodType<WorkflowDefinition> = z
         })
         .strict(),
     ),
+    skillUsagePolicy: z.custom<SkillUsagePlanPolicy>().optional(),
   })
   .strict();
 
@@ -231,7 +232,33 @@ export class WorkflowValidator {
         })),
       };
     const errors: { code: string; path: string; message: string }[] = [];
-    const definition = parsed.data;
+    let effectivePolicy: SkillUsagePlanPolicy | undefined;
+    try {
+      const supplied = context.skillUsagePolicy ?? parsed.data.skillUsagePolicy;
+      effectivePolicy = supplied === undefined ? undefined : snapshotSkillUsagePlanPolicy(supplied);
+      if (
+        context.skillUsagePolicy !== undefined &&
+        parsed.data.skillUsagePolicy !== undefined &&
+        JSON.stringify(context.skillUsagePolicy) !== JSON.stringify(parsed.data.skillUsagePolicy)
+      )
+        add(
+          errors,
+          'SKILL_USAGE_PLAN_POLICY_MISMATCH',
+          'skillUsagePolicy',
+          'Candidate cannot replace the authoritative Skill Usage plan policy.',
+        );
+    } catch {
+      add(
+        errors,
+        'SKILL_USAGE_PLAN_POLICY_INVALID',
+        'skillUsagePolicy',
+        'Skill Usage plan policy is invalid.',
+      );
+    }
+    const definition: WorkflowDefinition = Object.freeze({
+      ...parsed.data,
+      ...(effectivePolicy === undefined ? {} : { skillUsagePolicy: effectivePolicy }),
+    });
     const ids = new Set<string>();
     for (const [index, node] of definition.nodes.entries()) {
       if (ids.has(node.nodeId))
@@ -267,8 +294,14 @@ export class WorkflowValidator {
       validateNodeReferences(node, definition.nodes, ids, errors);
     validateConditionEdges(definition.nodes, definition.edges, errors);
     validateReachability(definition, ids, errors);
-    if (context.skillUsagePolicy !== undefined)
-      errors.push(...checkSkillUsagePlanCompliance(definition, context.skillUsagePolicy).errors);
+    if (effectivePolicy !== undefined)
+      errors.push(
+        ...checkSkillUsagePlanCompliance(
+          definition,
+          effectivePolicy,
+          context.allowedChildSkillIds ?? [],
+        ).errors,
+      );
     return errors.length === 0 ? { valid: true, errors, definition } : { valid: false, errors };
   }
   async #validateNode(

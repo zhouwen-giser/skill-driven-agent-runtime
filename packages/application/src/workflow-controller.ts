@@ -297,6 +297,9 @@ export class WorkflowControllerService {
       ...(sourcePlan.toolExecutionSemantics === undefined
         ? {}
         : { toolExecutionSemantics: sourcePlan.toolExecutionSemantics }),
+      ...(sourcePlan.definition.skillUsagePolicy === undefined
+        ? {}
+        : { skillUsagePolicy: sourcePlan.definition.skillUsagePolicy }),
       planningInstruction: JSON.stringify({
         operation: 'workflow_control_continue_after_input',
         workflowIdentity: {
@@ -623,6 +626,9 @@ export class WorkflowControllerService {
               ...(plan.toolExecutionSemantics === undefined
                 ? {}
                 : { toolExecutionSemantics: plan.toolExecutionSemantics }),
+              ...(plan.definition.skillUsagePolicy === undefined
+                ? {}
+                : { skillUsagePolicy: plan.definition.skillUsagePolicy }),
             }
           : {
               compositionRoot: {
