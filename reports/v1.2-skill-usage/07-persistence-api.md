@@ -2,7 +2,7 @@
 
 - Dependency class: `V11-MAIN-BASELINE-DEPENDENT`
 - Phase input SHA: `8d94dbc8cca66f372af1f9474ac3cee5eaf3739c`
-- Resulting SHA: pending Phase 7 publication
+- Resulting SHA: `b664b6de3aefbd5171aba1a38bad51982c5cec09`
 - Migration high-water: `0105_skill_usage_specification`
 - Gate: passed
 
@@ -64,3 +64,10 @@ Provider interoperability are outside this phase. A complete `pnpm verify` is no
 Phase 8 is the next entry point: bind Skill Task Types and Provider policies to the final v1.1 readiness
 authority without persisting live Provider/resource state in Skill. Draft PR #5 remains Draft and no
 merge is authorized.
+
+## Publication
+
+Commit `b664b6de3aefbd5171aba1a38bad51982c5cec09`
+(`feat(v1.2): persist versioned skill usage specifications`) was pushed immediately to the tracked
+origin branch and `git ls-remote` matched the exact SHA. This self-reference and recovery evidence is
+recorded in a separate follow-up commit without amend, rebase or force-push.
