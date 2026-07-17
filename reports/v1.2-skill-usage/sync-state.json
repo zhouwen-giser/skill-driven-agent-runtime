@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "status": "PHASE_3B_COMPLETE",
+  "status": "PHASE_4_COMPLETE_PENDING_PUSH",
   "branch": "feature/v1.2-skill-driven-capability-usage",
-  "currentPhase": "phase-4",
-  "lastCompletedPhase": "phase-3b",
+  "currentPhase": "phase-4-publication",
+  "lastCompletedPhase": "phase-4-implementation",
   "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
   "branchBaseSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
   "v11FinalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
@@ -16,13 +16,13 @@
   },
   "latestMigration": "0104_workflow_external_wait_event",
   "latestAdr": "ADR-096",
-  "nextPhase": "phase-4",
-  "lastPhaseCommit": "1c914f4fc750f43d786cc0e045ebba98eaeafd88",
+  "nextPhase": "phase-5",
+  "lastPhaseCommit": "pending-publication",
   "draftPr": {
     "number": 5,
     "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/5",
     "draft": true
   },
   "blockers": [],
-  "updatedAt": "2026-07-17T18:18:00+08:00"
+  "updatedAt": "2026-07-17T18:33:00+08:00"
 }

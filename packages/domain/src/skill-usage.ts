@@ -256,15 +256,30 @@ function validateContextRequirement(value: SkillContextRequirement): void {
   identifier(value.requirementId, 'Context requirement ID');
   text(value.description, 'context requirement description');
   if (typeof value.required !== 'boolean') invalid('Context required flag must be boolean.');
-  const sources = value.sourceOrder.map((source) =>
-    enumValue(
+  const sources: readonly SkillContextSource[] = value.sourceOrder.map((source) =>
+    enumValue<SkillContextSource>(
       source,
       ['authoritative_context', 'read_only_query', 'deterministic_derivation', 'user_input'],
       'context source',
     ),
   );
+  if (sources.length === 0) invalid('Context source order requires at least one source.');
   if (new Set(sources).size !== sources.length)
     invalid('Context source order contains duplicates.');
+  const authorityOrder: readonly SkillContextSource[] = [
+    'authoritative_context',
+    'read_only_query',
+    'deterministic_derivation',
+    'user_input',
+  ];
+  if (
+    sources.some(
+      (source, index) =>
+        index > 0 &&
+        authorityOrder.indexOf(source) <= authorityOrder.indexOf(sources[index - 1] ?? source),
+    )
+  )
+    invalid('Context sources must preserve the fixed authority order.');
   bounded(sources, 'context source order');
 }
 

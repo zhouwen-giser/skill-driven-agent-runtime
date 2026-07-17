@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "phase": 4,
+  "status": "passed",
+  "goal": "Assess Skill applicability and select a structured execution mode before model selection.",
+  "dependencyClass": "V11-INDEPENDENT / V11-CONTRACT-SENSITIVE",
+  "baseSha": "89abeaef8da24404b5f2255dd4eda8fa6053a71c",
+  "resultingSha": "pending-publication",
+  "changedFiles": [
+    "packages/domain/src/skill-applicability.ts",
+    "packages/domain/src/skill-usage.ts",
+    "packages/domain/src/skill-selection.ts",
+    "packages/application/src/skill-usage-selection.ts",
+    "packages/application/src/skill-selection.ts",
+    "packages/application/src/ports.ts",
+    "packages/application/test/skill-usage-selection.unit.test.ts",
+    "packages/application/test/skill-selection.unit.test.ts"
+  ],
+  "architecture": {
+    "path": "existing Semantic Retriever -> SkillSelectionService -> SkillSelectionDecider",
+    "readinessPort": "mock-only SkillTaskReadinessPort",
+    "preservedInvariants": [
+      "No unknown, unsatisfied or blocked-mode candidate reaches the model decider",
+      "No context value is guessed; availability requires an evidence reference",
+      "No v1.1 type, Provider state, persistence or Runtime graph is copied",
+      "All mode outputs use closed structured enums"
+    ],
+    "adrNeeded": false
+  },
+  "testsActuallyRun": [
+    { "command": "vitest run Phase 4 selection tests", "status": "passed", "files": 2, "tests": 18 },
+    { "command": "vitest run Phase 4 plus formal package regression", "status": "passed", "files": 3, "tests": 23 },
+    { "command": "vitest run --project unit", "status": "passed", "files": 68, "tests": 428 },
+    { "command": "prettier --check configured source globs", "status": "passed" },
+    { "command": "eslint .", "status": "passed" },
+    { "command": "tsc -p tsconfig.json --noEmit", "status": "passed" },
+    { "command": "node scripts/check-architecture.mjs", "status": "passed", "files": 244 }
+  ],
+  "knownLimitations": [
+    "SkillTaskReadinessPort uses mocks only; the real v1.1 adapter is Phase 8.",
+    "Phase 4 makes decisions but does not compile or execute composition/procedure IR.",
+    "External production Provider interoperability is unverified."
+  ],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true
+  },
+  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+}

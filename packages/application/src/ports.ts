@@ -103,6 +103,8 @@ import type {
   WorkflowContinuationAttemptStatus,
   WorkflowExternalWaitResolution,
   WorkflowRuntimeContinuationState,
+  SkillTaskReadinessSummary,
+  SkillTaskBinding,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -487,6 +489,17 @@ export interface TaskAvailabilityBatchReader {
       signal?: AbortSignal;
     }>,
   ): Promise<TaskAvailabilityReadResult>;
+}
+
+/** Phase 4 read-only abstraction; Phase 8 maps the v1.1 authority without copying its state model. */
+export interface SkillTaskReadinessPort {
+  inspect(
+    input: Readonly<{
+      skillId: string;
+      skillVersion: number;
+      taskBindings: readonly SkillTaskBinding[];
+    }>,
+  ): Promise<SkillTaskReadinessSummary>;
 }
 
 export interface TaskAvailabilityEvidenceRepository {

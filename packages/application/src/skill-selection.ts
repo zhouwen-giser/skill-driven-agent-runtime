@@ -7,6 +7,7 @@ import {
   type SkillPerformanceMetrics,
   type SkillReplacementPlan,
   type SkillSelectionRecord,
+  type SkillUsageSelectionContext,
   type SkillVersion,
 } from '../../domain/src/index.js';
 
@@ -19,6 +20,7 @@ import type {
   SkillSelectionRepository,
   SkillSemanticRetriever,
 } from './ports.js';
+import type { SkillUsageCandidateAssessor } from './skill-usage-selection.js';
 
 const EMPTY_METRICS: SkillPerformanceMetrics = {
   sampleCount: 0,
@@ -37,6 +39,7 @@ export class SkillSelectionService {
   readonly #decider: SkillSelectionDecider;
   readonly #clock: Clock;
   readonly #mcpWarnings: Pick<McpRegistryRepository, 'listDependencyWarnings'> | undefined;
+  readonly #usage: SkillUsageCandidateAssessor | undefined;
   readonly #ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
 
   constructor(
@@ -47,6 +50,7 @@ export class SkillSelectionService {
       retriever: SkillSemanticRetriever;
       decider: SkillSelectionDecider;
       mcpWarnings?: Pick<McpRegistryRepository, 'listDependencyWarnings'>;
+      usage?: SkillUsageCandidateAssessor;
       clock: Clock;
       ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
     }>,
@@ -57,11 +61,15 @@ export class SkillSelectionService {
     this.#retriever = dependencies.retriever;
     this.#decider = dependencies.decider;
     this.#mcpWarnings = dependencies.mcpWarnings;
+    this.#usage = dependencies.usage;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
 
-  async select(goalContract: GoalExecutionContract): Promise<SkillSelectionRecord> {
+  async select(
+    goalContract: GoalExecutionContract,
+    usageContext?: SkillUsageSelectionContext,
+  ): Promise<SkillSelectionRecord> {
     const goal = requireGoalContract(goalContract);
     const enabled = await this.#skills.listEnabledVersions();
     if (enabled.length === 0) {
@@ -70,7 +78,12 @@ export class SkillSelectionService {
         'No enabled Skill candidates exist.',
       );
     }
-    const candidates = await this.#candidateSnapshots(goal, enabled);
+    const candidates = await this.#candidateSnapshots(goal, enabled, usageContext);
+    if (candidates.length === 0)
+      throw new SkillSelectionError(
+        'SKILL_SELECTION_NO_CANDIDATES',
+        'No applicable Skill candidates exist.',
+      );
     const decision = await this.#decider.decide({
       goalContract: goal,
       candidates,
@@ -95,6 +108,7 @@ export class SkillSelectionService {
     selectionId: string,
     failedSkillId: string,
     goalContract: GoalExecutionContract,
+    usageContext?: SkillUsageSelectionContext,
   ): Promise<SkillReplacementPlan> {
     const selection = await this.#records.findSelection(selectionId);
     if (selection === undefined) {
@@ -130,7 +144,12 @@ export class SkillSelectionService {
         'No enabled alternative Skill exists.',
       );
     }
-    const candidates = await this.#candidateSnapshots(currentGoal, alternatives);
+    const candidates = await this.#candidateSnapshots(currentGoal, alternatives, usageContext);
+    if (candidates.length === 0)
+      throw new SkillSelectionError(
+        'SKILL_SELECTION_NO_ALTERNATIVE',
+        'No applicable alternative Skill exists.',
+      );
     const decision = await this.#decider.decide({
       goalContract: currentGoal,
       candidates,
@@ -157,9 +176,15 @@ export class SkillSelectionService {
   async #candidateSnapshots(
     goalContract: GoalExecutionContract,
     skills: readonly SkillVersion[],
+    usageContext?: SkillUsageSelectionContext,
   ): Promise<readonly SkillCandidateSnapshot[]> {
+    if (this.#usage !== undefined && usageContext === undefined)
+      throw new SkillSelectionError(
+        'SKILL_SELECTION_USAGE_CONTEXT_REQUIRED',
+        'Usage-aware Skill selection requires structured context and policy evidence.',
+      );
     const scores = await this.#retriever.score(goalContract, skills);
-    return Promise.all(
+    const candidates = await Promise.all(
       skills.map(async (skill) => {
         const serverIds = new Set(
           [...skill.toolPolicy.required, ...skill.toolPolicy.optional].map(
@@ -189,6 +214,10 @@ export class SkillSelectionService {
             toolRevision: warning.toolRevision,
             createdAt: warning.createdAt,
           }));
+        const usageCandidate =
+          this.#usage === undefined || usageContext === undefined
+            ? undefined
+            : await this.#usage.assess(skill, usageContext);
         return {
           skillId: skill.skillId,
           skillVersion: skill.version,
@@ -201,6 +230,7 @@ export class SkillSelectionService {
           workflowGuidanceSummary: summarizeGuidance(skill.workflowGuidance),
           runtimePolicy: skill.runtimePolicy,
           usageSummary: createSkillUsageSummary(skill),
+          ...(usageCandidate === undefined ? {} : { usageCandidate }),
           activeMcpDependencyWarnings: warnings,
           autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
           createdAt: skill.createdAt,
@@ -210,6 +240,13 @@ export class SkillSelectionService {
           ),
         };
       }),
+    );
+    return candidates.filter(
+      (candidate) =>
+        candidate.usageCandidate === undefined ||
+        (candidate.usageCandidate.modeDecision.decision === 'selected' &&
+          (candidate.usageCandidate.applicability.status === 'satisfied' ||
+            candidate.usageCandidate.applicability.status === 'partial')),
     );
   }
 }
@@ -323,7 +360,8 @@ export type SkillSelectionErrorCode =
   | 'SKILL_SELECTION_NOT_FOUND'
   | 'SKILL_SELECTION_GOAL_CONTRACT_STALE'
   | 'SKILL_SELECTION_NO_ALTERNATIVE'
-  | 'SKILL_SELECTION_NO_CANDIDATES';
+  | 'SKILL_SELECTION_NO_CANDIDATES'
+  | 'SKILL_SELECTION_USAGE_CONTEXT_REQUIRED';
 
 export class SkillSelectionError extends Error {
   readonly code: SkillSelectionErrorCode;
