@@ -1,4 +1,10 @@
 import type { SkillExecutionMode, SkillContextSource } from './skill-usage.js';
+import type {
+  TaskAvailabilityPossibleEffect,
+  TaskAvailabilityRiskLevel,
+  TaskAvailableWindow,
+  TaskReservationMode,
+} from './mcp-task-availability.js';
 
 export type SkillApplicabilityStatus = 'satisfied' | 'partial' | 'unsatisfied' | 'unknown';
 export type SkillContextObservationStatus = 'available' | 'absent' | 'unknown';
@@ -40,6 +46,25 @@ export interface SkillTaskBindingReadiness {
   readonly taskType: string;
   readonly disposition: SkillTaskReadinessDisposition;
   readonly confirmationRequired: boolean;
+  readonly reasonCodes: readonly string[];
+  readonly selectedProviderId?: string;
+  readonly selectedOperationName?: string;
+  readonly candidates?: readonly SkillTaskProviderCandidateReadiness[];
+}
+
+export interface SkillTaskProviderCandidateReadiness {
+  readonly providerId: string;
+  readonly operationName: string;
+  readonly attributes: readonly string[];
+  readonly disposition: SkillTaskReadinessDisposition;
+  readonly riskLevel: TaskAvailabilityRiskLevel;
+  readonly validUntil?: string;
+  readonly earliestStartTime?: string;
+  readonly nextAvailableWindows: readonly TaskAvailableWindow[];
+  readonly reservationMode: TaskReservationMode;
+  readonly reservationRef?: string;
+  readonly possibleEffects: readonly TaskAvailabilityPossibleEffect[];
+  readonly selected: boolean;
   readonly reasonCodes: readonly string[];
 }
 

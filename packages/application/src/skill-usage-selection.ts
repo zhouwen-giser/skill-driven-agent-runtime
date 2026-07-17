@@ -12,6 +12,7 @@ import {
   type SkillModeSystemPolicy,
   type SkillTaskBinding,
   type SkillTaskBindingReadiness,
+  type SkillTaskProviderCandidateReadiness,
   type SkillTaskReadinessDisposition,
   type SkillTaskReadinessSummary,
   type SkillUsageCandidateSnapshot,
@@ -148,6 +149,7 @@ export class SkillApplicabilityAssessor {
       skillId: skill.skillId,
       skillVersion: skill.version,
       taskBindings: usage.taskBindings,
+      allowPreferredProviderFallback: usage.adaptive.allowPreferredProviderFallback,
     });
     const readiness = validateReadiness(usage.taskBindings, reported);
     const status = applicabilityStatus(context, readiness);
@@ -307,10 +309,25 @@ function validateReadiness(
         'SKILL_TASK_READINESS_INVALID',
         'Readiness confirmation and reason evidence is invalid.',
       );
+    const candidates = item.candidates?.map(validateProviderCandidate);
+    const selected = candidates?.filter((candidate) => candidate.selected) ?? [];
+    if (
+      selected.length > 1 ||
+      (selected.length === 1 &&
+        (item.selectedProviderId !== selected[0]?.providerId ||
+          item.selectedOperationName !== selected[0]?.operationName)) ||
+      (selected.length === 0 &&
+        (item.selectedProviderId !== undefined || item.selectedOperationName !== undefined))
+    )
+      throw new SkillUsageDecisionError(
+        'SKILL_TASK_READINESS_INVALID',
+        'Selected Provider identity does not match candidate evidence.',
+      );
     seen.add(item.bindingId);
     return Object.freeze({
       ...item,
       reasonCodes: Object.freeze(item.reasonCodes.map(requireCode)),
+      ...(candidates === undefined ? {} : { candidates: Object.freeze(candidates) }),
     });
   });
   const overall = overallReadiness(snapshots);
@@ -320,6 +337,33 @@ function validateReadiness(
       'Reported overall readiness does not match binding evidence.',
     );
   return Object.freeze({ overall, bindings: Object.freeze(snapshots) });
+}
+
+function validateProviderCandidate(
+  candidate: SkillTaskProviderCandidateReadiness,
+): SkillTaskProviderCandidateReadiness {
+  if (
+    !present(candidate.providerId) ||
+    !present(candidate.operationName) ||
+    !isReadiness(candidate.disposition) ||
+    !['low', 'medium', 'high', 'critical'].includes(candidate.riskLevel) ||
+    !['none', 'best_effort', 'guaranteed'].includes(candidate.reservationMode) ||
+    typeof candidate.selected !== 'boolean' ||
+    (candidate.reservationMode === 'guaranteed' && !present(candidate.reservationRef))
+  )
+    throw new SkillUsageDecisionError(
+      'SKILL_TASK_READINESS_INVALID',
+      'Provider candidate readiness evidence is invalid.',
+    );
+  return Object.freeze({
+    ...candidate,
+    attributes: Object.freeze(candidate.attributes.map(requireCode)),
+    nextAvailableWindows: Object.freeze(
+      candidate.nextAvailableWindows.map((window) => Object.freeze({ ...window })),
+    ),
+    possibleEffects: Object.freeze([...candidate.possibleEffects]),
+    reasonCodes: Object.freeze(candidate.reasonCodes.map(requireCode)),
+  });
 }
 
 function overallReadiness(

@@ -106,5 +106,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The Phase 4 `SkillTaskReadinessPort` remains mock-only. ADR-102 requires the Phase 8 production adapter
   to directly reuse V1.1 operation discovery and Task availability/timing/window/reservation contracts.
   Production Provider readiness is therefore not claimed by Phases 4–6.
+- Phase 8 closes the mock-only gap with `V11SkillTaskReadinessAdapter` and exact registered operation
+  discovery. Task Type is the case-sensitive operation name and Provider identity is the existing
+  `serverId`; no separate certification source was supplied, so required attributes are limited to the
+  deterministic validated Task-semantics projection. Unknown certifications have no evidence and fail
+  closed. External production Provider interoperability remains unverified.
 - Applied migration high-water remains 0104. Numbers 0105 and 0106 are allocated but no migration file
   exists until Phase 7 and Phase 11 respectively.

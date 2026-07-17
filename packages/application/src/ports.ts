@@ -92,6 +92,7 @@ import type {
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
   McpTaskOperationSemantics,
+  McpTaskOperationCandidate,
   ResolvedMcpTaskExecution,
   TaskAvailabilityCheckRequest,
   TaskAvailabilityCheckResult,
@@ -485,6 +486,10 @@ export interface McpTaskOperationCatalog {
   ): Promise<McpTaskOperationSemantics | undefined>;
 }
 
+export interface SkillTaskOperationCandidateCatalog {
+  listTaskOperationCandidates(taskType: string): Promise<readonly McpTaskOperationCandidate[]>;
+}
+
 export interface TaskAvailabilityBatchReader {
   checkTaskAvailability(
     input: Readonly<{
@@ -503,6 +508,7 @@ export interface SkillTaskReadinessPort {
       skillId: string;
       skillVersion: number;
       taskBindings: readonly SkillTaskBinding[];
+      allowPreferredProviderFallback: boolean;
     }>,
   ): Promise<SkillTaskReadinessSummary>;
 }

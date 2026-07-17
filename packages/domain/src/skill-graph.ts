@@ -1,7 +1,7 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { SkillRuntimePolicy, SkillToolPolicy, SkillVersion } from './skill.js';
-import type { SkillUsageSpecification } from './skill-usage.js';
+import { createSkillUsageSpecification, type SkillUsageSpecification } from './skill-usage.js';
 
 export const MAX_SKILL_COMPOSITION_DEPTH = 8;
 export const MAX_SKILL_COMPOSITION_RELATED_SKILLS = 32;
@@ -175,9 +175,7 @@ function copySkillVersionSnapshot(skill: SkillVersionSnapshot): SkillVersionSnap
     ...(skill.usageSpecification === undefined
       ? {}
       : {
-          usageSpecification: snapshotJsonValue(
-            skill.usageSpecification,
-          ) as SkillUsageSpecification,
+          usageSpecification: createSkillUsageSpecification(skill.usageSpecification),
         }),
   });
 }

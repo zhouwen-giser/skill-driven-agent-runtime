@@ -92,8 +92,34 @@ function testCompositionContext() {
     runtimePolicy: { autoConfirmPlan: false },
     createdAt: '2026-07-12T00:00:00.000Z',
   });
+  const selectedSkill = skillSnapshot('skill.root.db', 2);
   return {
-    selectedSkill: skillSnapshot('skill.root.db', 2),
+    selectedSkill: {
+      ...selectedSkill,
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: ['Use the verified provider.'],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Prefer the shortest verified path.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Guide the workflow.', instructions: ['Use verified inputs.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+    },
     relatedSkills: [skillSnapshot('skill.child.db', 3)],
     relations: [
       {
@@ -1302,6 +1328,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
       code: 'SKILL_COMPOSITION_CONTEXT_INVALID',
+    });
+
+    await pool.query(
+      `UPDATE workflow_plan
+       SET composition_context_json=jsonb_set(
+         composition_context_json,
+         '{selectedSkill,usageSpecification,apiVersion}',
+         '"unsupported/v1"'::jsonb
+       )
+       WHERE plan_id=$1`,
+      ['plan.db'],
+    );
+    await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
+      code: 'SKILL_USAGE_SPEC_INVALID',
     });
   });
   it('round-trips structured Task capability-gap evidence', async () => {

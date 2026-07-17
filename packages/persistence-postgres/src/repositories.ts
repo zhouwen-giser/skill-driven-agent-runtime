@@ -8,6 +8,7 @@ import type {
   McpRegistryRepository,
   McpToolCatalog,
   McpTaskOperationCatalog,
+  SkillTaskOperationCandidateCatalog,
   McpServerRecord,
   ModelProviderRecord,
   ModelRuntimeRepository,
@@ -69,6 +70,7 @@ import type {
   McpToolDependencyChange,
   McpToolEnhancement,
   McpTaskOperationSemantics,
+  McpTaskOperationCandidate,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   StageModelRoute,
@@ -239,6 +241,7 @@ const SkillVersionSnapshotSchema = z
     toolPolicy: ToolPolicySchema,
     runtimePolicy: RuntimePolicySchema,
     createdAt: z.string(),
+    usageSpecification: z.unknown().optional(),
   })
   .strict();
 const SkillRelationSchema = z
@@ -5548,7 +5551,11 @@ const temporarySkillSelect = `SELECT temporary_skill_id, task_id, context_id, na
   capability_fingerprint, status, created_at, expired_at FROM temporary_skill`;
 
 export class PostgresMcpRegistryRepository
-  implements McpRegistryRepository, McpToolCatalog, McpTaskOperationCatalog
+  implements
+    McpRegistryRepository,
+    McpToolCatalog,
+    McpTaskOperationCatalog,
+    SkillTaskOperationCandidateCatalog
 {
   readonly #pool: Pool;
   readonly #v11TaskMetadata: boolean;
@@ -5627,6 +5634,28 @@ export class PostgresMcpRegistryRepository
     return value === undefined || value === null
       ? undefined
       : McpTaskOperationSemanticsSchema.parse(value);
+  }
+
+  async listTaskOperationCandidates(
+    taskType: string,
+  ): Promise<readonly McpTaskOperationCandidate[]> {
+    if (!this.#v11TaskMetadata) return [];
+    const result = await this.#pool.query<{ server_id: string; task_execution_json: unknown }>(
+      `SELECT t.server_id,t.task_execution_json FROM mcp_tool t
+       JOIN mcp_server s ON s.server_id=t.server_id
+       WHERE t.tool_name=$1 AND s.status='enabled' AND t.task_execution_json IS NOT NULL
+       ORDER BY t.server_id`,
+      [taskType],
+    );
+    return result.rows.map((row) => {
+      const semantics = McpTaskOperationSemanticsSchema.parse(row.task_execution_json);
+      return Object.freeze({
+        providerId: row.server_id,
+        operationName: taskType,
+        semantics,
+        attributes: Object.freeze(taskOperationAttributes(semantics)),
+      });
+    });
   }
 
   async saveServerAndReplaceTools(
@@ -6109,6 +6138,18 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
     ...(row.previous_version === null ? {} : { previousVersion: row.previous_version }),
     createdAt: toIsoString(row.created_at),
   });
+}
+
+function taskOperationAttributes(semantics: McpTaskOperationSemantics): string[] {
+  return [
+    'mcp_task',
+    `execution:${semantics.execution}`,
+    `availability:${semantics.availability}`,
+    `cancellation:${semantics.cancellation}`,
+    ...(semantics.supportsScheduling ? ['scheduling'] : []),
+    ...(semantics.supportsMaxElapsed ? ['max_elapsed'] : []),
+    ...(semantics.supportsObservations ? ['observations'] : []),
+  ].sort();
 }
 
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {

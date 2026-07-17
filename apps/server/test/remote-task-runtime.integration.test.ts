@@ -187,6 +187,23 @@ describe('PostgreSQL remote MCP Task authority', () => {
       }),
     ]);
     await expect(v11Registry.getTaskOperationSemantics(reference)).resolves.toEqual(taskExecution);
+    await expect(v11Registry.listTaskOperationCandidates('dispatch')).resolves.toEqual([
+      {
+        providerId: reference.serverId,
+        operationName: 'dispatch',
+        semantics: taskExecution,
+        attributes: [
+          'availability:dynamic',
+          'cancellation:task_cancel',
+          'execution:task_capable',
+          'max_elapsed',
+          'mcp_task',
+          'observations',
+          'scheduling',
+        ],
+      },
+    ]);
+    await expect(v11Registry.listTaskOperationCandidates('missing')).resolves.toEqual([]);
 
     const defaultTools = await defaultRegistry.listTools(reference.serverId);
     expect(defaultTools).toEqual([
@@ -199,6 +216,7 @@ describe('PostgreSQL remote MCP Task authority', () => {
     ]);
     expect(defaultTools[0]).not.toHaveProperty('taskExecution');
     await expect(defaultRegistry.getTaskOperationSemantics(reference)).resolves.toBeUndefined();
+    await expect(defaultRegistry.listTaskOperationCandidates('dispatch')).resolves.toEqual([]);
   });
 
   it('appends immutable planning and pre-invocation availability evidence', async () => {

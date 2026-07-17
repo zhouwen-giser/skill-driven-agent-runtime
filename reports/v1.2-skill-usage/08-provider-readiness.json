@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "phase": 8,
+  "status": "passed",
+  "goal": "Resolve Skill Task Types to registered Provider operations, enforce policy, and reuse V1.1 live readiness before planning.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "460d39d8bd2e7d8d1033e452ac70924e22033a65",
+  "resultingSha": null,
+  "authority": {
+    "taskType": "exact case-sensitive registered MCP operation name",
+    "providerIdentity": "existing MCP serverId",
+    "candidateAttributes": "deterministic projection of validated McpTaskOperationSemantics",
+    "liveReadiness": "existing TaskAvailabilityBatchReader through McpRegistryService",
+    "finalReadiness": "existing exact-argument V1.1 pre-invocation guard",
+    "providerStatePersistedInSkill": false
+  },
+  "policy": {
+    "requiredFallback": false,
+    "preferredFallbackRequiresAdaptivePermission": true,
+    "forbiddenFilteredBeforeReadiness": true,
+    "unknownPromotedToAvailable": false,
+    "guaranteedRequiresReservationRef": true,
+    "metadataDisabledFailsClosed": true
+  },
+  "testsActuallyRun": [
+    {
+      "command": "pnpm format:check && pnpm lint && pnpm typecheck && node scripts/check-architecture.mjs",
+      "status": "passed",
+      "architectureSourceFiles": 248
+    },
+    {
+      "command": "vitest skill-task-readiness + skill-usage-selection + skill-selection",
+      "status": "passed",
+      "files": 3,
+      "tests": 23
+    },
+    {
+      "command": "vitest apps/server/test/remote-task-runtime.integration.test.ts",
+      "status": "passed",
+      "files": 1,
+      "tests": 8,
+      "infrastructure": "real PostgreSQL and Redis"
+    },
+    {
+      "command": "vitest packages/persistence-postgres/test/repositories.integration.test.ts",
+      "status": "passed",
+      "files": 1,
+      "tests": 56,
+      "infrastructure": "real PostgreSQL"
+    },
+    {
+      "command": "vitest packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+      "status": "passed",
+      "files": 1,
+      "tests": 48,
+      "infrastructure": "real Server/PostgreSQL/Redis/loopback MCP"
+    }
+  ],
+  "requiredCases": {
+    "available": "passed",
+    "restrictedEarliestTime": "passed",
+    "multipleWindows": "passed",
+    "disabled": "passed",
+    "unknown": "passed",
+    "requiredProviderUnavailable": "passed",
+    "preferredFallback": "passed",
+    "forbiddenProvider": "passed",
+    "staleValidUntil": "passed",
+    "reservationConsistency": "passed"
+  },
+  "defectsFixed": [
+    "Strict persisted Skill composition snapshots now admit and Domain-revalidate native usageSpecification."
+  ],
+  "adr": "ADR-104",
+  "migration": "none",
+  "knownLimitations": [
+    "Planning compliance and mode compilation remain Phase 9.",
+    "External production Provider interoperability is unverified."
+  ],
+  "push": {
+    "status": "pending",
+    "remote": "origin",
+    "remoteSha": null
+  }
+}

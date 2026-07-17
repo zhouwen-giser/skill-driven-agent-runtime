@@ -2540,6 +2540,42 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(registered.status, await registered.text()).toBe(201);
       await runtime.registerSkill({
         ...skillInput(skillId, 'Zebra MCP Tasks vertical acceptance'),
+        capabilities: ['task_success'],
+        usageSpecification: {
+          apiVersion: 'sdar.io/v1alpha1',
+          visibility: { userSelectable: true, composable: true, internalOnly: false },
+          normative: {
+            constraints: ['Use the registered remote Task operation.'],
+            forbiddenActions: [],
+            requiredConfirmations: ['remote_task_execution'],
+            noApplicableSkill: 'reject',
+          },
+          adaptive: {
+            instructions: ['Prefer the declared Provider policy.'],
+            optimizationHints: [],
+            allowPreferredProviderFallback: false,
+          },
+          contextRequirements: [],
+          modes: {
+            supported: ['guidance'],
+            defaultMode: 'guidance',
+            guidance: { summary: 'Remote Task guidance.', instructions: ['Plan safely.'] },
+          },
+          taskBindings: [
+            {
+              bindingId: 'vertical-task',
+              taskType: 'task_success',
+              providerPolicy: {
+                selection: 'required',
+                preferredProviderIds: [],
+                requiredProviderId: serverId,
+                forbiddenProviderIds: [],
+                requiredAttributes: ['availability:dynamic', 'observations'],
+              },
+            },
+          ],
+          evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+        },
         toolPolicy: {
           required: [{ serverId, toolName: 'task_success' }],
           optional: [],
@@ -2566,6 +2602,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
       expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
       expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+      expect(
+        provider.requests.some(
+          (request) =>
+            request.method === 'io.sdar/tasks/checkAvailability' &&
+            JSON.stringify(request.params).includes('vertical-task'),
+        ),
+      ).toBe(true);
 
       const prepared = z
         .object({ planId: z.string(), selectedSkillId: z.string() })

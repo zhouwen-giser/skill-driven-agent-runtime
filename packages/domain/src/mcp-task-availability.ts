@@ -12,6 +12,14 @@ export interface McpTaskOperationSemantics {
   readonly revision: '1.0';
 }
 
+/** Registered operation projection used for Skill Task Type resolution. */
+export interface McpTaskOperationCandidate {
+  readonly providerId: string;
+  readonly operationName: string;
+  readonly semantics: McpTaskOperationSemantics;
+  readonly attributes: readonly string[];
+}
+
 export type TaskExecutionStart =
   | Readonly<{ mode: 'immediate'; startToleranceMs: number }>
   | Readonly<{ mode: 'scheduled'; scheduledAt: string; startToleranceMs: number }>;

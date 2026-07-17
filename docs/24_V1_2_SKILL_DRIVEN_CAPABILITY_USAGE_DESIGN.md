@@ -1,6 +1,6 @@
 # SDAR v1.2 Skill-Driven Capability Usage — Normalized Design
 
-Status: Phase 7 versioned usage persistence/API implemented and verified; Phase 8 readiness next
+Status: Phase 8 Provider readiness and Task Type binding implemented and verified; Phase 9 planning compliance next
 Date: 2026-07-17
 ExecPlan: `execplans/EP-10-v1.2-skill-driven-capability-usage.md`
 
@@ -125,11 +125,15 @@ reservation, resources, execution state and final result. Required unavailable P
 silently replaced; preferred Providers may fall back only as permitted; forbidden Providers are always
 filtered; unknown is never promoted to available; guaranteed requires a valid reservation reference.
 
-The Phase 8 production readiness adapter directly uses the existing `McpTaskOperationCatalog`,
-`TaskAvailabilityBatchReader` and V1.1 Domain availability/timing/window/reservation types. The Phase 4
-`SkillTaskReadinessPort` mock is not production evidence. The exact projection is
+The Phase 8 production readiness adapter uses a narrow exact-name candidate catalog over the existing
+MCP registry, the existing `TaskAvailabilityBatchReader` and V1.1 Domain
+availability/timing/window/reservation types. Candidate hard attributes derive only from validated
+V1.1 Task operation semantics; Tool enhancement text is not authority. The exact projection is
 `available → ready`, `restricted → restricted`, `disabled → unavailable` and
 `unknown/Provider errors → unknown`; the existing exact-argument pre-invocation guard remains final.
+Usage-aware selection is always present when Skill selection is enabled. A deployment without V1.1
+Task metadata returns no registered Task candidates, so native bindings fail closed instead of bypassing
+readiness. ADR-104 records the exact Task Type/Provider/attribute authority.
 
 ## Execution and evidence boundary
 

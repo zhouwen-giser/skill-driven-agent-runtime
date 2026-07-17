@@ -39,6 +39,11 @@ import {
   SkillCompositionPlanner,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillContextRequirementResolver,
+  SkillApplicabilityAssessor,
+  SkillModeSelector,
+  SkillUsageCandidateAssessor,
+  V11SkillTaskReadinessAdapter,
   SkillInputResolutionService,
   SkillQualityService,
   SkillCallWorkflowService,
@@ -443,28 +448,6 @@ export async function startServerRuntime(
     clock,
     ids: { nextRelationId: () => `skill-relation-${randomUUID()}` },
   });
-  const skillSelection =
-    options.skillSelection === undefined
-      ? undefined
-      : new SkillSelectionService({
-          skills,
-          graph: skillGraphRepository,
-          records: skillSelectionRepository,
-          retriever: new PersistedSkillSemanticRetriever({
-            embeddings: options.skillSelection.embeddings,
-            repository: new PostgresSkillEmbeddingRepository(pool),
-            clock,
-          }),
-          decider:
-            options.skillSelection.decider ??
-            new StructuredSkillSelectionDecider(modelRuntime, memories),
-          mcpWarnings: mcpRepository,
-          clock,
-          ids: {
-            nextSelectionId: () => `skill-selection-${randomUUID()}`,
-            nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
-          },
-        });
   const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(pool);
   const skillInputResolution = new SkillInputResolutionService({
     model: modelRuntime,
@@ -503,6 +486,41 @@ export async function startServerRuntime(
           ids: {
             nextReadinessId: () => `task-readiness-${randomUUID()}`,
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
+          },
+        });
+  const skillTaskReadiness = new V11SkillTaskReadinessAdapter({
+    operations: mcpRepository,
+    availability: mcpRegistry,
+    clock,
+  });
+  const skillUsage = new SkillUsageCandidateAssessor({
+    applicability: new SkillApplicabilityAssessor({
+      contexts: new SkillContextRequirementResolver(),
+      readiness: skillTaskReadiness,
+    }),
+    modes: new SkillModeSelector(),
+  });
+  const skillSelection =
+    options.skillSelection === undefined
+      ? undefined
+      : new SkillSelectionService({
+          skills,
+          graph: skillGraphRepository,
+          records: skillSelectionRepository,
+          retriever: new PersistedSkillSemanticRetriever({
+            embeddings: options.skillSelection.embeddings,
+            repository: new PostgresSkillEmbeddingRepository(pool),
+            clock,
+          }),
+          decider:
+            options.skillSelection.decider ??
+            new StructuredSkillSelectionDecider(modelRuntime, memories),
+          mcpWarnings: mcpRepository,
+          usage: skillUsage,
+          clock,
+          ids: {
+            nextSelectionId: () => `skill-selection-${randomUUID()}`,
+            nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
         });
   const workflowPlanner = new WorkflowPlannerService({
@@ -1370,6 +1388,7 @@ export async function startServerRuntime(
           task.skillSelectionId,
           task.selectedSkillId,
           createGoalExecutionContract(goal),
+          conservativeSkillUsageSelectionContext(),
         );
         return {
           skillId: replacement.replacementSkillId,
@@ -1697,7 +1716,10 @@ export async function startServerRuntime(
           skillSelection !== undefined
         ) {
           try {
-            return await skillSelection.select(goalContract);
+            return await skillSelection.select(
+              goalContract,
+              conservativeSkillUsageSelectionContext(),
+            );
           } catch (error: unknown) {
             if (!(
               typeof error === 'object' &&
@@ -2048,7 +2070,10 @@ export async function startServerRuntime(
                       ),
                       { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' as const },
                     );
-                  return skillSelection.select(goalContract);
+                  return skillSelection.select(
+                    goalContract,
+                    conservativeSkillUsageSelectionContext(),
+                  );
                 },
               },
             }),
@@ -2244,6 +2269,19 @@ export async function startServerRuntime(
     await pool.end();
     throw error;
   }
+}
+
+function conservativeSkillUsageSelectionContext() {
+  return Object.freeze({
+    observations: Object.freeze([]),
+    risk: 'medium' as const,
+    humanConfirmation: 'pending' as const,
+    systemPolicy: Object.freeze({
+      allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
+      requireProcedureForHighRisk: true,
+      allowGuidanceWithIncompleteContext: true,
+    }),
+  });
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
