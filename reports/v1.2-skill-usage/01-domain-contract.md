@@ -3,7 +3,7 @@
 - Goal: immutable, bounded and backward-compatible Skill Usage contracts
 - Dependency class: `V11-INDEPENDENT`
 - Base SHA: `59287cc3f704e9878b5ccf2299f94842a7ee7840`
-- Resulting SHA: pending Phase 1 commit
+- Resulting SHA: `53e7b26120f9b65cd1cc01329c9ccc8bebe488f7`
 - v1.1 Gate: OPEN
 
 ## Delivered
@@ -52,5 +52,6 @@ Phase 2 adds JSON Schema and a safe package reader/validator/import model withou
 
 ## Publication
 
-Commit and push evidence are pending at report generation time and will be recorded without amending the
-published Phase commit.
+Commit `53e7b26120f9b65cd1cc01329c9ccc8bebe488f7`
+(`feat(v1.2): add immutable skill usage contracts`) was pushed immediately to the tracked origin branch.
+This evidence is recorded in a follow-up commit without amending or rebasing the published Phase commit.

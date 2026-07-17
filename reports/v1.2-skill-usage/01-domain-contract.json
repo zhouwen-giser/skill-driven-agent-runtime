@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "phase": 1,
-  "status": "passed_pending_publication",
+  "status": "passed",
   "goal": "Add immutable backward-compatible Skill Usage domain contracts.",
   "dependencyClass": "V11-INDEPENDENT",
   "baseSha": "59287cc3f704e9878b5ccf2299f94842a7ee7840",
-  "resultingSha": "pending-phase-1-commit",
+  "resultingSha": "53e7b26120f9b65cd1cc01329c9ccc8bebe488f7",
   "changedFiles": [
     "packages/domain/src/skill-usage.ts",
     "packages/domain/src/skill.ts",
@@ -54,5 +54,9 @@
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true
   },
-  "push": { "status": "pending" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "53e7b26120f9b65cd1cc01329c9ccc8bebe488f7"
+  }
 }
