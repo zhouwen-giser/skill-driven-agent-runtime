@@ -5,7 +5,7 @@
   "goal": "Assess Skill applicability and select a structured execution mode before model selection.",
   "dependencyClass": "V11-INDEPENDENT / V11-CONTRACT-SENSITIVE",
   "baseSha": "89abeaef8da24404b5f2255dd4eda8fa6053a71c",
-  "resultingSha": "pending-publication",
+  "resultingSha": "b847e6a2d42f29d33561ed00b5ce2506a64d3d2b",
   "changedFiles": [
     "packages/domain/src/skill-applicability.ts",
     "packages/domain/src/skill-usage.ts",
@@ -46,5 +46,9 @@
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "b847e6a2d42f29d33561ed00b5ce2506a64d3d2b"
+  }
 }

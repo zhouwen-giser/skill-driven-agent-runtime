@@ -3,7 +3,7 @@
 - Goal: deterministic applicability and mode decisions before the existing model decider
 - Dependency class: `V11-INDEPENDENT / V11-CONTRACT-SENSITIVE`
 - Base SHA: `89abeaef8da24404b5f2255dd4eda8fa6053a71c`
-- Resulting SHA: pending publication
+- Resulting SHA: `b847e6a2d42f29d33561ed00b5ce2506a64d3d2b`
 - v1.1 Gate: OPEN; readiness integration remains mock-only
 
 ## Delivered
@@ -57,5 +57,7 @@ the accepted v1.1 readiness authority behind this Port.
 
 ## Publication
 
-The designated Phase commit is pending. Its immutable commit and remote SHA will be recorded in the
-immediate follow-up evidence commit without amend, rebase or force push.
+Commit `b847e6a2d42f29d33561ed00b5ce2506a64d3d2b`
+(`feat(v1.2): assess skill applicability and select execution modes`) was pushed immediately to the
+tracked origin branch and the remote SHA matched exactly. This evidence is recorded in a follow-up
+commit without amending, rebasing or force-pushing the published Phase commit.
