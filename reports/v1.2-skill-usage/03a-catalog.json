@@ -5,7 +5,7 @@
   "goal": "Extend the existing in-memory Skill catalog/version path with usage summaries and filters.",
   "dependencyClass": "V11-INDEPENDENT",
   "baseSha": "467c96b501f82c955940509ffaa31ed6d7aa1180",
-  "resultingSha": "pending-publication",
+  "resultingSha": "df789e587daf9c6234a6fba7ee762ccb80d617f9",
   "changedFiles": [
     "packages/domain/src/skill-catalog.ts",
     "packages/domain/src/skill-selection.ts",
@@ -43,5 +43,9 @@
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "df789e587daf9c6234a6fba7ee762ccb80d617f9"
+  }
 }

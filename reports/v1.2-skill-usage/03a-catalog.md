@@ -3,7 +3,7 @@
 - Goal: extend the existing in-memory catalog/version path with Skill usage projections
 - Dependency class: `V11-INDEPENDENT`
 - Base SHA: `467c96b501f82c955940509ffaa31ed6d7aa1180`
-- Resulting SHA: pending publication
+- Resulting SHA: `df789e587daf9c6234a6fba7ee762ccb80d617f9`
 - v1.1 Gate: OPEN
 
 ## Delivered
@@ -50,5 +50,7 @@ using the Phase 2 boundary and this catalog contract.
 
 ## Publication
 
-The designated Phase commit is pending. Its immutable commit and remote SHA will be recorded in the
-immediate follow-up evidence commit without amend, rebase or force push.
+Commit `df789e587daf9c6234a6fba7ee762ccb80d617f9`
+(`feat(v1.2): extend skill catalog with usage specifications`) was pushed immediately to the tracked
+origin branch and the remote SHA matched exactly. This evidence is recorded in a follow-up commit
+without amending, rebasing or force-pushing the published Phase commit.
