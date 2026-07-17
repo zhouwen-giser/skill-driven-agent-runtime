@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 1 immutable `sdar.io/v1alpha1` Skill Usage contracts with native/legacy snapshots, normative/adaptive separation, three modes, bounded Provider/composition/evidence policies and candidate-only patches.
 - Frozen SDAR v1.2 EP-10, exact Goal task package, normalized Skill-driven capability-usage design, v1.1 overlap/symbol maps and recoverable Phase 0 baseline evidence.
 - Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
 - Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.

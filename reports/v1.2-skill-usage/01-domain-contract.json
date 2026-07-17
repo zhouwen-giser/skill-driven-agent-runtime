@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "phase": 1,
+  "status": "passed_pending_publication",
+  "goal": "Add immutable backward-compatible Skill Usage domain contracts.",
+  "dependencyClass": "V11-INDEPENDENT",
+  "baseSha": "59287cc3f704e9878b5ccf2299f94842a7ee7840",
+  "resultingSha": "pending-phase-1-commit",
+  "changedFiles": [
+    "packages/domain/src/skill-usage.ts",
+    "packages/domain/src/skill.ts",
+    "packages/domain/src/skill-graph.ts",
+    "packages/domain/src/errors.ts",
+    "packages/domain/src/index.ts",
+    "packages/domain/test/skill-usage.unit.test.ts",
+    "docs/17_TRACEABILITY_MATRIX.md"
+  ],
+  "architecture": {
+    "owner": "packages/domain",
+    "touchedBoundaries": ["SkillVersion additive snapshot", "Skill Graph exact-version snapshot"],
+    "preservedInvariants": [
+      "No second runtime or executable LLM output",
+      "No SDK, ORM, Provider or LangGraph type enters Domain",
+      "Existing Skill lifecycle and legacy versions remain valid",
+      "Provider and Workflow state authority is not copied",
+      "Usage depth default 3 and hard maximum 5 is independent from generic graph depth 8"
+    ],
+    "adrNeeded": false
+  },
+  "testsRequested": [
+    "targeted Skill Usage unit tests",
+    "all unit tests",
+    "format check",
+    "lint",
+    "typecheck",
+    "architecture check"
+  ],
+  "testsActuallyRun": [
+    { "command": "vitest run packages/domain/test/skill-usage.unit.test.ts", "status": "passed", "tests": 12 },
+    { "command": "vitest run --project unit", "status": "passed", "files": 67, "tests": 414 },
+    { "command": "prettier --check configured source globs", "status": "passed" },
+    { "command": "eslint .", "status": "passed" },
+    { "command": "tsc -p tsconfig.json --noEmit", "status": "passed" },
+    { "command": "node scripts/check-architecture.mjs", "status": "passed", "files": 234 }
+  ],
+  "knownLimitations": [
+    "Package filesystem/schema validation is Phase 2.",
+    "Applicability, mode decisions and composition execution are types only until Phases 4-5.",
+    "No persistence, API, Console or Runtime wiring occurs before their gated phases."
+  ],
+  "deferredWork": ["Phase 2 Skill Package schema, safe reader, validator and importer"],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true
+  },
+  "push": { "status": "pending" }
+}

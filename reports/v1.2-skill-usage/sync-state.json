@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "status": "V11_MAIN_BASELINE_READY",
+  "status": "PHASE_1_COMPLETE_PENDING_PUSH",
   "branch": "feature/v1.2-skill-driven-capability-usage",
-  "currentPhase": "phase-1",
+  "currentPhase": "phase-1-publication",
   "lastCompletedPhase": "phase-0",
   "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
   "branchBaseSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
@@ -16,7 +16,7 @@
   },
   "latestMigration": "0104_workflow_external_wait_event",
   "latestAdr": "ADR-095",
-  "nextPhase": "phase-1",
+  "nextPhase": "phase-2",
   "lastPhaseCommit": "3e5ed759de421d1d6b687da67ad400ceb7cca962",
   "draftPr": {
     "number": 5,
@@ -24,5 +24,5 @@
     "draft": true
   },
   "blockers": [],
-  "updatedAt": "2026-07-17T17:21:06+08:00"
+  "updatedAt": "2026-07-17T17:31:00+08:00"
 }

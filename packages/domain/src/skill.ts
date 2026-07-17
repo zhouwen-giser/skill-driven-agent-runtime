@@ -1,5 +1,6 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
+import { createSkillUsageSpecification, type SkillUsageSpecification } from './skill-usage.js';
 
 export type SkillStatus =
   'draft' | 'validating' | 'enabled' | 'disabled' | 'deprecated' | 'validation_failed';
@@ -41,6 +42,7 @@ export interface SkillVersion {
   readonly validationPassed: boolean;
   readonly previousVersion?: number;
   readonly createdAt: string;
+  readonly usageSpecification?: SkillUsageSpecification;
 }
 export interface Skill {
   readonly skillId: string;
@@ -68,13 +70,16 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
       'Enabled Skill versions require validation.',
     );
   }
-  return {
+  return Object.freeze({
     ...input,
     skillId,
     name: input.name.trim(),
     summary: input.summary.trim(),
     description: input.description.trim(),
-  };
+    ...(input.usageSpecification === undefined
+      ? {}
+      : { usageSpecification: createSkillUsageSpecification(input.usageSpecification) }),
+  });
 }
 
 function assertRuntimePolicy(policy: SkillRuntimePolicy): void {
