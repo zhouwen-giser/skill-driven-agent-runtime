@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 3B reviewed `embodied.move_to` and `embodied.area_patrol` packages with three modes, Provider bindings, bounded composition/failure policy, evidence gates and checksum-pinned golden import snapshots.
 - Phase 3A immutable current/exact-version catalog summaries, native/legacy usage diff, package import continuity, lifecycle projection and visibility/mode/derived-domain/exact-capability-tag filters through the existing Skill Registry.
 - Phase 2 strict Skill Package JSON Schema, checksum-bound bounded UTF-8 reader, path/symlink/type/size guards, embedded-schema validation and immutable import candidates behind a filesystem adapter.
 - Phase 1 immutable `sdar.io/v1alpha1` Skill Usage contracts with native/legacy snapshots, normative/adaptive separation, three modes, bounded Provider/composition/evidence policies and candidate-only patches.
@@ -31,6 +32,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 3B formal package schema/import/invalid/legacy/golden tests passed 5/5 and all 106 contract tests passed.
 - SDAR v1.2 Phase 3A targeted catalog/selection tests passed 12/12, all 417 unit tests passed, strict typecheck passed and architecture verified 240 TypeScript sources.
 - SDAR v1.2 Phase 2 self-managed Compose `pnpm verify` passed in 149,172 ms with 513 unit/contract, 80 integration, 49 E2E, 239-source architecture, migration/build and both smoke gates; the final package security suite passes 10/10.
 - `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.

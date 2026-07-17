@@ -1,0 +1,14 @@
+{
+  "adaptive": {
+    "instructions": [
+      "Partition the area into deterministic bounded subregions before planning movement.",
+      "Retry recoverable subregion failures only within the shared usage budget.",
+      "When a degraded edge is admitted, report partial coverage and every missing effect or evidence item.",
+      "On cancellation, stop admitting new subregions and preserve partial coverage, trajectory, anomalies, and Provider uncertainty."
+    ],
+    "optimizationHints": [
+      "Order adjacent subregions to reduce transit while preserving coverage and time-window constraints."
+    ],
+    "allowPreferredProviderFallback": true
+  }
+}

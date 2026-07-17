@@ -1,0 +1,23 @@
+{
+  "requirements": [
+    {
+      "requirementId": "coverage-report",
+      "evidenceType": "patrol.coverage",
+      "required": true,
+      "hardGate": true
+    },
+    {
+      "requirementId": "trajectory",
+      "evidenceType": "patrol.trajectory",
+      "required": true,
+      "hardGate": true
+    },
+    {
+      "requirementId": "anomaly-report",
+      "evidenceType": "patrol.anomalies",
+      "required": true,
+      "hardGate": false
+    }
+  ],
+  "rejectSuccessWithoutRequiredEvidence": true
+}

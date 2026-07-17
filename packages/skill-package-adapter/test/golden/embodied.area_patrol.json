@@ -1,0 +1,51 @@
+{
+  "skillId": "embodied.area_patrol",
+  "version": 1,
+  "packageChecksum": "696e660c091f0adfc813a746f79db2981205f6615960d3acbbdd4493ebf4022b",
+  "capabilities": ["embodied.area_patrol", "embodied.coverage", "embodied.anomaly_reporting"],
+  "visibility": { "userSelectable": true, "composable": true, "internalOnly": false },
+  "supportedModes": ["guidance", "template", "procedure"],
+  "defaultMode": "procedure",
+  "taskTypes": ["embodied.area_patrol"],
+  "composition": {
+    "maxDepth": 3,
+    "fixedDependencies": [
+      {
+        "dependencyId": "move-between-subregions",
+        "skillId": "embodied.move_to",
+        "skillVersion": 1,
+        "failurePolicy": "recoverable"
+      }
+    ],
+    "capabilitySlots": [
+      {
+        "slotId": "subregion-inspection",
+        "capability": "embodied.inspect_area",
+        "required": true,
+        "candidateSkillIds": [],
+        "failurePolicy": "degraded"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "requirementId": "coverage-report",
+      "evidenceType": "patrol.coverage",
+      "required": true,
+      "hardGate": true
+    },
+    {
+      "requirementId": "trajectory",
+      "evidenceType": "patrol.trajectory",
+      "required": true,
+      "hardGate": true
+    },
+    {
+      "requirementId": "anomaly-report",
+      "evidenceType": "patrol.anomalies",
+      "required": true,
+      "hardGate": false
+    }
+  ],
+  "rejectSuccessWithoutRequiredEvidence": true
+}

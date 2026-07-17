@@ -1,0 +1,13 @@
+{
+  "adaptive": {
+    "instructions": [
+      "Prefer the shortest route that satisfies every normative constraint.",
+      "If cancellation is requested, stop issuing new work and observe the Provider until terminal or explicitly uncertain.",
+      "If movement fails, report the target, last authoritative position, Provider outcome, and safe next action."
+    ],
+    "optimizationHints": [
+      "Minimize unnecessary movement without trading away safety or evidence quality."
+    ],
+    "allowPreferredProviderFallback": false
+  }
+}

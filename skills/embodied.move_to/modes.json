@@ -1,0 +1,22 @@
+{
+  "supported": ["guidance", "template", "procedure"],
+  "defaultMode": "template",
+  "guidance": {
+    "summary": "Bounded planning guidance for a safe move.",
+    "instructions": [
+      "Explain the permitted route and evidence gates without creating executable source."
+    ]
+  },
+  "template": {
+    "summary": "Parameterized movement plan skeleton.",
+    "instructions": [
+      "Bind resourceId, target, context evidence, confirmation, movement Task, and final-position check."
+    ]
+  },
+  "procedure": {
+    "summary": "Declarative movement procedure for compilation into the existing Workflow DSL.",
+    "instructions": [
+      "Resolve required context, enforce confirmation, invoke the declared Task binding, and hard-gate success on final position."
+    ]
+  }
+}

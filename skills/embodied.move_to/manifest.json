@@ -1,0 +1,82 @@
+{
+  "apiVersion": "sdar.io/v1alpha1",
+  "kind": "SkillPackage",
+  "skill": {
+    "skillId": "embodied.move_to",
+    "version": 1,
+    "name": "Move To",
+    "summary": "Move an identified resource to a permitted target with final-position evidence.",
+    "description": "Uses an authoritative movement Provider while preserving permission, forbidden-area, cancellation, failure, and evidence policy.",
+    "capabilities": ["embodied.move", "embodied.navigation"],
+    "workflowGuidance": "Resolve authoritative context, bind the declared movement Task, and hard-gate completion on final-position evidence.",
+    "outputInstruction": "Return the Provider outcome, final authoritative position, achieved target, and any cancellation or failure uncertainty.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId", "target"],
+      "properties": {
+        "resourceId": { "type": "string", "minLength": 1 },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "frame": { "type": "string" }
+          }
+        }
+      }
+    },
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId", "status", "finalPosition"],
+      "properties": {
+        "resourceId": { "type": "string" },
+        "status": { "enum": ["completed", "failed", "cancelled", "uncertain"] },
+        "finalPosition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "frame": { "type": "string" }
+          }
+        }
+      }
+    },
+    "toolPolicy": { "required": [], "optional": [], "forbidden": [] },
+    "runtimePolicy": {
+      "autoConfirmPlan": false,
+      "maxReplans": 1,
+      "maxDurationSeconds": 600,
+      "maxMcpCalls": 8,
+      "cancelStrategy": "try_interrupt"
+    },
+    "status": "enabled",
+    "sourceKind": "admin",
+    "validationPassed": true,
+    "createdAt": "2026-07-17T00:00:00.000Z"
+  },
+  "skillMarkdownSha256": "70e1a81757b4e4bbb0f5068fd3d3203af7d5ca4054f493d99c5bec9ad5ff05ab",
+  "files": {
+    "normative": {
+      "path": "normative.json",
+      "sha256": "d47f8a81d03b1ae5d84c60fd667070623f65f8c73e1ba07cad45e33735957b48"
+    },
+    "adaptive": {
+      "path": "adaptive.json",
+      "sha256": "08c456e3bbb727e8a9f0204b5ad39c4fca3264384bc268e60bbf67a87f51eb68"
+    },
+    "modes": {
+      "path": "modes.json",
+      "sha256": "5519641e6366ed4b0f4073e6968ce8459bb615e0a4f2525db26cd82c797eb86d"
+    },
+    "evidence": {
+      "path": "evidence.json",
+      "sha256": "40627da80559c5186c1530d490ddef87a9dfd9f7074a5ae8506d64b182519931"
+    }
+  }
+}
