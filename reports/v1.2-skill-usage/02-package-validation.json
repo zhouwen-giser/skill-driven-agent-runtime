@@ -5,7 +5,7 @@
   "goal": "Safely validate and load immutable Skill usage package import candidates.",
   "dependencyClass": "V11-INDEPENDENT",
   "baseSha": "72af560b87589cd1cedcfc6affd6eb3fdc61f548",
-  "resultingSha": "pending-publication",
+  "resultingSha": "0ddcd4867201a7cfc11ba481b6c92cc4cb5d0b11",
   "changedFiles": [
     "schemas/skill-package.schema.json",
     "packages/domain/src/skill-package.ts",
@@ -44,5 +44,9 @@
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "0ddcd4867201a7cfc11ba481b6c92cc4cb5d0b11"
+  }
 }

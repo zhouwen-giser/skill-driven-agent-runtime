@@ -3,7 +3,7 @@
 - Goal: deterministic, fail-closed validation and loading of Skill usage packages
 - Dependency class: `V11-INDEPENDENT`
 - Base SHA: `72af560b87589cd1cedcfc6affd6eb3fdc61f548`
-- Resulting SHA: pending publication
+- Resulting SHA: `0ddcd4867201a7cfc11ba481b6c92cc4cb5d0b11`
 - v1.1 Gate: OPEN
 
 ## Delivered
@@ -57,5 +57,7 @@ Phase 3B supplies the formal `move-to` and `area-patrol` packages.
 
 ## Publication
 
-The designated Phase commit is pending. Its immutable commit and remote SHA will be recorded in the
-immediate follow-up evidence commit without amend, rebase or force push.
+Commit `0ddcd4867201a7cfc11ba481b6c92cc4cb5d0b11`
+(`feat(v1.2): validate and load skill usage packages`) was pushed immediately to the tracked origin
+branch and the remote SHA matched exactly. This evidence is recorded in a follow-up commit without
+amending, rebasing or force-pushing the published Phase commit.
