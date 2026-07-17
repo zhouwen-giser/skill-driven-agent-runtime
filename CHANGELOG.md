@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Frozen SDAR v1.2 EP-10, exact Goal task package, normalized Skill-driven capability-usage design, v1.1 overlap/symbol maps and recoverable Phase 0 baseline evidence.
 - Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
 - Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
 - Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "PHASE_0_IN_PROGRESS",
+  "branch": "feature/v1.2-skill-driven-capability-usage",
+  "currentPhase": "phase-0",
+  "lastCompletedPhase": null,
+  "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "branchBaseSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "v11FinalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+  "v11IntegrationPr": 4,
+  "v11Gate": {
+    "codeSubmitted": true,
+    "mergedIntoMain": true,
+    "open": true,
+    "missing": []
+  },
+  "latestMigration": "0104_workflow_external_wait_event",
+  "latestAdr": "ADR-095",
+  "nextPhase": "phase-1",
+  "blockers": [],
+  "updatedAt": "2026-07-17T17:13:35+08:00"
+}
