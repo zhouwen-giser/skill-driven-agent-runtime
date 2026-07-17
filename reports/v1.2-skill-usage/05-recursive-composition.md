@@ -3,8 +3,8 @@
 - Goal: resolve exact-version Skill composition through the existing Skill Graph and planner
 - Dependency class: `V11-INDEPENDENT / V11-CONTRACT-SENSITIVE`
 - Base SHA: `a65d27007ecdcb431d1a637df3b78a6ec7c55958`
-- Resulting SHA: pending publication
-- v1.1 Gate before publication: OPEN
+- Resulting SHA: `9b218732b66db8d928a5daa15923d4ee66018f51`
+- v1.1 Gate after publication: OPEN
 
 ## Delivered
 
@@ -71,5 +71,10 @@ the canonical merged-main baseline and freezes shared contracts without manufact
 
 ## Publication
 
-The Phase commit and remote SHA are pending. They will be recorded in an immediate follow-up evidence
-commit without amend, rebase or force-push.
+Commit `9b218732b66db8d928a5daa15923d4ee66018f51`
+(`feat(v1.2): resolve bounded recursive skill composition`) was pushed immediately to the tracked
+origin branch and the remote SHA matched exactly. The mandatory post-push Gate fetched current
+`origin/main` `667146a3639eefdfed9b89c2417c08e1ac50e9a9`, proved v1.1 final submitted commit
+`9e32311e45a9257741fb7c62f4f89b76dce8360f` is its ancestor, and proved main is already an ancestor of
+the Phase commit. The branch was 0 behind / 13 ahead, so the Gate remains OPEN. This evidence is
+recorded in a follow-up commit without amend, rebase or force-push.

@@ -5,7 +5,7 @@
   "goal": "Resolve bounded exact-version Skill composition and emit safe three-mode IR.",
   "dependencyClass": "V11-INDEPENDENT / V11-CONTRACT-SENSITIVE",
   "baseSha": "a65d27007ecdcb431d1a637df3b78a6ec7c55958",
-  "resultingSha": "pending-publication",
+  "resultingSha": "9b218732b66db8d928a5daa15923d4ee66018f51",
   "architecture": {
     "path": "existing SkillGraphRepository -> SkillCompositionPlanner -> immutable Domain plan/IR",
     "limits": { "defaultDepth": 3, "hardDepth": 5, "expandedSkills": 32, "nodes": 128 },
@@ -48,7 +48,15 @@
     "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true,
-    "repeatAfterPush": true
+    "repeatAfterPush": true,
+    "postPushOpen": true,
+    "mainIsBranchAncestor": true,
+    "branchBehindMain": 0,
+    "branchAheadOfMain": 13
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "9b218732b66db8d928a5daa15923d4ee66018f51"
+  }
 }
