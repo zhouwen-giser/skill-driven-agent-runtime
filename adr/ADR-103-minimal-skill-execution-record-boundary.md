@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-07-17.
+Accepted on 2026-07-17; Phase 11 implementation evidence added on 2026-07-17.
 
 ## Context
 
@@ -15,9 +15,9 @@ parallel observability platform or overwriting existing Task, Workflow and remot
   Goal/version, exact Skill version, parent/child execution, applicability/mode, composition, Workflow
   plan/instance/node run, Task, Provider/resource, `RemoteTaskBinding`, evidence gates, intervention and
   outcome by stable references.
-- PostgreSQL stores append-only records through migration `0106`. The next V1.2 persistence migration
-  is allocated as `0105` for Phase 7 Skill usage/version/import authority; no number below the current
-  0104 high-water may be reused.
+- PostgreSQL stores append-only records through migration `0106`. Migration `0105` owns Phase 7 Skill
+  usage/version/import authority and `0106` owns Phase 11 execution evidence; no lower migration number
+  may be reused.
 - The record observes but never replaces Task phase, Workflow instance/node state, Provider observation,
   continuation, cancellation or the ADR-077 terminal transaction.
 - Evidence stores bounded summaries and references, never credentials, full private model reasoning,
