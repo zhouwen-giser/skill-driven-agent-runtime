@@ -3,7 +3,7 @@
 - Goal: ship reviewed `embodied.move_to` and `embodied.area_patrol` import artifacts
 - Dependency class: `V11-INDEPENDENT`
 - Base SHA: `57e2c87a1765e68bb12d8ac0a060c98a940bd983`
-- Resulting SHA: pending publication
+- Resulting SHA: `1c914f4fc750f43d786cc0e045ebba98eaeafd88`
 - v1.1 Gate: OPEN
 
 ## Delivered
@@ -54,5 +54,7 @@ three-mode IR through the existing Workflow path.
 
 ## Publication
 
-The designated Phase commit is pending. Its immutable commit and remote SHA will be recorded in the
-immediate follow-up evidence commit without amend, rebase or force push.
+Commit `1c914f4fc750f43d786cc0e045ebba98eaeafd88`
+(`feat(v1.2): add move-to and area-patrol skill packages`) was pushed immediately to the tracked origin
+branch and the remote SHA matched exactly. This evidence is recorded in a follow-up commit without
+amending, rebasing or force-pushing the published Phase commit.

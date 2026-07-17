@@ -5,7 +5,7 @@
   "goal": "Add reviewed move-to and area-patrol Skill Packages.",
   "dependencyClass": "V11-INDEPENDENT",
   "baseSha": "57e2c87a1765e68bb12d8ac0a060c98a940bd983",
-  "resultingSha": "pending-publication",
+  "resultingSha": "1c914f4fc750f43d786cc0e045ebba98eaeafd88",
   "packages": [
     {
       "skillId": "embodied.move_to",
@@ -51,5 +51,9 @@
     "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
     "open": true
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "1c914f4fc750f43d786cc0e045ebba98eaeafd88"
+  }
 }
