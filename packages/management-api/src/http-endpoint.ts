@@ -47,6 +47,7 @@ import type {
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
 } from '../../application/src/index.js';
+import type { SkillUsageSpecification } from '../../domain/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const AgentTaskPhaseSchema = z.enum([
@@ -208,7 +209,22 @@ const RegisterSkillSchema = z.object({
   status: z.enum(['draft', 'validating', 'enabled', 'disabled', 'deprecated', 'validation_failed']),
   sourceKind: z.enum(['admin', 'a2a_draft', 'experience_evolution', 'manual_correction']),
   validationPassed: z.boolean(),
+  usageSpecification: z.unknown().optional(),
 });
+const SkillPackageRootSchema = z.object({ packageRoot: z.string().min(1).max(4096) }).strict();
+const SkillCatalogQuerySchema = z
+  .object({
+    lifecycle: z
+      .enum(['draft', 'validating', 'active', 'inactive', 'deprecated', 'validation_failed'])
+      .optional(),
+    mode: z.enum(['guidance', 'template', 'procedure']).optional(),
+    domain: z.string().min(1).optional(),
+    tag: z.string().min(1).optional(),
+    userSelectable: z.enum(['true', 'false']).optional(),
+    composable: z.enum(['true', 'false']).optional(),
+    internalOnly: z.enum(['true', 'false']).optional(),
+  })
+  .strict();
 const CreateTemporarySkillSchema = z.object({
   contextId: z.string().min(1),
   name: z.string().min(1),
@@ -402,7 +418,16 @@ export interface ManagementOperations {
   >;
   readonly skills: Pick<
     SkillRegistryService,
-    'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
+    | 'diff'
+    | 'importPackageRoot'
+    | 'listCatalog'
+    | 'listCurrentVersions'
+    | 'listVersions'
+    | 'readExactVersion'
+    | 'register'
+    | 'rollback'
+    | 'setEnabled'
+    | 'validatePackage'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -1469,6 +1494,57 @@ export async function startManagementHttpEndpoint(
     response.json({ items: await options.operations.skills.listCurrentVersions() });
   });
   app.get(
+    '/api/v1/skills/catalog',
+    asyncRoute(async (request, response) => {
+      const query = SkillCatalogQuerySchema.parse(request.query);
+      const visibility = {
+        ...(query.userSelectable === undefined
+          ? {}
+          : { userSelectable: query.userSelectable === 'true' }),
+        ...(query.composable === undefined ? {} : { composable: query.composable === 'true' }),
+        ...(query.internalOnly === undefined
+          ? {}
+          : { internalOnly: query.internalOnly === 'true' }),
+      };
+      response.json({
+        items: await options.operations.skills.listCatalog({
+          ...(query.lifecycle === undefined ? {} : { lifecycle: query.lifecycle }),
+          ...(query.mode === undefined ? {} : { mode: query.mode }),
+          ...(query.domain === undefined ? {} : { domain: query.domain }),
+          ...(query.tag === undefined ? {} : { tag: query.tag }),
+          ...(Object.keys(visibility).length === 0 ? {} : { visibility }),
+        }),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/skill-packages/validate',
+    asyncRoute(async (request, response) => {
+      const candidate = await options.operations.skills.validatePackage(
+        SkillPackageRootSchema.parse(request.body).packageRoot,
+      );
+      response.json({
+        skillVersion: candidate.skillVersion,
+        packageChecksum: candidate.packageChecksum,
+        packageRoot: candidate.packageRoot,
+        fileChecksums: candidate.fileChecksums,
+        validatedAt: candidate.validatedAt,
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/skill-packages/import',
+    asyncRoute(async (request, response) => {
+      response
+        .status(201)
+        .json(
+          await options.operations.skills.importPackageRoot(
+            SkillPackageRootSchema.parse(request.body).packageRoot,
+          ),
+        );
+    }),
+  );
+  app.get(
     '/api/v1/tasks/:taskId/temporary-skills',
     asyncRoute(async (request, response) => {
       response.json({
@@ -1717,6 +1793,17 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/skills/:skillId/versions/:version',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.skills.readExactVersion(
+          pathValue(request, 'skillId'),
+          z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+        ),
+      );
+    }),
+  );
+  app.get(
     '/api/v1/skills/:skillId/diff',
     asyncRoute(async (request, response) => {
       const query = z
@@ -1928,9 +2015,13 @@ function skillRegistrationInput(
   parsed: z.infer<typeof RegisterSkillSchema>,
 ): RegisterSkillVersionInput {
   const policy = parsed.runtimePolicy;
+  const { usageSpecification, ...definition } = parsed;
   return {
-    ...parsed,
+    ...definition,
     runtimePolicy: compactRuntimePolicy(policy),
+    ...(usageSpecification === undefined
+      ? {}
+      : { usageSpecification: usageSpecification as SkillUsageSpecification }),
   };
 }
 

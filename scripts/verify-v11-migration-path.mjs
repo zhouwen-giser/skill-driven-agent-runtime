@@ -62,12 +62,14 @@ try {
       'upgrade-released',
     );
     await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'upgrade-released');
+    await assertMigration(upgrade, '0105_skill_usage_specification', false, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
       '0103_remote_task_input_and_cancellation.down.sql',
       '0102_remote_task_continuation.down.sql',
@@ -86,6 +88,7 @@ try {
     await assertMigration(upgrade, '0102_remote_task_continuation', false, 'rollback');
     await assertMigration(upgrade, '0103_remote_task_input_and_cancellation', false, 'rollback');
     await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
+    await assertMigration(upgrade, '0105_skill_usage_specification', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -110,6 +113,7 @@ try {
       'default-profile',
     );
     await assertMigration(guard, '0104_workflow_external_wait_event', false, 'default-profile');
+    await assertMigration(guard, '0105_skill_usage_specification', false, 'default-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -127,6 +131,7 @@ try {
     await assertMigration(guard, '0102_remote_task_continuation', false, 'profile-guard');
     await assertMigration(guard, '0103_remote_task_input_and_cancellation', false, 'profile-guard');
     await assertMigration(guard, '0104_workflow_external_wait_event', false, 'profile-guard');
+    await assertMigration(guard, '0105_skill_usage_specification', false, 'profile-guard');
   } finally {
     await guard.end();
   }
@@ -153,12 +158,13 @@ try {
     await assertMigration(gap, '0102_remote_task_continuation', false, 'ledger-gap');
     await assertMigration(gap, '0103_remote_task_input_and_cancellation', false, 'ledger-gap');
     await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
+    await assertMigration(gap, '0105_skill_usage_specification', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
 
   process.stdout.write(
-    'Isolated v1.1 migration path verified: empty, 0064 upgrade, rollback/reapply, profile guards, and ledger-gap fail-closed.\n',
+    'Isolated post-v1.1 migration path verified through 0105: empty, 0064 upgrade, rollback/reapply, profile guards, and ledger-gap fail-closed.\n',
   );
 } finally {
   const admin = databasePool('sdar');
@@ -203,6 +209,7 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0102_remote_task_continuation', true, label);
   await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
   await assertMigration(pool, '0104_workflow_external_wait_event', true, label);
+  await assertMigration(pool, '0105_skill_usage_specification', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -277,6 +284,18 @@ async function verifyV11Schema(pool, label) {
     activeAttemptPredicate.includes('waiting_external')
   ) {
     throw new Error(`V11_CONTINUATION_ACTIVE_ATTEMPT_INDEX_INVALID:${label}`);
+  }
+  const usageColumn = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='skill_version' AND column_name='usage_specification_json' AND data_type='jsonb'",
+  );
+  if (usageColumn.rows[0]?.count !== 1) {
+    throw new Error(`V12_SKILL_USAGE_COLUMN_MISSING:${label}`);
+  }
+  const packageAudit = await pool.query(
+    "SELECT to_regclass('public.skill_package_import_audit') IS NOT NULL AS present",
+  );
+  if (packageAudit.rows[0]?.present !== true) {
+    throw new Error(`V12_SKILL_PACKAGE_IMPORT_AUDIT_MISSING:${label}`);
   }
 }
 

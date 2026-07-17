@@ -47,6 +47,7 @@ import type {
   SkillDraft,
   SkillCallWorkflowRecord,
   SkillVersion,
+  SkillPackageImportAudit,
   SkillFormalizationCandidate,
   SkillEvolutionCorrectionExperience,
   EvolutionExperience,
@@ -314,7 +315,11 @@ export interface SkillRepository {
   listVersions(skillId: string): Promise<readonly SkillVersion[]>;
   listEnabledVersions(): Promise<readonly SkillVersion[]>;
   listCurrentVersions(): Promise<readonly SkillVersion[]>;
-  saveVersionAndSetCurrent(version: SkillVersion, timestamp: string): Promise<void>;
+  saveVersionAndSetCurrent(
+    version: SkillVersion,
+    timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void>;
 }
 
 export interface SkillGraphRepository {

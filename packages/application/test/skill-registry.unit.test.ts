@@ -4,6 +4,7 @@ import {
   createSkillVersion,
   type Skill,
   type SkillPackageImportCandidate,
+  type SkillPackageImportAudit,
   type SkillUsageSpecification,
   type SkillVersion,
 } from '../../domain/src/index.js';
@@ -110,12 +111,20 @@ describe('SkillRegistryService', () => {
   });
 
   it('revalidates native usage and exact version continuity when importing a package candidate', async () => {
-    const registry = createRegistry(new MemorySkillRepository());
+    const repository = new MemorySkillRepository();
+    const registry = createRegistry(repository);
     const candidate = packageCandidate('embodied.move-to');
     await expect(registry.importPackage(candidate)).resolves.toMatchObject({
       skillId: 'embodied.move-to',
       version: 1,
     });
+    expect(repository.packageImports).toEqual([
+      expect.objectContaining({
+        skillId: 'embodied.move-to',
+        skillVersion: 1,
+        packageChecksum: '0'.repeat(64),
+      }),
+    ]);
     await expect(registry.importPackage(candidate)).rejects.toMatchObject({
       code: 'SKILL_IMPORT_VERSION_CONFLICT',
     });
@@ -128,6 +137,37 @@ describe('SkillRegistryService', () => {
         } as SkillUsageSpecification,
       }),
     ).rejects.toMatchObject({ code: 'SKILL_USAGE_SPEC_INVALID' });
+  });
+
+  it('keeps validation read-only and re-reads the package on production import', async () => {
+    const repository = new MemorySkillRepository();
+    const candidate = packageCandidate('embodied.package-root');
+    const packageRoots: string[] = [];
+    const registry = new SkillRegistryService({
+      skills: repository,
+      validator: new AjvJsonSchemaValidator(),
+      clock: { now: () => '2026-07-17T10:00:00.000Z' },
+      packages: {
+        import: (packageRoot) => {
+          packageRoots.push(packageRoot);
+          return Promise.resolve(candidate);
+        },
+      },
+    });
+
+    await expect(registry.validatePackage('/reviewed/package')).resolves.toBe(candidate);
+    await expect(
+      repository.findCurrentVersion(candidate.skillVersion.skillId),
+    ).resolves.toBeUndefined();
+    await expect(registry.importPackageRoot('/reviewed/package')).resolves.toMatchObject({
+      skillId: candidate.skillVersion.skillId,
+      version: 1,
+    });
+    expect(packageRoots).toEqual(['/reviewed/package', '/reviewed/package']);
+
+    await expect(
+      createRegistry(new MemorySkillRepository()).validatePackage('/unconfigured/package'),
+    ).rejects.toMatchObject({ code: 'SKILL_PACKAGE_IMPORT_UNAVAILABLE' });
   });
 });
 
@@ -219,6 +259,7 @@ function usageSpecification(): SkillUsageSpecification {
 
 class MemorySkillRepository implements SkillRepository {
   readonly #versions = new Map<string, SkillVersion[]>();
+  readonly packageImports: SkillPackageImportAudit[] = [];
 
   find(skillId: string): Promise<Skill | undefined> {
     const versions = this.#versions.get(skillId);
@@ -257,8 +298,13 @@ class MemorySkillRepository implements SkillRepository {
       }),
     );
   }
-  saveVersionAndSetCurrent(version: SkillVersion): Promise<void> {
+  saveVersionAndSetCurrent(
+    version: SkillVersion,
+    _timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void> {
     this.#versions.set(version.skillId, [...(this.#versions.get(version.skillId) ?? []), version]);
+    if (packageImport !== undefined) this.packageImports.push(packageImport);
     return Promise.resolve();
   }
 }

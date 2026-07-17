@@ -1,6 +1,6 @@
 # SDAR v1.2 Skill-Driven Capability Usage — Normalized Design
 
-Status: Phase 6 shared-contract freeze; Phases 1–5 implemented and verified
+Status: Phase 7 versioned usage persistence/API implemented and verified; Phase 8 readiness next
 Date: 2026-07-17
 ExecPlan: `execplans/EP-10-v1.2-skill-driven-capability-usage.md`
 
@@ -34,9 +34,9 @@ No second Agent, Workflow, procedure, behavior-tree or recovery runtime is intro
 
 Phase 6 confirms that `origin/main` `667146a3639eefdfed9b89c2417c08e1ac50e9a9` is already an
 ancestor of the V1.2 branch, so no integration merge is required. ADR-097 through ADR-103 are the
-accepted production decisions for the contracts below. PostgreSQL migration 0105 is allocated to Skill
-usage/import persistence and 0106 to minimal execution records; the current applied high-water remains
-0104 until those phases implement their migrations.
+accepted production decisions for the contracts below. PostgreSQL migration 0105 now persists Skill
+usage/import evidence through the existing Registry; 0106 remains allocated to minimal execution
+records. The applied migration high-water is 0105.
 
 ## Frozen product decisions
 

@@ -419,6 +419,81 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
   });
 
+  it('validates, imports, reads, filters and lifecycle-versions a formal Skill Package', async () => {
+    const packageRoot = 'skills/embodied.move_to';
+    const validated = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/validate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(validated.status).toBe(200);
+    const validationBody = z
+      .object({
+        skillVersion: z.object({
+          skillId: z.literal('embodied.move_to'),
+          version: z.literal(1),
+          usageSpecification: z.object({
+            modes: z.object({ defaultMode: z.literal('template') }),
+          }),
+        }),
+        packageChecksum: z.string().regex(/^[0-9a-f]{64}$/u),
+        fileChecksums: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/u)),
+      })
+      .parse(await validated.json());
+    expect(validationBody.fileChecksums).toHaveProperty('SKILL.md');
+    expect(JSON.stringify(validationBody)).not.toContain('# Move To');
+
+    const imported = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(imported.status).toBe(201);
+    await expect(imported.json()).resolves.toMatchObject({
+      skillId: 'embodied.move_to',
+      version: 1,
+      usageSpecification: { modes: { defaultMode: 'template' } },
+    });
+    const exact = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/embodied.move_to/versions/1`,
+    );
+    await expect(exact.json()).resolves.toMatchObject({
+      skillId: 'embodied.move_to',
+      version: 1,
+      status: 'enabled',
+    });
+    const catalog = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/catalog?mode=procedure&domain=embodied&userSelectable=true`,
+    );
+    const catalogBody = z
+      .object({ items: z.array(z.object({ skillId: z.string(), lifecycle: z.string() })) })
+      .parse(await catalog.json());
+    expect(catalogBody.items).toContainEqual({
+      skillId: 'embodied.move_to',
+      lifecycle: 'active',
+    });
+
+    const staleImport = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(staleImport.status).toBe(400);
+    await expect(staleImport.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_IMPORT_VERSION_CONFLICT' },
+    });
+    const disabled = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/embodied.move_to/disable`,
+      { method: 'POST' },
+    );
+    await expect(disabled.json()).resolves.toMatchObject({
+      version: 2,
+      previousVersion: 1,
+      status: 'disabled',
+      usageSpecification: { modes: { defaultMode: 'template' } },
+    });
+  });
+
   it('registers model-authored valid Schemas through the management boundary', async () => {
     const skillId = `skill.authored.${randomUUID()}`;
     const response = await fetch(`${runtime.management.baseUrl}/api/v1/skills/author`, {

@@ -372,6 +372,9 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Simulation / Correction');
     expect(markup).toContain('Compare immutable versions');
     expect(markup).toContain('SKILL GRAPH');
+    expect(markup).toContain('CHECKSUM-PINNED PACKAGE');
+    expect(markup).toContain('Validate package');
+    expect(markup).toContain('Import exact next version');
   });
 
   it('renders credential-safe Provider, fixed-route, policy, and invocation operations', () => {

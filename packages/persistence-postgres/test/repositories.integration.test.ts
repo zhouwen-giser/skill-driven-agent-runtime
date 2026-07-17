@@ -55,6 +55,7 @@ import {
   createRemoteTaskBinding,
   createWorkflowContinuationSnapshot,
   createSkillVersion,
+  createSkillUsageSpecification,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
@@ -123,12 +124,20 @@ beforeAll(async () => {
     const memoryHardening = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
     );
-    if (memoryHardening.rows[0]?.applied === true) return;
+    if (memoryHardening.rows[0]?.applied === true) {
+      const skillUsage = await pool.query<{ applied: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0105_skill_usage_specification') AS applied",
+      );
+      if (skillUsage.rows[0]?.applied !== true)
+        await applyTestMigration('0105_skill_usage_specification.up.sql');
+      return;
+    }
     const latest = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
     );
     if (latest.rows[0]?.applied === true) {
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const skillCompositionContext = await pool.query<{ applied: boolean }>(
@@ -137,6 +146,7 @@ beforeAll(async () => {
     if (skillCompositionContext.rows[0]?.applied === true) {
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const goalExecutionContract = await pool.query<{ applied: boolean }>(
@@ -154,6 +164,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
@@ -180,6 +191,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const skillInputResolution = await pool.query<{ applied: boolean }>(
@@ -214,6 +226,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
@@ -257,6 +270,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
@@ -308,6 +322,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -367,6 +382,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyTestMigration('0105_skill_usage_specification.up.sql');
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -384,6 +400,7 @@ beforeAll(async () => {
         '0062_skill_composition_context.up.sql',
         '0063_mcp_tool_execution_semantics.up.sql',
         '0064_memory_production_hardening.up.sql',
+        '0105_skill_usage_specification.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -401,6 +418,15 @@ beforeAll(async () => {
         '0054_skill_call_history.up.sql',
         '0055_task_input_continuation.up.sql',
         '0056_mcp_execution_mode.up.sql',
+        '0057_nested_skill_confirmation.up.sql',
+        '0058_runtime_terminal_outcome.up.sql',
+        '0059_skill_input_resolution.up.sql',
+        '0060_task_skill_input_resolution_binding.up.sql',
+        '0061_goal_execution_contract.up.sql',
+        '0062_skill_composition_context.up.sql',
+        '0063_mcp_tool_execution_semantics.up.sql',
+        '0064_memory_production_hardening.up.sql',
+        '0105_skill_usage_specification.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -781,6 +807,7 @@ beforeAll(async () => {
   await pool.query(skillCompositionContextMigration);
   await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
   await applyTestMigration('0064_memory_production_hardening.up.sql');
+  await applyTestMigration('0105_skill_usage_specification.up.sql');
 });
 
 beforeEach(async () => {
@@ -790,7 +817,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -3642,6 +3669,121 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.findVersion(first.skillId, 1)).resolves.toEqual(first);
     await expect(repository.findCurrentVersion(first.skillId)).resolves.toEqual(second);
     await expect(repository.listEnabledVersions()).resolves.toEqual([]);
+  });
+
+  it('atomically persists native Skill Usage and checksum-bound package import audit', async () => {
+    const repository = new PostgresSkillRepository(pool);
+    const version = createSkillVersion({
+      skillId: 'embodied.move-to.db',
+      version: 1,
+      name: 'Move To',
+      summary: 'Move safely.',
+      description: 'Moves one resource to a target.',
+      capabilities: ['embodied.move'],
+      workflowGuidance: 'Move safely.',
+      outputInstruction: 'Return the final position.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-07-17T11:00:00.000Z',
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: ['Stay safe.'],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Prefer a safe route.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Guide.', instructions: ['Guide safely.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+    });
+    await repository.saveVersionAndSetCurrent(version, version.createdAt, {
+      skillId: version.skillId,
+      skillVersion: version.version,
+      packageChecksum: 'a'.repeat(64),
+      packageRoot: '/reviewed/embodied.move_to',
+      fileChecksums: { 'manifest.json': 'b'.repeat(64), 'SKILL.md': 'c'.repeat(64) },
+      validatedAt: '2026-07-17T10:59:00.000Z',
+      importedAt: version.createdAt,
+    });
+
+    const stored = await repository.findCurrentVersion(version.skillId);
+    expect(stored).toEqual(version);
+    expect(Object.isFrozen(stored?.usageSpecification)).toBe(true);
+    const audit = await pool.query<{
+      package_checksum: string;
+      file_checksums_json: Record<string, string>;
+    }>(
+      'SELECT package_checksum,file_checksums_json FROM skill_package_import_audit WHERE skill_id=$1 AND skill_version=$2',
+      [version.skillId, version.version],
+    );
+    expect(audit.rows[0]).toEqual({
+      package_checksum: 'a'.repeat(64),
+      file_checksums_json: { 'manifest.json': 'b'.repeat(64), 'SKILL.md': 'c'.repeat(64) },
+    });
+    await expect(
+      repository.saveVersionAndSetCurrent(version, version.createdAt, {
+        skillId: version.skillId,
+        skillVersion: 2,
+        packageChecksum: 'd'.repeat(64),
+        packageRoot: '/wrong-version',
+        fileChecksums: { 'manifest.json': 'e'.repeat(64) },
+        validatedAt: version.createdAt,
+        importedAt: version.createdAt,
+      }),
+    ).rejects.toThrow();
+
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0105_skill_usage_specification.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0105_skill_usage_specification.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const client = await pool.connect();
+    try {
+      await expect(client.query(down)).rejects.toThrow(
+        'MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE',
+      );
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
+    await pool.query('TRUNCATE skill_package_import_audit, skill_version, skill CASCADE');
+    await pool.query(down);
+    try {
+      await expect(
+        pool.query<{ present: boolean }>(
+          "SELECT to_regclass('public.skill_package_import_audit') IS NOT NULL AS present",
+        ),
+      ).resolves.toMatchObject({ rows: [{ present: false }] });
+    } finally {
+      await pool.query(up);
+    }
   });
 
   it('persists TaskService context/task/event and reads domain values back', async () => {

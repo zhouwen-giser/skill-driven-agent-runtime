@@ -671,6 +671,53 @@ paths:
             schema: { type: object, additionalProperties: true }
       responses:
         '201': { description: New current Skill version }
+  /api/v1/skills/catalog:
+    get:
+      operationId: listSkillUsageCatalog
+      description: Lists immutable current usage summaries with exact lifecycle, visibility, mode, domain, and tag filters.
+      parameters:
+        - { name: lifecycle, in: query, schema: { type: string } }
+        - { name: mode, in: query, schema: { enum: [guidance, template, procedure] } }
+        - { name: domain, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: userSelectable, in: query, schema: { type: boolean } }
+        - { name: composable, in: query, schema: { type: boolean } }
+        - { name: internalOnly, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: Filtered exact current Skill usage summaries }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-packages/validate:
+    post:
+      operationId: validateSkillPackage
+      description: Reads and validates a bounded server-local Skill Package without publishing it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [packageRoot]
+              properties: { packageRoot: { type: string, minLength: 1, maxLength: 4096 } }
+      responses:
+        '200': { description: Validated immutable import candidate metadata }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/skill-packages/import:
+    post:
+      operationId: importSkillPackage
+      description: Revalidates and atomically publishes a package as the exact next Skill version with import audit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [packageRoot]
+              properties: { packageRoot: { type: string, minLength: 1, maxLength: 4096 } }
+      responses:
+        '201': { description: Persisted exact Skill version }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/skills/author:
     post:
       operationId: authorAndRegisterSkill
@@ -761,6 +808,15 @@ paths:
       operationId: listSkillVersions
       responses:
         '200': { description: Immutable Skill version chain }
+  /api/v1/skills/{skillId}/versions/{version}:
+    parameters:
+      - $ref: '#/components/parameters/SkillId'
+      - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getExactSkillVersion
+      responses:
+        '200': { description: Exact immutable Skill version including native usage specification }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/skills/{skillId}/diff:
     parameters:
       - $ref: '#/components/parameters/SkillId'

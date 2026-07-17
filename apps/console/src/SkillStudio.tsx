@@ -17,6 +17,7 @@ export function SkillStudio({ onRegistryChanged }: { readonly onRegistryChanged:
     sourceKind: 'admin',
   });
   const [registration, setRegistration] = useState('');
+  const [packageRoot, setPackageRoot] = useState('');
   const [draft, setDraft] = useState({
     draftId: '',
     skillId: '',
@@ -65,6 +66,17 @@ export function SkillStudio({ onRegistryChanged }: { readonly onRegistryChanged:
       setResult(value);
       onRegistryChanged();
       return 'Validated Skill definition registered.';
+    });
+  }
+  async function packageAction(operation: 'validate' | 'import') {
+    await run(async () => {
+      const value = await managementRequest(`/api/v1/skill-packages/${operation}`, {
+        method: 'POST',
+        body: JSON.stringify({ packageRoot }),
+      });
+      setResult(value);
+      if (operation === 'import') onRegistryChanged();
+      return `Skill Package ${operation} completed.`;
     });
   }
   async function draftAction(operation: 'get' | 'publish') {
@@ -207,6 +219,34 @@ export function SkillStudio({ onRegistryChanged }: { readonly onRegistryChanged:
         {message === undefined ? null : <p className="action-message">{message}</p>}
       </section>
       <section className="studio-grid">
+        <article className="panel">
+          <span className="eyebrow">CHECKSUM-PINNED PACKAGE</span>
+          <h3>Validate / Import</h3>
+          <div className="mini-form">
+            <label>
+              Server-local package root
+              <input
+                value={packageRoot}
+                onChange={(event) => {
+                  setPackageRoot(event.target.value);
+                }}
+                placeholder="skills/embodied.move_to"
+              />
+            </label>
+            <small>
+              Validation is read-only. Import revalidates and atomically publishes the exact next
+              version with checksum audit.
+            </small>
+            <div className="action-row">
+              <button disabled={packageRoot === ''} onClick={() => void packageAction('validate')}>
+                Validate package
+              </button>
+              <button disabled={packageRoot === ''} onClick={() => void packageAction('import')}>
+                Import exact next version
+              </button>
+            </div>
+          </div>
+        </article>
         <article className="panel">
           <span className="eyebrow">DIRECT VALIDATED EDIT</span>
           <h3>Definition JSON</h3>

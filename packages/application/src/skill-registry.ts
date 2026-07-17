@@ -1,5 +1,6 @@
 import {
   createSkillCatalogVersionSnapshot,
+  createSkillPackageImportAudit,
   createSkillVersion,
   matchesSkillCatalogFilter,
   type SkillCatalogFilter,
@@ -10,6 +11,7 @@ import {
 } from '../../domain/src/index.js';
 
 import type { Clock, JsonSchemaValidator, SkillRepository } from './ports.js';
+import type { SkillPackageImporter } from './skill-package-loader.js';
 import { ResultProcessingError } from './result-processor.js';
 
 export type RegisterSkillVersionInput = Omit<
@@ -30,17 +32,20 @@ export class SkillRegistryService {
   readonly #skills: SkillRepository;
   readonly #validator: JsonSchemaValidator;
   readonly #clock: Clock;
+  readonly #packages: Pick<SkillPackageImporter, 'import'> | undefined;
 
   constructor(
     dependencies: Readonly<{
       skills: SkillRepository;
       validator: JsonSchemaValidator;
       clock: Clock;
+      packages?: Pick<SkillPackageImporter, 'import'>;
     }>,
   ) {
     this.#skills = dependencies.skills;
     this.#validator = dependencies.validator;
     this.#clock = dependencies.clock;
+    this.#packages = dependencies.packages;
   }
 
   async register(input: RegisterSkillVersionInput): Promise<SkillVersion> {
@@ -55,6 +60,19 @@ export class SkillRegistryService {
     });
     await this.#skills.saveVersionAndSetCurrent(version, this.#clock.now());
     return version;
+  }
+
+  async validatePackage(packageRoot: string): Promise<SkillPackageImportCandidate> {
+    if (this.#packages === undefined)
+      throw new SkillRegistryError(
+        'SKILL_PACKAGE_IMPORT_UNAVAILABLE',
+        'Skill Package import is not configured.',
+      );
+    return this.#packages.import(packageRoot);
+  }
+
+  async importPackageRoot(packageRoot: string): Promise<SkillVersion> {
+    return this.importPackage(await this.validatePackage(packageRoot));
   }
 
   async importPackage(candidate: SkillPackageImportCandidate): Promise<SkillVersion> {
@@ -77,7 +95,12 @@ export class SkillRegistryService {
         'Imported Skill package does not extend the exact current version.',
       );
     const version = createSkillVersion(input);
-    await this.#skills.saveVersionAndSetCurrent(version, this.#clock.now());
+    const importedAt = this.#clock.now();
+    await this.#skills.saveVersionAndSetCurrent(
+      version,
+      importedAt,
+      createSkillPackageImportAudit(candidate, importedAt),
+    );
     return version;
   }
 
@@ -211,6 +234,7 @@ export class SkillRegistryService {
 export type SkillRegistryErrorCode =
   | 'SKILL_IMPORT_USAGE_REQUIRED'
   | 'SKILL_IMPORT_VERSION_CONFLICT'
+  | 'SKILL_PACKAGE_IMPORT_UNAVAILABLE'
   | 'SKILL_NOT_ENABLED'
   | 'SKILL_NOT_FOUND'
   | 'SKILL_VERSION_NOT_FOUND';

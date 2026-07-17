@@ -48,6 +48,7 @@ import {
   createMemoryItem,
   createMcpTool,
   createMcpToolExecutionSemantics,
+  createSkillVersion,
   DomainError,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
@@ -128,6 +129,8 @@ import type {
   SkillDraft,
   SkillRuntimePolicy,
   SkillVersion,
+  SkillPackageImportAudit,
+  SkillUsageSpecification,
   SkillCallWorkflowRecord,
   EvolutionExperience,
   EvolutionPolicy,
@@ -472,6 +475,7 @@ interface SkillVersionRow extends QueryResultRow {
   output_schema_json: unknown;
   tool_policy_json: unknown;
   runtime_policy_json: unknown;
+  usage_specification_json: unknown;
   status: SkillVersion['status'];
   source_kind: SkillVersion['sourceKind'];
   validation_passed: boolean;
@@ -3604,7 +3608,16 @@ export class PostgresSkillRepository implements SkillRepository {
     return result.rows.map(mapSkillVersionRow);
   }
 
-  async saveVersionAndSetCurrent(version: SkillVersion, timestamp: string): Promise<void> {
+  async saveVersionAndSetCurrent(
+    version: SkillVersion,
+    timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void> {
+    if (
+      packageImport !== undefined &&
+      (packageImport.skillId !== version.skillId || packageImport.skillVersion !== version.version)
+    )
+      throw new Error('SKILL_PACKAGE_IMPORT_VERSION_MISMATCH');
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -3617,9 +3630,9 @@ export class PostgresSkillRepository implements SkillRepository {
         `INSERT INTO skill_version (
            skill_id, version, name, summary, description, capabilities_json,
            workflow_guidance, output_instruction, input_schema_json, output_schema_json,
-           tool_policy_json, runtime_policy_json, status, source_kind,
+           tool_policy_json, runtime_policy_json, usage_specification_json, status, source_kind,
            validation_passed, previous_version, created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [
           version.skillId,
           version.version,
@@ -3633,6 +3646,9 @@ export class PostgresSkillRepository implements SkillRepository {
           JSON.stringify(version.outputSchema),
           JSON.stringify(version.toolPolicy),
           JSON.stringify(version.runtimePolicy),
+          version.usageSpecification === undefined
+            ? null
+            : JSON.stringify(version.usageSpecification),
           version.status,
           version.sourceKind,
           version.validationPassed,
@@ -3640,6 +3656,23 @@ export class PostgresSkillRepository implements SkillRepository {
           version.createdAt,
         ],
       );
+      if (packageImport !== undefined) {
+        await client.query(
+          `INSERT INTO skill_package_import_audit (
+             skill_id,skill_version,package_checksum,package_root,file_checksums_json,
+             validated_at,imported_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            packageImport.skillId,
+            packageImport.skillVersion,
+            packageImport.packageChecksum,
+            packageImport.packageRoot,
+            JSON.stringify(packageImport.fileChecksums),
+            packageImport.validatedAt,
+            packageImport.importedAt,
+          ],
+        );
+      }
       await client.query(
         `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
         [version.skillId, version.version, timestamp],
@@ -5847,7 +5880,7 @@ export class PostgresMcpRegistryRepository
 const skillVersionSelect = `SELECT
   v.skill_id, v.version, v.name, v.summary, v.description, v.capabilities_json,
   v.workflow_guidance, v.output_instruction, v.input_schema_json, v.output_schema_json,
-  v.tool_policy_json, v.runtime_policy_json, v.status, v.source_kind,
+  v.tool_policy_json, v.runtime_policy_json, v.usage_specification_json, v.status, v.source_kind,
   v.validation_passed, v.previous_version, v.created_at
   FROM skill_version v`;
 
@@ -6054,7 +6087,7 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
       ? {}
       : { compensationGuidance: parsedRuntimePolicy.compensationGuidance }),
   };
-  return {
+  return createSkillVersion({
     skillId: row.skill_id,
     version: row.version,
     name: row.name,
@@ -6067,12 +6100,15 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
     outputSchema: row.output_schema_json,
     toolPolicy,
     runtimePolicy,
+    ...(row.usage_specification_json === null
+      ? {}
+      : { usageSpecification: row.usage_specification_json as SkillUsageSpecification }),
     status: row.status,
     sourceKind: row.source_kind,
     validationPassed: row.validation_passed,
     ...(row.previous_version === null ? {} : { previousVersion: row.previous_version }),
     createdAt: toIsoString(row.created_at),
-  };
+  });
 }
 
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {

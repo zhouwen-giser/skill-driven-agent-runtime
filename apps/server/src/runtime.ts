@@ -47,6 +47,8 @@ import {
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
+  SkillPackageImporter,
+  SkillPackageValidator,
   TemporarySkillService,
   TemporarySkillResolver,
   SkillEvolutionService,
@@ -95,6 +97,7 @@ import {
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
+import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
 import {
   LangGraphWorkflowExecutor,
@@ -331,6 +334,17 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const schemaValidator = new AjvJsonSchemaValidator();
+  const skillPackageSchema = JSON.parse(
+    await readFile(resolve(process.cwd(), 'schemas', 'skill-package.schema.json'), 'utf8'),
+  ) as unknown;
+  const skillPackages = new SkillPackageImporter({
+    reader: new NodeSkillPackageReader(),
+    validator: new SkillPackageValidator({
+      schemas: schemaValidator,
+      packageSchema: skillPackageSchema,
+    }),
+    clock,
+  });
   const skillComposition = new SkillCompositionPlanner({
     skills,
     graph: skillGraphRepository,
@@ -380,7 +394,12 @@ export async function startServerRuntime(
     clock,
     nextId: () => `goal-input-inference-${randomUUID()}`,
   });
-  const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const skillRegistry = new SkillRegistryService({
+    skills,
+    validator: schemaValidator,
+    clock,
+    packages: skillPackages,
+  });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
     skills,
@@ -2389,6 +2408,7 @@ export async function applyRuntimeMigrations(
     '0102_remote_task_continuation.up.sql',
     '0103_remote_task_input_and_cancellation.up.sql',
     '0104_workflow_external_wait_event.up.sql',
+    '0105_skill_usage_specification.up.sql',
   ] as const;
   const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
   for (const [index, version] of v11Versions.entries()) {
@@ -2424,11 +2444,12 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
         '0101_task_execution_readiness',
         '0102_remote_task_continuation',
         '0103_remote_task_input_and_cancellation',
-        '0104_workflow_external_wait_event'
+        '0104_workflow_external_wait_event',
+        '0105_skill_usage_specification'
       )) AS v11_count`,
   );
   const ledgerState = ledger.rows[0];
   if (ledgerState?.released_present !== true)
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledgerState.v11_count !== 5) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (ledgerState.v11_count !== 6) throw new Error('V11_MIGRATION_NOT_APPLIED');
 }

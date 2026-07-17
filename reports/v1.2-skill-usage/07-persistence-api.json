@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "phase": 7,
+  "status": "passed",
+  "goal": "Persist exact-version Skill Usage and expose validated package, catalog, version, diff and lifecycle operations through existing authorities.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "8d94dbc8cca66f372af1f9474ac3cee5eaf3739c",
+  "resultingSha": "PENDING_PHASE_7_PUBLICATION",
+  "migration": {
+    "version": "0105_skill_usage_specification",
+    "pairCount": 69,
+    "releasedProfileHighWater": "0064_memory_production_hardening",
+    "isolatedProfileHighWater": "0105_skill_usage_specification",
+    "rollbackGuard": "MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE",
+    "nextReserved": "0106_skill_execution_record"
+  },
+  "authority": {
+    "registry": "existing SkillRegistryService and SkillRepository",
+    "versionSnapshot": "skill_version.usage_specification_json",
+    "importAudit": "skill_package_import_audit",
+    "lifecycle": "derived from existing Skill status; lifecycle operations create new versions",
+    "runtimeSource": "PostgreSQL exact Skill version; package files are import-only"
+  },
+  "api": {
+    "operationsAdded": [
+      "validateSkillPackage",
+      "importSkillPackage",
+      "listSkillUsageCatalog",
+      "getExactSkillVersion"
+    ],
+    "existingOperationsReused": ["registerSkill", "diffSkillVersions", "enableSkill", "disableSkill", "rollbackSkill"],
+    "openApiOperations": 114
+  },
+  "testsActuallyRun": [
+    { "command": "pnpm format:check && pnpm lint && pnpm typecheck", "status": "passed" },
+    { "command": "focused usage/Registry/package/API/Console vitest", "status": "passed", "files": 5, "tests": 83 },
+    { "command": "repositories.integration.test.ts", "status": "passed", "files": 1, "tests": 56, "infrastructure": "real PostgreSQL" },
+    { "command": "task-service-endpoint.e2e.test.ts", "status": "passed", "files": 1, "tests": 48, "infrastructure": "real Server/PostgreSQL/Redis/loopback APIs" },
+    { "command": "check-management-openapi.mjs", "status": "passed", "operations": 114 },
+    { "command": "check-architecture.mjs", "status": "passed", "files": 246 },
+    { "command": "verify-migration-path.mjs", "status": "passed" },
+    { "command": "verify-v11-migration-path.mjs", "status": "passed", "highWater": "0105_skill_usage_specification" },
+    { "command": "pnpm build", "status": "passed" }
+  ],
+  "security": {
+    "validationReadOnly": true,
+    "importRevalidates": true,
+    "staleVersionFailsClosed": true,
+    "normativeUpdateCreatesVersion": true,
+    "packageMarkdownReturnedByApi": false,
+    "rollbackWithEvidenceRefused": true
+  },
+  "knownLimitations": [
+    "Real v1.1 Provider readiness integration begins in Phase 8.",
+    "Planning, execution records and final vertical acceptance remain Phases 9-15.",
+    "External production Provider interoperability is unverified."
+  ],
+  "push": {
+    "status": "pending",
+    "remote": "origin",
+    "remoteSha": null
+  }
+}

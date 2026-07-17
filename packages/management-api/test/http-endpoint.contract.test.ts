@@ -3,6 +3,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  createSkillUsageSpecification,
+  createSkillVersion,
   createRemoteTaskBinding,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   type EvolutionExperience,
@@ -1025,6 +1027,102 @@ describe('management HTTP API contract', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: 'SKILL_AUTHORING_MODEL_NOT_CONFIGURED' },
     });
+  });
+
+  it('validates/imports Skill Packages and exposes exact usage catalog/version contracts', async () => {
+    const skillVersion = createSkillVersion({
+      skillId: 'embodied.move-to',
+      version: 1,
+      name: 'Move To',
+      summary: 'Move safely.',
+      description: 'Moves a resource.',
+      capabilities: ['embodied.move'],
+      workflowGuidance: 'Move safely.',
+      outputInstruction: 'Return final position.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-07-17T11:00:00.000Z',
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: ['Stay safe.'],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Prefer safety.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Guide.', instructions: ['Guide.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+    });
+    const candidate = {
+      skillVersion,
+      packageChecksum: 'a'.repeat(64),
+      packageRoot: '/reviewed/embodied.move_to',
+      fileChecksums: { 'manifest.json': 'b'.repeat(64) },
+      skillMarkdown: '# Move To',
+      validatedAt: '2026-07-17T10:59:00.000Z',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        skills: {
+          ...operations().skills,
+          validatePackage: () => Promise.resolve(candidate),
+          importPackageRoot: () => Promise.resolve(skillVersion),
+          readExactVersion: () => Promise.resolve(skillVersion),
+          listCatalog: () => Promise.resolve([]),
+        },
+      },
+    });
+
+    const validated = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-packages/validate`,
+      jsonPost({ packageRoot: candidate.packageRoot }),
+    );
+    expect(validated.status).toBe(200);
+    const validationBody = await validated.text();
+    expect(validationBody).toContain(candidate.packageChecksum);
+    expect(validationBody).not.toContain(candidate.skillMarkdown);
+    expect(
+      (
+        await fetch(
+          `${endpoint.baseUrl}/api/v1/skill-packages/import`,
+          jsonPost({ packageRoot: candidate.packageRoot }),
+        )
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await fetch(
+          `${endpoint.baseUrl}/api/v1/skills/${encodeURIComponent(skillVersion.skillId)}/versions/1`,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${endpoint.baseUrl}/api/v1/skills/catalog?mode=procedure&userSelectable=true`))
+        .status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${endpoint.baseUrl}/api/v1/skills/catalog?userSelectable=not-a-boolean`))
+        .status,
+    ).toBe(400);
   });
 
   it('publishes a persisted A2A Skill draft only through the management draft route', async () => {
@@ -2193,11 +2291,15 @@ function operations(failServerList = false): ManagementOperations {
     },
     skills: {
       diff: unused,
+      importPackageRoot: unused,
+      listCatalog: () => Promise.resolve([]),
       listCurrentVersions: () => Promise.resolve([]),
       listVersions: () => Promise.resolve([]),
+      readExactVersion: unused,
       register: unused,
       rollback: unused,
       setEnabled: unused,
+      validatePackage: unused,
     },
     temporarySkills: {
       complete: unused,

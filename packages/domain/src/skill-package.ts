@@ -1,4 +1,5 @@
 import type { SkillVersion } from './skill.js';
+import { DomainError } from './errors.js';
 import type {
   SkillAdaptiveGuidance,
   SkillCompositionSpecification,
@@ -71,4 +72,48 @@ export interface SkillPackageImportCandidate {
   readonly fileChecksums: Readonly<Record<string, string>>;
   readonly skillMarkdown: string;
   readonly validatedAt: string;
+}
+
+export interface SkillPackageImportAudit {
+  readonly skillId: string;
+  readonly skillVersion: number;
+  readonly packageChecksum: string;
+  readonly packageRoot: string;
+  readonly fileChecksums: Readonly<Record<string, string>>;
+  readonly validatedAt: string;
+  readonly importedAt: string;
+}
+
+export function createSkillPackageImportAudit(
+  candidate: SkillPackageImportCandidate,
+  importedAt: string,
+): SkillPackageImportAudit {
+  if (
+    !/^[0-9a-f]{64}$/u.test(candidate.packageChecksum) ||
+    candidate.packageRoot.trim() === '' ||
+    candidate.packageRoot.length > 4096 ||
+    !validTimestamp(candidate.validatedAt) ||
+    !validTimestamp(importedAt) ||
+    Object.keys(candidate.fileChecksums).length === 0 ||
+    Object.entries(candidate.fileChecksums).some(
+      ([name, checksum]) => name.trim() === '' || !/^[0-9a-f]{64}$/u.test(checksum),
+    )
+  )
+    throw new DomainError(
+      'SKILL_PACKAGE_IMPORT_AUDIT_INVALID',
+      'Skill Package import audit is invalid.',
+    );
+  return Object.freeze({
+    skillId: candidate.skillVersion.skillId,
+    skillVersion: candidate.skillVersion.version,
+    packageChecksum: candidate.packageChecksum,
+    packageRoot: candidate.packageRoot,
+    fileChecksums: Object.freeze({ ...candidate.fileChecksums }),
+    validatedAt: candidate.validatedAt,
+    importedAt,
+  });
+}
+
+function validTimestamp(value: string): boolean {
+  return value.trim() !== '' && Number.isFinite(Date.parse(value));
 }
