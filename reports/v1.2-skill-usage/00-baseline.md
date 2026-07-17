@@ -4,7 +4,7 @@
 - Dependency class: `V11-INDEPENDENT`
 - Branch: `feature/v1.2-skill-driven-capability-usage`
 - Base/main SHA: `667146a3639eefdfed9b89c2417c08e1ac50e9a9`
-- Resulting SHA: pending Phase 0 commit
+- Resulting SHA: `3e5ed759de421d1d6b687da67ad400ceb7cca962`
 - Package: `skill-driven-agent-runtime@1.1.0`
 - Migration high-water: `0104_workflow_external_wait_event`
 - ADR high-water: `ADR-095`
@@ -67,5 +67,8 @@ the supplied package freezes the required product and safety decisions in full.
 
 ## Publication
 
-Commit, push and Draft PR evidence are pending at report generation time and will be updated by the next
-living-plan checkpoint without rewriting published history.
+Commit `3e5ed759de421d1d6b687da67ad400ceb7cca962`
+(`docs(v1.2): freeze skill usage goal-mode baseline`) was pushed immediately to
+`origin/feature/v1.2-skill-driven-capability-usage`. Draft PR #5 is open against `main` at
+`https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/5`. This publication evidence is a
+follow-up commit; the already-pushed Phase 0 commit was not amended or rebased.

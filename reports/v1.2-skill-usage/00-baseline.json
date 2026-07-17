@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "phase": 0,
-  "status": "passed_pending_publication",
+  "status": "passed",
   "dependencyClass": "V11-INDEPENDENT",
   "branch": "feature/v1.2-skill-driven-capability-usage",
   "baseSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
-  "resultingSha": "pending-phase-0-commit",
+  "resultingSha": "3e5ed759de421d1d6b687da67ad400ceb7cca962",
   "packageVersion": "1.1.0",
   "migrationHighWater": "0104_workflow_external_wait_event",
   "adrHighWater": "ADR-095",
@@ -48,6 +48,16 @@
     "External production MCP Tasks Provider interoperability remains unverified from v1.1.",
     "Phase 0 contains documentation/evidence only; all v1.2 behavior remains unimplemented."
   ],
-  "push": { "status": "pending", "remote": "origin" },
-  "draftPr": { "status": "pending" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "branch": "feature/v1.2-skill-driven-capability-usage",
+    "remoteSha": "3e5ed759de421d1d6b687da67ad400ceb7cca962"
+  },
+  "draftPr": {
+    "status": "open",
+    "draft": true,
+    "number": 5,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/5"
+  }
 }
