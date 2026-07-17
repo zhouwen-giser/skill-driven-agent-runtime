@@ -46,9 +46,11 @@ afterAll(async () => {
 });
 
 describe('production ServerRuntime remote Task restart recovery', () => {
-  it('reconciles PostgreSQL waiting_external state without replaying tools/call or an ordinary running Task', async () => {
+  it('continues embodied.move after restart without replaying tools/call or an ordinary running Task', async () => {
     await createIsolatedDatabase();
-    const provider = await startMcpTasksMockProvider();
+    const provider = await startMcpTasksMockProvider({
+      moveTo: { outcome: 'remote_success' },
+    });
     const modelServer = await startRestartModelLoopback();
     const modelAddress = modelServer.address();
     if (modelAddress === null || typeof modelAddress === 'string')
@@ -171,7 +173,7 @@ describe('production ServerRuntime remote Task restart recovery', () => {
       const a2aTask = await getA2ATestTask(secondRuntime.a2a.client, submitted.id);
       expect(a2aTask.state).toBe('completed');
       expect(countRequests(provider.requests, 'tools/call')).toBe(1);
-      expect(countRequests(provider.requests, 'tasks/get')).toBeGreaterThanOrEqual(3);
+      expect(countRequests(provider.requests, 'tasks/get')).toBeGreaterThanOrEqual(2);
       await expect(taskSnapshot(database, ordinaryTaskId)).resolves.toMatchObject({
         phase: 'failed',
         phase_message: 'Process stopped during execution; V1 does not recover or retry.',
@@ -312,7 +314,7 @@ function restartSkill(skillId: string, serverId: string): RegisterSkillVersionIn
       properties: { status: { type: 'string' } },
     },
     toolPolicy: {
-      required: [{ serverId, toolName: 'task_pause_resume_observation' }],
+      required: [{ serverId, toolName: 'embodied.move' }],
       optional: [],
       forbidden: [],
     },
@@ -412,7 +414,10 @@ async function startRestartModelLoopback(): Promise<Server> {
                 name: 'Start durable remote Task',
                 type: 'mcp_tool',
                 tool,
-                arguments: {},
+                arguments: {
+                  resourceId: 'robot-restart',
+                  target: { x: 7, y: 9, frame: 'map' },
+                },
               },
               {
                 nodeId: 'result',

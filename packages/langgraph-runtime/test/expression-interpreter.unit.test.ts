@@ -55,4 +55,35 @@ describe('restricted Workflow expression interpreter', () => {
       ),
     ).toThrow('same type');
   });
+
+  it('exposes only the reserved Skill context envelope and Provider evidence projection', () => {
+    const usageContext = {
+      input: {
+        skillInput: { resourceId: 'robot-1' },
+        context: { permission: true },
+        evidence: { requested: true },
+      },
+      outputs: {
+        move: {
+          data: {
+            structuredContent: {
+              evidence: { 'final-position': true },
+            },
+          },
+        },
+      },
+      errors: {},
+      loopCounts: {},
+    };
+
+    expect(
+      evaluateWorkflowExpression({ op: 'ref', path: ['context', 'permission'] }, usageContext),
+    ).toBe(true);
+    expect(
+      evaluateWorkflowExpression({ op: 'ref', path: ['evidence', 'final-position'] }, usageContext),
+    ).toBe(true);
+    expect(
+      evaluateWorkflowExpression({ op: 'ref', path: ['evidence', 'requested'] }, usageContext),
+    ).toBe(true);
+  });
 });

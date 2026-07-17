@@ -201,6 +201,7 @@ export class WorkflowExecutionService {
       this.#systemBudgetDefaults,
       skillVersions.map((skill) => skill.runtimePolicy),
     );
+    const executionInput = skillUsageExecutionInput(validation.definition, input.input);
     const startedAt = this.#clock.now();
     const replanCount = input.replanCount ?? 0;
     if (!Number.isInteger(replanCount) || replanCount < 0 || replanCount > budgetLimits.maxReplans)
@@ -222,7 +223,7 @@ export class WorkflowExecutionService {
       budgetLimits,
       budgetUsage: emptyUsage(replanCount),
       status: 'running',
-      input: input.input,
+      input: executionInput,
       errors: {},
       startedAt,
     };
@@ -233,14 +234,14 @@ export class WorkflowExecutionService {
         input.executionContext === undefined
           ? await this.#executor.execute(
               validation.definition,
-              input.input,
+              executionInput,
               budgetLimits,
               input.signal,
               input.instanceId,
             )
           : await this.#executor.execute(
               validation.definition,
-              input.input,
+              executionInput,
               budgetLimits,
               input.signal,
               input.instanceId,
@@ -268,7 +269,7 @@ export class WorkflowExecutionService {
           workflowDefinitionId: validation.definition.workflowDefinitionId,
           workflowDefinitionVersion: validation.definition.version,
           workflowDefinitionHash: canonicalHash(validation.definition),
-          inputHash: canonicalHash(input.input),
+          inputHash: canonicalHash(executionInput),
           workflowInstanceId: input.instanceId,
           ...outcome.continuation,
           budgetUsage: { ...outcome.continuation.budgetUsage, replanCount },
@@ -906,4 +907,31 @@ function compositionValidationContext(plan: WorkflowPlanRecord) {
     allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
     capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
   } as const;
+}
+
+function skillUsageExecutionInput(
+  definition: NonNullable<WorkflowPlanRecord['definition']>,
+  skillInput: unknown,
+): unknown {
+  const policy = definition.skillUsagePolicy;
+  if (
+    policy === undefined ||
+    (policy.requiredContextIds.length === 0 &&
+      policy.taskOperations.length === 0 &&
+      policy.childPolicies.length === 0 &&
+      policy.evidenceRequirements.length === 0)
+  )
+    return skillInput;
+  return Object.freeze({
+    skillInput,
+    context: Object.freeze(
+      Object.fromEntries(
+        policy.context.requirements.map((requirement) => [
+          requirement.requirementId,
+          requirement.status === 'satisfied',
+        ]),
+      ),
+    ),
+    evidence: Object.freeze({}),
+  });
 }

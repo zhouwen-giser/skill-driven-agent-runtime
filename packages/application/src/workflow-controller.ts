@@ -6,6 +6,7 @@ import {
   type GoalEvaluationResult,
   type ProcessedResultRecord,
   type RuntimeEnhancementWarning,
+  type RuntimeTerminalOutcomeRecord,
   type WorkflowControlRecord,
   type WorkflowDefinition,
   type WorkflowInstance,
@@ -105,6 +106,14 @@ export class WorkflowControllerService {
   readonly #taskOutcomes: Readonly<WorkflowControllerTaskOutcomes> | undefined;
   readonly #terminalOutcomes: RuntimeTerminalOutcomeRepository;
   readonly #reportWarning: ((warning: RuntimeEnhancementWarning) => void) | undefined;
+  readonly #onTerminalCommitted:
+    | ((
+        input: Readonly<{
+          outcome: RuntimeTerminalOutcomeRecord;
+          control: WorkflowControlRecord;
+        }>,
+      ) => Promise<void>)
+    | undefined;
   readonly #clock: Clock;
   readonly #ids: Readonly<{
     nextPlanId(controlId: string, replanCount: number): string;
@@ -127,6 +136,12 @@ export class WorkflowControllerService {
       memories?: Pick<MemoryService, 'recordEvolution'>;
       taskOutcomes?: Readonly<WorkflowControllerTaskOutcomes>;
       terminalOutcomes: RuntimeTerminalOutcomeRepository;
+      onTerminalCommitted?: (
+        input: Readonly<{
+          outcome: RuntimeTerminalOutcomeRecord;
+          control: WorkflowControlRecord;
+        }>,
+      ) => Promise<void>;
       reportWarning?: (warning: RuntimeEnhancementWarning) => void;
       clock: Clock;
       ids: Readonly<{
@@ -146,6 +161,7 @@ export class WorkflowControllerService {
     this.#memories = dependencies.memories;
     this.#taskOutcomes = dependencies.taskOutcomes;
     this.#terminalOutcomes = dependencies.terminalOutcomes;
+    this.#onTerminalCommitted = dependencies.onTerminalCommitted;
     this.#reportWarning = dependencies.reportWarning;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
@@ -498,6 +514,7 @@ export class WorkflowControllerService {
                   : { eventId: `event-terminal-${control.taskId}` }),
                 committedAt: this.#clock.now(),
               });
+        await this.#onTerminalCommitted?.({ outcome, control });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
           control,
@@ -522,6 +539,7 @@ export class WorkflowControllerService {
           ...(control.taskId === undefined ? {} : { eventId: `event-terminal-${control.taskId}` }),
           committedAt: this.#clock.now(),
         });
+        await this.#onTerminalCommitted?.({ outcome, control });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
           control,

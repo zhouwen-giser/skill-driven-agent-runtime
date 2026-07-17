@@ -60,12 +60,19 @@ interface MockTaskState {
   getCount: number;
   updateCount: number;
   cancelAcknowledged: boolean;
+  readonly moveResult?: Readonly<{
+    resourceId: string;
+    target: Readonly<{ x: number; y: number; frame?: string }>;
+    includeEvidence: boolean;
+  }>;
 }
 
 interface MockProviderState {
   readonly tasks: Map<string, MockTaskState>;
   readonly phaseSixTimeline: readonly [string, string, string, string];
   readonly phaseSixValidUntil: string;
+  readonly moveTo?: McpTasksMockMoveToOptions;
+  nextMoveTask: number;
 }
 
 class MockTransportOutage extends Error {}
@@ -82,8 +89,21 @@ export interface McpTasksMockProviderHandle {
   close(): Promise<void>;
 }
 
+export interface McpTasksMockMoveToOptions {
+  readonly outcome:
+    | 'immediate_success'
+    | 'remote_success'
+    | 'remote_missing_evidence'
+    | 'remote_input_required'
+    | 'remote_cancelled';
+  readonly availability?: 'available' | 'restricted' | 'disabled';
+}
+
 export async function startMcpTasksMockProvider(
-  options: Readonly<{ declareTasks?: boolean }> = {},
+  options: Readonly<{
+    declareTasks?: boolean;
+    moveTo?: McpTasksMockMoveToOptions;
+  }> = {},
 ): Promise<McpTasksMockProviderHandle> {
   const requests: McpTasksMockRequest[] = [];
   const startedAt = Date.now();
@@ -91,6 +111,8 @@ export async function startMcpTasksMockProvider(
     tasks: new Map(),
     phaseSixTimeline: timelineFrom(startedAt),
     phaseSixValidUntil: new Date(startedAt + 86_400_000).toISOString(),
+    ...(options.moveTo === undefined ? {} : { moveTo: options.moveTo }),
+    nextMoveTask: 0,
   };
   const declareTasks = options.declareTasks ?? true;
   const server = createServer((request, response) => {
@@ -177,7 +199,7 @@ function resultForRequest(
         serverInfo: { name: 'sdar-mcp-tasks-mock', version: '1.1.0' },
       };
     case 'tools/list':
-      return toolListResult();
+      return toolListResult(state);
     case 'io.sdar/tasks/checkAvailability':
       return availabilityResult(params, state);
     case 'tools/call':
@@ -193,32 +215,71 @@ function resultForRequest(
   }
 }
 
-function toolListResult(): Readonly<Record<string, unknown>> {
+function toolListResult(state?: MockProviderState): Readonly<Record<string, unknown>> {
   const names = [...PHASE_SIX_SCENARIOS, ...LEGACY_SCENARIOS];
   return {
     resultType: 'complete',
     ttlMs: 0,
     cacheScope: 'private',
-    tools: names.map((name) => ({
-      name,
-      description: `Deterministic MCP Tasks acceptance scenario: ${name}.`,
-      inputSchema: { type: 'object', additionalProperties: false },
-      ...(isTaskCapableName(name)
-        ? {
-            _meta: {
-              'io.sdar/taskExecution': {
-                execution: 'task_required',
-                availability: 'dynamic',
-                supportsScheduling: true,
-                supportsMaxElapsed: true,
-                supportsObservations: true,
-                cancellation: 'task_cancel',
-                revision: '1.0',
+    tools: [
+      ...names.map((name) => ({
+        name,
+        description: `Deterministic MCP Tasks acceptance scenario: ${name}.`,
+        inputSchema: { type: 'object', additionalProperties: false },
+        ...(isTaskCapableName(name)
+          ? {
+              _meta: {
+                'io.sdar/taskExecution': {
+                  execution: 'task_required',
+                  availability: 'dynamic',
+                  supportsScheduling: true,
+                  supportsMaxElapsed: true,
+                  supportsObservations: true,
+                  cancellation: 'task_cancel',
+                  revision: '1.0',
+                },
+              },
+            }
+          : {}),
+      })),
+      ...(state?.moveTo === undefined
+        ? []
+        : [
+            {
+              name: 'embodied.move',
+              description: 'Move one resource and return authoritative final-position evidence.',
+              inputSchema: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['resourceId', 'target'],
+                properties: {
+                  resourceId: { type: 'string', minLength: 1 },
+                  target: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['x', 'y'],
+                    properties: {
+                      x: { type: 'number' },
+                      y: { type: 'number' },
+                      frame: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              _meta: {
+                'io.sdar/taskExecution': {
+                  execution: 'task_capable',
+                  availability: 'dynamic',
+                  supportsScheduling: true,
+                  supportsMaxElapsed: true,
+                  supportsObservations: true,
+                  cancellation: 'task_cancel',
+                  revision: '1.0',
+                },
               },
             },
-          }
-        : {}),
-    })),
+          ]),
+    ],
   };
 }
 
@@ -238,6 +299,40 @@ function availabilityResult(
         nodeId: stringParam(request, 'nodeId'),
         operationName,
       };
+      if (operationName === 'embodied.move') {
+        const availability = state.moveTo?.availability ?? 'available';
+        if (availability === 'restricted')
+          return {
+            ...common,
+            availability,
+            riskLevel: 'high',
+            reasonCode: 'MOVE_WINDOW_RESTRICTED',
+            description: 'Movement must be rescheduled into the declared Provider window.',
+            validUntil: state.phaseSixValidUntil,
+            earliestStartTime: state.phaseSixTimeline[1],
+            nextAvailableWindows: [
+              { startTime: state.phaseSixTimeline[1], endTime: state.phaseSixTimeline[3] },
+            ],
+            reservationMode: 'best_effort',
+            possibleEffects: ['start_rejection'],
+          };
+        if (availability === 'disabled')
+          return {
+            ...common,
+            availability,
+            riskLevel: 'high',
+            reasonCode: 'MOVE_PROVIDER_DISABLED',
+            reservationMode: 'none',
+            possibleEffects: [],
+          };
+        return {
+          ...common,
+          availability,
+          riskLevel: 'low',
+          reservationMode: 'none',
+          possibleEffects: [],
+        };
+      }
       if (
         operationName === 'task_restricted_accept' ||
         operationName === 'task_restricted_reject'
@@ -300,6 +395,7 @@ function toolCallResult(
   state: MockProviderState,
 ): Readonly<Record<string, unknown>> {
   const name = stringParam(params, 'name');
+  if (name === 'embodied.move') return moveToolCallResult(params, state);
   if (name === 'sync_success')
     return { resultType: 'complete', ...successfulToolResult('sync_complete', 'sync complete') };
   if (name === 'rejected_without_task' || name === 'task_restricted_reject') {
@@ -326,6 +422,52 @@ function toolCallResult(
     cancelAcknowledged: false,
   };
   state.tasks.set(taskId, task);
+  return createdTask(task);
+}
+
+function moveToolCallResult(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): Readonly<Record<string, unknown>> {
+  const options = state.moveTo;
+  if (options === undefined) throw new Error('Move-to scenario is not enabled.');
+  const arguments_ = params['arguments'];
+  if (!isRecord(arguments_)) throw new Error('embodied.move requires arguments.');
+  const resourceId = stringParam(arguments_, 'resourceId');
+  const targetValue = arguments_['target'];
+  if (!isRecord(targetValue)) throw new Error('embodied.move target is required.');
+  const x = numberParam(targetValue, 'x');
+  const y = numberParam(targetValue, 'y');
+  const frame = targetValue['frame'];
+  if (frame !== undefined && typeof frame !== 'string')
+    throw new Error('embodied.move target frame must be a string.');
+  const target = { x, y, ...(frame === undefined ? {} : { frame }) };
+  if (options.outcome === 'immediate_success')
+    return {
+      resultType: 'complete',
+      ...successfulMoveResult(resourceId, target, true),
+    };
+  const scenario: TaskScenario =
+    options.outcome === 'remote_input_required'
+      ? 'task_input_required'
+      : options.outcome === 'remote_cancelled'
+        ? 'task_cancelled'
+        : 'task_success';
+  state.nextMoveTask += 1;
+  const task: MockTaskState = {
+    scenario,
+    taskId: `remote-task-embodied-move-${String(state.nextMoveTask)}`,
+    timeline: state.phaseSixTimeline,
+    getCount: 0,
+    updateCount: 0,
+    cancelAcknowledged: false,
+    moveResult: {
+      resourceId,
+      target,
+      includeEvidence: options.outcome !== 'remote_missing_evidence',
+    },
+  };
+  state.tasks.set(task.taskId, task);
   return createdTask(task);
 }
 
@@ -470,7 +612,14 @@ function completedTask(
     ...taskBase(task, sequence),
     status: 'completed',
     _meta: observationMetadata('stopping', 100, sequence, taskObservedAt(task, sequence)),
-    result: successfulToolResult(status, text),
+    result:
+      task.moveResult === undefined
+        ? successfulToolResult(status, text)
+        : successfulMoveResult(
+            task.moveResult.resourceId,
+            task.moveResult.target,
+            task.moveResult.includeEvidence,
+          ),
   };
 }
 
@@ -569,6 +718,23 @@ function successfulToolResult(status: string, text: string): Readonly<Record<str
     content: [{ type: 'text', text }],
     structuredContent: { status },
     isError: false,
+  };
+}
+
+function successfulMoveResult(
+  resourceId: string,
+  target: Readonly<{ x: number; y: number; frame?: string }>,
+  includeEvidence: boolean,
+): Readonly<Record<string, unknown>> {
+  return {
+    content: [{ type: 'text', text: `Moved ${resourceId} to the permitted target.` }],
+    structuredContent: {
+      resourceId,
+      status: 'completed',
+      finalPosition: target,
+    },
+    isError: false,
+    ...(includeEvidence ? { _meta: { 'io.sdar/evidence': { 'final-position': true } } } : {}),
   };
 }
 
@@ -706,6 +872,13 @@ function normalizeHeaders(headers: IncomingHttpHeaders): Readonly<Record<string,
 function stringParam(params: Readonly<Record<string, unknown>>, name: string): string {
   const value = params[name];
   if (typeof value !== 'string') throw new Error(`Mock Provider parameter ${name} is required.`);
+  return value;
+}
+
+function numberParam(params: Readonly<Record<string, unknown>>, name: string): number {
+  const value = params[name];
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    throw new Error(`Mock Provider numeric parameter ${name} is required.`);
   return value;
 }
 

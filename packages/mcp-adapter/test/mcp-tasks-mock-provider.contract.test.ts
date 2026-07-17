@@ -163,6 +163,67 @@ describe('Phase 6 deterministic MCP Tasks Mock Provider', () => {
     ]);
   });
 
+  it('drives embodied.move input_required and cooperative cancellation through MCP Tasks', async () => {
+    provider = await startMcpTasksMockProvider({
+      moveTo: { outcome: 'remote_input_required' },
+    });
+    adapter = new StreamableHttpMcpAdapter();
+    const inputRuntime = { provider, adapter, endpoint: provider.endpoint.toString() };
+    const inputOutcome = await adapter.call({
+      endpoint: inputRuntime.endpoint,
+      headers: {},
+      toolName: 'embodied.move',
+      arguments: { resourceId: 'robot-17', target: { x: 12, y: 8, frame: 'map' } },
+      executionContext: { mode: 'live' },
+    });
+    if (inputOutcome.kind !== 'remote_task') throw new Error('MOVE_TASK_EXPECTED');
+    await expect(get(inputRuntime, inputOutcome.task.remoteTaskId)).resolves.toMatchObject({
+      status: 'input_required',
+      inputRequests: { approval: expect.any(Object) },
+    });
+    await update(inputRuntime, inputOutcome.task.remoteTaskId, {
+      approval: { action: 'accept', content: { approved: true } },
+    });
+    await expect(get(inputRuntime, inputOutcome.task.remoteTaskId)).resolves.toMatchObject({
+      status: 'completed',
+      result: {
+        structuredContent: {
+          resourceId: 'robot-17',
+          finalPosition: { x: 12, y: 8, frame: 'map' },
+        },
+        metadata: { 'io.sdar/evidence': { 'final-position': true } },
+      },
+    });
+
+    await adapter.close();
+    await provider.close();
+    provider = await startMcpTasksMockProvider({ moveTo: { outcome: 'remote_cancelled' } });
+    adapter = new StreamableHttpMcpAdapter();
+    const cancelRuntime = { provider, adapter, endpoint: provider.endpoint.toString() };
+    const cancelOutcome = await adapter.call({
+      endpoint: cancelRuntime.endpoint,
+      headers: {},
+      toolName: 'embodied.move',
+      arguments: { resourceId: 'robot-18', target: { x: 2, y: 3 } },
+      executionContext: { mode: 'live' },
+    });
+    if (cancelOutcome.kind !== 'remote_task') throw new Error('MOVE_TASK_EXPECTED');
+    await expect(get(cancelRuntime, cancelOutcome.task.remoteTaskId)).resolves.toMatchObject({
+      status: 'working',
+    });
+    await expect(
+      adapter.cancelTask({
+        endpoint: cancelRuntime.endpoint,
+        headers: {},
+        remoteTaskId: cancelOutcome.task.remoteTaskId,
+      }),
+    ).resolves.toMatchObject({ acknowledged: true });
+    await expect(get(cancelRuntime, cancelOutcome.task.remoteTaskId)).resolves.toMatchObject({
+      status: 'cancelled',
+    });
+    expect(provider.requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
   it('returns deterministic restricted acceptance/rejection and scheduled availability', async () => {
     const runtime = await createRuntime();
     const availability = await runtime.adapter.checkTaskAvailability({

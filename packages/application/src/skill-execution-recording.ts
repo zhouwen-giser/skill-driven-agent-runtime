@@ -195,6 +195,7 @@ export class SkillExecutionRecordingService {
   ): Promise<SkillExecutionView | undefined> {
     const execution = await this.#repository.findByPlan(input.workflowPlanId);
     if (execution === undefined) return undefined;
+    if (execution.status === input.status) return execution;
     return this.#repository.appendEvent(
       createSkillExecutionEvent({
         eventId: this.#nextId('event'),
@@ -246,6 +247,12 @@ export class SkillExecutionRecordingService {
   ): Promise<SkillExecutionView | undefined> {
     const execution = await this.#repository.findByPlan(input.workflowPlanId);
     if (execution === undefined) return undefined;
+    if (
+      execution.references.some(
+        (reference) => reference.kind === input.kind && reference.referenceId === input.referenceId,
+      )
+    )
+      return execution;
     return this.#repository.appendReference(
       createSkillExecutionReference({
         linkId: this.#nextId('reference'),

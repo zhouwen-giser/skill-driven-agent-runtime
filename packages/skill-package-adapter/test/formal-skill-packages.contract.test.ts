@@ -35,7 +35,7 @@ describe('formal SDAR v1.2 Skill Packages', () => {
     const areaPatrol = await importer.import(packageRoots.areaPatrol);
 
     expect(moveTo).toMatchObject({
-      packageChecksum: 'f0017113882ab071210f365c89548f87cf755f8d6a3a4057b48c6f87ee7f9940',
+      packageChecksum: 'f63b97f8a594cce1c7e4c464e5bc66b668ce50fd877de4af90a22dc04e6f89d6',
       skillVersion: { skillId: 'embodied.move_to', version: 1, status: 'enabled' },
     });
     expect(areaPatrol).toMatchObject({

@@ -113,7 +113,16 @@ describe('Skill Usage Workflow planning', () => {
         expect.arrayContaining(['skill_call', 'error_handler', 'mcp_tool', 'condition', 'result']),
       );
       expect(definition.nodes.find((node) => node.type === 'skill_call')).toMatchObject({
-        input: { resourceId: { op: 'ref', path: ['input', 'resourceId'] } },
+        input: { resourceId: { op: 'ref', path: ['input', 'skillInput', 'resourceId'] } },
+      });
+      expect(definition.nodes.find((node) => node.type === 'mcp_tool')).toMatchObject({
+        arguments: { op: 'ref', path: ['input', 'skillInput'] },
+      });
+      expect(definition.nodes.find((node) => node.nodeId === 'usage_success')).toMatchObject({
+        value: {
+          op: 'ref',
+          path: ['nodes', 'usage_task_0', 'data', 'structuredContent'],
+        },
       });
     },
   );

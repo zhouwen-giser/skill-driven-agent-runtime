@@ -96,6 +96,7 @@ import {
   type AgentTask,
   type GoalExecutionContract,
   type McpInvocationOutcome,
+  type SkillUsageSelectionContext,
   type SkillVersion,
   type WorkflowBudgetLimits,
   type WorkflowContinuationSnapshot,
@@ -190,6 +191,15 @@ export interface ServerRuntimeOptions {
     embeddings: TextEmbeddingProvider;
     decider?: SkillSelectionDecider;
   }>;
+  /** Supplies trusted, deployment-owned context observations and mode policy to Usage-aware selection. */
+  readonly skillUsageContext?: Readonly<{
+    resolve(
+      input: Readonly<{
+        goalContract: GoalExecutionContract;
+        task?: AgentTask;
+      }>,
+    ): SkillUsageSelectionContext | Promise<SkillUsageSelectionContext>;
+  }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -275,6 +285,16 @@ export async function startServerRuntime(
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
+  const resolveSkillUsageContext = (
+    goalContract: GoalExecutionContract,
+    task?: AgentTask,
+  ): Promise<SkillUsageSelectionContext> =>
+    Promise.resolve(
+      options.skillUsageContext?.resolve({
+        goalContract,
+        ...(task === undefined ? {} : { task }),
+      }) ?? conservativeSkillUsageSelectionContext(),
+    );
   const mcpRepository = new PostgresMcpRegistryRepository(pool, {
     v11TaskMetadata: options.v11McpTasks !== undefined,
   });
@@ -1431,7 +1451,7 @@ export async function startServerRuntime(
           task.skillSelectionId,
           task.selectedSkillId,
           createGoalExecutionContract(goal),
-          conservativeSkillUsageSelectionContext(),
+          await resolveSkillUsageContext(createGoalExecutionContract(goal), task),
         );
         return {
           skillId: replacement.replacementSkillId,
@@ -1518,6 +1538,45 @@ export async function startServerRuntime(
       },
     },
     terminalOutcomes: runtimeTerminalOutcomes,
+    onTerminalCommitted: async ({ outcome, control }) => {
+      try {
+        await skillExecutionRecording.recordReference({
+          workflowPlanId: control.currentPlanId,
+          kind: 'outcome',
+          referenceId: outcome.outcomeId,
+          referenceType: 'runtime.terminal_outcome',
+          sourceSystem: 'workflow_controller',
+          producerRefs: outcome.finalInstanceId === undefined ? [] : [outcome.finalInstanceId],
+          metadata: { workflowControlStatus: outcome.controlStatus, controlId: control.controlId },
+        });
+        await skillExecutionRecording.recordStatus({
+          workflowPlanId: control.currentPlanId,
+          eventType:
+            outcome.controlStatus === 'achieved'
+              ? 'skill.execution_completed'
+              : outcome.controlStatus === 'canceled'
+                ? 'skill.execution_failed'
+                : 'skill.execution_failed',
+          status:
+            outcome.controlStatus === 'achieved'
+              ? 'completed'
+              : outcome.controlStatus === 'canceled'
+                ? 'cancelled'
+                : 'failed',
+          summary: `Authoritative terminal outcome ${outcome.outcomeId} was committed atomically.`,
+          details: { workflowControlStatus: outcome.controlStatus },
+        });
+      } catch (error: unknown) {
+        process.stderr.write(
+          `${JSON.stringify({
+            level: 'warn',
+            event: 'skill_execution_terminal_projection_failed',
+            errorCode: runtimeErrorCode(error),
+            outcomeId: outcome.outcomeId,
+          })}\n`,
+        );
+      }
+    },
     reportWarning: (warning) => {
       process.stderr.write(
         `${JSON.stringify({ event: 'runtime.enhancement.warning', ...warning })}\n`,
@@ -1766,6 +1825,7 @@ export async function startServerRuntime(
       return;
     }
     if (status === 'achieved') {
+      await recordSkillControlOutcome(workflowPlanId, control);
       await recordSkillProjectionSafely(() =>
         skillExecutionRecording.recordStatus({
           workflowPlanId,
@@ -1774,9 +1834,9 @@ export async function startServerRuntime(
           summary: 'Authoritative Workflow achieved the Goal.',
         }),
       );
-      await recordSkillControlOutcome(workflowPlanId, control);
       return;
     }
+    await recordSkillControlOutcome(workflowPlanId, control);
     await recordSkillProjectionSafely(() =>
       skillExecutionRecording.recordStatus({
         workflowPlanId,
@@ -1789,7 +1849,6 @@ export async function startServerRuntime(
         details: { workflowControlStatus: status },
       }),
     );
-    await recordSkillControlOutcome(workflowPlanId, control);
   };
   const recordSkillControlOutcome = async (
     workflowPlanId: string,
@@ -1862,7 +1921,7 @@ export async function startServerRuntime(
           try {
             return await skillSelection.select(
               goalContract,
-              conservativeSkillUsageSelectionContext(),
+              await resolveSkillUsageContext(goalContract, task),
             );
           } catch (error: unknown) {
             if (!(
@@ -1999,6 +2058,9 @@ export async function startServerRuntime(
               goalVersion: input.goalVersion,
             },
             goalDescription: input.goalDescription,
+            ...(preparedUsage === undefined
+              ? {}
+              : { skillUsagePlanning: JSON.parse(preparedUsage.planningInstruction) as unknown }),
             ...(skill === undefined
               ? {
                   selectedTemporarySkill: {
@@ -2305,7 +2367,7 @@ export async function startServerRuntime(
                     );
                   return skillSelection.select(
                     goalContract,
-                    conservativeSkillUsageSelectionContext(),
+                    await resolveSkillUsageContext(goalContract),
                   );
                 },
               },

@@ -312,7 +312,7 @@ function compileDeterministicDefinition(
       name: `Execute ${task.bindingId}`,
       type: 'mcp_tool',
       tool: { serverId: task.providerId, toolName: task.operationName },
-      arguments: { op: 'ref', path: ['input'] },
+      arguments: { op: 'ref', path: ['input', 'skillInput'] },
       taskExecution: { mode: 'require_task', availabilityCheck: 'required' },
     }),
   );
@@ -329,11 +329,22 @@ function compileDeterministicDefinition(
         expression: { op: 'ref', path: ['evidence', requirement.requirementId] },
       }),
     );
+  const resultSource = [...primary]
+    .reverse()
+    .find((node) => node.type === 'mcp_tool' || node.type === 'skill_call');
   primary.push({
     nodeId: 'usage_success',
     name: 'Skill usage succeeded',
     type: 'result',
-    value: { op: 'literal', value: true },
+    value:
+      resultSource?.type === 'mcp_tool'
+        ? {
+            op: 'ref',
+            path: ['nodes', resultSource.nodeId, 'data', 'structuredContent'],
+          }
+        : resultSource?.type === 'skill_call'
+          ? { op: 'ref', path: ['nodes', resultSource.nodeId] }
+          : { op: 'literal', value: true },
   });
   const failure: WorkflowNode = {
     nodeId: 'usage_failure',
@@ -396,7 +407,9 @@ function boundInput(
     mappings.map((mapping) => {
       const source = mapping.sourcePath.split('.');
       const path =
-        source[0] === 'context' || source[0] === 'evidence' ? source : ['input', ...source];
+        source[0] === 'context' || source[0] === 'evidence'
+          ? source
+          : ['input', 'skillInput', ...source];
       return [mapping.targetPath.split('.')[0] ?? mapping.targetPath, { op: 'ref', path }];
     }),
   );

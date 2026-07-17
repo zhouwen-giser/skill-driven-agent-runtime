@@ -102,6 +102,34 @@ describe('V11SkillTaskReadinessAdapter', () => {
       bindings: [{ reasonCodes: ['SKILL_TASK_REQUIRED_PROVIDER_UNAVAILABLE'] }],
     });
     await expect(
+      readiness(
+        [candidate('provider.required')],
+        new Map([['provider.required', result('disabled')]]),
+      ).inspect(
+        inspectInput(
+          binding({
+            selection: 'required',
+            preferredProviderIds: [],
+            requiredProviderId: 'provider.required',
+            forbiddenProviderIds: [],
+            requiredAttributes: [],
+          }),
+        ),
+      ),
+    ).resolves.toMatchObject({
+      overall: 'unavailable',
+      bindings: [
+        {
+          candidates: [
+            expect.objectContaining({
+              providerId: 'provider.required',
+              disposition: 'unavailable',
+            }),
+          ],
+        },
+      ],
+    });
+    await expect(
       readiness(candidates, outcomes).inspect(
         inspectInput(
           binding({ ...dynamicPolicy(), forbiddenProviderIds: ['provider.one', 'provider.two'] }),

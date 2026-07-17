@@ -48,7 +48,7 @@
         "selection": "dynamic",
         "preferredProviderIds": [],
         "forbiddenProviderIds": [],
-        "requiredAttributes": ["position-evidence", "cooperative-cancellation"]
+        "requiredAttributes": ["observations", "cancellation:task_cancel"]
       }
     }
   ]

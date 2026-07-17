@@ -52,7 +52,13 @@ export function evaluateWorkflowExpression(
 }
 
 function resolveReference(path: readonly string[], context: WorkflowExpressionContext): unknown {
-  let current: unknown = { ...context, nodes: context.outputs };
+  const input = isRecord(context.input) ? context.input : undefined;
+  let current: unknown = {
+    ...context,
+    nodes: context.outputs,
+    ...(isRecord(input?.['context']) ? { context: input['context'] } : {}),
+    evidence: mergedEvidence(input, context.outputs),
+  };
   for (const segment of path) {
     if (!isRecord(current) || !(segment in current)) {
       throw new WorkflowExpressionError(
@@ -63,6 +69,39 @@ function resolveReference(path: readonly string[], context: WorkflowExpressionCo
     current = current[segment];
   }
   return current;
+}
+
+function mergedEvidence(
+  input: Readonly<Record<string, unknown>> | undefined,
+  outputs: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const merged: Record<string, unknown> = isRecord(input?.['evidence'])
+    ? { ...input['evidence'] }
+    : {};
+  for (const output of Object.values(outputs)) {
+    const structured = structuredContent(output);
+    if (isRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
+    const metadata = resultMetadata(output);
+    if (isRecord(metadata?.['io.sdar/evidence']))
+      Object.assign(merged, metadata['io.sdar/evidence']);
+  }
+  return Object.freeze(merged);
+}
+
+function resultMetadata(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (!isRecord(value)) return undefined;
+  if (isRecord(value['metadata'])) return value['metadata'];
+  const data = value['data'];
+  return isRecord(data) && isRecord(data['metadata']) ? data['metadata'] : undefined;
+}
+
+function structuredContent(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (!isRecord(value)) return undefined;
+  if (isRecord(value['structuredContent'])) return value['structuredContent'];
+  const data = value['data'];
+  return isRecord(data) && isRecord(data['structuredContent'])
+    ? data['structuredContent']
+    : undefined;
 }
 
 function requireBoolean(value: unknown): boolean {
