@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 10 exact selected Usage evidence, bounded composition/interpretation and immutable policy wiring through the existing Task→Workflow Planner→Validator→outer confirmation path, including policy persistence and replan/revision/Goal Patch inheritance.
 - Phase 9 exact-version Skill Usage planning policy, bounded guidance context, deterministic template/procedure-to-Workflow compilation, explicit Skill failure-policy DSL metadata and post-plan compliance checks through the existing Validator.
 - Phase 8 exact Skill Task Type resolution, deterministic validated-semantics candidate attributes, required/preferred/forbidden Provider policy filtering and immutable v1.1 live-readiness summaries in the production Skill selection path.
 - Phase 7 migration 0105 persists native exact-version Skill Usage snapshots and checksum-bound package import audit through the existing Registry transaction, with real validate/import, exact-version and filtered catalog API/Console surfaces.
@@ -29,6 +30,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
+- The post-main released migration profile now applies the single monotonic chain through 0105; the disposable `v1.1-isolated` profile guard remains for compatibility tests and ledger gaps still fail closed.
+- Skill Usage confirmation uses the existing outer Workflow Plan boundary. The complete policy remains immutable review data and no duplicate in-graph confirmation node is generated.
 - Usage-aware selection is always wired when Skill selection is enabled; deployments without v1.1 Task metadata return no candidates for native Task bindings and fail closed, while the existing exact-argument pre-invocation readiness guard remains final.
 - V1.2 applied migration high-water is now 0105 for Skill usage/import persistence; 0106 remains reserved for minimal Skill execution records.
 - ADR-096 keeps capability classification and lifecycle single-authority: catalog domains/tags derive from exact capabilities and lifecycle derives from existing Skill status.
@@ -40,7 +43,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
-- SDAR v1.2 Phase 9 passed 68 focused planning/Validator/schema/LangGraph tests, all 448 unit tests and all 107 contract tests, including bounded repair and adversarial normative/Provider/depth/failure/confirmation/context/evidence compliance rejection.
+- SDAR v1.2 Phase 10 clean-tree `pnpm verify` passed at `efb03e8` in 106,796 ms with 556 unit/contract tests, 81 real integration tests, 50 real E2E tests, 251-source architecture, 69 migrations, production builds and both smoke stages.
+- SDAR v1.2 Phase 9 passed 68 focused planning/Validator/schema/LangGraph tests, all 448 unit tests and all 107 contract tests, including bounded repair, outer-plan confirmation preservation and adversarial normative/Provider/depth/failure/context/evidence compliance rejection.
 - SDAR v1.2 Phase 8 passed 23 focused readiness/usage/selection tests, 8 real MCP registry integration tests, 56 real PostgreSQL plan-snapshot repository tests and 48 real A2A/MCP E2E tests, including every required Provider policy/readiness edge and the selection-before-planning availability request.
 - SDAR v1.2 Phase 7 passed full format/lint/typecheck, 83 focused unit/contract tests, 56 real PostgreSQL repository tests, 48 real Server E2E tests, 114-operation OpenAPI, 246-source architecture, 69 migration pairs through isolated 0105, and production builds.
 - SDAR v1.2 Phase 6 post-main-sync self-managed Compose `pnpm verify` passed in 141,005 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, 68 migration pairs, production builds and both smoke gates.

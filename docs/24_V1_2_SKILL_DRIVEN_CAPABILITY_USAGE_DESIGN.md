@@ -1,6 +1,6 @@
 # SDAR v1.2 Skill-Driven Capability Usage — Normalized Design
 
-Status: Phase 9 mode compilation and plan compliance implemented and verified; Phase 10 runtime wiring next
+Status: Phase 10 existing Runtime/Graph integration implemented and verified; Phase 11 execution records next
 Date: 2026-07-17
 ExecPlan: `execplans/EP-10-v1.2-skill-driven-capability-usage.md`
 
@@ -104,9 +104,16 @@ policy and the complete Goal contract into the existing Planner. Template and pr
 the existing `WorkflowDefinition`; parameter mappings become restricted references, selected Task
 bindings become exact MCP nodes, and context/evidence hard gates become restricted conditions with an
 unsuccessful false branch. The existing Validator then applies structural Skill Usage compliance before
-readiness and confirmation. Natural-language normative/forbidden items are projected verbatim into an
-existing human-confirmation node because model explanations cannot prove semantic compliance. ADR-105
-records this boundary.
+readiness and confirmation. The complete policy is attached immutably to the Workflow definition for
+review and replanning; the existing outer Workflow Plan confirmation remains the sole pre-execution
+confirmation boundary. Natural-language text is never guessed into executable predicates or duplicated
+as an in-graph confirmation. ADR-105 records this boundary.
+
+Phase 10 wires the exact selected Usage candidate through the existing Task preparation path into
+composition, mode interpretation, Workflow planning, validation and outer confirmation. The validated
+policy survives persistence, bounded repair, ordinary replanning, natural-language/admin revision and
+Goal Patch while each invalidating action still requires fresh confirmation. Legacy Usage with no v1.2
+composition declaration continues to use the existing exact Skill Graph admission authority.
 
 ## Composition and failure
 

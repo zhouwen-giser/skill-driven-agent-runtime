@@ -19,13 +19,13 @@
     "procedure": "deterministic existing WorkflowDefinition; never directly executed"
   },
   "complianceCases": {
-    "normativeConfirmationProjection": "passed",
-    "forbiddenActionConfirmationProjection": "passed",
+    "normativePolicyPersistenceForOuterConfirmation": "passed",
+    "forbiddenActionPolicyPersistenceForOuterConfirmation": "passed",
     "taskTypeAllowlist": "passed",
     "providerPolicy": "passed",
     "recursionBudget": "passed",
     "failurePolicy": "passed",
-    "confirmationRequirement": "passed",
+    "outerPlanConfirmationRequirement": "passed",
     "contextGate": "passed",
     "evidencePlan": "passed",
     "hardGate": "passed",
@@ -59,7 +59,7 @@
   "adr": "ADR-105",
   "knownLimitations": [
     "Production Runtime wiring and the complete verify gate remain Phase 10.",
-    "Natural-language policy requires exact human confirmation projection; it is not claimed as machine-proven semantic compliance."
+    "Natural-language policy remains immutable review data at the existing outer Workflow Plan confirmation; it is not claimed as machine-proven semantic compliance."
   ],
   "push": {
     "status": "passed",

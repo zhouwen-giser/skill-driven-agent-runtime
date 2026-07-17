@@ -113,3 +113,17 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   closed. External production Provider interoperability remains unverified.
 - Applied migration high-water remains 0104. Numbers 0105 and 0106 are allocated but no migration file
   exists until Phase 7 and Phase 11 respectively.
+
+## v1.2 Phase 10 runtime and migration integration (2026-07-17)
+
+- V1.1 is merged into `origin/main`, so the pre-main rule that only disposable `sdar_v11_*` databases
+  may apply 0100+ can no longer remain the production profile. ADR-106 advances the default released
+  chain through 0105 while retaining the isolated-profile acknowledgement/name guard for tests and
+  rejecting any gap inside 0100..0105.
+- The operator-owned local `sdar` volume currently contains 0064 and 0105 but not 0100–0104. This is an
+  invalid historical ledger, not an authorized upgrade path. Verification proved the new runner rejects
+  it and did not mutate the volume; a disposable bootstrap database supplied clean released-path
+  evidence and was removed afterward.
+- Required dynamic capability slots still require an exact choice before Usage composition. Phase 10
+  wires the composition authority but does not let the model invent a choice; Phase 12–13 must add and
+  verify the bounded choice path before claiming the formal area-patrol vertical.

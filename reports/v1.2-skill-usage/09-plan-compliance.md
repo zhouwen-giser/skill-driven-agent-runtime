@@ -19,20 +19,22 @@ readiness and evidence requirements.
 
 Guidance serializes only that policy plus the complete Goal contract into the existing Planner request.
 Template and procedure IR deterministically compile to the existing `WorkflowDefinition`: restricted
-references bind child inputs, selected Task bindings become `mcp_tool` nodes, required confirmation
-uses the existing human-confirmation node, failure propagation is explicit additive DSL data, and
-context/evidence hard gates use restricted conditions whose false branch returns unsuccessful.
+references bind child inputs, selected Task bindings become `mcp_tool` nodes, failure propagation is
+explicit additive DSL data, and context/evidence hard gates use restricted conditions whose false
+branch returns unsuccessful. Required confirmation remains the existing outer Workflow Plan boundary;
+the compiler does not create a duplicate in-graph confirmation node.
 
 Every deterministic definition and every model-generated or repair definition runs through the
 existing `WorkflowValidator` and then Skill Usage compliance. The first deterministic failure consumes
 one existing Planner attempt; only the existing bounded remaining attempts may repair it. Compliance
 rejects operations outside the exact Tool/Provider allowlist, missing bindings or children, unadmitted
-children, recursion overflow, failure-policy drift, incomplete confirmation projection and missing
-context/evidence false-to-failure gates. A model explanation is never compliance evidence.
+children, recursion overflow, failure-policy drift and missing context/evidence false-to-failure gates.
+The immutable policy is retained for plan review and fresh confirmation. A model explanation is never
+compliance evidence.
 
-ADR-105 records why natural-language normative and forbidden-action text is projected verbatim into an
-existing confirmation node instead of being guessed into executable predicates. No second runtime,
-graph, Provider state, persistence authority or migration was added.
+ADR-105 records why natural-language normative and forbidden-action text remains bounded policy data
+reviewed at the existing outer plan confirmation instead of being guessed into executable predicates.
+No second runtime, graph, Provider state, persistence authority or migration was added.
 
 ## Verification
 
