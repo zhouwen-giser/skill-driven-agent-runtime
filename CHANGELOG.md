@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 6 regenerated main-baseline repository/symbol/overlap maps and ADR-097–103 for exact usage, three modes, normative authority, bounded composition, package import, V1.1 readiness/continuation reuse and minimal execution records.
 - Phase 5 bounded exact-version recursive composition through the existing Skill Graph/planner, dynamic capability slots, declarative parent/child mappings, immutable plans, four failure projections and safe guidance/template/procedure IR.
 - Phase 4 structured applicability/context/readiness/mode decisions, fixed context authority ordering, mock-only `SkillTaskReadinessPort` and fail-closed filtering before the existing Skill model decider.
 - Phase 3B reviewed `embodied.move_to` and `embodied.area_patrol` packages with three modes, Provider bindings, bounded composition/failure policy, evidence gates and checksum-pinned golden import snapshots.
@@ -25,6 +26,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
+- V1.2 now allocates append-only migration 0105 to Skill usage/import persistence and 0106 to minimal Skill execution records; the applied migration high-water remains 0104 until implementation.
 - ADR-096 keeps capability classification and lifecycle single-authority: catalog domains/tags derive from exact capabilities and lifecycle derives from existing Skill status.
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
@@ -34,6 +36,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 6 post-main-sync self-managed Compose `pnpm verify` passed in 141,005 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, 68 migration pairs, production builds and both smoke gates.
 - SDAR v1.2 Phase 5 self-managed Compose `pnpm verify` passed in 139,408 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, migrations/build and both smoke gates; targeted composition/formal-package regressions passed 20/20.
 - SDAR v1.2 Phase 4 targeted application/formal-package regression tests passed 23/23, all 428 unit tests passed, strict typecheck/target lint passed and architecture verified 244 sources.
 - SDAR v1.2 Phase 3B formal package schema/import/invalid/legacy/golden tests passed 5/5 and all 106 contract tests passed.

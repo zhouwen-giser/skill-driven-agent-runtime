@@ -1,6 +1,6 @@
 # SDAR v1.2 Skill-Driven Capability Usage — Normalized Design
 
-Status: Phase 0 design freeze; implementation not yet started
+Status: Phase 6 shared-contract freeze; Phases 1–5 implemented and verified
 Date: 2026-07-17
 ExecPlan: `execplans/EP-10-v1.2-skill-driven-capability-usage.md`
 
@@ -31,6 +31,12 @@ Goal
 ```
 
 No second Agent, Workflow, procedure, behavior-tree or recovery runtime is introduced.
+
+Phase 6 confirms that `origin/main` `667146a3639eefdfed9b89c2417c08e1ac50e9a9` is already an
+ancestor of the V1.2 branch, so no integration merge is required. ADR-097 through ADR-103 are the
+accepted production decisions for the contracts below. PostgreSQL migration 0105 is allocated to Skill
+usage/import persistence and 0106 to minimal execution records; the current applied high-water remains
+0104 until those phases implement their migrations.
 
 ## Frozen product decisions
 
@@ -118,6 +124,12 @@ Skill expresses demand and preference. Provider remains authoritative for live a
 reservation, resources, execution state and final result. Required unavailable Providers cannot be
 silently replaced; preferred Providers may fall back only as permitted; forbidden Providers are always
 filtered; unknown is never promoted to available; guaranteed requires a valid reservation reference.
+
+The Phase 8 production readiness adapter directly uses the existing `McpTaskOperationCatalog`,
+`TaskAvailabilityBatchReader` and V1.1 Domain availability/timing/window/reservation types. The Phase 4
+`SkillTaskReadinessPort` mock is not production evidence. The exact projection is
+`available → ready`, `restricted → restricted`, `disabled → unavailable` and
+`unknown/Provider errors → unknown`; the existing exact-argument pre-invocation guard remains final.
 
 ## Execution and evidence boundary
 

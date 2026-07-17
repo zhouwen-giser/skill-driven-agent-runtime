@@ -81,6 +81,7 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - 2026-07-16：restricted 的既有计划确认只适用于同一节点规划时已经 restricted 且执行前风险未升级的刷新结果。available→restricted、风险等级/可能影响增加、预约减弱、有效期提前或最早开始推迟都要求重新确认，并在 Tool 网络调用前失败关闭。
 - 2026-07-16：availability 结果是 Provider 预测证据。只有 `reservationMode=guaranteed` 且存在有效 `reservationRef` 才可展示为预约；best-effort/窗口永远不代表设备锁或 Provider 权威资源状态。
 - 2026-07-16：0101 仍属于 disposable `sdar_v11_*` 隔离迁移链。受支持发布升级路径继续等待完整 `v1.0.13-bug-fixed` ledger；Phase 3 的真实 PostgreSQL 验证不等于最终发布迁移兼容声明。
+
 ## v1.1 MCP Tasks Phase 5 assumptions and gaps (2026-07-17)
 
 - The exact pinned extension wire is `tasks/update({ taskId, inputResponses })`; it does not carry the design draft's `expectedRevision`. SDAR validates the binding revision locally and does not emit an unsupported field. See ADR-094.
@@ -97,3 +98,13 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The latest `pnpm demo:acceptance` report records merge commit `df8b6e0` with `dirty=false`; the latest `pnpm verify` report records evidence commit `13194b8` with `dirty=false`. These are clean local attestations, while external production Provider interoperability and publication review remain outside the local evidence boundary.
 - `v1.0.13-bug-fixed` (`91cd58ddcff57acf3ed846914feafaff603c69f2`) is an ancestor of the feature work and `origin/main`. `origin/main` contains the protected hardening merge at `6584bf0`. Exact commit `38356ea` passed isolated frozen install, unified verification and local demo; ready PR #4 and annotated `v1.1.0-rc.1` are published. Protected review/merge and stable `v1.1.0` remain pending.
 - The Phase 6 management surface permits only bounded lifecycle reads and safe refresh/cancel requests. It does not convert cooperative acknowledgements into Provider terminal states, retry ambiguous side effects, or add an authentication/authorization model that conflicts with the trusted-intranet V1 baseline.
+
+## v1.2 Phase 6 main baseline and adapter boundary (2026-07-17)
+
+- Current `origin/main` `667146a` was already an ancestor of the V1.2 branch at Phase 6 entry; no empty
+  integration merge was created.
+- The Phase 4 `SkillTaskReadinessPort` remains mock-only. ADR-102 requires the Phase 8 production adapter
+  to directly reuse V1.1 operation discovery and Task availability/timing/window/reservation contracts.
+  Production Provider readiness is therefore not claimed by Phases 4–6.
+- Applied migration high-water remains 0104. Numbers 0105 and 0106 are allocated but no migration file
+  exists until Phase 7 and Phase 11 respectively.
