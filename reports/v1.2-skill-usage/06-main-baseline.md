@@ -3,7 +3,7 @@
 - Dependency class: `V11-MAIN-BASELINE-DEPENDENT`
 - Phase input SHA: `389d43d04c5c133791a789dec1c4e7417d65d625`
 - `origin/main`: `667146a3639eefdfed9b89c2417c08e1ac50e9a9`
-- Resulting SHA: pending publication
+- Resulting SHA: `67cf7c335396f2041890f12a0fba4da3c6e6150f`
 - Merge: not required; main was already an ancestor
 - Gate: OPEN
 
@@ -50,5 +50,7 @@ through the existing Registry, Management API/OpenAPI and Console surface.
 
 ## Publication
 
-The report commit and remote SHA are pending; an immediate follow-up will record publication without
+Commit `67cf7c335396f2041890f12a0fba4da3c6e6150f`
+(`docs(v1.2): record v1.1 main integration baseline`) was pushed immediately to the tracked origin
+branch and the remote SHA matched exactly. This evidence is recorded in a follow-up commit without
 amend, rebase or force-push.

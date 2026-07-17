@@ -4,7 +4,7 @@
   "status": "passed",
   "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
   "phaseInputSha": "389d43d04c5c133791a789dec1c4e7417d65d625",
-  "resultingSha": "pending-publication",
+  "resultingSha": "67cf7c335396f2041890f12a0fba4da3c6e6150f",
   "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
   "v11FinalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
   "ancestry": {
@@ -41,5 +41,9 @@
     "infrastructureSmoke": "passed",
     "serverConsoleSmoke": "passed"
   },
-  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "67cf7c335396f2041890f12a0fba4da3c6e6150f"
+  }
 }
