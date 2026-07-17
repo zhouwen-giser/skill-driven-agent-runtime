@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 2 strict Skill Package JSON Schema, checksum-bound bounded UTF-8 reader, path/symlink/type/size guards, embedded-schema validation and immutable import candidates behind a filesystem adapter.
 - Phase 1 immutable `sdar.io/v1alpha1` Skill Usage contracts with native/legacy snapshots, normative/adaptive separation, three modes, bounded Provider/composition/evidence policies and candidate-only patches.
 - Frozen SDAR v1.2 EP-10, exact Goal task package, normalized Skill-driven capability-usage design, v1.1 overlap/symbol maps and recoverable Phase 0 baseline evidence.
 - Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
@@ -28,6 +29,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 2 self-managed Compose `pnpm verify` passed in 149,172 ms with 513 unit/contract, 80 integration, 49 E2E, 239-source architecture, migration/build and both smoke gates; the final package security suite passes 10/10.
 - `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.
 - Clean self-managed Compose `pnpm verify` passed at `13194b8` in 162.0 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 

@@ -76,10 +76,68 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
     name: input.name.trim(),
     summary: input.summary.trim(),
     description: input.description.trim(),
+    capabilities: Object.freeze([...input.capabilities]),
+    inputSchema: snapshotSkillJson(input.inputSchema),
+    outputSchema: snapshotSkillJson(input.outputSchema),
+    toolPolicy: Object.freeze({
+      required: Object.freeze(
+        input.toolPolicy.required.map((reference) => Object.freeze({ ...reference })),
+      ),
+      optional: Object.freeze(
+        input.toolPolicy.optional.map((reference) => Object.freeze({ ...reference })),
+      ),
+      forbidden: Object.freeze(
+        input.toolPolicy.forbidden.map((reference) => Object.freeze({ ...reference })),
+      ),
+    }),
+    runtimePolicy: Object.freeze({ ...input.runtimePolicy }),
     ...(input.usageSpecification === undefined
       ? {}
       : { usageSpecification: createSkillUsageSpecification(input.usageSpecification) }),
   });
+}
+
+function snapshotSkillJson(value: unknown, active = new WeakSet(), depth = 0): unknown {
+  if (depth > 64)
+    throw new DomainError(
+      'SKILL_VERSION_JSON_INVALID',
+      'Skill version JSON exceeds the maximum depth.',
+    );
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  )
+    return value;
+  if (typeof value !== 'object')
+    throw new DomainError(
+      'SKILL_VERSION_JSON_INVALID',
+      'Skill version schemas must contain finite JSON data.',
+    );
+  if (active.has(value))
+    throw new DomainError('SKILL_VERSION_JSON_INVALID', 'Skill version schemas cannot be cyclic.');
+  const prototype = Reflect.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null && !Array.isArray(value))
+    throw new DomainError(
+      'SKILL_VERSION_JSON_INVALID',
+      'Skill version schemas require plain JSON objects.',
+    );
+  active.add(value);
+  try {
+    if (Array.isArray(value))
+      return Object.freeze(value.map((item) => snapshotSkillJson(item, active, depth + 1)));
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [
+          key,
+          snapshotSkillJson(item, active, depth + 1),
+        ]),
+      ),
+    );
+  } finally {
+    active.delete(value);
+  }
 }
 
 function assertRuntimePolicy(policy: SkillRuntimePolicy): void {

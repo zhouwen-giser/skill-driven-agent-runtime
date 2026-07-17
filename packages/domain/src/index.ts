@@ -12,6 +12,7 @@ export * from './evaluation-analytics.js';
 export * from './skill-draft.js';
 export * from './skill.js';
 export * from './skill-usage.js';
+export * from './skill-package.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
 export * from './skill-input-resolution.js';

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "phase": 2,
+  "status": "passed",
+  "goal": "Safely validate and load immutable Skill usage package import candidates.",
+  "dependencyClass": "V11-INDEPENDENT",
+  "baseSha": "72af560b87589cd1cedcfc6affd6eb3fdc61f548",
+  "resultingSha": "pending-publication",
+  "changedFiles": [
+    "schemas/skill-package.schema.json",
+    "packages/domain/src/skill-package.ts",
+    "packages/domain/src/skill.ts",
+    "packages/domain/src/errors.ts",
+    "packages/application/src/skill-package-loader.ts",
+    "packages/skill-package-adapter/src/node-skill-package-reader.ts",
+    "packages/skill-package-adapter/test/skill-package.contract.test.ts"
+  ],
+  "architecture": {
+    "owners": ["packages/domain", "packages/application", "packages/skill-package-adapter"],
+    "touchedBoundaries": ["Skill package import contract", "Node filesystem adapter", "SkillVersion immutable snapshot"],
+    "preservedInvariants": [
+      "Package files are import artifacts and not production runtime authority",
+      "No executable source, YAML parser, SDK, ORM or LangGraph type crosses the boundary",
+      "No Provider, Workflow, persistence, API or Console authority is copied",
+      "Validated imports are exact-version recursively frozen data"
+    ],
+    "adrNeeded": false
+  },
+  "limits": { "fileBytes": 262144, "totalBytes": 1048576, "jsonDepth": 64 },
+  "testsActuallyRun": [
+    { "command": "CI=true pnpm verify with ignored .env trap-isolated", "status": "passed", "durationMs": 149172, "unitAndContractTests": 513, "integrationTests": 80, "e2eTests": 49, "architectureFiles": 239 },
+    { "command": "vitest run packages/skill-package-adapter/test/skill-package.contract.test.ts", "status": "passed", "tests": 10 },
+    { "command": "tsc -p tsconfig.json --noEmit", "status": "passed" },
+    { "command": "eslint packages/skill-package-adapter/test/skill-package.contract.test.ts", "status": "passed" }
+  ],
+  "knownLimitations": [
+    "Registry publication, persistence, API and Console integration are deferred.",
+    "Formal example packages are Phase 3B.",
+    "External production Provider interoperability is not exercised."
+  ],
+  "deferredWork": ["Phase 3A existing catalog/version extension", "Phase 3B formal example packages"],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true
+  },
+  "push": { "status": "pending", "remote": "origin", "remoteSha": "pending-publication" }
+}
