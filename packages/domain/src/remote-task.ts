@@ -13,12 +13,62 @@ import {
 
 export type RemoteTaskLocalState =
   | 'polling'
+  | 'cancel_observing'
   | 'awaiting_input'
   | 'terminal_event_pending'
   | 'terminal_event_claimed'
   | 'reentered'
   | 'closed'
   | 'quarantined';
+
+export type RemoteTaskCancellationDeliveryStatus = 'requested' | 'acknowledged' | 'uncertain';
+
+export type RemoteTaskCancellationProviderTerminalStatus = Extract<
+  McpTaskStatus,
+  'completed' | 'failed' | 'cancelled'
+>;
+
+export interface RemoteTaskCancellationRequest {
+  readonly requestId: string;
+  readonly bindingId: string;
+  readonly idempotencyKey: string;
+  readonly source: 'task' | 'goal' | 'workflow' | 'management' | 'compensation';
+  readonly reasonCode: string;
+  readonly summary: string;
+  readonly deliveryStatus: RemoteTaskCancellationDeliveryStatus;
+  readonly providerTerminalStatus?: RemoteTaskCancellationProviderTerminalStatus;
+  readonly protocolRevision?: string;
+  readonly acknowledgedAt?: string;
+  readonly resolvedAt?: string;
+  readonly claimToken?: string;
+  readonly claimedAt?: string;
+  readonly claimExpiresAt?: string;
+  readonly attemptCount: number;
+  readonly lastSafeErrorCode?: string;
+  readonly requestedAt: string;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+export type RemoteTaskCancellationAttemptStatus =
+  | 'acknowledged'
+  | 'provider_unreachable'
+  | 'contract_invalid'
+  | 'provider_protocol'
+  | 'stale_terminal';
+
+export interface RemoteTaskCancellationAttempt {
+  readonly attemptId: string;
+  readonly requestId: string;
+  readonly bindingId: string;
+  readonly expectedRequestVersion: number;
+  readonly protocolRevision: string;
+  readonly status: RemoteTaskCancellationAttemptStatus;
+  readonly errorCode?: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly durationMs: number;
+}
 
 export type RemoteTaskObservationType =
   | 'task.accepted'
@@ -207,10 +257,14 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
       'Remote Task polling interval must be an integer of at least 100 milliseconds.',
     );
   }
+  // tools/call is admission evidence, not an authoritative tasks/get snapshot.
+  // Every accepted remote Task therefore enters one initial poll before its
+  // observed Provider status is projected into awaiting/terminal local state.
+  const localState = 'polling' as const;
   return Object.freeze({
     ...input,
     executionContext: createRuntimeExecutionContext(input.executionContext),
-    localState: 'polling',
+    localState,
     nextPollAt: input.nextPollAt ?? input.createdAt,
     pollAttempt: 0,
     providerFailureCount: 0,
@@ -249,6 +303,46 @@ export function controlEventTypeForStatus(
 
 export function isRemoteTaskTerminal(status: McpTaskStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
+
+export function isRemoteTaskObservationActive(binding: RemoteTaskBinding): boolean {
+  return (
+    binding.terminalAt === undefined &&
+    (binding.localState === 'polling' || binding.localState === 'cancel_observing') &&
+    (binding.invalidatedAt === undefined || binding.localState === 'cancel_observing')
+  );
+}
+
+export function createRemoteTaskCancellationRequest(
+  input: Omit<
+    RemoteTaskCancellationRequest,
+    'deliveryStatus' | 'attemptCount' | 'updatedAt' | 'version'
+  >,
+): RemoteTaskCancellationRequest {
+  const identifiers = [
+    input.requestId,
+    input.bindingId,
+    input.idempotencyKey,
+    input.reasonCode,
+    input.summary,
+  ];
+  if (identifiers.some((value) => value.trim() === ''))
+    throw new DomainError(
+      'REMOTE_TASK_CANCELLATION_INVALID',
+      'Remote Task cancellation identity and display fields must be non-empty.',
+    );
+  if (input.summary.length > 2_048 || input.reasonCode.length > 128)
+    throw new DomainError(
+      'REMOTE_TASK_CANCELLATION_INVALID',
+      'Remote Task cancellation display fields exceed their bounded size.',
+    );
+  return Object.freeze({
+    ...input,
+    deliveryStatus: 'requested',
+    attemptCount: 0,
+    updatedAt: input.requestedAt,
+    version: 1,
+  });
 }
 
 export function resultSnapshotFromRemoteTask(

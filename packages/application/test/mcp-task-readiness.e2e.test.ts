@@ -67,7 +67,7 @@ describe('MCP Task readiness vertical acceptance', () => {
           executionContext: input.executionContext,
         });
         await toolCall(input.arguments);
-        return { content: [], isError: false };
+        return { kind: 'immediate', result: { content: [], isError: false } };
       }),
     );
     await expect(
@@ -107,7 +107,7 @@ describe('MCP Task readiness vertical acceptance', () => {
           executionContext: input.executionContext,
         });
         await toolCall(input.arguments);
-        return { content: [], isError: false };
+        return { kind: 'immediate', result: { content: [], isError: false } };
       }),
     );
     await expect(

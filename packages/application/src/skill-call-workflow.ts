@@ -82,10 +82,16 @@ export class SkillCallWorkflowService {
       parentPlanId: string;
       parentInstanceId: string;
       parentNodeId: string;
+      parentNodeRunId: string;
       parentGoalId: string;
       parentGoalVersion: number;
       signal?: AbortSignal;
       executionContext?: RuntimeExecutionContext;
+      continuationAuthority?: Readonly<{
+        agentTaskId: string;
+        contextId: string;
+        workflowControlId: string;
+      }>;
     }>,
   ): Promise<SkillCallExecutionResult> {
     await this.#assertParentCompositionAuthority(input.parentPlanId, input.skillId);
@@ -184,7 +190,14 @@ export class SkillCallWorkflowService {
     return true;
   }
 
-  async resumeConfirmedForParentPlan(parentPlanId: string): Promise<boolean> {
+  async resumeConfirmedForParentPlan(
+    parentPlanId: string,
+    continuationAuthority?: Readonly<{
+      agentTaskId: string;
+      contextId: string;
+      workflowControlId: string;
+    }>,
+  ): Promise<boolean> {
     const parent = await this.#execution.findActiveByPlanId(parentPlanId);
     const pending = parent?.pendingConfirmation;
     if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
@@ -228,6 +241,7 @@ export class SkillCallWorkflowService {
     await this.#execution.resumeHumanConfirmation({
       instanceId: parent.instanceId,
       confirmed: true,
+      ...(continuationAuthority === undefined ? {} : { continuationAuthority }),
     });
     return true;
   }
@@ -274,10 +288,16 @@ export class SkillCallWorkflowService {
       parentPlanId: string;
       parentInstanceId: string;
       parentNodeId: string;
+      parentNodeRunId: string;
       parentGoalId: string;
       parentGoalVersion: number;
       signal?: AbortSignal;
       executionContext?: RuntimeExecutionContext;
+      continuationAuthority?: Readonly<{
+        agentTaskId: string;
+        contextId: string;
+        workflowControlId: string;
+      }>;
     }>,
     skill: SkillVersion,
   ): Promise<SkillCallExecutionResult> {
@@ -353,8 +373,14 @@ export class SkillCallWorkflowService {
     plan: WorkflowPlanRecord,
     input: Readonly<{
       value: unknown;
+      parentNodeRunId: string;
       signal?: AbortSignal;
       executionContext?: RuntimeExecutionContext;
+      continuationAuthority?: Readonly<{
+        agentTaskId: string;
+        contextId: string;
+        workflowControlId: string;
+      }>;
     }>,
   ): Promise<SkillCallExecutionResult> {
     const definition = await this.#requireValidatedDefinition(plan);
@@ -370,8 +396,37 @@ export class SkillCallWorkflowService {
       input: input.value,
       skillIds: [skill.skillId],
       ...(input.executionContext === undefined ? {} : { executionContext: input.executionContext }),
+      ...(input.continuationAuthority === undefined
+        ? {}
+        : { continuationAuthority: input.continuationAuthority }),
+      onStarted: () =>
+        this.#records.save({
+          ...record,
+          childInstanceId,
+          status: 'running',
+          evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
+        }),
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
+    if (child.status === 'waiting_external') {
+      await this.#records.save({
+        ...record,
+        childInstanceId,
+        status: 'waiting_external',
+        evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is waiting for external work.`,
+      });
+      return {
+        status: 'waiting_external',
+        wait: {
+          waitId: `child-workflow-${childInstanceId}`,
+          kind: 'child_workflow',
+          sourceId: childInstanceId,
+          nodeId: record.parentNodeId,
+          nodeRunId: input.parentNodeRunId,
+          state: 'waiting',
+        },
+      };
+    }
     if (child.status !== 'succeeded') {
       await this.#records.save({
         ...record,
@@ -425,6 +480,127 @@ export class SkillCallWorkflowService {
       completedAt: child.completedAt ?? this.#clock.now(),
     });
     return { status: 'completed', output: child.result };
+  }
+
+  async completeExternalChild(child: WorkflowInstance): Promise<
+    Readonly<{
+      parentInstanceId: string;
+      parentNodeId: string;
+      childInstanceId: string;
+      outcome:
+        | Readonly<{ kind: 'completed'; result: unknown }>
+        | Readonly<{
+            kind: 'failed';
+            error: Readonly<{
+              code: string;
+              message: string;
+              category: 'child_failed' | 'child_cancelled';
+              data?: unknown;
+            }>;
+          }>;
+    }>
+  > {
+    const record = await this.#records.findByChildInstanceId(child.instanceId);
+    if (record?.childInstanceId !== child.instanceId)
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CHILD_LINK_NOT_FOUND',
+        'The completed child Workflow is not linked to a persisted Skill call.',
+      );
+    if (
+      child.status === 'running' ||
+      child.status === 'paused' ||
+      child.status === 'waiting_external'
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CHILD_NOT_TERMINAL',
+        'A nonterminal child Workflow cannot continue its parent Skill call.',
+      );
+    const skill = await this.#skills.findVersion(record.skillId, record.skillVersion);
+    if (skill === undefined)
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_NOT_ENABLED',
+        'The exact child Skill version is unavailable for output validation.',
+      );
+    const completedAt = child.completedAt ?? this.#clock.now();
+    if (child.status === 'succeeded') {
+      let outputFailure: Readonly<{ code: string; message: string }> | undefined;
+      try {
+        const resultSize = jsonSize(child.result);
+        if (resultSize > MAX_SKILL_CHILD_RESULT_CHARACTERS)
+          outputFailure = {
+            code: 'WORKFLOW_SKILL_OUTPUT_TOO_LARGE',
+            message: `Child result exceeds the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
+          };
+      } catch (error: unknown) {
+        outputFailure = {
+          code: 'WORKFLOW_SKILL_OUTPUT_INVALID',
+          message: error instanceof Error ? error.message : 'Child output is not finite JSON.',
+        };
+      }
+      const validation =
+        outputFailure === undefined
+          ? this.#schemas.validate(skill.outputSchema, child.result)
+          : undefined;
+      if (validation !== undefined && !validation.valid)
+        outputFailure = {
+          code: 'WORKFLOW_SKILL_OUTPUT_INVALID',
+          message: `Child result does not satisfy ${skill.skillId}@${String(skill.version)}: ${validation.errors.join('; ')}`,
+        };
+      if (outputFailure !== undefined) {
+        await this.#records.save({
+          ...record,
+          status: 'failed',
+          evaluationSummary: outputFailure.message,
+          completedAt,
+        });
+        return {
+          parentInstanceId: record.parentInstanceId,
+          parentNodeId: record.parentNodeId,
+          childInstanceId: child.instanceId,
+          outcome: {
+            kind: 'failed',
+            error: {
+              ...outputFailure,
+              category: 'child_failed',
+            },
+          },
+        };
+      }
+      await this.#records.save({
+        ...record,
+        status: 'succeeded',
+        evaluationSummary: `Externally continued child output passed ${skill.skillId}@${String(skill.version)} validation.`,
+        completedAt,
+      });
+      return {
+        parentInstanceId: record.parentInstanceId,
+        parentNodeId: record.parentNodeId,
+        childInstanceId: child.instanceId,
+        outcome: { kind: 'completed', result: child.result },
+      };
+    }
+    const canceled = child.status === 'canceled';
+    const error = Object.values(child.errors)[0];
+    await this.#records.save({
+      ...record,
+      status: canceled ? 'canceled' : 'failed',
+      evaluationSummary: `Externally continued child Workflow ended with ${child.status}.`,
+      completedAt,
+    });
+    return {
+      parentInstanceId: record.parentInstanceId,
+      parentNodeId: record.parentNodeId,
+      childInstanceId: child.instanceId,
+      outcome: {
+        kind: 'failed',
+        error: {
+          code: canceled ? 'WORKFLOW_SKILL_CHILD_CANCELED' : 'WORKFLOW_SKILL_CHILD_FAILED',
+          message: error?.message ?? `Child Workflow ended with ${child.status}.`,
+          category: canceled ? 'child_cancelled' : 'child_failed',
+          ...(error === undefined ? {} : { data: error }),
+        },
+      },
+    };
   }
 
   async #requireValidatedDefinition(plan: WorkflowPlanRecord) {
@@ -599,6 +775,9 @@ export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_CHILD_PLAN_INVALID'
   | 'WORKFLOW_SKILL_CHILD_FAILED'
   | 'WORKFLOW_SKILL_CHILD_CANCELED'
+  | 'WORKFLOW_SKILL_CHILD_LINK_NOT_FOUND'
+  | 'WORKFLOW_SKILL_CHILD_NOT_TERMINAL'
+  | 'WORKFLOW_SKILL_NOT_ENABLED'
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
   | 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE'

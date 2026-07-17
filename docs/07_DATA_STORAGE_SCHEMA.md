@@ -36,6 +36,19 @@
 - `workflow_template`
 - `system_config`
 - `retention_policy`
+- `remote_task_binding`
+- `remote_task_observation`
+- `remote_task_control_event`
+- `remote_task_protocol_attempt`
+- `task_execution_readiness`
+- `task_availability_snapshot`
+- `workflow_continuation_snapshot`
+- `workflow_continuation_wait_binding`
+- `workflow_continuation_attempt`
+- `remote_task_input_link`
+- `remote_task_input_attempt`
+- `remote_task_cancel_request`
+- `remote_task_cancel_attempt`
 
 ## pgvector
 
@@ -60,6 +73,8 @@
 
 执行中状态不承诺故障恢复。服务启动时识别遗留 running 任务并标记失败，不自动重试。
 
+V1.1 的例外只适用于有完整 PostgreSQL 证据的 `waiting_external`：active continuation snapshot、waiting binding、匹配的 Workflow instance/node run 和未失效 RemoteTaskBinding 必须同时成立。Poll、continuation、input 和 cancellation Job 仍为 attempts=1，Redis 丢失后从 PostgreSQL 重建；正在运行的 Job 不恢复也不自动重试。普通 running/paused/evaluating 执行仍按 V1 规则失败。
+
 ## 密钥
 
 数据库只保存 AES-256-GCM 密文、nonce、auth tag、key version。主密钥来自环境变量或挂载 secret，不写入日志、数据库、前端或 Trace。
@@ -80,3 +95,13 @@ Migration `0056_mcp_execution_mode` 为 `mcp_invocation` 增加 `execution_mode`
 Migration `0057_nested_skill_confirmation` 为 `skill_call_workflow` 增加 `parent_plan_id` 与 `confirmation_status`，并允许确认期间的 `child_instance_id`、`completed_at` 暂时为空。`call_id` 确定计划中的子实例身份；实际子实例创建后，终态关联仍受既有外键保护。rollback 仅在全部关联已终态、已完成且具有实际子实例时允许执行。
 
 Migration `0058_runtime_terminal_outcome` 新增 `runtime_terminal_outcome`，并为 `workflow_control` 与 `workflow_control_round` 增加唯一终态引用。Processed Result、Task Output/phase、Goal、Control、当前 Round 与 Runtime Event 在同一 PostgreSQL 事务内提交；Memory、Quality 与 Evolution 警告仅作为提交后增强证据。rollback 仅在终态结果证据为空且没有 canceled Control 时允许执行。
+
+V1.1 使用保留的 `0100+` 范围并要求显式 `v1.1-isolated` profile、acknowledgement 和 `sdar_v11_*` disposable database。支持的发布升级顺序是完整 `v1.0.13-bug-fixed` ledger 后再按文件名应用：
+
+- `0100_remote_mcp_task_tracking`：Binding、ordered observation、control inbox 和 protocol attempt；
+- `0101_task_execution_readiness`：Tool Task 语义、planning/pre-call readiness 与 availability snapshot；
+- `0102_remote_task_continuation`：`waiting_external` instance、versioned continuation snapshot、wait binding 和 attempt；
+- `0103_remote_task_input_and_cancellation`：`source=remote_task` input link/attempt 与 cooperative cancel request/attempt；
+- `0104_workflow_external_wait_event`：把 `node_waiting_external` 加入 `workflow_node_event.event_type` CHECK 约束。
+
+`0104` 的 down migration 在存在任何 `node_waiting_external` 证据时以 `MIGRATION_0104_ROLLBACK_REQUIRES_NO_EXTERNAL_WAIT_EVENTS` 拒绝，避免删除仍被引用的审计语义。Phase 6 migration gate验证空库、v1.0.13 upgrade、rollback/reapply、默认 profile 拒绝和 ledger gap fail-closed；当前记录共检查 68 个可逆 migration pairs。

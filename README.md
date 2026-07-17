@@ -1,4 +1,4 @@
-# Skill-Driven Agent Runtime V1.0
+# Skill-Driven Agent Runtime V1.1
 
 A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
 
@@ -24,13 +24,17 @@ pnpm install --frozen-lockfile
 pnpm demo:acceptance
 ```
 
-This builds the Server and Console, starts PostgreSQL/pgvector and Redis, starts the deterministic Mock Model and Mock MCP services inside the E2E harness, runs the documented A2A example client, and executes all composed acceptance flows: plan confirmation, streaming, Skill composition, pause/resume, Goal Patch, outer replanning, Memory, Evaluation, and Skill simulation/evolution. It stops local containers after the run. Model semantics are deterministic simulation; protocols, persistence, LangGraph execution, queueing, Console bundle, and API paths are real local components.
+This builds the Server and Console, starts PostgreSQL/pgvector and Redis, starts the deterministic Mock Model and 16-scenario MCP Tasks Provider inside the acceptance harness, and runs the composed V1/V1.1 acceptance flows. These include plan confirmation, streaming, Skill composition, pause/resume, Goal Patch, outer replanning, Memory, Evaluation, Skill simulation/evolution, Task availability and pre-call guarding, remote wait/continuation, input, cooperative cancellation, restart reconstruction, parallel/child waits, and final A2A delivery. It stops local containers after the run.
+
+PostgreSQL/pgvector, Redis/BullMQ, HTTP protocol exchange, LangGraph execution, persistence, queueing, API paths, and the Console production bundle are real local components. Model decisions and the remote Provider's business behavior are deterministic simulations. No external production MCP Provider interoperability is claimed; see `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.md` for per-scenario classification.
 
 For the short basic task/confirmation/MCP demo:
 
 ```powershell
 pnpm demo:local
 ```
+
+`demo:local` is the short V1 regression demo. `demo:acceptance` is the reproducible V1.1 MCP Tasks acceptance command and writes both machine-readable and human-readable reports under `reports/v1.1-mcp-tasks/`.
 
 ## Run the Server and Console locally
 
@@ -61,6 +65,8 @@ The standalone example client can target a configured running Server:
 pnpm demo:client -- "Complete the local example task."
 ```
 
+The packaged `start:server` command uses the ordinary V1 runtime profile. The additive MCP Tasks runtime is an explicit composition opt-in (`startServerRuntime({ v11McpTasks: { isolationAcknowledged: true } })`) and is exercised by the V1.1 acceptance harness against an isolated `sdar_v11_*` database. This opt-in is also what enables the narrowly scoped restart reconstruction for valid `waiting_external` continuations; it does not recover ordinary running work.
+
 ### Supplying formal Skill input
 
 For a formal top-level Skill, the runtime resolves and validates a structured value against the selected Skill version's `inputSchema` before planning. The highest-priority source is A2A message metadata under `structured_input`:
@@ -90,7 +96,9 @@ The unified gate runs format, lint, strict typecheck, unit, integration, contrac
 - `reports/verification/summary.json`
 - `reports/verification/summary.md`
 
-Useful focused commands include `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contract`, `pnpm test:e2e`, `pnpm smoke`, and `pnpm verify:acceptance`.
+Useful focused commands include `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contract`, `pnpm test:e2e`, `pnpm smoke`, `pnpm verify:acceptance`, and `pnpm verify:v11-acceptance`.
+
+The Phase 6 local gate evidence contains 493 unit+contract tests, 80 PostgreSQL/Redis integration tests, 49 E2E tests, 232 architecture assertions, 110 OpenAPI operations, and 68 reversible migration pairs. These counts describe the recorded local gate run, not external Provider certification.
 
 ## Architecture and operations
 

@@ -1,6 +1,9 @@
+import type { WorkflowExternalWaitRef } from './workflow-continuation.js';
+
 export type SkillCallWorkflowStatus =
   | 'awaiting_confirmation'
   | 'running'
+  | 'waiting_external'
   | 'succeeded'
   | 'failed'
   | 'canceled'
@@ -28,6 +31,7 @@ export interface SkillCallWorkflowRecord {
 
 export type SkillCallExecutionResult =
   | Readonly<{ status: 'completed'; output: unknown }>
+  | Readonly<{ status: 'waiting_external'; wait: WorkflowExternalWaitRef }>
   | Readonly<{
       status: 'awaiting_confirmation';
       callId: string;

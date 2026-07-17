@@ -7,11 +7,18 @@ import { z } from 'zod';
 
 import { runExampleA2AClient } from '../../../apps/example-a2a-client/src/client.js';
 import { startServerRuntime, type ServerRuntimeHandle } from '../../../apps/server/src/runtime.js';
+import {
+  createIsolatedRuntimeDatabase,
+  dropIsolatedRuntimeDatabase,
+  isolatedDatabaseUrl,
+} from '../../../apps/server/test-support/postgres.js';
 import type { RegisterSkillVersionInput } from '../../application/src/index.js';
-import { startMcpLoopbackServer } from '../../mcp-adapter/src/index.js';
+import { startMcpLoopbackServer, startMcpTasksMockProvider } from '../../mcp-adapter/src/index.js';
 
-const postgresUrl =
+const postgresAdminUrl =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const databaseName = 'sdar_v11_a2a_e2e';
+const postgresUrl = isolatedDatabaseUrl(postgresAdminUrl, databaseName);
 const redis = { host: '127.0.0.1', port: 56379 };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
@@ -39,6 +46,7 @@ let skillCallWorkflowTarget:
   | undefined;
 
 beforeAll(async () => {
+  await createIsolatedRuntimeDatabase(postgresAdminUrl, databaseName);
   modelServer = await startModelLoopback();
   const address = modelServer.address();
   if (address === null || typeof address === 'string') throw new Error('MODEL_ADDRESS_UNAVAILABLE');
@@ -49,6 +57,17 @@ beforeAll(async () => {
     queueName,
     applyMigrations: true,
     a2aSafetyPollIntervalMs: 5_000,
+    v11McpTasks: {
+      isolationAcknowledged: true,
+      queueName: `${queueName}-remote-tasks`,
+      reconcileIntervalMs: 25,
+      polling: {
+        minimumPollIntervalMs: 10,
+        maximumPollIntervalMs: 50,
+        providerFailureBackoffBaseMs: 10,
+        providerFailureBackoffMaximumMs: 50,
+      },
+    },
     skillSelection: {
       embeddings: {
         embed: (text) =>
@@ -178,6 +197,7 @@ afterAll(async () => {
   await runtime.close();
   modelServer.close();
   await once(modelServer, 'close');
+  await dropIsolatedRuntimeDatabase(postgresAdminUrl, databaseName);
 });
 
 describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
@@ -2424,6 +2444,175 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     } finally {
       mcpWorkflowTarget = undefined;
       await mockMcp.close();
+    }
+  });
+
+  it('runs a confirmed Skill through availability, LangGraph, a remote MCP Task, continuation, evaluation, and A2A completion', async () => {
+    const provider = await startMcpTasksMockProvider();
+    const serverId = `mcp.tasks.vertical.${randomUUID()}`;
+    const skillId = `skill.tasks.vertical.${randomUUID()}`;
+    try {
+      const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'MCP Tasks vertical acceptance Provider',
+          endpoint: provider.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registered.status, await registered.text()).toBe(201);
+      await runtime.registerSkill({
+        ...skillInput(skillId, 'Zebra MCP Tasks vertical acceptance'),
+        toolPolicy: {
+          required: [{ serverId, toolName: 'task_success' }],
+          optional: [],
+          forbidden: [],
+        },
+        runtimePolicy: { autoConfirmPlan: false },
+      });
+
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: `MCP_TASK_VERTICAL GLOBAL_SHARED_SKILL:${skillId}`,
+                mediaType: 'text/plain',
+              },
+            ],
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+
+      const prepared = z
+        .object({ planId: z.string(), selectedSkillId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      expect(prepared.selectedSkillId).toBe(skillId);
+      const readiness = z
+        .object({
+          warning: z.string(),
+          items: z.array(
+            z.object({
+              readiness: z.object({ checkPhase: z.string() }).loose(),
+              snapshots: z.array(
+                z.object({ operationName: z.string(), availability: z.string() }).loose(),
+              ),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(prepared.planId)}/task-readiness`,
+          ).then((response) => response.json()),
+        );
+      expect(readiness.warning).toContain('forecast');
+      expect(readiness.items).toContainEqual(
+        expect.objectContaining({
+          readiness: expect.objectContaining({ checkPhase: 'planning' }),
+          snapshots: [
+            expect.objectContaining({
+              operationName: 'task_success',
+              availability: 'available',
+            }),
+          ],
+        }),
+      );
+
+      const confirmed = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'confirm_plan',
+        'Confirm the remote MCP Task plan.',
+      );
+      expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
+      const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+      expect(completed.artifacts[0]?.parts[1]?.content).toMatchObject({
+        $case: 'data',
+        value: { status: 'online' },
+      });
+      expect(provider.requests.map((request) => request.method)).toEqual(
+        expect.arrayContaining(['io.sdar/tasks/checkAvailability', 'tools/call', 'tasks/get']),
+      );
+      await expect(
+        fetch(
+          `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(prepared.planId)}`,
+        ).then((response) => response.json()),
+      ).resolves.toMatchObject({ confirmationStatus: 'confirmed' });
+      const finalReadiness = z
+        .object({ items: z.array(z.object({ readiness: z.object({ checkPhase: z.string() }) })) })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(prepared.planId)}/task-readiness`,
+          ).then((response) => response.json()),
+        );
+      expect(finalReadiness.items.map((item) => item.readiness.checkPhase)).toEqual(
+        expect.arrayContaining(['planning', 'pre_invocation']),
+      );
+      const lifecycleSchema = z.object({
+        warnings: z.array(z.string()).min(4),
+        correlationRoot: z.object({ taskId: z.string(), workflowPlanId: z.string() }).loose(),
+        items: z.array(
+          z.object({
+            binding: z.object({
+              serverId: z.string(),
+              operationName: z.string(),
+              protocolStatus: z.string(),
+              localState: z.string(),
+              workflowInstanceId: z.string(),
+              workflowNodeRunId: z.string(),
+              mcpInvocationId: z.string(),
+            }),
+            observations: z.array(z.unknown()).min(2),
+            protocolAttempts: z.array(z.unknown()).min(2),
+            continuations: z.array(z.unknown()).min(1),
+            finalOutcome: z.object({ providerStatus: z.string(), authoritative: z.boolean() }),
+          }),
+        ),
+      });
+      let lifecycle: z.infer<typeof lifecycleSchema> | undefined;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        lifecycle = lifecycleSchema.parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/remote-task-lifecycle`,
+          ).then((response) => response.json()),
+        );
+        if (lifecycle.items.some((item) => item.binding.localState === 'reentered')) break;
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+      }
+      if (lifecycle === undefined) throw new Error('REMOTE_TASK_LIFECYCLE_NOT_OBSERVED');
+      expect(lifecycle.correlationRoot).toMatchObject({
+        taskId: submitted.id,
+        workflowPlanId: prepared.planId,
+      });
+      expect(lifecycle.items).toContainEqual(
+        expect.objectContaining({
+          binding: expect.objectContaining({
+            serverId,
+            operationName: 'task_success',
+            protocolStatus: 'completed',
+            localState: 'reentered',
+          }),
+          finalOutcome: expect.objectContaining({
+            providerStatus: 'completed',
+            authoritative: true,
+          }),
+        }),
+      );
+    } finally {
+      await runtime.setSkillEnabled(skillId, false).catch(() => undefined);
+      await provider.close();
     }
   });
 
@@ -4978,6 +5167,9 @@ async function startModelLoopback(): Promise<Server> {
         const exceptionDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('decide_execution_exception') === true,
         );
+        const taskAvailabilityRiskDecisionRequest = body.messages?.some(
+          (message) => message.content?.includes('mcp_task_availability_risk_decision') === true,
+        );
         const workflowRequest =
           body.messages?.some((message) => message.content?.includes('PLAN_WORKFLOW') === true) ===
           true;
@@ -5286,6 +5478,7 @@ async function startModelLoopback(): Promise<Server> {
             'HISTORICAL_REPLAY_FAILURE',
           );
           const templateReuse = requestData.requestText.includes('TEMPLATE_REUSE');
+          const remoteTaskVertical = requestData.requestText.includes('MCP_TASK_VERTICAL');
           const lowQualityEvaluation = requestData.requestText.includes('LOW_QUALITY_EVALUATION');
           const inputContinuationMcp = requestData.requestText.includes('INPUT_CONTINUATION_MCP');
           const inputAfterEvaluation = requestData.requestText.includes('INPUT_AFTER_EVALUATION');
@@ -5317,7 +5510,7 @@ async function startModelLoopback(): Promise<Server> {
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined
-                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : remoteTaskVertical ? 'MCP_TASK_VERTICAL ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
                     : capabilityGapGoal
                       ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                       : controlGoal
@@ -5578,6 +5771,14 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (taskAvailabilityRiskDecisionRequest === true) {
+          respondStructured(response, {
+            action: 'proceed',
+            acceptedRiskNodeIds: [],
+            summary: 'The available low-risk MCP Task can proceed after the normal plan gate.',
+          });
+          return;
+        }
         if (goalPatchReplanRequest === true) {
           const requestData = z
             .object({
@@ -5725,6 +5926,8 @@ async function startModelLoopback(): Promise<Server> {
           const historical = historicalSuccess || historicalFailure;
           const inputContinuationMcp =
             requestData.goalDescription.includes('INPUT_CONTINUATION_MCP');
+          const remoteTaskMcp = requestData.goalDescription.includes('MCP_TASK_VERTICAL');
+          const usesRegisteredTool = historical || topLevelInputMcp || remoteTaskMcp;
           const nestedConfirmationSkillId = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
             requestData.goalDescription,
           )?.[1];
@@ -5733,14 +5936,17 @@ async function startModelLoopback(): Promise<Server> {
             entryNodeId:
               failPrimary || historicalFailure
                 ? 'execute'
-                : temporaryTool !== undefined || historicalSuccess || topLevelInputMcp
+                : temporaryTool !== undefined ||
+                    historicalSuccess ||
+                    topLevelInputMcp ||
+                    remoteTaskMcp
                   ? 'tool'
                   : nestedConfirmationSkillId !== undefined
                     ? 'child'
                     : 'result',
             exitNodeIds: ['result'],
             nodes:
-              (historical || topLevelInputMcp) && historicalTool !== undefined
+              usesRegisteredTool && historicalTool !== undefined
                 ? [
                     ...(historicalFailure
                       ? [
@@ -5760,9 +5966,11 @@ async function startModelLoopback(): Promise<Server> {
                         : 'Historical device call',
                       type: 'mcp_tool',
                       tool: historicalTool,
-                      arguments: topLevelInputMcp
-                        ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
-                        : { deviceId: 'device-history' },
+                      arguments: remoteTaskMcp
+                        ? {}
+                        : topLevelInputMcp
+                          ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                          : { deviceId: 'device-history' },
                     },
                     {
                       nodeId: 'result',
@@ -5834,21 +6042,20 @@ async function startModelLoopback(): Promise<Server> {
                             value: { op: 'literal', value: 'online' },
                           },
                         ],
-            edges:
-              historical || topLevelInputMcp
-                ? historicalFailure
-                  ? [
-                      { sourceNodeId: 'execute', targetNodeId: 'tool' },
-                      { sourceNodeId: 'tool', targetNodeId: 'result' },
-                    ]
-                  : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                : temporaryTool !== undefined
-                  ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                  : nestedConfirmationSkillId !== undefined
-                    ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
-                    : failPrimary
-                      ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
-                      : [],
+            edges: usesRegisteredTool
+              ? historicalFailure
+                ? [
+                    { sourceNodeId: 'execute', targetNodeId: 'tool' },
+                    { sourceNodeId: 'tool', targetNodeId: 'result' },
+                  ]
+                : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+              : temporaryTool !== undefined
+                ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                : nestedConfirmationSkillId !== undefined
+                  ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
+                  : failPrimary
+                    ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                    : [],
           });
           return;
         }

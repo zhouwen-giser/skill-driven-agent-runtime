@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { WorkflowDefinition } from '../../domain/src/index.js';
+import type { WorkflowDefinition, WorkflowMcpCallOutcome } from '../../domain/src/index.js';
 import { compileWorkflow, type WorkflowRuntimePorts } from '../src/workflow-compiler.js';
 
 function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePorts {
   let tick = 0;
   return {
     executeLlm: vi.fn().mockResolvedValue({ answer: 42 }),
-    callMcpTool: vi.fn().mockResolvedValue({ temperature: 21 }),
+    callMcpTool: vi.fn().mockResolvedValue(immediate({ temperature: 21 })),
     executeSkill: vi.fn().mockResolvedValue({
       status: 'completed',
       output: { skill: 'done' },
@@ -21,6 +21,29 @@ function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePo
     now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z`,
     nowMilliseconds: () => tick * 100,
     ...overrides,
+  };
+}
+
+function immediate(value: Readonly<Record<string, unknown>>): WorkflowMcpCallOutcome {
+  return { kind: 'immediate', result: { ...value, content: [], isError: false } };
+}
+
+function externalWait(
+  executionId: string,
+  nodeId: string,
+  sourceId = `binding-${nodeId}`,
+): WorkflowMcpCallOutcome {
+  const nodeRunId = `${executionId}~${encodeURIComponent(nodeId)}~1`;
+  return {
+    kind: 'waiting_external',
+    wait: {
+      waitId: `wait-${sourceId}`,
+      kind: 'remote_task',
+      sourceId,
+      nodeId,
+      nodeRunId,
+      state: 'waiting',
+    },
   };
 }
 
@@ -52,6 +75,435 @@ function definition(
 }
 
 describe('LangGraph Workflow compiler', () => {
+  it('returns a typed external wait without succeeding the node or running its successor', async () => {
+    const executeLlm = vi.fn().mockResolvedValue({ shouldNotRun: true });
+    const callMcpTool = vi.fn().mockResolvedValue(externalWait('execution.external', 'remote'));
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'remote',
+            name: 'Remote',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'after',
+            name: 'After',
+            type: 'llm',
+            instruction: 'after',
+            responseSchema: true,
+          },
+        ],
+        [{ sourceNodeId: 'remote', targetNodeId: 'after' }],
+        'remote',
+        ['after'],
+      ),
+      'confirmed',
+      ports({ executeLlm, callMcpTool }),
+    ).invoke({}, budget, costs, undefined, 'execution.external');
+
+    expect(result).toMatchObject({
+      status: 'waiting_external',
+      continuation: {
+        waitingNodeRuns: [
+          {
+            sourceId: 'binding-remote',
+            nodeId: 'remote',
+            nodeRunId: 'execution.external~remote~1',
+          },
+        ],
+        runnableFrontier: [],
+        nodeRunCounts: { remote: 1 },
+      },
+    });
+    expect(result.events.map((event) => event.type)).toEqual([
+      'node_started',
+      'node_waiting_external',
+    ]);
+    expect(executeLlm).not.toHaveBeenCalled();
+  });
+
+  it('waits for a child Workflow and continues its Skill call from a fresh runtime', async () => {
+    const executionId = 'execution.child-wait';
+    const nodeRunId = `${executionId}~child~1`;
+    const executeSkill = vi.fn((input: Parameters<WorkflowRuntimePorts['executeSkill']>[0]) => {
+      expect(input.parentNodeRunId).toBe(nodeRunId);
+      return Promise.resolve({
+        status: 'waiting_external' as const,
+        wait: {
+          waitId: 'wait-child-instance-1',
+          kind: 'child_workflow' as const,
+          sourceId: 'child-instance-1',
+          nodeId: 'child',
+          nodeRunId,
+          state: 'waiting' as const,
+        },
+      });
+    });
+    const workflow = definition(
+      [
+        {
+          nodeId: 'child',
+          name: 'Child Skill',
+          type: 'skill_call',
+          skillId: 'skill.child',
+          input: { request: 'run' },
+        },
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'ref', path: ['outputs', 'child', 'value'] },
+        },
+      ],
+      [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+      'child',
+      ['result'],
+    );
+    const initial = await compileWorkflow(workflow, 'confirmed', ports({ executeSkill })).invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      executionId,
+    );
+
+    expect(initial).toMatchObject({
+      status: 'waiting_external',
+      continuation: {
+        waitingNodeRuns: [
+          {
+            waitId: 'wait-child-instance-1',
+            kind: 'child_workflow',
+            sourceId: 'child-instance-1',
+            nodeId: 'child',
+            nodeRunId,
+          },
+        ],
+      },
+    });
+    expect(initial.events.map((event) => event.type)).toEqual([
+      'node_started',
+      'node_waiting_external',
+    ]);
+    expect(executeSkill).toHaveBeenCalledTimes(1);
+
+    const continuation = initial.continuation;
+    if (continuation === undefined) throw new Error('TEST_CONTINUATION_MISSING');
+    const freshExecuteSkill = vi.fn().mockRejectedValue(new Error('must not replay child Skill'));
+    const resumed = await compileWorkflow(
+      workflow,
+      'confirmed',
+      ports({ executeSkill: freshExecuteSkill }),
+    ).continueExternal(
+      executionId,
+      continuation,
+      {
+        kind: 'completed',
+        waitId: 'wait-child-instance-1',
+        nodeRunId,
+        result: { value: 'done' },
+      },
+      costs,
+      undefined,
+      'attempt-child-1',
+    );
+
+    expect(resumed).toMatchObject({ status: 'succeeded', result: 'done' });
+    expect(freshExecuteSkill).not.toHaveBeenCalled();
+    expect(
+      resumed.events.filter((event) => event.nodeId === 'child' && event.type === 'node_succeeded'),
+    ).toHaveLength(1);
+  });
+
+  it('continues ready parallel work, then uses a fresh frontier invocation to join once', async () => {
+    const initialCalls = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) =>
+      Promise.resolve(externalWait('execution.parallel-wait', input.workflowNodeId)),
+    );
+    const initial = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['remote', 'local'],
+          },
+          {
+            nodeId: 'remote',
+            name: 'Remote',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'local',
+            name: 'Local',
+            type: 'llm',
+            instruction: 'local',
+            responseSchema: true,
+          },
+          {
+            nodeId: 'join',
+            name: 'Join',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'join' },
+            arguments: {},
+          },
+        ],
+        [
+          { sourceNodeId: 'remote', targetNodeId: 'join' },
+          { sourceNodeId: 'local', targetNodeId: 'join' },
+        ],
+        'parallel',
+        ['join'],
+      ),
+      'confirmed',
+      ports({ callMcpTool: initialCalls }),
+    ).invoke({}, budget, costs, undefined, 'execution.parallel-wait');
+
+    expect(initial.status).toBe('waiting_external');
+    expect(initialCalls).toHaveBeenCalledTimes(1);
+    expect(
+      initial.events.some((event) => event.nodeId === 'local' && event.type === 'node_succeeded'),
+    ).toBe(true);
+    expect(initial.continuation?.parallelJoinState).toEqual([
+      expect.objectContaining({
+        joinNodeId: 'join',
+        arrivals: [expect.objectContaining({ predecessorNodeId: 'local' })],
+      }),
+    ]);
+
+    const continuationCalls = vi.fn().mockResolvedValue(immediate({ joined: true }));
+    const fresh = compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['remote', 'local'],
+          },
+          {
+            nodeId: 'remote',
+            name: 'Remote',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'local',
+            name: 'Local',
+            type: 'llm',
+            instruction: 'local',
+            responseSchema: true,
+          },
+          {
+            nodeId: 'join',
+            name: 'Join',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'join' },
+            arguments: {},
+          },
+        ],
+        [
+          { sourceNodeId: 'remote', targetNodeId: 'join' },
+          { sourceNodeId: 'local', targetNodeId: 'join' },
+        ],
+        'parallel',
+        ['join'],
+      ),
+      'confirmed',
+      ports({ callMcpTool: continuationCalls }),
+    );
+    const continuation = initial.continuation;
+    if (continuation === undefined) throw new Error('TEST_CONTINUATION_MISSING');
+    const resumed = await fresh.continueExternal(
+      'execution.parallel-wait',
+      continuation,
+      {
+        kind: 'completed',
+        waitId: 'wait-binding-remote',
+        nodeRunId: 'execution.parallel-wait~remote~1',
+        result: { content: [], structuredContent: { remote: 'done' }, isError: false },
+      },
+      costs,
+      undefined,
+      'attempt-parallel-1',
+    );
+
+    expect(resumed.status).toBe('succeeded');
+    expect(continuationCalls).toHaveBeenCalledTimes(1);
+    expect(continuationCalls).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowNodeId: 'join' }),
+    );
+    expect(resumed.events.some((event) => event.nodeId === 'parallel')).toBe(false);
+    expect(resumed.events.some((event) => event.nodeId === 'local')).toBe(false);
+    expect(
+      resumed.events.some((event) => event.nodeId === 'remote' && event.type === 'node_succeeded'),
+    ).toBe(true);
+    expect(resumed.events.filter((event) => event.nodeId === 'join')).toHaveLength(2);
+  });
+
+  it('routes an external completed error Tool result through the existing error handler', async () => {
+    const workflow = definition(
+      [
+        {
+          nodeId: 'remote',
+          name: 'Remote',
+          type: 'mcp_tool',
+          tool: { serverId: 'provider', toolName: 'long_running' },
+          arguments: {},
+        },
+        {
+          nodeId: 'handler',
+          name: 'Handler',
+          type: 'error_handler',
+          handledNodeId: 'remote',
+          strategy: 'continue',
+        },
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'literal', value: 'recovered' },
+        },
+      ],
+      [
+        { sourceNodeId: 'remote', targetNodeId: 'result' },
+        { sourceNodeId: 'handler', targetNodeId: 'result' },
+      ],
+      'remote',
+      ['result'],
+    );
+    const initial = await compileWorkflow(
+      workflow,
+      'confirmed',
+      ports({
+        callMcpTool: vi.fn().mockResolvedValue(externalWait('execution.external-error', 'remote')),
+      }),
+    ).invoke({}, budget, costs, undefined, 'execution.external-error');
+    const continuation = initial.continuation;
+    if (continuation === undefined) throw new Error('TEST_CONTINUATION_MISSING');
+
+    const callMcpTool = vi.fn();
+    const decideExecutionError = vi.fn().mockResolvedValue({
+      strategy: 'continue',
+      summary: 'Continue through the existing error path.',
+    });
+    const resumed = await compileWorkflow(
+      workflow,
+      'confirmed',
+      ports({ callMcpTool, decideExecutionError }),
+    ).continueExternal(
+      'execution.external-error',
+      continuation,
+      {
+        kind: 'completed',
+        waitId: 'wait-binding-remote',
+        nodeRunId: 'execution.external-error~remote~1',
+        result: {
+          content: [{ type: 'text', text: 'business rejected' }],
+          structuredContent: {
+            outcome: 'deadline_reached',
+            reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+            retryable: true,
+          },
+          isError: true,
+        },
+      },
+      costs,
+      undefined,
+      'attempt-external-error-1',
+    );
+
+    expect(resumed).toMatchObject({
+      status: 'succeeded',
+      result: 'recovered',
+      errors: {
+        remote: {
+          code: 'MCP_TASK_DEADLINE_REACHED',
+          message: 'The Provider ended the remote Task at its maximum elapsed deadline.',
+          details: {
+            category: 'provider_business',
+            outcome: 'deadline_reached',
+            reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+            retryable: true,
+            classification: 'declared',
+            structuredEvidence: {
+              outcome: 'deadline_reached',
+              reasonCode: 'MAX_ELAPSED_TIME_REACHED',
+              retryable: true,
+            },
+          },
+        },
+      },
+    });
+    expect(decideExecutionError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handledNodeId: 'remote',
+        error: expect.objectContaining({ code: 'MCP_TASK_DEADLINE_REACHED' }),
+      }),
+    );
+    expect(callMcpTool).not.toHaveBeenCalled();
+    expect(
+      resumed.events.filter((event) => event.nodeId === 'remote' && event.type === 'node_failed'),
+    ).toHaveLength(1);
+    expect(
+      resumed.events.filter(
+        (event) => event.nodeId === 'remote' && event.type === 'node_succeeded',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('rejects a remote continuation result that is not an internal Tool result', async () => {
+    const workflow = definition(
+      [
+        {
+          nodeId: 'remote',
+          name: 'Remote',
+          type: 'mcp_tool',
+          tool: { serverId: 'provider', toolName: 'long_running' },
+          arguments: {},
+        },
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'literal', value: 'must not run' },
+        },
+      ],
+      [{ sourceNodeId: 'remote', targetNodeId: 'result' }],
+      'remote',
+      ['result'],
+    );
+    const initial = await compileWorkflow(
+      workflow,
+      'confirmed',
+      ports({
+        callMcpTool: vi.fn().mockResolvedValue(externalWait('execution.remote-invalid', 'remote')),
+      }),
+    ).invoke({}, budget, costs, undefined, 'execution.remote-invalid');
+    const continuation = initial.continuation;
+    if (continuation === undefined) throw new Error('TEST_CONTINUATION_MISSING');
+
+    await expect(
+      compileWorkflow(workflow, 'confirmed', ports()).continueExternal(
+        'execution.remote-invalid',
+        continuation,
+        {
+          kind: 'completed',
+          waitId: 'wait-binding-remote',
+          nodeRunId: 'execution.remote-invalid~remote~1',
+          result: { not: 'a Tool result' },
+        },
+        costs,
+      ),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_EXTERNAL_CONTINUATION_INVALID' });
+  });
+
   it('pauses after the active node and resumes before starting the next node', async () => {
     let completeLlm: ((value: unknown) => void) | undefined;
     const executeLlm = vi.fn(
@@ -60,7 +512,7 @@ describe('LangGraph Workflow compiler', () => {
           completeLlm = resolvePromise;
         }),
     );
-    const callMcpTool = vi.fn().mockResolvedValue({ done: true });
+    const callMcpTool = vi.fn().mockResolvedValue(immediate({ done: true }));
     const compiled = compileWorkflow(
       definition(
         [
@@ -184,7 +636,7 @@ describe('LangGraph Workflow compiler', () => {
           completeLlm = resolvePromise;
         }),
     );
-    const callMcpTool = vi.fn().mockResolvedValue({ done: true });
+    const callMcpTool = vi.fn().mockResolvedValue(immediate({ done: true }));
     const compiled = compileWorkflow(
       definition(
         [
@@ -317,7 +769,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(result.outputs).toMatchObject({
       llm: { answer: 42 },
       mcp: expect.objectContaining({
-        data: { temperature: 21 },
+        data: expect.objectContaining({ temperature: 21 }),
         errors: [],
         contextTruncated: false,
       }),
@@ -366,7 +818,7 @@ describe('LangGraph Workflow compiler', () => {
       .mockResolvedValueOnce({ summary: 'accepted' });
     const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
       expect(Object.isFrozen(input.arguments)).toBe(true);
-      return Promise.resolve({ commandId: 'command-1' });
+      return Promise.resolve(immediate({ commandId: 'command-1' }));
     });
     const executeSkill = vi.fn().mockResolvedValue({
       status: 'completed',
@@ -480,7 +932,7 @@ describe('LangGraph Workflow compiler', () => {
   });
 
   it('binds merged parallel outputs before invoking the convergence node', async () => {
-    const callMcpTool = vi.fn().mockResolvedValue({ joined: true });
+    const callMcpTool = vi.fn().mockResolvedValue(immediate({ joined: true }));
     const runtime = ports({ callMcpTool });
     await compileWorkflow(
       definition(
@@ -526,7 +978,7 @@ describe('LangGraph Workflow compiler', () => {
     const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
       iterations.push((input.arguments as { iteration: number }).iteration);
       nodeRunIds.push(input.workflowNodeRunId);
-      return Promise.resolve({ ok: true });
+      return Promise.resolve(immediate({ ok: true }));
     });
     await compileWorkflow(
       definition(
@@ -766,7 +1218,7 @@ describe('LangGraph Workflow compiler', () => {
       const callMcpTool = vi
         .fn()
         .mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'MCP_OFFLINE' }))
-        .mockResolvedValue({ recovered: true });
+        .mockResolvedValue(immediate({ recovered: true }));
       const executeSkill = vi.fn().mockResolvedValue({
         status: 'completed',
         output: { recovered: true },
@@ -890,7 +1342,7 @@ describe('LangGraph Workflow compiler', () => {
   });
 
   it('does not call an external Tool when the cost reservation would exceed the budget', async () => {
-    const callMcpTool = vi.fn().mockResolvedValue({ status: 'online' });
+    const callMcpTool = vi.fn().mockResolvedValue(immediate({ status: 'online' }));
     const result = await compileWorkflow(
       definition(
         [
@@ -936,7 +1388,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(executeLlm).not.toHaveBeenCalled();
   });
   it('resolves and freezes dynamic scheduledAt immediately before the existing MCP call', async () => {
-    const callMcpTool = vi.fn().mockResolvedValue({ accepted: true });
+    const callMcpTool = vi.fn().mockResolvedValue(immediate({ accepted: true }));
     const compiled = compileWorkflow(
       definition(
         [

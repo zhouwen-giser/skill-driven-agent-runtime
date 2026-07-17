@@ -54,12 +54,23 @@ try {
     await assertMigration(upgrade, '0064_memory_production_hardening', true, 'upgrade-released');
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'upgrade-released');
     await assertMigration(upgrade, '0101_task_execution_readiness', false, 'upgrade-released');
+    await assertMigration(upgrade, '0102_remote_task_continuation', false, 'upgrade-released');
+    await assertMigration(
+      upgrade,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'upgrade-released',
+    );
+    await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0104_workflow_external_wait_event.down.sql',
+      '0103_remote_task_input_and_cancellation.down.sql',
+      '0102_remote_task_continuation.down.sql',
       '0101_task_execution_readiness.down.sql',
       '0100_remote_mcp_task_tracking.down.sql',
     ]) {
@@ -72,6 +83,9 @@ try {
     await assertMigration(upgrade, '0064_memory_production_hardening', true, 'rollback');
     await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'rollback');
     await assertMigration(upgrade, '0101_task_execution_readiness', false, 'rollback');
+    await assertMigration(upgrade, '0102_remote_task_continuation', false, 'rollback');
+    await assertMigration(upgrade, '0103_remote_task_input_and_cancellation', false, 'rollback');
+    await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -88,6 +102,14 @@ try {
     await assertMigration(guard, '0064_memory_production_hardening', true, 'default-profile');
     await assertMigration(guard, '0100_remote_mcp_task_tracking', false, 'default-profile');
     await assertMigration(guard, '0101_task_execution_readiness', false, 'default-profile');
+    await assertMigration(guard, '0102_remote_task_continuation', false, 'default-profile');
+    await assertMigration(
+      guard,
+      '0103_remote_task_input_and_cancellation',
+      false,
+      'default-profile',
+    );
+    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'default-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -102,6 +124,9 @@ try {
     await guard.query(v11Migration);
     await expectRejection(() => applyRuntimeMigrations(guard), 'V11_MIGRATION_PROFILE_REQUIRED');
     await assertMigration(guard, '0101_task_execution_readiness', false, 'profile-guard');
+    await assertMigration(guard, '0102_remote_task_continuation', false, 'profile-guard');
+    await assertMigration(guard, '0103_remote_task_input_and_cancellation', false, 'profile-guard');
+    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'profile-guard');
   } finally {
     await guard.end();
   }
@@ -125,6 +150,9 @@ try {
     );
     await assertMigration(gap, '0100_remote_mcp_task_tracking', false, 'ledger-gap');
     await assertMigration(gap, '0101_task_execution_readiness', true, 'ledger-gap');
+    await assertMigration(gap, '0102_remote_task_continuation', false, 'ledger-gap');
+    await assertMigration(gap, '0103_remote_task_input_and_cancellation', false, 'ledger-gap');
+    await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
@@ -172,6 +200,9 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0064_memory_production_hardening', true, label);
   await assertMigration(pool, '0100_remote_mcp_task_tracking', true, label);
   await assertMigration(pool, '0101_task_execution_readiness', true, label);
+  await assertMigration(pool, '0102_remote_task_continuation', true, label);
+  await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
+  await assertMigration(pool, '0104_workflow_external_wait_event', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -193,6 +224,59 @@ async function verifyV11Schema(pool, label) {
   );
   if (metadataColumn.rows[0]?.count !== 1) {
     throw new Error(`V11_TASK_METADATA_COLUMN_MISSING:${label}`);
+  }
+  const continuationTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('workflow_continuation_snapshot','workflow_continuation_wait_binding','workflow_continuation_attempt') AND relkind='r'",
+  );
+  if (continuationTables.rows[0]?.count !== 3) {
+    throw new Error(`V11_CONTINUATION_TABLES_MISSING:${label}`);
+  }
+  const lifecycleTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_input_link','remote_task_input_attempt','remote_task_cancel_request','remote_task_cancel_attempt') AND relkind='r'",
+  );
+  if (lifecycleTables.rows[0]?.count !== 4) {
+    throw new Error(`V11_REMOTE_TASK_LIFECYCLE_TABLES_MISSING:${label}`);
+  }
+  const controlClaimColumns = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='remote_task_control_event' AND column_name IN ('continuation_claim_token','continuation_claim_expires_at','continuation_claim_attempt')",
+  );
+  if (controlClaimColumns.rows[0]?.count !== 3) {
+    throw new Error(`V11_CONTINUATION_CONTROL_COLUMNS_MISSING:${label}`);
+  }
+  const workflowStatus = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='workflow_instance'::regclass AND conname='workflow_instance_status_check'",
+  );
+  if (!workflowStatus.rows[0]?.definition?.includes('waiting_external')) {
+    throw new Error(`V11_WAITING_EXTERNAL_STATUS_MISSING:${label}`);
+  }
+  const workflowEventType = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='workflow_node_event'::regclass AND conname='workflow_node_event_event_type_check'",
+  );
+  if (!workflowEventType.rows[0]?.definition?.includes('node_waiting_external')) {
+    throw new Error(`V11_WAITING_EXTERNAL_EVENT_TYPE_MISSING:${label}`);
+  }
+  const skillCallStatus = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='skill_call_workflow'::regclass AND conname='skill_call_workflow_status_check'",
+  );
+  if (!skillCallStatus.rows[0]?.definition?.includes('waiting_external')) {
+    throw new Error(`V11_CHILD_WORKFLOW_WAITING_STATUS_MISSING:${label}`);
+  }
+  const childLookupIndex = await pool.query(
+    "SELECT to_regclass('public.skill_call_workflow_child_instance_continuation_idx') IS NOT NULL AS present",
+  );
+  if (childLookupIndex.rows[0]?.present !== true) {
+    throw new Error(`V11_CHILD_WORKFLOW_LOOKUP_INDEX_MISSING:${label}`);
+  }
+  const activeAttemptIndex = await pool.query(
+    "SELECT pg_get_expr(indpred,indrelid) AS predicate FROM pg_index WHERE indexrelid='workflow_continuation_attempt_status_idx'::regclass",
+  );
+  const activeAttemptPredicate = activeAttemptIndex.rows[0]?.predicate ?? '';
+  if (
+    !activeAttemptPredicate.includes('claimed') ||
+    !activeAttemptPredicate.includes('running') ||
+    activeAttemptPredicate.includes('waiting_external')
+  ) {
+    throw new Error(`V11_CONTINUATION_ACTIVE_ATTEMPT_INDEX_INVALID:${label}`);
   }
 }
 

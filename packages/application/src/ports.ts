@@ -18,6 +18,10 @@ import type {
   RemoteTaskControlEvent,
   RemoteTaskObservation,
   RemoteTaskProtocolAttempt,
+  RemoteTaskInputLink,
+  RemoteTaskCancellationRequest,
+  RemoteTaskCancellationAttempt,
+  RemoteTaskCancellationProviderTerminalStatus,
   RemoteTaskSnapshot,
   ModelInvocationRecord,
   ModelProviderConfiguration,
@@ -93,6 +97,12 @@ import type {
   TaskAvailabilityReadResult,
   TaskAvailabilitySnapshot,
   DslExecutionReadiness,
+  WorkflowContinuationSnapshot,
+  WorkflowContinuationAttempt,
+  WorkflowContinuationLifecycle,
+  WorkflowContinuationAttemptStatus,
+  WorkflowExternalWaitResolution,
+  WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -254,7 +264,10 @@ export interface TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
-      continuationPhase: Extract<AgentTask['phase'], 'goal_deliberation' | 'planning'>;
+      continuationPhase: Extract<
+        AgentTask['phase'],
+        'goal_deliberation' | 'planning' | 'executing'
+      >;
       phaseMessage: string;
     }>,
   ): Promise<AgentTask>;
@@ -720,6 +733,219 @@ export interface RemoteTaskRepository {
   listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
 }
 
+export type RemoteTaskCancellationRequestResult =
+  | Readonly<{ requested: false; reason: 'missing' | 'stale' | 'terminal' | 'closed' }>
+  | Readonly<{ requested: true; request: RemoteTaskCancellationRequest; created: boolean }>;
+
+export type RemoteTaskCancellationClaimResult =
+  | Readonly<{ claimed: false; reason: 'missing' | 'stale' | 'resolved' | 'leased' }>
+  | Readonly<{ claimed: true; request: RemoteTaskCancellationRequest }>;
+
+export type RemoteTaskCancellationMutationResult =
+  | Readonly<{ applied: false; reason: 'missing' | 'stale' | 'resolved' }>
+  | Readonly<{ applied: true; request: RemoteTaskCancellationRequest }>;
+
+export interface RemoteTaskCancellationRepository {
+  requestCancellation(
+    request: RemoteTaskCancellationRequest,
+    expectedBindingVersion: number,
+  ): Promise<RemoteTaskCancellationRequestResult>;
+  findCancellation(requestId: string): Promise<RemoteTaskCancellationRequest | undefined>;
+  listRequiringDelivery(
+    now: string,
+    limit: number,
+  ): Promise<readonly RemoteTaskCancellationRequest[]>;
+  claimCancellation(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskCancellationClaimResult>;
+  recordCancellationAcknowledged(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      attempt: RemoteTaskCancellationAttempt;
+      acknowledgedAt: string;
+      protocolRevision: string;
+    }>,
+  ): Promise<RemoteTaskCancellationMutationResult>;
+  recordCancellationUncertain(
+    input: Readonly<{
+      requestId: string;
+      expectedVersion: number;
+      claimToken: string;
+      attempt: RemoteTaskCancellationAttempt;
+      errorCode: string;
+      observedAt: string;
+    }>,
+  ): Promise<RemoteTaskCancellationMutationResult>;
+  resolveCancellationFromProvider(
+    bindingId: string,
+    status: RemoteTaskCancellationProviderTerminalStatus,
+    resolvedAt: string,
+  ): Promise<readonly RemoteTaskCancellationRequest[]>;
+  listCancellationAttempts(requestId: string): Promise<readonly RemoteTaskCancellationAttempt[]>;
+}
+
+export interface RemoteTaskCancellationSender {
+  cancelRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+}
+
+export type RemoteTaskInputAttemptStatus =
+  'acknowledged' | 'provider_unreachable' | 'contract_invalid' | 'provider_protocol';
+
+export interface RemoteTaskInputAttempt {
+  readonly attemptId: string;
+  readonly inputRequestId: string;
+  readonly bindingId: string;
+  readonly expectedBindingVersion: number;
+  readonly status: RemoteTaskInputAttemptStatus;
+  readonly protocolRevision?: string;
+  readonly errorCode?: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly durationMs: number;
+}
+
+export interface RemoteTaskInputRepository {
+  activate(
+    input: Readonly<{
+      request: TaskInputRequest;
+      link: RemoteTaskInputLink;
+      claimToken: string;
+      processedAt: string;
+      phaseMessage: string;
+    }>,
+  ): Promise<boolean>;
+  findLink(inputRequestId: string): Promise<RemoteTaskInputLink | undefined>;
+  recordUpdateOutcome(
+    input: Readonly<{
+      inputRequestId: string;
+      expectedBindingVersion: number;
+      attempt: RemoteTaskInputAttempt;
+      status: Extract<RemoteTaskInputLink['status'], 'update_acknowledged' | 'update_uncertain'>;
+      observedAt: string;
+    }>,
+  ): Promise<Readonly<{ applied: boolean; binding?: RemoteTaskBinding }>>;
+  listAttempts(inputRequestId: string): Promise<readonly RemoteTaskInputAttempt[]>;
+}
+
+export interface RemoteTaskInputSender {
+  updateRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+}
+
+export interface RemoteTaskInputLifecycleEvidence {
+  readonly link: RemoteTaskInputLink;
+  readonly question: string;
+  readonly requestStatus: 'waiting' | 'answered' | 'expired' | 'canceled';
+  readonly responseContent?: unknown;
+  readonly answeredAt?: string;
+  readonly attempts: readonly RemoteTaskInputAttempt[];
+}
+
+export interface RemoteTaskCancellationLifecycleEvidence {
+  readonly request: RemoteTaskCancellationRequest;
+  readonly attempts: readonly RemoteTaskCancellationAttempt[];
+}
+
+export interface RemoteTaskContinuationLifecycleEvidence {
+  readonly snapshotId: string;
+  readonly continuationId: string;
+  readonly stateVersion: number;
+  readonly lifecycle: 'building' | 'active' | 'superseded' | 'invalidated' | 'terminal';
+  readonly waitId: string;
+  readonly waitState: 'waiting' | 'awaiting_input';
+  readonly nodeId: string;
+  readonly nodeRunId: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** Read-only PostgreSQL lifecycle projection for management surfaces. */
+export interface RemoteTaskLifecycleEvidence {
+  readonly binding: RemoteTaskBinding;
+  readonly observations: readonly RemoteTaskObservation[];
+  readonly controls: readonly RemoteTaskControlEvent[];
+  readonly protocolAttempts: readonly RemoteTaskProtocolAttempt[];
+  readonly continuations: readonly RemoteTaskContinuationLifecycleEvidence[];
+  readonly inputRounds: readonly RemoteTaskInputLifecycleEvidence[];
+  readonly cancellations: readonly RemoteTaskCancellationLifecycleEvidence[];
+}
+
+export interface RemoteTaskLifecycleQuery {
+  listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskLifecycleEvidence[]>;
+}
+
+export interface RemoteTaskCancellationJob {
+  readonly requestId: string;
+  readonly expectedVersion: number;
+}
+
+export interface RemoteTaskCancellationQueue {
+  enqueue(input: RemoteTaskCancellationJob): Promise<void>;
+  state(requestId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
+}
+
+export interface WorkflowContinuationRepository {
+  saveSnapshot(snapshot: WorkflowContinuationSnapshot): Promise<void>;
+  transitionLifecycle(
+    snapshotId: string,
+    expected: WorkflowContinuationLifecycle,
+    next: WorkflowContinuationLifecycle,
+    updatedAt: string,
+  ): Promise<WorkflowContinuationSnapshot>;
+  findById(snapshotId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  listInbox(
+    now: string,
+    limit: number,
+    afterEventId?: string,
+  ): Promise<readonly RemoteTaskControlEvent[]>;
+  claimControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      claimedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<RemoteTaskControlEvent | undefined>;
+  finishControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      status: 'processed' | 'failed';
+      processedAt: string;
+      errorCode?: string;
+      bindingDisposition?: 'reentered';
+    }>,
+  ): Promise<void>;
+  saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void>;
+  updateAttempt(
+    attempt: WorkflowContinuationAttempt,
+    expectedStatus: WorkflowContinuationAttemptStatus,
+  ): Promise<void>;
+  listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]>;
+}
+
 export type RemoteTaskPollJobState = 'missing' | 'scheduled' | 'active' | 'completed' | 'failed';
 
 export interface RemoteTaskPollJob {
@@ -740,6 +966,17 @@ export interface RemoteTaskPollQueue {
   state(bindingId: string, expectedVersion: number): Promise<RemoteTaskPollJobState>;
   listDeadLetters(limit: number): Promise<readonly RemoteTaskDeadLetter[]>;
   retryDeadLetter(jobId: string): Promise<void>;
+}
+
+export interface RemoteTaskContinuationJob {
+  readonly eventId: string;
+  readonly bindingId: string;
+  readonly eventType: RemoteTaskControlEvent['type'];
+}
+
+export interface RemoteTaskContinuationQueue {
+  enqueue(input: RemoteTaskContinuationJob): Promise<void>;
+  state(eventId: string): Promise<RemoteTaskPollJobState>;
 }
 
 export interface ContextSerialGate {
@@ -841,6 +1078,7 @@ export interface SkillCallWorkflowRepository {
     parentInstanceId: string,
     parentNodeId: string,
   ): Promise<SkillCallWorkflowRecord | undefined>;
+  findByChildInstanceId(childInstanceId: string): Promise<SkillCallWorkflowRecord | undefined>;
   listByParent(parentInstanceId: string): Promise<readonly SkillCallWorkflowRecord[]>;
 }
 
@@ -854,21 +1092,30 @@ export interface WorkflowExecutor {
     executionContext?: RuntimeExecutionContext,
   ): Promise<
     Readonly<{
-      status: 'paused' | 'succeeded' | 'failed' | 'canceled';
+      status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
       result?: unknown;
       errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
       budgetUsage: WorkflowBudgetUsage;
       terminationReason?: WorkflowBudgetTerminationReason;
       events: readonly Readonly<{
         nodeId: string;
-        type: 'node_started' | 'node_succeeded' | 'node_failed';
+        type: 'node_started' | 'node_succeeded' | 'node_failed' | 'node_waiting_external';
         timestamp: string;
         durationMs?: number;
         summary: string;
       }>[];
       pendingConfirmation?: WorkflowInstance['pendingConfirmation'];
+      continuation?: WorkflowRuntimeContinuationState;
     }>
   >;
+  continueExternal?(
+    definition: WorkflowDefinition,
+    executionId: string,
+    continuation: WorkflowRuntimeContinuationState,
+    resolution: WorkflowExternalWaitResolution,
+    continuationAttemptId: string,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']>;
   resumeHumanConfirmation?(
     executionId: string,
     confirmed: boolean,

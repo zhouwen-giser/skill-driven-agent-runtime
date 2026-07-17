@@ -1,6 +1,6 @@
 # SDAR v1.1 MCP Tasks Provider Extension
 
-状态：Phase 0 冻结<br>
+状态：Phase 6 精确线协议与本地 Mock Provider 合约已验证；外部 Provider 互操作未验证<br>
 命名空间：`io.sdar/taskExecution`<br>
 依赖协议：官方 `io.modelcontextprotocol/tasks` extension commit `8966bea9c4f4e6d71060cc8284a539086e9e234f`
 
@@ -43,6 +43,8 @@ interface McpTaskExecutionSemantics {
 ```
 
 未知 revision/enum/额外可执行字段不进入领域；`task_required` 必须与官方 Tasks capability 同时存在。
+
+`task_required` 还是运行时硬约束，不依赖模型是否在 DSL 中重复该声明。若 `mcp_tool.taskExecution` 省略，SDAR 必须从注册 Tool 语义隐式推导 `require_task + availabilityCheck=required`，在计划期检查 availability，并在 `tools/call` 前以解析后的实际参数再次检查。缺少能力、readiness composition、真实 Workflow Definition 或有效确认时不得调用 Provider。
 
 ## 2. 官方 Task operations
 
@@ -206,12 +208,11 @@ input-required snapshot 必须提供显示问题、响应 Schema/字段和稳定
 ```json
 {
   "taskId": "remote-123",
-  "responses": { "approval": true },
-  "expectedRevision": "42"
+  "inputResponses": { "approval": true }
 }
 ```
 
-Provider ack 不代表 Task 完成。revision 冲突返回稳定协议/业务错误，客户端重新 `tasks/get`，不得盲重发或创建新 Task。
+这是冻结的官方 `tasks/update` 精确 wire；不得额外发送 `responses` 或 `expectedRevision`。SDAR 在本地 PostgreSQL 中将 A2A 输入响应绑定到已观察到的稳定 `remoteRevision`，并在发出请求前用 CAS 拒绝过期、重复或不匹配的输入。Provider ack 不代表 Task 完成；客户端随后重新 `tasks/get`，不得盲重发或创建新 Task。Provider 若通过后续 snapshot 表明 revision 已变化，以新的权威 snapshot 为准。
 
 ## 7. Cancellation
 
@@ -243,7 +244,32 @@ business_failure
 
 `completed` 仅说明 Task 生命周期结束。Provider 对 `deadline_reached` 必须先停止/隔离底层执行并释放资源。`failed` 用于无法形成最终 Tool Result 的协议/执行设施失败。
 
-## 9. 安全、大小与错误
+## 9. Phase 6 deterministic Mock Provider
+
+仓库内 Provider fixture 暴露 16 个有界、可枚举的验收 Tool；它们用于精确 HTTP/Schema/状态机和应用组合测试，不代表外部 Provider 认证：
+
+| Scenario                        | Deterministic behavior                              |
+| ------------------------------- | --------------------------------------------------- |
+| `sync_success`                  | 普通同步成功，无 Binding                            |
+| `task_success`                  | working → completed success                         |
+| `task_business_failure`         | completed + `isError=true` business failure         |
+| `task_protocol_failure`         | Provider failed，无法形成 Tool Result               |
+| `task_cancelled`                | cancel ack 后由 `tasks/get` 观察 cancelled          |
+| `task_input_required`           | 单轮 form input，经 `inputResponses` 更新           |
+| `task_multi_input`              | 两个不同 revision 的连续输入轮次                    |
+| `task_restricted_accept`        | restricted availability 后确认并接纳                |
+| `task_restricted_reject`        | Provider admission rejection，无 remote Task        |
+| `task_scheduled_success`        | scheduled/queued/working 后完成                     |
+| `task_start_window_missed`      | completed business outcome `start_window_missed`    |
+| `task_deadline_reached`         | completed business outcome `deadline_reached`       |
+| `task_pause_resume_observation` | paused/resuming 仅观察，不产生 continuation control |
+| `task_provider_unreachable`     | 有界 transport failure 后恢复观察                   |
+| `task_malformed_response`       | malformed snapshot 被 adapter fail closed           |
+| `task_duplicate_terminal`       | 重复 terminal revision/event 幂等去重               |
+
+Adapter/Provider contract suites 同时断言所有 scenario 的 input Schema 有界、方法与 `Mcp-Name`/`Mcp-Method` Headers 精确、availability 一一对应、update/cancel 只 ack、malformed response 拒绝以及 terminal dedupe。完整应用/重启/并行证据由真实 PostgreSQL/Redis 与 loopback HTTP 测试提供；业务资源与时间推进仍是模拟。
+
+## 10. 安全、大小与错误
 
 - Headers、IDs、strings、arrays、objects、depth、payload和result size均采用仓库统一上限或更严格上限；
 - 凭据 Header 与 runtime-owned execution-mode Header 的优先级继续遵守 ADR-075；
@@ -252,6 +278,6 @@ business_failure
 - Schema/method/capability/revision/transition错误使用稳定错误码，零 Tool 副作用或零 continuation；
 - Provider 的 event/revision 只用于幂等与排序，不获得 SDAR Goal/Workflow 权威。
 
-## 10. 变更规则
+## 11. 变更规则
 
-本扩展任何 wire 变更必须同时更新：本文件、JSON Schema、adapter contract、Mock Provider、OpenAPI示例、OSS/source pin或内部 revision、ADR（若语义变化）和 `docs/17_TRACEABILITY_MATRIX.md`。v1.0.11-bug-fixed 合并后，通用 Tool execution semantics 应复用其字段；不得并存两套权威元数据。
+本扩展任何 wire 变更必须同时更新：本文件、JSON Schema、adapter contract、Mock Provider、OpenAPI示例、OSS/source pin或内部 revision、ADR（若语义变化）和 `docs/17_TRACEABILITY_MATRIX.md`。当前实现复用已合并 hardening lineage 的通用 Tool execution semantics；不得并存两套权威元数据。

@@ -44,12 +44,16 @@ import {
   PostgresEvaluationInfluenceRepository,
   PostgresEvaluationAnalyticsRepository,
   PostgresTaskInputRepository,
+  PostgresRemoteTaskRepository,
+  PostgresWorkflowContinuationRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
   createAgentTask,
   createTaskExecutionAttempt,
   createTaskInputRequest,
+  createRemoteTaskBinding,
+  createWorkflowContinuationSnapshot,
   createSkillVersion,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
@@ -1690,6 +1694,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
       callId: 'skill-call.db.2',
       childInstanceId: 'instance.child-second.db',
     });
+    await expect(repository.findByChildInstanceId('instance.child.db')).resolves.toMatchObject({
+      callId: 'skill-call.db.1',
+      parentInstanceId: 'instance.parent.db',
+      parentNodeId: 'child',
+    });
+    await expect(repository.findByChildInstanceId('instance.missing.db')).resolves.toBeUndefined();
   });
 
   it('atomically fails interrupted Tasks and Workflow instances without reconstructing execution', async () => {
@@ -2594,6 +2604,48 @@ describe('PostgreSQL protocol-domain repositories', () => {
         toVersion: 2,
       }),
     ]);
+  });
+  it('invalidates active continuations and every old-Goal remote binding on patch and cancellation', async () => {
+    await installV11ContinuationMigrations();
+    try {
+      const cancellation = await createGoalContinuationInvalidationFixture('cancel');
+      await new PostgresGoalCancellationRepository(pool).cancel({
+        cancellationId: 'continuation-invalidation-cancel',
+        goalId: cancellation.goalId,
+        goalVersion: 1,
+        reason: 'Cancel remote continuation.',
+        warnings: ['Provider state remains authoritative.'],
+        createdAt: '2026-07-16T09:01:00.000Z',
+      });
+      await expectContinuationInvalidated(cancellation, '2026-07-16T09:01:00.000Z');
+
+      const patch = await createGoalContinuationInvalidationFixture('patch');
+      const beforeGoal = await new PostgresGoalRepository(pool).findById(patch.goalId);
+      if (beforeGoal === undefined) throw new Error('CONTINUATION_PATCH_GOAL_MISSING');
+      const afterGoal = {
+        ...beforeGoal,
+        version: 2,
+        successCriteria: [...beforeGoal.successCriteria, 'patched continuation verified'],
+        updatedAt: '2026-07-16T09:02:00.000Z',
+      };
+      await new PostgresGoalPatchRepository(pool).apply({
+        patchId: 'continuation-invalidation-patch',
+        goalId: patch.goalId,
+        fromVersion: 1,
+        toVersion: 2,
+        instruction: 'Patch while remote work is outstanding.',
+        changes: { successCriteria: afterGoal.successCriteria },
+        decisionSummary: 'The active Goal changed.',
+        compensationWarnings: ['Remote Provider cancellation is not assumed.'],
+        newPlanId: 'continuation-invalidation-plan-patch-v2',
+        beforeGoal,
+        afterGoal,
+        createdAt: afterGoal.updatedAt,
+      });
+      await expectContinuationInvalidated(patch, '2026-07-16T09:02:00.000Z');
+    } finally {
+      await removeV11ContinuationMigrations();
+    }
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
     const prompts = new PostgresPromptRepository(pool);
@@ -5085,6 +5137,283 @@ async function terminalOutcomeCounts(
   const counts = result.rows[0];
   if (counts === undefined) throw new Error('TERMINAL_OUTCOME_COUNT_FAILED');
   return counts;
+}
+
+interface GoalContinuationInvalidationFixture {
+  readonly prefix: string;
+  readonly goalId: string;
+  readonly snapshotId: string;
+  readonly bindingIds: readonly [string, string];
+}
+
+async function installV11ContinuationMigrations(): Promise<void> {
+  for (const name of [
+    '0100_remote_mcp_task_tracking.up.sql',
+    '0101_task_execution_readiness.up.sql',
+    '0102_remote_task_continuation.up.sql',
+  ])
+    await applyTestMigration(name);
+}
+
+async function removeV11ContinuationMigrations(): Promise<void> {
+  await pool.query(
+    'TRUNCATE workflow_continuation_attempt,workflow_continuation_wait_binding,workflow_continuation_snapshot,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
+  );
+  await pool.query(
+    "UPDATE workflow_instance SET status='failed',completed_at=COALESCE(completed_at,'2026-07-16T09:03:00.000Z') WHERE status='waiting_external'",
+  );
+  for (const name of [
+    '0102_remote_task_continuation.down.sql',
+    '0101_task_execution_readiness.down.sql',
+    '0100_remote_mcp_task_tracking.down.sql',
+  ])
+    await applyTestMigration(name);
+}
+
+async function createGoalContinuationInvalidationFixture(
+  prefix: 'cancel' | 'patch',
+): Promise<GoalContinuationInvalidationFixture> {
+  const timestamp = '2026-07-16T09:00:00.000Z';
+  const contextId = `continuation-invalidation-context-${prefix}`;
+  const goalId = `continuation-invalidation-goal-${prefix}`;
+  const taskId = `continuation-invalidation-task-${prefix}`;
+  const planId = `continuation-invalidation-plan-${prefix}`;
+  const instanceId = `continuation-invalidation-instance-${prefix}`;
+  const controlId = `continuation-invalidation-control-${prefix}`;
+  const serverId = `continuation-invalidation-server-${prefix}`;
+  const snapshotId = `continuation-invalidation-snapshot-${prefix}`;
+  const bindingIds = [
+    `continuation-invalidation-binding-${prefix}-mapped`,
+    `continuation-invalidation-binding-${prefix}-orphan`,
+  ] as const;
+  await new PostgresConversationContextRepository(pool).save({
+    contextId,
+    userId: 'operator',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await new PostgresGoalRepository(pool).save({
+    goalId,
+    contextId,
+    version: 1,
+    title: `Continuation invalidation ${prefix}`,
+    description: 'Verify durable external waits are invalidated atomically.',
+    constraints: ['test-only'],
+    successCriteria: ['old Goal continuation invalidated'],
+    status: 'active',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  let task = createAgentTask({
+    taskId,
+    contextId,
+    userId: 'operator',
+    requestText: 'Run remote work.',
+    requestMetadata: {},
+    timestamp,
+  });
+  task = transitionTask(task, 'context_loading', 'Context loaded.', timestamp);
+  task = transitionTask(task, 'goal_deliberation', 'Goal active.', timestamp);
+  task = bindTaskGoal(task, { goalId, goalVersion: 1, timestamp });
+  task = transitionTask(task, 'skill_resolution', 'Skill selected.', timestamp);
+  task = transitionTask(task, 'planning', 'Plan prepared.', timestamp);
+  task = transitionTask(task, 'awaiting_plan_confirmation', 'Plan confirmed.', timestamp);
+  await new PostgresAgentTaskRepository(pool).save(task);
+  const plans = new PostgresWorkflowPlanRepository(pool);
+  await plans.savePlan({
+    planId,
+    goalId,
+    goalVersion: 1,
+    goalContract: testGoalContract(goalId),
+    definition: {
+      workflowDefinitionId: `continuation-invalidation-workflow-${prefix}`,
+      version: 1,
+      goalId,
+      goalVersion: 1,
+      entryNodeId: 'remote-node',
+      exitNodeIds: ['remote-node'],
+      nodes: [
+        {
+          nodeId: 'remote-node',
+          name: 'Remote node',
+          type: 'result',
+          value: { op: 'literal', value: true },
+        },
+      ],
+      edges: [],
+    },
+    confirmationStatus: 'confirmed',
+    attemptCount: 1,
+    createdAt: timestamp,
+  });
+  await new PostgresWorkflowExecutionRepository(pool).saveInstance({
+    instanceId,
+    planId,
+    workflowDefinitionId: `continuation-invalidation-workflow-${prefix}`,
+    workflowVersion: 1,
+    goalId,
+    goalVersion: 1,
+    skillVersions: [],
+    budgetLimits: {
+      maxReplans: 1,
+      maxDurationSeconds: 60,
+      maxLlmCalls: 2,
+      maxMcpCalls: 2,
+      maxCost: 2,
+    },
+    budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 0 },
+    status: 'running',
+    input: {},
+    errors: {},
+    startedAt: timestamp,
+  });
+  await new PostgresWorkflowControlRepository(pool).save({
+    controlId,
+    contextId,
+    goalId,
+    goalVersion: 1,
+    taskId,
+    status: 'running',
+    currentPlanId: planId,
+    input: {},
+    skillIds: [],
+    planningInstruction: 'Run remote continuation fixture.',
+    roundCount: 0,
+    replanCount: 0,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await pool.query(
+    `INSERT INTO mcp_server(
+       server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
+       created_at,updated_at)
+     VALUES($1,$2,'http://127.0.0.1:1','streamable_http','enabled',1,
+            'encrypted-test-value',$3,$3)`,
+    [serverId, `Continuation invalidation ${prefix}`, timestamp],
+  );
+  const remoteTasks = new PostgresRemoteTaskRepository(pool);
+  for (const [index, bindingId] of bindingIds.entries()) {
+    const sequence = index + 1;
+    const invocationId = `continuation-invalidation-invocation-${prefix}-${String(sequence)}`;
+    await pool.query(
+      `INSERT INTO mcp_invocation(
+         invocation_id,task_id,context_id,server_id,tool_name,arguments_json,result_json,
+         status,started_at,completed_at,duration_ms,execution_mode,simulation_id)
+       VALUES($1,$2,$3,$4,'remote_operation','{}'::jsonb,'{"kind":"remote_task"}'::jsonb,
+              'succeeded',$5,$5,0,'live',NULL)`,
+      [invocationId, taskId, contextId, serverId, timestamp],
+    );
+    await remoteTasks.admit(
+      createRemoteTaskBinding({
+        bindingId,
+        serverId,
+        operationName: 'remote_operation',
+        remoteTaskId: `provider-${prefix}-${String(sequence)}`,
+        agentTaskId: taskId,
+        contextId,
+        goalId,
+        goalVersion: 1,
+        workflowPlanId: planId,
+        workflowDefinitionId: `continuation-invalidation-workflow-${prefix}`,
+        workflowDefinitionVersion: 1,
+        workflowInstanceId: instanceId,
+        workflowNodeId: `remote-node-${String(sequence)}`,
+        workflowNodeRunId: `remote-node-${String(sequence)}:1`,
+        mcpInvocationId: invocationId,
+        protocolStatus: 'working',
+        protocolRevision: '2026-07-28',
+        tasksSchemaRevision: 'tasks-schema-revision-1',
+        executionContext: { mode: 'live' },
+        credentialRevision: 'credential-revision-1',
+        sessionRevision: 'session-revision-1',
+        lastProviderUpdatedAt: timestamp,
+        pollIntervalMs: 100,
+        createdAt: timestamp,
+      }),
+      `continuation-invalidation-observation-${prefix}-${String(sequence)}`,
+    );
+  }
+  await new PostgresWorkflowContinuationRepository(pool).saveSnapshot(
+    createWorkflowContinuationSnapshot({
+      schemaVersion: '1.0',
+      snapshotId,
+      continuationId: `continuation-invalidation-${prefix}`,
+      stateVersion: 1,
+      lifecycle: 'active',
+      agentTaskId: taskId,
+      contextId,
+      workflowControlId: controlId,
+      goalId,
+      goalVersion: 1,
+      workflowPlanId: planId,
+      workflowDefinitionId: `continuation-invalidation-workflow-${prefix}`,
+      workflowDefinitionVersion: 1,
+      workflowDefinitionHash: 'd'.repeat(64),
+      inputHash: 'e'.repeat(64),
+      workflowInstanceId: instanceId,
+      input: {},
+      waitingNodeRuns: [
+        {
+          waitId: `continuation-invalidation-wait-${prefix}`,
+          kind: 'remote_task',
+          sourceId: bindingIds[0],
+          nodeId: 'remote-node-1',
+          nodeRunId: 'remote-node-1:1',
+          state: 'waiting',
+        },
+      ],
+      runnableFrontier: [],
+      completedNodeRunIds: [],
+      nodeRunCounts: { 'remote-node-1': 1 },
+      outputs: {},
+      errors: {},
+      routes: {},
+      loopCounts: {},
+      recoveryCounts: {},
+      parallelJoinState: [],
+      failed: false,
+      executionContext: { mode: 'live' },
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 2,
+        maxMcpCalls: 2,
+        maxCost: 2,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 0 },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }),
+  );
+  return { prefix, goalId, snapshotId, bindingIds };
+}
+
+async function expectContinuationInvalidated(
+  fixture: GoalContinuationInvalidationFixture,
+  invalidatedAt: string,
+): Promise<void> {
+  const snapshot = await pool.query<{ lifecycle: string; updated_at: Date | string }>(
+    'SELECT lifecycle,updated_at FROM workflow_continuation_snapshot WHERE snapshot_id=$1',
+    [fixture.snapshotId],
+  );
+  expect(snapshot.rows).toEqual([expect.objectContaining({ lifecycle: 'invalidated' })]);
+  expect(new Date(snapshot.rows[0]?.updated_at ?? 0).toISOString()).toBe(invalidatedAt);
+  const bindings = await pool.query<{
+    binding_id: string;
+    local_state: string;
+    invalidated_at: Date | string | null;
+    next_poll_at: Date | string | null;
+  }>(
+    `SELECT binding_id,local_state,invalidated_at,next_poll_at
+     FROM remote_task_binding WHERE binding_id=ANY($1::text[]) ORDER BY binding_id`,
+    [[...fixture.bindingIds]],
+  );
+  expect(bindings.rows).toHaveLength(2);
+  for (const binding of bindings.rows) {
+    expect(binding.local_state).toBe('closed');
+    expect(binding.next_poll_at).toBeNull();
+    expect(new Date(binding.invalidated_at ?? 0).toISOString()).toBe(invalidatedAt);
+  }
 }
 
 async function installTerminalOutcomeFault(

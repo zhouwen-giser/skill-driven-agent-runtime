@@ -1,5 +1,6 @@
 import {
   createRemoteTaskBinding,
+  isRemoteTaskObservationActive,
   type RemoteTaskAdmission,
   type RemoteTaskBinding,
   type RemoteTaskProtocolAttempt,
@@ -50,15 +51,26 @@ export class RemoteTaskAdmissionService {
     Readonly<{
       binding: RemoteTaskBinding;
       created: boolean;
+      pollScheduled: boolean;
     }>
   > {
     const candidate = createRemoteTaskBinding(input);
     const admitted = await this.#repository.admit(candidate, this.#nextObservationId());
-    if (admitted.binding.localState === 'polling') {
+    let pollScheduled = false;
+    if (
+      admitted.binding.localState === 'polling' ||
+      admitted.binding.localState === 'cancel_observing'
+    ) {
       const job = pollJobFor(admitted.binding);
-      await this.#queue.enqueue(job, admitted.binding.nextPollAt ?? admitted.binding.updatedAt);
+      try {
+        await this.#queue.enqueue(job, admitted.binding.nextPollAt ?? admitted.binding.updatedAt);
+        pollScheduled = true;
+      } catch {
+        // PostgreSQL admission remains authoritative. The reconciler repairs this explicit gap.
+        pollScheduled = false;
+      }
     }
-    return admitted;
+    return { ...admitted, pollScheduled };
   }
 }
 
@@ -67,6 +79,7 @@ export type RemoteTaskPollProcessResult =
   | 'stale'
   | 'closed'
   | 'working'
+  | 'cancel_observing'
   | 'control_pending'
   | 'provider_unreachable'
   | 'stale_provider_snapshot'
@@ -121,7 +134,7 @@ export class RemoteTaskPollingService {
       const current = await this.#repository.findById(job.bindingId);
       if (current === undefined) return 'missing';
       if (current.version !== job.expectedVersion) return 'stale';
-      if (current.localState !== 'polling' || current.invalidatedAt !== undefined) return 'closed';
+      if (!isRemoteTaskObservationActive(current)) return 'closed';
       const claimedAt = this.#clock.now();
       const claimToken = this.#ids.nextClaimToken();
       const claim = await this.#repository.claimPoll({
@@ -222,8 +235,13 @@ export class RemoteTaskPollingService {
         });
         return mutation.applied ? 'quarantined' : mutation.reason;
       }
-      const working = snapshot.status === 'working';
-      const nextPollAt = working
+      const keepObserving =
+        snapshot.status === 'working' ||
+        (binding.localState === 'cancel_observing' &&
+          snapshot.status !== 'completed' &&
+          snapshot.status !== 'failed' &&
+          snapshot.status !== 'cancelled');
+      const nextPollAt = keepObserving
         ? addMilliseconds(
             observedAt,
             boundedPollInterval(
@@ -240,7 +258,9 @@ export class RemoteTaskPollingService {
         claimToken,
         snapshot,
         observationId: this.#ids.nextObservationId(),
-        ...(working ? {} : { controlEventId: this.#ids.nextControlEventId(), resultHash }),
+        ...(snapshot.status === 'working'
+          ? {}
+          : { controlEventId: this.#ids.nextControlEventId(), resultHash }),
         observedAt,
         ...(nextPollAt === undefined ? {} : { nextPollAt }),
         protocolAttempt: protocolAttempt({
@@ -260,10 +280,14 @@ export class RemoteTaskPollingService {
         );
         return 'stale_provider_snapshot';
       }
-      if (!working) return 'control_pending';
+      if (
+        mutation.binding.localState !== 'polling' &&
+        mutation.binding.localState !== 'cancel_observing'
+      )
+        return 'control_pending';
       const nextJob = pollJobFor(mutation.binding);
       await this.#queue.enqueue(nextJob, mutation.binding.nextPollAt ?? mutation.binding.updatedAt);
-      return 'working';
+      return mutation.binding.localState === 'cancel_observing' ? 'cancel_observing' : 'working';
     });
   }
 }

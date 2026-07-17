@@ -1,3 +1,4 @@
+import { once } from 'node:events';
 import {
   createServer,
   type IncomingHttpHeaders,
@@ -5,17 +6,69 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
-import { once } from 'node:events';
 
 import {
   MCP_TASKS_EXTENSION_ID,
   MCP_TASKS_TESTED_PROTOCOL_REVISION,
 } from './mcp-tasks-contract.js';
 
-const FIXED_CREATED_AT = '2026-07-16T00:00:00.000Z';
-const FIXED_COMPLETED_AT = '2026-07-16T00:01:00.000Z';
-const REMOTE_TASK_ID = 'remote-task-0000000000000001';
+const LEGACY_CREATED_AT = '2026-07-16T00:00:00.000Z';
+const LEGACY_OBSERVED_AT = [
+  LEGACY_CREATED_AT,
+  '2026-07-16T00:00:20.000Z',
+  '2026-07-16T00:00:40.000Z',
+  '2026-07-16T00:01:00.000Z',
+] as const;
+const LEGACY_REMOTE_TASK_ID = 'remote-task-0000000000000001';
 const MAX_REQUEST_BYTES = 1_048_576;
+
+const PHASE_SIX_SCENARIOS = [
+  'sync_success',
+  'task_success',
+  'task_business_failure',
+  'task_protocol_failure',
+  'task_cancelled',
+  'task_input_required',
+  'task_multi_input',
+  'task_restricted_accept',
+  'task_restricted_reject',
+  'task_scheduled_success',
+  'task_start_window_missed',
+  'task_deadline_reached',
+  'task_pause_resume_observation',
+  'task_provider_unreachable',
+  'task_malformed_response',
+  'task_duplicate_terminal',
+] as const;
+
+type PhaseSixScenario = (typeof PHASE_SIX_SCENARIOS)[number];
+type TaskScenario = Exclude<PhaseSixScenario, 'sync_success' | 'task_restricted_reject'>;
+
+const LEGACY_SCENARIOS = [
+  'async_success',
+  'rejected_without_task',
+  'malformed_task_id',
+  'unknown_task_status',
+  'unknown_task_field',
+  'malformed_task_metadata',
+] as const;
+
+interface MockTaskState {
+  readonly scenario: TaskScenario | 'async_success';
+  readonly taskId: string;
+  readonly timeline: readonly [string, string, string, string];
+  getCount: number;
+  updateCount: number;
+  cancelAcknowledged: boolean;
+}
+
+interface MockProviderState {
+  readonly tasks: Map<string, MockTaskState>;
+  readonly phaseSixTimeline: readonly [string, string, string, string];
+  readonly phaseSixValidUntil: string;
+}
+
+class MockTransportOutage extends Error {}
 
 export interface McpTasksMockRequest {
   readonly method: string;
@@ -33,9 +86,15 @@ export async function startMcpTasksMockProvider(
   options: Readonly<{ declareTasks?: boolean }> = {},
 ): Promise<McpTasksMockProviderHandle> {
   const requests: McpTasksMockRequest[] = [];
+  const startedAt = Date.now();
+  const state: MockProviderState = {
+    tasks: new Map(),
+    phaseSixTimeline: timelineFrom(startedAt),
+    phaseSixValidUntil: new Date(startedAt + 86_400_000).toISOString(),
+  };
   const declareTasks = options.declareTasks ?? true;
   const server = createServer((request, response) => {
-    void handleProviderRequest(request, response, requests, declareTasks);
+    void handleProviderRequest(request, response, requests, state, declareTasks);
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -55,6 +114,7 @@ async function handleProviderRequest(
   request: IncomingMessage,
   response: ServerResponse,
   requests: McpTasksMockRequest[],
+  state: MockProviderState,
   declareTasks: boolean,
 ): Promise<void> {
   try {
@@ -75,9 +135,13 @@ async function handleProviderRequest(
       return;
     }
     requests.push({ method, params, headers: normalizeHeaders(request.headers) });
-    const result = resultForRequest(method, params, declareTasks);
+    const result = resultForRequest(method, params, state, declareTasks);
     sendJson(response, { jsonrpc: '2.0', id, result });
   } catch (error: unknown) {
+    if (error instanceof MockTransportOutage) {
+      response.destroy(error);
+      return;
+    }
     sendJson(
       response,
       {
@@ -96,6 +160,7 @@ async function handleProviderRequest(
 function resultForRequest(
   method: string,
   params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
   declareTasks: boolean,
 ): Readonly<Record<string, unknown>> {
   switch (method) {
@@ -109,80 +174,57 @@ function resultForRequest(
           tools: {},
           extensions: declareTasks ? { [MCP_TASKS_EXTENSION_ID]: {} } : {},
         },
-        serverInfo: { name: 'sdar-mcp-tasks-mock', version: '1.0.0' },
+        serverInfo: { name: 'sdar-mcp-tasks-mock', version: '1.1.0' },
       };
     case 'tools/list':
-      return {
-        resultType: 'complete',
-        ttlMs: 0,
-        cacheScope: 'private',
-        tools: [
-          'sync_success',
-          'async_success',
-          'rejected_without_task',
-          'malformed_task_id',
-          'unknown_task_status',
-          'unknown_task_field',
-          'malformed_task_metadata',
-        ].map((name) => ({
-          name,
-          inputSchema: { type: 'object', additionalProperties: false },
-          ...(name === 'async_success'
-            ? {
-                _meta: {
-                  'io.sdar/taskExecution': {
-                    execution: 'task_required',
-                    availability: 'dynamic',
-                    supportsScheduling: true,
-                    supportsMaxElapsed: true,
-                    supportsObservations: true,
-                    cancellation: 'task_cancel',
-                    revision: '1.0',
-                  },
-                },
-              }
-            : {}),
-        })),
-      };
+      return toolListResult();
     case 'io.sdar/tasks/checkAvailability':
-      return availabilityResult(params);
+      return availabilityResult(params, state);
     case 'tools/call':
-      return toolCallResult(params);
+      return toolCallResult(params, state);
     case 'tasks/get':
-      return {
-        resultType: 'complete',
-        taskId: stringParam(params, 'taskId'),
-        status: 'completed',
-        createdAt: FIXED_CREATED_AT,
-        lastUpdatedAt: FIXED_COMPLETED_AT,
-        ttlMs: 3_600_000,
-        pollIntervalMs: 50,
-        _meta: {
-          'io.sdar/taskExecution': {
-            revision: '1.0',
-            remoteRevision: 'provider-revision-2',
-            substate: 'stopping',
-            eventId: 'provider-event-2',
-            observedAt: FIXED_COMPLETED_AT,
-            progress: { percent: 100 },
-          },
-        },
-        result: {
-          content: [{ type: 'text', text: 'remote complete' }],
-          structuredContent: { status: 'remote_complete' },
-          isError: false,
-        },
-      };
+      return taskGetResult(params, state);
     case 'tasks/update':
+      return taskUpdateResult(params, state);
     case 'tasks/cancel':
-      return { resultType: 'complete' };
+      return taskCancelResult(params, state);
     default:
       throw new Error(`Unsupported Mock Provider method ${method}.`);
   }
 }
 
+function toolListResult(): Readonly<Record<string, unknown>> {
+  const names = [...PHASE_SIX_SCENARIOS, ...LEGACY_SCENARIOS];
+  return {
+    resultType: 'complete',
+    ttlMs: 0,
+    cacheScope: 'private',
+    tools: names.map((name) => ({
+      name,
+      description: `Deterministic MCP Tasks acceptance scenario: ${name}.`,
+      inputSchema: { type: 'object', additionalProperties: false },
+      ...(isTaskCapableName(name)
+        ? {
+            _meta: {
+              'io.sdar/taskExecution': {
+                execution: 'task_required',
+                availability: 'dynamic',
+                supportsScheduling: true,
+                supportsMaxElapsed: true,
+                supportsObservations: true,
+                cancellation: 'task_cancel',
+                revision: '1.0',
+              },
+            },
+          }
+        : {}),
+    })),
+  };
+}
+
 function availabilityResult(
   params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
 ): Readonly<Record<string, unknown>> {
   if (params['revision'] !== '1.0' || !Array.isArray(params['requests']))
     throw new Error('Invalid availability request.');
@@ -191,9 +233,41 @@ function availabilityResult(
     revision: '1.0',
     results: params['requests'].map((request: unknown) => {
       if (!isRecord(request)) throw new Error('Invalid availability item.');
-      return {
+      const operationName = stringParam(request, 'operationName');
+      const common = {
         nodeId: stringParam(request, 'nodeId'),
-        operationName: stringParam(request, 'operationName'),
+        operationName,
+      };
+      if (
+        operationName === 'task_restricted_accept' ||
+        operationName === 'task_restricted_reject'
+      ) {
+        return {
+          ...common,
+          availability: 'restricted',
+          riskLevel: 'high',
+          reasonCode: 'OPERATOR_CONFIRMATION_REQUIRED',
+          description: 'The deterministic scenario requires explicit operator confirmation.',
+          validUntil: state.phaseSixValidUntil,
+          reservationMode: 'best_effort',
+          possibleEffects: ['task_preemption', 'start_rejection'],
+        };
+      }
+      if (operationName === 'task_scheduled_success') {
+        const window = scheduledWindow(request, state.phaseSixTimeline[0]);
+        return {
+          ...common,
+          availability: 'available',
+          riskLevel: 'low',
+          earliestStartTime: window.startTime,
+          nextAvailableWindows: [window],
+          reservationMode: 'guaranteed',
+          reservationRef: 'mock-reservation-scheduled-success',
+          possibleEffects: ['start_window_missed'],
+        };
+      }
+      return {
+        ...common,
         availability: 'available',
         riskLevel: 'low',
         reservationMode: 'none',
@@ -203,54 +277,404 @@ function availabilityResult(
   };
 }
 
+function scheduledWindow(
+  request: Readonly<Record<string, unknown>>,
+  providerStartedAt: string,
+): Readonly<{ startTime: string; endTime: string }> {
+  const timing = request['timing'];
+  const start = isRecord(timing) ? timing['start'] : undefined;
+  const requested =
+    isRecord(start) && start['mode'] === 'scheduled' && typeof start['scheduledAt'] === 'string'
+      ? start['scheduledAt']
+      : new Date(Date.parse(providerStartedAt) + 300_000).toISOString();
+  const parsed = Date.parse(requested);
+  const startTime = Number.isFinite(parsed) ? new Date(parsed).toISOString() : providerStartedAt;
+  return {
+    startTime,
+    endTime: new Date(Date.parse(startTime) + 3_600_000).toISOString(),
+  };
+}
+
 function toolCallResult(
   params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
 ): Readonly<Record<string, unknown>> {
   const name = stringParam(params, 'name');
-  if (name === 'sync_success') {
+  if (name === 'sync_success')
+    return { resultType: 'complete', ...successfulToolResult('sync_complete', 'sync complete') };
+  if (name === 'rejected_without_task' || name === 'task_restricted_reject') {
     return {
       resultType: 'complete',
-      content: [{ type: 'text', text: 'sync complete' }],
-      structuredContent: { status: 'sync_complete' },
-      isError: false,
+      ...businessToolResult('admission_rejected', 'RESOURCE_UNAVAILABLE', true),
     };
   }
-  if (name === 'rejected_without_task') {
-    return {
-      resultType: 'complete',
-      content: [{ type: 'text', text: 'resource unavailable' }],
-      structuredContent: {
-        outcome: 'admission_rejected',
-        reasonCode: 'RESOURCE_UNAVAILABLE',
-        retryable: true,
+
+  if (name === 'malformed_task_id') return malformedCreatedTask(name, 'taskId');
+  if (name === 'unknown_task_status') return malformedCreatedTask(name, 'status');
+  if (name === 'unknown_task_field') return malformedCreatedTask(name, 'field');
+  if (name === 'malformed_task_metadata') return malformedCreatedTask(name, 'metadata');
+  if (!isTaskScenario(name) && name !== 'async_success')
+    throw new Error(`Unknown Mock Provider scenario ${name}.`);
+
+  const taskId = name === 'async_success' ? LEGACY_REMOTE_TASK_ID : `remote-task-${name}`;
+  const task: MockTaskState = {
+    scenario: name,
+    taskId,
+    timeline: name === 'async_success' ? LEGACY_OBSERVED_AT : state.phaseSixTimeline,
+    getCount: 0,
+    updateCount: 0,
+    cancelAcknowledged: false,
+  };
+  state.tasks.set(taskId, task);
+  return createdTask(task);
+}
+
+function taskGetResult(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): Readonly<Record<string, unknown>> {
+  const task = requiredTask(params, state);
+  const observation = task.getCount;
+  task.getCount += 1;
+  switch (task.scenario) {
+    case 'async_success':
+      return legacyCompletedTask(task);
+    case 'task_success':
+    case 'task_restricted_accept':
+      return observation === 0
+        ? workingTask(task, 'running', 50, 1)
+        : completedTask(task, 'remote_complete', 'remote complete', 3);
+    case 'task_scheduled_success':
+      return observation === 0
+        ? workingTask(task, 'scheduled', 0, 1)
+        : completedTask(task, 'scheduled_complete', 'scheduled task complete', 3);
+    case 'task_business_failure':
+      return completedBusinessTask(task, 'business_failure', 'BUSINESS_RULE_REJECTED', false);
+    case 'task_start_window_missed':
+      return completedBusinessTask(task, 'start_window_missed', 'START_WINDOW_MISSED', true);
+    case 'task_deadline_reached':
+      return completedBusinessTask(task, 'deadline_reached', 'MAX_ELAPSED_TIME_REACHED', true);
+    case 'task_protocol_failure':
+      return failedTask(task);
+    case 'task_cancelled':
+      return task.cancelAcknowledged ? cancelledTask(task) : workingTask(task, 'stopping', 25, 1);
+    case 'task_input_required':
+      return task.updateCount === 0
+        ? inputRequiredTask(task, 'approval', approvalRequest(), 1)
+        : completedTask(task, 'input_complete', 'input accepted', 3);
+    case 'task_multi_input':
+      if (task.updateCount === 0) return inputRequiredTask(task, 'approval', approvalRequest(), 1);
+      if (task.updateCount === 1) return inputRequiredTask(task, 'details', detailsRequest(), 2);
+      return completedTask(task, 'multi_input_complete', 'all input accepted', 3);
+    case 'task_pause_resume_observation':
+      if (observation === 0) return workingTask(task, 'paused', 25, 1);
+      if (observation === 1) return workingTask(task, 'resuming', 50, 2);
+      return completedTask(task, 'resumed_complete', 'resumed task complete', 3);
+    case 'task_provider_unreachable':
+      if (observation === 0)
+        throw new MockTransportOutage(
+          'Deterministic Provider transport outage; retry observation.',
+        );
+      return completedTask(task, 'recovered_complete', 'provider recovered', 3);
+    case 'task_malformed_response':
+      return { ...workingTask(task, 'running', 50, 1), unexpectedExecutableField: 'reject-me' };
+    case 'task_duplicate_terminal':
+      return completedTask(task, 'duplicate_terminal_complete', 'terminal result', 3);
+  }
+}
+
+function taskUpdateResult(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): Readonly<Record<string, unknown>> {
+  const task = requiredTask(params, state);
+  if (task.scenario === 'async_success') return { resultType: 'complete' };
+  if (task.scenario !== 'task_input_required' && task.scenario !== 'task_multi_input')
+    throw new Error('This Mock Provider Task has no outstanding input request.');
+  const responses = params['inputResponses'];
+  if (!isRecord(responses)) throw new Error('tasks/update requires inputResponses.');
+  const expectedKey = task.updateCount === 0 ? 'approval' : 'details';
+  if (Object.keys(responses).length !== 1 || !(expectedKey in responses))
+    throw new Error(`tasks/update must answer exactly ${expectedKey}.`);
+  task.updateCount += 1;
+  return { resultType: 'complete' };
+}
+
+function taskCancelResult(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): Readonly<Record<string, unknown>> {
+  const task = requiredTask(params, state);
+  if (task.scenario === 'async_success') return { resultType: 'complete' };
+  if (task.scenario !== 'task_cancelled')
+    throw new Error('This Mock Provider Task does not accept deterministic cancellation.');
+  task.cancelAcknowledged = true;
+  return { resultType: 'complete' };
+}
+
+function createdTask(task: MockTaskState): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'task',
+    taskId: task.taskId,
+    status: 'working',
+    createdAt: task.timeline[0],
+    lastUpdatedAt: task.timeline[0],
+    ttlMs: 3_600_000,
+    pollIntervalMs: 50,
+    _meta: observationMetadata(
+      task.scenario === 'task_scheduled_success' ? 'scheduled' : 'queued',
+      0,
+      0,
+      task.timeline[0],
+    ),
+  };
+}
+
+function workingTask(
+  task: MockTaskState,
+  substate: 'scheduled' | 'running' | 'paused' | 'resuming' | 'stopping',
+  percent: number,
+  sequence: number,
+): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, sequence),
+    status: 'working',
+    _meta: observationMetadata(substate, percent, sequence, taskObservedAt(task, sequence)),
+  };
+}
+
+function inputRequiredTask(
+  task: MockTaskState,
+  key: string,
+  request: Readonly<Record<string, unknown>>,
+  sequence: number,
+): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, sequence),
+    status: 'input_required',
+    inputRequests: { [key]: request },
+    _meta: observationMetadata('paused', 50, sequence, taskObservedAt(task, sequence)),
+  };
+}
+
+function completedTask(
+  task: MockTaskState,
+  status: string,
+  text: string,
+  sequence: number,
+): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, sequence),
+    status: 'completed',
+    _meta: observationMetadata('stopping', 100, sequence, taskObservedAt(task, sequence)),
+    result: successfulToolResult(status, text),
+  };
+}
+
+function legacyCompletedTask(task: MockTaskState): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, 3),
+    status: 'completed',
+    _meta: {
+      'io.sdar/taskExecution': {
+        revision: '1.0',
+        remoteRevision: 'provider-revision-2',
+        substate: 'stopping',
+        eventId: 'provider-event-2',
+        observedAt: LEGACY_OBSERVED_AT[3],
+        progress: { percent: 100 },
       },
-      isError: true,
-    };
-  }
+    },
+    result: successfulToolResult('remote_complete', 'remote complete'),
+  };
+}
+
+function completedBusinessTask(
+  task: MockTaskState,
+  outcome: 'business_failure' | 'start_window_missed' | 'deadline_reached',
+  reasonCode: string,
+  retryable: boolean,
+): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, 3),
+    status: 'completed',
+    _meta: observationMetadata('stopping', 100, 3, taskObservedAt(task, 3)),
+    result: businessToolResult(outcome, reasonCode, retryable),
+  };
+}
+
+function failedTask(task: MockTaskState): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, 3),
+    status: 'failed',
+    _meta: observationMetadata('stopping', 100, 3, taskObservedAt(task, 3)),
+    error: {
+      code: -32_603,
+      message: 'Deterministic remote protocol operation failure.',
+      data: { reasonCode: 'REMOTE_PROTOCOL_OPERATION_FAILED' },
+    },
+  };
+}
+
+function cancelledTask(task: MockTaskState): Readonly<Record<string, unknown>> {
+  return {
+    resultType: 'complete',
+    ...taskBase(task, 3),
+    status: 'cancelled',
+    statusMessage: 'Provider confirmed cooperative cancellation.',
+    _meta: observationMetadata('stopping', 100, 3, taskObservedAt(task, 3)),
+  };
+}
+
+function taskBase(task: MockTaskState, sequence: number): Readonly<Record<string, unknown>> {
+  return {
+    taskId: task.taskId,
+    createdAt: task.timeline[0],
+    lastUpdatedAt: taskObservedAt(task, sequence),
+    ttlMs: 3_600_000,
+    pollIntervalMs: 50,
+  };
+}
+
+function observationMetadata(
+  substate: 'scheduled' | 'queued' | 'running' | 'paused' | 'resuming' | 'stopping',
+  percent: number,
+  sequence: number,
+  observedAt: string,
+): Readonly<Record<string, unknown>> {
+  return {
+    'io.sdar/taskExecution': {
+      revision: '1.0',
+      remoteRevision: `provider-revision-${String(sequence + 1)}`,
+      substate,
+      eventId: `provider-event-${String(sequence + 1)}`,
+      observedAt,
+      progress: { percent },
+    },
+  };
+}
+
+function taskObservedAt(task: MockTaskState, sequence: number): string {
+  return task.timeline[Math.min(sequence, task.timeline.length - 1)] ?? task.timeline[0];
+}
+
+function successfulToolResult(status: string, text: string): Readonly<Record<string, unknown>> {
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: { status },
+    isError: false,
+  };
+}
+
+function businessToolResult(
+  outcome: string,
+  reasonCode: string,
+  retryable: boolean,
+): Readonly<Record<string, unknown>> {
+  return {
+    content: [{ type: 'text', text: `${outcome}: ${reasonCode}` }],
+    structuredContent: { outcome, reasonCode, retryable },
+    isError: true,
+  };
+}
+
+function approvalRequest(): Readonly<Record<string, unknown>> {
+  return {
+    method: 'elicitation/create',
+    params: {
+      mode: 'form',
+      message: 'Approve the deterministic remote operation?',
+      requestedSchema: {
+        type: 'object',
+        properties: { approved: { type: 'boolean' } },
+        required: ['approved'],
+        additionalProperties: false,
+      },
+    },
+  };
+}
+
+function detailsRequest(): Readonly<Record<string, unknown>> {
+  return {
+    method: 'elicitation/create',
+    params: {
+      mode: 'form',
+      message: 'Provide the deterministic execution note.',
+      requestedSchema: {
+        type: 'object',
+        properties: { note: { type: 'string', minLength: 1, maxLength: 128 } },
+        required: ['note'],
+        additionalProperties: false,
+      },
+    },
+  };
+}
+
+function malformedCreatedTask(
+  name: string,
+  malformed: 'taskId' | 'status' | 'field' | 'metadata',
+): Readonly<Record<string, unknown>> {
   const task = {
     resultType: 'task',
-    taskId: name === 'malformed_task_id' ? 'bad task id\r\nforged' : REMOTE_TASK_ID,
-    status: name === 'unknown_task_status' ? 'paused' : 'working',
-    createdAt: FIXED_CREATED_AT,
-    lastUpdatedAt: FIXED_CREATED_AT,
+    taskId: malformed === 'taskId' ? 'bad task id\r\nforged' : LEGACY_REMOTE_TASK_ID,
+    status: malformed === 'status' ? 'paused' : 'working',
+    createdAt: LEGACY_CREATED_AT,
+    lastUpdatedAt: LEGACY_CREATED_AT,
     ttlMs: 3_600_000,
     pollIntervalMs: 50,
     _meta: {
       'io.sdar/taskExecution':
-        name === 'malformed_task_metadata'
+        malformed === 'metadata'
           ? { revision: '2.0', unexpected: true }
           : {
               revision: '1.0',
               remoteRevision: 'provider-revision-1',
               substate: 'queued',
               eventId: 'provider-event-1',
-              observedAt: FIXED_CREATED_AT,
+              observedAt: LEGACY_CREATED_AT,
               progress: { percent: 0 },
             },
     },
-    ...(name === 'unknown_task_field' ? { unexpectedExecutableField: 'reject-me' } : {}),
+    ...(malformed === 'field' ? { unexpectedExecutableField: `reject-${name}` } : {}),
   };
   return task;
+}
+
+function timelineFrom(startedAt: number): readonly [string, string, string, string] {
+  return [
+    new Date(startedAt).toISOString(),
+    new Date(startedAt + 20_000).toISOString(),
+    new Date(startedAt + 40_000).toISOString(),
+    new Date(startedAt + 60_000).toISOString(),
+  ];
+}
+
+function requiredTask(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): MockTaskState {
+  const taskId = stringParam(params, 'taskId');
+  const task = state.tasks.get(taskId);
+  if (task === undefined) throw new Error(`Unknown Mock Provider Task ${taskId}.`);
+  return task;
+}
+
+function isTaskCapableName(name: string): boolean {
+  return name !== 'sync_success' && name !== 'rejected_without_task';
+}
+
+function isTaskScenario(name: string): name is TaskScenario {
+  return (
+    (PHASE_SIX_SCENARIOS as readonly string[]).includes(name) &&
+    name !== 'sync_success' &&
+    name !== 'task_restricted_reject'
+  );
 }
 
 async function readJsonBody(

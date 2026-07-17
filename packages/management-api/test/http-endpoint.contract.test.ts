@@ -3,8 +3,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  createRemoteTaskBinding,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   type EvolutionExperience,
+  type RemoteTaskBinding,
 } from '../../domain/src/index.js';
 
 import {
@@ -127,6 +129,259 @@ describe('management HTTP API contract', () => {
     expect(body).toContain('2026-07-16T22:10:00.000Z');
     expect(body).toContain('forecast');
     expect(body).not.toContain('must-not-leak');
+  });
+
+  it('projects the complete remote Task lifecycle without credentials or raw availability arguments', async () => {
+    const accepted = createRemoteTaskBinding({
+      bindingId: 'binding-1',
+      serverId: 'mcp.devices',
+      operationName: 'device_patrol',
+      remoteTaskId: 'provider-task-1',
+      agentTaskId: 'task-1',
+      contextId: 'context-1',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      workflowPlanId: 'plan-1',
+      workflowDefinitionId: 'workflow-1',
+      workflowDefinitionVersion: 1,
+      workflowInstanceId: 'instance-1',
+      workflowNodeId: 'patrol',
+      workflowNodeRunId: 'patrol:1',
+      mcpInvocationId: 'invocation-1',
+      protocolStatus: 'working',
+      protocolRevision: '2026-07-28',
+      tasksSchemaRevision: '1.0.1',
+      providerSubstate: 'running',
+      requestedTiming: {
+        start: { mode: 'immediate', startToleranceMs: 0 },
+        maxElapsedMs: 60_000,
+      },
+      executionContext: { mode: 'live' },
+      credentialRevision: 'credential-1',
+      sessionRevision: 'session-1',
+      lastProviderUpdatedAt: '2026-07-17T00:00:00.000Z',
+      pollIntervalMs: 1_000,
+      createdAt: '2026-07-17T00:00:00.000Z',
+    });
+    const binding: RemoteTaskBinding = {
+      ...accepted,
+      protocolStatus: 'completed',
+      localState: 'closed',
+      resultSnapshot: { content: [{ type: 'text', text: 'done' }], isError: false },
+      terminalAt: '2026-07-17T00:00:03.000Z',
+      updatedAt: '2026-07-17T00:00:03.000Z',
+      version: 4,
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        tasks: {
+          ...operations().tasks,
+          get: () =>
+            Promise.resolve({
+              taskId: 'task-1',
+              contextId: 'context-1',
+              userId: 'anonymous',
+              requestText: 'Patrol.',
+              requestMetadata: {},
+              phase: 'completed' as const,
+              phaseMessage: 'Done.',
+              goalId: 'goal-1',
+              goalVersion: 1,
+              planId: 'plan-1',
+              selectedSkillId: 'skill.patrol',
+              selectedSkillVersion: 2,
+              createdAt: '2026-07-17T00:00:00.000Z',
+              updatedAt: '2026-07-17T00:00:03.000Z',
+            }),
+        },
+        mcp: {
+          ...operations().mcp,
+          listTools: () =>
+            Promise.resolve([
+              {
+                serverId: 'mcp.devices',
+                toolName: 'device_patrol',
+                inputSchema: { type: 'object' },
+                executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+                taskExecution: {
+                  availability: 'dynamic' as const,
+                  execution: 'task_required' as const,
+                  cancellation: 'task_cancel' as const,
+                  supportsScheduling: true,
+                  supportsMaxElapsed: true,
+                  supportsObservations: true,
+                  revision: '1.0' as const,
+                },
+                discoveredAt: '2026-07-17T00:00:00.000Z',
+              },
+            ]),
+        },
+        remoteTaskLifecycle: {
+          listByAgentTaskId: () =>
+            Promise.resolve([
+              {
+                binding,
+                observations: [
+                  {
+                    observationId: 'observation-1',
+                    bindingId: 'binding-1',
+                    sequence: 1,
+                    type: 'task.snapshot' as const,
+                    payload: { status: 'completed' },
+                    accepted: true,
+                    observedAt: '2026-07-17T00:00:03.000Z',
+                  },
+                ],
+                controls: [],
+                protocolAttempts: [],
+                continuations: [],
+                inputRounds: [],
+                cancellations: [],
+              },
+            ]),
+        },
+        taskAvailability: {
+          listByPlan: () =>
+            Promise.resolve([
+              {
+                readiness: {
+                  readinessId: 'readiness-1',
+                  workflowPlanId: 'plan-1',
+                  planAttempt: 1,
+                  checkPhase: 'pre_invocation' as const,
+                  dslHash: 'a'.repeat(64),
+                  disposition: 'ready' as const,
+                  permittedActions: ['proceed' as const],
+                  guardAction: 'proceed' as const,
+                  guardReasonCodes: [],
+                  confirmationRequired: false,
+                  createdAt: '2026-07-17T00:00:00.000Z',
+                },
+                snapshots: [
+                  {
+                    snapshotId: 'availability-1',
+                    readinessId: 'readiness-1',
+                    workflowPlanId: 'plan-1',
+                    planAttempt: 1,
+                    checkPhase: 'pre_invocation' as const,
+                    nodeId: 'patrol',
+                    serverId: 'mcp.devices',
+                    operationName: 'device_patrol',
+                    arguments: { unresolved: false as const, value: { secret: 'must-not-leak' } },
+                    argumentsHash: 'b'.repeat(64),
+                    result: {
+                      nodeId: 'patrol',
+                      operationName: 'device_patrol',
+                      availability: 'available' as const,
+                      riskLevel: 'low' as const,
+                      nextAvailableWindows: [],
+                      reservationMode: 'none' as const,
+                      possibleEffects: [],
+                    },
+                    sourceRevision: '2026-07-28/1.0.1',
+                    checkedAt: '2026-07-17T00:00:00.000Z',
+                    normalizationReasonCodes: [],
+                  },
+                ],
+              },
+            ]),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/remote-task-lifecycle`);
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({
+      correlationRoot: { taskId: 'task-1', skillId: 'skill.patrol' },
+      items: [
+        {
+          binding: { remoteTaskId: 'provider-task-1' },
+          capability: { status: 'registered' },
+          finalOutcome: { providerStatus: 'completed', authoritative: true },
+        },
+      ],
+    });
+    expect(JSON.stringify(payload)).toContain('tasks/cancel acknowledgement');
+    expect(JSON.stringify(payload)).not.toContain('must-not-leak');
+    expect(JSON.stringify(payload)).not.toContain('Bearer');
+    expect(JSON.stringify(payload)).not.toContain('credential-1');
+    expect(JSON.stringify(payload)).not.toContain('pollClaimToken');
+  });
+
+  it('routes version-constrained refresh, cooperative cancellation, and structured input', async () => {
+    const captured: unknown[] = [];
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        tasks: {
+          ...operations().tasks,
+          followUp: (command) => {
+            captured.push(command);
+            return Promise.resolve({
+              taskId: command.taskId,
+              contextId: 'context-1',
+              userId: 'anonymous',
+              requestText: 'Run.',
+              requestMetadata: {},
+              phase: 'executing' as const,
+              phaseMessage: 'Input accepted.',
+              createdAt: '2026-07-17T00:00:00.000Z',
+              updatedAt: '2026-07-17T00:00:01.000Z',
+            });
+          },
+        },
+        remoteTaskPolling: {
+          process: (job) => {
+            captured.push(job);
+            return Promise.resolve('working');
+          },
+        },
+        remoteTaskCancellation: {
+          request: (request) => {
+            captured.push(request);
+            return Promise.resolve({ disposition: 'requested', deliveryScheduled: true });
+          },
+        },
+      },
+    });
+    const refresh = await fetch(
+      `${endpoint.baseUrl}/api/v1/remote-task-bindings/binding-1/refresh`,
+      jsonPost({ expectedVersion: 7 }),
+    );
+    expect(refresh.status).toBe(200);
+    const cancel = await fetch(
+      `${endpoint.baseUrl}/api/v1/remote-task-bindings/binding-1/cancel`,
+      jsonPost({ idempotencyKey: 'management-1', reasonCode: 'USER_REQUEST', summary: 'Stop.' }),
+    );
+    expect(cancel.status).toBe(200);
+    const input = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/actions`,
+      jsonPost({
+        action: 'provide_input',
+        messageText: 'Structured response.',
+        inputRequestId: 'input-1',
+        inputContent: { form: { approved: true } },
+      }),
+    );
+    expect(input.status).toBe(200);
+    expect(captured).toEqual([
+      { bindingId: 'binding-1', expectedVersion: 7 },
+      {
+        bindingId: 'binding-1',
+        idempotencyKey: 'management-1',
+        source: 'management',
+        reasonCode: 'USER_REQUEST',
+        summary: 'Stop.',
+      },
+      {
+        taskId: 'task-1',
+        action: 'provide_input',
+        messageText: 'Structured response.',
+        inputRequestId: 'input-1',
+        inputContent: { form: { approved: true } },
+      },
+    ]);
   });
 
   it('exposes credential-safe MCP management operation evidence', async () => {
@@ -1846,6 +2101,14 @@ describe('management HTTP API contract', () => {
     ).resolves.toEqual({ items: [] });
   });
 });
+
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
 
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));

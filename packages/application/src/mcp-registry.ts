@@ -8,6 +8,7 @@ import {
   createMcpToolEnhancement,
   type McpInvocation,
   type McpInvocationOutcome,
+  type RemoteTaskOperationAck,
   type McpManagementOperation,
   type McpManagementOperationType,
   type McpServer,
@@ -51,6 +52,13 @@ export interface McpCallContext {
   readonly contextId?: string;
   readonly executionContext?: RuntimeExecutionContext;
   readonly taskExecution?: ResolvedMcpTaskExecution;
+}
+
+export interface RecordedMcpInvocationOutcome {
+  readonly invocationId: string;
+  readonly outcome: McpInvocationOutcome;
+  readonly credentialRevision: string;
+  readonly sessionRevision: string;
 }
 
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
@@ -156,6 +164,16 @@ export class McpRegistryService {
     signal?: AbortSignal,
     context: McpCallContext = {},
   ): Promise<McpInvocationOutcome> {
+    return (await this.callDetailed(serverId, toolName, arguments_, signal, context)).outcome;
+  }
+
+  async callDetailed(
+    serverId: string,
+    toolName: string,
+    arguments_: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+    context: McpCallContext = {},
+  ): Promise<RecordedMcpInvocationOutcome> {
     const record = await this.#requireServer(serverId);
     const tool = (await this.#repository.listTools(serverId)).find(
       (item) => item.toolName === toolName,
@@ -233,7 +251,15 @@ export class McpRegistryService {
         completedAt,
       }),
     );
-    return outcome;
+    return {
+      invocationId,
+      outcome,
+      credentialRevision: record.server.updatedAt,
+      sessionRevision:
+        outcome.kind === 'remote_task'
+          ? `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`
+          : String(record.server.toolRevision),
+    };
   }
 
   async delete(serverId: string): Promise<void> {
@@ -346,6 +372,44 @@ export class McpRegistryService {
       }
       return { kind: 'provider_unreachable', errorCode: 'MCP_TASK_PROVIDER_UNREACHABLE' };
     }
+  }
+
+  async cancelRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck> {
+    const record = await this.#requireServer(input.serverId);
+    const executionContext = createRuntimeExecutionContext(input.executionContext);
+    return this.#transport.cancelTask({
+      endpoint: record.server.endpoint,
+      headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
+      remoteTaskId: input.remoteTaskId,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    });
+  }
+
+  async updateRemoteTask(
+    input: Readonly<{
+      serverId: string;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+      executionContext: RuntimeExecutionContext;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskOperationAck> {
+    const record = await this.#requireServer(input.serverId);
+    const executionContext = createRuntimeExecutionContext(input.executionContext);
+    return this.#transport.updateTask({
+      endpoint: record.server.endpoint,
+      headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
+      remoteTaskId: input.remoteTaskId,
+      inputResponses: input.inputResponses,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    });
   }
 
   async checkTaskAvailability(

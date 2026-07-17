@@ -724,10 +724,16 @@ export class PostgresConversationContextRepository implements ConversationContex
 export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #preserveRemoteWaits: boolean;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    options: Readonly<{ preserveRemoteWaits?: boolean }> = {},
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#preserveRemoteWaits = options.preserveRemoteWaits ?? false;
   }
 
   async failInterrupted(timestamp: string) {
@@ -735,10 +741,32 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
     try {
       await client.query('BEGIN');
       const tasks = await client.query<TaskRow>(
-        `UPDATE agent_task
+        `UPDATE agent_task task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
          WHERE phase IN ('executing','paused','evaluating')
+         ${
+           this.#preserveRemoteWaits
+             ? `AND NOT EXISTS (
+           SELECT 1
+           FROM workflow_continuation_snapshot snapshot
+           JOIN workflow_continuation_wait_binding wait
+             ON wait.snapshot_id=snapshot.snapshot_id
+           JOIN remote_task_binding binding ON binding.binding_id=wait.binding_id
+           JOIN workflow_instance instance
+             ON instance.instance_id=snapshot.workflow_instance_id
+           WHERE snapshot.agent_task_id=task.task_id
+             AND snapshot.lifecycle='active'
+             AND instance.status='waiting_external'
+             AND binding.workflow_instance_id=instance.instance_id
+             AND binding.invalidated_at IS NULL
+             AND binding.local_state IN (
+               'polling','cancel_observing','awaiting_input',
+               'terminal_event_pending','terminal_event_claimed'
+             )
+         )`
+             : ''
+         }
          RETURNING *`,
         [timestamp],
       );
@@ -754,7 +782,31 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
       const attempts = await client.query(
         `UPDATE task_execution_attempt
          SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
-         WHERE status='running'`,
+         WHERE status='running'
+         ${
+           this.#preserveRemoteWaits
+             ? `AND NOT EXISTS (
+           SELECT 1
+           FROM agent_task task
+           JOIN workflow_continuation_snapshot snapshot
+             ON snapshot.agent_task_id=task.task_id
+           JOIN workflow_continuation_wait_binding wait
+             ON wait.snapshot_id=snapshot.snapshot_id
+           JOIN remote_task_binding binding ON binding.binding_id=wait.binding_id
+           JOIN workflow_instance instance
+             ON instance.instance_id=snapshot.workflow_instance_id
+           WHERE task.task_id=task_execution_attempt.task_id
+             AND snapshot.lifecycle='active'
+             AND instance.status='waiting_external'
+             AND binding.workflow_instance_id=instance.instance_id
+             AND binding.invalidated_at IS NULL
+             AND binding.local_state IN (
+               'polling','cancel_observing','awaiting_input',
+               'terminal_event_pending','terminal_event_claimed'
+             )
+         )`
+             : ''
+         }`,
         [timestamp],
       );
       await client.query('COMMIT');
@@ -978,6 +1030,23 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
          RETURNING instance_id`,
         [record.goalId, record.fromVersion, record.createdAt],
       );
+      if (await relationExists(client, 'remote_task_binding')) {
+        await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
+               next_poll_at=NULL,updated_at=$3,version=version+1
+           WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
+          [record.goalId, record.fromVersion, record.createdAt],
+        );
+      }
+      if (await relationExists(client, 'workflow_continuation_snapshot')) {
+        await client.query(
+          `UPDATE workflow_continuation_snapshot
+           SET lifecycle='invalidated',updated_at=$3
+           WHERE goal_id=$1 AND goal_version=$2 AND lifecycle IN ('building','active')`,
+          [record.goalId, record.fromVersion, record.createdAt],
+        );
+      }
       const tasks = await client.query<TaskRow>(
         `UPDATE agent_task SET
            phase=CASE WHEN task_id=$3 THEN 'planning' ELSE 'invalidated' END,
@@ -1173,9 +1242,52 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
            pending_confirmation_json=NULL,
            errors_json=jsonb_set(errors_json,'{goalCancellation}',
              '{"code":"GOAL_CANCELED","message":"Goal cancellation terminated this Workflow instance without automatic compensation."}'::jsonb,true)
-         WHERE goal_id=$1 AND goal_version=$2 AND status IN ('running','paused')`,
+         WHERE goal_id=$1 AND goal_version=$2 AND status IN ('running','paused','waiting_external')`,
         [input.goalId, input.goalVersion, input.createdAt],
       );
+      if (await relationExists(client, 'remote_task_binding')) {
+        if (await relationExists(client, 'remote_task_cancel_request')) {
+          await client.query(
+            `INSERT INTO remote_task_cancel_request(
+               cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,
+               delivery_status,attempt_count,requested_at,updated_at,version)
+             SELECT 'remote-cancel-' || md5(binding_id || ':' || $1::text || ':' || $2::text),binding_id,
+                    md5('goal:' || $1::text || ':' || $2::text || ':' || binding_id),'goal',
+                    'local_goal_cancel',left($3,2048),'requested',0,$4,$4,1
+             FROM remote_task_binding
+             WHERE goal_id=$1 AND goal_version=$2::integer AND terminal_at IS NULL
+               AND protocol_status IN ('working','input_required')
+               AND local_state NOT IN ('closed','reentered','quarantined')
+             ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
+            [input.goalId, input.goalVersion, input.reason, input.createdAt],
+          );
+          await client.query(
+            `UPDATE remote_task_binding
+             SET local_state='cancel_observing',next_poll_at=$3,
+                 poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+                 updated_at=$3,version=version+1
+             WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
+               AND protocol_status IN ('working','input_required')
+               AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
+            [input.goalId, input.goalVersion, input.createdAt],
+          );
+        } else
+          await client.query(
+            `UPDATE remote_task_binding
+             SET local_state='closed',invalidated_at=COALESCE(invalidated_at,$3),
+                 next_poll_at=NULL,updated_at=$3,version=version+1
+             WHERE goal_id=$1 AND goal_version=$2 AND invalidated_at IS NULL`,
+            [input.goalId, input.goalVersion, input.createdAt],
+          );
+      }
+      if (await relationExists(client, 'workflow_continuation_snapshot')) {
+        await client.query(
+          `UPDATE workflow_continuation_snapshot
+           SET lifecycle='invalidated',updated_at=$3
+           WHERE goal_id=$1 AND goal_version=$2 AND lifecycle IN ('building','active')`,
+          [input.goalId, input.goalVersion, input.createdAt],
+        );
+      }
       const instances = await client.query<{ instance_id: string }>(
         `SELECT instance_id FROM workflow_instance
          WHERE goal_id=$1 AND goal_version=$2 AND status='canceled' ORDER BY instance_id`,
@@ -1735,6 +1847,36 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       );
       if (updatedControl.rowCount !== 1)
         throw new Error('RUNTIME_TERMINAL_CONTROL_UPDATE_CONFLICT');
+      if (
+        kind === 'canceled' &&
+        (await relationExists(client, 'remote_task_cancel_request')) &&
+        (await relationExists(client, 'remote_task_binding'))
+      ) {
+        await client.query(
+          `INSERT INTO remote_task_cancel_request(
+             cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,
+             delivery_status,attempt_count,requested_at,updated_at,version)
+           SELECT 'remote-cancel-' || md5(binding_id || ':' || $1),binding_id,
+                  md5('task:' || $1 || ':' || binding_id),'task','local_task_cancel',
+                  left($2,2048),'requested',0,$3,$3,1
+           FROM remote_task_binding
+           WHERE agent_task_id=$1 AND goal_id=$4 AND goal_version=$5
+             AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND local_state NOT IN ('closed','reentered','quarantined')
+           ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
+          [input.taskId ?? '', input.summary, input.committedAt, input.goalId, input.goalVersion],
+        );
+        await client.query(
+          `UPDATE remote_task_binding
+           SET local_state='cancel_observing',next_poll_at=$2,
+               poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+               updated_at=$2,version=version+1
+           WHERE agent_task_id=$1 AND goal_id=$3 AND goal_version=$4
+             AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
+          [input.taskId ?? '', input.committedAt, input.goalId, input.goalVersion],
+        );
+      }
       if (round !== undefined) await insertTerminalRound(client, round, input.outcomeId);
       if (task !== undefined) {
         if (kind === 'canceled')
@@ -2885,7 +3027,7 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       response: TaskInputResponse;
       attempt: TaskExecutionAttempt;
       answeredAt: string;
-      continuationPhase: 'goal_deliberation' | 'planning';
+      continuationPhase: 'goal_deliberation' | 'planning' | 'executing';
       phaseMessage: string;
     }>,
   ): Promise<AgentTask> {
@@ -2930,6 +3072,18 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
          WHERE input_request_id=$1`,
         [input.inputRequestId, input.answeredAt],
       );
+      if (request.source === 'remote_task') {
+        const linked = await client.query(
+          `UPDATE remote_task_input_link SET status='answered',updated_at=$2
+           WHERE input_request_id=$1 AND status='waiting'`,
+          [input.inputRequestId, input.answeredAt],
+        );
+        if (linked.rowCount !== 1)
+          throw new DomainError(
+            'TASK_INPUT_REQUEST_NOT_WAITING',
+            'The remote Task input link is no longer waiting.',
+          );
+      }
       await client.query(
         `INSERT INTO task_input_response(
            input_response_id,input_request_id,task_id,content_json,created_at)
@@ -4528,6 +4682,16 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
   }
 
+  async findByChildInstanceId(childInstanceId: string) {
+    const result = await this.#pool.query<SkillCallWorkflowRow>(
+      `SELECT * FROM skill_call_workflow
+       WHERE child_instance_id=$1
+       ORDER BY created_at DESC,call_id DESC LIMIT 1`,
+      [childInstanceId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
+  }
+
   async listByParent(parentInstanceId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
@@ -4620,7 +4784,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   async findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE plan_id=$1 AND status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`,
+       WHERE plan_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at DESC LIMIT 1`,
       [planId],
     );
     const instanceId = result.rows[0]?.instance_id;
@@ -4640,7 +4804,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   async listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]> {
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE goal_id=$1 AND status IN ('running','paused') ORDER BY started_at,instance_id`,
+       WHERE goal_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at,instance_id`,
       [goalId],
     );
     return Promise.all(result.rows.map((row) => this.findInstance(row.instance_id))).then(
@@ -6284,4 +6448,12 @@ function toIsoString(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.valueOf())) throw new Error('POSTGRES_TIMESTAMP_INVALID');
   return date.toISOString();
+}
+
+async function relationExists(client: PoolClient, relationName: string): Promise<boolean> {
+  const result = await client.query<{ present: boolean }>(
+    'SELECT to_regclass($1) IS NOT NULL AS present',
+    [relationName],
+  );
+  return result.rows[0]?.present === true;
 }

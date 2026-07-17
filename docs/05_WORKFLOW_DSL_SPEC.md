@@ -99,3 +99,7 @@ LangGraph Runtime 在每个节点执行前递归解析引用，复制并冻结�
 ```
 
 `scheduledAt` 只能是带显式时区的真实 RFC 3339 字面量，或一个受限 `ref`；动态值在现有 LangGraph MCP 节点进入应用调用前解析、UTC 规范化并冻结。未知字段、非法日期、负容差、越界 `maxElapsedMs`、未声明 task capability 和不支持的 scheduling 必须稳定拒绝。LLM 只可选择系统允许的 `proceed | reschedule | revise_dsl | request_confirmation | abort`，不能覆盖 disabled 或确定性 Guard。
+
+Tool 注册语义为 `task_required` 时，`taskExecution` 的省略不表示同步执行。规划服务必须隐式生成等价的 `mode=require_task`、`availabilityCheck=required` 候选，执行边界也会再次从 PostgreSQL Tool 语义推导同一约束。缺少 readiness runtime、真实 Workflow Definition 或执行前可用性证据时 fail closed；这条 pre-call Guard 不能由模型输出、旧确认或手写 DSL 省略字段绕过。
+
+远程 Task handle 不是一个新 DSL 节点，也不修改当前图。`mcp_tool` 返回内部 `waiting_external` 结果，持久化当前 frontier 后结束本次 LangGraph invocation；后续 Provider terminal control 只通过受验证的 continuation snapshot 启动新 invocation，并从已保存 frontier 继续而不经过 `START`。等待节点写入 `node_waiting_external`，不写 `node_succeeded`，不满足并行 Join，也不消耗旧的 human-interrupt checkpoint。

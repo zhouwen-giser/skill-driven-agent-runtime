@@ -243,8 +243,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     const safeLimit = Math.max(1, Math.min(1_000, Math.trunc(limit)));
     const result = await this.#pool.query<RemoteTaskBindingRow>(
       `SELECT * FROM remote_task_binding
-       WHERE local_state='polling'
-         AND invalidated_at IS NULL
+       WHERE local_state IN ('polling','cancel_observing')
+         AND (invalidated_at IS NULL OR local_state='cancel_observing')
          AND terminal_at IS NULL
          AND next_poll_at IS NOT NULL
          AND next_poll_at <= $1
@@ -271,7 +271,9 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
        SET poll_claim_token=$3,poll_claimed_at=$4,poll_claim_expires_at=$5,
            poll_attempt=poll_attempt+1,updated_at=$4,version=version+1
        WHERE binding_id=$1 AND version=$2
-         AND local_state='polling' AND invalidated_at IS NULL AND terminal_at IS NULL
+         AND local_state IN ('polling','cancel_observing')
+         AND (invalidated_at IS NULL OR local_state='cancel_observing')
+         AND terminal_at IS NULL
          AND next_poll_at IS NOT NULL AND next_poll_at <= $4
          AND (poll_claim_expires_at IS NULL OR poll_claim_expires_at <= $4)
        RETURNING *`,
@@ -281,7 +283,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     if (row !== undefined) return { claimed: true, binding: mapBinding(row) };
     const current = await this.findById(input.bindingId);
     if (current === undefined) return { claimed: false, reason: 'missing' };
-    if (current.localState !== 'polling' || current.invalidatedAt !== undefined) {
+    if (!isObservationActive(current)) {
       return { claimed: false, reason: 'closed' };
     }
     if (
@@ -313,8 +315,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       const claimValid =
         locked.version === input.expectedVersion &&
         locked.pollClaimToken === input.claimToken &&
-        locked.localState === 'polling' &&
-        locked.invalidatedAt === undefined;
+        isObservationActive(locked);
       if (!claimValid) {
         await insertProtocolAttempt(client, input.protocolAttempt);
         await insertRejectedObservation(
@@ -326,10 +327,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         );
         return {
           applied: false,
-          reason:
-            locked.localState === 'polling' && locked.invalidatedAt === undefined
-              ? 'stale'
-              : 'closed',
+          reason: isObservationActive(locked) ? 'stale' : 'closed',
         };
       }
       await insertProtocolAttempt(client, input.protocolAttempt);
@@ -372,8 +370,26 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         accepted: true,
         observedAt: input.observedAt,
       });
+      const answeredInputEcho =
+        input.snapshot.status === 'input_required' &&
+        input.resultHash !== undefined &&
+        (await isAnsweredInputEcho(
+          client,
+          locked.bindingId,
+          input.snapshot.providerObservation?.remoteRevision,
+          input.resultHash,
+        ));
+      const cancellationObservationContinues =
+        locked.localState === 'cancel_observing' &&
+        input.snapshot.status !== 'completed' &&
+        input.snapshot.status !== 'failed' &&
+        input.snapshot.status !== 'cancelled';
       let control: RemoteTaskControlEvent | undefined;
-      if (input.snapshot.status !== 'working') {
+      if (
+        input.snapshot.status !== 'working' &&
+        !cancellationObservationContinues &&
+        !answeredInputEcho
+      ) {
         control = await insertControlEvent(client, locked, {
           snapshot: input.snapshot,
           ...(input.controlEventId === undefined ? {} : { controlEventId: input.controlEventId }),
@@ -381,7 +397,11 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           observedAt: input.observedAt,
         });
       }
-      const localState = localStateForStatus(input.snapshot.status);
+      const localState = cancellationObservationContinues
+        ? 'cancel_observing'
+        : answeredInputEcho
+          ? 'polling'
+          : localStateForStatus(input.snapshot.status);
       const resultSnapshot = resultSnapshotFromRemoteTask(input.snapshot);
       const errorSnapshot = errorSnapshotFromRemoteTask(input.snapshot);
       const updated = await client.query<RemoteTaskBindingRow>(
@@ -403,7 +423,10 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           input.snapshot.providerObservation?.remoteRevision ?? null,
           input.snapshot.lastUpdatedAt,
           localState,
-          input.nextPollAt ?? null,
+          input.nextPollAt ??
+            (answeredInputEcho
+              ? new Date(Date.parse(input.observedAt) + locked.pollIntervalMs).toISOString()
+              : null),
           toJsonParameter(resultSnapshot),
           toJsonParameter(errorSnapshot),
           input.snapshot.status === 'completed' ||
@@ -415,6 +438,17 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         ],
       );
       const row = requiredUpdatedRow(updated.rows[0]);
+      if (
+        input.snapshot.status === 'completed' ||
+        input.snapshot.status === 'failed' ||
+        input.snapshot.status === 'cancelled'
+      )
+        await resolveCancellationIfInstalled(
+          client,
+          locked.bindingId,
+          input.snapshot.status,
+          input.observedAt,
+        );
       return {
         applied: true,
         binding: mapBinding(row),
@@ -443,7 +477,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         await insertProtocolAttempt(client, input.protocolAttempt);
         return {
           applied: false,
-          reason: locked.localState === 'polling' ? 'stale' : 'closed',
+          reason: isObservationActive(locked) ? 'stale' : 'closed',
         };
       }
       await insertProtocolAttempt(client, input.protocolAttempt);
@@ -494,7 +528,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         await insertProtocolAttempt(client, input.protocolAttempt);
         return {
           applied: false,
-          reason: locked.localState === 'polling' ? 'stale' : 'closed',
+          reason: isObservationActive(locked) ? 'stale' : 'closed',
         };
       }
       await insertProtocolAttempt(client, input.protocolAttempt);
@@ -605,9 +639,58 @@ function matchesActiveClaim(
   return (
     binding.version === expectedVersion &&
     binding.pollClaimToken === claimToken &&
-    binding.localState === 'polling' &&
-    binding.invalidatedAt === undefined
+    isObservationActive(binding)
   );
+}
+
+function isObservationActive(binding: RemoteTaskBinding): boolean {
+  return (
+    binding.terminalAt === undefined &&
+    (binding.localState === 'polling' || binding.localState === 'cancel_observing') &&
+    (binding.invalidatedAt === undefined || binding.localState === 'cancel_observing')
+  );
+}
+
+async function resolveCancellationIfInstalled(
+  client: PoolClient,
+  bindingId: string,
+  status: Extract<McpTaskStatus, 'completed' | 'failed' | 'cancelled'>,
+  resolvedAt: string,
+): Promise<void> {
+  const installed = await client.query<{ present: boolean }>(
+    "SELECT to_regclass('remote_task_cancel_request') IS NOT NULL AS present",
+  );
+  if (installed.rows[0]?.present !== true) return;
+  await client.query(
+    `UPDATE remote_task_cancel_request
+     SET provider_terminal_status=$2,resolved_at=$3,
+         claim_token=NULL,claimed_at=NULL,claim_expires_at=NULL,
+         updated_at=$3,version=version+1
+     WHERE binding_id=$1 AND provider_terminal_status IS NULL`,
+    [bindingId, status, resolvedAt],
+  );
+}
+
+async function isAnsweredInputEcho(
+  client: PoolClient,
+  bindingId: string,
+  remoteRevision: string | undefined,
+  resultHash: string,
+): Promise<boolean> {
+  if (remoteRevision === undefined) return false;
+  const installed = await client.query<{ present: boolean }>(
+    "SELECT to_regclass('remote_task_input_link') IS NOT NULL AS present",
+  );
+  if (installed.rows[0]?.present !== true) return false;
+  const result = await client.query<{ echoed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM remote_task_input_link
+       WHERE binding_id=$1 AND remote_revision=$2 AND result_hash=$3
+         AND status IN ('answered','update_acknowledged','update_uncertain')
+     ) AS echoed`,
+    [bindingId, remoteRevision, resultHash],
+  );
+  return result.rows[0]?.echoed === true;
 }
 
 async function nextObservationSequence(client: PoolClient, bindingId: string): Promise<number> {

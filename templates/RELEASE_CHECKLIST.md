@@ -13,3 +13,19 @@
 - [x] Any non-loopback bind sets `SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE=true` only after documenting firewall/network isolation; this acknowledgement does not add authentication. Evidence: ADR-012 and operations/security docs.
 - [x] PostgreSQL and Redis have no public route or published public port. Evidence: loopback-only Compose publishing, static guard and real smoke.
 - [x] Documentation and CHANGELOG current. Evidence: README, docs index set, CONTRIBUTING, operations guide, DoD and this checklist.
+
+## v1.1 MCP Tasks RC addendum
+
+- [x] Phase 6 functional vertical is complete: confirmed plan, availability/risk guard, LangGraph, remote MCP Task, polling/control, durable continuation, result/evaluation and A2A projection.
+- [x] AC-MCPT-01–16 machine/human reports pass and distinguish real local infrastructure/transport evidence from deterministic Provider/model simulation.
+- [x] `pnpm demo:acceptance` passes build, 10 Provider contract, 402 unit, 80 real integration and 49 real E2E tests.
+- [x] Clean self-managed Compose `pnpm verify` passes at `13194b8` in 162.0 seconds with 75 files/493 unit+contract, 80 integration, 49 E2E, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
+- [x] Migration 0104 persists `node_waiting_external` and its guarded rollback rejects lossy removal of existing external-wait evidence.
+- [x] Restart evidence deletes ephemeral queues, reconciles only PostgreSQL-proven external waits without replaying `tools/call`, and preserves `PROCESS_EXECUTION_LOST` for ordinary running work.
+- [x] Test helpers importing PostgreSQL, BullMQ or A2A SDK dependencies reside in their owning `test-support` boundary; the architecture gate is not weakened.
+- [x] Phase 6 Conventional Commit exists and the release worktree is clean.
+- [x] Exact commit `38356ea` passes isolated `pnpm install --frozen-lockfile`, `pnpm verify` and `pnpm demo:local`.
+- [x] Annotated `v1.1.0-rc.1` points to `38356ea` locally and remotely and was pushed without force or branch-protection bypass.
+- [x] Ready PR #4 targets protected `main`, is `MERGEABLE`, and GitHub currently reports no configured status-check runs; review/merge remains a separate protected action.
+
+The RC checklist is complete. Do not create or announce stable `v1.1.0` until PR #4 is reviewed and merged through branch protection.

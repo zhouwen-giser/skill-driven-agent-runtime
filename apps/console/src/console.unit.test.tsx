@@ -13,6 +13,7 @@ import {
 } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
+  RemoteTaskLifecyclePanel,
   TaskEvidenceNavigation,
   TaskPanel,
   TaskRelatedNavigation,
@@ -185,6 +186,76 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Goal ID');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('renders Provider-authoritative remote lifecycle evidence and constrained operations', () => {
+    const markup = renderToStaticMarkup(
+      <RemoteTaskLifecyclePanel
+        value={{
+          warnings: [
+            'Trusted-intranet V1 has no authentication.',
+            'Cancellation acknowledgement is not Provider cancellation.',
+          ],
+          items: [
+            {
+              binding: {
+                bindingId: 'binding-1',
+                serverId: 'mcp.devices',
+                operationName: 'device_patrol',
+                remoteTaskId: 'provider-task-1',
+                protocolStatus: 'input_required',
+                providerSubstate: 'paused',
+                localState: 'awaiting_input',
+                requestedTiming: { start: { mode: 'immediate' }, maxElapsedMs: 60_000 },
+                nextPollAt: '2026-07-17T00:00:05.000Z',
+                pollAttempt: 2,
+                providerFailureCount: 0,
+                version: 3,
+                workflowInstanceId: 'instance-1',
+                workflowNodeRunId: 'patrol:1',
+                mcpInvocationId: 'invocation-1',
+              },
+              capability: { status: 'registered', taskExecution: { revision: '1.0' } },
+              availability: [{ availability: 'restricted', riskLevel: 'high' }],
+              observations: [{ sequence: 1 }],
+              controls: [{ type: 'task.input_required' }],
+              protocolAttempts: [{ method: 'tasks/get' }],
+              continuations: [{ lifecycle: 'active' }],
+              inputRounds: [
+                {
+                  link: { inputRequestId: 'input-1', status: 'waiting' },
+                  question: 'Approve patrol?',
+                  requestStatus: 'waiting',
+                  attempts: [],
+                },
+              ],
+              cancellations: [
+                {
+                  request: {
+                    requestId: 'cancel-1',
+                    deliveryStatus: 'uncertain',
+                    lastSafeErrorCode: 'MCP_TASK_CANCEL_PROVIDER_UNREACHABLE',
+                  },
+                  attempts: [{}],
+                },
+              ],
+              finalOutcome: { providerStatus: 'input_required', authoritative: false },
+            },
+          ],
+        }}
+        onRefresh={() => undefined}
+        onRefreshBinding={() => undefined}
+        onCancelBinding={() => undefined}
+      />,
+    );
+    expect(markup).toContain('POSTGRESQL REMOTE TASK AUTHORITY');
+    expect(markup).toContain('Provider input_required / paused');
+    expect(markup).toContain('Approve patrol?');
+    expect(markup).toContain('delivery uncertain');
+    expect(markup).toContain('not observed');
+    expect(markup).toContain('Observe Provider once (version-CAS)');
+    expect(markup).toContain('Request cooperative Provider cancellation');
+    expect(markup).toContain('Trusted-intranet V1 has no authentication');
   });
 
   it('renders a Goal-to-Task-history entry from an authoritative Goal identity', () => {

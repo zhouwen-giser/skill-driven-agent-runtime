@@ -70,3 +70,19 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - 2026-07-16：restricted 的既有计划确认只适用于同一节点规划时已经 restricted 且执行前风险未升级的刷新结果。available→restricted、风险等级/可能影响增加、预约减弱、有效期提前或最早开始推迟都要求重新确认，并在 Tool 网络调用前失败关闭。
 - 2026-07-16：availability 结果是 Provider 预测证据。只有 `reservationMode=guaranteed` 且存在有效 `reservationRef` 才可展示为预约；best-effort/窗口永远不代表设备锁或 Provider 权威资源状态。
 - 2026-07-16：0101 仍属于 disposable `sdar_v11_*` 隔离迁移链。受支持发布升级路径继续等待完整 `v1.0.13-bug-fixed` ledger；Phase 3 的真实 PostgreSQL 验证不等于最终发布迁移兼容声明。
+## v1.1 MCP Tasks Phase 5 assumptions and gaps (2026-07-17)
+
+- The exact pinned extension wire is `tasks/update({ taskId, inputResponses })`; it does not carry the design draft's `expectedRevision`. SDAR validates the binding revision locally and does not emit an unsupported field. See ADR-094.
+- V1.1 accepts only bounded form-mode `elicitation/create` input. Sampling (`sampling/createMessage`), roots (`roots/list`) and URL elicitation fail closed until a separate UX, security and protocol decision exists.
+- `tasks/update` and `tasks/cancel` return acknowledgements, not Provider state. A transport-uncertain running operation is recorded once and is not automatically retried; later `tasks/get` observations remain authoritative.
+- Local Task/Goal cancellation is authoritative immediately for SDAR, while the remote binding remains `cancel_observing`. This deliberate split prevents a cooperative acknowledgement from being misreported as Provider `cancelled`.
+- External production Provider interoperability remains unverified. Phase 5 uses exact protocol contracts, deterministic Provider simulation and real local PostgreSQL/Redis; Phase 6 owns composed loopback acceptance, API/Console completion and final release evidence.
+
+## v1.1 MCP Tasks Phase 6 acceptance and release boundary (2026-07-17)
+
+- `FR-MCPT-001..014`, `NFR-MCPT-001..004` and `AC-MCPT-01..16` are verified by the row-level mappings in `docs/17_TRACEABILITY_MATRIX.md`, the 16/16 machine acceptance inventory in `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.json`, the real-infrastructure local acceptance run in `V11-LOCAL-DEMO.json`, and the unified gate in `reports/verification/summary.json`.
+- Evidence classification is intentionally split. PostgreSQL/pgvector, Redis/BullMQ, HTTP, A2A, LangGraph, management API, Console bundle smoke, ServerRuntime restart and parallel/child composition are real local verification. Model decisions and MCP Tasks Provider business/state semantics are deterministic simulations. External production Provider interoperability remains unverified.
+- The original SRS DOCX was checked through real OOXML structure extraction against the requirement identifiers and baseline. The current environment does not provide `soffice`, so page rendering, pagination, font substitution and visual layout are unverified. Structure extraction must not be described as DOCX visual QA.
+- The latest `pnpm demo:acceptance` report records merge commit `df8b6e0` with `dirty=false`; the latest `pnpm verify` report records evidence commit `13194b8` with `dirty=false`. These are clean local attestations, while external production Provider interoperability and publication review remain outside the local evidence boundary.
+- `v1.0.13-bug-fixed` (`91cd58ddcff57acf3ed846914feafaff603c69f2`) is an ancestor of the feature work and `origin/main`. `origin/main` contains the protected hardening merge at `6584bf0`. Exact commit `38356ea` passed isolated frozen install, unified verification and local demo; ready PR #4 and annotated `v1.1.0-rc.1` are published. Protected review/merge and stable `v1.1.0` remain pending.
+- The Phase 6 management surface permits only bounded lifecycle reads and safe refresh/cancel requests. It does not convert cooperative acknowledgements into Provider terminal states, retry ambiguous side effects, or add an authentication/authorization model that conflicts with the trusted-intranet V1 baseline.

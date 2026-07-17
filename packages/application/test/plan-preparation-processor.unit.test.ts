@@ -180,12 +180,44 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       },
     });
   });
+
+  it('submits a remote Task answer without invoking Goal formulation or Workflow replanning', async () => {
+    const tasks = new MemoryTasks();
+    let current = task();
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'executing',
+    ] as const)
+      current = transitionTask(current, phase, phase, timestamp);
+    tasks.value = current;
+    tasks.attemptReason = 'input_response';
+    tasks.inputRequestSource = 'remote_task';
+    tasks.supplementaryContent = {
+      approval: { action: 'accept', content: { approved: true } },
+    };
+    const submitted: unknown[] = [];
+
+    await processorWith(tasks, false, 'none', (inputRequestId, content) => {
+      submitted.push({ inputRequestId, content });
+      return Promise.resolve();
+    }).process({ ...initialJob, mode: 'continue_after_input' });
+
+    expect(submitted).toEqual([
+      { inputRequestId: 'input-request-1', content: tasks.supplementaryContent },
+    ]);
+    expect(tasks.goalFormulations).toBe(0);
+    expect(tasks.planningInput).toBeUndefined();
+  });
 });
 
 function processorWith(
   tasks: MemoryTasks,
   fail = false,
   prior: 'none' | 'active' | 'terminal' = 'none',
+  submitRemoteInput?: (inputRequestId: string, inputResponses: unknown) => Promise<void>,
 ) {
   let event = 0;
   let attemptStatus: 'queued' | 'running' | 'completed' | 'failed' = 'queued';
@@ -427,6 +459,9 @@ function processorWith(
     workflowContinuation: {
       continueAfterInput: () => Promise.reject(new Error('UNUSED')),
     },
+    ...(submitRemoteInput === undefined
+      ? {}
+      : { remoteTaskInput: { submitAnswer: submitRemoteInput } }),
     taskPlanning: {
       prepare: (input) => {
         tasks.planningInput = input;
@@ -475,7 +510,8 @@ class MemoryTasks {
   goalFormulations = 0;
   readonly formulationInputs: string[] = [];
   attemptReason: 'initial' | 'input_response' = 'initial';
-  inputRequestSource: 'goal_deliberation' | 'skill_input_resolution' = 'goal_deliberation';
+  inputRequestSource: 'goal_deliberation' | 'skill_input_resolution' | 'remote_task' =
+    'goal_deliberation';
   supplementaryContent: unknown;
   createdGoal: unknown;
   goalRequiresInput = false;

@@ -1,8 +1,10 @@
 import type { WorkflowExecutor } from '../../application/src/ports.js';
 import type {
   RuntimeExecutionContext,
+  WorkflowExternalWaitResolution,
   WorkflowBudgetLimits,
   WorkflowDefinition,
+  WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
 import {
   compileWorkflow,
@@ -28,7 +30,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
-  ) {
+  ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     if (executionId !== undefined) this.#executions.set(executionId, compiled);
     const result = await compiled.invoke(
@@ -44,7 +46,11 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     return mapResult(result);
   }
 
-  async resumeHumanConfirmation(executionId: string, confirmed: boolean, signal?: AbortSignal) {
+  async resumeHumanConfirmation(
+    executionId: string,
+    confirmed: boolean,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = this.#executions.get(executionId);
     if (compiled === undefined)
       throw new WorkflowCompilerError(
@@ -53,6 +59,26 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
       );
     const result = await compiled.resume(executionId, confirmed, signal);
     if (result.status !== 'paused') this.#executions.delete(executionId);
+    return mapResult(result);
+  }
+
+  async continueExternal(
+    definition: WorkflowDefinition,
+    executionId: string,
+    continuation: WorkflowRuntimeContinuationState,
+    resolution: WorkflowExternalWaitResolution,
+    continuationAttemptId: string,
+    signal?: AbortSignal,
+  ): ReturnType<WorkflowExecutor['execute']> {
+    const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
+    const result = await compiled.continueExternal(
+      executionId,
+      continuation,
+      resolution,
+      this.#callCosts,
+      signal,
+      continuationAttemptId,
+    );
     return mapResult(result);
   }
 
@@ -65,7 +91,9 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
   }
 }
 
-function mapResult(result: Awaited<ReturnType<CompiledWorkflow['invoke']>>) {
+function mapResult(
+  result: Awaited<ReturnType<CompiledWorkflow['invoke']>>,
+): Awaited<ReturnType<WorkflowExecutor['execute']>> {
   return {
     status: result.status,
     ...(result.result === undefined ? {} : { result: result.result }),
@@ -78,5 +106,6 @@ function mapResult(result: Awaited<ReturnType<CompiledWorkflow['invoke']>>) {
     ...(result.pendingConfirmation === undefined
       ? {}
       : { pendingConfirmation: result.pendingConfirmation }),
+    ...(result.continuation === undefined ? {} : { continuation: result.continuation }),
   };
 }

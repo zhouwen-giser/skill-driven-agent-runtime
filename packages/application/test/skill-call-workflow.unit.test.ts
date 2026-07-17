@@ -43,7 +43,12 @@ describe('SkillCallWorkflowService', () => {
       mode: 'historical-replay' as const,
       simulationId: 'replay-child-1',
     };
-    const execute = vi.fn(() => Promise.resolve(childInstance({ status: 'online' })));
+    const execute = vi.fn(
+      async (input: { onStarted?: (instance: WorkflowInstance) => Promise<void> }) => {
+        await input.onStarted?.(childInstance(undefined, 'running'));
+        return childInstance({ status: 'online' });
+      },
+    );
     const loadToolPlanningMetadata = vi.fn(() =>
       Promise.resolve([
         {
@@ -85,6 +90,7 @@ describe('SkillCallWorkflowService', () => {
       records: {
         save: saveRecord,
         find: () => Promise.resolve(savedRecord),
+        findByChildInstanceId: () => Promise.resolve(savedRecord),
         listByParent: () => Promise.resolve(savedRecord === undefined ? [] : [savedRecord]),
       },
       schemas: new AjvJsonSchemaValidator(),
@@ -100,6 +106,7 @@ describe('SkillCallWorkflowService', () => {
         parentPlanId: 'plan-parent',
         parentInstanceId: 'instance-parent',
         parentNodeId: 'child',
+        parentNodeRunId: 'child-run-1',
         parentGoalId: 'goal-1',
         parentGoalVersion: 1,
         signal,
@@ -150,6 +157,7 @@ describe('SkillCallWorkflowService', () => {
       planId: 'plan-skill-call-id-1',
       input: { deviceId: 'device-1' },
       skillIds: [skill.skillId],
+      onStarted: expect.any(Function),
       signal,
       executionContext,
     });
@@ -176,6 +184,7 @@ describe('SkillCallWorkflowService', () => {
         parentPlanId: 'plan-parent',
         parentInstanceId: 'instance-parent',
         parentNodeId: 'child',
+        parentNodeRunId: 'child-run-1',
         parentGoalId: 'goal-1',
         parentGoalVersion: 1,
       }),
@@ -262,6 +271,100 @@ describe('SkillCallWorkflowService', () => {
       code,
     });
     expect(harness.saveRecord).toHaveBeenCalledWith(expect.objectContaining({ status }));
+  });
+
+  it('persists an externally waiting child and returns a parent-owned child Workflow wait', async () => {
+    const harness = serviceHarness({
+      child: childInstance(undefined, 'waiting_external'),
+    });
+
+    await expect(harness.service.execute(executionInput(harness.skill.skillId))).resolves.toEqual({
+      status: 'waiting_external',
+      wait: {
+        waitId: 'child-workflow-instance-skill-call-id-1',
+        kind: 'child_workflow',
+        sourceId: 'instance-skill-call-id-1',
+        nodeId: 'child',
+        nodeRunId: 'child-run-1',
+        state: 'waiting',
+      },
+    });
+    expect(harness.records.current()).toMatchObject({
+      parentInstanceId: 'instance-parent',
+      parentNodeId: 'child',
+      childInstanceId: 'instance-skill-call-id-1',
+      status: 'waiting_external',
+    });
+  });
+
+  it('validates and returns the successful externally continued child output', async () => {
+    const harness = serviceHarness({
+      child: childInstance(undefined, 'waiting_external'),
+    });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+
+    await expect(
+      harness.service.completeExternalChild(childInstance({ status: 'online' })),
+    ).resolves.toEqual({
+      parentInstanceId: 'instance-parent',
+      parentNodeId: 'child',
+      childInstanceId: 'instance-skill-call-id-1',
+      outcome: { kind: 'completed', result: { status: 'online' } },
+    });
+    expect(harness.records.current()).toMatchObject({
+      status: 'succeeded',
+      evaluationSummary: expect.stringContaining('output passed'),
+      completedAt: '2026-07-12T00:00:02.000Z',
+    });
+  });
+
+  it.each([
+    ['failed', 'WORKFLOW_SKILL_CHILD_FAILED', 'child_failed', 'failed'],
+    ['canceled', 'WORKFLOW_SKILL_CHILD_CANCELED', 'child_cancelled', 'canceled'],
+  ] as const)(
+    'maps an externally continued %s child to a typed parent failure',
+    async (status, code, category, persistedStatus) => {
+      const harness = serviceHarness({
+        child: childInstance(undefined, 'waiting_external'),
+      });
+      await harness.service.execute(executionInput(harness.skill.skillId));
+
+      await expect(
+        harness.service.completeExternalChild(childInstance(undefined, status)),
+      ).resolves.toMatchObject({
+        parentInstanceId: 'instance-parent',
+        parentNodeId: 'child',
+        childInstanceId: 'instance-skill-call-id-1',
+        outcome: {
+          kind: 'failed',
+          error: { code, category },
+        },
+      });
+      expect(harness.records.current()).toMatchObject({ status: persistedStatus });
+    },
+  );
+
+  it('fails closed when an externally continued child returns schema-invalid output', async () => {
+    const harness = serviceHarness({
+      child: childInstance(undefined, 'waiting_external'),
+    });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+
+    await expect(
+      harness.service.completeExternalChild(childInstance({ status: 'offline' })),
+    ).resolves.toMatchObject({
+      outcome: {
+        kind: 'failed',
+        error: {
+          code: 'WORKFLOW_SKILL_OUTPUT_INVALID',
+          category: 'child_failed',
+        },
+      },
+    });
+    expect(harness.records.current()).toMatchObject({
+      status: 'failed',
+      evaluationSummary: expect.stringContaining('does not satisfy'),
+    });
   });
 
   it('does not confirm or execute when child plan persistence fails', async () => {
@@ -501,7 +604,15 @@ function serviceHarness(
     records,
     resumeHumanConfirmation,
     service: new SkillCallWorkflowService({
-      skills: { findCurrentVersion: () => Promise.resolve(currentSkill) } as never,
+      skills: {
+        findCurrentVersion: () => Promise.resolve(currentSkill),
+        findVersion: (skillId: string, version: number) =>
+          Promise.resolve(
+            currentSkill.skillId === skillId && currentSkill.version === version
+              ? currentSkill
+              : undefined,
+          ),
+      } as never,
       planner: { plan },
       validator: {
         validate: () => Promise.resolve({ valid: true, errors: [], definition }),
@@ -673,6 +784,7 @@ function executionInput(skillId: string) {
     parentPlanId: 'plan-parent',
     parentInstanceId: 'instance-parent',
     parentNodeId: 'child',
+    parentNodeRunId: 'child-run-1',
     parentGoalId: 'goal-1',
     parentGoalVersion: 1,
   };
@@ -705,6 +817,9 @@ function memoryRecords() {
       return Promise.resolve();
     }),
     find: vi.fn(() => Promise.resolve(record)),
+    findByChildInstanceId: vi.fn((childInstanceId: string) =>
+      Promise.resolve(record?.childInstanceId === childInstanceId ? record : undefined),
+    ),
     listByParent: vi.fn(() => Promise.resolve(record === undefined ? [] : [record])),
     current: () => record,
   };

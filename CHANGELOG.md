@@ -10,15 +10,28 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
 - Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
 - Phase 3 domain-owned Task timing/readiness, strict bounded DSL, structured risk decisions, fail-closed confirmation guards, exact-argument pre-call refresh, append-only migration 0101 evidence and read-only management/Console projections.
+- Phase 4 bounded persisted-frontier continuation, PostgreSQL control inbox claims/attempts, one-attempt BullMQ continuation scheduling, fresh LangGraph branch continuation, parallel join evidence, child Skill Workflow propagation and Goal Patch/cancellation invalidation through migration 0102.
+- Phase 5 bounded remote form elicitation, A2A structured input mapping, exact `tasks/update`, multi-round/echo-safe polling, cooperative cancellation request/ack/uncertainty/Provider-terminal separation, one-attempt BullMQ cancellation delivery and structured Provider business outcomes through migration 0103.
+- Phase 6 deterministic MCP Tasks Provider scenarios and a machine-readable 16-scenario acceptance report; real PostgreSQL/Redis vertical, restart, parallel/child and A2A continuation evidence is paired with explicitly classified Provider/model simulation.
+- Real management API and Console remote-task lifecycle projections, observations, input/cancellation state and operator poll/cancel actions with trusted-intranet and Provider-authority warnings.
+- Migration 0104 permits the durable `node_waiting_external` Workflow event required by remote continuation and includes a guarded rollback that refuses to discard existing external-wait evidence.
 
 ### Changed
 
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
+- Local Task/Goal cancellation remains immediately authoritative locally while active remote bindings enter `cancel_observing`; only later Provider snapshots can establish remote `cancelled`, `completed` or `failed`.
+- Startup recovery preserves only Tasks backed by an active, valid PostgreSQL external-wait continuation/binding; ordinary executing, paused and evaluating work still fails with `PROCESS_EXECUTION_LOST` and is never automatically retried.
+- Cross-package acceptance helpers now live under their dependency-owning `test-support` boundaries so PostgreSQL, BullMQ and A2A SDK types remain within the architecture-enforced adapters.
+
+### Verification
+
+- `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.
+- Clean self-managed Compose `pnpm verify` passed at `13194b8` in 162.0 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 
 ### Known limitations
 
-- Phase 1 protocol, Phase 2 persistence/polling and the Phase 3 availability/timing increment are verified against merged `v1.0.13-bug-fixed`. Phase 4–6 continuation, lifecycle and final acceptance remain incomplete.
+- Phase 1–6 functionality and clean local acceptance are verified against merged `v1.0.13-bug-fixed`; `v1.1.0-rc.1` and ready PR #4 are published. External production Provider interoperability, protected review/merge and stable `v1.1.0` remain pending; this entry is not a stable v1.1 release announcement.
 
 ## [1.0.13] - 2026-07-16
 

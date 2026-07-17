@@ -4,12 +4,19 @@ import type {
   WorkflowInstance,
   WorkflowNodeEvent,
   WorkflowPlanRecord,
+  WorkflowContinuationSnapshot,
+  WorkflowContinuationAttempt,
+  WorkflowContinuationAttemptStatus,
+  WorkflowContinuationLifecycle,
+  RemoteTaskControlEvent,
 } from '../../domain/src/index.js';
+import { transitionWorkflowContinuationLifecycle } from '../../domain/src/index.js';
 import type {
   WorkflowExecutionRepository,
   WorkflowExecutor,
   WorkflowPlanRepository,
   SkillRepository,
+  WorkflowContinuationRepository,
 } from '../src/ports.js';
 import { WorkflowExecutionService } from '../src/workflow-execution.js';
 import { WorkflowValidator } from '../src/workflow-validator.js';
@@ -270,6 +277,95 @@ describe('Workflow execution application service', () => {
     ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
     expect(resumeHumanConfirmation).toHaveBeenCalledWith('instance-paused', true, undefined);
     expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
+  });
+
+  it('activates a durable external continuation reached immediately after confirmation resume', async () => {
+    const instances = new MemoryExecutions();
+    const continuations = new MemoryContinuations();
+    const budgetUsage = {
+      replanCount: 0,
+      durationMs: 8,
+      llmCalls: 0,
+      mcpCalls: 1,
+      cost: 1,
+    };
+    const execute = vi.fn().mockResolvedValue({
+      status: 'paused',
+      errors: {},
+      budgetUsage,
+      pendingConfirmation: { nodeId: 'confirm', prompt: 'Continue?' },
+      events: [],
+    });
+    const resumeHumanConfirmation = vi.fn().mockResolvedValue({
+      status: 'waiting_external',
+      errors: {},
+      budgetUsage,
+      events: [],
+      continuation: {
+        input: { request: 'after-confirmation' },
+        waitingNodeRuns: [
+          {
+            waitId: 'wait-after-confirmation',
+            kind: 'remote_task',
+            sourceId: 'binding-after-confirmation',
+            nodeId: 'remote',
+            nodeRunId: 'instance-confirm-remote~remote~1',
+            state: 'waiting',
+          },
+        ],
+        runnableFrontier: [],
+        completedNodeRunIds: ['instance-confirm-remote~confirm~1'],
+        nodeRunCounts: { confirm: 1, remote: 1 },
+        outputs: { confirm: true },
+        errors: {},
+        routes: {},
+        loopCounts: {},
+        recoveryCounts: {},
+        parallelJoinState: [],
+        failed: false,
+        executionContext: { mode: 'live' },
+        budgetLimits: {
+          maxReplans: 3,
+          maxDurationSeconds: 60,
+          maxLlmCalls: 10,
+          maxMcpCalls: 10,
+          maxCost: 100,
+        },
+        budgetUsage,
+      },
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute, resumeHumanConfirmation },
+      disabledSkills,
+      undefined,
+      continuations,
+    );
+    await service.execute({
+      instanceId: 'instance-confirm-remote',
+      planId: validPlan.planId,
+      input: { request: 'after-confirmation' },
+    });
+
+    await expect(
+      service.resumeHumanConfirmation({
+        instanceId: 'instance-confirm-remote',
+        confirmed: true,
+        continuationAuthority: {
+          agentTaskId: 'task-confirm-remote',
+          contextId: 'context-confirm-remote',
+          workflowControlId: 'control-confirm-remote',
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'waiting_external' });
+    expect(continuations.snapshots).toHaveLength(1);
+    expect(continuations.snapshots[0]).toMatchObject({
+      lifecycle: 'active',
+      agentTaskId: 'task-confirm-remote',
+      workflowInstanceId: 'instance-confirm-remote',
+    });
+    expect(instances.instances.at(-1)).not.toHaveProperty('completedAt');
   });
 
   it('returns a fresh pause checkpoint without waiting for a terminal instance', async () => {
@@ -633,6 +729,198 @@ describe('Workflow execution application service', () => {
     });
     expect(requestCancel).toHaveBeenCalledWith('instance-cancel-policy', false);
   });
+
+  it('persists external wait state and continues through a fresh executor invocation', async () => {
+    const instances = new MemoryExecutions();
+    const continuations = new MemoryContinuations();
+    const continuationState = {
+      input: { request: 'remote' },
+      waitingNodeRuns: [
+        {
+          waitId: 'wait-remote-1',
+          kind: 'remote_task' as const,
+          sourceId: 'binding-remote-1',
+          nodeId: 'result',
+          nodeRunId: 'instance-remote~result~1',
+          state: 'waiting' as const,
+        },
+      ],
+      runnableFrontier: [],
+      completedNodeRunIds: [],
+      nodeRunCounts: { result: 1 },
+      outputs: {},
+      errors: {},
+      routes: {},
+      loopCounts: {},
+      recoveryCounts: {},
+      parallelJoinState: [],
+      failed: false,
+      executionContext: { mode: 'live' as const },
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 1, cost: 0 },
+    };
+    const execute = vi.fn().mockResolvedValue({
+      status: 'waiting_external',
+      errors: {},
+      budgetUsage: continuationState.budgetUsage,
+      continuation: continuationState,
+      events: [
+        {
+          nodeId: 'result',
+          type: 'node_waiting_external',
+          timestamp: '2026-07-12T00:00:01.000Z',
+          summary: 'Remote Task accepted.',
+        },
+      ],
+    });
+    const continueExternal = vi.fn().mockResolvedValue({
+      status: 'succeeded',
+      result: 'done',
+      errors: {},
+      budgetUsage: { ...continuationState.budgetUsage, durationMs: 3 },
+      events: [
+        {
+          nodeId: 'result',
+          type: 'node_succeeded',
+          timestamp: '2026-07-12T00:00:03.000Z',
+          summary: 'Remote result restored.',
+        },
+      ],
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute, continueExternal },
+      disabledSkills,
+      undefined,
+      continuations,
+    );
+
+    await expect(
+      service.execute({
+        instanceId: 'instance-remote',
+        planId: validPlan.planId,
+        input: { request: 'remote' },
+        continuationAuthority: {
+          agentTaskId: 'task-remote',
+          contextId: 'context-remote',
+          workflowControlId: 'control-remote',
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'waiting_external' });
+    expect(continuations.snapshots).toHaveLength(1);
+    await expect(
+      service.continueExternal({
+        instanceId: 'instance-remote',
+        continuationAttemptId: 'attempt-remote',
+        resolution: {
+          kind: 'completed',
+          waitId: 'wait-remote-1',
+          nodeRunId: 'instance-remote~result~1',
+          result: { content: [], isError: false },
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
+    expect(continueExternal).toHaveBeenCalledOnce();
+    expect(continuations.snapshots[0]?.lifecycle).toBe('terminal');
+    expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
+  });
+
+  it('closes the current successor snapshot when the resumed instance write fails', async () => {
+    const instances = new MemoryExecutions();
+    const continuations = new MemoryContinuations();
+    const usage = { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 1, cost: 0 };
+    const state = (bindingId: string, ordinal: number) => ({
+      input: {},
+      waitingNodeRuns: [
+        {
+          waitId: `wait-${bindingId}`,
+          kind: 'remote_task' as const,
+          sourceId: bindingId,
+          nodeId: 'result',
+          nodeRunId: `instance-successor~result~${String(ordinal)}`,
+          state: 'waiting' as const,
+        },
+      ],
+      runnableFrontier: [],
+      completedNodeRunIds: ordinal === 1 ? [] : ['instance-successor~result~1'],
+      nodeRunCounts: { result: ordinal },
+      outputs: {},
+      errors: {},
+      routes: {},
+      loopCounts: {},
+      recoveryCounts: {},
+      parallelJoinState: [],
+      failed: false,
+      executionContext: { mode: 'live' as const },
+      budgetLimits: {
+        maxReplans: 3,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 10,
+        maxMcpCalls: 10,
+        maxCost: 100,
+      },
+      budgetUsage: usage,
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      {
+        execute: vi.fn().mockResolvedValue({
+          status: 'waiting_external',
+          errors: {},
+          budgetUsage: usage,
+          continuation: state('binding-first', 1),
+          events: [],
+        }),
+        continueExternal: vi.fn().mockResolvedValue({
+          status: 'waiting_external',
+          errors: {},
+          budgetUsage: usage,
+          continuation: state('binding-second', 2),
+          events: [],
+        }),
+      },
+      disabledSkills,
+      undefined,
+      continuations,
+    );
+    await service.execute({
+      instanceId: 'instance-successor',
+      planId: validPlan.planId,
+      input: {},
+      continuationAuthority: {
+        agentTaskId: 'task-successor',
+        contextId: 'context-successor',
+        workflowControlId: 'control-successor',
+      },
+    });
+    instances.failNextSave = true;
+
+    await expect(
+      service.continueExternal({
+        instanceId: 'instance-successor',
+        continuationAttemptId: 'attempt-successor',
+        resolution: {
+          kind: 'completed',
+          waitId: 'wait-binding-first',
+          nodeRunId: 'instance-successor~result~1',
+          result: { content: [], isError: false },
+        },
+      }),
+    ).rejects.toThrow('TEST_INSTANCE_SAVE_FAILED');
+    expect(continuations.snapshots.map((snapshot) => snapshot.lifecycle)).toEqual([
+      'superseded',
+      'terminal',
+    ]);
+    expect(instances.instances.at(-1)).toMatchObject({ status: 'failed' });
+  });
 });
 
 function createService(
@@ -641,6 +929,7 @@ function createService(
   executor: WorkflowExecutor,
   skills: SkillRepository = disabledSkills,
   clockOverride?: Readonly<{ now(): string }>,
+  continuations: WorkflowContinuationRepository = new MemoryContinuations(),
 ) {
   let time = 0;
   let event = 0;
@@ -661,6 +950,11 @@ function createService(
     }),
     clock: clockOverride ?? { now: () => `2026-07-12T00:00:0${String(time++)}.000Z` },
     ids: { nextEventId: () => `event-${String(++event)}` },
+    continuationIds: {
+      nextSnapshotId: () => `snapshot-${String(++event)}`,
+      nextContinuationId: () => `continuation-${String(++event)}`,
+    },
+    continuations,
     skills,
     systemBudgetDefaults: {
       maxReplans: 3,
@@ -736,6 +1030,7 @@ class MemoryPlans implements WorkflowPlanRepository {
 class MemoryExecutions implements WorkflowExecutionRepository {
   readonly instances: WorkflowInstance[] = [];
   readonly events: WorkflowNodeEvent[] = [];
+  failNextSave = false;
   findInstance(id: string) {
     return Promise.resolve(
       [...this.instances].reverse().find((instance) => instance.instanceId === id),
@@ -748,7 +1043,9 @@ class MemoryExecutions implements WorkflowExecutionRepository {
         .find(
           (instance) =>
             instance.planId === planId &&
-            (instance.status === 'running' || instance.status === 'paused'),
+            (instance.status === 'running' ||
+              instance.status === 'paused' ||
+              instance.status === 'waiting_external'),
         ),
     );
   }
@@ -762,7 +1059,9 @@ class MemoryExecutions implements WorkflowExecutionRepository {
       [...this.instances].filter(
         (instance) =>
           instance.goalId === goalId &&
-          (instance.status === 'running' || instance.status === 'paused'),
+          (instance.status === 'running' ||
+            instance.status === 'paused' ||
+            instance.status === 'waiting_external'),
       ),
     );
   }
@@ -773,11 +1072,128 @@ class MemoryExecutions implements WorkflowExecutionRepository {
     return Promise.resolve(this.events.filter((event) => event.instanceId === instanceId));
   }
   saveInstance(instance: WorkflowInstance) {
+    if (this.failNextSave) {
+      this.failNextSave = false;
+      return Promise.reject(new Error('TEST_INSTANCE_SAVE_FAILED'));
+    }
     this.instances.push(instance);
     return Promise.resolve();
   }
   saveNodeEvents(events: readonly WorkflowNodeEvent[]) {
     this.events.push(...events);
     return Promise.resolve();
+  }
+}
+
+class MemoryContinuations implements WorkflowContinuationRepository {
+  readonly snapshots: WorkflowContinuationSnapshot[] = [];
+  readonly attempts: WorkflowContinuationAttempt[] = [];
+
+  saveSnapshot(snapshot: WorkflowContinuationSnapshot) {
+    if (snapshot.predecessorSnapshotId !== undefined && snapshot.lifecycle === 'active') {
+      const predecessorIndex = this.snapshots.findIndex(
+        (candidate) => candidate.snapshotId === snapshot.predecessorSnapshotId,
+      );
+      const predecessor = this.snapshots[predecessorIndex];
+      if (predecessor?.lifecycle === 'active')
+        this.snapshots[predecessorIndex] = transitionWorkflowContinuationLifecycle(
+          predecessor,
+          'superseded',
+          snapshot.updatedAt,
+        );
+    }
+    this.snapshots.push(snapshot);
+    return Promise.resolve();
+  }
+
+  transitionLifecycle(
+    snapshotId: string,
+    expected: WorkflowContinuationLifecycle,
+    next: WorkflowContinuationLifecycle,
+    updatedAt: string,
+  ) {
+    const index = this.snapshots.findIndex((snapshot) => snapshot.snapshotId === snapshotId);
+    const snapshot = this.snapshots[index];
+    if (snapshot?.lifecycle !== expected)
+      return Promise.reject(new Error('TEST_CONTINUATION_CAS_FAILED'));
+    const transitioned = transitionWorkflowContinuationLifecycle(snapshot, next, updatedAt);
+    this.snapshots[index] = transitioned;
+    return Promise.resolve(transitioned);
+  }
+
+  findById(snapshotId: string) {
+    return Promise.resolve(this.snapshots.find((snapshot) => snapshot.snapshotId === snapshotId));
+  }
+
+  findCurrent(workflowInstanceId: string) {
+    return Promise.resolve(
+      [...this.snapshots]
+        .reverse()
+        .find(
+          (snapshot) =>
+            snapshot.workflowInstanceId === workflowInstanceId && snapshot.lifecycle === 'active',
+        ),
+    );
+  }
+
+  findCurrentByBinding(bindingId: string) {
+    return Promise.resolve(
+      [...this.snapshots]
+        .reverse()
+        .find(
+          (snapshot) =>
+            snapshot.lifecycle === 'active' &&
+            snapshot.waitingNodeRuns.some((wait) => wait.sourceId === bindingId),
+        ),
+    );
+  }
+
+  listInbox(now: string, limit: number, afterEventId?: string) {
+    void now;
+    void limit;
+    void afterEventId;
+    return Promise.resolve([] as readonly RemoteTaskControlEvent[]);
+  }
+
+  claimControl(input: {
+    eventId: string;
+    claimToken: string;
+    claimedAt: string;
+    expiresAt: string;
+  }) {
+    void input;
+    return Promise.resolve(undefined);
+  }
+
+  finishControl(input: {
+    eventId: string;
+    claimToken: string;
+    status: 'processed' | 'failed';
+    processedAt: string;
+    errorCode?: string;
+  }) {
+    void input;
+    return Promise.resolve();
+  }
+
+  saveAttempt(attempt: WorkflowContinuationAttempt) {
+    this.attempts.push(attempt);
+    return Promise.resolve();
+  }
+
+  updateAttempt(
+    attempt: WorkflowContinuationAttempt,
+    expectedStatus: WorkflowContinuationAttemptStatus,
+  ) {
+    void expectedStatus;
+    const index = this.attempts.findIndex((candidate) => candidate.attemptId === attempt.attemptId);
+    if (index >= 0) this.attempts[index] = attempt;
+    return Promise.resolve();
+  }
+
+  listAttempts(workflowInstanceId: string) {
+    return Promise.resolve(
+      this.attempts.filter((attempt) => attempt.workflowInstanceId === workflowInstanceId),
+    );
   }
 }

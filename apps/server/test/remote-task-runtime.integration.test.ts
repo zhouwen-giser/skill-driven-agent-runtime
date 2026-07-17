@@ -2,13 +2,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { Pool } from 'pg';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { applyRuntimeMigrations } from '../src/runtime.js';
 import {
   RemoteTaskAdmissionService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
+  RemoteTaskInputService,
   type RemoteTaskPollJob,
   type RemoteTaskPollJobState,
   type RemoteTaskPollQueue,
@@ -17,6 +18,9 @@ import {
 } from '../../../packages/application/src/index.js';
 import {
   createRemoteTaskBinding,
+  createRemoteTaskCancellationRequest,
+  createWorkflowContinuationSnapshot,
+  createTaskExecutionAttempt,
   type RemoteTaskAdmission,
 } from '../../../packages/domain/src/index.js';
 import {
@@ -28,8 +32,16 @@ import {
 import {
   PostgresMcpRegistryRepository,
   PostgresRemoteTaskRepository,
+  PostgresRemoteTaskCancellationRepository,
+  PostgresRemoteTaskInputRepository,
+  PostgresWorkflowContinuationRepository,
+  PostgresAgentTaskRepository,
+  PostgresRuntimeEventPublisher,
+  PostgresRuntimeTerminalOutcomeRepository,
+  PostgresTaskInputRepository,
   PostgresTaskAvailabilityEvidenceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
+import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 
 const databaseName = 'sdar_v11_remote_task_integration';
 const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -37,6 +49,7 @@ const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${
 const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
 const resources: { close(): Promise<void> }[] = [];
 let pool: Pool;
+let initializedPool: Pool | undefined;
 let repository: PostgresRemoteTaskRepository;
 let availabilityRepository: PostgresTaskAvailabilityEvidenceRepository;
 
@@ -53,6 +66,7 @@ beforeAll(async () => {
     await admin.end();
   }
   pool = new Pool({ connectionString: databaseConnection, max: 6 });
+  initializedPool = pool;
   const bootstrap = await readFile(
     new URL('../../../infra/postgres/init/0001_sdar_bootstrap.up.sql', import.meta.url),
     'utf8',
@@ -69,7 +83,20 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE task_availability_snapshot,task_execution_readiness,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
+    'TRUNCATE remote_task_input_attempt,remote_task_input_link,remote_task_cancel_attempt,remote_task_cancel_request,task_availability_snapshot,task_execution_readiness,workflow_continuation_attempt,workflow_continuation_wait_binding,workflow_continuation_snapshot,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
+  );
+  await pool.query(
+    `DELETE FROM task_execution_attempt WHERE input_request_id IN (
+       SELECT input_request_id FROM task_input_request WHERE source='remote_task'
+     );
+     DELETE FROM task_input_response WHERE input_request_id IN (
+       SELECT input_request_id FROM task_input_request WHERE source='remote_task'
+     );
+     DELETE FROM task_input_request WHERE source='remote_task';
+     UPDATE agent_task SET phase='executing',phase_message='Remote operation accepted',
+       error_code=NULL,updated_at='2026-07-16T08:00:00.000Z' WHERE task_id='remote-agent-task';
+     UPDATE workflow_instance SET status='running',completed_at=NULL,errors_json='{}'::jsonb
+       WHERE instance_id='remote-instance'`,
   );
   await pool.query("DELETE FROM mcp_invocation WHERE invocation_id LIKE 'remote-invocation-%'");
 });
@@ -79,7 +106,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await pool.end();
+  await initializedPool?.end();
   const admin = new Pool({ connectionString: adminConnection });
   try {
     await admin.query(
@@ -312,6 +339,467 @@ describe('PostgreSQL remote MCP Task authority', () => {
     });
   });
 
+  it('persists cooperative cancellation acknowledgement separately from Provider terminal state', async () => {
+    await seedInvocation(20, 'live');
+    const admitted = await repository.admit(
+      createRemoteTaskBinding(admission(20)),
+      'observation-cancel-admitted',
+    );
+    const cancellations = new PostgresRemoteTaskCancellationRepository(pool);
+    const requested = await cancellations.requestCancellation(
+      createRemoteTaskCancellationRequest({
+        requestId: 'cancel-request-20',
+        bindingId: admitted.binding.bindingId,
+        idempotencyKey: 'cancel-key-20',
+        source: 'task',
+        reasonCode: 'user_cancel',
+        summary: 'User requested cooperative cancellation.',
+        requestedAt: '2026-07-16T08:00:01.000Z',
+      }),
+      admitted.binding.version,
+    );
+    expect(requested).toMatchObject({
+      requested: true,
+      request: { deliveryStatus: 'requested' },
+    });
+    if (!requested.requested) throw new Error('CANCELLATION_REQUEST_REQUIRED');
+    expect(requested.request.providerTerminalStatus).toBeUndefined();
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'working',
+      localState: 'cancel_observing',
+    });
+    const claimed = await cancellations.claimCancellation({
+      requestId: requested.request.requestId,
+      expectedVersion: requested.request.version,
+      claimToken: 'cancel-claim-20',
+      claimedAt: '2026-07-16T08:00:02.000Z',
+      expiresAt: '2026-07-16T08:00:32.000Z',
+    });
+    if (!claimed.claimed) throw new Error('CANCELLATION_CLAIM_REQUIRED');
+    await cancellations.recordCancellationAcknowledged({
+      requestId: claimed.request.requestId,
+      expectedVersion: claimed.request.version,
+      claimToken: 'cancel-claim-20',
+      attempt: {
+        attemptId: 'cancel-attempt-20',
+        requestId: claimed.request.requestId,
+        bindingId: claimed.request.bindingId,
+        expectedRequestVersion: claimed.request.version,
+        protocolRevision: '2026-07-28',
+        status: 'acknowledged',
+        startedAt: '2026-07-16T08:00:02.000Z',
+        completedAt: '2026-07-16T08:00:03.000Z',
+        durationMs: 1_000,
+      },
+      acknowledgedAt: '2026-07-16T08:00:03.000Z',
+      protocolRevision: '2026-07-28',
+    });
+    const acknowledged = await cancellations.findCancellation('cancel-request-20');
+    expect(acknowledged).toMatchObject({ deliveryStatus: 'acknowledged' });
+    expect(acknowledged?.providerTerminalStatus).toBeUndefined();
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'working',
+      localState: 'cancel_observing',
+    });
+
+    const cancellationPollQueue = new RecordingPollQueue();
+    const cancellationIds = sequentialIds();
+    const cancellationPolling = pollingService(
+      cancellationPollQueue,
+      new SequenceReader([
+        {
+          kind: 'snapshot',
+          snapshot: {
+            remoteTaskId: admitted.binding.remoteTaskId,
+            status: 'input_required',
+            createdAt: admitted.binding.createdAt,
+            lastUpdatedAt: '2026-07-16T08:00:04.000Z',
+            ttlMs: 3_600_000,
+            protocolRevision: '2026-07-28',
+            tasksSchemaRevision: 'tasks-schema-revision-1',
+            providerObservation: {
+              revision: '1.0',
+              remoteRevision: 'provider-input-after-cancel-20',
+              eventId: 'provider-input-after-cancel-event-20',
+            },
+            inputRequests: {
+              ignored_after_cancel: {
+                method: 'elicitation/create',
+                params: {
+                  message: 'This request must not reopen the locally cancelled Task.',
+                  requestedSchema: {
+                    type: 'object',
+                    required: ['answer'],
+                    properties: { answer: { type: 'string' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ]),
+      cancellationIds,
+      () => '2026-07-16T08:00:05.000Z',
+    );
+    await expect(
+      cancellationPolling.process({ bindingId: admitted.binding.bindingId, expectedVersion: 2 }),
+    ).resolves.toBe('cancel_observing');
+    await expect(repository.listControlEvents(admitted.binding.bindingId)).resolves.toHaveLength(0);
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'input_required',
+      localState: 'cancel_observing',
+      version: 4,
+    });
+
+    const terminalPolling = pollingService(
+      cancellationPollQueue,
+      new SequenceReader([
+        {
+          kind: 'snapshot',
+          snapshot: {
+            remoteTaskId: admitted.binding.remoteTaskId,
+            status: 'cancelled',
+            createdAt: admitted.binding.createdAt,
+            lastUpdatedAt: '2026-07-16T08:00:06.000Z',
+            ttlMs: 3_600_000,
+            protocolRevision: '2026-07-28',
+            tasksSchemaRevision: 'tasks-schema-revision-1',
+            providerObservation: {
+              revision: '1.0',
+              remoteRevision: 'provider-cancelled-revision-20',
+              eventId: 'provider-cancelled-event-20',
+            },
+          },
+        },
+      ]),
+      cancellationIds,
+      () => '2026-07-16T08:00:07.000Z',
+    );
+    await expect(
+      terminalPolling.process({ bindingId: admitted.binding.bindingId, expectedVersion: 4 }),
+    ).resolves.toBe('control_pending');
+    await expect(cancellations.findCancellation('cancel-request-20')).resolves.toMatchObject({
+      deliveryStatus: 'acknowledged',
+      providerTerminalStatus: 'cancelled',
+    });
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'cancelled',
+      localState: 'terminal_event_pending',
+      version: 6,
+    });
+    await expect(repository.listControlEvents(admitted.binding.bindingId)).resolves.toEqual([
+      expect.objectContaining({ type: 'task.cancelled', status: 'pending' }),
+    ]);
+  });
+
+  it('persists input_required, A2A-shaped answer and tasks/update acknowledgement without replanning', async () => {
+    await seedInvocation(21, 'live');
+    const admitted = await repository.admit(
+      createRemoteTaskBinding(admission(21)),
+      'observation-input-admitted',
+    );
+    const continuations = new PostgresWorkflowContinuationRepository(pool);
+    await continuations.saveSnapshot(
+      createWorkflowContinuationSnapshot({
+        schemaVersion: '1.0',
+        snapshotId: 'input-snapshot-21',
+        continuationId: 'input-continuation-21',
+        stateVersion: 1,
+        lifecycle: 'active',
+        agentTaskId: 'remote-agent-task',
+        contextId: 'remote-context',
+        workflowControlId: 'remote-control',
+        goalId: 'remote-goal',
+        goalVersion: 1,
+        workflowPlanId: 'remote-plan',
+        workflowDefinitionId: 'remote-workflow',
+        workflowDefinitionVersion: 1,
+        workflowDefinitionHash: 'b'.repeat(64),
+        inputHash: 'c'.repeat(64),
+        workflowInstanceId: 'remote-instance',
+        input: {},
+        waitingNodeRuns: [
+          {
+            waitId: 'input-wait-21',
+            kind: 'remote_task',
+            sourceId: admitted.binding.bindingId,
+            nodeId: admitted.binding.workflowNodeId,
+            nodeRunId: admitted.binding.workflowNodeRunId,
+            state: 'waiting',
+          },
+        ],
+        runnableFrontier: [],
+        completedNodeRunIds: [],
+        nodeRunCounts: { [admitted.binding.workflowNodeId]: 1 },
+        outputs: {},
+        errors: {},
+        routes: {},
+        loopCounts: {},
+        recoveryCounts: {},
+        parallelJoinState: [],
+        failed: false,
+        executionContext: { mode: 'live' },
+        budgetLimits: {
+          maxReplans: 2,
+          maxDurationSeconds: 60,
+          maxLlmCalls: 4,
+          maxMcpCalls: 4,
+          maxCost: 1,
+        },
+        budgetUsage: {
+          replanCount: 0,
+          durationMs: 10,
+          llmCalls: 0,
+          mcpCalls: 1,
+          cost: 0,
+        },
+        createdAt: '2026-07-16T08:00:00.000Z',
+        updatedAt: '2026-07-16T08:00:00.000Z',
+      }),
+    );
+    const pollQueue = new RecordingPollQueue();
+    const ids = sequentialIds();
+    const inputRequests = {
+      approval: {
+        method: 'elicitation/create',
+        params: {
+          message: 'Approve remote execution?',
+          requestedSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['approved'],
+            properties: { approved: { type: 'boolean' } },
+          },
+        },
+      },
+    };
+    const providerInputSnapshot = {
+      remoteTaskId: admitted.binding.remoteTaskId,
+      status: 'input_required' as const,
+      createdAt: admitted.binding.createdAt,
+      lastUpdatedAt: '2026-07-16T08:00:01.000Z',
+      ttlMs: 3_600_000,
+      protocolRevision: '2026-07-28',
+      tasksSchemaRevision: 'tasks-schema-revision-1',
+      providerObservation: {
+        revision: '1.0' as const,
+        remoteRevision: 'provider-input-revision-21',
+        eventId: 'provider-input-event-21',
+      },
+      inputRequests,
+    };
+    const polling = pollingService(
+      pollQueue,
+      new SequenceReader([
+        {
+          kind: 'snapshot',
+          snapshot: providerInputSnapshot,
+        },
+      ]),
+      ids,
+      () => '2026-07-16T08:00:02.000Z',
+    );
+    await expect(
+      polling.process({ bindingId: admitted.binding.bindingId, expectedVersion: 1 }),
+    ).resolves.toBe('control_pending');
+    const [control] = await repository.listControlEvents(admitted.binding.bindingId);
+    if (control === undefined) throw new Error('INPUT_CONTROL_REQUIRED');
+    const inputRepository = new PostgresRemoteTaskInputRepository(pool);
+    const sender = vi
+      .fn()
+      .mockResolvedValue({ acknowledged: true, protocolRevision: '2026-07-28' });
+    const inputService = new RemoteTaskInputService({
+      continuations,
+      remoteTasks: repository,
+      inputs: inputRepository,
+      tasks: new PostgresAgentTaskRepository(pool),
+      events: new PostgresRuntimeEventPublisher(pool),
+      sender: { updateRemoteTask: sender },
+      pollQueue,
+      schemas: new AjvJsonSchemaValidator(),
+      serial: new ContextSerialExecutor(),
+      clock: { now: () => '2026-07-16T08:00:03.000Z' },
+      ids: {
+        nextInputRequestId: () => 'input-request-21',
+        nextClaimToken: () => 'input-claim-21',
+        nextProtocolAttemptId: () => 'input-attempt-21',
+        nextEventId: () => 'input-runtime-event-21',
+      },
+    });
+    await expect(
+      inputService.process({
+        eventId: control.eventId,
+        bindingId: admitted.binding.bindingId,
+        eventType: 'task.input_required',
+      }),
+    ).resolves.toBe('activated');
+    const prepared = await inputService.prepareResponse('input-request-21', {
+      approval: { action: 'accept', content: { approved: true } },
+    });
+    const taskInputs = new PostgresTaskInputRepository(pool);
+    await taskInputs.answerAndCreateAttempt({
+      inputRequestId: 'input-request-21',
+      taskId: 'remote-agent-task',
+      response: {
+        inputResponseId: 'input-response-21',
+        inputRequestId: 'input-request-21',
+        taskId: 'remote-agent-task',
+        content: prepared,
+        createdAt: '2026-07-16T08:00:04.000Z',
+      },
+      attempt: createTaskExecutionAttempt({
+        attemptId: 'task-attempt-input-21',
+        taskId: 'remote-agent-task',
+        contextId: 'remote-context',
+        reason: 'input_response',
+        inputRequestId: 'input-request-21',
+        createdAt: '2026-07-16T08:00:04.000Z',
+      }),
+      answeredAt: '2026-07-16T08:00:04.000Z',
+      continuationPhase: 'executing',
+      phaseMessage: 'Remote input saved; tasks/update queued.',
+    });
+    await inputService.submitAnswer('input-request-21', prepared);
+
+    expect(sender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteTaskId: admitted.binding.remoteTaskId,
+        inputResponses: prepared,
+      }),
+    );
+    await expect(inputRepository.findLink('input-request-21')).resolves.toMatchObject({
+      status: 'update_acknowledged',
+    });
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'input_required',
+      localState: 'polling',
+      version: 4,
+    });
+    expect(pollQueue.jobs.at(-1)?.job).toMatchObject({ expectedVersion: 4 });
+
+    const echoPolling = pollingService(
+      pollQueue,
+      new SequenceReader([{ kind: 'snapshot', snapshot: providerInputSnapshot }]),
+      ids,
+      () => '2026-07-16T08:00:05.000Z',
+    );
+    await expect(
+      echoPolling.process({ bindingId: admitted.binding.bindingId, expectedVersion: 4 }),
+    ).resolves.toBe('working');
+    await expect(repository.listControlEvents(admitted.binding.bindingId)).resolves.toHaveLength(1);
+    await expect(inputRepository.findLink('input-request-21')).resolves.toMatchObject({
+      status: 'update_acknowledged',
+    });
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'input_required',
+      localState: 'polling',
+      version: 6,
+    });
+
+    const secondInputRequests = {
+      comment: {
+        method: 'elicitation/create',
+        params: {
+          message: 'Provide the remote execution note.',
+          requestedSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['note'],
+            properties: { note: { type: 'string' } },
+          },
+        },
+      },
+    };
+    const secondRoundPolling = pollingService(
+      pollQueue,
+      new SequenceReader([
+        {
+          kind: 'snapshot',
+          snapshot: {
+            ...providerInputSnapshot,
+            lastUpdatedAt: '2026-07-16T08:00:06.000Z',
+            providerObservation: {
+              revision: '1.0',
+              remoteRevision: 'provider-input-revision-22',
+              eventId: 'provider-input-event-22',
+            },
+            inputRequests: secondInputRequests,
+          },
+        },
+      ]),
+      ids,
+      () => '2026-07-16T08:00:07.000Z',
+    );
+    await expect(
+      secondRoundPolling.process({ bindingId: admitted.binding.bindingId, expectedVersion: 6 }),
+    ).resolves.toBe('control_pending');
+    const controls = await repository.listControlEvents(admitted.binding.bindingId);
+    expect(controls).toHaveLength(2);
+    const secondControl = controls.find(
+      (candidate) => candidate.remoteRevision === 'provider-input-revision-22',
+    );
+    if (secondControl === undefined) throw new Error('SECOND_INPUT_CONTROL_REQUIRED');
+    const secondInputService = new RemoteTaskInputService({
+      continuations,
+      remoteTasks: repository,
+      inputs: inputRepository,
+      tasks: new PostgresAgentTaskRepository(pool),
+      events: new PostgresRuntimeEventPublisher(pool),
+      sender: { updateRemoteTask: sender },
+      pollQueue,
+      schemas: new AjvJsonSchemaValidator(),
+      serial: new ContextSerialExecutor(),
+      clock: { now: () => '2026-07-16T08:00:08.000Z' },
+      ids: {
+        nextInputRequestId: () => 'input-request-22',
+        nextClaimToken: () => 'input-claim-22',
+        nextProtocolAttemptId: () => 'input-attempt-22',
+        nextEventId: () => 'input-runtime-event-22',
+      },
+    });
+    await expect(
+      secondInputService.process({
+        eventId: secondControl.eventId,
+        bindingId: admitted.binding.bindingId,
+        eventType: 'task.input_required',
+      }),
+    ).resolves.toBe('activated');
+    const secondPrepared = await secondInputService.prepareResponse('input-request-22', {
+      comment: { action: 'accept', content: { note: 'Proceed with audit logging.' } },
+    });
+    await taskInputs.answerAndCreateAttempt({
+      inputRequestId: 'input-request-22',
+      taskId: 'remote-agent-task',
+      response: {
+        inputResponseId: 'input-response-22',
+        inputRequestId: 'input-request-22',
+        taskId: 'remote-agent-task',
+        content: secondPrepared,
+        createdAt: '2026-07-16T08:00:09.000Z',
+      },
+      attempt: createTaskExecutionAttempt({
+        attemptId: 'task-attempt-input-22',
+        taskId: 'remote-agent-task',
+        contextId: 'remote-context',
+        reason: 'input_response',
+        inputRequestId: 'input-request-22',
+        createdAt: '2026-07-16T08:00:09.000Z',
+      }),
+      answeredAt: '2026-07-16T08:00:09.000Z',
+      continuationPhase: 'executing',
+      phaseMessage: 'Second remote input saved; tasks/update queued.',
+    });
+    await secondInputService.submitAnswer('input-request-22', secondPrepared);
+    expect(sender).toHaveBeenCalledTimes(2);
+    await expect(inputRepository.findLink('input-request-22')).resolves.toMatchObject({
+      status: 'update_acknowledged',
+    });
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      localState: 'polling',
+      version: 9,
+    });
+  });
+
   it('retains a poll across queue-client restart, backs off an unreachable Provider, and emits one terminal control', async () => {
     await seedInvocation(3, 'live');
     const queueName = `sdar-remote-vertical-${randomUUID()}`;
@@ -466,6 +954,46 @@ describe('PostgreSQL remote MCP Task authority', () => {
     ]);
     expect(queue.jobs.at(-1)?.job).toEqual({ bindingId: candidate.bindingId, expectedVersion: 3 });
   });
+
+  it('atomically turns local Task cancellation into a cooperative Provider cancellation request', async () => {
+    await seedInvocation(22, 'live');
+    const admitted = await repository.admit(
+      createRemoteTaskBinding(admission(22)),
+      'observation-cancel-from-task-admitted',
+    );
+    const terminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(pool);
+
+    await expect(
+      terminalOutcomes.commitCanceled({
+        outcomeId: 'terminal-outcome-remote-cancel-22',
+        taskId: 'remote-agent-task',
+        goalId: 'remote-goal',
+        goalVersion: 1,
+        controlId: 'remote-control',
+        summary: 'User canceled the parent A2A Task.',
+        eventId: 'event-remote-cancel-22',
+        committedAt: '2026-07-16T08:00:01.000Z',
+      }),
+    ).resolves.toMatchObject({ kind: 'canceled', taskId: 'remote-agent-task' });
+
+    await expect(repository.findById(admitted.binding.bindingId)).resolves.toMatchObject({
+      protocolStatus: 'working',
+      localState: 'cancel_observing',
+      version: 2,
+    });
+    const cancellations = new PostgresRemoteTaskCancellationRepository(pool);
+    const requestId = `remote-cancel-${createHash('md5')
+      .update(`${admitted.binding.bindingId}:remote-agent-task`)
+      .digest('hex')}`;
+    const request = await cancellations.findCancellation(requestId);
+    expect(request).toMatchObject({
+      bindingId: admitted.binding.bindingId,
+      source: 'task',
+      reasonCode: 'local_task_cancel',
+      deliveryStatus: 'requested',
+    });
+    expect(request?.providerTerminalStatus).toBeUndefined();
+  });
 });
 
 async function seedAuthorityRecords(): Promise<void> {
@@ -503,6 +1031,14 @@ async function seedAuthorityRecords(): Promise<void> {
                                     goal_id,goal_version,status,input_json,errors_json,started_at)
      VALUES('remote-instance','remote-plan','remote-workflow',1,'remote-goal',1,'running',
             '{}'::jsonb,'{}'::jsonb,'2026-07-16T08:00:00.000Z')`,
+  );
+  await pool.query(
+    `INSERT INTO workflow_control(
+       control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
+       skill_ids_json,planning_instruction,round_count,replan_count,created_at,updated_at)
+     VALUES('remote-control','remote-context','remote-goal',1,'remote-agent-task','running',
+            'remote-plan','{}'::jsonb,'[]'::jsonb,'Run remote integration.',0,0,
+            '2026-07-16T08:00:00.000Z','2026-07-16T08:00:00.000Z')`,
   );
   await pool.query(
     `INSERT INTO mcp_server(server_id,name,endpoint,transport,status,tool_revision,

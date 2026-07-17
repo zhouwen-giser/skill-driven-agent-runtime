@@ -1,7 +1,7 @@
 # SDAR v1.1 MCP Tasks 规范化设计
 
-状态：Phase 1 协议边界、Phase 2 持久化/轮询和 Phase 3 availability/timing 增量已验证；Phase 4–6 与最终验收尚未完成<br>
-日期：2026-07-16<br>
+状态：Phase 1–6 本地实现与验收已验证；外部生产 Provider 互操作仍未验证<br>
+日期：2026-07-17<br>
 执行计划：`execplans/EP-09-v1.1-mcp-tasks.md`
 
 ## 1. 权威范围
@@ -32,26 +32,26 @@
 
 ## 3. 规范化需求
 
-| ID | P0 要求 | 验证期望 |
-| --- | --- | --- |
-| FR-MCPT-001 | Adapter 必须在能力协商后支持 `tools/call`、`tasks/get`、`tasks/update`、`tasks/cancel`，并隔离全部 SDK/wire 类型。 | 协议合约与架构门禁 |
-| FR-MCPT-002 | `tools/call` 必须返回受验证联合：同步结果、同步业务错误或远程 Task handle；未知/矛盾结果 fail closed。 | 单元、合约、loopback |
-| FR-MCPT-003 | Provider Task 状态必须限于 `working`、`input_required`、`completed`、`failed`、`cancelled`，并保存有序观测。 | Schema、归约与持久化测试 |
-| FR-MCPT-004 | 每个远程 Task 必须创建唯一、显式区分本地/远程 ID 的 `RemoteTaskBinding`，关联调用、Goal、Task、Context、Workflow、节点运行和执行模式。 | PostgreSQL 集成与 E2E |
-| FR-MCPT-005 | BullMQ 必须以绑定 ID/期望版本幂等轮询；启动与周期 Reconciler 必须补齐丢失 Job，忽略陈旧/终态 Job。 | Redis/PG 故障注入 |
-| FR-MCPT-006 | Provider 通信故障必须退避并记录 `provider_unreachable`，不得伪造业务终态或恢复图。 | 失败注入与时钟测试 |
-| FR-MCPT-007 | 远程 Task 等待必须结束当前图调用并持久化 continuation snapshot；已完成节点和副作用不得重放。 | LangGraph 单元、重启 E2E |
-| FR-MCPT-008 | pause/resume/progress/heartbeat 只更新观测；只有 input-required/completed/failed/cancelled 控制事件可解锁对应分支。 | 状态机与 E2E |
-| FR-MCPT-009 | 计划期必须检查 operation availability，保存快照与风险；执行前用实际参数重新检查并应用确定性 Guard。 | 规划、校验、执行合约 |
-| FR-MCPT-010 | `TaskExecutionTiming` 必须区分 immediate/scheduled、启动容差和可空 `maxElapsedMs`；预测、预约、TTL、Provider 不可达和业务期限不得混同。 | Schema/时钟/Provider 合约 |
-| FR-MCPT-011 | restricted 仅产生风险与受限决策；Provider 在调用时最终接纳/拒绝并负责资源抢占，不由 SDAR 预先暂停任何图或远程 Task。 | 零越权调用与拒绝 E2E |
-| FR-MCPT-012 | `input_required` 必须复用 Task input/A2A 提交能力，但答案通过 `tasks/update` 回到原绑定，不触发新的 Goal 规划。 | A2A+MCP E2E |
-| FR-MCPT-013 | Cancel 必须区分本地请求、协议确认和 Provider 终态；不可达时保留不确定性，不伪造 remote cancelled。 | 合约、失败注入、E2E |
-| FR-MCPT-014 | API/Console 必须显示 capability、availability、binding、观测、控制、时间、输入、取消和最终结果的真实关联，并允许受约束操作。 | OpenAPI、管理合约、UI E2E |
-| NFR-MCPT-001 | 所有远程 payload、快照、响应和 `_meta` 必须经过有界 JSON Schema 校验；凭据、私有思维链和未清洗错误不得落库/展示。 | 安全单元、架构、日志测试 |
-| NFR-MCPT-002 | 同一 `context_id` 继续严格串行；轮询/控制至少一次投递必须幂等，且普通执行仍 attempts=1、故障不恢复不重试。 | 并发、Redis/进程故障 E2E |
-| NFR-MCPT-003 | 远程等待在进程或 Redis 重启后必须由 PostgreSQL 重建；不得声称恢复普通 running/evaluating Workflow。 | 真实 PG/Redis 重启 E2E |
-| NFR-MCPT-004 | 每个协议请求、绑定、观测、控制、continuation、结果和错误必须按 Task/Goal/Workflow/Skill/MCP 调用可追踪，并记录 Token/耗时而非思维链。 | 查询合约、Console、审计 E2E |
+| ID           | P0 要求                                                                                                                                 | 验证期望                    |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| FR-MCPT-001  | Adapter 必须在能力协商后支持 `tools/call`、`tasks/get`、`tasks/update`、`tasks/cancel`，并隔离全部 SDK/wire 类型。                      | 协议合约与架构门禁          |
+| FR-MCPT-002  | `tools/call` 必须返回受验证联合：同步结果、同步业务错误或远程 Task handle；未知/矛盾结果 fail closed。                                  | 单元、合约、loopback        |
+| FR-MCPT-003  | Provider Task 状态必须限于 `working`、`input_required`、`completed`、`failed`、`cancelled`，并保存有序观测。                            | Schema、归约与持久化测试    |
+| FR-MCPT-004  | 每个远程 Task 必须创建唯一、显式区分本地/远程 ID 的 `RemoteTaskBinding`，关联调用、Goal、Task、Context、Workflow、节点运行和执行模式。  | PostgreSQL 集成与 E2E       |
+| FR-MCPT-005  | BullMQ 必须以绑定 ID/期望版本幂等轮询；启动与周期 Reconciler 必须补齐丢失 Job，忽略陈旧/终态 Job。                                      | Redis/PG 故障注入           |
+| FR-MCPT-006  | Provider 通信故障必须退避并记录 `provider_unreachable`，不得伪造业务终态或恢复图。                                                      | 失败注入与时钟测试          |
+| FR-MCPT-007  | 远程 Task 等待必须结束当前图调用并持久化 continuation snapshot；已完成节点和副作用不得重放。                                            | LangGraph 单元、重启 E2E    |
+| FR-MCPT-008  | pause/resume/progress/heartbeat 只更新观测；只有 input-required/completed/failed/cancelled 控制事件可解锁对应分支。                     | 状态机与 E2E                |
+| FR-MCPT-009  | 计划期必须检查 operation availability，保存快照与风险；执行前用实际参数重新检查并应用确定性 Guard。                                     | 规划、校验、执行合约        |
+| FR-MCPT-010  | `TaskExecutionTiming` 必须区分 immediate/scheduled、启动容差和可空 `maxElapsedMs`；预测、预约、TTL、Provider 不可达和业务期限不得混同。 | Schema/时钟/Provider 合约   |
+| FR-MCPT-011  | restricted 仅产生风险与受限决策；Provider 在调用时最终接纳/拒绝并负责资源抢占，不由 SDAR 预先暂停任何图或远程 Task。                    | 零越权调用与拒绝 E2E        |
+| FR-MCPT-012  | `input_required` 必须复用 Task input/A2A 提交能力，但答案通过 `tasks/update` 回到原绑定，不触发新的 Goal 规划。                         | A2A+MCP E2E                 |
+| FR-MCPT-013  | Cancel 必须区分本地请求、协议确认和 Provider 终态；不可达时保留不确定性，不伪造 remote cancelled。                                      | 合约、失败注入、E2E         |
+| FR-MCPT-014  | API/Console 必须显示 capability、availability、binding、观测、控制、时间、输入、取消和最终结果的真实关联，并允许受约束操作。            | OpenAPI、管理合约、UI E2E   |
+| NFR-MCPT-001 | 所有远程 payload、快照、响应和 `_meta` 必须经过有界 JSON Schema 校验；凭据、私有思维链和未清洗错误不得落库/展示。                       | 安全单元、架构、日志测试    |
+| NFR-MCPT-002 | 同一 `context_id` 继续严格串行；轮询/控制至少一次投递必须幂等，且普通执行仍 attempts=1、故障不恢复不重试。                              | 并发、Redis/进程故障 E2E    |
+| NFR-MCPT-003 | 远程等待在进程或 Redis 重启后必须由 PostgreSQL 重建；不得声称恢复普通 running/evaluating Workflow。                                     | 真实 PG/Redis 重启 E2E      |
+| NFR-MCPT-004 | 每个协议请求、绑定、观测、控制、continuation、结果和错误必须按 Task/Goal/Workflow/Skill/MCP 调用可追踪，并记录 Token/耗时而非思维链。   | 查询合约、Console、审计 E2E |
 
 ## 4. 领域状态与权威
 
@@ -144,6 +144,8 @@ Provider 执行启动窗口与最大墙钟时间。`start_window_missed` 与 `de
 
 Phase 3 的已实现 Guard 还要求：执行前 restricted 只有在计划已确认、同一节点的规划快照也是 restricted 且刷新风险未升级时才可继续；否则返回重新确认原因并保持零 Tool 调用。规划证据与执行前证据追加保存在 0101 表中，Console/API 只展示清洗后的 hash、窗口、有效期、timing 和真实预约引用。
 
+Phase 6 补齐了 `task_required` 隐式 Guard：若 Tool 注册语义要求 Task，而模型生成的 `mcp_tool` 没有 `taskExecution`，规划期和节点执行前都必须推导 `require_task + availabilityCheck=required`。执行边界从 PostgreSQL 重新读取 Tool 语义，并以解析、冻结后的实际参数运行 pre-call check；缺少 readiness runtime、Workflow Definition 或有效证据时稳定拒绝。因此 DSL 字段省略不能降级为同步调用或绕过确认。
+
 ## 8. 轮询、等待与继续
 
 Poll job 仅包含 `bindingId` 和 `expectedVersion`，使用 attempts=1。Worker 读取 PostgreSQL 后才发 `tasks/get`；版本陈旧或绑定关闭即 no-op。working 保存观察并安排下一次；控制状态先原子落 inbox 再调度 continuation。通信失败只增加 failure count、告警与退避。
@@ -151,6 +153,10 @@ Poll job 仅包含 `bindingId` 和 `expectedVersion`，使用 attempts=1。Worke
 LangGraph 节点收到远程 handle 后原子保存 invocation/binding/snapshot/event，并返回 `waiting_remote_task`。无可运行节点且存在远程等待时 WorkflowInstance 是 `waiting_external`，不是 `paused`。其他并行分支可以继续，Join 不把等待前驱视作完成。
 
 Continuation 原子 claim 控制，验证 Goal/plan/instance/binding仍有效，只更新相应 node run 和 frontier，并创建 continuation attempt。多个远程 Task 独立解锁；子 Workflow 先完成自身 continuation，父节点随后继续。Goal Patch/取消/终态后迟到事件只审计。
+
+等待节点把 `workflow_node_event.event_type` 写为 `node_waiting_external`，不写成功，不满足 Join。Migration `0104_workflow_external_wait_event` 把该值加入数据库 CHECK；只要存在这类事件，down migration 就 fail closed，防止回滚后留下无法表示的审计证据。
+
+启动恢复是 V1.1 组合的显式 opt-in。只有 active continuation snapshot、waiting binding、`waiting_external` Workflow instance、未失效且处于可观察 local state 的 RemoteTaskBinding 全部匹配时，启动流程才保留 Task/attempt 并从 PostgreSQL 重建 Poll/continuation Job。它不恢复当时正在运行的 Worker，也不重试失败 Job。普通 running/paused/evaluating Workflow 和 Task 仍以 `PROCESS_EXECUTION_LOST` 失败。真实 restart integration 同时验证远程等待完成、Redis 队列完全丢失后重建、`tools/call` 只发生一次，以及普通 running Task 仍失败。
 
 ## 9. Input、Cancel 与业务结果
 
@@ -164,33 +170,37 @@ Continuation 原子 claim 控制，验证 Goal/plan/instance/binding仍有效，
 
 ## 10. 管理与风险界面
 
-管理 API/OpenAPI/Console 至少提供：Tool Task 语义和 capability；计划 availability/risk/timing；Task/Goal/Workflow/Skill/invocation/binding关联；状态、Provider substate、轮询、观测、输入、取消不确定性、结果/错误；受约束的 refresh/cancel/provide-input。所有页面保留 trusted-intranet、无认证、共享记忆、副作用、不可自动恢复等现有告警，并新增 Provider Task 权威与取消不确定性说明。
+管理 API/OpenAPI/Console 已提供：Tool Task 语义和 capability；计划 availability/risk/timing；Task/Goal/Workflow/Skill/invocation/binding关联；状态、Provider substate、轮询、观测、control、protocol attempt、continuation、输入、取消不确定性、结果/错误；受约束的 refresh/cancel/provide-input。
+
+权威入口是 `GET /api/v1/tasks/{taskId}/remote-task-lifecycle`。版本 CAS refresh 通过 `POST /api/v1/remote-task-bindings/{bindingId}/refresh` 进入同一 context-serialized polling service；management cooperative cancel 通过 `POST /api/v1/remote-task-bindings/{bindingId}/cancel` 持久化幂等请求；输入继续通过现有 Task `provide_input` action。Console 不复制状态，只呈现清洗后的 PostgreSQL read model。所有页面保留 trusted-intranet、无认证、共享记忆、副作用、普通运行不可自动恢复等现有告警，并新增 Provider Task 权威与取消不确定性说明。
 
 ## 11. Migration 与 hardening 同步
 
-v1.1 使用 `0100+` 避免文件冲突，但当前 runner 的高水位行为使其在 v1.0.13 前只能用于 disposable isolated database。最终支持路径：完整 v1.0.13-bug-fixed schema → 0100+。Phase 3 不重复 v1.0.11 的 Tool semantics；Phase 4 至少先合并 v1.0.6-bug-fixed；Phase 6 必须合并 v1.0.13-bug-fixed。
+v1.1 使用 `0100+` 避免文件冲突，并保持显式 `v1.1-isolated` profile、acknowledgement 和 `sdar_v11_*` disposable database 保护。已验证的支持路径是完整 `v1.0.13-bug-fixed` schema 后依次应用：`0100` tracking、`0101` readiness、`0102` continuation、`0103` input/cancellation、`0104` external-wait event constraint。迁移 gate 覆盖空库、精确 upgrade、rollback/reapply、默认 profile 拒绝和 ledger gap fail-closed；记录共 68 个 migration pairs。
 
 ## 12. 验收场景
 
-| ID | 场景 | 主要判定 |
-| --- | --- | --- |
-| AC-MCPT-01 | 同步 Tool 回归 | 同步成功/业务错误正确归一化，无 Binding |
-| AC-MCPT-02 | Task 协商与创建 | capability 通过，handle/Headers/Binding/追踪真实 |
-| AC-MCPT-03 | 不支持 Tasks | 普通 Tool 可同步；require_task 稳定拒绝且零远程等待 |
-| AC-MCPT-04 | working→completed | Poll、观察、continuation、节点输出、终态完整 |
-| AC-MCPT-05 | pause/resume 观察 | 不恢复节点、不创建 Graph Run、不改变等待状态 |
-| AC-MCPT-06 | input_required | A2A 输入经 tasks/update 回原 Task，不重新规划 |
-| AC-MCPT-07 | cancel success | 请求/ack/Provider cancelled分离，节点取消可追踪 |
-| AC-MCPT-08 | cancel unreachable | 显示不确定性，不伪造 remote cancelled |
-| AC-MCPT-09 | restricted accepted | 风险/确认/节点前刷新后 Provider 接纳并创建 Task |
-| AC-MCPT-10 | admission rejected | 无 Task ID/Binding；结构化错误走 error handler |
-| AC-MCPT-11 | scheduled missed | Provider 返回 start_window_missed；SDAR验证映射 |
-| AC-MCPT-12 | maximum elapsed | Provider先停止/隔离后返回 deadline_reached；SDAR不伪造 |
-| AC-MCPT-13 | provider unreachable | 退避、告警、状态不变，恢复后继续轮询 |
-| AC-MCPT-14 | process/Redis restart | PostgreSQL重建等待/Job，已完成副作用不重放 |
-| AC-MCPT-15 | parallel/child waits | 多绑定独立继续、Join正确、父子 lineage正确 |
+| ID         | 场景                  | 主要判定                                                  |
+| ---------- | --------------------- | --------------------------------------------------------- |
+| AC-MCPT-01 | 同步 Tool 回归        | 同步成功/业务错误正确归一化，无 Binding                   |
+| AC-MCPT-02 | Task 协商与创建       | capability 通过，handle/Headers/Binding/追踪真实          |
+| AC-MCPT-03 | 不支持 Tasks          | 普通 Tool 可同步；require_task 稳定拒绝且零远程等待       |
+| AC-MCPT-04 | working→completed     | Poll、观察、continuation、节点输出、终态完整              |
+| AC-MCPT-05 | pause/resume 观察     | 不恢复节点、不创建 Graph Run、不改变等待状态              |
+| AC-MCPT-06 | input_required        | A2A 输入经 tasks/update 回原 Task，不重新规划             |
+| AC-MCPT-07 | cancel success        | 请求/ack/Provider cancelled分离，节点取消可追踪           |
+| AC-MCPT-08 | cancel unreachable    | 显示不确定性，不伪造 remote cancelled                     |
+| AC-MCPT-09 | restricted accepted   | 风险/确认/节点前刷新后 Provider 接纳并创建 Task           |
+| AC-MCPT-10 | admission rejected    | 无 Task ID/Binding；结构化错误走 error handler            |
+| AC-MCPT-11 | scheduled missed      | Provider 返回 start_window_missed；SDAR验证映射           |
+| AC-MCPT-12 | maximum elapsed       | Provider先停止/隔离后返回 deadline_reached；SDAR不伪造    |
+| AC-MCPT-13 | provider unreachable  | 退避、告警、状态不变，恢复后继续轮询                      |
+| AC-MCPT-14 | process/Redis restart | PostgreSQL重建等待/Job，已完成副作用不重放                |
+| AC-MCPT-15 | parallel/child waits  | 多绑定独立继续、Join正确、父子 lineage正确                |
 | AC-MCPT-16 | Goal Patch/late event | 旧绑定/snapshot/control失效，迟到事件仅审计，新计划重确认 |
 
 ## 13. 完成判定
 
-本文状态只有在 Phase 6 后才能从“冻结”改为“已验证”：所有 18 个要求和 16 个 AC 在 `docs/17_TRACEABILITY_MATRIX.md` 中有实现、测试、命令与报告；`pnpm verify`、两条 demo、迁移路径、loopback MCP Tasks 合约、管理/API/Console 和本地 smoke 全部通过，并明确区分真实、模拟与未验证证据。
+Phase 6 本地验收由 `pnpm verify`、`pnpm demo:acceptance`、`pnpm demo:local`、`pnpm verify:v11-acceptance` 和 focused MCP Tasks contract/restart/composition tests 复现。记录的 full gate 为 493 unit+contract、80 PostgreSQL/Redis integration、49 E2E、232 architecture assertions、110 OpenAPI operations 和 68 migration pairs；机器可读与人工可读结果位于 `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{json,md}` 与 `V11-LOCAL-DEMO.{json,md}`。
+
+证据分类：真实本地验证包括 PostgreSQL/pgvector、Redis/BullMQ、MCP/A2A HTTP loopback、LangGraph continuation、进程/队列重启组合、Management API、Console production bundle 与 migration path；模拟验证包括确定性 Mock Model 和 16-scenario Mock MCP Tasks Provider 的业务行为；未验证项是任何外部生产 MCP Provider、真实资源抢占/业务 Timer 以及生产部署。后者不得被报告为完成的互操作认证。

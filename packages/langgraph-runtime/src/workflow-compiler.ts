@@ -8,7 +8,13 @@ import {
   interrupt,
 } from '@langchain/langgraph';
 
+import {
+  classifyProviderBusinessOutcome,
+  createProviderBusinessNodeError,
+  normalizeResultEnvelope,
+} from '../../domain/src/index.js';
 import type {
+  InternalToolResult,
   ToolReference,
   RuntimeExecutionContext,
   SkillCallExecutionResult,
@@ -20,15 +26,19 @@ import type {
   WorkflowNode,
   WorkflowRecoveryOption,
   ResolvedMcpTaskExecution,
+  WorkflowExternalWaitRef,
+  WorkflowExternalWaitResolution,
+  WorkflowMcpCallOutcome,
+  WorkflowParallelJoinState,
+  WorkflowRuntimeContinuationState,
 } from '../../domain/src/index.js';
-import { normalizeResultEnvelope } from '../../domain/src/index.js';
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
 import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
 
 export interface WorkflowExecutionEvent {
   readonly nodeId: string;
-  readonly type: 'node_started' | 'node_succeeded' | 'node_failed';
+  readonly type: 'node_started' | 'node_succeeded' | 'node_failed' | 'node_waiting_external';
   readonly timestamp: string;
   readonly durationMs?: number;
   readonly summary: string;
@@ -56,13 +66,14 @@ export interface WorkflowRuntimePorts {
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
-  ) => Promise<unknown>;
+  ) => Promise<WorkflowMcpCallOutcome>;
   readonly executeSkill: (
     input: Readonly<{
       skillId: string;
       input: unknown;
       parentExecutionId: string;
       parentNodeId: string;
+      parentNodeRunId: string;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -109,16 +120,23 @@ export interface WorkflowCallCosts {
   readonly subworkflow: number;
 }
 
+interface WorkflowNodeRuntimeError {
+  readonly code: string;
+  readonly message: string;
+  readonly details?: unknown;
+}
+
 export interface WorkflowExecutionResult {
-  readonly status: 'paused' | 'succeeded' | 'failed' | 'canceled';
+  readonly status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
   readonly result?: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
-  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly errors: Readonly<Record<string, WorkflowNodeRuntimeError>>;
   readonly loopCounts: Readonly<Record<string, number>>;
   readonly recoveryCounts: Readonly<Record<string, number>>;
   readonly events: readonly WorkflowExecutionEvent[];
   readonly budgetUsage: WorkflowBudgetUsage;
   readonly terminationReason?: WorkflowBudgetTerminationReason;
+  readonly continuation?: WorkflowRuntimeContinuationState;
   readonly pendingConfirmation?: Readonly<{
     nodeId: string;
     prompt: string;
@@ -135,10 +153,14 @@ interface WorkflowExecutionState {
   readonly executionId: string;
   readonly input: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
-  readonly errors: Readonly<Record<string, Readonly<{ code: string; message: string }>>>;
+  readonly errors: Readonly<Record<string, WorkflowNodeRuntimeError>>;
   readonly routes: Readonly<Record<string, string>>;
   readonly loopCounts: Readonly<Record<string, number>>;
   readonly recoveryCounts: Readonly<Record<string, number>>;
+  readonly waitingNodeRuns: Readonly<Record<string, WorkflowExternalWaitRef>>;
+  readonly completedNodeRunIds: readonly string[];
+  readonly nodeRunCounts: Readonly<Record<string, number>>;
+  readonly parallelJoinState: readonly WorkflowParallelJoinState[];
   readonly events: readonly WorkflowExecutionEvent[];
   readonly result?: unknown;
   readonly failed: boolean;
@@ -151,7 +173,7 @@ const ExecutionState = Annotation.Root({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
-  errors: Annotation<Readonly<Record<string, Readonly<{ code: string; message: string }>>>>({
+  errors: Annotation<Readonly<Record<string, WorkflowNodeRuntimeError>>>({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
@@ -166,6 +188,22 @@ const ExecutionState = Annotation.Root({
   recoveryCounts: Annotation<Readonly<Record<string, number>>>({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
+  }),
+  waitingNodeRuns: Annotation<Readonly<Record<string, WorkflowExternalWaitRef>>>({
+    reducer: (left, right) => ({ ...left, ...right }),
+    default: () => ({}),
+  }),
+  completedNodeRunIds: Annotation<readonly string[]>({
+    reducer: (left, right) => [...new Set([...left, ...right])],
+    default: () => [],
+  }),
+  nodeRunCounts: Annotation<Readonly<Record<string, number>>>({
+    reducer: mergeNodeRunCounts,
+    default: () => ({}),
+  }),
+  parallelJoinState: Annotation<readonly WorkflowParallelJoinState[]>({
+    reducer: mergeParallelJoinStates,
+    default: () => [],
   }),
   events: Annotation<readonly WorkflowExecutionEvent[]>({
     reducer: (left, right) => [...left, ...right],
@@ -192,6 +230,14 @@ export interface CompiledWorkflow {
     executionId: string,
     confirmed: boolean,
     signal?: AbortSignal,
+  ): Promise<WorkflowExecutionResult>;
+  continueExternal(
+    executionId: string,
+    state: WorkflowRuntimeContinuationState,
+    resolution: WorkflowExternalWaitResolution,
+    callCosts: WorkflowCallCosts,
+    signal?: AbortSignal,
+    continuationAttemptId?: string,
   ): Promise<WorkflowExecutionResult>;
   requestPause(executionId: string): boolean;
   requestCancel(executionId: string, interruptCurrent: boolean): boolean;
@@ -230,17 +276,6 @@ export function compileWorkflow(
       .filter((node) => node.type === 'error_handler')
       .map((node) => [node.handledNodeId, node]),
   );
-  const actions: Record<string, NodeAction> = {};
-  for (const node of immutableDefinition.nodes)
-    actions[graphNodeKey(node.nodeId)] = createNodeAction(
-      node,
-      immutableDefinition,
-      handlers,
-      ports,
-      (executionId) => requiredRuntimeContext(runtimeContexts, executionId),
-    );
-
-  const graph = new StateGraph(ExecutionState).addNode(actions);
   const parallelJoins = detectParallelJoins(immutableDefinition);
   const joinedEdges = new Set(
     parallelJoins.flatMap((join) =>
@@ -249,64 +284,155 @@ export function compileWorkflow(
       ),
     ),
   );
-  graph.addEdge(START, graphNodeKey(immutableDefinition.entryNodeId));
-  for (const node of immutableDefinition.nodes) {
-    const sourceKey = graphNodeKey(node.nodeId);
-    const outgoing = immutableDefinition.edges.filter((edge) => edge.sourceNodeId === node.nodeId);
-    const effectiveOutgoing = outgoing.filter(
-      (edge) => !joinedEdges.has(`${edge.sourceNodeId}->${edge.targetNodeId}`),
-    );
-    if (immutableDefinition.exitNodeIds.includes(node.nodeId) || node.type === 'result') {
-      const handler = handlers.get(node.nodeId);
-      if (handler === undefined) graph.addEdge(sourceKey, END);
-      else
+  const buildExecutable = (
+    persistedParallelJoinState: readonly WorkflowParallelJoinState[] = [],
+  ) => {
+    const actions: Record<string, NodeAction> = {};
+    for (const node of immutableDefinition.nodes)
+      actions[graphNodeKey(node.nodeId)] = createNodeAction(
+        node,
+        immutableDefinition,
+        handlers,
+        parallelJoins,
+        ports,
+        (executionId) => requiredRuntimeContext(runtimeContexts, executionId),
+      );
+    for (const join of parallelJoins)
+      for (const predecessorNodeId of join.predecessorNodeIds) {
+        const predecessor = immutableDefinition.nodes.find(
+          (node) => node.nodeId === predecessorNodeId,
+        );
+        if (predecessor !== undefined && isExternallyWaitCapable(predecessor))
+          actions[parallelJoinGateKey(join.joinNodeId, predecessorNodeId)] = () =>
+            Promise.resolve({});
+      }
+
+    const graph = new StateGraph(ExecutionState).addNode(actions);
+    graph.addEdge(START, graphNodeKey(immutableDefinition.entryNodeId));
+    for (const node of immutableDefinition.nodes) {
+      const sourceKey = graphNodeKey(node.nodeId);
+      const outgoing = immutableDefinition.edges.filter(
+        (edge) => edge.sourceNodeId === node.nodeId,
+      );
+      const effectiveOutgoing = outgoing.filter(
+        (edge) => !joinedEdges.has(`${edge.sourceNodeId}->${edge.targetNodeId}`),
+      );
+      if (immutableDefinition.exitNodeIds.includes(node.nodeId) || node.type === 'result') {
+        const handler = handlers.get(node.nodeId);
+        if (handler === undefined) graph.addEdge(sourceKey, END);
+        else
+          graph.addConditionalEdges(sourceKey, (state) => routeKey(state.routes[node.nodeId]), [
+            graphNodeKey(handler.nodeId),
+            END,
+          ]);
+        continue;
+      }
+      if (node.type === 'parallel') {
+        for (const target of node.branchEntryNodeIds)
+          graph.addEdge(sourceKey, graphNodeKey(target));
+        continue;
+      }
+      if (outgoing.length > 0 && effectiveOutgoing.length === 0) {
+        const waitCapableJoinGates = parallelJoins
+          .filter(
+            (join) =>
+              isExternallyWaitCapable(node) && join.predecessorNodeIds.includes(node.nodeId),
+          )
+          .map((join) => parallelJoinGateKey(join.joinNodeId, node.nodeId));
+        if (waitCapableJoinGates.length > 0)
+          graph.addConditionalEdges(
+            sourceKey,
+            (state) =>
+              Object.values(state.waitingNodeRuns).some((waiting) => waiting.nodeId === node.nodeId)
+                ? END
+                : waitCapableJoinGates,
+            [...waitCapableJoinGates, END],
+          );
+        continue;
+      }
+      const routeTargets = routeTargetIds(node, effectiveOutgoing, handlers.get(node.nodeId));
+      if (routeTargets.length === 0) graph.addEdge(sourceKey, END);
+      else if (routeTargets.length === 1 && !requiresConditionalRouting(node, handlers)) {
+        const target = routeTargets[0];
+        if (target === undefined)
+          throw new WorkflowCompilerError('WORKFLOW_ROUTE_MISSING', 'Static route is missing.');
+        graph.addEdge(sourceKey, graphNodeKey(target));
+      } else
         graph.addConditionalEdges(sourceKey, (state) => routeKey(state.routes[node.nodeId]), [
-          graphNodeKey(handler.nodeId),
+          ...routeTargets.map(graphNodeKey),
           END,
         ]);
-      continue;
     }
-    if (node.type === 'parallel') {
-      for (const target of node.branchEntryNodeIds) graph.addEdge(sourceKey, graphNodeKey(target));
-      continue;
+    for (const join of parallelJoins) {
+      const completed = new Set(
+        persistedParallelJoinState
+          .find((state) => state.joinNodeId === join.joinNodeId)
+          ?.arrivals.map((arrival) => arrival.predecessorNodeId) ?? [],
+      );
+      const outstanding = join.predecessorNodeIds.filter(
+        (predecessorNodeId) => !completed.has(predecessorNodeId),
+      );
+      if (outstanding.length === 0) {
+        // A fresh Command invocation bypasses START. This dormant edge keeps a fully-arrived
+        // join reachable for LangGraph validation while the Command selects the exact frontier.
+        graph.addEdge(START, graphNodeKey(join.joinNodeId));
+        continue;
+      }
+      const predecessorKeys = outstanding.map((predecessorNodeId) =>
+        parallelJoinPredecessorKey(immutableDefinition, join.joinNodeId, predecessorNodeId),
+      );
+      const firstPredecessorKey = predecessorKeys[0];
+      if (firstPredecessorKey === undefined)
+        throw new WorkflowCompilerError(
+          'WORKFLOW_DEFINITION_INVALID',
+          'Parallel join continuation has no outstanding predecessor.',
+        );
+      graph.addEdge(
+        predecessorKeys.length === 1 ? firstPredecessorKey : predecessorKeys,
+        graphNodeKey(join.joinNodeId),
+      );
     }
-    if (outgoing.length > 0 && effectiveOutgoing.length === 0) continue;
-    const routeTargets = routeTargetIds(node, effectiveOutgoing, handlers.get(node.nodeId));
-    if (routeTargets.length === 0) graph.addEdge(sourceKey, END);
-    else if (routeTargets.length === 1 && !requiresConditionalRouting(node, handlers)) {
-      const target = routeTargets[0];
-      if (target === undefined)
-        throw new WorkflowCompilerError('WORKFLOW_ROUTE_MISSING', 'Static route is missing.');
-      graph.addEdge(sourceKey, graphNodeKey(target));
-    } else
-      graph.addConditionalEdges(sourceKey, (state) => routeKey(state.routes[node.nodeId]), [
-        ...routeTargets.map(graphNodeKey),
-        END,
-      ]);
-  }
-  for (const join of parallelJoins)
-    graph.addEdge(join.predecessorNodeIds.map(graphNodeKey), graphNodeKey(join.joinNodeId));
-  const executable = graph.compile({
-    name: immutableDefinition.workflowDefinitionId,
-    checkpointer: new MemorySaver(),
-  });
+    return graph.compile({
+      name: immutableDefinition.workflowDefinitionId,
+      checkpointer: new MemorySaver(),
+    });
+  };
+  const executable = buildExecutable();
   const resultFromState = (
     state: WorkflowExecutionState & Readonly<Record<string, unknown>>,
+    budgetLimits: WorkflowBudgetLimits,
     previousEventCount = 0,
   ): WorkflowExecutionResult => {
     const pending = pendingConfirmation(state);
+    const runtimeContext = requiredRuntimeContext(runtimeContexts, state.executionId);
+    const budgetUsage = runtimeContext.budgetMeter.snapshot();
+    const hasExternalWait = Object.keys(state.waitingNodeRuns).length > 0;
+    const continuation =
+      !state.failed && hasExternalWait
+        ? runtimeContinuationState(
+            state,
+            budgetLimits,
+            budgetUsage,
+            runtimeContext.executionContext,
+          )
+        : undefined;
     return {
-      status: pending === undefined ? (state.failed ? 'failed' : 'succeeded') : 'paused',
+      status:
+        pending !== undefined
+          ? 'paused'
+          : state.failed
+            ? 'failed'
+            : hasExternalWait
+              ? 'waiting_external'
+              : 'succeeded',
       ...(state.result === undefined ? {} : { result: state.result }),
       outputs: state.outputs,
       errors: state.errors,
       loopCounts: state.loopCounts,
       recoveryCounts: state.recoveryCounts,
       events: state.events.slice(previousEventCount),
-      budgetUsage: requiredRuntimeContext(
-        runtimeContexts,
-        state.executionId,
-      ).budgetMeter.snapshot(),
+      budgetUsage,
+      ...(continuation === undefined ? {} : { continuation }),
       ...(pending === undefined ? {} : { pendingConfirmation: pending }),
     };
   };
@@ -336,6 +462,10 @@ export function compileWorkflow(
             routes: {},
             loopCounts: {},
             recoveryCounts: {},
+            waitingNodeRuns: {},
+            completedNodeRunIds: [],
+            nodeRunCounts: {},
+            parallelJoinState: initialParallelJoinState(parallelJoins),
             events: [],
             failed: false,
           },
@@ -344,7 +474,7 @@ export function compileWorkflow(
             ...(signal === undefined ? {} : { signal }),
           },
         );
-        return resultFromState(state);
+        return resultFromState(state, budgetLimits);
       } catch (error: unknown) {
         if (
           error instanceof WorkflowCanceledError ||
@@ -353,6 +483,7 @@ export function compileWorkflow(
           const state = await executable.getState({ configurable: { thread_id: runId } });
           const result = resultFromState(
             state.values as WorkflowExecutionState & Readonly<Record<string, unknown>>,
+            budgetLimits,
           );
           runtimeContexts.delete(runId);
           return {
@@ -402,9 +533,70 @@ export function compileWorkflow(
       const before = await executable.getState(config);
       const previousEventCount = workflowEventCount(before.values);
       const state = await executable.invoke(new Command({ resume: confirmed }), config);
-      const result = resultFromState(state, previousEventCount);
+      const result = resultFromState(state, existingContext.budgetMeter.limits, previousEventCount);
       if (result.status !== 'paused') runtimeContexts.delete(executionId);
       return result;
+    },
+    async continueExternal(
+      executionId,
+      continuation,
+      resolution,
+      callCosts,
+      signal,
+      continuationAttemptId,
+    ) {
+      const restored = restoreExternalResolution(
+        executionId,
+        continuation,
+        resolution,
+        immutableDefinition,
+        handlers,
+        parallelJoins,
+        ports.now,
+      );
+      const budgetMeter = new WorkflowBudgetMeter(
+        continuation.budgetLimits,
+        callCosts,
+        ports.nowMilliseconds,
+        continuation.budgetUsage,
+      );
+      runtimeContexts.set(executionId, {
+        budgetMeter,
+        control: {
+          pauseRequested: false,
+          cancelRequested: false,
+          activeCallAbort: new AbortController(),
+          pendingSkillReservations: new Set(),
+        },
+        ...(signal === undefined ? {} : { signal }),
+        executionContext: continuation.executionContext,
+      });
+      const continuationExecutable = buildExecutable(restored.state.parallelJoinState);
+      if (restored.frontier.length === 0) {
+        const result = resultFromState(
+          restored.state as WorkflowExecutionState & Readonly<Record<string, unknown>>,
+          continuation.budgetLimits,
+        );
+        runtimeContexts.delete(executionId);
+        return result;
+      }
+      const threadId =
+        continuationAttemptId ?? `${executionId}~external~${encodeURIComponent(resolution.waitId)}`;
+      try {
+        const state = await continuationExecutable.invoke(
+          new Command({
+            update: restored.state as unknown as Record<string, unknown>,
+            goto: restored.frontier.map((entry) => graphNodeKey(entry.nodeId)),
+          }),
+          {
+            configurable: { thread_id: threadId },
+            ...(signal === undefined ? {} : { signal }),
+          },
+        );
+        return resultFromState(state, continuation.budgetLimits);
+      } finally {
+        runtimeContexts.delete(executionId);
+      }
     },
     requestPause(executionId) {
       const context = runtimeContexts.get(executionId);
@@ -567,6 +759,10 @@ function createNodeAction(
   node: WorkflowNode,
   definition: WorkflowDefinition,
   handlers: ReadonlyMap<string, Extract<WorkflowNode, { type: 'error_handler' }>>,
+  parallelJoins: readonly Readonly<{
+    predecessorNodeIds: readonly string[];
+    joinNodeId: string;
+  }>[],
   ports: WorkflowRuntimePorts,
   runtimeContext: (executionId: string) => Readonly<{
     budgetMeter: WorkflowBudgetMeter;
@@ -606,22 +802,35 @@ function createNodeAction(
       summary: `${node.type} node started.`,
     };
     try {
-      const update = await executeNode(
-        node,
-        state,
-        definition,
-        ports,
-        context,
-        workflowNodeRunId(state, node.nodeId),
-      );
+      const nodeRunId = workflowNodeRunId(state, node.nodeId);
+      const update = await executeNode(node, state, definition, ports, context, nodeRunId);
+      if (update.waitingNodeRuns?.[nodeRunId] !== undefined)
+        return {
+          ...update,
+          nodeRunCounts: { [node.nodeId]: (state.nodeRunCounts[node.nodeId] ?? 0) + 1 },
+          events: [
+            started,
+            {
+              nodeId: node.nodeId,
+              type: 'node_waiting_external',
+              timestamp: ports.now(),
+              durationMs: Math.max(0, ports.nowMilliseconds() - startedAtMilliseconds),
+              summary: `${node.type} node is waiting for an external result.`,
+            },
+          ],
+        };
       const handler = handlers.get(node.nodeId);
       const successRoute =
-        handler === undefined || update.routes?.[node.nodeId] !== undefined
+        update.routes?.[node.nodeId] !== undefined ||
+        (handler === undefined && !isExternallyWaitCapable(node))
           ? {}
           : { routes: { [node.nodeId]: defaultTarget(definition, node.nodeId) ?? END } };
       return {
         ...update,
         ...successRoute,
+        completedNodeRunIds: [nodeRunId],
+        nodeRunCounts: { [node.nodeId]: (state.nodeRunCounts[node.nodeId] ?? 0) + 1 },
+        parallelJoinState: parallelJoinArrivals(parallelJoins, node.nodeId, nodeRunId),
         events: [
           started,
           {
@@ -698,7 +907,7 @@ async function executeNode(
         node.taskExecution === undefined
           ? undefined
           : resolveMcpTaskExecution(node.taskExecution, state);
-      const value = await ports.callMcpTool({
+      const outcome = await ports.callMcpTool({
         executionId: state.executionId,
         workflowNodeRunId,
         workflowNodeId: node.nodeId,
@@ -709,7 +918,22 @@ async function executeNode(
         executionContext: runtimeContext.executionContext,
       });
       budgetMeter.assertDuration();
-      return output(node.nodeId, normalizeResultEnvelope(value));
+      if (outcome.kind === 'waiting_external') {
+        if (
+          outcome.wait.kind !== 'remote_task' ||
+          outcome.wait.nodeId !== node.nodeId ||
+          outcome.wait.nodeRunId !== workflowNodeRunId
+        )
+          throw new WorkflowCompilerError(
+            'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+            'External wait identity does not match the active Workflow node run.',
+          );
+        return {
+          waitingNodeRuns: { [workflowNodeRunId]: outcome.wait },
+          routes: { [node.nodeId]: END },
+        };
+      }
+      return output(node.nodeId, normalizeResultEnvelope(outcome.result));
     }
     case 'skill_call': {
       const reservationPending = runtimeContext.control.pendingSkillReservations.has(node.nodeId);
@@ -721,6 +945,7 @@ async function executeNode(
         input: inputSnapshot,
         parentExecutionId: state.executionId,
         parentNodeId: node.nodeId,
+        parentNodeRunId: workflowNodeRunId,
         signal: callSignal,
         executionContext: runtimeContext.executionContext,
       });
@@ -760,12 +985,28 @@ async function executeNode(
           input: inputSnapshot,
           parentExecutionId: state.executionId,
           parentNodeId: node.nodeId,
+          parentNodeRunId: workflowNodeRunId,
           signal: callSignal,
           executionContext: runtimeContext.executionContext,
         });
       }
       runtimeContext.control.pendingSkillReservations.delete(node.nodeId);
       budgetMeter.assertDuration();
+      if (result.status === 'waiting_external') {
+        if (
+          result.wait.kind !== 'child_workflow' ||
+          result.wait.nodeId !== node.nodeId ||
+          result.wait.nodeRunId !== workflowNodeRunId
+        )
+          throw new WorkflowCompilerError(
+            'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+            'Child Workflow wait identity does not match the active Skill call node run.',
+          );
+        return {
+          waitingNodeRuns: { [workflowNodeRunId]: result.wait },
+          routes: { [node.nodeId]: END },
+        };
+      }
       return output(node.nodeId, result.output);
     }
     case 'subworkflow': {
@@ -926,10 +1167,323 @@ async function executeNode(
 }
 
 function workflowNodeRunId(state: WorkflowExecutionState, nodeId: string): string {
-  const priorRuns = state.events.filter(
-    (event) => event.nodeId === nodeId && event.type === 'node_started',
-  ).length;
-  return `${state.executionId}~${encodeURIComponent(nodeId)}~${String(priorRuns + 1)}`;
+  const nextRunOrdinal = (state.nodeRunCounts[nodeId] ?? 0) + 1;
+  return `${state.executionId}~${encodeURIComponent(nodeId)}~${String(nextRunOrdinal)}`;
+}
+
+function mergeNodeRunCounts(
+  left: Readonly<Record<string, number>>,
+  right: Readonly<Record<string, number>>,
+): Readonly<Record<string, number>> {
+  const merged: Record<string, number> = { ...left };
+  for (const [nodeId, count] of Object.entries(right))
+    merged[nodeId] = Math.max(merged[nodeId] ?? 0, count);
+  return merged;
+}
+
+function mergeParallelJoinStates(
+  left: readonly WorkflowParallelJoinState[],
+  right: readonly WorkflowParallelJoinState[],
+): readonly WorkflowParallelJoinState[] {
+  const merged = new Map<string, WorkflowParallelJoinState>();
+  for (const state of [...left, ...right]) {
+    const prior = merged.get(state.joinKey);
+    if (prior === undefined) {
+      merged.set(state.joinKey, state);
+      continue;
+    }
+    const arrivals = new Map(
+      prior.arrivals.map((arrival) => [arrival.predecessorNodeId, arrival] as const),
+    );
+    for (const arrival of state.arrivals) arrivals.set(arrival.predecessorNodeId, arrival);
+    merged.set(state.joinKey, { ...prior, arrivals: [...arrivals.values()] });
+  }
+  return [...merged.values()];
+}
+
+function parallelJoinArrivals(
+  joins: readonly Readonly<{
+    predecessorNodeIds: readonly string[];
+    joinNodeId: string;
+  }>[],
+  completedNodeId: string,
+  completedNodeRunId: string,
+): readonly WorkflowParallelJoinState[] {
+  return joins
+    .filter((join) => join.predecessorNodeIds.includes(completedNodeId))
+    .map((join) => ({
+      joinKey: parallelJoinKey(join.joinNodeId),
+      joinNodeId: join.joinNodeId,
+      requiredPredecessorNodeIds: join.predecessorNodeIds,
+      arrivals: [{ predecessorNodeId: completedNodeId, predecessorNodeRunId: completedNodeRunId }],
+    }));
+}
+
+function parallelJoinKey(joinNodeId: string): string {
+  return `parallel-join:${encodeURIComponent(joinNodeId)}`;
+}
+
+function parallelJoinGateKey(joinNodeId: string, predecessorNodeId: string): string {
+  return `parallel_join_gate__${encodeURIComponent(joinNodeId)}__${encodeURIComponent(predecessorNodeId)}`;
+}
+
+function parallelJoinPredecessorKey(
+  definition: WorkflowDefinition,
+  joinNodeId: string,
+  predecessorNodeId: string,
+): string {
+  const predecessor = definition.nodes.find((node) => node.nodeId === predecessorNodeId);
+  return predecessor !== undefined && isExternallyWaitCapable(predecessor)
+    ? parallelJoinGateKey(joinNodeId, predecessorNodeId)
+    : graphNodeKey(predecessorNodeId);
+}
+
+function initialParallelJoinState(
+  joins: readonly Readonly<{
+    predecessorNodeIds: readonly string[];
+    joinNodeId: string;
+  }>[],
+): readonly WorkflowParallelJoinState[] {
+  return joins.map((join) => ({
+    joinKey: parallelJoinKey(join.joinNodeId),
+    joinNodeId: join.joinNodeId,
+    requiredPredecessorNodeIds: join.predecessorNodeIds,
+    arrivals: [],
+  }));
+}
+
+function runtimeContinuationState(
+  state: WorkflowExecutionState,
+  budgetLimits: WorkflowBudgetLimits,
+  budgetUsage: WorkflowBudgetUsage,
+  executionContext: RuntimeExecutionContext,
+): WorkflowRuntimeContinuationState {
+  return {
+    input: state.input,
+    waitingNodeRuns: Object.values(state.waitingNodeRuns),
+    runnableFrontier: [],
+    completedNodeRunIds: state.completedNodeRunIds,
+    nodeRunCounts: state.nodeRunCounts,
+    outputs: state.outputs,
+    errors: state.errors,
+    routes: state.routes,
+    loopCounts: state.loopCounts,
+    recoveryCounts: state.recoveryCounts,
+    parallelJoinState: state.parallelJoinState,
+    ...(state.result === undefined ? {} : { result: state.result }),
+    failed: state.failed,
+    executionContext,
+    budgetLimits,
+    budgetUsage,
+  };
+}
+
+function restoreExternalResolution(
+  executionId: string,
+  continuation: WorkflowRuntimeContinuationState,
+  resolution: WorkflowExternalWaitResolution,
+  definition: WorkflowDefinition,
+  handlers: ReadonlyMap<string, Extract<WorkflowNode, { type: 'error_handler' }>>,
+  parallelJoins: readonly Readonly<{
+    predecessorNodeIds: readonly string[];
+    joinNodeId: string;
+  }>[],
+  now: () => string,
+): Readonly<{
+  state: WorkflowExecutionState;
+  frontier: WorkflowRuntimeContinuationState['runnableFrontier'];
+}> {
+  const waiting = continuation.waitingNodeRuns.find(
+    (candidate) =>
+      candidate.waitId === resolution.waitId && candidate.nodeRunId === resolution.nodeRunId,
+  );
+  if (waiting === undefined)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+      'External continuation does not match a persisted waiting node run.',
+    );
+  const waitingNodeRuns = Object.fromEntries(
+    continuation.waitingNodeRuns
+      .filter((candidate) => candidate.nodeRunId !== waiting.nodeRunId)
+      .map((candidate) => [candidate.nodeRunId, candidate] as const),
+  );
+  const completedNodeRunIds = [
+    ...new Set([...continuation.completedNodeRunIds, waiting.nodeRunId]),
+  ];
+  const parallelJoinState = mergeParallelJoinStates(
+    continuation.parallelJoinState,
+    parallelJoinArrivals(parallelJoins, waiting.nodeId, waiting.nodeRunId),
+  );
+  const outputs = { ...continuation.outputs };
+  const errors = workflowErrorRecord(continuation.errors);
+  const routes = workflowRouteRecord(continuation.routes);
+  let failed = continuation.failed;
+  let target: string | undefined;
+  let resolutionEvent: WorkflowExecutionEvent;
+  const remoteToolResult =
+    resolution.kind === 'completed' && waiting.kind === 'remote_task'
+      ? requireInternalToolResult(resolution.result)
+      : undefined;
+  const completedSuccessfully =
+    resolution.kind === 'completed' &&
+    (waiting.kind === 'child_workflow' || remoteToolResult?.isError === false);
+  if (resolution.kind === 'completed' && completedSuccessfully) {
+    outputs[waiting.nodeId] =
+      waiting.kind === 'child_workflow'
+        ? resolution.result
+        : normalizeResultEnvelope(requiredValue(remoteToolResult));
+    target = defaultTarget(definition, waiting.nodeId);
+    resolutionEvent = {
+      nodeId: waiting.nodeId,
+      type: 'node_succeeded',
+      timestamp: now(),
+      summary:
+        waiting.kind === 'child_workflow'
+          ? 'skill_call node received its child Workflow result.'
+          : 'mcp_tool node received its external result.',
+    };
+  } else {
+    if (resolution.kind === 'failed') validateExternalFailureCategory(waiting, resolution);
+    const error: WorkflowNodeRuntimeError =
+      resolution.kind === 'completed'
+        ? createProviderBusinessNodeError(
+            classifyProviderBusinessOutcome(requiredValue(remoteToolResult)),
+          )
+        : { code: resolution.error.code, message: resolution.error.message };
+    errors[waiting.nodeId] = error;
+    const handler = handlers.get(waiting.nodeId);
+    if (handler === undefined) failed = true;
+    else target = handler.nodeId;
+    resolutionEvent = {
+      nodeId: waiting.nodeId,
+      type: 'node_failed',
+      timestamp: now(),
+      summary: `${waiting.kind === 'child_workflow' ? 'skill_call' : 'mcp_tool'} node received external failure ${error.code}.`,
+    };
+  }
+  routes[waiting.nodeId] = target ?? END;
+  const candidateFrontier = [
+    ...continuation.runnableFrontier,
+    ...(target === undefined
+      ? []
+      : [{ nodeId: target, nextRunOrdinal: (continuation.nodeRunCounts[target] ?? 0) + 1 }]),
+  ];
+  const frontier = runnableContinuationFrontier(candidateFrontier, parallelJoinState);
+  return {
+    state: {
+      executionId,
+      input: continuation.input,
+      outputs,
+      errors,
+      routes,
+      loopCounts: continuation.loopCounts,
+      recoveryCounts: continuation.recoveryCounts,
+      waitingNodeRuns,
+      completedNodeRunIds,
+      nodeRunCounts: continuation.nodeRunCounts,
+      parallelJoinState,
+      events: [resolutionEvent],
+      ...(continuation.result === undefined ? {} : { result: continuation.result }),
+      failed,
+    },
+    frontier,
+  };
+}
+
+function requireInternalToolResult(value: unknown): InternalToolResult {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value['content']) ||
+    typeof value['isError'] !== 'boolean' ||
+    (value['metadata'] !== undefined && !isRecord(value['metadata']))
+  )
+    throw new WorkflowCompilerError(
+      'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+      'Remote MCP Task continuation result is not a valid internal Tool result.',
+    );
+  return value as unknown as InternalToolResult;
+}
+
+function requiredValue<T>(value: T | undefined): T {
+  if (value === undefined)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+      'External continuation result is missing.',
+    );
+  return value;
+}
+
+function validateExternalFailureCategory(
+  waiting: WorkflowExternalWaitRef,
+  resolution: Extract<WorkflowExternalWaitResolution, { kind: 'failed' }>,
+): void {
+  const valid =
+    waiting.kind === 'remote_task'
+      ? resolution.error.category === 'provider_failed' ||
+        resolution.error.category === 'provider_cancelled'
+      : resolution.error.category === 'child_failed' ||
+        resolution.error.category === 'child_cancelled';
+  if (!valid)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+      'External continuation failure category does not match the persisted wait kind.',
+    );
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function runnableContinuationFrontier(
+  candidates: WorkflowRuntimeContinuationState['runnableFrontier'],
+  joins: readonly WorkflowParallelJoinState[],
+): WorkflowRuntimeContinuationState['runnableFrontier'] {
+  const unique = new Map(candidates.map((candidate) => [candidate.nodeId, candidate] as const));
+  return [...unique.values()].filter((candidate) => {
+    const join = joins.find((value) => value.joinNodeId === candidate.nodeId);
+    if (join === undefined) return true;
+    const arrivals = new Set(join.arrivals.map((arrival) => arrival.predecessorNodeId));
+    return join.requiredPredecessorNodeIds.every((nodeId) => arrivals.has(nodeId));
+  });
+}
+
+function workflowErrorRecord(
+  value: Readonly<Record<string, unknown>>,
+): Record<string, WorkflowNodeRuntimeError> {
+  const errors: Record<string, WorkflowNodeRuntimeError> = {};
+  for (const [nodeId, error] of Object.entries(value)) {
+    if (
+      typeof error !== 'object' ||
+      error === null ||
+      !('code' in error) ||
+      typeof error.code !== 'string' ||
+      !('message' in error) ||
+      typeof error.message !== 'string'
+    )
+      throw new WorkflowCompilerError(
+        'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+        'Persisted Workflow continuation errors are invalid.',
+      );
+    errors[nodeId] = {
+      code: error.code,
+      message: error.message,
+      ...('details' in error && error.details !== undefined ? { details: error.details } : {}),
+    };
+  }
+  return errors;
+}
+
+function workflowRouteRecord(value: Readonly<Record<string, unknown>>): Record<string, string> {
+  const routes: Record<string, string> = {};
+  for (const [nodeId, target] of Object.entries(value)) {
+    if (typeof target !== 'string')
+      throw new WorkflowCompilerError(
+        'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+        'Persisted Workflow continuation routes are invalid.',
+      );
+    routes[nodeId] = target;
+  }
+  return routes;
 }
 
 function output(nodeId: string, value: unknown): StateUpdate {
@@ -977,12 +1531,17 @@ function recoveryKey(nodeId: string, option: WorkflowRecoveryOption): string {
   return `${nodeId}:${option.action}:${option.targetNodeId}`;
 }
 
+function isExternallyWaitCapable(node: WorkflowNode): boolean {
+  return node.type === 'mcp_tool' || node.type === 'skill_call';
+}
+
 function requiresConditionalRouting(
   node: WorkflowNode,
   handlers: ReadonlyMap<string, Extract<WorkflowNode, { type: 'error_handler' }>>,
 ): boolean {
   return (
     ['condition', 'loop', 'human_confirmation', 'error_handler'].includes(node.type) ||
+    isExternallyWaitCapable(node) ||
     handlers.has(node.nodeId)
   );
 }
@@ -1076,6 +1635,8 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
+  | 'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID'
+  | 'WORKFLOW_EXTERNAL_CONTINUATION_INVALID'
   | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'
   | 'WORKFLOW_CHECKPOINT_NOT_AVAILABLE';
 
@@ -1108,12 +1669,27 @@ class WorkflowBudgetMeter {
   #mcpCalls = 0;
   #cost = 0;
 
-  constructor(limits: WorkflowBudgetLimits, costs: WorkflowCallCosts, now: () => number) {
+  constructor(
+    limits: WorkflowBudgetLimits,
+    costs: WorkflowCallCosts,
+    now: () => number,
+    initialUsage?: WorkflowBudgetUsage,
+  ) {
     validateMeterInputs(limits, costs);
     this.#limits = limits;
     this.#costs = costs;
     this.#now = now;
+    if (initialUsage !== undefined) {
+      this.#elapsedMs = initialUsage.durationMs;
+      this.#llmCalls = initialUsage.llmCalls;
+      this.#mcpCalls = initialUsage.mcpCalls;
+      this.#cost = initialUsage.cost;
+    }
     this.#activeStartedAt = now();
+  }
+
+  get limits(): WorkflowBudgetLimits {
+    return this.#limits;
   }
 
   assertDuration(): void {
