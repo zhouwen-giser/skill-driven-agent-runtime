@@ -311,6 +311,9 @@
                 "type": { "const": "error_handler" },
                 "handledNodeId": { "$ref": "#/$defs/id" },
                 "strategy": { "enum": ["terminate", "continue", "goto"] },
+                "skillFailurePolicy": {
+                  "enum": ["fail_fast", "recoverable", "optional", "degraded"]
+                },
                 "gotoNodeId": { "$ref": "#/$defs/id" },
                 "recoveryOptions": {
                   "type": "array",

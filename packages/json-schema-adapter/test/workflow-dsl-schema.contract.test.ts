@@ -42,6 +42,38 @@ describe('Workflow DSL JSON Schema contract', () => {
     expect(
       validator.validate(schema, {
         ...base,
+        entryNodeId: 'child',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'skill_call',
+            skillId: 'skill.child',
+            input: { op: 'ref', path: ['input'] },
+          },
+          {
+            nodeId: 'handler',
+            name: 'Recover child',
+            type: 'error_handler',
+            handledNodeId: 'child',
+            strategy: 'goto',
+            skillFailurePolicy: 'recoverable',
+            gotoNodeId: 'result',
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+      }).valid,
+    ).toBe(true);
+    expect(
+      validator.validate(schema, {
+        ...base,
         entryNodeId: 'loop',
         exitNodeIds: ['loop'],
         nodes: [

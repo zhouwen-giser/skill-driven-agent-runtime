@@ -1,6 +1,6 @@
 # SDAR v1.2 Skill-Driven Capability Usage — Normalized Design
 
-Status: Phase 8 Provider readiness and Task Type binding implemented and verified; Phase 9 planning compliance next
+Status: Phase 9 mode compilation and plan compliance implemented and verified; Phase 10 runtime wiring next
 Date: 2026-07-17
 ExecPlan: `execplans/EP-10-v1.2-skill-driven-capability-usage.md`
 
@@ -98,6 +98,15 @@ reasoning fields, functions, prototypes or cyclic values.
 
 Every mode ends at the same Workflow authority. Mode selection is a structured deterministic decision
 bounded by Skill support, context completeness, risk, readiness, confirmation and system policy.
+
+Phase 9 adds an exact-version `SkillUsagePlanPolicy`. Guidance injects only that bounded structured
+policy and the complete Goal contract into the existing Planner. Template and procedure IR compile to
+the existing `WorkflowDefinition`; parameter mappings become restricted references, selected Task
+bindings become exact MCP nodes, and context/evidence hard gates become restricted conditions with an
+unsuccessful false branch. The existing Validator then applies structural Skill Usage compliance before
+readiness and confirmation. Natural-language normative/forbidden items are projected verbatim into an
+existing human-confirmation node because model explanations cannot prove semantic compliance. ADR-105
+records this boundary.
 
 ## Composition and failure
 

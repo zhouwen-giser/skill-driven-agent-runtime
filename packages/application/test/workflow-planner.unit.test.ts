@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   snapshotSkillVersion,
+  snapshotSkillUsageCompositionPlan,
   type SkillCompositionContext,
+  type SkillUsagePlanPolicy,
   type SkillVersion,
   type WorkflowDefinition,
   type WorkflowPlanAttempt,
@@ -18,6 +20,28 @@ import {
 } from '../src/index.js';
 
 describe('WorkflowPlannerService', () => {
+  it('validates deterministic Skill template/procedure candidates before any model repair', async () => {
+    const directRepository = new MemoryPlanRepository();
+    const directModel = new SequenceModel([]);
+    const direct = await planner(directRepository, directModel).plan({
+      ...input(),
+      skillUsagePolicy: emptySkillUsagePolicy(),
+      deterministicDefinition: validDefinition(),
+    });
+    expect(direct.attemptCount).toBe(1);
+    expect(directModel.calls).toHaveLength(0);
+
+    const repairRepository = new MemoryPlanRepository();
+    const repairModel = new SequenceModel([validDefinition()]);
+    const repaired = await planner(repairRepository, repairModel).plan({
+      ...input(),
+      skillUsagePolicy: emptySkillUsagePolicy(),
+      deterministicDefinition: { invalid: true } as unknown as WorkflowDefinition,
+    });
+    expect(repaired.attemptCount).toBe(2);
+    expect(repairModel.calls[0]?.correctionErrors.join(' ')).toContain('WORKFLOW_SCHEMA_INVALID');
+  });
+
   it('feeds structured validation errors back and saves every candidate', async () => {
     const repository = new MemoryPlanRepository();
     const model = new SequenceModel([{ nodes: [{ type: 'javascript' }] }, validDefinition()]);
@@ -536,6 +560,50 @@ function compositionSkill(skillId: string): SkillVersion {
     sourceKind: 'admin',
     validationPassed: true,
     createdAt: '2026-07-12T00:00:00.000Z',
+  };
+}
+
+function emptySkillUsagePolicy(): SkillUsagePlanPolicy {
+  const composition = snapshotSkillUsageCompositionPlan({
+    root: { skillId: 'skill.parent', skillVersion: 1 },
+    expandedSkills: [{ skillId: 'skill.parent', skillVersion: 1 }],
+    edges: [],
+    maxDepth: 3,
+    consumedDepth: 0,
+    consumedSkills: 1,
+    consumedNodes: 0,
+  });
+  return {
+    skill: composition.root,
+    mode: 'guidance',
+    modeDecision: {
+      decision: 'selected',
+      mode: 'guidance',
+      confirmationRequired: false,
+      confirmationSatisfied: true,
+      reasonCodes: [],
+    },
+    constraints: [],
+    forbiddenActions: [],
+    adaptiveInstructions: ['Plan safely.'],
+    requiredConfirmations: [],
+    requiredContextIds: [],
+    allowedTools: [],
+    taskOperations: [],
+    childPolicies: [],
+    evidenceRequirements: [],
+    rejectSuccessWithoutRequiredEvidence: false,
+    composition,
+    context: {
+      requirements: [],
+      satisfied: 0,
+      total: 0,
+      complete: true,
+      inputRequiredIds: [],
+      unsatisfiedIds: [],
+      unknownIds: [],
+    },
+    readiness: { overall: 'ready', bindings: [] },
   };
 }
 

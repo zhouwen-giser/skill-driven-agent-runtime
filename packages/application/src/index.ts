@@ -10,6 +10,7 @@ export * from './skill-registry.js';
 export * from './skill-package-loader.js';
 export * from './skill-usage-selection.js';
 export * from './skill-task-readiness.js';
+export * from './skill-usage-planning.js';
 export * from './skill-graph.js';
 export * from './skill-selection.js';
 export * from './skill-input-resolution.js';

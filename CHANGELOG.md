@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 9 exact-version Skill Usage planning policy, bounded guidance context, deterministic template/procedure-to-Workflow compilation, explicit Skill failure-policy DSL metadata and post-plan compliance checks through the existing Validator.
 - Phase 8 exact Skill Task Type resolution, deterministic validated-semantics candidate attributes, required/preferred/forbidden Provider policy filtering and immutable v1.1 live-readiness summaries in the production Skill selection path.
 - Phase 7 migration 0105 persists native exact-version Skill Usage snapshots and checksum-bound package import audit through the existing Registry transaction, with real validate/import, exact-version and filtered catalog API/Console surfaces.
 - Phase 6 regenerated main-baseline repository/symbol/overlap maps and ADR-097–103 for exact usage, three modes, normative authority, bounded composition, package import, V1.1 readiness/continuation reuse and minimal execution records.
@@ -39,6 +40,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 9 passed 68 focused planning/Validator/schema/LangGraph tests, all 448 unit tests and all 107 contract tests, including bounded repair and adversarial normative/Provider/depth/failure/confirmation/context/evidence compliance rejection.
 - SDAR v1.2 Phase 8 passed 23 focused readiness/usage/selection tests, 8 real MCP registry integration tests, 56 real PostgreSQL plan-snapshot repository tests and 48 real A2A/MCP E2E tests, including every required Provider policy/readiness edge and the selection-before-planning availability request.
 - SDAR v1.2 Phase 7 passed full format/lint/typecheck, 83 focused unit/contract tests, 56 real PostgreSQL repository tests, 48 real Server E2E tests, 114-operation OpenAPI, 246-source architecture, 69 migration pairs through isolated 0105, and production builds.
 - SDAR v1.2 Phase 6 post-main-sync self-managed Compose `pnpm verify` passed in 141,005 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, 68 migration pairs, production builds and both smoke gates.

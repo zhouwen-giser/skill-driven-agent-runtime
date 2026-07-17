@@ -3,6 +3,7 @@ import { DomainError } from './errors.js';
 import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from './mcp.js';
 import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
+import type { SkillFailurePolicy } from './skill-usage.js';
 import type {
   DslExecutionReadiness,
   McpTaskAvailabilityCheckMode,
@@ -109,6 +110,7 @@ export type WorkflowNode =
         type: 'error_handler';
         handledNodeId: string;
         strategy: 'terminate' | 'continue' | 'goto';
+        skillFailurePolicy?: SkillFailurePolicy | undefined;
         gotoNodeId?: string | undefined;
         recoveryOptions?: readonly WorkflowRecoveryOption[] | undefined;
       }>)

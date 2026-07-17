@@ -6,8 +6,10 @@ import type {
   WorkflowExpression,
   WorkflowNode,
   McpTaskExecutionSpec,
+  SkillUsagePlanPolicy,
 } from '../../domain/src/index.js';
 import type { JsonSchemaValidator, McpToolCatalog, SkillRepository } from './ports.js';
+import { checkSkillUsagePlanCompliance } from './skill-usage-planning.js';
 
 const Identifier = z
   .string()
@@ -136,6 +138,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('error_handler'),
       handledNodeId: Identifier,
       strategy: z.enum(['terminate', 'continue', 'goto']),
+      skillFailurePolicy: z.enum(['fail_fast', 'recoverable', 'optional', 'degraded']).optional(),
       gotoNodeId: Identifier.optional(),
       recoveryOptions: z
         .array(
@@ -195,6 +198,7 @@ export interface WorkflowValidationContext {
   readonly enforceSkillComposition?: boolean;
   readonly allowedChildSkillIds?: readonly string[];
   readonly capabilityGapSkillIds?: readonly string[];
+  readonly skillUsagePolicy?: SkillUsagePlanPolicy;
 }
 
 export class WorkflowValidator {
@@ -263,6 +267,8 @@ export class WorkflowValidator {
       validateNodeReferences(node, definition.nodes, ids, errors);
     validateConditionEdges(definition.nodes, definition.edges, errors);
     validateReachability(definition, ids, errors);
+    if (context.skillUsagePolicy !== undefined)
+      errors.push(...checkSkillUsagePlanCompliance(definition, context.skillUsagePolicy).errors);
     return errors.length === 0 ? { valid: true, errors, definition } : { valid: false, errors };
   }
   async #validateNode(
@@ -484,6 +490,22 @@ function validateNodeReferences(
             'Skill recovery must target a skill_call node.',
           );
       }
+    }
+    if (node.skillFailurePolicy !== undefined) {
+      const handled = nodes.find((candidate) => candidate.nodeId === node.handledNodeId);
+      const expectedStrategy =
+        node.skillFailurePolicy === 'fail_fast'
+          ? 'terminate'
+          : node.skillFailurePolicy === 'recoverable'
+            ? 'goto'
+            : 'continue';
+      if (handled?.type !== 'skill_call' || node.strategy !== expectedStrategy)
+        add(
+          errors,
+          'WORKFLOW_SKILL_FAILURE_POLICY_INVALID',
+          `nodes.${node.nodeId}.skillFailurePolicy`,
+          'Skill failure policy requires a matching skill_call handler strategy.',
+        );
     }
   }
 }
