@@ -83,6 +83,8 @@ export interface SkillFixedDependency {
   readonly skillId: string;
   readonly skillVersion?: number;
   readonly failurePolicy: SkillFailurePolicy;
+  readonly inputMappings?: readonly SkillValueMapping[];
+  readonly outputMappings?: readonly SkillValueMapping[];
 }
 
 export interface SkillCapabilitySlot {
@@ -91,6 +93,13 @@ export interface SkillCapabilitySlot {
   readonly required: boolean;
   readonly candidateSkillIds: readonly string[];
   readonly failurePolicy: SkillFailurePolicy;
+  readonly inputMappings?: readonly SkillValueMapping[];
+  readonly outputMappings?: readonly SkillValueMapping[];
+}
+
+export interface SkillValueMapping {
+  readonly sourcePath: string;
+  readonly targetPath: string;
 }
 
 export interface SkillCompositionSpecification {
@@ -355,6 +364,8 @@ function validateComposition(value: SkillCompositionSpecification): void {
     )
       invalid('Fixed dependency version must be a positive integer.');
     failurePolicy(dependency.failurePolicy);
+    validateMappings(dependency.inputMappings, 'fixed dependency input mapping');
+    validateMappings(dependency.outputMappings, 'fixed dependency output mapping');
   }
   for (const slot of value.capabilitySlots) {
     identifier(slot.slotId, 'Capability slot ID');
@@ -363,7 +374,38 @@ function validateComposition(value: SkillCompositionSpecification): void {
       invalid('Capability slot required flag must be boolean.');
     identifierList(slot.candidateSkillIds, 'capability slot candidate');
     failurePolicy(slot.failurePolicy);
+    validateMappings(slot.inputMappings, 'capability slot input mapping');
+    validateMappings(slot.outputMappings, 'capability slot output mapping');
   }
+}
+
+function validateMappings(mappings: readonly SkillValueMapping[] | undefined, label: string): void {
+  if (mappings === undefined) return;
+  bounded(mappings, label);
+  const targets = new Set<string>();
+  for (const mapping of mappings) {
+    const sourcePath = mappingPath(mapping.sourcePath, `${label} source`);
+    const targetPath = mappingPath(mapping.targetPath, `${label} target`);
+    if (targets.has(targetPath)) invalid(`${label} contains duplicate target paths.`);
+    targets.add(targetPath);
+    if (sourcePath === targetPath && sourcePath.startsWith('context.'))
+      invalid(`${label} cannot map a context path to the same context path.`);
+  }
+}
+
+function mappingPath(value: string, label: string): string {
+  const normalized = text(value, label);
+  const parts = normalized.split('.');
+  if (
+    parts.length > 16 ||
+    parts.some(
+      (part) =>
+        !/^[A-Za-z_][A-Za-z0-9_-]{0,63}$/u.test(part) ||
+        ['__proto__', 'prototype', 'constructor'].includes(part),
+    )
+  )
+    invalid(`${label} must be a bounded declarative property path.`);
+  return normalized;
 }
 
 function validateEvidence(value: SkillEvidencePolicy): void {

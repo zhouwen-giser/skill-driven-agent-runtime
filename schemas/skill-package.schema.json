@@ -327,7 +327,9 @@
         "dependencyId": { "$ref": "#/$defs/identifier" },
         "skillId": { "$ref": "#/$defs/identifier" },
         "skillVersion": { "type": "integer", "minimum": 1 },
-        "failurePolicy": { "$ref": "#/$defs/failurePolicy" }
+        "failurePolicy": { "$ref": "#/$defs/failurePolicy" },
+        "inputMappings": { "$ref": "#/$defs/valueMappings" },
+        "outputMappings": { "$ref": "#/$defs/valueMappings" }
       }
     },
     "failurePolicy": { "enum": ["fail_fast", "recoverable", "optional", "degraded"] },
@@ -340,8 +342,34 @@
         "capability": { "$ref": "#/$defs/boundedText" },
         "required": { "type": "boolean" },
         "candidateSkillIds": { "$ref": "#/$defs/identifierList" },
-        "failurePolicy": { "$ref": "#/$defs/failurePolicy" }
+        "failurePolicy": { "$ref": "#/$defs/failurePolicy" },
+        "inputMappings": { "$ref": "#/$defs/valueMappings" },
+        "outputMappings": { "$ref": "#/$defs/valueMappings" }
       }
+    },
+    "valueMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcePath", "targetPath"],
+      "properties": {
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*)*$"
+        },
+        "targetPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*)*$"
+        }
+      }
+    },
+    "valueMappings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/valueMapping" }
     },
     "composition": {
       "type": "object",

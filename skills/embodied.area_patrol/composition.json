@@ -5,7 +5,12 @@
       "dependencyId": "move-between-subregions",
       "skillId": "embodied.move_to",
       "skillVersion": 1,
-      "failurePolicy": "recoverable"
+      "failurePolicy": "recoverable",
+      "inputMappings": [
+        { "sourcePath": "resourceId", "targetPath": "resourceId" },
+        { "sourcePath": "context.subregionTarget", "targetPath": "target" }
+      ],
+      "outputMappings": [{ "sourcePath": "finalPosition", "targetPath": "evidence.trajectory" }]
     }
   ],
   "capabilitySlots": [
@@ -14,7 +19,9 @@
       "capability": "embodied.inspect_area",
       "required": true,
       "candidateSkillIds": [],
-      "failurePolicy": "degraded"
+      "failurePolicy": "degraded",
+      "inputMappings": [{ "sourcePath": "context.subregion", "targetPath": "area" }],
+      "outputMappings": [{ "sourcePath": "anomalies", "targetPath": "evidence.anomalies" }]
     }
   ]
 }

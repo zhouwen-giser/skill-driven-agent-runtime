@@ -92,7 +92,7 @@
     },
     "composition": {
       "path": "composition.json",
-      "sha256": "605bbfd4a317c6499c079843b5052ef3ff3ad6b1d40c51776c2a547d7246aca9"
+      "sha256": "149fb9b07d3912bb270b5d216df09acec9d4dfc4653a70df42c50fb9930ab546"
     },
     "evidence": {
       "path": "evidence.json",
