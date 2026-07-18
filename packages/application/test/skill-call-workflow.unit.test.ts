@@ -6,7 +6,11 @@ import type {
   WorkflowInstance,
   WorkflowPlanRecord,
 } from '../../domain/src/index.js';
-import { createSkillVersion } from '../../domain/src/index.js';
+import {
+  createSkillVersion,
+  snapshotSkillUsageCompositionPlan,
+  snapshotSkillUsagePlanPolicy,
+} from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   MAX_SKILL_CHILD_RESULT_CHARACTERS,
@@ -114,7 +118,7 @@ describe('SkillCallWorkflowService', () => {
       }),
     ).resolves.toEqual({ status: 'completed', output: { status: 'online' } });
 
-    expect(loadToolPlanningMetadata).toHaveBeenCalledWith(skill);
+    expect(loadToolPlanningMetadata).toHaveBeenCalledWith(skill, []);
     const planningCall = planner.plan.mock.calls[0]?.[0];
     if (planningCall === undefined) throw new Error('CHILD_PLANNING_CALL_MISSING');
     expect(JSON.parse(planningCall.planningInstruction)).toMatchObject({
@@ -213,6 +217,66 @@ describe('SkillCallWorkflowService', () => {
     ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION' });
     expect(harness.plan).not.toHaveBeenCalled();
     expect(harness.execute).not.toHaveBeenCalled();
+  });
+
+  it('uses a native parent Usage policy as exact child authority without legacy composition context', async () => {
+    const harness = serviceHarness({ parentPlan: nativeParentPlan([3]) });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).resolves.toMatchObject({ status: 'completed' });
+    expect(harness.plan).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an undeclared child when only native parent Usage authority is present', async () => {
+    const harness = serviceHarness({ parentPlan: nativeParentPlan([], 'skill.other') });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION' });
+    expect(harness.plan).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects native exact child authority after the current enabled version changes', async () => {
+    const harness = serviceHarness({ parentPlan: nativeParentPlan([3]) });
+    harness.setSkill({ ...harness.skill, version: 4, previousVersion: 3 });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_VERSION_STALE' });
+    expect(harness.plan).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
+  });
+
+  it('preserves legacy graph child authority when the Usage policy is only a compatibility projection', async () => {
+    const projected = nativeParentPlan([]);
+    const harness = serviceHarness({
+      parentPlan: {
+        ...projected,
+        compositionContext: {
+          selectedSkill: skillSnapshot('skill.root', 1),
+          relatedSkills: [skillSnapshot('skill.child', 3)],
+          relations: [
+            {
+              relationId: 'relation-root-child',
+              sourceSkillId: 'skill.root',
+              targetSkillId: 'skill.child',
+              relationType: 'parent_child',
+              metadata: {},
+              createdAt: '2026-07-12T00:00:00.000Z',
+            },
+          ],
+          allowedChildSkillIds: ['skill.child'],
+          decisionSummary: 'Legacy graph authority admits the registered child.',
+        },
+      },
+    });
+
+    await expect(
+      harness.service.execute(executionInput(harness.skill.skillId)),
+    ).resolves.toMatchObject({ status: 'completed' });
+    expect(harness.plan).toHaveBeenCalledOnce();
   });
 
   it('rejects invalid child output and records the failed Skill evaluation', async () => {
@@ -746,6 +810,82 @@ function childPlan(definition: WorkflowDefinition): WorkflowPlanRecord {
     attemptCount: 1,
     createdAt: '2026-07-12T00:00:01.000Z',
   };
+}
+
+function nativeParentPlan(
+  childVersions: readonly number[],
+  declaredSkillId = 'skill.child',
+): WorkflowPlanRecord {
+  const childPolicies = childVersions.map((version, index) => ({
+    edgeId: `native-child-${String(index)}`,
+    child: { skillId: declaredSkillId, skillVersion: version },
+    failurePolicy: 'fail_fast' as const,
+    inputMappings: [],
+    outputMappings: [],
+  }));
+  const root = { skillId: 'skill.root', skillVersion: 1 };
+  const composition = snapshotSkillUsageCompositionPlan({
+    root,
+    expandedSkills: [
+      root,
+      ...childVersions.map((version) => ({
+        skillId: declaredSkillId,
+        skillVersion: version,
+      })),
+    ],
+    edges: childPolicies.map((child, index) => ({
+      edgeId: child.edgeId,
+      kind: 'fixed_dependency' as const,
+      declarationId: `dependency-${String(index)}`,
+      parent: root,
+      child: child.child,
+      candidateSet: [child.child],
+      failurePolicy: child.failurePolicy,
+      inputMappings: [],
+      outputMappings: [],
+      depth: 1,
+    })),
+    maxDepth: 3,
+    consumedDepth: childPolicies.length === 0 ? 0 : 1,
+    consumedSkills: childPolicies.length + 1,
+    consumedNodes: childPolicies.length,
+  });
+  const definition: WorkflowDefinition = {
+    ...childDefinition(root.skillId, root.skillVersion),
+    skillUsagePolicy: snapshotSkillUsagePlanPolicy({
+      skill: root,
+      mode: 'procedure',
+      modeDecision: {
+        decision: 'selected',
+        mode: 'procedure',
+        confirmationRequired: true,
+        confirmationSatisfied: true,
+        reasonCodes: [],
+      },
+      constraints: [],
+      forbiddenActions: [],
+      adaptiveInstructions: [],
+      requiredConfirmations: [],
+      requiredContextIds: [],
+      allowedTools: [],
+      taskOperations: [],
+      childPolicies,
+      evidenceRequirements: [],
+      rejectSuccessWithoutRequiredEvidence: true,
+      composition,
+      context: {
+        requirements: [],
+        satisfied: 0,
+        total: 0,
+        complete: true,
+        inputRequiredIds: [],
+        unsatisfiedIds: [],
+        unknownIds: [],
+      },
+      readiness: { overall: 'ready', bindings: [] },
+    }),
+  };
+  return { ...childPlan(definition), planId: 'plan-parent' };
 }
 
 function childInstance(

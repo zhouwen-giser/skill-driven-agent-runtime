@@ -2,10 +2,26 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## [Unreleased]
+## [1.2.0] - 2026-07-18
 
 ### Added
 
+- Phase 14 adversarial coverage for prompt-injected self-attestation plus a 22-threat audit across package, selection, planning, Provider readiness, recursive execution, evidence, confirmation, restart and legacy behavior.
+- Phase 13 formal `embodied.area_patrol` recursive acceptance across exact fixed/dynamic child versions, bounded depth/cycles, four failure policies, parallel external waits, restart/cancel/input continuation, distinct degradation and complete parent/child execution trees.
+- Phase 12 formal `embodied.move_to` vertical acceptance across guidance/template/procedure modes, exact Task calls, V1.1 remote waiting/continuation/input/cancel/restart, final-position hard gates and complete execution records.
+- Phase 11 append-only Skill execution records with exact Goal/Skill/selection/policy/Workflow/Task identity, ordered lifecycle evidence, parent/child lineage, thin Provider/resource/RemoteTaskBinding/evidence/hard-gate/intervention/outcome references and queryable management trees.
+- Phase 10 exact selected Usage evidence, bounded composition/interpretation and immutable policy wiring through the existing Task→Workflow Planner→Validator→outer confirmation path, including policy persistence and replan/revision/Goal Patch inheritance.
+- Phase 9 exact-version Skill Usage planning policy, bounded guidance context, deterministic template/procedure-to-Workflow compilation, explicit Skill failure-policy DSL metadata and post-plan compliance checks through the existing Validator.
+- Phase 8 exact Skill Task Type resolution, deterministic validated-semantics candidate attributes, required/preferred/forbidden Provider policy filtering and immutable v1.1 live-readiness summaries in the production Skill selection path.
+- Phase 7 migration 0105 persists native exact-version Skill Usage snapshots and checksum-bound package import audit through the existing Registry transaction, with real validate/import, exact-version and filtered catalog API/Console surfaces.
+- Phase 6 regenerated main-baseline repository/symbol/overlap maps and ADR-097–103 for exact usage, three modes, normative authority, bounded composition, package import, V1.1 readiness/continuation reuse and minimal execution records.
+- Phase 5 bounded exact-version recursive composition through the existing Skill Graph/planner, dynamic capability slots, declarative parent/child mappings, immutable plans, four failure projections and safe guidance/template/procedure IR.
+- Phase 4 structured applicability/context/readiness/mode decisions, fixed context authority ordering, mock-only `SkillTaskReadinessPort` and fail-closed filtering before the existing Skill model decider.
+- Phase 3B reviewed `embodied.move_to` and `embodied.area_patrol` packages with three modes, Provider bindings, bounded composition/failure policy, evidence gates and checksum-pinned golden import snapshots.
+- Phase 3A immutable current/exact-version catalog summaries, native/legacy usage diff, package import continuity, lifecycle projection and visibility/mode/derived-domain/exact-capability-tag filters through the existing Skill Registry.
+- Phase 2 strict Skill Package JSON Schema, checksum-bound bounded UTF-8 reader, path/symlink/type/size guards, embedded-schema validation and immutable import candidates behind a filesystem adapter.
+- Phase 1 immutable `sdar.io/v1alpha1` Skill Usage contracts with native/legacy snapshots, normative/adaptive separation, three modes, bounded Provider/composition/evidence policies and candidate-only patches.
+- Frozen SDAR v1.2 EP-10, exact Goal task package, normalized Skill-driven capability-usage design, v1.1 overlap/symbol maps and recoverable Phase 0 baseline evidence.
 - Frozen SDAR v1.1 MCP Tasks EP-09, requirement/acceptance addendum, Provider extension contract, repository/symbol/hardening maps and exact OSS pins.
 - Phase 1 domain-owned immediate/remote result union, official v2 beta Tasks adapter, five-state snapshots, capability negotiation and real modern/legacy loopback contracts.
 - Phase 2 durable `RemoteTaskBinding`, ordered observations, idempotent controls/protocol attempts, isolated migration 0100, versioned PostgreSQL polling and one-attempt BullMQ reconciliation.
@@ -18,6 +34,15 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
+- PR #5 review hardening now applies exact declarative child output mappings after Schema validation on both immediate and persisted-continuation paths, binds empty child mappings to `skillInput`, gates mapped object evidence with a restricted presence expression, and excludes non-user-selectable Skills before top-level scoring/model selection.
+- Native Skill Usage child policy is now an exact recursive allowlist even without legacy composition context, while immutable legacy Usage projections continue to use the existing Skill Graph authority.
+- Deterministic Skill Usage execution now receives explicit `skillInput`, trusted context and Provider-evidence roots; terminal Skill execution status is published only after its outcome reference is durable.
+- The post-main released migration profile now applies the single monotonic chain through 0106; the disposable `v1.1-isolated` profile guard remains for compatibility tests and ledger gaps still fail closed.
+- Skill execution status is an append-only evidence projection of existing Task/Workflow/Provider authority; terminal projections cannot transition, and evidence-write failure never rewrites an authoritative terminal outcome.
+- Skill Usage confirmation uses the existing outer Workflow Plan boundary. The complete policy remains immutable review data and no duplicate in-graph confirmation node is generated.
+- Usage-aware selection is always wired when Skill selection is enabled; deployments without v1.1 Task metadata return no candidates for native Task bindings and fail closed, while the existing exact-argument pre-invocation readiness guard remains final.
+- V1.2 applied migration high-water is now 0106 for minimal Skill execution records.
+- ADR-096 keeps capability classification and lifecycle single-authority: catalog domains/tags derive from exact capabilities and lifecycle derives from existing Skill status.
 - v1.1 and the complete published `v1.0.13-bug-fixed` hardening chain are merged. V1.1 ADRs are renumbered above the hardening high-water mark to avoid ambiguous decision IDs.
 - The V1.1 migration compatibility guard now requires the complete released 0064 chain before 0100.
 - Local Task/Goal cancellation remains immediately authoritative locally while active remote bindings enter `cancel_observing`; only later Provider snapshots can establish remote `cancelled`, `completed` or `failed`.
@@ -26,6 +51,22 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- PR #5 review-blocker fix `df65de4` is published and all three review threads are resolved. Its focused gate passed format, lint, strict typecheck, all 465 unit tests, the 3 Workflow DSL contracts, 256-source architecture and production build. Full contract reached 111/112; the unchanged symlink fixture is blocked by Windows `EPERM` even elevated. Integration startup is blocked by an operator container owning fixed port 55432 and was not forced.
+- SDAR v1.2 Phase 15 clean release-candidate SHA `b3b6e67` passed every explicit final command and the 148,794 ms self-managed `pnpm verify`: 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116-operation OpenAPI, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, fresh 1.2.0 SBOM, build and both smoke stages.
+- SDAR v1.2 Phase 14 clean-feature-SHA self-managed `pnpm verify` passed at `74344ce` in 153,204 ms with 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116 OpenAPI operations, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, production build and both smoke stages.
+- SDAR v1.2 Phase 13 passed all 20 area-patrol scenarios at `83753db`: 569 unit/contract tests, 82 isolated real integration tests, 59 real PostgreSQL/Redis A2A E2E tests, empty/0049 migration verification, production smoke, format/lint/typecheck/build and 256-source architecture.
+- SDAR v1.2 Phase 12 passed all 14 move-to scenarios at `873ee80`: 565 unit/contract tests, 55 real PostgreSQL/Redis A2A E2E tests, 11 restart/remote integration tests, format/lint/typecheck, production build and 256-source architecture.
+- SDAR v1.2 Phase 11 clean-feature-SHA format/lint/typecheck, 562 unit/contract tests, 256-source architecture, 116-operation OpenAPI and production build passed at `dc55f47`; real PostgreSQL repositories passed 57/57, final remote continuation runtimes passed 10/10, and the 0106 released/rollback/reapply/gap path passed.
+- SDAR v1.2 Phase 10 clean-tree `pnpm verify` passed at `efb03e8` in 106,796 ms with 556 unit/contract tests, 81 real integration tests, 50 real E2E tests, 251-source architecture, 69 migrations, production builds and both smoke stages.
+- SDAR v1.2 Phase 9 passed 68 focused planning/Validator/schema/LangGraph tests, all 448 unit tests and all 107 contract tests, including bounded repair, outer-plan confirmation preservation and adversarial normative/Provider/depth/failure/context/evidence compliance rejection.
+- SDAR v1.2 Phase 8 passed 23 focused readiness/usage/selection tests, 8 real MCP registry integration tests, 56 real PostgreSQL plan-snapshot repository tests and 48 real A2A/MCP E2E tests, including every required Provider policy/readiness edge and the selection-before-planning availability request.
+- SDAR v1.2 Phase 7 passed full format/lint/typecheck, 83 focused unit/contract tests, 56 real PostgreSQL repository tests, 48 real Server E2E tests, 114-operation OpenAPI, 246-source architecture, 69 migration pairs through isolated 0105, and production builds.
+- SDAR v1.2 Phase 6 post-main-sync self-managed Compose `pnpm verify` passed in 141,005 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, 68 migration pairs, production builds and both smoke gates.
+- SDAR v1.2 Phase 5 self-managed Compose `pnpm verify` passed in 139,408 ms with 542 unit/contract, 80 integration, 49 E2E, 246-source architecture, migrations/build and both smoke gates; targeted composition/formal-package regressions passed 20/20.
+- SDAR v1.2 Phase 4 targeted application/formal-package regression tests passed 23/23, all 428 unit tests passed, strict typecheck/target lint passed and architecture verified 244 sources.
+- SDAR v1.2 Phase 3B formal package schema/import/invalid/legacy/golden tests passed 5/5 and all 106 contract tests passed.
+- SDAR v1.2 Phase 3A targeted catalog/selection tests passed 12/12, all 417 unit tests passed, strict typecheck passed and architecture verified 240 TypeScript sources.
+- SDAR v1.2 Phase 2 self-managed Compose `pnpm verify` passed in 149,172 ms with 513 unit/contract, 80 integration, 49 E2E, 239-source architecture, migration/build and both smoke gates; the final package security suite passes 10/10.
 - `pnpm demo:acceptance` passed production build, 10 Provider contract tests, 402 unit tests, 80 real PostgreSQL/Redis integration tests, 49 real E2E tests and the V1.1 acceptance report verifier.
 - Clean self-managed Compose `pnpm verify` passed at `13194b8` in 162.0 seconds: 75 unit/contract files and 493 tests, 80 real integration tests, 49 real E2E tests, 232-source architecture, 110-operation OpenAPI, 68 migration pairs and both smoke stages.
 

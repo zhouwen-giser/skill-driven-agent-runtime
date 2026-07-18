@@ -37,12 +37,15 @@ function resolveTemplate(
 }
 
 function resolveReference(path: readonly string[], context: WorkflowBindingContext): unknown {
+  const input = isUnknownRecord(context.input) ? context.input : undefined;
   const roots: Record<string, unknown> = {
     input: context.input,
     nodes: context.outputs,
     outputs: context.outputs,
     errors: context.errors,
     loopCounts: context.loopCounts,
+    ...(isUnknownRecord(input?.['context']) ? { context: input['context'] } : {}),
+    evidence: mergedEvidence(input, context.outputs),
   };
   if (context.result !== undefined) roots['result'] = context.result;
   let current: unknown = roots;
@@ -58,6 +61,41 @@ function resolveReference(path: readonly string[], context: WorkflowBindingConte
     current = current[segment];
   }
   return current;
+}
+
+function mergedEvidence(
+  input: Readonly<Record<string, unknown>> | undefined,
+  outputs: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const merged: Record<string, unknown> = isUnknownRecord(input?.['evidence'])
+    ? { ...input['evidence'] }
+    : {};
+  for (const output of Object.values(outputs)) {
+    if (isUnknownRecord(output) && isUnknownRecord(output['evidence']))
+      Object.assign(merged, output['evidence']);
+    const structured = structuredContent(output);
+    if (isUnknownRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
+    const metadata = resultMetadata(output);
+    if (isUnknownRecord(metadata?.['io.sdar/evidence']))
+      Object.assign(merged, metadata['io.sdar/evidence']);
+  }
+  return Object.freeze(merged);
+}
+
+function resultMetadata(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (!isUnknownRecord(value)) return undefined;
+  if (isUnknownRecord(value['metadata'])) return value['metadata'];
+  const data = value['data'];
+  return isUnknownRecord(data) && isUnknownRecord(data['metadata']) ? data['metadata'] : undefined;
+}
+
+function structuredContent(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (!isUnknownRecord(value)) return undefined;
+  if (isUnknownRecord(value['structuredContent'])) return value['structuredContent'];
+  const data = value['data'];
+  return isUnknownRecord(data) && isUnknownRecord(data['structuredContent'])
+    ? data['structuredContent']
+    : undefined;
 }
 
 function cloneJsonValue(value: unknown, depth: number): WorkflowBoundValue {

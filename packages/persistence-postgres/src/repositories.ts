@@ -8,6 +8,7 @@ import type {
   McpRegistryRepository,
   McpToolCatalog,
   McpTaskOperationCatalog,
+  SkillTaskOperationCandidateCatalog,
   McpServerRecord,
   ModelProviderRecord,
   ModelRuntimeRepository,
@@ -48,10 +49,12 @@ import {
   createMemoryItem,
   createMcpTool,
   createMcpToolExecutionSemantics,
+  createSkillVersion,
   DomainError,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
   MAX_SKILL_COMPOSITION_RELATIONS,
   snapshotSkillCompositionContext,
+  snapshotSkillUsagePlanPolicy,
   snapshotWorkflowToolExecutionSemantics,
   type TaskExecutionAttempt,
   type TaskInputRequest,
@@ -68,6 +71,7 @@ import type {
   McpToolDependencyChange,
   McpToolEnhancement,
   McpTaskOperationSemantics,
+  McpTaskOperationCandidate,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   StageModelRoute,
@@ -128,6 +132,9 @@ import type {
   SkillDraft,
   SkillRuntimePolicy,
   SkillVersion,
+  SkillPackageImportAudit,
+  SkillUsageSpecification,
+  SkillUsagePlanPolicy,
   SkillCallWorkflowRecord,
   EvolutionExperience,
   EvolutionPolicy,
@@ -236,6 +243,7 @@ const SkillVersionSnapshotSchema = z
     toolPolicy: ToolPolicySchema,
     runtimePolicy: RuntimePolicySchema,
     createdAt: z.string(),
+    usageSpecification: z.unknown().optional(),
   })
   .strict();
 const SkillRelationSchema = z
@@ -310,6 +318,131 @@ const SkillMetricsSchema = z.object({
   failureCount: z.number().int().nonnegative(),
   stabilityScore: z.number().min(0).max(1),
 });
+const SkillUsageSummarySchema = z
+  .object({
+    source: z.enum(['native', 'legacy_projection']),
+    apiVersion: z.literal('sdar.io/v1alpha1'),
+    visibility: z
+      .object({
+        userSelectable: z.boolean(),
+        composable: z.boolean(),
+        internalOnly: z.boolean(),
+      })
+      .strict(),
+    supportedModes: z.array(z.enum(['guidance', 'template', 'procedure'])),
+    defaultMode: z.enum(['guidance', 'template', 'procedure']),
+    taskTypes: z.array(z.string()),
+    hasComposition: z.boolean(),
+    requiredContextCount: z.number().int().nonnegative(),
+    requiredEvidenceCount: z.number().int().nonnegative(),
+  })
+  .strict();
+const SkillContextSourceSchema = z.enum([
+  'authoritative_context',
+  'read_only_query',
+  'deterministic_derivation',
+  'user_input',
+]);
+const SkillTaskProviderCandidateReadinessSchema = z
+  .object({
+    providerId: z.string(),
+    operationName: z.string(),
+    attributes: z.array(z.string()),
+    disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+    riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+    validUntil: z.string().optional(),
+    earliestStartTime: z.string().optional(),
+    nextAvailableWindows: z.array(
+      z.object({ startTime: z.string(), endTime: z.string() }).strict(),
+    ),
+    reservationMode: z.enum(['none', 'best_effort', 'guaranteed']),
+    reservationRef: z.string().optional(),
+    possibleEffects: z.array(
+      z.enum([
+        'task_preemption',
+        'task_pause',
+        'start_rejection',
+        'start_window_missed',
+        'deadline_reached',
+        'partial_completion',
+      ]),
+    ),
+    selected: z.boolean(),
+    reasonCodes: z.array(z.string()),
+  })
+  .strict();
+const SkillUsageCandidateSchema = z
+  .object({
+    skillId: z.string(),
+    skillVersion: z.number().int().positive(),
+    applicability: z
+      .object({
+        skillId: z.string(),
+        skillVersion: z.number().int().positive(),
+        status: z.enum(['satisfied', 'partial', 'unsatisfied', 'unknown']),
+        reasonCodes: z.array(z.string()),
+        context: z
+          .object({
+            requirements: z.array(
+              z
+                .object({
+                  requirementId: z.string(),
+                  required: z.boolean(),
+                  status: z.enum(['satisfied', 'input_required', 'unsatisfied', 'unknown']),
+                  source: SkillContextSourceSchema.optional(),
+                  evidenceRef: z.string().optional(),
+                  attemptedSources: z.array(SkillContextSourceSchema),
+                })
+                .strict(),
+            ),
+            satisfied: z.number().int().nonnegative(),
+            total: z.number().int().nonnegative(),
+            complete: z.boolean(),
+            inputRequiredIds: z.array(z.string()),
+            unsatisfiedIds: z.array(z.string()),
+            unknownIds: z.array(z.string()),
+          })
+          .strict(),
+        readiness: z
+          .object({
+            overall: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+            bindings: z.array(
+              z
+                .object({
+                  bindingId: z.string(),
+                  taskType: z.string(),
+                  disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
+                  confirmationRequired: z.boolean(),
+                  reasonCodes: z.array(z.string()),
+                  selectedProviderId: z.string().optional(),
+                  selectedOperationName: z.string().optional(),
+                  candidates: z.array(SkillTaskProviderCandidateReadinessSchema).optional(),
+                })
+                .strict(),
+            ),
+          })
+          .strict(),
+      })
+      .strict(),
+    modeDecision: z.discriminatedUnion('decision', [
+      z
+        .object({
+          decision: z.literal('selected'),
+          mode: z.enum(['guidance', 'template', 'procedure']),
+          confirmationRequired: z.boolean(),
+          confirmationSatisfied: z.boolean(),
+          reasonCodes: z.array(z.string()),
+        })
+        .strict(),
+      z
+        .object({
+          decision: z.literal('blocked'),
+          reasonCodes: z.array(z.string()),
+        })
+        .strict(),
+    ]),
+  })
+  .strict();
 const SkillCandidateSchema = z.object({
   skillId: z.string(),
   skillVersion: z.number().int().positive(),
@@ -331,6 +464,8 @@ const SkillCandidateSchema = z.object({
   toolPolicy: ToolPolicySchema,
   workflowGuidanceSummary: z.string(),
   runtimePolicy: RuntimePolicySchema,
+  usageSummary: SkillUsageSummarySchema.optional(),
+  usageCandidate: SkillUsageCandidateSchema.optional(),
   activeMcpDependencyWarnings: z.array(
     z.object({
       warningId: z.string(),
@@ -472,6 +607,7 @@ interface SkillVersionRow extends QueryResultRow {
   output_schema_json: unknown;
   tool_policy_json: unknown;
   runtime_policy_json: unknown;
+  usage_specification_json: unknown;
   status: SkillVersion['status'];
   source_kind: SkillVersion['sourceKind'];
   validation_passed: boolean;
@@ -3604,7 +3740,16 @@ export class PostgresSkillRepository implements SkillRepository {
     return result.rows.map(mapSkillVersionRow);
   }
 
-  async saveVersionAndSetCurrent(version: SkillVersion, timestamp: string): Promise<void> {
+  async saveVersionAndSetCurrent(
+    version: SkillVersion,
+    timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void> {
+    if (
+      packageImport !== undefined &&
+      (packageImport.skillId !== version.skillId || packageImport.skillVersion !== version.version)
+    )
+      throw new Error('SKILL_PACKAGE_IMPORT_VERSION_MISMATCH');
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -3617,9 +3762,9 @@ export class PostgresSkillRepository implements SkillRepository {
         `INSERT INTO skill_version (
            skill_id, version, name, summary, description, capabilities_json,
            workflow_guidance, output_instruction, input_schema_json, output_schema_json,
-           tool_policy_json, runtime_policy_json, status, source_kind,
+           tool_policy_json, runtime_policy_json, usage_specification_json, status, source_kind,
            validation_passed, previous_version, created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [
           version.skillId,
           version.version,
@@ -3633,6 +3778,9 @@ export class PostgresSkillRepository implements SkillRepository {
           JSON.stringify(version.outputSchema),
           JSON.stringify(version.toolPolicy),
           JSON.stringify(version.runtimePolicy),
+          version.usageSpecification === undefined
+            ? null
+            : JSON.stringify(version.usageSpecification),
           version.status,
           version.sourceKind,
           version.validationPassed,
@@ -3640,6 +3788,23 @@ export class PostgresSkillRepository implements SkillRepository {
           version.createdAt,
         ],
       );
+      if (packageImport !== undefined) {
+        await client.query(
+          `INSERT INTO skill_package_import_audit (
+             skill_id,skill_version,package_checksum,package_root,file_checksums_json,
+             validated_at,imported_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            packageImport.skillId,
+            packageImport.skillVersion,
+            packageImport.packageChecksum,
+            packageImport.packageRoot,
+            JSON.stringify(packageImport.fileChecksums),
+            packageImport.validatedAt,
+            packageImport.importedAt,
+          ],
+        );
+      }
       await client.query(
         `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
         [version.skillId, version.version, timestamp],
@@ -4251,8 +4416,23 @@ const StoredWorkflowDefinitionSchema = z
     exitNodeIds: z.array(z.string()),
     nodes: z.array(z.unknown()),
     edges: z.array(z.unknown()),
+    skillUsagePolicy: z.unknown().optional(),
   })
   .strict();
+
+function mapStoredWorkflowDefinition(value: unknown): WorkflowDefinition {
+  const parsed = StoredWorkflowDefinitionSchema.parse(value);
+  return {
+    ...parsed,
+    ...(parsed.skillUsagePolicy === undefined
+      ? {}
+      : {
+          skillUsagePolicy: snapshotSkillUsagePlanPolicy(
+            parsed.skillUsagePolicy as SkillUsagePlanPolicy,
+          ),
+        }),
+  } as unknown as WorkflowDefinition;
+}
 
 export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepository {
   readonly #pool: Pool;
@@ -4417,9 +4597,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       ...(row.definition_json === null
         ? {}
         : {
-            definition: StoredWorkflowDefinitionSchema.parse(
-              row.definition_json,
-            ) as unknown as WorkflowDefinition,
+            definition: mapStoredWorkflowDefinition(row.definition_json),
           }),
       ...(row.source_confirmed_plan_id === null
         ? {}
@@ -5190,9 +5368,7 @@ function mapEvolutionExperienceRow(row: EvolutionExperienceRow): EvolutionExperi
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
     contextId: row.context_id,
     goal: EvolutionGoalSchema.parse(row.goal_json),
-    workflow: StoredWorkflowDefinitionSchema.parse(
-      row.workflow_json,
-    ) as unknown as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     instanceId: row.instance_id,
     skillVersions: WorkflowSkillVersionsSchema.parse(row.skill_versions_json),
     tools: ToolReferencesSchema.parse(row.tools_json),
@@ -5216,9 +5392,7 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     ...(row.definition_json === null
       ? {}
       : {
-          definition: StoredWorkflowDefinitionSchema.parse(
-            row.definition_json,
-          ) as unknown as WorkflowDefinition,
+          definition: mapStoredWorkflowDefinition(row.definition_json),
         }),
     ...(row.source_confirmed_plan_id === null
       ? {}
@@ -5515,7 +5689,11 @@ const temporarySkillSelect = `SELECT temporary_skill_id, task_id, context_id, na
   capability_fingerprint, status, created_at, expired_at FROM temporary_skill`;
 
 export class PostgresMcpRegistryRepository
-  implements McpRegistryRepository, McpToolCatalog, McpTaskOperationCatalog
+  implements
+    McpRegistryRepository,
+    McpToolCatalog,
+    McpTaskOperationCatalog,
+    SkillTaskOperationCandidateCatalog
 {
   readonly #pool: Pool;
   readonly #v11TaskMetadata: boolean;
@@ -5594,6 +5772,28 @@ export class PostgresMcpRegistryRepository
     return value === undefined || value === null
       ? undefined
       : McpTaskOperationSemanticsSchema.parse(value);
+  }
+
+  async listTaskOperationCandidates(
+    taskType: string,
+  ): Promise<readonly McpTaskOperationCandidate[]> {
+    if (!this.#v11TaskMetadata) return [];
+    const result = await this.#pool.query<{ server_id: string; task_execution_json: unknown }>(
+      `SELECT t.server_id,t.task_execution_json FROM mcp_tool t
+       JOIN mcp_server s ON s.server_id=t.server_id
+       WHERE t.tool_name=$1 AND s.status='enabled' AND t.task_execution_json IS NOT NULL
+       ORDER BY t.server_id`,
+      [taskType],
+    );
+    return result.rows.map((row) => {
+      const semantics = McpTaskOperationSemanticsSchema.parse(row.task_execution_json);
+      return Object.freeze({
+        providerId: row.server_id,
+        operationName: taskType,
+        semantics,
+        attributes: Object.freeze(taskOperationAttributes(semantics)),
+      });
+    });
   }
 
   async saveServerAndReplaceTools(
@@ -5847,7 +6047,7 @@ export class PostgresMcpRegistryRepository
 const skillVersionSelect = `SELECT
   v.skill_id, v.version, v.name, v.summary, v.description, v.capabilities_json,
   v.workflow_guidance, v.output_instruction, v.input_schema_json, v.output_schema_json,
-  v.tool_policy_json, v.runtime_policy_json, v.status, v.source_kind,
+  v.tool_policy_json, v.runtime_policy_json, v.usage_specification_json, v.status, v.source_kind,
   v.validation_passed, v.previous_version, v.created_at
   FROM skill_version v`;
 
@@ -5988,7 +6188,7 @@ function mapWorkflowTemplateOccurrenceRow(
     ...(row.quality_report_id === null ? {} : { qualityReportId: row.quality_report_id }),
     goalKey: row.goal_key,
     structureKey: row.structure_key,
-    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     durationMs: row.duration_ms,
     createdAt: toIsoString(row.created_at),
   };
@@ -6000,7 +6200,7 @@ function mapWorkflowTemplateRow(row: WorkflowTemplateRow): WorkflowTemplate {
     version: row.version,
     goalKey: row.goal_key,
     structureKey: row.structure_key,
-    workflow: StoredWorkflowDefinitionSchema.parse(row.workflow_json) as WorkflowDefinition,
+    workflow: mapStoredWorkflowDefinition(row.workflow_json),
     sourceExperienceIds: z.array(z.string()).parse(row.source_experience_ids_json),
     sourceSuccessCount: row.source_success_count,
     useCount: row.use_count,
@@ -6054,7 +6254,7 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
       ? {}
       : { compensationGuidance: parsedRuntimePolicy.compensationGuidance }),
   };
-  return {
+  return createSkillVersion({
     skillId: row.skill_id,
     version: row.version,
     name: row.name,
@@ -6067,12 +6267,27 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
     outputSchema: row.output_schema_json,
     toolPolicy,
     runtimePolicy,
+    ...(row.usage_specification_json === null
+      ? {}
+      : { usageSpecification: row.usage_specification_json as SkillUsageSpecification }),
     status: row.status,
     sourceKind: row.source_kind,
     validationPassed: row.validation_passed,
     ...(row.previous_version === null ? {} : { previousVersion: row.previous_version }),
     createdAt: toIsoString(row.created_at),
-  };
+  });
+}
+
+function taskOperationAttributes(semantics: McpTaskOperationSemantics): string[] {
+  return [
+    'mcp_task',
+    `execution:${semantics.execution}`,
+    `availability:${semantics.availability}`,
+    `cancellation:${semantics.cancellation}`,
+    ...(semantics.supportsScheduling ? ['scheduling'] : []),
+    ...(semantics.supportsMaxElapsed ? ['max_elapsed'] : []),
+    ...(semantics.supportsObservations ? ['observations'] : []),
+  ].sort();
 }
 
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {

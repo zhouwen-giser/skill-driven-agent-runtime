@@ -8,6 +8,14 @@ interface SkillRecord extends Record<string, unknown> {
   readonly name: string;
   readonly status: string;
   readonly version: number;
+  readonly usageSpecification?: Readonly<{
+    visibility: Readonly<{
+      userSelectable: boolean;
+      composable: boolean;
+      internalOnly: boolean;
+    }>;
+    modes: Readonly<{ supported: readonly string[]; defaultMode: string }>;
+  }>;
   readonly toolPolicy?: Readonly<{
     required: readonly SkillToolReference[];
     optional: readonly SkillToolReference[];
@@ -157,6 +165,17 @@ export function SkillsPanel({
               </div>
               <span className="status ok">{skill.status}</span>
             </div>
+            {skill.usageSpecification === undefined ? (
+              <small>Legacy guidance projection · guidance</small>
+            ) : (
+              <small>
+                Modes {skill.usageSpecification.modes.supported.join(', ')} · default{' '}
+                {skill.usageSpecification.modes.defaultMode} · visibility{' '}
+                {skill.usageSpecification.visibility.userSelectable ? 'user-selectable ' : ''}
+                {skill.usageSpecification.visibility.composable ? 'composable ' : ''}
+                {skill.usageSpecification.visibility.internalOnly ? 'internal-only' : ''}
+              </small>
+            )}
             <div className="action-row">
               <button onClick={() => void action(skill.skillId, 'enable')}>启用</button>
               <button onClick={() => void action(skill.skillId, 'disable')}>停用</button>

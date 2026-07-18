@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "phase": 13,
+  "status": "passed",
+  "goal": "Verify bounded recursive embodied.area_patrol composition, exact child authority, failure propagation, continuation and execution evidence through the existing Runtime.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "f9ba66021d033ff6a5f99468d736471361bcf8cd",
+  "resultingSha": "83753db49960f0d0354b699ea017005220e5892d",
+  "authority": {
+    "skill": "exact current/enabled versions frozen in the immutable parent and child Usage policies",
+    "workflow": "existing Workflow Planner, Validator, outer/nested confirmation, LangGraph and Controller",
+    "provider": "existing MCP registry, V1.1 readiness and RemoteTaskBinding observations",
+    "evidence": "adapter-projected Provider metadata plus append-only parent/child Skill execution references",
+    "deploymentSlot": "optional trusted exact-version resolver; empty and fail-closed by default"
+  },
+  "scenarios": [
+    { "id": 1, "name": "single_resource_whole_area", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 2, "name": "multi_resource_parallel_partitions", "status": "passed", "layer": "integration" },
+    { "id": 3, "name": "fixed_move_to_dependency", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 4, "name": "dynamic_capability_slot", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 5, "name": "default_depth_three", "status": "passed", "layer": "unit_and_a2a_e2e" },
+    { "id": 6, "name": "hard_maximum_five", "status": "passed", "layer": "unit" },
+    { "id": 7, "name": "cycle", "status": "passed", "layer": "unit" },
+    { "id": 8, "name": "child_fail_fast", "status": "passed", "layer": "unit" },
+    { "id": 9, "name": "recoverable_replacement", "status": "passed", "layer": "unit_and_a2a_e2e" },
+    { "id": 10, "name": "optional_failure", "status": "passed", "layer": "unit" },
+    { "id": 11, "name": "degraded_subarea", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 12, "name": "provider_window_reschedule", "status": "passed", "layer": "unit_and_a2a_e2e" },
+    { "id": 13, "name": "independent_remote_child_tasks", "status": "passed", "layer": "integration" },
+    { "id": 14, "name": "parallel_join_waits", "status": "passed", "layer": "unit_and_integration" },
+    { "id": 15, "name": "child_input_required", "status": "passed", "layer": "contract_and_integration" },
+    { "id": 16, "name": "cancel_parent", "status": "passed", "layer": "contract_and_integration" },
+    { "id": 17, "name": "restart_external_wait", "status": "passed", "layer": "integration" },
+    { "id": 18, "name": "incomplete_coverage_evidence", "status": "passed", "layer": "contract" },
+    { "id": 19, "name": "parent_child_execution_tree", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 20, "name": "different_contexts_distinct_plans", "status": "passed", "layer": "unit" }
+  ],
+  "successCriteria": {
+    "exactVersions": true,
+    "boundedRecursion": true,
+    "exactFailurePolicies": true,
+    "degradedIsDistinct": true,
+    "evidenceTraceable": true,
+    "parallelWaits": true,
+    "noReplay": true,
+    "completeExecutionTree": true
+  },
+  "testsActuallyRun": [
+    {
+      "command": "pnpm format:check; pnpm lint; pnpm typecheck; pnpm test; pnpm build",
+      "status": "passed",
+      "unitContractFiles": 84,
+      "unitContractTests": 569,
+      "build": "passed"
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "status": "passed",
+      "architectureSourceFiles": 256
+    },
+    {
+      "command": "SDAR_TEST_POSTGRES_URL=<isolated> pnpm exec vitest run --project integration",
+      "status": "passed",
+      "files": 9,
+      "tests": 82,
+      "infrastructure": "real local PostgreSQL/Redis with an explicitly bootstrapped disposable database"
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=false node scripts/test-e2e.mjs",
+      "status": "passed",
+      "files": 2,
+      "tests": 59,
+      "infrastructure": "real local PostgreSQL/Redis/Server/LangGraph and deterministic loopback model/MCP Provider"
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=false node scripts/verify-migration-path.mjs",
+      "status": "passed",
+      "paths": ["empty", "upgrade-from-0049"]
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_POSTGRES_URL=<isolated> node scripts/smoke-server.mjs",
+      "status": "passed",
+      "checks": ["agent-card", "console-bundle", "trusted-intranet-management-api"]
+    }
+  ],
+  "environment": {
+    "repositoryContainersAfterVerification": "stopped with volumes preserved",
+    "disposableDatabases": "deleted",
+    "operatorEnv": "ignored and unchanged",
+    "operatorDatabase": "unchanged",
+    "externalProviderRuntimePostgres": "untouched"
+  },
+  "knownLimitations": [
+    "Mandatory adversarial full verification remains Phase 14.",
+    "Final audit and release publication remain Phase 15.",
+    "External production MCP Tasks Provider interoperability remains unverified."
+  ],
+  "push": {
+    "featureCommit": "83753db49960f0d0354b699ea017005220e5892d",
+    "status": "passed",
+    "remote": "origin"
+  }
+}

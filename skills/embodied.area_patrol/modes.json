@@ -1,0 +1,22 @@
+{
+  "supported": ["guidance", "template", "procedure"],
+  "defaultMode": "procedure",
+  "guidance": {
+    "summary": "Bounded patrol planning guidance.",
+    "instructions": [
+      "Explain area partition, child movement, inspection, failure, degraded, and evidence rules."
+    ]
+  },
+  "template": {
+    "summary": "Parameterized patrol composition skeleton.",
+    "instructions": [
+      "Bind boundary, resource, time window, deterministic subregions, move_to dependency, inspection slot, and evidence aggregation."
+    ]
+  },
+  "procedure": {
+    "summary": "Declarative recursive patrol procedure for the existing Workflow DSL.",
+    "instructions": [
+      "Compile bounded subregion steps using move_to, resolve the admitted inspection slot, propagate edge failures, and aggregate evidence."
+    ]
+  }
+}

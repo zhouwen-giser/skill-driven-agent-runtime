@@ -6,6 +6,7 @@ import {
   START,
   StateGraph,
   interrupt,
+  isGraphInterrupt,
 } from '@langchain/langgraph';
 
 import {
@@ -18,6 +19,7 @@ import type {
   ToolReference,
   RuntimeExecutionContext,
   SkillCallExecutionResult,
+  SkillValueMapping,
   WorkflowBudgetLimits,
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
@@ -843,7 +845,7 @@ function createNodeAction(
         ],
       };
     } catch (error: unknown) {
-      if (error instanceof WorkflowBudgetExceededError) throw error;
+      if (error instanceof WorkflowBudgetExceededError || isGraphInterrupt(error)) throw error;
       const handler = handlers.get(node.nodeId);
       if (handler === undefined) throw error;
       return {
@@ -1007,7 +1009,7 @@ async function executeNode(
           routes: { [node.nodeId]: END },
         };
       }
-      return output(node.nodeId, result.output);
+      return output(node.nodeId, applySkillOutputMappings(result.output, node.outputMappings));
     }
     case 'subworkflow': {
       budgetMeter.reserve('subworkflow');
@@ -1330,7 +1332,10 @@ function restoreExternalResolution(
   if (resolution.kind === 'completed' && completedSuccessfully) {
     outputs[waiting.nodeId] =
       waiting.kind === 'child_workflow'
-        ? resolution.result
+        ? applySkillOutputMappings(
+            resolution.result,
+            skillCallOutputMappings(definition, waiting.nodeId),
+          )
         : normalizeResultEnvelope(requiredValue(remoteToolResult));
     target = defaultTarget(definition, waiting.nodeId);
     resolutionEvent = {
@@ -1490,6 +1495,116 @@ function output(nodeId: string, value: unknown): StateUpdate {
   return { outputs: { [nodeId]: value } };
 }
 
+function skillCallOutputMappings(
+  definition: WorkflowDefinition,
+  nodeId: string,
+): readonly SkillValueMapping[] | undefined {
+  const node = definition.nodes.find((candidate) => candidate.nodeId === nodeId);
+  if (node?.type !== 'skill_call')
+    throw new WorkflowCompilerError(
+      'WORKFLOW_DEFINITION_INVALID',
+      'A child Workflow continuation must reference an existing skill_call node.',
+    );
+  return node.outputMappings;
+}
+
+function applySkillOutputMappings(
+  value: unknown,
+  mappings: readonly SkillValueMapping[] | undefined,
+): unknown {
+  if (mappings === undefined || mappings.length === 0) return value;
+  if (!isPlainRecord(value))
+    throw new WorkflowCompilerError(
+      'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+      'Skill output mappings require a plain JSON object result.',
+    );
+  const projected = cloneMappingValue(value);
+  if (!isPlainRecord(projected))
+    throw new WorkflowCompilerError(
+      'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+      'Skill output mappings require a plain JSON object result.',
+    );
+  for (const mapping of mappings) {
+    const source = readMappingPath(value, mapping.sourcePath);
+    writeMappingPath(projected, mapping.targetPath, cloneMappingValue(source));
+  }
+  return freezeMappingValue(projected);
+}
+
+function readMappingPath(value: unknown, path: string): unknown {
+  let current = value;
+  for (const segment of path.split('.')) {
+    if (!isPlainRecord(current) || !Object.hasOwn(current, segment))
+      throw new WorkflowCompilerError(
+        'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+        `Skill output mapping source ${path} does not exist.`,
+      );
+    current = current[segment];
+  }
+  return current;
+}
+
+function writeMappingPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const segments = path.split('.');
+  let current = target;
+  for (const [index, segment] of segments.entries()) {
+    if (['__proto__', 'prototype', 'constructor'].includes(segment))
+      throw new WorkflowCompilerError(
+        'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+        'Skill output mapping contains a forbidden property path.',
+      );
+    if (index === segments.length - 1) {
+      current[segment] = value;
+      return;
+    }
+    const existing = current[segment];
+    if (existing === undefined) {
+      const nested: Record<string, unknown> = {};
+      current[segment] = nested;
+      current = nested;
+      continue;
+    }
+    if (!isPlainRecord(existing))
+      throw new WorkflowCompilerError(
+        'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+        `Skill output mapping target ${path} conflicts with a non-object value.`,
+      );
+    current = existing;
+  }
+}
+
+function cloneMappingValue(value: unknown): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(cloneMappingValue);
+  if (isPlainRecord(value))
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, cloneMappingValue(item)]),
+    );
+  throw new WorkflowCompilerError(
+    'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID',
+    'Skill output mapping values must be finite JSON data.',
+  );
+}
+
+function freezeMappingValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) freezeMappingValue(item);
+    return Object.freeze(value);
+  }
+  if (isPlainRecord(value)) {
+    for (const item of Object.values(value)) freezeMappingValue(item);
+    return Object.freeze(value);
+  }
+  return value;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const prototype = Reflect.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function targetForOutcome(
   definition: WorkflowDefinition,
   nodeId: string,
@@ -1635,6 +1750,7 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_SUBWORKFLOW_RECURSION_INVALID'
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
+  | 'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID'
   | 'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID'
   | 'WORKFLOW_EXTERNAL_CONTINUATION_INVALID'
   | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'

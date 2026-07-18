@@ -7,10 +7,15 @@ import type {
   SkillRelation,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillUsageSelectionContext,
   SkillVersion,
 } from '../../domain/src/index.js';
 import {
+  SkillApplicabilityAssessor,
+  SkillContextRequirementResolver,
+  SkillModeSelector,
   SkillSelectionService,
+  SkillUsageCandidateAssessor,
   type McpRegistryRepository,
   type SkillGraphRepository,
   type SkillRepository,
@@ -39,6 +44,11 @@ describe('SkillSelectionService', () => {
       toolPolicy: { required: [], optional: [], forbidden: [] },
       workflowGuidanceSummary: 'Inspect.',
       runtimePolicy: { autoConfirmPlan: false },
+      usageSummary: {
+        source: 'legacy_projection',
+        supportedModes: ['guidance'],
+        defaultMode: 'guidance',
+      },
       activeMcpDependencyWarnings: [],
       autoConfirmPlan: false,
       createdAt: '2026-07-11T10:00:00.000Z',
@@ -178,6 +188,72 @@ describe('SkillSelectionService', () => {
       { activeMcpDependencyWarnings: [{ warningId: 'warning-active' }] },
     );
   });
+
+  it('keeps unknown usage candidates out of the existing model decider', async () => {
+    const usage = new SkillUsageCandidateAssessor({
+      applicability: new SkillApplicabilityAssessor({
+        contexts: new SkillContextRequirementResolver(),
+        readiness: { inspect: () => Promise.resolve({ overall: 'ready', bindings: [] }) },
+      }),
+      modes: new SkillModeSelector(),
+    });
+    const service = createService(new MemorySelectionRepository(), [], 'skill.b', {
+      usage,
+      usageAware: true,
+    });
+    await expect(service.select(goalContract)).rejects.toMatchObject({
+      code: 'SKILL_SELECTION_USAGE_CONTEXT_REQUIRED',
+    });
+    const context: SkillUsageSelectionContext = {
+      observations: [
+        {
+          requirementId: 'skill.b.context',
+          source: 'authoritative_context',
+          status: 'available',
+          evidenceRef: 'context:skill-b',
+        },
+      ],
+      risk: 'low',
+      humanConfirmation: 'not_requested',
+      systemPolicy: {
+        allowedModes: ['guidance'],
+        preferredMode: 'guidance',
+        requireProcedureForHighRisk: false,
+        allowGuidanceWithIncompleteContext: false,
+      },
+    };
+    const selection = await service.select(goalContract, context);
+
+    expect(selection.selectedSkillId).toBe('skill.b');
+    expect(selection.candidates).toHaveLength(1);
+    expect(selection.candidates[0]).toMatchObject({
+      skillId: 'skill.b',
+      usageCandidate: {
+        applicability: { status: 'satisfied' },
+        modeDecision: { decision: 'selected', mode: 'guidance' },
+      },
+    });
+    await expect(
+      service.select(goalContract, {
+        ...context,
+        systemPolicy: { ...context.systemPolicy, allowedModes: ['procedure'] },
+      }),
+    ).rejects.toMatchObject({ code: 'SKILL_SELECTION_NO_CANDIDATES' });
+  });
+
+  it('excludes non-user-selectable Skills from top-level selection', async () => {
+    const service = createService(new MemorySelectionRepository(), [], 'skill.b', {
+      usageAware: true,
+      visibilityBySkillId: {
+        'skill.a': { userSelectable: false, composable: true, internalOnly: true },
+      },
+    });
+
+    await expect(service.select(goalContract)).resolves.toMatchObject({
+      selectedSkillId: 'skill.b',
+      candidates: [{ skillId: 'skill.b' }],
+    });
+  });
 });
 
 const goalContract = {
@@ -196,10 +272,19 @@ function createService(
   options: Readonly<{
     toolPolicy?: SkillVersion['toolPolicy'];
     warnings?: Awaited<ReturnType<McpRegistryRepository['listDependencyWarnings']>>;
+    usage?: SkillUsageCandidateAssessor;
+    usageAware?: boolean;
+    visibilityBySkillId?: Readonly<
+      Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
+    >;
   }> = {},
 ): SkillSelectionService {
   return new SkillSelectionService({
-    skills: new SelectionSkillRepository(options.toolPolicy),
+    skills: new SelectionSkillRepository(
+      options.toolPolicy,
+      options.usageAware,
+      options.visibilityBySkillId,
+    ),
     graph: new SelectionGraphRepository(relations),
     records,
     retriever: { score: () => Promise.resolve({ 'skill.a': 0.9, 'skill.b': 0.7 }) },
@@ -217,6 +302,7 @@ function createService(
     ...(options.warnings === undefined
       ? {}
       : { mcpWarnings: { listDependencyWarnings: () => Promise.resolve(options.warnings ?? []) } }),
+    ...(options.usage === undefined ? {} : { usage: options.usage }),
     clock: { now: () => '2026-07-11T10:00:00.000Z' },
     ids: {
       nextSelectionId: () => 'selection-1',
@@ -290,8 +376,17 @@ class SelectionGraphRepository implements SkillGraphRepository {
 
 class SelectionSkillRepository implements SkillRepository {
   readonly versions: readonly SkillVersion[];
-  constructor(toolPolicy?: SkillVersion['toolPolicy']) {
-    this.versions = [skillVersion('skill.a', toolPolicy), skillVersion('skill.b', toolPolicy)];
+  constructor(
+    toolPolicy?: SkillVersion['toolPolicy'],
+    usageAware = false,
+    visibilityBySkillId: Readonly<
+      Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
+    > = {},
+  ) {
+    this.versions = [
+      skillVersion('skill.a', toolPolicy, usageAware, visibilityBySkillId['skill.a']),
+      skillVersion('skill.b', toolPolicy, usageAware, visibilityBySkillId['skill.b']),
+    ];
   }
   find(skillId: string): Promise<Skill | undefined> {
     return Promise.resolve(
@@ -327,7 +422,16 @@ class SelectionSkillRepository implements SkillRepository {
   }
 }
 
-function skillVersion(skillId: string, toolPolicy?: SkillVersion['toolPolicy']): SkillVersion {
+function skillVersion(
+  skillId: string,
+  toolPolicy?: SkillVersion['toolPolicy'],
+  usageAware = false,
+  visibility: NonNullable<SkillVersion['usageSpecification']>['visibility'] = {
+    userSelectable: true,
+    composable: false,
+    internalOnly: false,
+  },
+): SkillVersion {
   return {
     skillId,
     version: 1,
@@ -345,5 +449,42 @@ function skillVersion(skillId: string, toolPolicy?: SkillVersion['toolPolicy']):
     sourceKind: 'admin',
     validationPassed: true,
     createdAt: '2026-07-11T10:00:00.000Z',
+    ...(usageAware
+      ? {
+          usageSpecification: {
+            apiVersion: 'sdar.io/v1alpha1' as const,
+            visibility,
+            normative: {
+              constraints: [],
+              forbiddenActions: [],
+              requiredConfirmations: [],
+              noApplicableSkill: 'reject' as const,
+            },
+            adaptive: {
+              instructions: ['Inspect safely.'],
+              optimizationHints: [],
+              allowPreferredProviderFallback: false,
+            },
+            contextRequirements: [
+              {
+                requirementId: `${skillId}.context`,
+                description: 'Authoritative candidate context.',
+                required: true,
+                sourceOrder: ['authoritative_context' as const],
+              },
+            ],
+            modes: {
+              supported: ['guidance' as const],
+              defaultMode: 'guidance' as const,
+              guidance: { summary: 'Guidance.', instructions: ['Inspect safely.'] },
+            },
+            taskBindings: [],
+            evidencePolicy: {
+              requirements: [],
+              rejectSuccessWithoutRequiredEvidence: false,
+            },
+          },
+        }
+      : {}),
   };
 }

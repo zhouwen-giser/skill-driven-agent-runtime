@@ -39,6 +39,13 @@ import {
   SkillCompositionPlanner,
   SkillAuthoringService,
   SkillSelectionService,
+  SkillContextRequirementResolver,
+  SkillApplicabilityAssessor,
+  SkillModeSelector,
+  SkillUsageCandidateAssessor,
+  prepareSkillUsagePlan,
+  SkillExecutionRecordingService,
+  V11SkillTaskReadinessAdapter,
   SkillInputResolutionService,
   SkillQualityService,
   SkillCallWorkflowService,
@@ -47,6 +54,8 @@ import {
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
+  SkillPackageImporter,
+  SkillPackageValidator,
   TemporarySkillService,
   TemporarySkillResolver,
   SkillEvolutionService,
@@ -79,6 +88,7 @@ import {
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
   type RemoteTaskPollingOptions,
+  type SkillUsageSlotChoice,
 } from '../../../packages/application/src/index.js';
 import {
   createGoalExecutionContract,
@@ -87,6 +97,7 @@ import {
   type AgentTask,
   type GoalExecutionContract,
   type McpInvocationOutcome,
+  type SkillUsageSelectionContext,
   type SkillVersion,
   type WorkflowBudgetLimits,
   type WorkflowContinuationSnapshot,
@@ -95,6 +106,7 @@ import {
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
+import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
 import {
   LangGraphWorkflowExecutor,
@@ -120,6 +132,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
   PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
@@ -178,6 +191,26 @@ export interface ServerRuntimeOptions {
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
     decider?: SkillSelectionDecider;
+  }>;
+  /** Supplies trusted, deployment-owned context observations and mode policy to Usage-aware selection. */
+  readonly skillUsageContext?: Readonly<{
+    resolve(
+      input: Readonly<{
+        goalContract: GoalExecutionContract;
+        task?: AgentTask;
+      }>,
+    ): SkillUsageSelectionContext | Promise<SkillUsageSelectionContext>;
+  }>;
+  /** Supplies an exact deployment/model decision for declared capability slots; empty is fail-closed. */
+  readonly skillUsageComposition?: Readonly<{
+    resolveSlotChoices(
+      input: Readonly<{
+        goalContract: GoalExecutionContract;
+        skill: SkillVersion;
+        value: unknown;
+        task?: AgentTask;
+      }>,
+    ): readonly SkillUsageSlotChoice[] | Promise<readonly SkillUsageSlotChoice[]>;
   }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
@@ -264,6 +297,30 @@ export async function startServerRuntime(
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
+  const resolveSkillUsageContext = (
+    goalContract: GoalExecutionContract,
+    task?: AgentTask,
+  ): Promise<SkillUsageSelectionContext> =>
+    Promise.resolve(
+      options.skillUsageContext?.resolve({
+        goalContract,
+        ...(task === undefined ? {} : { task }),
+      }) ?? conservativeSkillUsageSelectionContext(),
+    );
+  const resolveSkillUsageSlotChoices = (
+    goalContract: GoalExecutionContract,
+    skill: SkillVersion,
+    value: unknown,
+    task?: AgentTask,
+  ): Promise<readonly SkillUsageSlotChoice[]> =>
+    Promise.resolve(
+      options.skillUsageComposition?.resolveSlotChoices({
+        goalContract,
+        skill,
+        value,
+        ...(task === undefined ? {} : { task }),
+      }) ?? [],
+    );
   const mcpRepository = new PostgresMcpRegistryRepository(pool, {
     v11TaskMetadata: options.v11McpTasks !== undefined,
   });
@@ -275,6 +332,26 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const skillExecutionRepository = new PostgresSkillExecutionRepository(pool);
+  const skillExecutionRecording = new SkillExecutionRecordingService({
+    repository: skillExecutionRepository,
+    clock,
+    nextId: (kind) => `skill-execution-${kind}-${randomUUID()}`,
+  });
+  const recordSkillProjectionSafely = async (operation: () => Promise<unknown>): Promise<void> => {
+    try {
+      await operation();
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({
+          level: 'warn',
+          event: 'skill_execution_projection_failed',
+          errorCode: runtimeErrorCode(error),
+          summary: error instanceof Error ? error.message : 'Unknown projection failure.',
+        })}\n`,
+      );
+    }
+  };
   const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
   const implicitFeedback = new ImplicitFeedbackService({
     repository: new PostgresImplicitFeedbackRepository(pool),
@@ -331,6 +408,17 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const schemaValidator = new AjvJsonSchemaValidator();
+  const skillPackageSchema = JSON.parse(
+    await readFile(resolve(process.cwd(), 'schemas', 'skill-package.schema.json'), 'utf8'),
+  ) as unknown;
+  const skillPackages = new SkillPackageImporter({
+    reader: new NodeSkillPackageReader(),
+    validator: new SkillPackageValidator({
+      schemas: schemaValidator,
+      packageSchema: skillPackageSchema,
+    }),
+    clock,
+  });
   const skillComposition = new SkillCompositionPlanner({
     skills,
     graph: skillGraphRepository,
@@ -380,7 +468,12 @@ export async function startServerRuntime(
     clock,
     nextId: () => `goal-input-inference-${randomUUID()}`,
   });
-  const skillRegistry = new SkillRegistryService({ skills, validator: schemaValidator, clock });
+  const skillRegistry = new SkillRegistryService({
+    skills,
+    validator: schemaValidator,
+    clock,
+    packages: skillPackages,
+  });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
     skills,
@@ -424,28 +517,6 @@ export async function startServerRuntime(
     clock,
     ids: { nextRelationId: () => `skill-relation-${randomUUID()}` },
   });
-  const skillSelection =
-    options.skillSelection === undefined
-      ? undefined
-      : new SkillSelectionService({
-          skills,
-          graph: skillGraphRepository,
-          records: skillSelectionRepository,
-          retriever: new PersistedSkillSemanticRetriever({
-            embeddings: options.skillSelection.embeddings,
-            repository: new PostgresSkillEmbeddingRepository(pool),
-            clock,
-          }),
-          decider:
-            options.skillSelection.decider ??
-            new StructuredSkillSelectionDecider(modelRuntime, memories),
-          mcpWarnings: mcpRepository,
-          clock,
-          ids: {
-            nextSelectionId: () => `skill-selection-${randomUUID()}`,
-            nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
-          },
-        });
   const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(pool);
   const skillInputResolution = new SkillInputResolutionService({
     model: modelRuntime,
@@ -484,6 +555,41 @@ export async function startServerRuntime(
           ids: {
             nextReadinessId: () => `task-readiness-${randomUUID()}`,
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
+          },
+        });
+  const skillTaskReadiness = new V11SkillTaskReadinessAdapter({
+    operations: mcpRepository,
+    availability: mcpRegistry,
+    clock,
+  });
+  const skillUsage = new SkillUsageCandidateAssessor({
+    applicability: new SkillApplicabilityAssessor({
+      contexts: new SkillContextRequirementResolver(),
+      readiness: skillTaskReadiness,
+    }),
+    modes: new SkillModeSelector(),
+  });
+  const skillSelection =
+    options.skillSelection === undefined
+      ? undefined
+      : new SkillSelectionService({
+          skills,
+          graph: skillGraphRepository,
+          records: skillSelectionRepository,
+          retriever: new PersistedSkillSemanticRetriever({
+            embeddings: options.skillSelection.embeddings,
+            repository: new PostgresSkillEmbeddingRepository(pool),
+            clock,
+          }),
+          decider:
+            options.skillSelection.decider ??
+            new StructuredSkillSelectionDecider(modelRuntime, memories),
+          mcpWarnings: mcpRepository,
+          usage: skillUsage,
+          clock,
+          ids: {
+            nextSelectionId: () => `skill-selection-${randomUUID()}`,
+            nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
         });
   const workflowPlanner = new WorkflowPlannerService({
@@ -812,6 +918,21 @@ export async function startServerRuntime(
                 'PostgreSQL admission is authoritative; reconciliation will reschedule the poll.',
             })}\n`,
           );
+        await recordSkillProjectionSafely(() =>
+          skillExecutionRecording.recordReference({
+            workflowPlanId: admitted.binding.workflowPlanId,
+            kind: 'remote_task_binding',
+            referenceId: admitted.binding.bindingId,
+            referenceType: 'mcp.remote_task_binding',
+            sourceSystem: admitted.binding.serverId,
+            producerRefs: [receipt.invocationId],
+            metadata: {
+              operationName: admitted.binding.operationName,
+              workflowInstanceId: admitted.binding.workflowInstanceId,
+              workflowNodeId: admitted.binding.workflowNodeId,
+            },
+          }),
+        );
         return {
           kind: 'waiting_external',
           wait: {
@@ -1049,12 +1170,115 @@ export async function startServerRuntime(
     confirmation: skillConfirmation,
     records: skillCallWorkflows,
     schemas: schemaValidator,
-    loadToolPlanningMetadata: (skill) =>
-      buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
-        (await mcpRepository.listTools(reference.serverId)).find(
-          (tool) => tool.toolName === reference.toolName,
-        ),
+    loadToolPlanningMetadata: (skill, taskOperations) =>
+      buildMcpToolPlanningMetadata(
+        {
+          required: [
+            ...skill.toolPolicy.required,
+            ...taskOperations.map((operation) => ({
+              serverId: operation.providerId,
+              toolName: operation.operationName,
+            })),
+          ],
+          optional: skill.toolPolicy.optional,
+          forbidden: skill.toolPolicy.forbidden,
+        },
+        async (reference) =>
+          (await mcpRepository.listTools(reference.serverId)).find(
+            (tool) => tool.toolName === reference.toolName,
+          ),
       ),
+    async prepareUsage({ skill, value, goalContract, workflowDefinitionId, taskId }) {
+      const task = taskId === undefined ? undefined : await tasks.findById(taskId);
+      const usageContext = await resolveSkillUsageContext(goalContract, task);
+      const candidate = await skillUsage.assess(
+        skill,
+        skill.usageSpecification === undefined
+          ? {
+              ...usageContext,
+              risk: 'low',
+              systemPolicy: {
+                ...usageContext.systemPolicy,
+                preferredMode: 'guidance',
+                requireProcedureForHighRisk: false,
+              },
+            }
+          : usageContext,
+      );
+      if (candidate.modeDecision.decision !== 'selected')
+        throw new Error('CHILD_SKILL_USAGE_MODE_NOT_SELECTED');
+      const composition = await skillComposition.composeUsage(
+        { skillId: skill.skillId, skillVersion: skill.version },
+        await resolveSkillUsageSlotChoices(goalContract, skill, value, task),
+      );
+      return {
+        prepared: prepareSkillUsagePlan({
+          skill,
+          candidate,
+          interpretation: skillComposition.interpretUsage(
+            skill,
+            candidate.modeDecision,
+            composition,
+          ),
+          goalContract,
+          workflowDefinitionId,
+          workflowVersion: skill.version,
+        }),
+        applicabilityStatus: candidate.applicability.status,
+        ...(skill.usageSpecification === undefined ? { useLegacyPlanningInstruction: true } : {}),
+      };
+    },
+    async onUsagePlanPrepared({ skill, plan, preparedUsage, parentPlanId }) {
+      await recordSkillProjectionSafely(async () => {
+        const parent = await skillExecutionRepository.findByPlan(parentPlanId);
+        if (parent === undefined || plan.definition === undefined) return;
+        await skillExecutionRecording.recordPlanning({
+          executionId: `skill-execution-${plan.planId}`,
+          parentExecutionId: parent.executionId,
+          taskId: parent.taskId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          selectionRef: `composition:${parent.executionId}:${skill.skillId}@${String(skill.version)}`,
+          applicabilityStatus: preparedUsage.applicabilityStatus,
+          policy: preparedUsage.prepared.policy,
+          workflowPlanId: plan.planId,
+          workflowDefinitionId: plan.definition.workflowDefinitionId,
+          workflowDefinitionVersion: plan.definition.version,
+          procedureCompiled:
+            preparedUsage.prepared.deterministicDefinition !== undefined &&
+            preparedUsage.prepared.policy.mode === 'procedure',
+          planCompliancePassed: true,
+        });
+      });
+    },
+    async onExecutionStatus({ childPlanId, childInstanceId, status, summary }) {
+      await recordSkillProjectionSafely(async () => {
+        if (childInstanceId !== undefined && ['completed', 'failed', 'cancelled'].includes(status))
+          await skillExecutionRecording.recordReference({
+            workflowPlanId: childPlanId,
+            kind: 'outcome',
+            referenceId: childInstanceId,
+            referenceType: 'workflow.instance.outcome',
+            sourceSystem: 'skill_call_workflow',
+            producerRefs: [childInstanceId],
+            metadata: { status },
+          });
+        await skillExecutionRecording.recordStatus({
+          workflowPlanId: childPlanId,
+          eventType:
+            status === 'executing'
+              ? 'skill.execution_started'
+              : status === 'waiting_external'
+                ? 'skill.execution_waiting_external'
+                : status === 'completed'
+                  ? 'skill.execution_completed'
+                  : 'skill.execution_failed',
+          status,
+          summary,
+          ...(childInstanceId === undefined ? {} : { details: { childInstanceId } }),
+        });
+      });
+    },
     clock,
     nextId: randomUUID,
   });
@@ -1182,10 +1406,19 @@ export async function startServerRuntime(
             return;
           }
           const controlId = `control-task-${task.taskId}`;
+          await recordSkillProjectionSafely(() =>
+            skillExecutionRecording.recordStatus({
+              workflowPlanId: planId,
+              eventType: 'skill.execution_started',
+              status: 'executing',
+              summary: 'Authoritative Workflow execution started after confirmation.',
+            }),
+          );
           try {
             const existing = await workflowController.get(controlId);
             if (existing.status === 'awaiting_confirmation') {
-              await workflowController.continueAfterConfirmation(controlId);
+              const continued = await workflowController.continueAfterConfirmation(controlId);
+              await projectSkillExecutionControl(planId, continued);
               return;
             }
           } catch (error: unknown) {
@@ -1197,7 +1430,7 @@ export async function startServerRuntime(
             ))
               throw error;
           }
-          await workflowController.start({
+          const started = await workflowController.start({
             controlId,
             contextId: task.contextId,
             goalId,
@@ -1211,6 +1444,7 @@ export async function startServerRuntime(
               requestText: task.requestText,
             }),
           });
+          await projectSkillExecutionControl(planId, started);
         })().catch(async (error: unknown) => {
           const code =
             typeof error === 'object' &&
@@ -1219,6 +1453,27 @@ export async function startServerRuntime(
             typeof error.code === 'string'
               ? error.code
               : 'TASK_EXECUTION_FAILED';
+          const errorSummary =
+            error instanceof Error ? error.message : 'Unknown confirmed execution failure.';
+          process.stderr.write(
+            `${JSON.stringify({
+              level: 'error',
+              event: 'task_confirmed_execution_failed',
+              taskId: task.taskId,
+              workflowPlanId: planId,
+              errorCode: code,
+              errorSummary,
+            })}\n`,
+          );
+          await recordSkillProjectionSafely(() =>
+            skillExecutionRecording.recordStatus({
+              workflowPlanId: planId,
+              eventType: 'skill.execution_failed',
+              status: 'failed',
+              summary: 'Confirmed authoritative Workflow execution failed.',
+              details: { errorCode: code, errorSummary },
+            }),
+          );
           await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
         });
         trackBackgroundExecution(execution);
@@ -1351,6 +1606,7 @@ export async function startServerRuntime(
           task.skillSelectionId,
           task.selectedSkillId,
           createGoalExecutionContract(goal),
+          await resolveSkillUsageContext(createGoalExecutionContract(goal), task),
         );
         return {
           skillId: replacement.replacementSkillId,
@@ -1437,6 +1693,58 @@ export async function startServerRuntime(
       },
     },
     terminalOutcomes: runtimeTerminalOutcomes,
+    onTerminalCommitted: async ({ outcome, control, instance }) => {
+      try {
+        const degraded = isRecord(instance.result) && instance.result['status'] === 'degraded';
+        await skillExecutionRecording.recordReference({
+          workflowPlanId: control.currentPlanId,
+          kind: 'outcome',
+          referenceId: outcome.outcomeId,
+          referenceType: 'runtime.terminal_outcome',
+          sourceSystem: 'workflow_controller',
+          producerRefs: outcome.finalInstanceId === undefined ? [] : [outcome.finalInstanceId],
+          metadata: { workflowControlStatus: outcome.controlStatus, controlId: control.controlId },
+        });
+        await skillExecutionRecording.recordStatus({
+          workflowPlanId: control.currentPlanId,
+          eventType: degraded
+            ? 'skill.execution_degraded'
+            : outcome.controlStatus === 'achieved'
+              ? 'skill.execution_completed'
+              : outcome.controlStatus === 'canceled'
+                ? 'skill.execution_failed'
+                : 'skill.execution_failed',
+          status: degraded
+            ? 'degraded'
+            : outcome.controlStatus === 'achieved'
+              ? 'completed'
+              : outcome.controlStatus === 'canceled'
+                ? 'cancelled'
+                : 'failed',
+          summary: degraded
+            ? `Authoritative terminal outcome ${outcome.outcomeId} retained degraded patrol evidence.`
+            : `Authoritative terminal outcome ${outcome.outcomeId} was committed atomically.`,
+          details: {
+            workflowControlStatus: outcome.controlStatus,
+            ...(degraded
+              ? {
+                  missingEffects: instance.result['missingEffects'] ?? [],
+                  missingEvidence: instance.result['missingEvidence'] ?? [],
+                }
+              : {}),
+          },
+        });
+      } catch (error: unknown) {
+        process.stderr.write(
+          `${JSON.stringify({
+            level: 'warn',
+            event: 'skill_execution_terminal_projection_failed',
+            errorCode: runtimeErrorCode(error),
+            outcomeId: outcome.outcomeId,
+          })}\n`,
+        );
+      }
+    },
     reportWarning: (warning) => {
       process.stderr.write(
         `${JSON.stringify({ event: 'runtime.enhancement.warning', ...warning })}\n`,
@@ -1463,11 +1771,21 @@ export async function startServerRuntime(
     for (;;) {
       const childLink = await skillCallWorkflows.findByChildInstanceId(currentInstance.instanceId);
       if (childLink === undefined) {
-        if (currentInstance.status !== 'waiting_external')
-          await workflowController.continueAfterExternal(
+        if (currentInstance.status !== 'waiting_external') {
+          await recordSkillProjectionSafely(() =>
+            skillExecutionRecording.recordStatus({
+              workflowPlanId: currentSnapshot.workflowPlanId,
+              eventType: 'skill.execution_started',
+              status: 'executing',
+              summary: 'Authoritative Workflow resumed after an external Task observation.',
+            }),
+          );
+          const continued = await workflowController.continueAfterExternal(
             currentSnapshot.workflowControlId,
             currentInstance.instanceId,
           );
+          await projectSkillExecutionControl(currentSnapshot.workflowPlanId, continued);
+        }
         return;
       }
       if (
@@ -1644,6 +1962,85 @@ export async function startServerRuntime(
     nextCorrectionId: () => `skill-evolution-correction-${randomUUID()}`,
     memories,
   });
+  const projectSkillExecutionControl = async (
+    workflowPlanId: string,
+    control: Awaited<ReturnType<typeof workflowController.get>>,
+  ): Promise<void> => {
+    const status = control.status;
+    if (status === 'running') {
+      await recordSkillProjectionSafely(() =>
+        skillExecutionRecording.recordStatus({
+          workflowPlanId,
+          eventType: 'skill.execution_waiting_external',
+          status: 'waiting_external',
+          summary: 'Authoritative Workflow is waiting for an external Task.',
+        }),
+      );
+      return;
+    }
+    if (status === 'awaiting_confirmation' || status === 'awaiting_input') {
+      await recordSkillProjectionSafely(() =>
+        skillExecutionRecording.recordEvent({
+          workflowPlanId,
+          eventType: 'skill.human_intervention',
+          summary:
+            status === 'awaiting_confirmation'
+              ? 'Authoritative Workflow is awaiting confirmation.'
+              : 'Authoritative Workflow is awaiting user input.',
+          details: { workflowControlStatus: status },
+        }),
+      );
+      return;
+    }
+    if (status === 'achieved') {
+      await recordSkillControlOutcome(workflowPlanId, control);
+      await recordSkillProjectionSafely(async () => {
+        const projected = await skillExecutionRepository.findByPlan(workflowPlanId);
+        if (projected?.status === 'degraded') return;
+        await skillExecutionRecording.recordStatus({
+          workflowPlanId,
+          eventType: 'skill.execution_completed',
+          status: 'completed',
+          summary: 'Authoritative Workflow achieved the Goal.',
+        });
+      });
+      return;
+    }
+    await recordSkillControlOutcome(workflowPlanId, control);
+    await recordSkillProjectionSafely(() =>
+      skillExecutionRecording.recordStatus({
+        workflowPlanId,
+        eventType: 'skill.execution_failed',
+        status: status === 'canceled' ? 'cancelled' : 'failed',
+        summary:
+          status === 'canceled'
+            ? 'Authoritative Workflow execution was cancelled.'
+            : `Authoritative Workflow terminated with ${status}.`,
+        details: { workflowControlStatus: status },
+      }),
+    );
+  };
+  const recordSkillControlOutcome = async (
+    workflowPlanId: string,
+    control: Awaited<ReturnType<typeof workflowController.get>>,
+  ): Promise<void> => {
+    const referenceId = control.terminalOutcomeId ?? control.finalInstanceId;
+    if (referenceId === undefined) return;
+    await recordSkillProjectionSafely(() =>
+      skillExecutionRecording.recordReference({
+        workflowPlanId,
+        kind: 'outcome',
+        referenceId,
+        referenceType:
+          control.terminalOutcomeId === undefined
+            ? 'workflow.instance.outcome'
+            : 'runtime.terminal_outcome',
+        sourceSystem: 'workflow_controller',
+        producerRefs: control.finalInstanceId === undefined ? [] : [control.finalInstanceId],
+        metadata: { workflowControlStatus: control.status, controlId: control.controlId },
+      }),
+    );
+  };
   const temporarySkillOperations = {
     create: temporarySkills.create.bind(temporarySkills),
     listByTask: temporarySkills.listByTask.bind(temporarySkills),
@@ -1678,7 +2075,10 @@ export async function startServerRuntime(
           skillSelection !== undefined
         ) {
           try {
-            return await skillSelection.select(goalContract);
+            return await skillSelection.select(
+              goalContract,
+              await resolveSkillUsageContext(goalContract, task),
+            );
           } catch (error: unknown) {
             if (!(
               typeof error === 'object' &&
@@ -1743,6 +2143,50 @@ export async function startServerRuntime(
             ),
         );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const preparedUsageEvidence =
+          skill === undefined
+            ? undefined
+            : await (async () => {
+                if (input.task.skillSelectionId === undefined)
+                  throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
+                const selection = await skillSelectionRepository.findSelection(
+                  input.task.skillSelectionId,
+                );
+                const candidate = selection?.candidates.find(
+                  (item) => item.skillId === skill.skillId && item.skillVersion === skill.version,
+                )?.usageCandidate;
+                if (candidate === undefined)
+                  throw new Error('SKILL_USAGE_SELECTION_EVIDENCE_REQUIRED');
+                const composition = await skillComposition.composeUsage(
+                  {
+                    skillId: skill.skillId,
+                    skillVersion: skill.version,
+                  },
+                  await resolveSkillUsageSlotChoices(
+                    input.goalContract,
+                    skill,
+                    input.skillInputResolution?.structuredInput,
+                    input.task,
+                  ),
+                );
+                const interpretation = skillComposition.interpretUsage(
+                  skill,
+                  candidate.modeDecision,
+                  composition,
+                );
+                return {
+                  applicabilityStatus: candidate.applicability.status,
+                  prepared: prepareSkillUsagePlan({
+                    skill,
+                    candidate,
+                    interpretation,
+                    goalContract: input.goalContract,
+                    workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+                    workflowVersion: 1,
+                  }),
+                } as const;
+              })();
+        const preparedUsage = preparedUsageEvidence?.prepared;
         const plan = await workflowPlanner.plan({
           planId,
           workflowDefinitionId: `workflow-task-${input.task.taskId}`,
@@ -1761,6 +2205,14 @@ export async function startServerRuntime(
               }),
           taskId: input.task.taskId,
           templateQuery: input.goalDescription,
+          ...(preparedUsage === undefined
+            ? {}
+            : {
+                skillUsagePolicy: preparedUsage.policy,
+                ...(preparedUsage.deterministicDefinition === undefined
+                  ? {}
+                  : { deterministicDefinition: preparedUsage.deterministicDefinition }),
+              }),
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
             workflowIdentity: {
@@ -1770,6 +2222,9 @@ export async function startServerRuntime(
               goalVersion: input.goalVersion,
             },
             goalDescription: input.goalDescription,
+            ...(preparedUsage === undefined
+              ? {}
+              : { skillUsagePlanning: JSON.parse(preparedUsage.planningInstruction) as unknown }),
             ...(skill === undefined
               ? {
                   selectedTemporarySkill: {
@@ -1814,6 +2269,28 @@ export async function startServerRuntime(
           (plan.executionReadiness === undefined ||
             (plan.executionReadiness.disposition === 'ready' &&
               !plan.executionReadiness.confirmationRequired));
+        if (
+          skill !== undefined &&
+          preparedUsage !== undefined &&
+          preparedUsageEvidence !== undefined &&
+          input.task.skillSelectionId !== undefined
+        )
+          await skillExecutionRecording.recordPlanning({
+            executionId: `skill-execution-${plan.planId}`,
+            taskId: input.task.taskId,
+            goalId: input.goalId,
+            goalVersion: input.goalVersion,
+            selectionRef: input.task.skillSelectionId,
+            applicabilityStatus: preparedUsageEvidence.applicabilityStatus,
+            policy: preparedUsage.policy,
+            workflowPlanId: plan.planId,
+            workflowDefinitionId: plan.definition.workflowDefinitionId,
+            workflowDefinitionVersion: plan.definition.version,
+            procedureCompiled:
+              preparedUsage.deterministicDefinition !== undefined &&
+              preparedUsage.policy.mode === 'procedure',
+            planCompliancePassed: true,
+          });
         if (autoConfirmed) await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
@@ -1828,20 +2305,42 @@ export async function startServerRuntime(
           task.selectedSkillId === undefined
         )
           throw new Error('TASK_EXECUTION_IDENTITY_INCOMPLETE');
-        await workflowController.start({
-          controlId: `control-task-${task.taskId}`,
-          contextId: task.contextId,
-          goalId: task.goalId,
-          goalVersion: task.goalVersion,
-          taskId: task.taskId,
-          initialPlanId: input.planId,
-          input: input.executionInput,
-          skillIds: [task.selectedSkillId],
-          planningInstruction: JSON.stringify({
-            operation: 'task_outer_replan',
-            requestText: task.requestText,
+        await recordSkillProjectionSafely(() =>
+          skillExecutionRecording.recordStatus({
+            workflowPlanId: input.planId,
+            eventType: 'skill.execution_started',
+            status: 'executing',
+            summary: 'Authoritative Workflow execution started.',
           }),
-        });
+        );
+        try {
+          const control = await workflowController.start({
+            controlId: `control-task-${task.taskId}`,
+            contextId: task.contextId,
+            goalId: task.goalId,
+            goalVersion: task.goalVersion,
+            taskId: task.taskId,
+            initialPlanId: input.planId,
+            input: input.executionInput,
+            skillIds: [task.selectedSkillId],
+            planningInstruction: JSON.stringify({
+              operation: 'task_outer_replan',
+              requestText: task.requestText,
+            }),
+          });
+          await projectSkillExecutionControl(input.planId, control);
+        } catch (error: unknown) {
+          await recordSkillProjectionSafely(() =>
+            skillExecutionRecording.recordStatus({
+              workflowPlanId: input.planId,
+              eventType: 'skill.execution_failed',
+              status: 'failed',
+              summary: 'Authoritative Workflow execution failed.',
+              details: { errorCode: runtimeErrorCode(error) },
+            }),
+          );
+          throw error;
+        }
       },
     },
   });
@@ -2002,6 +2501,7 @@ export async function startServerRuntime(
         evaluationInfluences,
         evaluationAnalytics,
         runtimeEvents: events,
+        skillExecutions: skillExecutionRepository,
         runtimeTerminalOutcomes,
         memories,
         memoryRetention,
@@ -2029,7 +2529,10 @@ export async function startServerRuntime(
                       ),
                       { code: 'SKILL_SELECTION_GOAL_CONTRACT_STALE' as const },
                     );
-                  return skillSelection.select(goalContract);
+                  return skillSelection.select(
+                    goalContract,
+                    await resolveSkillUsageContext(goalContract),
+                  );
                 },
               },
             }),
@@ -2227,6 +2730,19 @@ export async function startServerRuntime(
   }
 }
 
+function conservativeSkillUsageSelectionContext() {
+  return Object.freeze({
+    observations: Object.freeze([]),
+    risk: 'medium' as const,
+    humanConfirmation: 'pending' as const,
+    systemPolicy: Object.freeze({
+      allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
+      requireProcedureForHighRisk: true,
+      allowGuidanceWithIncompleteContext: true,
+    }),
+  });
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -2290,12 +2806,6 @@ export async function applyRuntimeMigrations(
     }
   }
   let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
-  if (
-    profile === 'released' &&
-    ledger.rows.some((row) => Number.parseInt(row.version.slice(0, 4), 10) >= 100)
-  ) {
-    throw new Error('V11_MIGRATION_PROFILE_REQUIRED');
-  }
   const highestAppliedSequence = Math.max(
     0,
     ...ledger.rows
@@ -2376,7 +2886,6 @@ export async function applyRuntimeMigrations(
     );
     await pool.query(migration);
   }
-  if (profile !== 'v1.1-isolated') return;
   ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
   const applied = new Set(ledger.rows.map((row) => row.version));
   // The complete v1.0.13 hardening chain must precede the reserved V1.1 range.
@@ -2389,6 +2898,8 @@ export async function applyRuntimeMigrations(
     '0102_remote_task_continuation.up.sql',
     '0103_remote_task_input_and_cancellation.up.sql',
     '0104_workflow_external_wait_event.up.sql',
+    '0105_skill_usage_specification.up.sql',
+    '0106_skill_execution_record.up.sql',
   ] as const;
   const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
   for (const [index, version] of v11Versions.entries()) {
@@ -2424,11 +2935,22 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
         '0101_task_execution_readiness',
         '0102_remote_task_continuation',
         '0103_remote_task_input_and_cancellation',
-        '0104_workflow_external_wait_event'
+        '0104_workflow_external_wait_event',
+        '0105_skill_usage_specification',
+        '0106_skill_execution_record'
       )) AS v11_count`,
   );
   const ledgerState = ledger.rows[0];
   if (ledgerState?.released_present !== true)
     throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledgerState.v11_count !== 5) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (ledgerState.v11_count !== 7) throw new Error('V11_MIGRATION_NOT_APPLIED');
+}
+
+function runtimeErrorCode(error: unknown): string {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+    ? error.code
+    : 'TASK_EXECUTION_FAILED';
 }

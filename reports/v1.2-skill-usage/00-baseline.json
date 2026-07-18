@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "phase": 0,
+  "status": "passed",
+  "dependencyClass": "V11-INDEPENDENT",
+  "branch": "feature/v1.2-skill-driven-capability-usage",
+  "baseSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "resultingSha": "3e5ed759de421d1d6b687da67ad400ceb7cca962",
+  "packageVersion": "1.1.0",
+  "migrationHighWater": "0104_workflow_external_wait_event",
+  "adrHighWater": "ADR-095",
+  "sourceHashes": {
+    "goalPackageSha256": "70663c7b20578b2520b074090e3a2b206aaff868b42666b812b03bc2ed44a9af",
+    "separateOverallDesign": "not_supplied"
+  },
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "integrationPr": 4,
+    "integrationPrMerged": true,
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "ancestor": true,
+    "open": true
+  },
+  "verification": {
+    "install": { "command": "CI=true pnpm install --frozen-lockfile", "status": "passed" },
+    "full": {
+      "command": "CI=true pnpm verify with ignored .env trap-isolated",
+      "status": "passed",
+      "durationMs": 150801,
+      "unitAndContractTests": 493,
+      "integrationTests": 80,
+      "e2eTests": 49,
+      "architectureFiles": 232,
+      "a2aMustPassed": 74,
+      "openApiOperations": 110,
+      "migrationPairs": 68,
+      "infrastructureSmoke": "passed",
+      "serverConsoleSmoke": "passed"
+    },
+    "diagnostics": [
+      "operator-managed run failed because no PostgreSQL listened on 127.0.0.1:55432",
+      "self-managed run with .env present exposed its 54329/default-55432 port conflict",
+      "no code assertion failed before the corrected complete run passed"
+    ]
+  },
+  "knownLimitations": [
+    "The separately named Overall Design source was not supplied; normalized design is derived from the exact frozen Goal package.",
+    "External production MCP Tasks Provider interoperability remains unverified from v1.1.",
+    "Phase 0 contains documentation/evidence only; all v1.2 behavior remains unimplemented."
+  ],
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "branch": "feature/v1.2-skill-driven-capability-usage",
+    "remoteSha": "3e5ed759de421d1d6b687da67ad400ceb7cca962"
+  },
+  "draftPr": {
+    "status": "open",
+    "draft": true,
+    "number": 5,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/5"
+  }
+}

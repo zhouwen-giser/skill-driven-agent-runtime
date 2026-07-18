@@ -38,3 +38,21 @@
 - [x] 最终 ready PR #4 已按规定标题创建并指向 `main`；GitHub 报告 `MERGEABLE` 且当前无配置的 status-check runs。受保护 review/merge 与稳定 tag 仍必须在 PR 后完成。
 
 因此 v1.1 RC 的功能、证据和发布级 Definition of Done 已完成。不得把 RC 称为稳定版本；稳定 `v1.1.0` 只能在 PR 受保护合并后的发布提交上创建。
+
+## v1.2 Skill-driven capability usage release addendum
+
+- [x] The existing Registry, Selection, Skill Graph, Workflow Validator/Planner and single LangGraph
+  runtime are extended; there is no duplicate runtime, Provider authority or lifecycle state machine.
+- [x] Native exact-version packages separate normative/adaptive/observed content, pass bounded secure
+  import validation and keep PostgreSQL as runtime authority; legacy Skills remain executable.
+- [x] Discovery, applicability, context evidence, three modes, fixed/dynamic composition, depth 3/hard
+  5, four failure policies, Task/Provider policy, no-Skill fallback and plan compliance are verified.
+- [x] Move-to and recursive area-patrol verticals cover available/restricted/disabled/unknown,
+  windows, required/preferred Provider, input, cancel, restart, parent/child wait and no replay.
+- [x] Append-only Skill execution trees expose exact plan/task/provider/resource/evidence, hard-gate,
+  intervention and degraded-outcome references without replacing authoritative records.
+- [x] Phase 14 closes every required adversarial finding with a regression test; no required finding is
+  deferred.
+- [x] Phase 15 explicit command matrix and clean full `pnpm verify` pass on `b3b6e67`.
+- [x] Final human/JSON acceptance evidence is published, the branch is pushed and PR #5 is Ready for
+  Review without automatic merge.

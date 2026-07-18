@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "phase": 5,
+  "status": "passed",
+  "goal": "Resolve bounded exact-version Skill composition and emit safe three-mode IR.",
+  "dependencyClass": "V11-INDEPENDENT / V11-CONTRACT-SENSITIVE",
+  "baseSha": "a65d27007ecdcb431d1a637df3b78a6ec7c55958",
+  "resultingSha": "9b218732b66db8d928a5daa15923d4ee66018f51",
+  "architecture": {
+    "path": "existing SkillGraphRepository -> SkillCompositionPlanner -> immutable Domain plan/IR",
+    "limits": { "defaultDepth": 3, "hardDepth": 5, "expandedSkills": 32, "nodes": 128 },
+    "preservedInvariants": [
+      "No second Skill graph or workflow runtime is introduced",
+      "Every fixed and slot edge is graph-authorized and exact-versioned",
+      "Procedure output is declarative IR and is not Workflow DSL or executable source",
+      "No v1.1 Provider state, protocol SDK type or persistence authority is copied"
+    ],
+    "adrNeeded": false
+  },
+  "formalPackage": {
+    "skillId": "embodied.area_patrol",
+    "compositionSha256": "149fb9b07d3912bb270b5d216df09acec9d4dfc4653a70df42c50fb9930ab546",
+    "packageChecksum": "194ed0c08582c9a779e56df7dfc084c2c53a4351e5a8714510dde28de933a747"
+  },
+  "testsActuallyRun": [
+    { "command": "vitest run composition and formal-package regression", "status": "passed", "files": 3, "tests": 20 },
+    { "command": "pnpm verify", "status": "passed", "durationMs": 139408, "infrastructureMode": "self-managed-compose" },
+    { "command": "vitest run --project unit --project contract", "status": "passed", "files": 80, "tests": 542 },
+    { "command": "node scripts/test-integration.mjs", "status": "passed", "files": 9, "tests": 80 },
+    { "command": "node scripts/test-e2e.mjs", "status": "passed", "files": 2, "tests": 49 },
+    { "command": "node scripts/check-architecture.mjs", "status": "passed", "files": 246 },
+    { "command": "node scripts/verify-a2a-baseline.mjs", "status": "passed", "must": 74 },
+    { "command": "node scripts/check-management-openapi.mjs", "status": "passed", "operations": 110 },
+    { "command": "migration/build/smoke stages", "status": "passed", "migrationPairs": 68 }
+  ],
+  "failureSemantics": {
+    "fail_fast": "parent failed; abort",
+    "recoverable": "parent recovering; try an allowed recovery",
+    "optional": "record optional failure; continue",
+    "degraded": "continue degraded only with explicit missing effect or evidence"
+  },
+  "knownLimitations": [
+    "Composition plans and IR are not persisted, exposed, compiled or executed in Phase 5.",
+    "Real v1.1 readiness integration remains deferred to Phase 8.",
+    "External production Provider interoperability is unverified."
+  ],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true,
+    "repeatAfterPush": true,
+    "postPushOpen": true,
+    "mainIsBranchAncestor": true,
+    "branchBehindMain": 0,
+    "branchAheadOfMain": 13
+  },
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "9b218732b66db8d928a5daa15923d4ee66018f51"
+  }
+}

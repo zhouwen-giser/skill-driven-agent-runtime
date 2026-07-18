@@ -58,6 +58,27 @@ describe('Workflow bound-value resolver', () => {
     }).toThrow();
   });
 
+  it('resolves bounded Skill context and Provider evidence through reserved roots', () => {
+    const resolved = resolveWorkflowBoundValue(
+      {
+        permission: { op: 'ref', path: ['context', 'permission'] },
+        position: { op: 'ref', path: ['evidence', 'final-position'] },
+      },
+      {
+        input: { skillInput: {}, context: { permission: true }, evidence: {} },
+        outputs: {
+          move: {
+            data: { structuredContent: { evidence: { 'final-position': true } } },
+          },
+        },
+        errors: {},
+        loopCounts: {},
+      },
+    );
+
+    expect(resolved).toEqual({ permission: true, position: true });
+  });
+
   it('reports a readable stable error for a missing object or array segment', () => {
     expect(() =>
       resolveWorkflowBoundValue(

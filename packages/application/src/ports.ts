@@ -40,6 +40,10 @@ import type {
   SkillPerformanceMetrics,
   SkillReplacementPlan,
   SkillSelectionRecord,
+  SkillExecutionEvent,
+  SkillExecutionRecord,
+  SkillExecutionReference,
+  SkillExecutionView,
   SkillInputResolutionRecord,
   SkillQualityObservation,
   SkillQualityWarning,
@@ -47,6 +51,7 @@ import type {
   SkillDraft,
   SkillCallWorkflowRecord,
   SkillVersion,
+  SkillPackageImportAudit,
   SkillFormalizationCandidate,
   SkillEvolutionCorrectionExperience,
   EvolutionExperience,
@@ -91,6 +96,7 @@ import type {
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
   McpTaskOperationSemantics,
+  McpTaskOperationCandidate,
   ResolvedMcpTaskExecution,
   TaskAvailabilityCheckRequest,
   TaskAvailabilityCheckResult,
@@ -103,6 +109,8 @@ import type {
   WorkflowContinuationAttemptStatus,
   WorkflowExternalWaitResolution,
   WorkflowRuntimeContinuationState,
+  SkillTaskReadinessSummary,
+  SkillTaskBinding,
 } from '../../domain/src/index.js';
 
 export interface ConversationContextRepository {
@@ -312,7 +320,11 @@ export interface SkillRepository {
   listVersions(skillId: string): Promise<readonly SkillVersion[]>;
   listEnabledVersions(): Promise<readonly SkillVersion[]>;
   listCurrentVersions(): Promise<readonly SkillVersion[]>;
-  saveVersionAndSetCurrent(version: SkillVersion, timestamp: string): Promise<void>;
+  saveVersionAndSetCurrent(
+    version: SkillVersion,
+    timestamp: string,
+    packageImport?: SkillPackageImportAudit,
+  ): Promise<void>;
 }
 
 export interface SkillGraphRepository {
@@ -332,6 +344,20 @@ export interface SkillSelectionRepository {
   saveSelection(record: SkillSelectionRecord): Promise<void>;
   findSelection(selectionId: string): Promise<SkillSelectionRecord | undefined>;
   saveReplacementPlan(plan: SkillReplacementPlan): Promise<void>;
+}
+
+export interface SkillExecutionRepository {
+  create(
+    record: SkillExecutionRecord,
+    events: readonly SkillExecutionEvent[],
+    references: readonly SkillExecutionReference[],
+  ): Promise<SkillExecutionView>;
+  appendEvent(event: SkillExecutionEvent): Promise<SkillExecutionView>;
+  appendReference(reference: SkillExecutionReference): Promise<SkillExecutionView>;
+  find(executionId: string): Promise<SkillExecutionView | undefined>;
+  findByPlan(workflowPlanId: string): Promise<SkillExecutionView | undefined>;
+  listByTask(taskId: string): Promise<readonly SkillExecutionView[]>;
+  listChildren(parentExecutionId: string): Promise<readonly SkillExecutionView[]>;
 }
 
 export interface SkillInputResolutionRepository {
@@ -478,6 +504,10 @@ export interface McpTaskOperationCatalog {
   ): Promise<McpTaskOperationSemantics | undefined>;
 }
 
+export interface SkillTaskOperationCandidateCatalog {
+  listTaskOperationCandidates(taskType: string): Promise<readonly McpTaskOperationCandidate[]>;
+}
+
 export interface TaskAvailabilityBatchReader {
   checkTaskAvailability(
     input: Readonly<{
@@ -487,6 +517,18 @@ export interface TaskAvailabilityBatchReader {
       signal?: AbortSignal;
     }>,
   ): Promise<TaskAvailabilityReadResult>;
+}
+
+/** Phase 4 read-only abstraction; Phase 8 maps the v1.1 authority without copying its state model. */
+export interface SkillTaskReadinessPort {
+  inspect(
+    input: Readonly<{
+      skillId: string;
+      skillVersion: number;
+      taskBindings: readonly SkillTaskBinding[];
+      allowPreferredProviderFallback: boolean;
+    }>,
+  ): Promise<SkillTaskReadinessSummary>;
 }
 
 export interface TaskAvailabilityEvidenceRepository {
@@ -1208,7 +1250,7 @@ export interface RuntimeTaskEvent {
   readonly eventId: string;
   readonly taskId: string;
   readonly contextId: string;
-  readonly eventType: 'task.created' | 'task.phase_changed';
+  readonly eventType: 'task.created' | 'task.phase_changed' | SkillExecutionEvent['eventType'];
   readonly timestamp: string;
   readonly summary: string;
 }

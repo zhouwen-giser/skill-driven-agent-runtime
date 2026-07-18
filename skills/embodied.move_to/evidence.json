@@ -1,0 +1,11 @@
+{
+  "requirements": [
+    {
+      "requirementId": "final-position",
+      "evidenceType": "position.observation",
+      "required": true,
+      "hardGate": true
+    }
+  ],
+  "rejectSuccessWithoutRequiredEvidence": true
+}

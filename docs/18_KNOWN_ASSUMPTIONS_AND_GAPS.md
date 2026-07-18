@@ -64,12 +64,24 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - 2026-07-16：v1.1 migration 预留 0100+，但当前 high-water runner 会跳过更低未应用编号。0100+ 在 v1.0.13 前只能进入 disposable isolated database；支持的最终路径必须是完整 v1.0.13-bug-fixed ledger 后再应用 0100+。
 - 2026-07-16：DOCX 已完成结构提取，但当前环境缺少 `soffice`，无法生成页面渲染证据。Phase 0 不修改/交付 DOCX，因此记录为阅读工具限制而非功能完成证据。
 
+## v1.2 Skill usage Phase 3A assumptions (2026-07-17)
+
+- The frozen Goal requires `domain` and `tag` catalog filters but neither the baseline `SkillVersion`
+  nor the suggested `SkillUsageSpecification` introduces independent domain/tag authority. Phase 3A
+  therefore derives a domain from the first dot, colon or slash-delimited capability segment and uses
+  each exact capability as a tag. Matching is exact and case-sensitive. This preserves one catalog
+  classification authority; an independent taxonomy requires an additive ADR and migration in Phase 7
+  or later.
+- Lifecycle is an operational projection, not a second state machine: `enabled → active`,
+  `disabled → inactive`, and the other existing `SkillStatus` values project without translation.
+
 ## v1.1 MCP Tasks Phase 3 决策解释
 
 - 2026-07-16：Phase 3 开始前已 fetch 所有远端，最新可用 hardening 仍为 `v1.0.4-bug-fixed`/`fa4b050`；未发现 v1.0.5 或 v1.0.11 发布标签。实现因此只增加 V1.1 Task metadata/readiness 接口，不改写 transitive Skill confirmation 核心或通用 Tool Semantics。后续标签合并时必须补做兼容收敛，当前不得声称覆盖其尚未发布语义。
 - 2026-07-16：restricted 的既有计划确认只适用于同一节点规划时已经 restricted 且执行前风险未升级的刷新结果。available→restricted、风险等级/可能影响增加、预约减弱、有效期提前或最早开始推迟都要求重新确认，并在 Tool 网络调用前失败关闭。
 - 2026-07-16：availability 结果是 Provider 预测证据。只有 `reservationMode=guaranteed` 且存在有效 `reservationRef` 才可展示为预约；best-effort/窗口永远不代表设备锁或 Provider 权威资源状态。
 - 2026-07-16：0101 仍属于 disposable `sdar_v11_*` 隔离迁移链。受支持发布升级路径继续等待完整 `v1.0.13-bug-fixed` ledger；Phase 3 的真实 PostgreSQL 验证不等于最终发布迁移兼容声明。
+
 ## v1.1 MCP Tasks Phase 5 assumptions and gaps (2026-07-17)
 
 - The exact pinned extension wire is `tasks/update({ taskId, inputResponses })`; it does not carry the design draft's `expectedRevision`. SDAR validates the binding revision locally and does not emit an unsupported field. See ADR-094.
@@ -86,3 +98,54 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The latest `pnpm demo:acceptance` report records merge commit `df8b6e0` with `dirty=false`; the latest `pnpm verify` report records evidence commit `13194b8` with `dirty=false`. These are clean local attestations, while external production Provider interoperability and publication review remain outside the local evidence boundary.
 - `v1.0.13-bug-fixed` (`91cd58ddcff57acf3ed846914feafaff603c69f2`) is an ancestor of the feature work and `origin/main`. `origin/main` contains the protected hardening merge at `6584bf0`. Exact commit `38356ea` passed isolated frozen install, unified verification and local demo; ready PR #4 and annotated `v1.1.0-rc.1` are published. Protected review/merge and stable `v1.1.0` remain pending.
 - The Phase 6 management surface permits only bounded lifecycle reads and safe refresh/cancel requests. It does not convert cooperative acknowledgements into Provider terminal states, retry ambiguous side effects, or add an authentication/authorization model that conflicts with the trusted-intranet V1 baseline.
+
+## v1.2 Phase 6 main baseline and adapter boundary (2026-07-17)
+
+- Current `origin/main` `667146a` was already an ancestor of the V1.2 branch at Phase 6 entry; no empty
+  integration merge was created.
+- The Phase 4 `SkillTaskReadinessPort` remains mock-only. ADR-102 requires the Phase 8 production adapter
+  to directly reuse V1.1 operation discovery and Task availability/timing/window/reservation contracts.
+  Production Provider readiness is therefore not claimed by Phases 4–6.
+- Phase 8 closes the mock-only gap with `V11SkillTaskReadinessAdapter` and exact registered operation
+  discovery. Task Type is the case-sensitive operation name and Provider identity is the existing
+  `serverId`; no separate certification source was supplied, so required attributes are limited to the
+  deterministic validated Task-semantics projection. Unknown certifications have no evidence and fail
+  closed. External production Provider interoperability remains unverified.
+- Applied migration high-water remains 0104. Numbers 0105 and 0106 are allocated but no migration file
+  exists until Phase 7 and Phase 11 respectively.
+
+## v1.2 Phase 10 runtime and migration integration (2026-07-17)
+
+- V1.1 is merged into `origin/main`, so the pre-main rule that only disposable `sdar_v11_*` databases
+  may apply 0100+ can no longer remain the production profile. ADR-106 advances the default released
+  chain through 0105 while retaining the isolated-profile acknowledgement/name guard for tests and
+  rejecting any gap inside 0100..0105.
+- The operator-owned local `sdar` volume currently contains 0064 and 0105 but not 0100–0104. This is an
+  invalid historical ledger, not an authorized upgrade path. Verification proved the new runner rejects
+  it and did not mutate the volume; a disposable bootstrap database supplied clean released-path
+  evidence and was removed afterward.
+- Required dynamic capability slots still require an exact choice before Usage composition. Phase 10
+  wires the composition authority but does not let the model invent a choice; Phase 12–13 must add and
+  verify the bounded choice path before claiming the formal area-patrol vertical.
+
+## v1.2 final acceptance boundary (2026-07-18)
+
+- The task package referenced a separately named overall design document that was not supplied. The
+  exact task package and SRS were frozen, the missing input was recorded, and
+  `docs/24_V1_2_SKILL_DRIVEN_CAPABILITY_USAGE_DESIGN.md` is the normalized implementation design. No
+  requirement was silently invented or removed.
+- Native v1.2 Usage intentionally freezes exact Skill/version authority from selection through
+  execution. This is a versioned addendum to the SRS legacy current-version behavior; legacy Skills
+  retain the existing current/graph projection and native plans fail closed on drift.
+- Real local evidence covers PostgreSQL/pgvector, Redis/BullMQ, HTTP/A2A, LangGraph, MCP adapter wire,
+  management API, Console build/smoke, migrations, restart and parent/child continuation. Model choices
+  and MCP Tasks Provider business/state semantics are deterministic simulations. External production
+  MCP Tasks Provider interoperability remains unverified and is not a required v1.2 deferred item.
+- The operator-owned historical `sdar` database has a nonconforming 0100–0104 ledger gap. The runner
+  rejects it without mutation. Empty and supported upgrade paths are verified in disposable databases,
+  which is the release evidence; repairing operator data is an explicit future operator migration,
+  not permission to falsify ledger rows.
+- Original DOCX content was audited by complete OOXML extraction. Visual pagination/rendering remains
+  unverified because `soffice` is unavailable; v1.2 does not modify or publish that DOCX.
+- As of Phase 14 there are zero open required findings. Phase 15 completion remains conditional on its
+  explicit command matrix, final reports, pushed evidence and Ready-for-Review transition.

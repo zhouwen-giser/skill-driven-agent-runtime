@@ -57,6 +57,9 @@ export class WorkflowRevisionService {
       ...(source.capabilityGapSkillIds === undefined
         ? {}
         : { capabilityGapSkillIds: source.capabilityGapSkillIds }),
+      ...(definition.skillUsagePolicy === undefined
+        ? {}
+        : { skillUsagePolicy: definition.skillUsagePolicy }),
     });
   }
 
@@ -76,6 +79,9 @@ export class WorkflowRevisionService {
         source.compositionContext !== undefined || source.capabilityGapSkillIds !== undefined,
       allowedChildSkillIds: source.compositionContext?.allowedChildSkillIds ?? [],
       capabilityGapSkillIds: source.capabilityGapSkillIds ?? [],
+      ...(sourceDefinition.skillUsagePolicy === undefined
+        ? {}
+        : { skillUsagePolicy: sourceDefinition.skillUsagePolicy }),
     });
     if (!validation.valid || validation.definition === undefined)
       throw new WorkflowRevisionError(

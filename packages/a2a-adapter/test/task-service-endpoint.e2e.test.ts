@@ -30,6 +30,8 @@ let controlEvaluationCalls = 0;
 let replacementEvaluationCalls = 0;
 let inputContinuationEvaluationCalls = 0;
 let postCommitMemoryFailures = 0;
+let areaPatrolInspectionVersion = 1;
+let areaPatrolInitialized = false;
 let mcpWorkflowTarget:
   | Readonly<{
       serverId: string;
@@ -75,6 +77,110 @@ beforeAll(async () => {
             providerId: 'embedding.e2e.v1',
             vector: text.toLowerCase().includes('zebra') ? [1, 0, 0] : [0, 1, 0],
           }),
+      },
+    },
+    skillUsageContext: {
+      resolve({ goalContract }) {
+        if (goalContract.description.includes('GLOBAL_SHARED_SKILL:embodied.area_patrol'))
+          return {
+            observations: [
+              {
+                requirementId: 'area-boundary',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'area-boundary:patrol-a',
+              },
+              {
+                requirementId: 'resource-state',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'resource-state:robot-17:ready',
+              },
+              {
+                requirementId: 'time-window',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'time-window:patrol-a',
+              },
+              {
+                requirementId: 'area-partition',
+                source: 'deterministic_derivation' as const,
+                status: 'available' as const,
+                evidenceRef: 'area-partition:patrol-a:bounded',
+              },
+              {
+                requirementId: 'current-position',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'position-observation:robot-17:before-patrol',
+              },
+              {
+                requirementId: 'permission-context',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'permission:patrol-area-a:permitted',
+              },
+            ],
+            risk: 'high' as const,
+            humanConfirmation: 'pending' as const,
+            systemPolicy: {
+              allowedModes: ['guidance', 'template', 'procedure'] as const,
+              preferredMode: 'procedure' as const,
+              requireProcedureForHighRisk: true,
+              allowGuidanceWithIncompleteContext: false,
+            },
+          };
+        const requestedMode = goalContract.description.includes('MOVE_TO_GUIDANCE')
+          ? ('guidance' as const)
+          : goalContract.description.includes('MOVE_TO_PROCEDURE')
+            ? ('procedure' as const)
+            : ('template' as const);
+        const permissionAvailable = !goalContract.description.includes('MOVE_TO_FORBIDDEN');
+        return {
+          observations: [
+            {
+              requirementId: 'current-position',
+              source: 'authoritative_context',
+              status: 'available',
+              evidenceRef: 'position-observation:robot-17:before-move',
+            },
+            {
+              requirementId: 'resource-state',
+              source: 'authoritative_context',
+              status: 'available',
+              evidenceRef: 'resource-state:robot-17:ready',
+            },
+            {
+              requirementId: 'permission-context',
+              source: 'authoritative_context',
+              status: permissionAvailable ? ('available' as const) : ('absent' as const),
+              ...(permissionAvailable ? { evidenceRef: 'permission:move-area-a:permitted' } : {}),
+            },
+          ],
+          risk: requestedMode === 'procedure' ? 'high' : 'medium',
+          humanConfirmation: 'pending',
+          systemPolicy: {
+            allowedModes: ['guidance', 'template', 'procedure'],
+            preferredMode: requestedMode,
+            requireProcedureForHighRisk: true,
+            allowGuidanceWithIncompleteContext: true,
+          },
+        };
+      },
+    },
+    skillUsageComposition: {
+      resolveSlotChoices({ skill }) {
+        return skill.skillId === 'embodied.area_patrol'
+          ? [
+              {
+                parentSkillId: skill.skillId,
+                parentSkillVersion: skill.version,
+                slotId: 'subregion-inspection',
+                skillId: 'embodied.inspect_area',
+                skillVersion: areaPatrolInspectionVersion,
+              },
+            ]
+          : [];
       },
     },
   });
@@ -417,6 +523,92 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       status: 'enabled',
     });
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
+  });
+
+  it('validates, imports, reads, filters and lifecycle-versions a formal Skill Package', async () => {
+    const packageRoot = 'skills/embodied.move_to';
+    const validated = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/validate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(validated.status).toBe(200);
+    const validationBody = z
+      .object({
+        skillVersion: z.object({
+          skillId: z.literal('embodied.move_to'),
+          version: z.literal(1),
+          usageSpecification: z.object({
+            modes: z.object({ defaultMode: z.literal('template') }),
+          }),
+        }),
+        packageChecksum: z.string().regex(/^[0-9a-f]{64}$/u),
+        fileChecksums: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/u)),
+      })
+      .parse(await validated.json());
+    expect(validationBody.fileChecksums).toHaveProperty('SKILL.md');
+    expect(JSON.stringify(validationBody)).not.toContain('# Move To');
+
+    const imported = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(imported.status).toBe(201);
+    await expect(imported.json()).resolves.toMatchObject({
+      skillId: 'embodied.move_to',
+      version: 1,
+      usageSpecification: { modes: { defaultMode: 'template' } },
+    });
+    const exact = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/embodied.move_to/versions/1`,
+    );
+    await expect(exact.json()).resolves.toMatchObject({
+      skillId: 'embodied.move_to',
+      version: 1,
+      status: 'enabled',
+    });
+    const catalog = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/catalog?mode=procedure&domain=embodied&userSelectable=true`,
+    );
+    const catalogBody = z
+      .object({ items: z.array(z.object({ skillId: z.string(), lifecycle: z.string() })) })
+      .parse(await catalog.json());
+    expect(catalogBody.items).toContainEqual({
+      skillId: 'embodied.move_to',
+      lifecycle: 'active',
+    });
+
+    const staleImport = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ packageRoot }),
+    });
+    expect(staleImport.status).toBe(400);
+    await expect(staleImport.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_IMPORT_VERSION_CONFLICT' },
+    });
+    const disabled = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/embodied.move_to/disable`,
+      { method: 'POST' },
+    );
+    await expect(disabled.json()).resolves.toMatchObject({
+      version: 2,
+      previousVersion: 1,
+      status: 'disabled',
+      usageSpecification: { modes: { defaultMode: 'template' } },
+    });
+    const reenabled = await fetch(
+      `${runtime.management.baseUrl}/api/v1/skills/embodied.move_to/enable`,
+      { method: 'POST' },
+    );
+    expect(reenabled.status).toBe(200);
+    await expect(reenabled.json()).resolves.toMatchObject({
+      version: 3,
+      previousVersion: 2,
+      status: 'enabled',
+      usageSpecification: { modes: { defaultMode: 'template' } },
+    });
   });
 
   it('registers model-authored valid Schemas through the management boundary', async () => {
@@ -2465,6 +2657,42 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(registered.status, await registered.text()).toBe(201);
       await runtime.registerSkill({
         ...skillInput(skillId, 'Zebra MCP Tasks vertical acceptance'),
+        capabilities: ['task_success'],
+        usageSpecification: {
+          apiVersion: 'sdar.io/v1alpha1',
+          visibility: { userSelectable: true, composable: true, internalOnly: false },
+          normative: {
+            constraints: ['Use the registered remote Task operation.'],
+            forbiddenActions: [],
+            requiredConfirmations: ['remote_task_execution'],
+            noApplicableSkill: 'reject',
+          },
+          adaptive: {
+            instructions: ['Prefer the declared Provider policy.'],
+            optimizationHints: [],
+            allowPreferredProviderFallback: false,
+          },
+          contextRequirements: [],
+          modes: {
+            supported: ['guidance'],
+            defaultMode: 'guidance',
+            guidance: { summary: 'Remote Task guidance.', instructions: ['Plan safely.'] },
+          },
+          taskBindings: [
+            {
+              bindingId: 'vertical-task',
+              taskType: 'task_success',
+              providerPolicy: {
+                selection: 'required',
+                preferredProviderIds: [],
+                requiredProviderId: serverId,
+                forbiddenProviderIds: [],
+                requiredAttributes: ['availability:dynamic', 'observations'],
+              },
+            },
+          ],
+          evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+        },
         toolPolicy: {
           required: [{ serverId, toolName: 'task_success' }],
           optional: [],
@@ -2491,6 +2719,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
       expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
       expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+      expect(
+        provider.requests.some(
+          (request) =>
+            request.method === 'io.sdar/tasks/checkAvailability' &&
+            JSON.stringify(request.params).includes('vertical-task'),
+        ),
+      ).toBe(true);
 
       const prepared = z
         .object({ planId: z.string(), selectedSkillId: z.string() })
@@ -2612,6 +2847,736 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       );
     } finally {
       await runtime.setSkillEnabled(skillId, false).catch(() => undefined);
+      await provider.close();
+    }
+  });
+
+  it.each([
+    ['guidance', 'immediate_success', false, true],
+    ['template', 'remote_success', true, true],
+    ['procedure', 'remote_success', true, true],
+    ['template', 'remote_missing_evidence', true, false],
+  ] as const)(
+    'runs embodied.move_to in %s mode with %s through the existing Skill, Workflow, Provider and evidence authorities',
+    async (mode, outcome, expectsRemoteTask, expectsCompletion) => {
+      const provider = await startMcpTasksMockProvider({ moveTo: { outcome } });
+      const serverId = `mcp.move-to.${mode}.${randomUUID()}`;
+      try {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: `Move-to ${mode} Provider`,
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        });
+        expect(registered.status, await registered.text()).toBe(201);
+
+        const submitted = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: `message-${randomUUID()}`,
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: `MOVE_TO_${mode.toUpperCase()} GLOBAL_SHARED_SKILL:embodied.move_to`,
+                  mediaType: 'text/plain',
+                },
+              ],
+              metadata: {
+                structured_input: {
+                  resourceId: 'robot-17',
+                  target: { x: 12, y: 8, frame: 'map' },
+                },
+              },
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+        expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+
+        const task = z
+          .object({
+            planId: z.string(),
+            selectedSkillId: z.literal('embodied.move_to'),
+            selectedSkillVersion: z.number().int().positive(),
+          })
+          .parse(
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+              (response) => response.json(),
+            ),
+          );
+        const plan = z
+          .object({
+            confirmationStatus: z.literal('awaiting_confirmation'),
+            definition: z.object({
+              skillUsagePolicy: z.object({
+                skill: z.object({
+                  skillId: z.literal('embodied.move_to'),
+                  skillVersion: z.number().int().positive(),
+                }),
+                mode: z.literal(mode),
+              }),
+              nodes: z.array(z.object({ nodeId: z.string(), type: z.string() }).loose()),
+            }),
+          })
+          .parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+            ).then((response) => response.json()),
+          );
+        expect(plan.definition.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'usage_task_0', type: 'mcp_tool' }),
+            expect.objectContaining({ nodeId: 'usage_evidence_0', type: 'condition' }),
+          ]),
+        );
+
+        const confirmed = await sendFollowUp(
+          submitted.id,
+          submitted.contextId,
+          'confirm_plan',
+          `Confirm the ${mode} move-to plan.`,
+        );
+        expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
+        if (expectsRemoteTask) {
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            if (provider.requests.filter((request) => request.method === 'tasks/get').length >= 2)
+              break;
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+          }
+        }
+        const terminal = expectsCompletion
+          ? await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED)
+          : await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
+        if (expectsCompletion) {
+          expect(terminal.artifacts[0]?.parts[1]?.content).toMatchObject({
+            $case: 'data',
+            value: {
+              resourceId: 'robot-17',
+              status: 'completed',
+              finalPosition: { x: 12, y: 8, frame: 'map' },
+            },
+          });
+        } else expect(terminal.status?.state).not.toBe(TaskState.TASK_STATE_COMPLETED);
+        let invocations = await runtime.listMcpInvocations(serverId);
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          if (invocations.some((invocation) => invocation.status === 'succeeded')) break;
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+          invocations = await runtime.listMcpInvocations(serverId);
+        }
+        expect(invocations).toEqual([
+          expect.objectContaining({
+            taskId: submitted.id,
+            toolName: 'embodied.move',
+            arguments: {
+              resourceId: 'robot-17',
+              target: { x: 12, y: 8, frame: 'map' },
+            },
+            status: 'succeeded',
+          }),
+        ]);
+        expect(provider.requests.some((request) => request.method === 'tasks/get')).toBe(
+          expectsRemoteTask,
+        );
+
+        const executionCollectionSchema = z.object({
+          items: z.array(
+            z.object({
+              skillId: z.string(),
+              skillVersion: z.number(),
+              status: z.string(),
+              usagePolicy: z.object({ mode: z.string() }).loose(),
+              events: z.array(z.object({ eventType: z.string() }).loose()),
+              taskProviderReferences: z.array(
+                z.object({ kind: z.string(), referenceId: z.string() }).loose(),
+              ),
+              hardGates: z.array(z.object({ referenceId: z.string() }).loose()),
+              evidenceReferences: z.array(z.object({ kind: z.string() }).loose()),
+            }),
+          ),
+        });
+        let executions: z.infer<typeof executionCollectionSchema> | undefined;
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          executions = executionCollectionSchema.parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
+            ).then((response) => response.json()),
+          );
+          if (executions.items.some((execution) => execution.status === 'completed')) break;
+          if (!expectsCompletion && executions.items.length > 0) break;
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+        }
+        if (executions === undefined) throw new Error('MOVE_TO_EXECUTION_RECORD_NOT_FOUND');
+        const moveExecution = executions.items.find(
+          (execution) => execution.skillId === 'embodied.move_to',
+        );
+        expect(moveExecution).toEqual(
+          expect.objectContaining({
+            skillId: 'embodied.move_to',
+            skillVersion: task.selectedSkillVersion,
+            usagePolicy: expect.objectContaining({ mode }),
+            events: expect.arrayContaining([
+              expect.objectContaining({ eventType: 'skill.plan_compliance_passed' }),
+              ...(expectsCompletion
+                ? [expect.objectContaining({ eventType: 'skill.execution_completed' })]
+                : [expect.objectContaining({ eventType: 'skill.hard_gate_triggered' })]),
+            ]),
+            taskProviderReferences: expect.arrayContaining([
+              expect.objectContaining({ kind: 'provider', referenceId: serverId }),
+              expect.objectContaining({ kind: 'resource' }),
+            ]),
+            hardGates: [expect.objectContaining({ referenceId: 'final-position' })],
+            evidenceReferences: expect.arrayContaining([
+              expect.objectContaining({ kind: 'evidence' }),
+              ...(expectsCompletion ? [expect.objectContaining({ kind: 'outcome' })] : []),
+            ]),
+          }),
+        );
+        if (expectsCompletion) expect(moveExecution?.status).toBe('completed');
+        else expect(moveExecution?.status).not.toBe('completed');
+      } finally {
+        await runtime.deleteMcpServer(serverId).catch(() => undefined);
+        await provider.close();
+      }
+    },
+  );
+
+  it.each([
+    ['remote_success', 'completed', 'completed'],
+    ['remote_degraded', 'degraded', 'degraded'],
+  ] as const)(
+    'runs recursive embodied.area_patrol with exact child versions and a %s terminal projection',
+    async (outcome, resultStatus, executionStatus) => {
+      const provider = await startMcpTasksMockProvider({
+        moveTo: { outcome: 'remote_success' },
+        areaPatrol: { outcome },
+      });
+      const serverId = `mcp.area-patrol.${outcome}.${randomUUID()}`;
+      try {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: `Area patrol ${outcome} Provider`,
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        });
+        expect(registered.status, await registered.text()).toBe(201);
+
+        const inspection = await runtime.registerSkill({
+          skillId: 'embodied.inspect_area',
+          name: `Area inspection ${outcome}`,
+          summary: 'Inspect one admitted patrol area.',
+          description: 'Return anomaly evidence for one authorized patrol area.',
+          capabilities: ['embodied.inspect_area'],
+          workflowGuidance: 'Call the required inspection Tool with the mapped area.',
+          outputInstruction: 'Return the anomalies array.',
+          inputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['area'],
+            properties: {
+              area: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['boundary'],
+                properties: {
+                  boundary: {
+                    type: 'array',
+                    minItems: 3,
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['x', 'y'],
+                      properties: { x: { type: 'number' }, y: { type: 'number' } },
+                    },
+                  },
+                  excludedZones: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+          outputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['anomalies'],
+            properties: { anomalies: { type: 'array', items: { type: 'object' } } },
+          },
+          toolPolicy: {
+            required: [{ serverId, toolName: 'embodied.inspect_area' }],
+            optional: [],
+            forbidden: [],
+          },
+          runtimePolicy: { autoConfirmPlan: true },
+          status: 'enabled',
+          sourceKind: 'admin',
+          validationPassed: true,
+        });
+        areaPatrolInspectionVersion = inspection.version;
+
+        if (!areaPatrolInitialized) {
+          const imported = await fetch(
+            `${runtime.management.baseUrl}/api/v1/skill-packages/import`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ packageRoot: 'skills/embodied.area_patrol' }),
+            },
+          );
+          expect(imported.status, await imported.text()).toBe(201);
+          for (const relation of [
+            {
+              sourceSkillId: 'embodied.area_patrol',
+              targetSkillId: 'embodied.move_to',
+              relationType: 'parent_child',
+            },
+            {
+              sourceSkillId: 'embodied.area_patrol',
+              targetSkillId: 'embodied.inspect_area',
+              relationType: 'parent_child',
+            },
+          ]) {
+            const response = await fetch(
+              `${runtime.management.baseUrl}/api/v1/skill-graph/relations`,
+              {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  ...relation,
+                  metadata: { purpose: 'v1.2 recursive area patrol E2E' },
+                }),
+              },
+            );
+            expect(response.status, await response.text()).toBe(201);
+          }
+          areaPatrolInitialized = true;
+        }
+
+        const submitted = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: `message-${randomUUID()}`,
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: 'AREA_PATROL_PROCEDURE GLOBAL_SHARED_SKILL:embodied.area_patrol',
+                  mediaType: 'text/plain',
+                },
+              ],
+              metadata: {
+                structured_input: {
+                  resourceId: 'robot-17',
+                  target: { x: 4, y: 6, frame: 'map' },
+                  area: {
+                    boundary: [
+                      { x: 0, y: 0 },
+                      { x: 10, y: 0 },
+                      { x: 10, y: 10 },
+                    ],
+                  },
+                  timeWindow: {
+                    earliestStart: '2026-07-18T00:00:00.000Z',
+                    deadline: '2026-07-19T00:00:00.000Z',
+                  },
+                },
+              },
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+        if (submitted.status?.state !== TaskState.TASK_STATE_INPUT_REQUIRED) {
+          const failedTask = await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+          ).then((response) => response.text());
+          throw new Error(
+            `AREA_PATROL_PREPARATION_FAILED:${String(submitted.status?.state)}:${failedTask}`,
+          );
+        }
+
+        const task = z
+          .object({ planId: z.string(), selectedSkillVersion: z.number().int().positive() })
+          .parse(
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+              (response) => response.json(),
+            ),
+          );
+        const plan = z
+          .object({
+            definition: z.object({
+              skillUsagePolicy: z.object({
+                maxDepth: z.number().optional(),
+                composition: z.object({ maxDepth: z.literal(3) }),
+                childPolicies: z.array(
+                  z.object({
+                    child: z.object({ skillId: z.string(), skillVersion: z.number() }),
+                    failurePolicy: z.string(),
+                  }),
+                ),
+              }),
+              nodes: z.array(z.object({ nodeId: z.string(), type: z.string() }).loose()),
+            }),
+          })
+          .parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+            ).then((response) => response.json()),
+          );
+        expect(plan.definition.skillUsagePolicy.childPolicies).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              child: { skillId: 'embodied.move_to', skillVersion: 3 },
+              failurePolicy: 'recoverable',
+            }),
+            expect.objectContaining({
+              child: {
+                skillId: 'embodied.inspect_area',
+                skillVersion: inspection.version,
+              },
+              failurePolicy: 'degraded',
+            }),
+          ]),
+        );
+        expect(plan.definition.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'usage_child_0', type: 'skill_call' }),
+            expect.objectContaining({ nodeId: 'usage_child_1', type: 'skill_call' }),
+            expect.objectContaining({ nodeId: 'usage_task_0', type: 'mcp_tool' }),
+          ]),
+        );
+
+        await sendFollowUp(
+          submitted.id,
+          submitted.contextId,
+          'confirm_plan',
+          'Confirm the bounded area patrol plan.',
+        );
+        await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+        await sendFollowUp(
+          submitted.id,
+          submitted.contextId,
+          'confirm_plan',
+          'Confirm the exact move-to child plan.',
+        );
+        const terminal = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+        expect(terminal.artifacts[0]?.parts[1]?.content).toMatchObject({
+          $case: 'data',
+          value: expect.objectContaining({ status: resultStatus }),
+        });
+
+        const toolCalls = provider.requests.filter((request) => request.method === 'tools/call');
+        expect(toolCalls.map((request) => request.params['name'])).toEqual([
+          'embodied.move',
+          'embodied.inspect_area',
+          'embodied.area_patrol',
+        ]);
+        expect(toolCalls[0]?.params['arguments']).toEqual({
+          resourceId: 'robot-17',
+          target: { x: 4, y: 6, frame: 'map' },
+        });
+
+        const executionSchema = z.object({
+          items: z.array(
+            z.object({
+              executionId: z.string(),
+              parentExecutionId: z.string().optional(),
+              skillId: z.string(),
+              skillVersion: z.number(),
+              status: z.string(),
+              events: z.array(z.object({ eventType: z.string() }).loose()),
+              evidenceReferences: z.array(z.object({ kind: z.string() }).loose()),
+            }),
+          ),
+          tree: z.array(
+            z.object({
+              item: z.object({ executionId: z.string(), skillId: z.string() }).loose(),
+              children: z.array(
+                z.object({ item: z.object({ skillId: z.string() }).loose() }).loose(),
+              ),
+            }),
+          ),
+        });
+        let executions: z.infer<typeof executionSchema> | undefined;
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          executions = executionSchema.parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
+            ).then((response) => response.json()),
+          );
+          if (
+            executions.items.length === 3 &&
+            executions.items.some(
+              (execution) =>
+                execution.skillId === 'embodied.area_patrol' &&
+                execution.status === executionStatus,
+            )
+          )
+            break;
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+        }
+        if (executions === undefined) throw new Error('AREA_PATROL_EXECUTIONS_NOT_OBSERVED');
+        const root = executions.items.find(
+          (execution) => execution.skillId === 'embodied.area_patrol',
+        );
+        expect(root).toEqual(
+          expect.objectContaining({
+            skillVersion: task.selectedSkillVersion,
+            status: executionStatus,
+            events: expect.arrayContaining([
+              expect.objectContaining({
+                eventType:
+                  executionStatus === 'degraded'
+                    ? 'skill.execution_degraded'
+                    : 'skill.execution_completed',
+              }),
+            ]),
+            evidenceReferences: expect.arrayContaining([
+              expect.objectContaining({ kind: 'outcome' }),
+            ]),
+          }),
+        );
+        const children = executions.items.filter(
+          (execution) => execution.parentExecutionId === root?.executionId,
+        );
+        expect(children).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              skillId: 'embodied.move_to',
+              skillVersion: 3,
+              status: 'completed',
+            }),
+            expect.objectContaining({
+              skillId: 'embodied.inspect_area',
+              skillVersion: inspection.version,
+              status: 'completed',
+            }),
+          ]),
+        );
+        expect(executions.tree).toEqual([
+          expect.objectContaining({
+            item: expect.objectContaining({ skillId: 'embodied.area_patrol' }),
+            children: expect.arrayContaining([
+              expect.objectContaining({
+                item: expect.objectContaining({ skillId: 'embodied.move_to' }),
+              }),
+              expect.objectContaining({
+                item: expect.objectContaining({ skillId: 'embodied.inspect_area' }),
+              }),
+            ]),
+          }),
+        ]);
+      } finally {
+        await runtime.deleteMcpServer(serverId).catch(() => undefined);
+        await provider.close();
+      }
+    },
+  );
+
+  it.each([
+    ['missing target position', 'MOVE_TO_TEMPLATE', { resourceId: 'robot-17' }, false],
+    [
+      'forbidden area permission',
+      'MOVE_TO_TEMPLATE MOVE_TO_FORBIDDEN',
+      { resourceId: 'robot-17', target: { x: 99, y: 99, frame: 'map' } },
+      true,
+    ],
+  ] as const)(
+    'blocks embodied.move_to for %s before any Provider side effect',
+    async (_scenario, marker, structuredInput, confirmBlockedPlan) => {
+      const provider = await startMcpTasksMockProvider({
+        moveTo: { outcome: 'immediate_success' },
+      });
+      const serverId = `mcp.move-to.blocked.${randomUUID()}`;
+      try {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Move-to blocked scenario Provider',
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        });
+        expect(registered.status, await registered.text()).toBe(201);
+        const submitted = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: `message-${randomUUID()}`,
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: `${marker} GLOBAL_SHARED_SKILL:embodied.move_to`,
+                  mediaType: 'text/plain',
+                },
+              ],
+              metadata: { structured_input: structuredInput },
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+        expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        if (confirmBlockedPlan) {
+          await sendFollowUp(
+            submitted.id,
+            submitted.contextId,
+            'confirm_plan',
+            'Confirm the structurally gated forbidden-area plan.',
+          );
+          await waitForTaskState(submitted.id, TaskState.TASK_STATE_FAILED);
+          const executions = z
+            .object({
+              items: z.array(
+                z.object({
+                  status: z.string(),
+                  usagePolicy: z.object({ mode: z.string() }).loose(),
+                  hardGates: z.array(z.object({ referenceId: z.string() }).loose()),
+                }),
+              ),
+            })
+            .parse(
+              await fetch(
+                `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
+              ).then((response) => response.json()),
+            );
+          expect(executions.items).toContainEqual(
+            expect.objectContaining({
+              status: 'failed',
+              usagePolicy: expect.objectContaining({ mode: 'guidance' }),
+              hardGates: [expect.objectContaining({ referenceId: 'final-position' })],
+            }),
+          );
+        } else {
+          const resolutions = z
+            .object({
+              items: z.array(
+                z.object({ status: z.string(), unresolvedFields: z.array(z.string()) }),
+              ),
+            })
+            .parse(
+              await fetch(
+                `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-input-resolutions`,
+              ).then((response) => response.json()),
+            );
+          expect(resolutions.items).toContainEqual(
+            expect.objectContaining({ status: 'input_required', unresolvedFields: ['target'] }),
+          );
+        }
+        expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+      } finally {
+        await runtime.deleteMcpServer(serverId).catch(() => undefined);
+        await provider.close();
+      }
+    },
+  );
+
+  it('preserves embodied.move_to restricted availability windows for procedure-mode rescheduling', async () => {
+    const provider = await startMcpTasksMockProvider({
+      moveTo: { outcome: 'remote_success', availability: 'restricted' },
+    });
+    const serverId = `mcp.move-to.restricted.${randomUUID()}`;
+    try {
+      const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          serverId,
+          name: 'Move-to restricted scheduling Provider',
+          endpoint: provider.endpoint.toString(),
+          credentialHeaders: {},
+        }),
+      });
+      expect(registered.status, await registered.text()).toBe(201);
+      const submitted = await runtime.a2a.client.sendMessage(
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [
+              {
+                text: 'MOVE_TO_TEMPLATE GLOBAL_SHARED_SKILL:embodied.move_to',
+                mediaType: 'text/plain',
+              },
+            ],
+            metadata: {
+              structured_input: {
+                resourceId: 'robot-17',
+                target: { x: 12, y: 8, frame: 'map' },
+              },
+            },
+          },
+          configuration: { returnImmediately: false },
+        }),
+      );
+      if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      const task = z
+        .object({ planId: z.string() })
+        .parse(
+          await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+            (response) => response.json(),
+          ),
+        );
+      const readiness = z
+        .object({
+          items: z.array(
+            z.object({
+              snapshots: z.array(
+                z
+                  .object({
+                    availability: z.string(),
+                    earliestStartTime: z.string().optional(),
+                    nextAvailableWindows: z.array(z.unknown()),
+                  })
+                  .loose(),
+              ),
+            }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}/task-readiness`,
+          ).then((response) => response.json()),
+        );
+      expect(readiness.items).toContainEqual(
+        expect.objectContaining({
+          snapshots: [
+            expect.objectContaining({
+              availability: 'restricted',
+              earliestStartTime: expect.any(String),
+              nextAvailableWindows: expect.arrayContaining([expect.any(Object)]),
+            }),
+          ],
+        }),
+      );
+      const executions = z
+        .object({
+          items: z.array(
+            z.object({ status: z.string(), usagePolicy: z.object({ mode: z.string() }).loose() }),
+          ),
+        })
+        .parse(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
+          ).then((response) => response.json()),
+        );
+      expect(executions.items).toContainEqual(
+        expect.objectContaining({
+          status: 'planning',
+          usagePolicy: expect.objectContaining({ mode: 'procedure' }),
+        }),
+      );
+      expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+    } finally {
+      await runtime.deleteMcpServer(serverId).catch(() => undefined);
       await provider.close();
     }
   });
@@ -5260,22 +6225,70 @@ async function startModelLoopback(): Promise<Server> {
         }
         if (resultProcessingRequest === true) {
           const requestData = z
-            .object({ skill: z.object({ outputSchema: z.unknown() }) })
+            .object({
+              skill: z.object({ outputSchema: z.unknown() }),
+              normalized: z.object({ data: z.unknown().optional() }).loose(),
+            })
             .parse(embeddedOperation(body.messages, 'process_workflow_result'));
           const required = z
             .looseObject({ required: z.array(z.string()).optional() })
             .safeParse(requestData.skill.outputSchema);
           const requiresDeviceId = required.success && required.data.required?.includes('deviceId');
+          const requiresMoveResult =
+            required.success &&
+            ['resourceId', 'status', 'finalPosition'].every((field) =>
+              required.data.required?.includes(field),
+            );
+          const requiresPatrolResult =
+            required.success &&
+            ['status', 'coveredSubregions', 'missingSubregions', 'trajectory', 'anomalies'].every(
+              (field) => required.data.required?.includes(field),
+            );
           respondStructured(response, {
-            text: 'Device is online.',
-            structured: {
-              status: 'online',
-              ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
+            text: requiresPatrolResult
+              ? 'Patrol evidence was preserved with its authoritative completion status.'
+              : requiresMoveResult
+                ? 'Resource reached the permitted target.'
+                : 'Device is online.',
+            structured:
+              requiresPatrolResult || requiresMoveResult
+                ? requestData.normalized.data
+                : {
+                    status: 'online',
+                    ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
+                  },
+            keyFacts: [
+              {
+                name: requiresPatrolResult
+                  ? 'patrol-coverage'
+                  : requiresMoveResult
+                    ? 'final-position'
+                    : 'status',
+                value:
+                  requiresPatrolResult || requiresMoveResult
+                    ? requestData.normalized.data
+                    : 'online',
+                confidence: 1,
+              },
+            ],
+            valueAssessment: {
+              valuable: true,
+              summary: requiresMoveResult
+                ? 'The authoritative final position proves movement completion.'
+                : requiresPatrolResult
+                  ? 'Coverage, trajectory, and anomaly evidence remain authoritative.'
+                  : 'Current device state is useful.',
             },
-            keyFacts: [{ name: 'status', value: 'online', confidence: 1 }],
-            valueAssessment: { valuable: true, summary: 'Current device state is useful.' },
             memoryCandidates: [
-              { kind: 'fact', content: 'The device was online.', confidence: 0.9 },
+              {
+                kind: 'fact',
+                content: requiresMoveResult
+                  ? 'The resource reached its permitted target.'
+                  : requiresPatrolResult
+                    ? 'The patrol retained coverage, trajectory, and anomaly evidence.'
+                    : 'The device was online.',
+                confidence: 0.9,
+              },
             ],
           });
           return;
@@ -5373,6 +6386,7 @@ async function startModelLoopback(): Promise<Server> {
             (candidate) => candidate.policy === 'required',
           )?.reference;
           if (tool === undefined) throw new Error('SKILL_CHILD_REQUIRED_TOOL_MISSING');
+          const inspection = tool.toolName === 'embodied.inspect_area';
           respondStructured(response, {
             workflowDefinitionId: requestData.workflowIdentity.workflowDefinitionId,
             version: requestData.workflowIdentity.version,
@@ -5386,7 +6400,9 @@ async function startModelLoopback(): Promise<Server> {
                 name: 'Execute child Tool',
                 type: 'mcp_tool',
                 tool,
-                arguments: { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
+                arguments: inspection
+                  ? { area: { op: 'ref', path: ['input', 'area'] } }
+                  : { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
               },
               {
                 nodeId: 'result',
@@ -5494,6 +6510,7 @@ async function startModelLoopback(): Promise<Server> {
           const topLevelInputMcp = /TOP_LEVEL_INPUT_MCP:([^/\s]+)\/([^\s]+)/u.exec(
             requestData.requestText,
           );
+          const moveToMarkers = requestData.requestText.match(/\bMOVE_TO_[A-Z_]+\b/gu) ?? [];
           const requiresInput =
             requestData.requestText.includes('remembered target') ||
             (requestData.requestText.includes('unknown target') &&
@@ -5510,7 +6527,7 @@ async function startModelLoopback(): Promise<Server> {
                 : replaceSkillGoal
                   ? `REPLACE_SKILL_GOAL GLOBAL_SHARED_SKILL:${sharedSkill ?? 'missing'}`
                   : sharedSkill !== undefined
-                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : remoteTaskVertical ? 'MCP_TASK_VERTICAL ' : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
+                    ? `${historicalReplaySuccess ? 'HISTORICAL_REPLAY_SUCCESS ' : historicalReplayFailure ? 'HISTORICAL_REPLAY_FAILURE ' : templateReuse ? 'TEMPLATE_REUSE ' : remoteTaskVertical ? 'MCP_TASK_VERTICAL ' : moveToMarkers.length > 0 ? `${moveToMarkers.join(' ')} ` : ''}GLOBAL_SHARED_SKILL:${sharedSkill}${nestedConfirmationSkill === undefined ? '' : ` NESTED_CONFIRMATION_CHILD:${nestedConfirmationSkill}`}${topLevelInputMcp === null ? '' : ` TOP_LEVEL_INPUT_MCP:${topLevelInputMcp[1] ?? ''}/${topLevelInputMcp[2] ?? ''}`}`
                     : capabilityGapGoal
                       ? 'CAPABILITY_GAP_GOAL requires device pressure.'
                       : controlGoal
@@ -5772,11 +6789,29 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (taskAvailabilityRiskDecisionRequest === true) {
-          respondStructured(response, {
-            action: 'proceed',
-            acceptedRiskNodeIds: [],
-            summary: 'The available low-risk MCP Task can proceed after the normal plan gate.',
-          });
+          const requestData = z
+            .object({
+              snapshots: z.array(z.object({ nodeId: z.string(), availability: z.string() })),
+            })
+            .parse(embeddedOperation(body.messages, 'mcp_task_availability_risk_decision'));
+          const restricted = requestData.snapshots.some(
+            (snapshot) => snapshot.availability === 'restricted',
+          );
+          respondStructured(
+            response,
+            restricted
+              ? {
+                  action: 'request_confirmation',
+                  riskNodeIds: requestData.snapshots.map((snapshot) => snapshot.nodeId),
+                  summary: 'Restricted movement preserves its Provider window for confirmation.',
+                }
+              : {
+                  action: 'proceed',
+                  acceptedRiskNodeIds: [],
+                  summary:
+                    'The available low-risk MCP Task can proceed after the normal plan gate.',
+                },
+          );
           return;
         }
         if (goalPatchReplanRequest === true) {
@@ -5911,6 +6946,20 @@ async function startModelLoopback(): Promise<Server> {
                   }),
                 })
                 .optional(),
+              skillUsagePlanning: z
+                .object({
+                  skillUsagePolicy: z.object({
+                    mode: z.enum(['guidance', 'template', 'procedure']),
+                    requiredContextIds: z.array(z.string()),
+                    taskOperations: z.array(
+                      z.object({ providerId: z.string(), operationName: z.string() }),
+                    ),
+                    evidenceRequirements: z.array(
+                      z.object({ requirementId: z.string(), required: z.boolean() }).loose(),
+                    ),
+                  }),
+                })
+                .optional(),
             })
             .parse(embeddedOperation(body.messages, 'task_initial_plan'));
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
@@ -5927,6 +6976,66 @@ async function startModelLoopback(): Promise<Server> {
           const inputContinuationMcp =
             requestData.goalDescription.includes('INPUT_CONTINUATION_MCP');
           const remoteTaskMcp = requestData.goalDescription.includes('MCP_TASK_VERTICAL');
+          const moveUsage =
+            requestData.skillUsagePlanning?.skillUsagePolicy.mode === 'guidance'
+              ? requestData.skillUsagePlanning.skillUsagePolicy
+              : undefined;
+          const moveOperation = moveUsage?.taskOperations[0];
+          const moveContextNodes =
+            moveUsage?.requiredContextIds.map((requirementId, index) => ({
+              nodeId: `usage_context_${String(index)}`,
+              name: `Require context ${requirementId}`,
+              type: 'condition' as const,
+              expression: { op: 'ref' as const, path: ['context', requirementId] },
+            })) ?? [];
+          const moveEvidenceNodes =
+            moveUsage?.evidenceRequirements
+              .filter((requirement) => requirement.required)
+              .map((requirement, index) => ({
+                nodeId: `usage_evidence_${String(index)}`,
+                name: `Require evidence ${requirement.requirementId}`,
+                type: 'condition' as const,
+                expression: {
+                  op: 'ref' as const,
+                  path: ['evidence', requirement.requirementId],
+                },
+              })) ?? [];
+          const movePrimary =
+            moveUsage === undefined || moveOperation === undefined
+              ? []
+              : [
+                  ...moveContextNodes,
+                  {
+                    nodeId: 'usage_task_0',
+                    name: 'Execute move-resource',
+                    type: 'mcp_tool' as const,
+                    tool: {
+                      serverId: moveOperation.providerId,
+                      toolName: moveOperation.operationName,
+                    },
+                    arguments: { op: 'ref' as const, path: ['input', 'skillInput'] },
+                  },
+                  ...moveEvidenceNodes,
+                  {
+                    nodeId: 'usage_success',
+                    name: 'Skill usage succeeded',
+                    type: 'result' as const,
+                    value: {
+                      op: 'ref' as const,
+                      path: ['nodes', 'usage_task_0', 'data', 'structuredContent'],
+                    },
+                  },
+                ];
+          const moveEdges = movePrimary.flatMap((node, index) => {
+            const next = movePrimary[index + 1];
+            if (next === undefined) return [];
+            return node.type === 'condition'
+              ? [
+                  { sourceNodeId: node.nodeId, targetNodeId: next.nodeId, outcome: 'true' },
+                  { sourceNodeId: node.nodeId, targetNodeId: 'usage_failure', outcome: 'false' },
+                ]
+              : [{ sourceNodeId: node.nodeId, targetNodeId: next.nodeId }];
+          });
           const usesRegisteredTool = historical || topLevelInputMcp || remoteTaskMcp;
           const nestedConfirmationSkillId = /NESTED_CONFIRMATION_CHILD:([A-Za-z0-9._-]+)/u.exec(
             requestData.goalDescription,
@@ -5934,128 +7043,156 @@ async function startModelLoopback(): Promise<Server> {
           respondStructured(response, {
             ...requestData.workflowIdentity,
             entryNodeId:
-              failPrimary || historicalFailure
-                ? 'execute'
-                : temporaryTool !== undefined ||
-                    historicalSuccess ||
-                    topLevelInputMcp ||
-                    remoteTaskMcp
-                  ? 'tool'
-                  : nestedConfirmationSkillId !== undefined
-                    ? 'child'
-                    : 'result',
-            exitNodeIds: ['result'],
-            nodes:
-              usesRegisteredTool && historicalTool !== undefined
+              movePrimary.length > 0
+                ? (movePrimary[0]?.nodeId ?? 'usage_failure')
+                : failPrimary || historicalFailure
+                  ? 'execute'
+                  : temporaryTool !== undefined ||
+                      historicalSuccess ||
+                      topLevelInputMcp ||
+                      remoteTaskMcp
+                    ? 'tool'
+                    : nestedConfirmationSkillId !== undefined
+                      ? 'child'
+                      : 'result',
+            exitNodeIds:
+              movePrimary.length > 0
                 ? [
-                    ...(historicalFailure
+                    'usage_success',
+                    ...(moveContextNodes.length > 0 || moveEvidenceNodes.length > 0
+                      ? ['usage_failure']
+                      : []),
+                  ]
+                : ['result'],
+            nodes:
+              movePrimary.length > 0
+                ? [
+                    ...movePrimary,
+                    ...(moveContextNodes.length > 0 || moveEvidenceNodes.length > 0
                       ? [
                           {
-                            nodeId: 'execute',
-                            name: 'Reproduce historical failure',
-                            type: 'llm',
-                            instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                            responseSchema: { type: 'object' },
+                            nodeId: 'usage_failure',
+                            name: 'Skill usage policy failed',
+                            type: 'result',
+                            value: { op: 'literal', value: false },
                           },
                         ]
                       : []),
-                    {
-                      nodeId: 'tool',
-                      name: topLevelInputMcp
-                        ? 'Top-level resolved device call'
-                        : 'Historical device call',
-                      type: 'mcp_tool',
-                      tool: historicalTool,
-                      arguments: remoteTaskMcp
-                        ? {}
-                        : topLevelInputMcp
-                          ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
-                          : { deviceId: 'device-history' },
-                    },
-                    {
-                      nodeId: 'result',
-                      name: 'Historical result',
-                      type: 'result',
-                      value: { op: 'ref', path: ['nodes', 'tool'] },
-                    },
                   ]
-                : temporaryTool !== undefined
+                : usesRegisteredTool && historicalTool !== undefined
                   ? [
+                      ...(historicalFailure
+                        ? [
+                            {
+                              nodeId: 'execute',
+                              name: 'Reproduce historical failure',
+                              type: 'llm',
+                              instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                              responseSchema: { type: 'object' },
+                            },
+                          ]
+                        : []),
                       {
                         nodeId: 'tool',
-                        name: 'Execute task-scoped Tool',
+                        name: topLevelInputMcp
+                          ? 'Top-level resolved device call'
+                          : 'Historical device call',
                         type: 'mcp_tool',
-                        tool: temporaryTool,
-                        arguments: inputContinuationMcp
-                          ? {
-                              deviceId: {
-                                op: 'ref',
-                                path: ['input', 'supplementaryInputs', '0', 'content'],
-                              },
-                            }
-                          : { deviceId: 'device-temporary' },
+                        tool: historicalTool,
+                        arguments: remoteTaskMcp
+                          ? {}
+                          : topLevelInputMcp
+                            ? { deviceId: { op: 'ref', path: ['input', 'deviceId'] } }
+                            : { deviceId: 'device-history' },
                       },
                       {
                         nodeId: 'result',
-                        name: 'Return Temporary Skill result',
+                        name: 'Historical result',
                         type: 'result',
                         value: { op: 'ref', path: ['nodes', 'tool'] },
                       },
                     ]
-                  : nestedConfirmationSkillId !== undefined
+                  : temporaryTool !== undefined
                     ? [
                         {
-                          nodeId: 'child',
-                          name: 'Execute independently confirmed child Skill',
-                          type: 'skill_call',
-                          skillId: nestedConfirmationSkillId,
-                          input: { deviceId: 'device-nested-confirmation' },
+                          nodeId: 'tool',
+                          name: 'Execute task-scoped Tool',
+                          type: 'mcp_tool',
+                          tool: temporaryTool,
+                          arguments: inputContinuationMcp
+                            ? {
+                                deviceId: {
+                                  op: 'ref',
+                                  path: ['input', 'supplementaryInputs', '0', 'content'],
+                                },
+                              }
+                            : { deviceId: 'device-temporary' },
                         },
                         {
                           nodeId: 'result',
-                          name: 'Return child result',
+                          name: 'Return Temporary Skill result',
                           type: 'result',
-                          value: { op: 'ref', path: ['nodes', 'child'] },
+                          value: { op: 'ref', path: ['nodes', 'tool'] },
                         },
                       ]
-                    : failPrimary
+                    : nestedConfirmationSkillId !== undefined
                       ? [
                           {
-                            nodeId: 'execute',
-                            name: 'Fail primary Skill execution',
-                            type: 'llm',
-                            instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
-                            responseSchema: { type: 'object' },
+                            nodeId: 'child',
+                            name: 'Execute independently confirmed child Skill',
+                            type: 'skill_call',
+                            skillId: nestedConfirmationSkillId,
+                            input: { deviceId: 'device-nested-confirmation' },
                           },
                           {
                             nodeId: 'result',
-                            name: 'Primary result',
+                            name: 'Return child result',
                             type: 'result',
-                            value: { op: 'ref', path: ['nodes', 'execute'] },
+                            value: { op: 'ref', path: ['nodes', 'child'] },
                           },
                         ]
-                      : [
-                          {
-                            nodeId: 'result',
-                            name: 'Initial Task result',
-                            type: 'result',
-                            value: { op: 'literal', value: 'online' },
-                          },
-                        ],
+                      : failPrimary
+                        ? [
+                            {
+                              nodeId: 'execute',
+                              name: 'Fail primary Skill execution',
+                              type: 'llm',
+                              instruction: 'FAIL_PRIMARY_SKILL_EXECUTION',
+                              responseSchema: { type: 'object' },
+                            },
+                            {
+                              nodeId: 'result',
+                              name: 'Primary result',
+                              type: 'result',
+                              value: { op: 'ref', path: ['nodes', 'execute'] },
+                            },
+                          ]
+                        : [
+                            {
+                              nodeId: 'result',
+                              name: 'Initial Task result',
+                              type: 'result',
+                              value: { op: 'literal', value: 'online' },
+                            },
+                          ],
             edges: usesRegisteredTool
-              ? historicalFailure
-                ? [
-                    { sourceNodeId: 'execute', targetNodeId: 'tool' },
-                    { sourceNodeId: 'tool', targetNodeId: 'result' },
-                  ]
-                : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-              : temporaryTool !== undefined
-                ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
-                : nestedConfirmationSkillId !== undefined
-                  ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
-                  : failPrimary
-                    ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
-                    : [],
+              ? movePrimary.length > 0
+                ? moveEdges
+                : historicalFailure
+                  ? [
+                      { sourceNodeId: 'execute', targetNodeId: 'tool' },
+                      { sourceNodeId: 'tool', targetNodeId: 'result' },
+                    ]
+                  : [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+              : movePrimary.length > 0
+                ? moveEdges
+                : temporaryTool !== undefined
+                  ? [{ sourceNodeId: 'tool', targetNodeId: 'result' }]
+                  : nestedConfirmationSkillId !== undefined
+                    ? [{ sourceNodeId: 'child', targetNodeId: 'result' }]
+                    : failPrimary
+                      ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
+                      : [],
           });
           return;
         }
@@ -6424,7 +7561,30 @@ async function waitForTaskState(taskId: string, expected: TaskState): Promise<Ta
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
     task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
   }
-  expect(task.status?.state).toBe(expected);
+  if (task.status?.state !== expected) {
+    const internalResponse = await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`);
+    const internal = await internalResponse.text();
+    const planId = z
+      .object({ planId: z.string().optional() })
+      .safeParse(JSON.parse(internal) as unknown);
+    const [events, executions] = await Promise.all([
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/events`).then((response) =>
+        response.text(),
+      ),
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/skill-executions`).then(
+        (response) => response.text(),
+      ),
+    ]);
+    const trace =
+      planId.success && planId.data.planId !== undefined
+        ? await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId.data.planId)}/trace`,
+          ).then((response) => response.text())
+        : 'unavailable';
+    throw new Error(
+      `TASK_STATE_NOT_REACHED:${String(expected)}:${String(task.status?.state)}:TASK=${internal}:TRACE=${trace}:EVENTS=${events}:EXECUTIONS=${executions}`,
+    );
+  }
   return task;
 }
 

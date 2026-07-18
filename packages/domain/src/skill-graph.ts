@@ -1,6 +1,7 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { SkillRuntimePolicy, SkillToolPolicy, SkillVersion } from './skill.js';
+import { createSkillUsageSpecification, type SkillUsageSpecification } from './skill-usage.js';
 
 export const MAX_SKILL_COMPOSITION_DEPTH = 8;
 export const MAX_SKILL_COMPOSITION_RELATED_SKILLS = 32;
@@ -39,6 +40,7 @@ export interface SkillVersionSnapshot {
   readonly toolPolicy: SkillToolPolicy;
   readonly runtimePolicy: SkillRuntimePolicy;
   readonly createdAt: string;
+  readonly usageSpecification?: SkillUsageSpecification;
 }
 
 export interface SkillCompositionContext {
@@ -170,6 +172,11 @@ function copySkillVersionSnapshot(skill: SkillVersionSnapshot): SkillVersionSnap
     }),
     runtimePolicy: Object.freeze({ ...skill.runtimePolicy }),
     createdAt: skill.createdAt,
+    ...(skill.usageSpecification === undefined
+      ? {}
+      : {
+          usageSpecification: createSkillUsageSpecification(skill.usageSpecification),
+        }),
   });
 }
 

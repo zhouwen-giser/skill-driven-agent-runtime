@@ -31,6 +31,7 @@ import {
   PostgresSkillGraphRepository,
   PostgresSkillEmbeddingRepository,
   PostgresSkillSelectionRepository,
+  PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
   PostgresSkillQualityRepository,
   PostgresSkillCallWorkflowRepository,
@@ -55,6 +56,12 @@ import {
   createRemoteTaskBinding,
   createWorkflowContinuationSnapshot,
   createSkillVersion,
+  createSkillUsageSpecification,
+  createSkillExecutionEvent,
+  createSkillExecutionRecord,
+  createSkillExecutionReference,
+  snapshotSkillUsageCompositionPlan,
+  snapshotSkillUsagePlanPolicy,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
@@ -91,8 +98,34 @@ function testCompositionContext() {
     runtimePolicy: { autoConfirmPlan: false },
     createdAt: '2026-07-12T00:00:00.000Z',
   });
+  const selectedSkill = skillSnapshot('skill.root.db', 2);
   return {
-    selectedSkill: skillSnapshot('skill.root.db', 2),
+    selectedSkill: {
+      ...selectedSkill,
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: ['Use the verified provider.'],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Prefer the shortest verified path.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Guide the workflow.', instructions: ['Use verified inputs.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+    },
     relatedSkills: [skillSnapshot('skill.child.db', 3)],
     relations: [
       {
@@ -109,10 +142,78 @@ function testCompositionContext() {
   };
 }
 
+function testUsagePlanPolicy() {
+  const composition = snapshotSkillUsageCompositionPlan({
+    root: { skillId: 'skill.root.db', skillVersion: 2 },
+    expandedSkills: [{ skillId: 'skill.root.db', skillVersion: 2 }],
+    edges: [],
+    maxDepth: 3,
+    consumedDepth: 0,
+    consumedSkills: 1,
+    consumedNodes: 0,
+  });
+  return snapshotSkillUsagePlanPolicy({
+    skill: composition.root,
+    mode: 'guidance',
+    modeDecision: {
+      decision: 'selected',
+      mode: 'guidance',
+      confirmationRequired: true,
+      confirmationSatisfied: false,
+      reasonCodes: ['plan_confirmation_required'],
+    },
+    constraints: ['Use the exact plan authority.'],
+    forbiddenActions: [],
+    adaptiveInstructions: ['Plan safely.'],
+    requiredConfirmations: ['confirm-plan'],
+    requiredContextIds: [],
+    allowedTools: [],
+    taskOperations: [],
+    childPolicies: [],
+    evidenceRequirements: [],
+    rejectSuccessWithoutRequiredEvidence: false,
+    composition,
+    context: {
+      requirements: [],
+      satisfied: 0,
+      total: 0,
+      complete: true,
+      inputRequiredIds: [],
+      unsatisfiedIds: [],
+      unknownIds: [],
+    },
+    readiness: { overall: 'ready', bindings: [] },
+  });
+}
+
 async function applyTestMigration(name: string): Promise<void> {
   await pool.query(
     await readFile(new URL(`../../../infra/postgres/migrations/${name}`, import.meta.url), 'utf8'),
   );
+}
+
+const V12_TEST_MIGRATIONS = [
+  '0100_remote_mcp_task_tracking.up.sql',
+  '0101_task_execution_readiness.up.sql',
+  '0102_remote_task_continuation.up.sql',
+  '0103_remote_task_input_and_cancellation.up.sql',
+  '0104_workflow_external_wait_event.up.sql',
+  '0105_skill_usage_specification.up.sql',
+  '0106_skill_execution_record.up.sql',
+] as const;
+
+async function applyV12TestMigrations(): Promise<void> {
+  const result = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
+  const applied = new Set(result.rows.map((row) => row.version));
+  const versions = V12_TEST_MIGRATIONS.map((name) => name.replace('.up.sql', ''));
+  for (const [index, migration] of V12_TEST_MIGRATIONS.entries()) {
+    const version = versions[index];
+    if (version === undefined || applied.has(version)) continue;
+    if (versions.slice(index + 1).some((later) => applied.has(later)))
+      throw new Error('TEST_DATABASE_MIGRATION_LEDGER_GAP_USE_DISPOSABLE_DATABASE');
+    await applyTestMigration(migration);
+    applied.add(version);
+  }
 }
 
 beforeAll(async () => {
@@ -123,12 +224,16 @@ beforeAll(async () => {
     const memoryHardening = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
     );
-    if (memoryHardening.rows[0]?.applied === true) return;
+    if (memoryHardening.rows[0]?.applied === true) {
+      await applyV12TestMigrations();
+      return;
+    }
     const latest = await pool.query<{ applied: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
     );
     if (latest.rows[0]?.applied === true) {
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const skillCompositionContext = await pool.query<{ applied: boolean }>(
@@ -137,6 +242,7 @@ beforeAll(async () => {
     if (skillCompositionContext.rows[0]?.applied === true) {
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const goalExecutionContract = await pool.query<{ applied: boolean }>(
@@ -154,6 +260,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
@@ -180,6 +287,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const skillInputResolution = await pool.query<{ applied: boolean }>(
@@ -214,6 +322,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const terminalOutcome = await pool.query<{ applied: boolean }>(
@@ -257,6 +366,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const nestedConfirmation = await pool.query<{ applied: boolean }>(
@@ -308,6 +418,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const previous = await pool.query<{ applied: boolean }>(
@@ -367,6 +478,7 @@ beforeAll(async () => {
       );
       await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
       await applyTestMigration('0064_memory_production_hardening.up.sql');
+      await applyV12TestMigrations();
       return;
     }
     const previousSkillCall = await pool.query<{ applied: boolean }>(
@@ -391,6 +503,7 @@ beforeAll(async () => {
         );
         await pool.query(forward);
       }
+      await applyV12TestMigrations();
       return;
     }
     const previousToolEnhancement = await pool.query<{ applied: boolean }>(
@@ -401,6 +514,14 @@ beforeAll(async () => {
         '0054_skill_call_history.up.sql',
         '0055_task_input_continuation.up.sql',
         '0056_mcp_execution_mode.up.sql',
+        '0057_nested_skill_confirmation.up.sql',
+        '0058_runtime_terminal_outcome.up.sql',
+        '0059_skill_input_resolution.up.sql',
+        '0060_task_skill_input_resolution_binding.up.sql',
+        '0061_goal_execution_contract.up.sql',
+        '0062_skill_composition_context.up.sql',
+        '0063_mcp_tool_execution_semantics.up.sql',
+        '0064_memory_production_hardening.up.sql',
       ]) {
         const forward = await readFile(
           new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
@@ -408,6 +529,7 @@ beforeAll(async () => {
         );
         await pool.query(forward);
       }
+      await applyV12TestMigrations();
       return;
     }
   }
@@ -781,6 +903,7 @@ beforeAll(async () => {
   await pool.query(skillCompositionContextMigration);
   await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
   await applyTestMigration('0064_memory_production_hardening.up.sql');
+  await applyV12TestMigrations();
 });
 
 beforeEach(async () => {
@@ -790,7 +913,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -1110,6 +1233,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
       ],
       edges: [],
+      skillUsagePolicy: testUsagePlanPolicy(),
     };
     await repository.saveAttempt({
       planId: 'plan.db',
@@ -1159,6 +1283,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
         confirmationStatus: 'awaiting_confirmation',
       }),
     );
+    await pool.query(
+      `UPDATE workflow_plan
+       SET definition_json=jsonb_set(
+         definition_json,
+         '{skillUsagePolicy,skill,skillVersion}',
+         '999'::jsonb
+       )
+       WHERE plan_id=$1`,
+      ['plan.db'],
+    );
+    await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
+      code: 'SKILL_USAGE_PLAN_POLICY_INVALID',
+    });
+    await pool.query('UPDATE workflow_plan SET definition_json=$2::jsonb WHERE plan_id=$1', [
+      'plan.db',
+      JSON.stringify(definition),
+    ]);
     const attempts = await pool.query<{
       count: number;
       contracts: unknown[];
@@ -1275,6 +1416,20 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
       code: 'SKILL_COMPOSITION_CONTEXT_INVALID',
+    });
+
+    await pool.query(
+      `UPDATE workflow_plan
+       SET composition_context_json=jsonb_set(
+         composition_context_json,
+         '{selectedSkill,usageSpecification,apiVersion}',
+         '"unsupported/v1"'::jsonb
+       )
+       WHERE plan_id=$1`,
+      ['plan.db'],
+    );
+    await expect(repository.findPlan('plan.db')).rejects.toMatchObject({
+      code: 'SKILL_USAGE_SPEC_INVALID',
     });
   });
   it('round-trips structured Task capability-gap evidence', async () => {
@@ -2606,46 +2761,45 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ]);
   });
   it('invalidates active continuations and every old-Goal remote binding on patch and cancellation', async () => {
-    await installV11ContinuationMigrations();
-    try {
-      const cancellation = await createGoalContinuationInvalidationFixture('cancel');
-      await new PostgresGoalCancellationRepository(pool).cancel({
-        cancellationId: 'continuation-invalidation-cancel',
-        goalId: cancellation.goalId,
-        goalVersion: 1,
-        reason: 'Cancel remote continuation.',
-        warnings: ['Provider state remains authoritative.'],
-        createdAt: '2026-07-16T09:01:00.000Z',
-      });
-      await expectContinuationInvalidated(cancellation, '2026-07-16T09:01:00.000Z');
+    const cancellation = await createGoalContinuationInvalidationFixture('cancel');
+    await new PostgresGoalCancellationRepository(pool).cancel({
+      cancellationId: 'continuation-invalidation-cancel',
+      goalId: cancellation.goalId,
+      goalVersion: 1,
+      reason: 'Cancel remote continuation.',
+      warnings: ['Provider state remains authoritative.'],
+      createdAt: '2026-07-16T09:01:00.000Z',
+    });
+    await expectContinuationInvalidated(
+      cancellation,
+      '2026-07-16T09:01:00.000Z',
+      'cancel_observing',
+    );
 
-      const patch = await createGoalContinuationInvalidationFixture('patch');
-      const beforeGoal = await new PostgresGoalRepository(pool).findById(patch.goalId);
-      if (beforeGoal === undefined) throw new Error('CONTINUATION_PATCH_GOAL_MISSING');
-      const afterGoal = {
-        ...beforeGoal,
-        version: 2,
-        successCriteria: [...beforeGoal.successCriteria, 'patched continuation verified'],
-        updatedAt: '2026-07-16T09:02:00.000Z',
-      };
-      await new PostgresGoalPatchRepository(pool).apply({
-        patchId: 'continuation-invalidation-patch',
-        goalId: patch.goalId,
-        fromVersion: 1,
-        toVersion: 2,
-        instruction: 'Patch while remote work is outstanding.',
-        changes: { successCriteria: afterGoal.successCriteria },
-        decisionSummary: 'The active Goal changed.',
-        compensationWarnings: ['Remote Provider cancellation is not assumed.'],
-        newPlanId: 'continuation-invalidation-plan-patch-v2',
-        beforeGoal,
-        afterGoal,
-        createdAt: afterGoal.updatedAt,
-      });
-      await expectContinuationInvalidated(patch, '2026-07-16T09:02:00.000Z');
-    } finally {
-      await removeV11ContinuationMigrations();
-    }
+    const patch = await createGoalContinuationInvalidationFixture('patch');
+    const beforeGoal = await new PostgresGoalRepository(pool).findById(patch.goalId);
+    if (beforeGoal === undefined) throw new Error('CONTINUATION_PATCH_GOAL_MISSING');
+    const afterGoal = {
+      ...beforeGoal,
+      version: 2,
+      successCriteria: [...beforeGoal.successCriteria, 'patched continuation verified'],
+      updatedAt: '2026-07-16T09:02:00.000Z',
+    };
+    await new PostgresGoalPatchRepository(pool).apply({
+      patchId: 'continuation-invalidation-patch',
+      goalId: patch.goalId,
+      fromVersion: 1,
+      toVersion: 2,
+      instruction: 'Patch while remote work is outstanding.',
+      changes: { successCriteria: afterGoal.successCriteria },
+      decisionSummary: 'The active Goal changed.',
+      compensationWarnings: ['Remote Provider cancellation is not assumed.'],
+      newPlanId: 'continuation-invalidation-plan-patch-v2',
+      beforeGoal,
+      afterGoal,
+      createdAt: afterGoal.updatedAt,
+    });
+    await expectContinuationInvalidated(patch, '2026-07-16T09:02:00.000Z');
   });
   it('keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects', async () => {
     const prompts = new PostgresPromptRepository(pool);
@@ -3074,6 +3228,44 @@ describe('PostgreSQL protocol-domain repositories', () => {
         toolPolicy: version.toolPolicy,
         workflowGuidanceSummary: version.workflowGuidance,
         runtimePolicy: version.runtimePolicy,
+        usageSummary: {
+          source: 'legacy_projection' as const,
+          apiVersion: 'sdar.io/v1alpha1' as const,
+          visibility: { userSelectable: true, composable: true, internalOnly: false },
+          supportedModes: ['guidance' as const],
+          defaultMode: 'guidance' as const,
+          taskTypes: [],
+          hasComposition: false,
+          requiredContextCount: 0,
+          requiredEvidenceCount: 0,
+        },
+        usageCandidate: {
+          skillId: version.skillId,
+          skillVersion: version.version,
+          applicability: {
+            skillId: version.skillId,
+            skillVersion: version.version,
+            status: 'satisfied' as const,
+            reasonCodes: ['all_requirements_satisfied'],
+            context: {
+              requirements: [],
+              satisfied: 0,
+              total: 0,
+              complete: true,
+              inputRequiredIds: [],
+              unsatisfiedIds: [],
+              unknownIds: [],
+            },
+            readiness: { overall: 'ready' as const, bindings: [] },
+          },
+          modeDecision: {
+            decision: 'selected' as const,
+            mode: 'guidance' as const,
+            confirmationRequired: false,
+            confirmationSatisfied: true,
+            reasonCodes: ['default_or_preferred_mode'],
+          },
+        },
         activeMcpDependencyWarnings: [],
         autoConfirmPlan: false,
         createdAt: version.createdAt,
@@ -3642,6 +3834,121 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.findVersion(first.skillId, 1)).resolves.toEqual(first);
     await expect(repository.findCurrentVersion(first.skillId)).resolves.toEqual(second);
     await expect(repository.listEnabledVersions()).resolves.toEqual([]);
+  });
+
+  it('atomically persists native Skill Usage and checksum-bound package import audit', async () => {
+    const repository = new PostgresSkillRepository(pool);
+    const version = createSkillVersion({
+      skillId: 'embodied.move-to.db',
+      version: 1,
+      name: 'Move To',
+      summary: 'Move safely.',
+      description: 'Moves one resource to a target.',
+      capabilities: ['embodied.move'],
+      workflowGuidance: 'Move safely.',
+      outputInstruction: 'Return the final position.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-07-17T11:00:00.000Z',
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: ['Stay safe.'],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Prefer a safe route.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Guide.', instructions: ['Guide safely.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+    });
+    await repository.saveVersionAndSetCurrent(version, version.createdAt, {
+      skillId: version.skillId,
+      skillVersion: version.version,
+      packageChecksum: 'a'.repeat(64),
+      packageRoot: '/reviewed/embodied.move_to',
+      fileChecksums: { 'manifest.json': 'b'.repeat(64), 'SKILL.md': 'c'.repeat(64) },
+      validatedAt: '2026-07-17T10:59:00.000Z',
+      importedAt: version.createdAt,
+    });
+
+    const stored = await repository.findCurrentVersion(version.skillId);
+    expect(stored).toEqual(version);
+    expect(Object.isFrozen(stored?.usageSpecification)).toBe(true);
+    const audit = await pool.query<{
+      package_checksum: string;
+      file_checksums_json: Record<string, string>;
+    }>(
+      'SELECT package_checksum,file_checksums_json FROM skill_package_import_audit WHERE skill_id=$1 AND skill_version=$2',
+      [version.skillId, version.version],
+    );
+    expect(audit.rows[0]).toEqual({
+      package_checksum: 'a'.repeat(64),
+      file_checksums_json: { 'manifest.json': 'b'.repeat(64), 'SKILL.md': 'c'.repeat(64) },
+    });
+    await expect(
+      repository.saveVersionAndSetCurrent(version, version.createdAt, {
+        skillId: version.skillId,
+        skillVersion: 2,
+        packageChecksum: 'd'.repeat(64),
+        packageRoot: '/wrong-version',
+        fileChecksums: { 'manifest.json': 'e'.repeat(64) },
+        validatedAt: version.createdAt,
+        importedAt: version.createdAt,
+      }),
+    ).rejects.toThrow();
+
+    const down = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0105_skill_usage_specification.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const up = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0105_skill_usage_specification.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const client = await pool.connect();
+    try {
+      await expect(client.query(down)).rejects.toThrow(
+        'MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE',
+      );
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
+    await pool.query('TRUNCATE skill_package_import_audit, skill_version, skill CASCADE');
+    await pool.query(down);
+    try {
+      await expect(
+        pool.query<{ present: boolean }>(
+          "SELECT to_regclass('public.skill_package_import_audit') IS NOT NULL AS present",
+        ),
+      ).resolves.toMatchObject({ rows: [{ present: false }] });
+    } finally {
+      await pool.query(up);
+    }
   });
 
   it('persists TaskService context/task/event and reads domain values back', async () => {
@@ -4265,6 +4572,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ),
       'utf8',
     );
+    for (const migration of [...V12_TEST_MIGRATIONS].reverse())
+      await applyTestMigration(migration.replace('.up.sql', '.down.sql'));
     await pool.query(down);
     try {
       const removed = await pool.query<{ count: string }>(
@@ -4275,6 +4584,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       expect(removed.rows[0]?.count).toBe('0');
     } finally {
       await pool.query(up);
+      await applyV12TestMigrations();
     }
     const restored = await pool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM information_schema.tables
@@ -4944,6 +5254,167 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     expect(restored.rows[0]?.count).toBe('2');
   });
+
+  it('persists append-only Skill execution status and thin evidence links', async () => {
+    const timestamp = '2026-07-17T12:00:00.000Z';
+    await new PostgresConversationContextRepository(pool).save({
+      contextId: 'context.skill-execution.db',
+      userId: 'operator',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    await new PostgresAgentTaskRepository(pool).save(
+      createAgentTask({
+        taskId: 'task.skill-execution.db',
+        contextId: 'context.skill-execution.db',
+        userId: 'operator',
+        requestText: 'Execute the selected Skill.',
+        requestMetadata: {},
+        timestamp,
+      }),
+    );
+    const skillVersion = createSkillVersion({
+      skillId: 'skill.root.db',
+      version: 2,
+      name: 'Execution evidence Skill',
+      summary: 'Persists execution evidence.',
+      description: 'A Skill used to verify execution evidence persistence.',
+      capabilities: ['evidence'],
+      workflowGuidance: 'Record bounded evidence.',
+      outputInstruction: 'Return the evidence reference.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'enabled',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: timestamp,
+    });
+    await new PostgresSkillRepository(pool).saveVersionAndSetCurrent(skillVersion, timestamp);
+    const policy = testUsagePlanPolicy();
+    await new PostgresWorkflowPlanRepository(pool).savePlan({
+      planId: 'plan.skill-execution.db',
+      goalId: 'goal.skill-execution.db',
+      goalVersion: 1,
+      goalContract: testGoalContract('goal.skill-execution.db'),
+      definition: {
+        workflowDefinitionId: 'workflow.skill-execution.db',
+        version: 1,
+        goalId: 'goal.skill-execution.db',
+        goalVersion: 1,
+        entryNodeId: 'result',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [],
+        skillUsagePolicy: policy,
+      },
+      confirmationStatus: 'awaiting_confirmation',
+      attemptCount: 1,
+      createdAt: timestamp,
+    });
+    const executionId = 'skill-execution.db';
+    const repository = new PostgresSkillExecutionRepository(pool);
+    await repository.create(
+      createSkillExecutionRecord({
+        executionId,
+        taskId: 'task.skill-execution.db',
+        goalId: 'goal.skill-execution.db',
+        goalVersion: 1,
+        skillId: 'skill.root.db',
+        skillVersion: 2,
+        selectionRef: 'selection.skill-execution.db',
+        applicabilityStatus: 'satisfied',
+        usagePolicy: policy,
+        workflowPlanId: 'plan.skill-execution.db',
+        workflowDefinitionId: 'workflow.skill-execution.db',
+        workflowDefinitionVersion: 1,
+        createdAt: timestamp,
+      }),
+      [
+        createSkillExecutionEvent({
+          eventId: 'event.skill-execution.selected',
+          executionId,
+          eventType: 'skill.selected',
+          statusAfter: 'selected',
+          summary: 'Selected.',
+          details: {},
+          occurredAt: timestamp,
+        }),
+        createSkillExecutionEvent({
+          eventId: 'event.skill-execution.planning',
+          executionId,
+          eventType: 'skill.plan_generated',
+          statusAfter: 'planning',
+          summary: 'Planned.',
+          details: {},
+          occurredAt: timestamp,
+        }),
+      ],
+      [
+        createSkillExecutionReference({
+          linkId: 'link.skill-execution.evidence',
+          executionId,
+          kind: 'evidence',
+          referenceId: 'evidence.skill-execution.db',
+          referenceType: 'inspection.result',
+          sourceSystem: 'test-provider',
+          uri: 'urn:sdar:evidence:skill-execution-db',
+          checksum: 'a'.repeat(64),
+          producedAt: timestamp,
+          producerRefs: ['provider.test'],
+          metadata: { bounded: true },
+          createdAt: timestamp,
+        }),
+      ],
+    );
+    for (const [eventId, eventType, status] of [
+      ['started', 'skill.execution_started', 'executing'],
+      ['waiting', 'skill.execution_waiting_external', 'waiting_external'],
+      ['resumed', 'skill.execution_started', 'executing'],
+      ['degraded', 'skill.execution_degraded', 'degraded'],
+    ] as const)
+      await repository.appendEvent(
+        createSkillExecutionEvent({
+          eventId: `event.skill-execution.${eventId}`,
+          executionId,
+          eventType,
+          statusAfter: status,
+          summary: eventId,
+          details: {},
+          occurredAt: timestamp,
+        }),
+      );
+
+    await expect(repository.findByPlan('plan.skill-execution.db')).resolves.toMatchObject({
+      executionId,
+      status: 'degraded',
+      events: expect.arrayContaining([
+        expect.objectContaining({ eventType: 'skill.execution_waiting_external' }),
+      ]),
+      references: [expect.objectContaining({ referenceId: 'evidence.skill-execution.db' })],
+    });
+    await expect(
+      repository.appendEvent(
+        createSkillExecutionEvent({
+          eventId: 'event.skill-execution.after-terminal',
+          executionId,
+          eventType: 'skill.execution_started',
+          statusAfter: 'executing',
+          summary: 'Must fail.',
+          details: {},
+          occurredAt: timestamp,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'SKILL_EXECUTION_RECORD_INVALID' });
+  });
 });
 
 async function createTerminalOutcomeFixture(suffix: string) {
@@ -5144,30 +5615,6 @@ interface GoalContinuationInvalidationFixture {
   readonly goalId: string;
   readonly snapshotId: string;
   readonly bindingIds: readonly [string, string];
-}
-
-async function installV11ContinuationMigrations(): Promise<void> {
-  for (const name of [
-    '0100_remote_mcp_task_tracking.up.sql',
-    '0101_task_execution_readiness.up.sql',
-    '0102_remote_task_continuation.up.sql',
-  ])
-    await applyTestMigration(name);
-}
-
-async function removeV11ContinuationMigrations(): Promise<void> {
-  await pool.query(
-    'TRUNCATE workflow_continuation_attempt,workflow_continuation_wait_binding,workflow_continuation_snapshot,remote_task_protocol_attempt,remote_task_control_event,remote_task_observation,remote_task_binding',
-  );
-  await pool.query(
-    "UPDATE workflow_instance SET status='failed',completed_at=COALESCE(completed_at,'2026-07-16T09:03:00.000Z') WHERE status='waiting_external'",
-  );
-  for (const name of [
-    '0102_remote_task_continuation.down.sql',
-    '0101_task_execution_readiness.down.sql',
-    '0100_remote_mcp_task_tracking.down.sql',
-  ])
-    await applyTestMigration(name);
 }
 
 async function createGoalContinuationInvalidationFixture(
@@ -5391,6 +5838,7 @@ async function createGoalContinuationInvalidationFixture(
 async function expectContinuationInvalidated(
   fixture: GoalContinuationInvalidationFixture,
   invalidatedAt: string,
+  bindingState: 'closed' | 'cancel_observing' = 'closed',
 ): Promise<void> {
   const snapshot = await pool.query<{ lifecycle: string; updated_at: Date | string }>(
     'SELECT lifecycle,updated_at FROM workflow_continuation_snapshot WHERE snapshot_id=$1',
@@ -5410,9 +5858,14 @@ async function expectContinuationInvalidated(
   );
   expect(bindings.rows).toHaveLength(2);
   for (const binding of bindings.rows) {
-    expect(binding.local_state).toBe('closed');
-    expect(binding.next_poll_at).toBeNull();
-    expect(new Date(binding.invalidated_at ?? 0).toISOString()).toBe(invalidatedAt);
+    expect(binding.local_state).toBe(bindingState);
+    if (bindingState === 'closed') {
+      expect(binding.next_poll_at).toBeNull();
+      expect(new Date(binding.invalidated_at ?? 0).toISOString()).toBe(invalidatedAt);
+    } else {
+      expect(new Date(binding.next_poll_at ?? 0).toISOString()).toBe(invalidatedAt);
+      expect(binding.invalidated_at).toBeNull();
+    }
   }
 }
 

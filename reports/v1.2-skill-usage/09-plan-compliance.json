@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "phase": 9,
+  "status": "passed",
+  "goal": "Compile all Skill Usage modes into the existing Workflow planning authority and reject non-compliant plans deterministically.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "cb1faf112b6f5c9346f11fc475a1184c9ff31fc2",
+  "resultingSha": "7cdee9e08d2dd1d0f5a2d56df135e387482a6927",
+  "authority": {
+    "policy": "Domain SkillUsagePlanPolicy",
+    "planner": "existing WorkflowPlannerService",
+    "validator": "existing WorkflowValidator plus additive Skill Usage context",
+    "runtime": "existing LangGraph compiler only",
+    "migration": "none"
+  },
+  "modes": {
+    "guidance": "bounded structured planning context only",
+    "template": "deterministic existing WorkflowDefinition",
+    "procedure": "deterministic existing WorkflowDefinition; never directly executed"
+  },
+  "complianceCases": {
+    "normativePolicyPersistenceForOuterConfirmation": "passed",
+    "forbiddenActionPolicyPersistenceForOuterConfirmation": "passed",
+    "taskTypeAllowlist": "passed",
+    "providerPolicy": "passed",
+    "recursionBudget": "passed",
+    "failurePolicy": "passed",
+    "outerPlanConfirmationRequirement": "passed",
+    "contextGate": "passed",
+    "evidencePlan": "passed",
+    "hardGate": "passed",
+    "boundedRepair": "passed"
+  },
+  "testsActuallyRun": [
+    {
+      "command": "pnpm format:check && pnpm lint && pnpm typecheck && node scripts/check-architecture.mjs && pnpm build",
+      "status": "passed",
+      "architectureSourceFiles": 251
+    },
+    {
+      "command": "focused skill usage planning + Workflow Planner/Validator + DSL schema + LangGraph compiler",
+      "status": "passed",
+      "files": 5,
+      "tests": 68
+    },
+    {
+      "command": "pnpm test:unit",
+      "status": "passed",
+      "files": 71,
+      "tests": 448
+    },
+    {
+      "command": "pnpm test:contract",
+      "status": "passed",
+      "files": 11,
+      "tests": 107
+    }
+  ],
+  "adr": "ADR-105",
+  "knownLimitations": [
+    "Production Runtime wiring and the complete verify gate remain Phase 10.",
+    "Natural-language policy remains immutable review data at the existing outer Workflow Plan confirmation; it is not claimed as machine-proven semantic compliance."
+  ],
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "7cdee9e08d2dd1d0f5a2d56df135e387482a6927"
+  }
+}

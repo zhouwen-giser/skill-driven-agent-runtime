@@ -1,0 +1,20 @@
+{
+  "skillId": "embodied.move_to",
+  "version": 1,
+  "packageChecksum": "f63b97f8a594cce1c7e4c464e5bc66b668ce50fd877de4af90a22dc04e6f89d6",
+  "capabilities": ["embodied.move", "embodied.navigation"],
+  "visibility": { "userSelectable": true, "composable": true, "internalOnly": false },
+  "supportedModes": ["guidance", "template", "procedure"],
+  "defaultMode": "template",
+  "taskTypes": ["embodied.move"],
+  "composition": null,
+  "evidence": [
+    {
+      "requirementId": "final-position",
+      "evidenceType": "position.observation",
+      "required": true,
+      "hardGate": true
+    }
+  ],
+  "rejectSuccessWithoutRequiredEvidence": true
+}

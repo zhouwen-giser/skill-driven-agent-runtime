@@ -1,0 +1,61 @@
+{
+  "visibility": {
+    "userSelectable": true,
+    "composable": true,
+    "internalOnly": false
+  },
+  "normative": {
+    "constraints": [
+      "Patrol only inside the authorized area boundary and time window.",
+      "Preserve Provider authority for resource availability, reservation, execution state, and results.",
+      "A degraded subregion must identify missing coverage, effects, and evidence."
+    ],
+    "forbiddenActions": [
+      "Cross an excluded or forbidden area.",
+      "Silently omit a required subregion.",
+      "Project degraded or incomplete coverage as full success."
+    ],
+    "requiredConfirmations": [
+      "Confirm the patrol plan and any refreshed risk escalation before external execution."
+    ],
+    "noApplicableSkill": "reject"
+  },
+  "contextRequirements": [
+    {
+      "requirementId": "area-boundary",
+      "description": "Authorized patrol polygon and excluded zones.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "user_input"]
+    },
+    {
+      "requirementId": "resource-state",
+      "description": "Current Provider-owned resource availability, position, and operating state.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "read_only_query"]
+    },
+    {
+      "requirementId": "time-window",
+      "description": "Authoritative earliest start, deadline, and reservation evidence when guaranteed.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "read_only_query", "user_input"]
+    },
+    {
+      "requirementId": "area-partition",
+      "description": "Deterministic bounded subdivision of the authorized patrol area.",
+      "required": true,
+      "sourceOrder": ["deterministic_derivation"]
+    }
+  ],
+  "taskBindings": [
+    {
+      "bindingId": "patrol-area",
+      "taskType": "embodied.area_patrol",
+      "providerPolicy": {
+        "selection": "preferred",
+        "preferredProviderIds": ["mobile-fleet-primary"],
+        "forbiddenProviderIds": [],
+        "requiredAttributes": ["observations", "cancellation:task_cancel"]
+      }
+    }
+  ]
+}

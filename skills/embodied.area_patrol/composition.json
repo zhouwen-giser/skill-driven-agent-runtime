@@ -1,0 +1,26 @@
+{
+  "maxDepth": 3,
+  "fixedDependencies": [
+    {
+      "dependencyId": "move-between-subregions",
+      "skillId": "embodied.move_to",
+      "failurePolicy": "recoverable",
+      "inputMappings": [
+        { "sourcePath": "resourceId", "targetPath": "resourceId" },
+        { "sourcePath": "target", "targetPath": "target" }
+      ],
+      "outputMappings": [{ "sourcePath": "finalPosition", "targetPath": "evidence.trajectory" }]
+    }
+  ],
+  "capabilitySlots": [
+    {
+      "slotId": "subregion-inspection",
+      "capability": "embodied.inspect_area",
+      "required": true,
+      "candidateSkillIds": [],
+      "failurePolicy": "degraded",
+      "inputMappings": [{ "sourcePath": "area", "targetPath": "area" }],
+      "outputMappings": [{ "sourcePath": "anomalies", "targetPath": "evidence.anomalies" }]
+    }
+  ]
+}

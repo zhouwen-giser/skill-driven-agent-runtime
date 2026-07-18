@@ -10,6 +10,8 @@ import {
   type WorkflowPlanRecord,
   type WorkflowToolExecutionSemanticsSnapshot,
   type RuntimeExecutionContext,
+  type SkillUsagePlanPolicy,
+  type WorkflowDefinition,
 } from '../../domain/src/index.js';
 import type { Clock, StructuredModelProvider, WorkflowPlanRepository } from './ports.js';
 import type { WorkflowValidationResult, WorkflowValidator } from './workflow-validator.js';
@@ -37,6 +39,8 @@ export interface PlanWorkflowInput {
   readonly templateQuery?: string;
   readonly taskId?: string;
   readonly executionContext?: RuntimeExecutionContext;
+  readonly skillUsagePolicy?: SkillUsagePlanPolicy;
+  readonly deterministicDefinition?: WorkflowDefinition;
 }
 
 export class WorkflowPlannerService {
@@ -127,6 +131,7 @@ export class WorkflowPlannerService {
         'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH',
         'Repair source confirmation belongs to a different Goal execution contract.',
       );
+    const skillUsagePolicy = input.skillUsagePolicy ?? source?.definition?.skillUsagePolicy;
     if (
       source !== undefined &&
       suppliedToolExecutionSemantics !== undefined &&
@@ -164,6 +169,7 @@ export class WorkflowPlannerService {
       compositionContext,
       capabilityGapSkillIds,
       toolExecutionSemantics,
+      skillUsagePolicy,
     );
     const withMemory = addMemoryContext(withContract, memoryContext);
     const planningInstruction =
@@ -172,17 +178,21 @@ export class WorkflowPlannerService {
         : addPreferredTemplate(withMemory, preferredTemplate);
     let correctionErrors: readonly string[] = [];
     for (let attempt = 1; attempt <= this.#maxAttempts; attempt += 1) {
-      const candidate = await this.#model.generateStructured({
-        stage: 'workflow_planning',
-        instruction: planningInstruction,
-        responseSchema: this.#schema,
-        correctionErrors,
-      });
+      const candidate =
+        attempt === 1 && input.deterministicDefinition !== undefined
+          ? input.deterministicDefinition
+          : await this.#model.generateStructured({
+              stage: 'workflow_planning',
+              instruction: planningInstruction,
+              responseSchema: this.#schema,
+              correctionErrors,
+            });
       const validation = await this.#validateExpected(
         candidate,
         input,
         compositionContext,
         capabilityGapSkillIds,
+        skillUsagePolicy,
       );
       await this.#repository.saveAttempt(
         toAttempt(
@@ -228,6 +238,7 @@ export class WorkflowPlannerService {
           ...(input.revisionKind === undefined ? {} : { revisionKind: input.revisionKind }),
           confirmationStatus:
             source?.confirmationStatus === 'confirmed' &&
+            !requiresSkillUsagePlanConfirmation(skillUsagePolicy) &&
             (readiness === undefined ||
               (readiness.readiness.disposition === 'ready' &&
                 !readiness.readiness.confirmationRequired))
@@ -279,11 +290,13 @@ export class WorkflowPlannerService {
     input: PlanWorkflowInput,
     compositionContext: SkillCompositionContext | undefined,
     capabilityGapSkillIds: readonly string[],
+    skillUsagePolicy: SkillUsagePlanPolicy | undefined,
   ): Promise<WorkflowValidationResult> {
     const result = await this.#validator.validate(candidate, {
       enforceSkillComposition: true,
       allowedChildSkillIds: compositionContext?.allowedChildSkillIds ?? [],
       capabilityGapSkillIds,
+      ...(skillUsagePolicy === undefined ? {} : { skillUsagePolicy }),
     });
     if (!result.valid || result.definition === undefined) return result;
     const errors: { code: string; path: string; message: string }[] = [];
@@ -324,12 +337,14 @@ function addPlanningContracts(
   compositionContext: SkillCompositionContext | undefined,
   capabilityGapSkillIds: readonly string[],
   toolExecutionSemantics: readonly WorkflowToolExecutionSemanticsSnapshot[],
+  skillUsagePolicy: SkillUsagePlanPolicy | undefined,
 ): string {
   const planningAuthority = {
     goalContract,
     skillCompositionContext: compositionContext ?? null,
     capabilityGapSkillIds,
     toolExecutionSemantics,
+    skillUsagePolicy: skillUsagePolicy ?? null,
     skillCallConstraint:
       'Every skill_call target must be admitted by allowedChildSkillIds or capabilityGapSkillIds.',
   } as const;
@@ -455,6 +470,13 @@ function skillCompositionContextsEqual(
 
 function stringListsEqual(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function requiresSkillUsagePlanConfirmation(policy: SkillUsagePlanPolicy | undefined): boolean {
+  return (
+    policy !== undefined &&
+    (policy.modeDecision.confirmationRequired || policy.requiredConfirmations.length > 0)
+  );
 }
 
 export type WorkflowPlannerErrorCode =

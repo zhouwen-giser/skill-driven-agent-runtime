@@ -26,7 +26,7 @@ describe('Workflow DSL JSON Schema contract', () => {
             nodeId: 'result',
             name: 'Result',
             type: 'result',
-            value: { op: 'literal', value: true },
+            value: { op: 'exists', path: ['input', 'evidence'] },
           },
         ],
       }).valid,
@@ -37,6 +37,56 @@ describe('Workflow DSL JSON Schema contract', () => {
         entryNodeId: 'evil',
         exitNodeIds: ['evil'],
         nodes: [{ nodeId: 'evil', name: 'Evil', type: 'javascript', source: 'process.exit()' }],
+      }).valid,
+    ).toBe(false);
+    expect(
+      validator.validate(schema, {
+        ...base,
+        entryNodeId: 'child',
+        exitNodeIds: ['result'],
+        nodes: [
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'skill_call',
+            skillId: 'skill.child',
+            input: { op: 'ref', path: ['input'] },
+            outputMappings: [{ sourcePath: 'finalPosition', targetPath: 'evidence.trajectory' }],
+          },
+          {
+            nodeId: 'handler',
+            name: 'Recover child',
+            type: 'error_handler',
+            handledNodeId: 'child',
+            strategy: 'goto',
+            skillFailurePolicy: 'recoverable',
+            gotoNodeId: 'result',
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        edges: [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+      }).valid,
+    ).toBe(true);
+    expect(
+      validator.validate(schema, {
+        ...base,
+        nodes: [
+          {
+            nodeId: 'result',
+            name: 'Unsafe mapping',
+            type: 'skill_call',
+            skillId: 'skill.child',
+            input: {},
+            outputMappings: [
+              { sourcePath: 'finalPosition', targetPath: 'evidence.__proto__.polluted' },
+            ],
+          },
+        ],
       }).valid,
     ).toBe(false);
     expect(

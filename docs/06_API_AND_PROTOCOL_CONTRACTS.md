@@ -71,3 +71,18 @@ API 必须提供 OpenAPI 文档和契约测试。
 ## 最终结果
 
 A2A 返回自然语言结果，并在有主 Skill 时返回符合 `output_schema` 的结构化数据。过程可观察信息不包含私有思维链。
+
+## v1.2 Skill Usage management contracts
+
+- `POST /api/v1/skill-packages/validate` is read-only. `POST /api/v1/skill-packages/import` rereads,
+  revalidates and checksum-binds the package before creating a new immutable Skill version.
+- Skill catalog and exact-version reads expose lifecycle, visibility, modes, derived capability
+  classification and credential-free Usage summaries. They never mutate an active version in place.
+- `GET /api/v1/skill-executions/{executionId}` and
+  `GET /api/v1/tasks/{taskId}/skill-executions` return append-only execution projections and ordered
+  parent/child trees linked to existing plan, Task, Provider, resource, Remote Task and evidence refs.
+- Native Task/Provider bindings fail closed when exact registered operation, live readiness, required
+  Provider, valid reservation or deployment-selected capability slot evidence is absent. Management
+  responses do not manufacture availability or Provider terminal state.
+- Every route retains the trusted-intranet/no-auth warning and redacts credentials, private reasoning,
+  package filesystem paths and unknown internal errors.

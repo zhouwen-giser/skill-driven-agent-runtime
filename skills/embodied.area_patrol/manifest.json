@@ -1,0 +1,112 @@
+{
+  "apiVersion": "sdar.io/v1alpha1",
+  "kind": "SkillPackage",
+  "skill": {
+    "skillId": "embodied.area_patrol",
+    "version": 1,
+    "name": "Area Patrol",
+    "summary": "Patrol an authorized area with bounded composition and explicit degraded evidence.",
+    "description": "Partitions an area, composes exact movement and dynamic inspection capabilities, and aggregates coverage, trajectory, and anomaly evidence.",
+    "capabilities": ["embodied.area_patrol", "embodied.coverage", "embodied.anomaly_reporting"],
+    "workflowGuidance": "Resolve authoritative boundary, resource, and time-window context before bounded subregion composition and evidence aggregation.",
+    "outputInstruction": "Return full or degraded status, covered and missing subregions, trajectory, anomalies, Provider outcomes, and missing effects or evidence.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceId", "target", "area", "timeWindow"],
+      "properties": {
+        "resourceId": { "type": "string", "minLength": 1 },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "frame": { "type": "string" }
+          }
+        },
+        "area": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["boundary"],
+          "properties": {
+            "boundary": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" }
+                }
+              }
+            },
+            "excludedZones": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "timeWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["earliestStart", "deadline"],
+          "properties": {
+            "earliestStart": { "type": "string" },
+            "deadline": { "type": "string" }
+          }
+        }
+      }
+    },
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "coveredSubregions", "missingSubregions", "trajectory", "anomalies"],
+      "properties": {
+        "status": { "enum": ["completed", "degraded", "failed", "cancelled"] },
+        "coveredSubregions": { "type": "array", "items": { "type": "string" } },
+        "missingSubregions": { "type": "array", "items": { "type": "string" } },
+        "trajectory": { "type": "array", "items": { "type": "object" } },
+        "anomalies": { "type": "array", "items": { "type": "object" } },
+        "missingEffects": { "type": "array", "items": { "type": "string" } },
+        "missingEvidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "toolPolicy": { "required": [], "optional": [], "forbidden": [] },
+    "runtimePolicy": {
+      "autoConfirmPlan": false,
+      "maxReplans": 2,
+      "maxDurationSeconds": 3600,
+      "maxMcpCalls": 64,
+      "cancelStrategy": "try_interrupt",
+      "compensationGuidance": "Stop new subregions, preserve partial evidence, and report Provider uncertainty."
+    },
+    "status": "enabled",
+    "sourceKind": "admin",
+    "validationPassed": true,
+    "createdAt": "2026-07-17T00:00:00.000Z"
+  },
+  "skillMarkdownSha256": "359c91c59763adf5524715e9e431ce986747aed2cc83096cb6232cf3e903d1eb",
+  "files": {
+    "normative": {
+      "path": "normative.json",
+      "sha256": "4cee1280e5711ab115af3446b8ccaef7e4c735bbbdca3b2443ff449df59277db"
+    },
+    "adaptive": {
+      "path": "adaptive.json",
+      "sha256": "729f098bc8deafa20fe403379cc88b4a3731770166eff8328501a40153b6f40f"
+    },
+    "modes": {
+      "path": "modes.json",
+      "sha256": "e16dab6e5d495c07f7f4e94dd8d5faafd07e549a0b03dd1138871159c4e67a81"
+    },
+    "composition": {
+      "path": "composition.json",
+      "sha256": "00e4a4d2e694594ca23a60eabf5feb2e1e1ac8bbca17ae67d76f08e0a0e394d5"
+    },
+    "evidence": {
+      "path": "evidence.json",
+      "sha256": "dd86e84be22c250bc7cccb98163cac356740fb2375fd68a2e9f8b15ad7759c88"
+    }
+  }
+}

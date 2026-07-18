@@ -46,7 +46,9 @@ import type {
   RemoteTaskLifecycleEvidence,
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
+  SkillExecutionRepository,
 } from '../../application/src/index.js';
+import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const AgentTaskPhaseSchema = z.enum([
@@ -208,7 +210,22 @@ const RegisterSkillSchema = z.object({
   status: z.enum(['draft', 'validating', 'enabled', 'disabled', 'deprecated', 'validation_failed']),
   sourceKind: z.enum(['admin', 'a2a_draft', 'experience_evolution', 'manual_correction']),
   validationPassed: z.boolean(),
+  usageSpecification: z.unknown().optional(),
 });
+const SkillPackageRootSchema = z.object({ packageRoot: z.string().min(1).max(4096) }).strict();
+const SkillCatalogQuerySchema = z
+  .object({
+    lifecycle: z
+      .enum(['draft', 'validating', 'active', 'inactive', 'deprecated', 'validation_failed'])
+      .optional(),
+    mode: z.enum(['guidance', 'template', 'procedure']).optional(),
+    domain: z.string().min(1).optional(),
+    tag: z.string().min(1).optional(),
+    userSelectable: z.enum(['true', 'false']).optional(),
+    composable: z.enum(['true', 'false']).optional(),
+    internalOnly: z.enum(['true', 'false']).optional(),
+  })
+  .strict();
 const CreateTemporarySkillSchema = z.object({
   contextId: z.string().min(1),
   name: z.string().min(1),
@@ -375,6 +392,7 @@ export interface ManagementOperations {
   readonly evaluationInfluences: Pick<EvaluationInfluenceService, 'getByReport'>;
   readonly evaluationAnalytics: Pick<EvaluationAnalyticsService, 'summarize'>;
   readonly runtimeEvents: RuntimeEventQuery;
+  readonly skillExecutions?: Pick<SkillExecutionRepository, 'find' | 'listByTask' | 'listChildren'>;
   readonly runtimeTerminalOutcomes: Pick<RuntimeTerminalOutcomeRepository, 'find'>;
   readonly memories: Pick<
     MemoryService,
@@ -402,7 +420,16 @@ export interface ManagementOperations {
   >;
   readonly skills: Pick<
     SkillRegistryService,
-    'diff' | 'listCurrentVersions' | 'listVersions' | 'register' | 'rollback' | 'setEnabled'
+    | 'diff'
+    | 'importPackageRoot'
+    | 'listCatalog'
+    | 'listCurrentVersions'
+    | 'listVersions'
+    | 'readExactVersion'
+    | 'register'
+    | 'rollback'
+    | 'setEnabled'
+    | 'validatePackage'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -811,6 +838,42 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       response.json({
         items: await options.operations.runtimeEvents.listByTask(pathValue(request, 'taskId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/skill-executions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillExecutions === undefined) {
+        response.status(503).json({ code: 'SKILL_EXECUTION_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const items = await options.operations.skillExecutions.listByTask(
+        pathValue(request, 'taskId'),
+      );
+      response.json(skillExecutionCollection(items));
+    }),
+  );
+  app.get(
+    '/api/v1/skill-executions/:executionId',
+    asyncRoute(async (request, response) => {
+      if (options.operations.skillExecutions === undefined) {
+        response.status(503).json({ code: 'SKILL_EXECUTION_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const execution = await options.operations.skillExecutions.find(
+        pathValue(request, 'executionId'),
+      );
+      if (execution === undefined) {
+        response.status(404).json({ code: 'SKILL_EXECUTION_NOT_FOUND' });
+        return;
+      }
+      const taskExecutions = await options.operations.skillExecutions.listByTask(execution.taskId);
+      const collection = skillExecutionCollection(taskExecutions);
+      response.json({
+        warnings: collection.warnings,
+        item: presentSkillExecution(execution),
+        tree: collection.tree.find((node) => containsExecution(node, execution.executionId)),
       });
     }),
   );
@@ -1469,6 +1532,57 @@ export async function startManagementHttpEndpoint(
     response.json({ items: await options.operations.skills.listCurrentVersions() });
   });
   app.get(
+    '/api/v1/skills/catalog',
+    asyncRoute(async (request, response) => {
+      const query = SkillCatalogQuerySchema.parse(request.query);
+      const visibility = {
+        ...(query.userSelectable === undefined
+          ? {}
+          : { userSelectable: query.userSelectable === 'true' }),
+        ...(query.composable === undefined ? {} : { composable: query.composable === 'true' }),
+        ...(query.internalOnly === undefined
+          ? {}
+          : { internalOnly: query.internalOnly === 'true' }),
+      };
+      response.json({
+        items: await options.operations.skills.listCatalog({
+          ...(query.lifecycle === undefined ? {} : { lifecycle: query.lifecycle }),
+          ...(query.mode === undefined ? {} : { mode: query.mode }),
+          ...(query.domain === undefined ? {} : { domain: query.domain }),
+          ...(query.tag === undefined ? {} : { tag: query.tag }),
+          ...(Object.keys(visibility).length === 0 ? {} : { visibility }),
+        }),
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/skill-packages/validate',
+    asyncRoute(async (request, response) => {
+      const candidate = await options.operations.skills.validatePackage(
+        SkillPackageRootSchema.parse(request.body).packageRoot,
+      );
+      response.json({
+        skillVersion: candidate.skillVersion,
+        packageChecksum: candidate.packageChecksum,
+        packageRoot: candidate.packageRoot,
+        fileChecksums: candidate.fileChecksums,
+        validatedAt: candidate.validatedAt,
+      });
+    }),
+  );
+  app.post(
+    '/api/v1/skill-packages/import',
+    asyncRoute(async (request, response) => {
+      response
+        .status(201)
+        .json(
+          await options.operations.skills.importPackageRoot(
+            SkillPackageRootSchema.parse(request.body).packageRoot,
+          ),
+        );
+    }),
+  );
+  app.get(
     '/api/v1/tasks/:taskId/temporary-skills',
     asyncRoute(async (request, response) => {
       response.json({
@@ -1717,6 +1831,17 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/skills/:skillId/versions/:version',
+    asyncRoute(async (request, response) => {
+      response.json(
+        await options.operations.skills.readExactVersion(
+          pathValue(request, 'skillId'),
+          z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+        ),
+      );
+    }),
+  );
+  app.get(
     '/api/v1/skills/:skillId/diff',
     asyncRoute(async (request, response) => {
       const query = z
@@ -1928,9 +2053,13 @@ function skillRegistrationInput(
   parsed: z.infer<typeof RegisterSkillSchema>,
 ): RegisterSkillVersionInput {
   const policy = parsed.runtimePolicy;
+  const { usageSpecification, ...definition } = parsed;
   return {
-    ...parsed,
+    ...definition,
     runtimePolicy: compactRuntimePolicy(policy),
+    ...(usageSpecification === undefined
+      ? {}
+      : { usageSpecification: usageSpecification as SkillUsageSpecification }),
   };
 }
 
@@ -1952,6 +2081,66 @@ function compactRuntimePolicy(policy: z.infer<typeof RegisterSkillSchema>['runti
       ? {}
       : { compensationGuidance: policy.compensationGuidance }),
   };
+}
+
+function presentSkillExecution(execution: SkillExecutionView) {
+  const taskProviderReferences = execution.references.filter((reference) =>
+    ['provider', 'resource', 'remote_task_binding'].includes(reference.kind),
+  );
+  const evidenceReferences = execution.references.filter(
+    (reference) => reference.kind === 'evidence' || reference.kind === 'outcome',
+  );
+  const hardGates = execution.references.filter((reference) => reference.kind === 'hard_gate');
+  const degraded = [...execution.events]
+    .reverse()
+    .find((event) => event.eventType === 'skill.execution_degraded');
+  return {
+    ...execution,
+    taskProviderReferences,
+    evidenceReferences,
+    hardGates,
+    ...(degraded === undefined
+      ? {}
+      : { degradedReason: { summary: degraded.summary, details: degraded.details } }),
+  };
+}
+
+interface SkillExecutionTreeNode {
+  readonly item: ReturnType<typeof presentSkillExecution>;
+  readonly children: readonly SkillExecutionTreeNode[];
+}
+
+function skillExecutionCollection(items: readonly SkillExecutionView[]) {
+  const children = new Map<string, SkillExecutionView[]>();
+  for (const item of items) {
+    if (item.parentExecutionId === undefined) continue;
+    const existing = children.get(item.parentExecutionId) ?? [];
+    existing.push(item);
+    children.set(item.parentExecutionId, existing);
+  }
+  const node = (item: SkillExecutionView): SkillExecutionTreeNode => ({
+    item: presentSkillExecution(item),
+    children: (children.get(item.executionId) ?? []).map(node),
+  });
+  const ids = new Set(items.map((item) => item.executionId));
+  return {
+    warnings: [
+      'Skill execution status is an evidence projection; Task and Workflow remain authoritative.',
+      'Evidence references are thin links and do not embed credentials or private model reasoning.',
+      'Trusted-intranet V1 has no authentication; do not expose this endpoint publicly.',
+    ],
+    items: items.map(presentSkillExecution),
+    tree: items
+      .filter((item) => item.parentExecutionId === undefined || !ids.has(item.parentExecutionId))
+      .map(node),
+  };
+}
+
+function containsExecution(node: SkillExecutionTreeNode, executionId: string): boolean {
+  return (
+    node.item.executionId === executionId ||
+    node.children.some((child) => containsExecution(child, executionId))
+  );
 }
 
 function asyncRoute(

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-17T17:13:35+08:00",
+  "baselineSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "symbols": [
+    { "symbol": "SkillVersion", "file": "packages/domain/src/skill.ts", "owner": "domain", "phase": "1" },
+    { "symbol": "createSkillVersion", "file": "packages/domain/src/skill.ts", "owner": "domain", "phase": "1" },
+    { "symbol": "SkillCompositionContext", "file": "packages/domain/src/skill-graph.ts", "owner": "domain", "phase": "5" },
+    { "symbol": "MAX_SKILL_COMPOSITION_DEPTH", "file": "packages/domain/src/skill-graph.ts", "value": 8, "phase": "5" },
+    { "symbol": "SkillCandidateSnapshot", "file": "packages/domain/src/skill-selection.ts", "owner": "domain", "phase": "3A-4" },
+    { "symbol": "SkillRegistryService", "file": "packages/application/src/skill-registry.ts", "owner": "application", "phase": "3A-7" },
+    { "symbol": "SkillSelectionService", "file": "packages/application/src/skill-selection.ts", "owner": "application", "phase": "4" },
+    { "symbol": "PersistedSkillSemanticRetriever", "file": "packages/application/src/skill-semantic-retriever.ts", "owner": "application", "phase": "4" },
+    { "symbol": "SkillCompositionPlanner", "file": "packages/application/src/skill-composition.ts", "owner": "application", "phase": "5" },
+    { "symbol": "validateSkillToolPolicies", "file": "packages/application/src/skill-tool-policy.ts", "owner": "application", "phase": "9" },
+    { "symbol": "MAX_SKILL_CALL_DEPTH", "file": "packages/application/src/skill-call-workflow.ts", "value": 8, "phase": "10" },
+    { "symbol": "TaskAvailabilityBatchReader", "file": "packages/application/src/ports.ts", "owner": "application-port", "phase": "8" },
+    { "symbol": "RemoteTaskLifecycleEvidence", "file": "packages/application/src/ports.ts", "owner": "application-port", "phase": "11" },
+    { "symbol": "WorkflowPlannerService", "file": "packages/application/src/workflow-planner.ts", "owner": "application", "phase": "9" },
+    { "symbol": "WorkflowValidator", "file": "packages/application/src/workflow-validator.ts", "owner": "application", "phase": "9" },
+    { "symbol": "WorkflowControllerService", "file": "packages/application/src/workflow-controller.ts", "owner": "application", "phase": "10" },
+    { "symbol": "compileWorkflow", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "owner": "runtime-adapter", "phase": "10" }
+  ],
+  "confirmedMissing": [
+    "SkillUsageSpecification",
+    "SkillPackageReader",
+    "SkillApplicabilityAssessor",
+    "SkillModeSelector",
+    "SkillUsageCompositionPlan",
+    "SkillProcedureProgram",
+    "SkillPlanComplianceResult",
+    "SkillExecutionRecord"
+  ]
+}

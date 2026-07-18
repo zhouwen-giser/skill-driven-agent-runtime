@@ -22,7 +22,8 @@
     "entryNodeId": { "$ref": "#/$defs/id" },
     "exitNodeIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
     "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
-    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "skillUsagePolicy": { "type": "object" }
   },
   "$defs": {
     "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$" },
@@ -143,6 +144,15 @@
           "required": ["op", "path"],
           "properties": {
             "op": { "const": "ref" },
+            "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "path"],
+          "properties": {
+            "op": { "const": "exists" },
             "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
           }
         },
@@ -311,6 +321,9 @@
                 "type": { "const": "error_handler" },
                 "handledNodeId": { "$ref": "#/$defs/id" },
                 "strategy": { "enum": ["terminate", "continue", "goto"] },
+                "skillFailurePolicy": {
+                  "enum": ["fail_fast", "recoverable", "optional", "degraded"]
+                },
                 "gotoNodeId": { "$ref": "#/$defs/id" },
                 "recoveryOptions": {
                   "type": "array",
@@ -343,7 +356,26 @@
               "properties": {
                 "type": { "const": "skill_call" },
                 "skillId": { "$ref": "#/$defs/id" },
-                "input": { "$ref": "#/$defs/boundValue" }
+                "input": { "$ref": "#/$defs/boundValue" },
+                "outputMappings": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["sourcePath", "targetPath"],
+                    "properties": {
+                      "sourcePath": {
+                        "type": "string",
+                        "pattern": "^(?!.*(?:^|\\.)(?:__proto__|prototype|constructor)(?:\\.|$))[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*){0,15}$"
+                      },
+                      "targetPath": {
+                        "type": "string",
+                        "pattern": "^(?!.*(?:^|\\.)(?:__proto__|prototype|constructor)(?:\\.|$))[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*){0,15}$"
+                      }
+                    }
+                  }
+                }
               }
             }
           ]

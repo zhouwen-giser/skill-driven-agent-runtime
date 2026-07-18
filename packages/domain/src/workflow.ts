@@ -3,6 +3,8 @@ import { DomainError } from './errors.js';
 import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from './mcp.js';
 import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
+import type { SkillFailurePolicy, SkillValueMapping } from './skill-usage.js';
+import type { SkillUsagePlanPolicy } from './skill-usage-planning.js';
 import type {
   DslExecutionReadiness,
   McpTaskAvailabilityCheckMode,
@@ -17,6 +19,7 @@ import type {
 export type WorkflowExpression =
   | Readonly<{ op: 'literal'; value: string | number | boolean | null }>
   | Readonly<{ op: 'ref'; path: readonly string[] }>
+  | Readonly<{ op: 'exists'; path: readonly string[] }>
   | Readonly<{ op: 'not'; operand: WorkflowExpression }>
   | Readonly<{
       op: 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'and' | 'or';
@@ -109,11 +112,17 @@ export type WorkflowNode =
         type: 'error_handler';
         handledNodeId: string;
         strategy: 'terminate' | 'continue' | 'goto';
+        skillFailurePolicy?: SkillFailurePolicy | undefined;
         gotoNodeId?: string | undefined;
         recoveryOptions?: readonly WorkflowRecoveryOption[] | undefined;
       }>)
   | (WorkflowNodeBase &
-      Readonly<{ type: 'skill_call'; skillId: string; input: WorkflowBoundValue }>);
+      Readonly<{
+        type: 'skill_call';
+        skillId: string;
+        input: WorkflowBoundValue;
+        outputMappings?: readonly SkillValueMapping[] | undefined;
+      }>);
 
 export interface WorkflowEdge {
   readonly sourceNodeId: string;
@@ -131,6 +140,8 @@ export interface WorkflowDefinition {
   readonly exitNodeIds: readonly string[];
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
+  /** Validated immutable planning authority; execution never interprets this as code. */
+  readonly skillUsagePolicy?: SkillUsagePlanPolicy | undefined;
 }
 
 export interface WorkflowPlanAttempt {

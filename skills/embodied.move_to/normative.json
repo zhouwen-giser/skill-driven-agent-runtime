@@ -1,0 +1,55 @@
+{
+  "visibility": {
+    "userSelectable": true,
+    "composable": true,
+    "internalOnly": false
+  },
+  "normative": {
+    "constraints": [
+      "Use only the selected resource and authorized target.",
+      "Preserve Provider authority for reservation, live resource state, and terminal execution state.",
+      "Retain the last authoritative position when cancellation or failure is uncertain."
+    ],
+    "forbiddenActions": [
+      "Enter a forbidden area.",
+      "Bypass resource or permission checks.",
+      "Report completion without required final-position evidence."
+    ],
+    "requiredConfirmations": [
+      "Confirm movement when existing plan or refreshed Provider risk policy requires it."
+    ],
+    "noApplicableSkill": "reject"
+  },
+  "contextRequirements": [
+    {
+      "requirementId": "current-position",
+      "description": "Authoritative current position of the selected resource.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "read_only_query"]
+    },
+    {
+      "requirementId": "resource-state",
+      "description": "Current Provider-owned resource identity, availability, and operating state.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "read_only_query"]
+    },
+    {
+      "requirementId": "permission-context",
+      "description": "Permission and forbidden-area policy applicable to the movement.",
+      "required": true,
+      "sourceOrder": ["authoritative_context", "user_input"]
+    }
+  ],
+  "taskBindings": [
+    {
+      "bindingId": "move-resource",
+      "taskType": "embodied.move",
+      "providerPolicy": {
+        "selection": "dynamic",
+        "preferredProviderIds": [],
+        "forbiddenProviderIds": [],
+        "requiredAttributes": ["observations", "cancellation:task_cancel"]
+      }
+    }
+  ]
+}

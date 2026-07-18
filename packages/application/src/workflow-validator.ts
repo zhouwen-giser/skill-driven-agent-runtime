@@ -1,13 +1,15 @@
 import { z } from 'zod';
-import { normalizeTaskTimestamp } from '../../domain/src/index.js';
+import { normalizeTaskTimestamp, snapshotSkillUsagePlanPolicy } from '../../domain/src/index.js';
 import type {
   WorkflowBoundValue,
   WorkflowDefinition,
   WorkflowExpression,
   WorkflowNode,
   McpTaskExecutionSpec,
+  SkillUsagePlanPolicy,
 } from '../../domain/src/index.js';
 import type { JsonSchemaValidator, McpToolCatalog, SkillRepository } from './ports.js';
+import { checkSkillUsagePlanCompliance } from './skill-usage-planning.js';
 
 const Identifier = z
   .string()
@@ -22,6 +24,7 @@ const ExpressionSchema: z.ZodType<WorkflowExpression> = z.lazy(() =>
       })
       .strict(),
     z.object({ op: z.literal('ref'), path: z.array(Identifier).min(1) }).strict(),
+    z.object({ op: z.literal('exists'), path: z.array(Identifier).min(1) }).strict(),
     z.object({ op: z.literal('not'), operand: ExpressionSchema }).strict(),
     ...(['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'and', 'or'] as const).map((op) =>
       z.object({ op: z.literal(op), left: ExpressionSchema, right: ExpressionSchema }).strict(),
@@ -78,6 +81,24 @@ const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z
       .strict()
       .optional(),
   })
+  .strict();
+const MappingPath = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      value.split('.').length <= 16 &&
+      value
+        .split('.')
+        .every(
+          (part) =>
+            /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/u.test(part) &&
+            !['__proto__', 'prototype', 'constructor'].includes(part),
+        ),
+    'Skill output mapping paths must be bounded safe property paths.',
+  );
+const SkillValueMappingSchema = z
+  .object({ sourcePath: MappingPath, targetPath: MappingPath })
   .strict();
 const BaseNode = { nodeId: Identifier, name: z.string().min(1) };
 const JsonSchemaValue = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -136,6 +157,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('error_handler'),
       handledNodeId: Identifier,
       strategy: z.enum(['terminate', 'continue', 'goto']),
+      skillFailurePolicy: z.enum(['fail_fast', 'recoverable', 'optional', 'degraded']).optional(),
       gotoNodeId: Identifier.optional(),
       recoveryOptions: z
         .array(
@@ -159,6 +181,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('skill_call'),
       skillId: Identifier,
       input: BoundValueSchema,
+      outputMappings: z.array(SkillValueMappingSchema).max(64).optional(),
     })
     .strict(),
 ]);
@@ -182,6 +205,7 @@ const WorkflowSchema: z.ZodType<WorkflowDefinition> = z
         })
         .strict(),
     ),
+    skillUsagePolicy: z.custom<SkillUsagePlanPolicy>().optional(),
   })
   .strict();
 
@@ -195,6 +219,7 @@ export interface WorkflowValidationContext {
   readonly enforceSkillComposition?: boolean;
   readonly allowedChildSkillIds?: readonly string[];
   readonly capabilityGapSkillIds?: readonly string[];
+  readonly skillUsagePolicy?: SkillUsagePlanPolicy;
 }
 
 export class WorkflowValidator {
@@ -227,7 +252,33 @@ export class WorkflowValidator {
         })),
       };
     const errors: { code: string; path: string; message: string }[] = [];
-    const definition = parsed.data;
+    let effectivePolicy: SkillUsagePlanPolicy | undefined;
+    try {
+      const supplied = context.skillUsagePolicy ?? parsed.data.skillUsagePolicy;
+      effectivePolicy = supplied === undefined ? undefined : snapshotSkillUsagePlanPolicy(supplied);
+      if (
+        context.skillUsagePolicy !== undefined &&
+        parsed.data.skillUsagePolicy !== undefined &&
+        JSON.stringify(context.skillUsagePolicy) !== JSON.stringify(parsed.data.skillUsagePolicy)
+      )
+        add(
+          errors,
+          'SKILL_USAGE_PLAN_POLICY_MISMATCH',
+          'skillUsagePolicy',
+          'Candidate cannot replace the authoritative Skill Usage plan policy.',
+        );
+    } catch {
+      add(
+        errors,
+        'SKILL_USAGE_PLAN_POLICY_INVALID',
+        'skillUsagePolicy',
+        'Skill Usage plan policy is invalid.',
+      );
+    }
+    const definition: WorkflowDefinition = Object.freeze({
+      ...parsed.data,
+      ...(effectivePolicy === undefined ? {} : { skillUsagePolicy: effectivePolicy }),
+    });
     const ids = new Set<string>();
     for (const [index, node] of definition.nodes.entries()) {
       if (ids.has(node.nodeId))
@@ -263,6 +314,14 @@ export class WorkflowValidator {
       validateNodeReferences(node, definition.nodes, ids, errors);
     validateConditionEdges(definition.nodes, definition.edges, errors);
     validateReachability(definition, ids, errors);
+    if (effectivePolicy !== undefined)
+      errors.push(
+        ...checkSkillUsagePlanCompliance(
+          definition,
+          effectivePolicy,
+          context.allowedChildSkillIds ?? [],
+        ).errors,
+      );
     return errors.length === 0 ? { valid: true, errors, definition } : { valid: false, errors };
   }
   async #validateNode(
@@ -484,6 +543,22 @@ function validateNodeReferences(
             'Skill recovery must target a skill_call node.',
           );
       }
+    }
+    if (node.skillFailurePolicy !== undefined) {
+      const handled = nodes.find((candidate) => candidate.nodeId === node.handledNodeId);
+      const expectedStrategy =
+        node.skillFailurePolicy === 'fail_fast'
+          ? 'terminate'
+          : node.skillFailurePolicy === 'recoverable'
+            ? 'goto'
+            : 'continue';
+      if (handled?.type !== 'skill_call' || node.strategy !== expectedStrategy)
+        add(
+          errors,
+          'WORKFLOW_SKILL_FAILURE_POLICY_INVALID',
+          `nodes.${node.nodeId}.skillFailurePolicy`,
+          'Skill failure policy requires a matching skill_call handler strategy.',
+        );
     }
   }
 }

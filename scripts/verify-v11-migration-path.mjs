@@ -52,22 +52,26 @@ try {
     await upgrade.query(bootstrap);
     await applyRuntimeMigrations(upgrade);
     await assertMigration(upgrade, '0064_memory_production_hardening', true, 'upgrade-released');
-    await assertMigration(upgrade, '0100_remote_mcp_task_tracking', false, 'upgrade-released');
-    await assertMigration(upgrade, '0101_task_execution_readiness', false, 'upgrade-released');
-    await assertMigration(upgrade, '0102_remote_task_continuation', false, 'upgrade-released');
+    await assertMigration(upgrade, '0100_remote_mcp_task_tracking', true, 'upgrade-released');
+    await assertMigration(upgrade, '0101_task_execution_readiness', true, 'upgrade-released');
+    await assertMigration(upgrade, '0102_remote_task_continuation', true, 'upgrade-released');
     await assertMigration(
       upgrade,
       '0103_remote_task_input_and_cancellation',
-      false,
+      true,
       'upgrade-released',
     );
-    await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'upgrade-released');
+    await assertMigration(upgrade, '0104_workflow_external_wait_event', true, 'upgrade-released');
+    await assertMigration(upgrade, '0105_skill_usage_specification', true, 'upgrade-released');
+    await assertMigration(upgrade, '0106_skill_execution_record', true, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0106_skill_execution_record.down.sql',
+      '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
       '0103_remote_task_input_and_cancellation.down.sql',
       '0102_remote_task_continuation.down.sql',
@@ -86,6 +90,8 @@ try {
     await assertMigration(upgrade, '0102_remote_task_continuation', false, 'rollback');
     await assertMigration(upgrade, '0103_remote_task_input_and_cancellation', false, 'rollback');
     await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
+    await assertMigration(upgrade, '0105_skill_usage_specification', false, 'rollback');
+    await assertMigration(upgrade, '0106_skill_execution_record', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
@@ -99,17 +105,7 @@ try {
   try {
     await guard.query(bootstrap);
     await applyRuntimeMigrations(guard);
-    await assertMigration(guard, '0064_memory_production_hardening', true, 'default-profile');
-    await assertMigration(guard, '0100_remote_mcp_task_tracking', false, 'default-profile');
-    await assertMigration(guard, '0101_task_execution_readiness', false, 'default-profile');
-    await assertMigration(guard, '0102_remote_task_continuation', false, 'default-profile');
-    await assertMigration(
-      guard,
-      '0103_remote_task_input_and_cancellation',
-      false,
-      'default-profile',
-    );
-    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'default-profile');
+    await verifyV11Schema(guard, 'released-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -117,16 +113,8 @@ try {
         }),
       'V11_MIGRATION_ISOLATION_REQUIRED',
     );
-    const v11Migration = await readFile(
-      resolve(root, 'infra', 'postgres', 'migrations', '0100_remote_mcp_task_tracking.up.sql'),
-      'utf8',
-    );
-    await guard.query(v11Migration);
-    await expectRejection(() => applyRuntimeMigrations(guard), 'V11_MIGRATION_PROFILE_REQUIRED');
-    await assertMigration(guard, '0101_task_execution_readiness', false, 'profile-guard');
-    await assertMigration(guard, '0102_remote_task_continuation', false, 'profile-guard');
-    await assertMigration(guard, '0103_remote_task_input_and_cancellation', false, 'profile-guard');
-    await assertMigration(guard, '0104_workflow_external_wait_event', false, 'profile-guard');
+    await applyRuntimeMigrations(guard);
+    await verifyV11Schema(guard, 'released-profile-idempotent');
   } finally {
     await guard.end();
   }
@@ -135,30 +123,38 @@ try {
   try {
     await gap.query(bootstrap);
     await applyRuntimeMigrations(gap);
+    for (const name of [
+      '0106_skill_execution_record.down.sql',
+      '0105_skill_usage_specification.down.sql',
+      '0104_workflow_external_wait_event.down.sql',
+      '0103_remote_task_input_and_cancellation.down.sql',
+      '0102_remote_task_continuation.down.sql',
+      '0101_task_execution_readiness.down.sql',
+      '0100_remote_mcp_task_tracking.down.sql',
+    ]) {
+      await gap.query(
+        await readFile(resolve(root, 'infra', 'postgres', 'migrations', name), 'utf8'),
+      );
+    }
     const outOfOrder = await readFile(
       resolve(root, 'infra', 'postgres', 'migrations', '0101_task_execution_readiness.up.sql'),
       'utf8',
     );
     await gap.query(outOfOrder);
-    await expectRejection(
-      () =>
-        applyRuntimeMigrations(gap, {
-          profile: 'v1.1-isolated',
-          isolationAcknowledged: true,
-        }),
-      'V11_MIGRATION_LEDGER_GAP',
-    );
+    await expectRejection(() => applyRuntimeMigrations(gap), 'V11_MIGRATION_LEDGER_GAP');
     await assertMigration(gap, '0100_remote_mcp_task_tracking', false, 'ledger-gap');
     await assertMigration(gap, '0101_task_execution_readiness', true, 'ledger-gap');
     await assertMigration(gap, '0102_remote_task_continuation', false, 'ledger-gap');
     await assertMigration(gap, '0103_remote_task_input_and_cancellation', false, 'ledger-gap');
     await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
+    await assertMigration(gap, '0105_skill_usage_specification', false, 'ledger-gap');
+    await assertMigration(gap, '0106_skill_execution_record', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
 
   process.stdout.write(
-    'Isolated v1.1 migration path verified: empty, 0064 upgrade, rollback/reapply, profile guards, and ledger-gap fail-closed.\n',
+    'Post-main migration path verified through 0106: released empty/0064 upgrade, rollback/reapply, isolated-profile guards, and ledger-gap fail-closed.\n',
   );
 } finally {
   const admin = databasePool('sdar');
@@ -203,6 +199,8 @@ async function verifyV11Schema(pool, label) {
   await assertMigration(pool, '0102_remote_task_continuation', true, label);
   await assertMigration(pool, '0103_remote_task_input_and_cancellation', true, label);
   await assertMigration(pool, '0104_workflow_external_wait_event', true, label);
+  await assertMigration(pool, '0105_skill_usage_specification', true, label);
+  await assertMigration(pool, '0106_skill_execution_record', true, label);
   const tables = await pool.query(
     "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_binding','remote_task_observation','remote_task_control_event','remote_task_protocol_attempt') AND relkind='r'",
   );
@@ -277,6 +275,24 @@ async function verifyV11Schema(pool, label) {
     activeAttemptPredicate.includes('waiting_external')
   ) {
     throw new Error(`V11_CONTINUATION_ACTIVE_ATTEMPT_INDEX_INVALID:${label}`);
+  }
+  const usageColumn = await pool.query(
+    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='skill_version' AND column_name='usage_specification_json' AND data_type='jsonb'",
+  );
+  if (usageColumn.rows[0]?.count !== 1) {
+    throw new Error(`V12_SKILL_USAGE_COLUMN_MISSING:${label}`);
+  }
+  const packageAudit = await pool.query(
+    "SELECT to_regclass('public.skill_package_import_audit') IS NOT NULL AS present",
+  );
+  if (packageAudit.rows[0]?.present !== true) {
+    throw new Error(`V12_SKILL_PACKAGE_IMPORT_AUDIT_MISSING:${label}`);
+  }
+  const executionTables = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('skill_execution_record','skill_execution_event','skill_execution_reference') AND relkind='r'",
+  );
+  if (executionTables.rows[0]?.count !== 3) {
+    throw new Error(`V12_SKILL_EXECUTION_TABLES_MISSING:${label}`);
   }
 }
 

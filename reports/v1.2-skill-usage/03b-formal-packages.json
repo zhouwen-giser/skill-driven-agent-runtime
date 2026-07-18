@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "phase": "3B",
+  "status": "passed",
+  "goal": "Add reviewed move-to and area-patrol Skill Packages.",
+  "dependencyClass": "V11-INDEPENDENT",
+  "baseSha": "57e2c87a1765e68bb12d8ac0a060c98a940bd983",
+  "resultingSha": "1c914f4fc750f43d786cc0e045ebba98eaeafd88",
+  "packages": [
+    {
+      "skillId": "embodied.move_to",
+      "version": 1,
+      "packageChecksum": "f0017113882ab071210f365c89548f87cf755f8d6a3a4057b48c6f87ee7f9940",
+      "modes": ["guidance", "template", "procedure"],
+      "requiredEvidence": ["position.observation"]
+    },
+    {
+      "skillId": "embodied.area_patrol",
+      "version": 1,
+      "packageChecksum": "696e660c091f0adfc813a746f79db2981205f6615960d3acbbdd4493ebf4022b",
+      "modes": ["guidance", "template", "procedure"],
+      "fixedDependencies": ["embodied.move_to@1"],
+      "dynamicSlots": ["embodied.inspect_area"],
+      "requiredEvidence": ["patrol.coverage", "patrol.trajectory", "patrol.anomalies"]
+    }
+  ],
+  "architecture": {
+    "authority": "review/import artifacts validated by the existing Phase 2 boundary",
+    "preservedInvariants": [
+      "Package files are not runtime or Provider authority",
+      "No executable source or second Workflow runtime",
+      "No migration, API, Console or production graph wiring",
+      "Composition depth is 3 and below the v1.2 hard maximum 5"
+    ]
+  },
+  "testsActuallyRun": [
+    { "command": "vitest run formal-skill-packages.contract.test.ts", "status": "passed", "tests": 5 },
+    { "command": "vitest run --project contract", "status": "passed", "files": 11, "tests": 106 },
+    { "command": "prettier --check formal packages and configured source globs", "status": "passed" },
+    { "command": "eslint .", "status": "passed" },
+    { "command": "tsc -p tsconfig.json --noEmit", "status": "passed" },
+    { "command": "node scripts/check-architecture.mjs", "status": "passed", "files": 241 }
+  ],
+  "knownLimitations": [
+    "Procedure interpretation and recursive composition execution begin in Phase 5.",
+    "Live Provider readiness and binding begin in Phase 4/8.",
+    "External production Provider interoperability is not claimed."
+  ],
+  "v11Gate": {
+    "finalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+    "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+    "open": true
+  },
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "1c914f4fc750f43d786cc0e045ebba98eaeafd88"
+  }
+}

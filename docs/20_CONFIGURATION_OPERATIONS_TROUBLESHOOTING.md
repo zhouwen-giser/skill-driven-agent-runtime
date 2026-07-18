@@ -17,7 +17,11 @@ The Server loads `.env` when present and then validates environment variables st
 
 Model Providers, fixed stage routes, Prompts, MCP Servers, wait policy, retention values, and evolution thresholds are managed through the API/Console and persisted in PostgreSQL. Provider/MCP credentials are write-only at the management boundary and AES-256-GCM encrypted at rest.
 
-The V1.1 MCP Tasks composition is deliberately opt-in through `startServerRuntime({ v11McpTasks: { isolationAcknowledged: true } })`; it is not an environment-variable switch in the packaged `start:server` entry point. The opt-in requires a disposable database whose name begins `sdar_v11_`, applies migrations `0100`–`0104`, composes the remote Poll/continuation/input/cancel workers and lifecycle management operations, and enables only the validated `waiting_external` restart exemption.
+After V1.1 merged, the released migration profile is one monotonic chain through 0106. The explicit
+`v1.1-isolated` profile and `sdar_v11_*` name/acknowledgement guard remain only for disposable
+compatibility tests. Any ledger gap in 0100–0106 fails closed. The runtime composes the remote
+poll/continuation/input/cancel workers and enables only the validated `waiting_external` restart
+exemption; ordinary running work is never recovered.
 
 ## Local operation
 
@@ -46,6 +50,13 @@ The repository Compose file publishes PostgreSQL and Redis only on `127.0.0.1`; 
 - `pnpm verify:v11-acceptance`
 - `pnpm demo:acceptance`
 - `pnpm verify`
+
+V1.2 package operations use the Management API validate/import routes and always reread and revalidate
+the checksum-bound package. Deployment context and capability-slot resolution are injected runtime
+policies, not environment variables; absence fails closed. Inspect exact execution evidence through
+`GET /api/v1/skill-executions/{executionId}` and
+`GET /api/v1/tasks/{taskId}/skill-executions`. Final v1.2 evidence is stored in
+`reports/v1.2-skill-usage/15-final-acceptance.{md,json}`.
 
 `pnpm demo:acceptance` writes `reports/v1.1-mcp-tasks/V11-ACCEPTANCE.{json,md}` and `V11-LOCAL-DEMO.{json,md}`. The Phase 6 evidence run records 493 unit+contract tests, 80 integration tests using real PostgreSQL/Redis, 49 E2E tests, 232 architecture assertions, 110 OpenAPI operations and 68 migration pairs. The Provider and model decisions are deterministic local simulations; external production Provider interoperability remains unverified.
 

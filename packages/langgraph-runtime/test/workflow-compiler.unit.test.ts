@@ -150,12 +150,13 @@ describe('LangGraph Workflow compiler', () => {
           type: 'skill_call',
           skillId: 'skill.child',
           input: { request: 'run' },
+          outputMappings: [{ sourcePath: 'value', targetPath: 'evidence.child-value' }],
         },
         {
           nodeId: 'result',
           name: 'Result',
           type: 'result',
-          value: { op: 'ref', path: ['outputs', 'child', 'value'] },
+          value: { op: 'ref', path: ['evidence', 'child-value'] },
         },
       ],
       [{ sourceNodeId: 'child', targetNodeId: 'result' }],
@@ -216,6 +217,59 @@ describe('LangGraph Workflow compiler', () => {
     expect(
       resumed.events.filter((event) => event.nodeId === 'child' && event.type === 'node_succeeded'),
     ).toHaveLength(1);
+  });
+
+  it('projects declared child output mappings before evidence gates', async () => {
+    const executeSkill = vi.fn().mockResolvedValue({
+      status: 'completed',
+      output: { finalPosition: { x: 12, y: 8 } },
+    });
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'child',
+            name: 'Move child',
+            type: 'skill_call',
+            skillId: 'skill.move',
+            input: { op: 'ref', path: ['input', 'skillInput'] },
+            outputMappings: [{ sourcePath: 'finalPosition', targetPath: 'evidence.trajectory' }],
+          },
+          {
+            nodeId: 'gate',
+            name: 'Require trajectory',
+            type: 'condition',
+            expression: { op: 'exists', path: ['evidence', 'trajectory'] },
+          },
+          {
+            nodeId: 'success',
+            name: 'Success',
+            type: 'result',
+            value: { op: 'ref', path: ['evidence', 'trajectory', 'x'] },
+          },
+          {
+            nodeId: 'failure',
+            name: 'Failure',
+            type: 'result',
+            value: { op: 'literal', value: false },
+          },
+        ],
+        [
+          { sourceNodeId: 'child', targetNodeId: 'gate' },
+          { sourceNodeId: 'gate', targetNodeId: 'success', outcome: 'true' },
+          { sourceNodeId: 'gate', targetNodeId: 'failure', outcome: 'false' },
+        ],
+        'child',
+        ['success', 'failure'],
+      ),
+      'confirmed',
+      ports({ executeSkill }),
+    ).invoke({ skillInput: { resourceId: 'robot-17' } }, budget, costs);
+
+    expect(result).toMatchObject({ status: 'succeeded', result: 12 });
+    expect(executeSkill).toHaveBeenCalledWith(
+      expect.objectContaining({ input: { resourceId: 'robot-17' } }),
+    );
   });
 
   it('continues ready parallel work, then uses a fresh frontier invocation to join once', async () => {
@@ -562,7 +616,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(callMcpTool).toHaveBeenCalledWith(expect.objectContaining({ executionContext }));
   });
 
-  it('pauses for an independently confirmable child Skill and resumes the same node once', async () => {
+  it('does not route a child Skill confirmation interrupt through its failure handler', async () => {
     let confirmed = false;
     const executeSkill = vi.fn(() =>
       Promise.resolve(
@@ -596,8 +650,20 @@ describe('LangGraph Workflow compiler', () => {
             type: 'result',
             value: { op: 'ref', path: ['outputs', 'child', 'child'] },
           },
+          {
+            nodeId: 'child_handler',
+            name: 'Recover child failure',
+            type: 'error_handler',
+            handledNodeId: 'child',
+            strategy: 'goto',
+            gotoNodeId: 'result',
+            skillFailurePolicy: 'recoverable',
+          },
         ],
-        [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+        [
+          { sourceNodeId: 'child', targetNodeId: 'result' },
+          { sourceNodeId: 'child_handler', targetNodeId: 'result' },
+        ],
         'child',
         ['result'],
       ),

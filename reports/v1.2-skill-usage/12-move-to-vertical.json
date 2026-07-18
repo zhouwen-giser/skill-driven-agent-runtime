@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "phase": 12,
+  "status": "passed",
+  "goal": "Verify the formal embodied.move_to Skill through the existing Skill, Workflow, MCP Task, continuation, evidence and execution-record authorities.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "4ae28c6f31f52af3b98395571a6505fd5492f71a",
+  "resultingSha": "873ee8024178d4b4e4f53e2c86099bf01dd58d2b",
+  "authority": {
+    "skill": "exact persisted Skill version and immutable Usage policy",
+    "workflow": "existing Workflow Planner, Validator, outer confirmation, LangGraph and Controller",
+    "provider": "existing MCP registry, V1.1 readiness and RemoteTaskBinding observations",
+    "evidence": "adapter-projected Provider metadata plus append-only Skill execution references",
+    "deploymentContext": "optional trusted resolver; empty and fail-closed by default"
+  },
+  "scenarios": [
+    { "id": 1, "name": "guidance_immediate_tool", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 2, "name": "template_remote_mcp_task", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 3, "name": "procedure_deterministic_dsl", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 4, "name": "missing_target_position", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 5, "name": "forbidden_area", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 6, "name": "provider_available", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 7, "name": "provider_restricted_reschedule", "status": "passed", "layer": "a2a_e2e_and_unit" },
+    { "id": 8, "name": "required_provider_disabled", "status": "passed", "layer": "unit" },
+    { "id": 9, "name": "remote_input_required", "status": "passed", "layer": "contract_and_integration" },
+    { "id": 10, "name": "cancel", "status": "passed", "layer": "contract_and_integration" },
+    { "id": 11, "name": "runtime_restart_and_continuation", "status": "passed", "layer": "integration" },
+    { "id": 12, "name": "provider_success_without_final_position_evidence", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 13, "name": "valid_final_position_evidence", "status": "passed", "layer": "a2a_e2e" },
+    { "id": 14, "name": "legacy_skill_regression", "status": "passed", "layer": "complete_a2a_e2e" }
+  ],
+  "successCriteria": {
+    "exactSkillAndMode": true,
+    "planCompliant": true,
+    "exactTaskCall": true,
+    "waitingAndContinuation": true,
+    "noFalseCompletionWithoutEvidence": true,
+    "completeExecutionRecord": true,
+    "noDuplicateSideEffect": true
+  },
+  "testsActuallyRun": [
+    {
+      "command": "pnpm format:check; pnpm lint; pnpm typecheck; pnpm test; pnpm build",
+      "status": "passed",
+      "unitContractFiles": 84,
+      "unitContractTests": 565,
+      "build": "passed"
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "status": "passed",
+      "architectureSourceFiles": 256
+    },
+    {
+      "command": "pnpm exec vitest run packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --reporter=dot",
+      "status": "passed",
+      "tests": 55,
+      "infrastructure": "real local PostgreSQL/Redis/Server/LangGraph and deterministic loopback model/MCP Provider"
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/server-runtime-restart.integration.test.ts apps/server/test/remote-task-runtime.integration.test.ts apps/server/test/remote-task-composition.integration.test.ts --reporter=dot",
+      "status": "passed",
+      "tests": 11,
+      "infrastructure": "real local PostgreSQL/Redis/BullMQ/LangGraph and deterministic loopback MCP Provider"
+    }
+  ],
+  "environment": {
+    "repositoryContainersAfterVerification": "stopped with volumes preserved",
+    "operatorEnv": "ignored and unchanged",
+    "operatorDatabase": "unchanged",
+    "externalProviderRuntimePostgres": "untouched"
+  },
+  "knownLimitations": [
+    "Recursive area-patrol composition acceptance remains Phase 13.",
+    "Adversarial full verification remains Phase 14.",
+    "Final audit and release publication remain Phase 15.",
+    "External production MCP Tasks Provider interoperability remains unverified."
+  ],
+  "push": {
+    "featureCommit": "873ee8024178d4b4e4f53e2c86099bf01dd58d2b",
+    "status": "passed",
+    "remote": "origin"
+  }
+}

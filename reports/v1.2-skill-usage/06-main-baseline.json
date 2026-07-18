@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "phase": 6,
+  "status": "passed",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "389d43d04c5c133791a789dec1c4e7417d65d625",
+  "resultingSha": "67cf7c335396f2041890f12a0fba4da3c6e6150f",
+  "mainSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "v11FinalSubmittedSha": "9e32311e45a9257741fb7c62f4f89b76dce8360f",
+  "ancestry": {
+    "v11FinalInMain": true,
+    "mainInBranch": true,
+    "branchBehindMain": 0,
+    "branchAheadOfMain": 14,
+    "mergeRequired": false,
+    "mergePerformed": false
+  },
+  "highWater": {
+    "migrationCurrent": "0104_workflow_external_wait_event",
+    "migrationAllocated": ["0105_skill_usage_specification", "0106_skill_execution_record"],
+    "adrBeforePhase": "ADR-096",
+    "adrAfterPhase": "ADR-103"
+  },
+  "adrs": ["ADR-097", "ADR-098", "ADR-099", "ADR-100", "ADR-101", "ADR-102", "ADR-103"],
+  "maps": [
+    "reports/v1.2-skill-usage/06-repository-map.md",
+    "reports/v1.2-skill-usage/06-symbol-map.json",
+    "reports/v1.2-skill-usage/06-v1.1-overlap-map.md"
+  ],
+  "verification": {
+    "status": "passed",
+    "command": "pnpm verify with ignored .env trap-isolated",
+    "durationMs": 141005,
+    "unitAndContract": { "files": 80, "tests": 542 },
+    "integration": { "files": 9, "tests": 80 },
+    "e2e": { "files": 2, "tests": 49 },
+    "architectureFiles": 246,
+    "a2aMustPassed": 74,
+    "openApiOperations": 110,
+    "migrationPairs": 68,
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed"
+  },
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "67cf7c335396f2041890f12a0fba4da3c6e6150f"
+  }
+}

@@ -201,6 +201,7 @@ export class WorkflowExecutionService {
       this.#systemBudgetDefaults,
       skillVersions.map((skill) => skill.runtimePolicy),
     );
+    const executionInput = skillUsageExecutionInput(validation.definition, input.input);
     const startedAt = this.#clock.now();
     const replanCount = input.replanCount ?? 0;
     if (!Number.isInteger(replanCount) || replanCount < 0 || replanCount > budgetLimits.maxReplans)
@@ -222,7 +223,7 @@ export class WorkflowExecutionService {
       budgetLimits,
       budgetUsage: emptyUsage(replanCount),
       status: 'running',
-      input: input.input,
+      input: executionInput,
       errors: {},
       startedAt,
     };
@@ -233,14 +234,14 @@ export class WorkflowExecutionService {
         input.executionContext === undefined
           ? await this.#executor.execute(
               validation.definition,
-              input.input,
+              executionInput,
               budgetLimits,
               input.signal,
               input.instanceId,
             )
           : await this.#executor.execute(
               validation.definition,
-              input.input,
+              executionInput,
               budgetLimits,
               input.signal,
               input.instanceId,
@@ -268,7 +269,7 @@ export class WorkflowExecutionService {
           workflowDefinitionId: validation.definition.workflowDefinitionId,
           workflowDefinitionVersion: validation.definition.version,
           workflowDefinitionHash: canonicalHash(validation.definition),
-          inputHash: canonicalHash(input.input),
+          inputHash: canonicalHash(executionInput),
           workflowInstanceId: input.instanceId,
           ...outcome.continuation,
           budgetUsage: { ...outcome.continuation.budgetUsage, replanCount },
@@ -772,13 +773,33 @@ export class WorkflowExecutionService {
     const governingIds = new Set(requestedSkillIds ?? []);
     const ids = new Set(governingIds);
     for (const node of definition.nodes) if (node.type === 'skill_call') ids.add(node.skillId);
+    const exactVersions = new Map<string, number>();
+    if (definition.skillUsagePolicy !== undefined) {
+      exactVersions.set(
+        definition.skillUsagePolicy.skill.skillId,
+        definition.skillUsagePolicy.skill.skillVersion,
+      );
+      for (const child of definition.skillUsagePolicy.childPolicies)
+        exactVersions.set(child.child.skillId, child.child.skillVersion);
+    }
     const versions = [];
     for (const skillId of ids) {
-      const version = await this.#skills.findCurrentVersion(skillId);
-      if (version?.status !== 'enabled')
+      const expectedVersion = exactVersions.get(skillId);
+      const [version, current] = await Promise.all([
+        expectedVersion === undefined
+          ? this.#skills.findCurrentVersion(skillId)
+          : this.#skills.findVersion(skillId, expectedVersion),
+        this.#skills.findCurrentVersion(skillId),
+      ]);
+      if (
+        version?.status !== 'enabled' ||
+        (expectedVersion !== undefined && current?.version !== expectedVersion)
+      )
         throw new WorkflowExecutionError(
           'WORKFLOW_SKILL_NOT_ENABLED',
-          `Enabled Skill ${skillId} was not found for budget resolution.`,
+          expectedVersion === undefined
+            ? `Enabled Skill ${skillId} was not found for budget resolution.`
+            : `Exact Skill ${skillId}@${String(expectedVersion)} is no longer current and enabled.`,
         );
       versions.push(version);
     }
@@ -906,4 +927,31 @@ function compositionValidationContext(plan: WorkflowPlanRecord) {
     allowedChildSkillIds: plan.compositionContext?.allowedChildSkillIds ?? [],
     capabilityGapSkillIds: plan.capabilityGapSkillIds ?? [],
   } as const;
+}
+
+function skillUsageExecutionInput(
+  definition: NonNullable<WorkflowPlanRecord['definition']>,
+  skillInput: unknown,
+): unknown {
+  const policy = definition.skillUsagePolicy;
+  if (
+    policy === undefined ||
+    (policy.requiredContextIds.length === 0 &&
+      policy.taskOperations.length === 0 &&
+      policy.childPolicies.length === 0 &&
+      policy.evidenceRequirements.length === 0)
+  )
+    return skillInput;
+  return Object.freeze({
+    skillInput,
+    context: Object.freeze(
+      Object.fromEntries(
+        policy.context.requirements.map((requirement) => [
+          requirement.requirementId,
+          requirement.status === 'satisfied',
+        ]),
+      ),
+    ),
+    evidence: Object.freeze({}),
+  });
 }

@@ -86,3 +86,24 @@ Phase 6 保持现有模块边界：`mcp_tool` 仍由唯一 LangGraph.js Runtime 
 远程 handle 结束当前图调用，并把实例投影为 `waiting_external`；`node_waiting_external` 是持久节点事件，不是成功事件，也不能满足并行 Join。仅当 V1.1 组合选项显式启用且 PostgreSQL 中存在相互匹配的 active snapshot、waiting binding、`waiting_external` instance 和可轮询 Binding 时，启动恢复才保留该等待并重建队列。所有普通 `running`/`paused`/`evaluating` 工作仍以 `PROCESS_EXECUTION_LOST` 失败且不自动重试。
 
 Management API/Console 是 PostgreSQL 权威证据的清洗投影，提供按 Task 关联的 capability、availability、Binding、观察、控制、continuation、输入、取消和最终结果，以及版本 CAS refresh、幂等 cooperative cancel 和既有 Task input action。它不成为第二状态源。Provider 对资源接纳、预约、业务 Timer 和远程终态权威；SDAR 不申请锁、不暂停远程 Task，也不伪造 Provider 终态。
+
+## v1.2 Skill-driven capability usage increment
+
+V1.2 extends the existing Skill Registry, Selection, Skill Graph, Workflow Planner/Validator and single
+LangGraph runtime. An immutable exact-version `SkillUsageSpecification` separates normative policy from
+adaptive guidance and observed evidence. Package files are validated import artifacts; PostgreSQL
+`skill_version` rows remain runtime authority. No package Markdown, model output or procedure artifact
+is executable source.
+
+Selection resolves applicability, authoritative context, execution mode, exact Task operations and
+live V1.1 Provider readiness before planning. Bounded composition uses the existing Skill Graph, a
+default depth of three and hard maximum of five. Native child policies form an exact recursive
+allowlist. Legacy Usage projections retain the existing graph/capability-gap authority so older Skills
+continue to run without granting native-package authority.
+
+Guidance is structured planning data; template and procedure IR compile deterministically into the
+existing Workflow DSL. Every plan passes the existing Validator plus Skill Usage compliance and the
+existing outer confirmation boundary. Remote waits, input, cancel, reconcile and restart reuse V1.1
+Binding/continuation authority. Append-only `SkillExecutionRecord` rows expose exact parent/child,
+Provider, evidence and degraded-outcome projections without becoming a second Task, Workflow or
+Provider lifecycle.
