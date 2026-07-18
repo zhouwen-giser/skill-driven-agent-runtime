@@ -240,6 +240,20 @@ describe('SkillSelectionService', () => {
       }),
     ).rejects.toMatchObject({ code: 'SKILL_SELECTION_NO_CANDIDATES' });
   });
+
+  it('excludes non-user-selectable Skills from top-level selection', async () => {
+    const service = createService(new MemorySelectionRepository(), [], 'skill.b', {
+      usageAware: true,
+      visibilityBySkillId: {
+        'skill.a': { userSelectable: false, composable: true, internalOnly: true },
+      },
+    });
+
+    await expect(service.select(goalContract)).resolves.toMatchObject({
+      selectedSkillId: 'skill.b',
+      candidates: [{ skillId: 'skill.b' }],
+    });
+  });
 });
 
 const goalContract = {
@@ -260,10 +274,17 @@ function createService(
     warnings?: Awaited<ReturnType<McpRegistryRepository['listDependencyWarnings']>>;
     usage?: SkillUsageCandidateAssessor;
     usageAware?: boolean;
+    visibilityBySkillId?: Readonly<
+      Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
+    >;
   }> = {},
 ): SkillSelectionService {
   return new SkillSelectionService({
-    skills: new SelectionSkillRepository(options.toolPolicy, options.usageAware),
+    skills: new SelectionSkillRepository(
+      options.toolPolicy,
+      options.usageAware,
+      options.visibilityBySkillId,
+    ),
     graph: new SelectionGraphRepository(relations),
     records,
     retriever: { score: () => Promise.resolve({ 'skill.a': 0.9, 'skill.b': 0.7 }) },
@@ -355,10 +376,16 @@ class SelectionGraphRepository implements SkillGraphRepository {
 
 class SelectionSkillRepository implements SkillRepository {
   readonly versions: readonly SkillVersion[];
-  constructor(toolPolicy?: SkillVersion['toolPolicy'], usageAware = false) {
+  constructor(
+    toolPolicy?: SkillVersion['toolPolicy'],
+    usageAware = false,
+    visibilityBySkillId: Readonly<
+      Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
+    > = {},
+  ) {
     this.versions = [
-      skillVersion('skill.a', toolPolicy, usageAware),
-      skillVersion('skill.b', toolPolicy, usageAware),
+      skillVersion('skill.a', toolPolicy, usageAware, visibilityBySkillId['skill.a']),
+      skillVersion('skill.b', toolPolicy, usageAware, visibilityBySkillId['skill.b']),
     ];
   }
   find(skillId: string): Promise<Skill | undefined> {
@@ -399,6 +426,11 @@ function skillVersion(
   skillId: string,
   toolPolicy?: SkillVersion['toolPolicy'],
   usageAware = false,
+  visibility: NonNullable<SkillVersion['usageSpecification']>['visibility'] = {
+    userSelectable: true,
+    composable: false,
+    internalOnly: false,
+  },
 ): SkillVersion {
   return {
     skillId,
@@ -421,7 +453,7 @@ function skillVersion(
       ? {
           usageSpecification: {
             apiVersion: 'sdar.io/v1alpha1' as const,
-            visibility: { userSelectable: true, composable: false, internalOnly: false },
+            visibility,
             normative: {
               constraints: [],
               forbiddenActions: [],

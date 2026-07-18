@@ -183,9 +183,12 @@ export class SkillSelectionService {
         'SKILL_SELECTION_USAGE_CONTEXT_REQUIRED',
         'Usage-aware Skill selection requires structured context and policy evidence.',
       );
-    const scores = await this.#retriever.score(goalContract, skills);
+    const selectableSkills = skills.filter(
+      (skill) => createSkillUsageSummary(skill).visibility.userSelectable,
+    );
+    const scores = await this.#retriever.score(goalContract, selectableSkills);
     const candidates = await Promise.all(
-      skills.map(async (skill) => {
+      selectableSkills.map(async (skill) => {
         const serverIds = new Set(
           [...skill.toolPolicy.required, ...skill.toolPolicy.optional].map(
             (reference) => reference.serverId,

@@ -24,6 +24,7 @@ const ExpressionSchema: z.ZodType<WorkflowExpression> = z.lazy(() =>
       })
       .strict(),
     z.object({ op: z.literal('ref'), path: z.array(Identifier).min(1) }).strict(),
+    z.object({ op: z.literal('exists'), path: z.array(Identifier).min(1) }).strict(),
     z.object({ op: z.literal('not'), operand: ExpressionSchema }).strict(),
     ...(['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'and', 'or'] as const).map((op) =>
       z.object({ op: z.literal(op), left: ExpressionSchema, right: ExpressionSchema }).strict(),
@@ -80,6 +81,24 @@ const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z
       .strict()
       .optional(),
   })
+  .strict();
+const MappingPath = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      value.split('.').length <= 16 &&
+      value
+        .split('.')
+        .every(
+          (part) =>
+            /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/u.test(part) &&
+            !['__proto__', 'prototype', 'constructor'].includes(part),
+        ),
+    'Skill output mapping paths must be bounded safe property paths.',
+  );
+const SkillValueMappingSchema = z
+  .object({ sourcePath: MappingPath, targetPath: MappingPath })
   .strict();
 const BaseNode = { nodeId: Identifier, name: z.string().min(1) };
 const JsonSchemaValue = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
@@ -162,6 +181,7 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       type: z.literal('skill_call'),
       skillId: Identifier,
       input: BoundValueSchema,
+      outputMappings: z.array(SkillValueMappingSchema).max(64).optional(),
     })
     .strict(),
 ]);

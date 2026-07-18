@@ -208,6 +208,13 @@ export function checkSkillUsagePlanCompliance(
       );
       continue;
     }
+    if (!mappingsEqual(call.outputMappings ?? [], child.outputMappings))
+      error(
+        errors,
+        'SKILL_USAGE_OUTPUT_MAPPING_MISMATCH',
+        `nodes.${call.nodeId}.outputMappings`,
+        'Child call does not preserve the exact declared output mappings.',
+      );
     const handler = definition.nodes.find(
       (node): node is Extract<WorkflowNode, { type: 'error_handler' }> =>
         node.type === 'error_handler' && node.handledNodeId === call.nodeId,
@@ -224,10 +231,15 @@ export function checkSkillUsagePlanCompliance(
   for (const requirement of policy.evidenceRequirements.filter(
     (item) => item.required && (item.hardGate || policy.rejectSuccessWithoutRequiredEvidence),
   )) {
+    const mappedEvidence = policy.childPolicies.some((child) =>
+      child.outputMappings.some(
+        (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
+      ),
+    );
     const gate = definition.nodes.find(
       (node) =>
         node.type === 'condition' &&
-        node.expression.op === 'ref' &&
+        (node.expression.op === 'ref' || (mappedEvidence && node.expression.op === 'exists')) &&
         node.expression.path.join('.') === `evidence.${requirement.requirementId}`,
     );
     const falseEdge =
@@ -304,6 +316,7 @@ function compileDeterministicDefinition(
       type: 'skill_call',
       skillId: child.child.skillId,
       input: boundInput(child.inputMappings),
+      outputMappings: child.outputMappings,
     }),
   );
   input.policy.taskOperations.forEach((task, index) =>
@@ -321,14 +334,22 @@ function compileDeterministicDefinition(
       (item) =>
         item.required && (item.hardGate || input.policy.rejectSuccessWithoutRequiredEvidence),
     )
-    .forEach((requirement, index) =>
+    .forEach((requirement, index) => {
+      const mappedEvidence = input.policy.childPolicies.some((child) =>
+        child.outputMappings.some(
+          (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
+        ),
+      );
       primary.push({
         nodeId: `usage_evidence_${String(index)}`,
         name: `Require evidence ${requirement.requirementId}`,
         type: 'condition',
-        expression: { op: 'ref', path: ['evidence', requirement.requirementId] },
-      }),
-    );
+        expression: {
+          op: mappedEvidence ? 'exists' : 'ref',
+          path: ['evidence', requirement.requirementId],
+        },
+      });
+    });
   const resultSource = [...primary]
     .reverse()
     .find((node) => node.type === 'mcp_tool' || node.type === 'skill_call');
@@ -405,7 +426,7 @@ function compileDeterministicDefinition(
 function boundInput(
   mappings: SkillUsagePlanPolicy['childPolicies'][number]['inputMappings'],
 ): WorkflowBoundValue {
-  if (mappings.length === 0) return { op: 'ref', path: ['input'] };
+  if (mappings.length === 0) return { op: 'ref', path: ['input', 'skillInput'] };
   return Object.fromEntries(
     mappings.map((mapping) => {
       const source = mapping.sourcePath.split('.');
@@ -415,6 +436,22 @@ function boundInput(
           : ['input', 'skillInput', ...source];
       return [mapping.targetPath.split('.')[0] ?? mapping.targetPath, { op: 'ref', path }];
     }),
+  );
+}
+
+function mappingsEqual(
+  left: SkillUsagePlanPolicy['childPolicies'][number]['outputMappings'],
+  right: SkillUsagePlanPolicy['childPolicies'][number]['outputMappings'],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((mapping) =>
+      right.some(
+        (candidate) =>
+          mapping.sourcePath === candidate.sourcePath &&
+          mapping.targetPath === candidate.targetPath,
+      ),
+    )
   );
 }
 

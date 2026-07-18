@@ -3,7 +3,7 @@ import { DomainError } from './errors.js';
 import { createMcpToolExecutionSemantics, type McpToolExecutionSemantics } from './mcp.js';
 import type { SkillCompositionContext } from './skill-graph.js';
 import type { ToolReference } from './skill.js';
-import type { SkillFailurePolicy } from './skill-usage.js';
+import type { SkillFailurePolicy, SkillValueMapping } from './skill-usage.js';
 import type { SkillUsagePlanPolicy } from './skill-usage-planning.js';
 import type {
   DslExecutionReadiness,
@@ -19,6 +19,7 @@ import type {
 export type WorkflowExpression =
   | Readonly<{ op: 'literal'; value: string | number | boolean | null }>
   | Readonly<{ op: 'ref'; path: readonly string[] }>
+  | Readonly<{ op: 'exists'; path: readonly string[] }>
   | Readonly<{ op: 'not'; operand: WorkflowExpression }>
   | Readonly<{
       op: 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'and' | 'or';
@@ -116,7 +117,12 @@ export type WorkflowNode =
         recoveryOptions?: readonly WorkflowRecoveryOption[] | undefined;
       }>)
   | (WorkflowNodeBase &
-      Readonly<{ type: 'skill_call'; skillId: string; input: WorkflowBoundValue }>);
+      Readonly<{
+        type: 'skill_call';
+        skillId: string;
+        input: WorkflowBoundValue;
+        outputMappings?: readonly SkillValueMapping[] | undefined;
+      }>);
 
 export interface WorkflowEdge {
   readonly sourceNodeId: string;

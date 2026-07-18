@@ -56,6 +56,27 @@ describe('restricted Workflow expression interpreter', () => {
     ).toThrow('same type');
   });
 
+  it('checks mapped evidence presence without coercing its value', () => {
+    expect(
+      evaluateWorkflowExpression(
+        { op: 'exists', path: ['evidence', 'trajectory'] },
+        {
+          ...context,
+          outputs: { child: { evidence: { trajectory: { x: 1, y: 2 } } } },
+        },
+      ),
+    ).toBe(true);
+    expect(
+      evaluateWorkflowExpression(
+        { op: 'exists', path: ['evidence', 'missing'] },
+        {
+          ...context,
+          outputs: { child: { evidence: { trajectory: { x: 1, y: 2 } } } },
+        },
+      ),
+    ).toBe(false);
+  });
+
   it('exposes only the reserved Skill context envelope and Provider evidence projection', () => {
     const usageContext = {
       input: {

@@ -114,6 +114,7 @@ describe('Skill Usage Workflow planning', () => {
       );
       expect(definition.nodes.find((node) => node.type === 'skill_call')).toMatchObject({
         input: { resourceId: { op: 'ref', path: ['input', 'skillInput', 'resourceId'] } },
+        outputMappings: [{ sourcePath: 'finalPosition', targetPath: 'evidence.final-position' }],
       });
       expect(definition.nodes.find((node) => node.type === 'mcp_tool')).toMatchObject({
         arguments: { op: 'ref', path: ['input', 'skillInput'] },
@@ -123,6 +124,9 @@ describe('Skill Usage Workflow planning', () => {
           op: 'ref',
           path: ['nodes', 'usage_task_0', 'data', 'structuredContent'],
         },
+      });
+      expect(definition.nodes.find((node) => node.nodeId === 'usage_evidence_0')).toMatchObject({
+        expression: { op: 'exists', path: ['evidence', 'final-position'] },
       });
     },
   );
@@ -266,7 +270,7 @@ const composition = snapshotSkillUsageCompositionPlan({
       candidateSet: [{ skillId: 'skill.move', skillVersion: 1 }],
       failurePolicy: 'recoverable',
       inputMappings: [{ sourcePath: 'resourceId', targetPath: 'resourceId' }],
-      outputMappings: [{ sourcePath: 'finalPosition', targetPath: 'evidence.position' }],
+      outputMappings: [{ sourcePath: 'finalPosition', targetPath: 'evidence.final-position' }],
       depth: 1,
     },
   ],

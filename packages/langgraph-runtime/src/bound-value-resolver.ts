@@ -71,6 +71,8 @@ function mergedEvidence(
     ? { ...input['evidence'] }
     : {};
   for (const output of Object.values(outputs)) {
+    if (isUnknownRecord(output) && isUnknownRecord(output['evidence']))
+      Object.assign(merged, output['evidence']);
     const structured = structuredContent(output);
     if (isUnknownRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
     const metadata = resultMetadata(output);

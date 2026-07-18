@@ -34,6 +34,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
+- PR #5 review hardening now applies exact declarative child output mappings after Schema validation on both immediate and persisted-continuation paths, binds empty child mappings to `skillInput`, gates mapped object evidence with a restricted presence expression, and excludes non-user-selectable Skills before top-level scoring/model selection.
 - Native Skill Usage child policy is now an exact recursive allowlist even without legacy composition context, while immutable legacy Usage projections continue to use the existing Skill Graph authority.
 - Deterministic Skill Usage execution now receives explicit `skillInput`, trusted context and Provider-evidence roots; terminal Skill execution status is published only after its outcome reference is durable.
 - The post-main released migration profile now applies the single monotonic chain through 0106; the disposable `v1.1-isolated` profile guard remains for compatibility tests and ledger gaps still fail closed.
@@ -50,6 +51,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- PR #5 review-blocker focused gate passed format, lint, strict typecheck, all 465 unit tests, the 3 Workflow DSL contracts, 256-source architecture and production build. Full contract reached 111/112; the unchanged symlink fixture is blocked by Windows `EPERM` even elevated. Integration startup is blocked by an operator container owning fixed port 55432 and was not forced.
 - SDAR v1.2 Phase 15 clean release-candidate SHA `b3b6e67` passed every explicit final command and the 148,794 ms self-managed `pnpm verify`: 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116-operation OpenAPI, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, fresh 1.2.0 SBOM, build and both smoke stages.
 - SDAR v1.2 Phase 14 clean-feature-SHA self-managed `pnpm verify` passed at `74344ce` in 153,204 ms with 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116 OpenAPI operations, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, production build and both smoke stages.
 - SDAR v1.2 Phase 13 passed all 20 area-patrol scenarios at `83753db`: 569 unit/contract tests, 82 isolated real integration tests, 59 real PostgreSQL/Redis A2A E2E tests, empty/0049 migration verification, production smoke, format/lint/typecheck/build and 256-source architecture.

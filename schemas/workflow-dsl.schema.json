@@ -150,6 +150,15 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "required": ["op", "path"],
+          "properties": {
+            "op": { "const": "exists" },
+            "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
           "required": ["op", "operand"],
           "properties": { "op": { "const": "not" }, "operand": { "$ref": "#/$defs/expression" } }
         },
@@ -347,7 +356,26 @@
               "properties": {
                 "type": { "const": "skill_call" },
                 "skillId": { "$ref": "#/$defs/id" },
-                "input": { "$ref": "#/$defs/boundValue" }
+                "input": { "$ref": "#/$defs/boundValue" },
+                "outputMappings": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["sourcePath", "targetPath"],
+                    "properties": {
+                      "sourcePath": {
+                        "type": "string",
+                        "pattern": "^(?!.*(?:^|\\.)(?:__proto__|prototype|constructor)(?:\\.|$))[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*){0,15}$"
+                      },
+                      "targetPath": {
+                        "type": "string",
+                        "pattern": "^(?!.*(?:^|\\.)(?:__proto__|prototype|constructor)(?:\\.|$))[A-Za-z_][A-Za-z0-9_-]*(?:\\.[A-Za-z_][A-Za-z0-9_-]*){0,15}$"
+                      }
+                    }
+                  }
+                }
               }
             }
           ]

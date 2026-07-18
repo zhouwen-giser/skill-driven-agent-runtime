@@ -117,6 +117,14 @@ Tool 注册语义为 `task_required` 时，`taskExecution` 的省略不表示同
 - `skill_call` children must be admitted by native exact child policies or immutable legacy graph
   authority. Four policies remain distinct: fail parent, bounded alternative, optional continuation and
   explicit degraded continuation with missing-effect/evidence details.
+- `skill_call.outputMappings` is an optional bounded list of declarative property-path copies. Native
+  Skill Usage compliance requires an exact match to the selected child policy. The LangGraph compiler
+  applies mappings only after the child output Schema succeeds, and applies the same mapping to an
+  immediate result or a persisted external-wait continuation. Empty child input mappings reference
+  `input.skillInput`, not the surrounding reserved execution envelope.
+- Restricted expressions admit `{"op":"exists","path":[...]}` as a presence-only predicate. It does
+  not coerce the referenced value or execute source. A mapped evidence object can therefore satisfy an
+  exact evidence gate while the mapped JSON value remains available under the declared target path.
 - The outer Workflow plan confirmation remains the only pre-execution confirmation. Nested LangGraph
   interrupts are propagated as confirmation/input control, not routed through business error handlers.
   V1.1 external waits resume from persisted frontier and never replay a completed side effect.

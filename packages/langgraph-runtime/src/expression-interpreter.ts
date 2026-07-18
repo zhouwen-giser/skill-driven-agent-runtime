@@ -17,6 +17,8 @@ export function evaluateWorkflowExpression(
       return expression.value;
     case 'ref':
       return resolveReference(expression.path, context);
+    case 'exists':
+      return referenceExists(expression.path, context);
     case 'not':
       return !requireBoolean(evaluateWorkflowExpression(expression.operand, context));
     case 'and':
@@ -51,6 +53,21 @@ export function evaluateWorkflowExpression(
   }
 }
 
+function referenceExists(path: readonly string[], context: WorkflowExpressionContext): boolean {
+  const input = isRecord(context.input) ? context.input : undefined;
+  let current: unknown = {
+    ...context,
+    nodes: context.outputs,
+    ...(isRecord(input?.['context']) ? { context: input['context'] } : {}),
+    evidence: mergedEvidence(input, context.outputs),
+  };
+  for (const segment of path) {
+    if (!isRecord(current) || !Object.hasOwn(current, segment)) return false;
+    current = current[segment];
+  }
+  return true;
+}
+
 function resolveReference(path: readonly string[], context: WorkflowExpressionContext): unknown {
   const input = isRecord(context.input) ? context.input : undefined;
   let current: unknown = {
@@ -79,6 +96,7 @@ function mergedEvidence(
     ? { ...input['evidence'] }
     : {};
   for (const output of Object.values(outputs)) {
+    if (isRecord(output) && isRecord(output['evidence'])) Object.assign(merged, output['evidence']);
     const structured = structuredContent(output);
     if (isRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
     const metadata = resultMetadata(output);

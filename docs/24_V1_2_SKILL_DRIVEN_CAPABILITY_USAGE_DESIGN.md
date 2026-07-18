@@ -115,6 +115,13 @@ policy survives persistence, bounded repair, ordinary replanning, natural-langua
 Goal Patch while each invalidating action still requires fresh confirmation. Legacy Usage with no v1.2
 composition declaration continues to use the existing exact Skill Graph admission authority.
 
+PR #5 review hardening makes declared child output mappings executable only as bounded Workflow data.
+The existing LangGraph compiler applies exact safe property-path copies after child output validation
+for both immediate and persisted-continuation results. Mapped evidence is read through the existing
+evidence projection and gated by a presence-only restricted AST operation; no model code, second runtime
+or mutable graph is introduced. Empty input mappings bind the parent's `skillInput`, and top-level Skill
+selection excludes exact versions whose visibility is not user-selectable. ADR-107 records this boundary.
+
 ## Composition and failure
 
 The existing Skill Graph remains the relationship authority. V1.2 adds a usage view that resolves exact
