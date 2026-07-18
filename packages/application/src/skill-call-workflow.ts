@@ -813,8 +813,12 @@ export class SkillCallWorkflowService {
     const nativeChildren = nativePolicy?.childPolicies.filter(
       (child) => child.child.skillId === skillId,
     );
+    const nativePolicyIsAuthoritative =
+      nativePolicy !== undefined &&
+      (plan?.compositionContext === undefined ||
+        plan.compositionContext.selectedSkill.usageSpecification !== undefined);
     const enforced =
-      nativePolicy !== undefined ||
+      nativePolicyIsAuthoritative ||
       plan?.compositionContext !== undefined ||
       plan?.capabilityGapSkillIds !== undefined;
     const allowedByNativePolicy = nativePolicy?.childPolicies.some(
@@ -823,10 +827,10 @@ export class SkillCallWorkflowService {
     if (
       plan === undefined ||
       (enforced &&
-        (nativePolicy === undefined
-          ? !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
-            !plan.capabilityGapSkillIds?.includes(skillId)
-          : allowedByNativePolicy !== true))
+        (nativePolicyIsAuthoritative
+          ? allowedByNativePolicy !== true
+          : !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
+            !plan.capabilityGapSkillIds?.includes(skillId)))
     )
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
