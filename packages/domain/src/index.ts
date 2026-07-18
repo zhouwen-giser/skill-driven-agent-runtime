@@ -32,6 +32,7 @@ export * from './workflow-control.js';
 export * from './workflow-continuation.js';
 export * from './workflow-template.js';
 export * from './mcp.js';
+export * from './mcp-frozen-protocol.js';
 export * from './mcp-task.js';
 export * from './mcp-task-availability.js';
 export * from './remote-task.js';
