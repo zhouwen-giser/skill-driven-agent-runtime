@@ -2917,6 +2917,19 @@ export async function applyRuntimeMigrations(
     );
     await pool.query(migration);
   }
+  if (profile === 'released' && !applied.has('0107_frozen_mcp_tasks_protocol')) {
+    const migration = await readFile(
+      resolve(
+        process.cwd(),
+        'infra',
+        'postgres',
+        'migrations',
+        '0107_frozen_mcp_tasks_protocol.up.sql',
+      ),
+      'utf8',
+    );
+    await pool.query(migration);
+  }
 }
 
 async function assertV11RuntimeReady(pool: Pool): Promise<void> {
