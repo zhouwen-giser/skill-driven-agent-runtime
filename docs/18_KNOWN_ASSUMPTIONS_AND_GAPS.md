@@ -127,3 +127,25 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - Required dynamic capability slots still require an exact choice before Usage composition. Phase 10
   wires the composition authority but does not let the model invent a choice; Phase 12–13 must add and
   verify the bounded choice path before claiming the formal area-patrol vertical.
+
+## v1.2 final acceptance boundary (2026-07-18)
+
+- The task package referenced a separately named overall design document that was not supplied. The
+  exact task package and SRS were frozen, the missing input was recorded, and
+  `docs/24_V1_2_SKILL_DRIVEN_CAPABILITY_USAGE_DESIGN.md` is the normalized implementation design. No
+  requirement was silently invented or removed.
+- Native v1.2 Usage intentionally freezes exact Skill/version authority from selection through
+  execution. This is a versioned addendum to the SRS legacy current-version behavior; legacy Skills
+  retain the existing current/graph projection and native plans fail closed on drift.
+- Real local evidence covers PostgreSQL/pgvector, Redis/BullMQ, HTTP/A2A, LangGraph, MCP adapter wire,
+  management API, Console build/smoke, migrations, restart and parent/child continuation. Model choices
+  and MCP Tasks Provider business/state semantics are deterministic simulations. External production
+  MCP Tasks Provider interoperability remains unverified and is not a required v1.2 deferred item.
+- The operator-owned historical `sdar` database has a nonconforming 0100–0104 ledger gap. The runner
+  rejects it without mutation. Empty and supported upgrade paths are verified in disposable databases,
+  which is the release evidence; repairing operator data is an explicit future operator migration,
+  not permission to falsify ledger rows.
+- Original DOCX content was audited by complete OOXML extraction. Visual pagination/rendering remains
+  unverified because `soffice` is unavailable; v1.2 does not modify or publish that DOCX.
+- As of Phase 14 there are zero open required findings. Phase 15 completion remains conditional on its
+  explicit command matrix, final reports, pushed evidence and Ready-for-Review transition.

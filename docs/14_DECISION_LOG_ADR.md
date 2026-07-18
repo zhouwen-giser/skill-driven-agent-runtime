@@ -23,6 +23,6 @@
 | ADR-094     | 远程输入复用 Task input，update/cancel ack 不越权，取消后继续 Provider 权威轮询        |
 | ADR-095     | 远程 Task 管理面只投影 PostgreSQL 权威状态，并以 CAS/幂等键约束刷新、输入和协作取消    |
 | ADR-097–105 | v1.2 Skill Usage 的版本、策略、组合、导入、Provider、执行记录边界与计划合规决策        |
-| ADR-106     | v1.1 合并后 released migration 单调推进到 0105，isolated profile 仅保留测试保护        |
+| ADR-106     | v1.1 合并后 released migration 单调推进到 0106；isolated profile 与 ledger-gap 保护保留 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

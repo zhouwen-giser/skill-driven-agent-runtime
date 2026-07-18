@@ -1,6 +1,8 @@
-# Skill-Driven Agent Runtime V1.1
+# Skill-Driven Agent Runtime V1.2
 
 A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
+
+V1.2 adds immutable exact-version Skill Usage packages, three safe execution modes, bounded recursive composition, V1.1 Provider readiness/continuation reuse and queryable Skill execution evidence through the existing runtime.
 
 ## Safety baseline
 

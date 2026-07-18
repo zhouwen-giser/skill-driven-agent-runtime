@@ -103,3 +103,20 @@ LangGraph Runtime 在每个节点执行前递归解析引用，复制并冻结�
 Tool 注册语义为 `task_required` 时，`taskExecution` 的省略不表示同步执行。规划服务必须隐式生成等价的 `mode=require_task`、`availabilityCheck=required` 候选，执行边界也会再次从 PostgreSQL Tool 语义推导同一约束。缺少 readiness runtime、真实 Workflow Definition 或执行前可用性证据时 fail closed；这条 pre-call Guard 不能由模型输出、旧确认或手写 DSL 省略字段绕过。
 
 远程 Task handle 不是一个新 DSL 节点，也不修改当前图。`mcp_tool` 返回内部 `waiting_external` 结果，持久化当前 frontier 后结束本次 LangGraph invocation；后续 Provider terminal control 只通过受验证的 continuation snapshot 启动新 invocation，并从已保存 frontier 继续而不经过 `START`。等待节点写入 `node_waiting_external`，不写 `node_succeeded`，不满足并行 Join，也不消耗旧的 human-interrupt checkpoint。
+
+## Skill Usage compilation and compliance (v1.2)
+
+- Guidance enters the planner as bounded structured data only. Template and procedure artifacts are
+  deterministic intermediate representations; they must compile to the existing DSL and pass the same
+  Schema, graph, budget, Tool, Skill and result validation as model-generated plans.
+- Usage planning freezes exact selected Skill versions, exact Provider/operation candidates, readiness,
+  context evidence, recursion depth, parent/child mappings, failure policy and hard-gate requirements.
+  A plan explanation cannot establish compliance.
+- V1.2 reserved bindings use explicit `input.skillInput`, `input.context` and `input.evidence` roots.
+  Missing or spoofed evidence fails before an external side effect or terminal success projection.
+- `skill_call` children must be admitted by native exact child policies or immutable legacy graph
+  authority. Four policies remain distinct: fail parent, bounded alternative, optional continuation and
+  explicit degraded continuation with missing-effect/evidence details.
+- The outer Workflow plan confirmation remains the only pre-execution confirmation. Nested LangGraph
+  interrupts are propagated as confirmation/input control, not routed through business error handlers.
+  V1.1 external waits resume from persisted frontier and never replay a completed side effect.

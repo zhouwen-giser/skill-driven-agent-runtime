@@ -90,3 +90,22 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - `TaskAvailabilitySnapshot` 追加保存计划/节点/Server/operation、已知参数或 unresolved paths、规范化参数 hash、timing、Provider 结果、来源修订与检查时间。
 - `DslExecutionReadiness` 保存允许动作、结构化模型决定、最终 Guard 动作和确认要求；disabled、非法能力/合约与无引用 guaranteed 预约不可被模型覆盖。
 - pre-invocation 必须引用真实 Workflow Definition 与 node-run，并使用解析后不可变参数/timing。旧确认只覆盖同节点、规划时已经 restricted 且风险未升级的刷新结果。
+
+### Skill Usage and execution evidence (v1.2)
+
+- `SkillUsageSpecification` belongs to one immutable `SkillVersion` and records intent, applicability,
+  context requirements, guidance/template/procedure modes, Provider binding, bounded composition,
+  four child-failure policies and evidence hard gates. Normative fields cannot be relaxed by adaptive
+  text, observed history or model output.
+- `SkillUsageCandidateSnapshot` freezes exact Skill/version, context evidence, admitted mode and live
+  Task/Provider readiness. An exact-version plan policy carries only that verified authority into the
+  existing Workflow planner and confirmation path.
+- `SkillUsageCompositionPlan` resolves fixed dependencies and capability slots through the existing
+  Skill Graph. Native parent child policies are exact allowlists; legacy projections remain governed by
+  their immutable legacy composition snapshot and existing graph authority.
+- `SkillExecutionRecord` is append-only evidence linked to existing Goal, Task, Workflow, Provider and
+  Remote Task authorities. Parent/child order, hard-gate evidence, intervention and degraded outcome
+  are queryable, but execution rows cannot create or overwrite an authoritative lifecycle transition.
+- The SRS rule to use the current Skill version remains the legacy default. A native v1.2 Usage plan
+  intentionally freezes an exact version from selection through execution; version drift invalidates
+  the plan instead of silently upgrading it.

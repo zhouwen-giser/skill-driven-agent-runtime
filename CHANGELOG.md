@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## [Unreleased]
+## [1.2.0] - 2026-07-18
 
 ### Added
 

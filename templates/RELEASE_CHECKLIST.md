@@ -29,3 +29,16 @@
 - [x] Ready PR #4 targets protected `main`, is `MERGEABLE`, and GitHub currently reports no configured status-check runs; review/merge remains a separate protected action.
 
 The RC checklist is complete. Do not create or announce stable `v1.1.0` until PR #4 is reviewed and merged through branch protection.
+
+## v1.2 Skill usage final addendum
+
+- [x] Package metadata, CHANGELOG, architecture/domain/DSL/API, ADR index, DoD, traceability, known
+  gaps, operations and release documentation describe v1.2 exact-version usage.
+- [x] Phase 1–14 reports and trace rows are verified; Phase 14 has zero open required findings.
+- [x] Formal move-to and recursive area-patrol acceptance cover all required modes, Provider states,
+  composition/failure semantics, remote waits, input, cancel, restart, hard gates and evidence trees.
+- [x] Real local versus simulated versus externally unverified evidence is explicitly classified;
+  external production Provider interoperability is a limitation, not claimed evidence.
+- [ ] Every explicit Phase 15 command and the final clean `pnpm verify` pass.
+- [ ] `15-final-acceptance.{md,json}` records no required deferred item and is committed and pushed.
+- [ ] Draft PR #5 is updated and marked Ready for Review; merge remains a separate protected action.
