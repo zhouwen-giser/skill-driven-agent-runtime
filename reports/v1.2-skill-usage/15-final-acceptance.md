@@ -1,6 +1,6 @@
 # SDAR v1.2 Phase 15 Final Acceptance
 
-Status: **VERIFIED — PR READY TRANSITION PENDING**
+Status: **PASSED**
 
 Version: `1.2.0`
 
@@ -8,8 +8,8 @@ Clean release-candidate SHA: `b3b6e67d1e84ee462a57f209417521c6008be989`
 
 The original SRS, project Definition of Done, traceability matrix, frozen v1.2 Goal package, ADRs and
 Phase 1–14 reports were audited. Every required Phase 15 command passes. There are no required deferred
-items or open required findings. Completion remains withheld only until PR #5 is updated and marked
-Ready for Review; this Goal does not authorize merge.
+items or open required findings. PR #5 is updated and Ready for Review. This Goal does not authorize
+merge, and GitHub confirms the PR remains open and unmerged.
 
 ## Explicit command matrix
 
@@ -68,5 +68,6 @@ None.
 
 ## Publication boundary
 
-Draft PR #5 is unmerged. It must be updated and marked Ready for Review before this report can move to
-final `passed`; merge remains a separate protected action.
+PR #5 is open, Ready for Review (`draft=false`) and unmerged. Its body contains the final scope,
+invariants, command matrix, evidence classification and zero-required-deferred declaration. Merge
+remains a separate protected action.

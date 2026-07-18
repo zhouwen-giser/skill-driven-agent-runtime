@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": 15,
-  "status": "verified_pending_pr_ready",
+  "status": "passed",
   "version": "1.2.0",
   "goal": "Verify and publish final SDAR v1.2 Skill-driven capability usage release evidence.",
   "releaseCandidateSha": "b3b6e67d1e84ee462a57f209417521c6008be989",
@@ -79,7 +79,7 @@
   "pr": {
     "number": 5,
     "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/5",
-    "readyForReview": false,
+    "readyForReview": true,
     "merged": false
   }
 }
