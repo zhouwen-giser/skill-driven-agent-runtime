@@ -809,21 +809,29 @@ export class SkillCallWorkflowService {
     skillId: string,
   ): Promise<number | undefined> {
     const plan = await this.#plans.findPlan(parentPlanId);
+    const nativePolicy = plan?.definition?.skillUsagePolicy;
+    const nativeChildren = nativePolicy?.childPolicies.filter(
+      (child) => child.child.skillId === skillId,
+    );
     const enforced =
-      plan?.compositionContext !== undefined || plan?.capabilityGapSkillIds !== undefined;
+      nativePolicy !== undefined ||
+      plan?.compositionContext !== undefined ||
+      plan?.capabilityGapSkillIds !== undefined;
+    const allowedByNativePolicy = nativePolicy?.childPolicies.some(
+      (child) => child.child.skillId === skillId,
+    );
     if (
       plan === undefined ||
       (enforced &&
-        !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
-        !plan.capabilityGapSkillIds?.includes(skillId))
+        (nativePolicy === undefined
+          ? !plan.compositionContext?.allowedChildSkillIds.includes(skillId) &&
+            !plan.capabilityGapSkillIds?.includes(skillId)
+          : allowedByNativePolicy !== true))
     )
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
         `Skill ${skillId} is not authorized by the immutable parent composition context.`,
       );
-    const nativeChildren = plan.definition?.skillUsagePolicy?.childPolicies.filter(
-      (child) => child.child.skillId === skillId,
-    );
     if (nativeChildren !== undefined && nativeChildren.length > 1)
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
