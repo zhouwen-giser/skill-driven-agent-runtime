@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- Phase 13 formal `embodied.area_patrol` recursive acceptance across exact fixed/dynamic child versions, bounded depth/cycles, four failure policies, parallel external waits, restart/cancel/input continuation, distinct degradation and complete parent/child execution trees.
 - Phase 12 formal `embodied.move_to` vertical acceptance across guidance/template/procedure modes, exact Task calls, V1.1 remote waiting/continuation/input/cancel/restart, final-position hard gates and complete execution records.
 - Phase 11 append-only Skill execution records with exact Goal/Skill/selection/policy/Workflow/Task identity, ordered lifecycle evidence, parent/child lineage, thin Provider/resource/RemoteTaskBinding/evidence/hard-gate/intervention/outcome references and queryable management trees.
 - Phase 10 exact selected Usage evidence, bounded composition/interpretation and immutable policy wiring through the existing Task→Workflow Planner→Validator→outer confirmation path, including policy persistence and replan/revision/Goal Patch inheritance.
@@ -47,6 +48,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 13 passed all 20 area-patrol scenarios at `83753db`: 569 unit/contract tests, 82 isolated real integration tests, 59 real PostgreSQL/Redis A2A E2E tests, empty/0049 migration verification, production smoke, format/lint/typecheck/build and 256-source architecture.
 - SDAR v1.2 Phase 12 passed all 14 move-to scenarios at `873ee80`: 565 unit/contract tests, 55 real PostgreSQL/Redis A2A E2E tests, 11 restart/remote integration tests, format/lint/typecheck, production build and 256-source architecture.
 - SDAR v1.2 Phase 11 clean-feature-SHA format/lint/typecheck, 562 unit/contract tests, 256-source architecture, 116-operation OpenAPI and production build passed at `dc55f47`; real PostgreSQL repositories passed 57/57, final remote continuation runtimes passed 10/10, and the 0106 released/rollback/reapply/gap path passed.
 - SDAR v1.2 Phase 10 clean-tree `pnpm verify` passed at `efb03e8` in 106,796 ms with 556 unit/contract tests, 81 real integration tests, 50 real E2E tests, 251-source architecture, 69 migrations, production builds and both smoke stages.
