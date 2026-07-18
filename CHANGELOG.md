@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## [1.2.1] - Unreleased
+
+### Added
+
+- Frozen MCP Tasks V1.0 source/derived protocol package pinned to MCP commit `26897cc322f356487da89113451bd16b520b9288`, schema blob `cc44564e33305dbc07e820cdd0a97648f3852019` and SHA-256 `9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708`.
+- ADR-108 explicit Legacy/Frozen dual-protocol boundary, Phase 0 OSS Intake and Draft PR #6 upgrade evidence.
+- Nine derived JSON Schemas, nine valid fixtures, twelve Legacy/invalid fixtures and an eleven-file drift lock verified by `pnpm verify:protocol` and the normal bootstrap gate.
+
+### Changed
+
+- PROJECT_STATUS and v1.2 sync state now reflect protected PR #5 merge commit `922f428`; historical v1.2 reports remain unchanged.
+- The exact MCP source Schema is vendored unmodified with attribution; derived SDAR schemas are separate modified artifacts and Frozen traffic cannot use the Legacy SDK Bridge.
+
+### Verification
+
+- Phase 1 passes the focused protocol contract, `pnpm verify:protocol`, 20-source lock verification, format, lint and strict typecheck. The baseline contract remains 111/112 on this Windows host because the unchanged symlink fixture fails during setup with `EPERM`; Docker-backed baseline remains unverified while operator port 55432 is occupied.
+
 ## [1.2.0] - 2026-07-18
 
 ### Added

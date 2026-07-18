@@ -1,0 +1,15 @@
+{
+  "schema": "sdar-evidence-v1.schema.json",
+  "value": {
+    "profileVersion": "1.0",
+    "items": [
+      {
+        "evidenceId": "evidence-1",
+        "evidenceType": "position.observation",
+        "requirementId": "final-position",
+        "observedAt": "2026-07-18T03:12:00.000Z",
+        "payloadRef": { "kind": "structured_content", "jsonPointer": "/finalPosition" }
+      }
+    ]
+  }
+}

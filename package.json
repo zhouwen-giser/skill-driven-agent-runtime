@@ -22,6 +22,7 @@
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:acceptance": "node scripts/verify-acceptance-map.mjs",
     "verify:v11-acceptance": "node scripts/verify-v11-acceptance.mjs",
+    "verify:protocol": "node protocol/scripts/verify-protocol-package.mjs",
     "verify:migrations": "node scripts/verify-migration-path.mjs && node scripts/verify-v11-migration-path.mjs",
     "format": "prettier --no-error-on-unmatched-pattern --write package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
@@ -42,7 +43,7 @@
     "verify:project-license": "node scripts/verify-project-license.mjs",
     "verify:infra": "node scripts/verify-compose.mjs && node scripts/verify-compose-config.mjs",
     "verify:sources": "node scripts/check-sources-lock.mjs",
-    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && vitest run --project unit --project contract && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
+    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && vitest run --project unit --project contract && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node protocol/scripts/verify-protocol-package.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
     "verify": "node scripts/verify-full.mjs"
   },
   "dependencies": {

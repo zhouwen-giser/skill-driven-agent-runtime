@@ -1,0 +1,7 @@
+{
+  "schema": "sdar-task-execution-profile-v1.schema.json",
+  "value": {
+    "execution": { "taskSupport": "optional" },
+    "mode": "require_task"
+  }
+}

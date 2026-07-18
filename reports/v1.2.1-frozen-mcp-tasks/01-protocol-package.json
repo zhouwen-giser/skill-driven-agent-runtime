@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "phase": 1,
+  "status": "passed",
+  "protocolVersion": "2026-07-28",
+  "sourceCommit": "26897cc322f356487da89113451bd16b520b9288",
+  "sourceSchemaGitBlob": "cc44564e33305dbc07e820cdd0a97648f3852019",
+  "sourceSchemaSha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708",
+  "sourceSchemaBytes": 180695,
+  "lockedFiles": 11,
+  "derivedSchemas": 9,
+  "fixtures": { "valid": 9, "invalid": 12 },
+  "verification": {
+    "protocol": "passed",
+    "focusedContract": { "status": "passed", "tests": 1 },
+    "sourcePins": { "status": "passed", "count": 20 },
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "claims": {
+    "protocolPackageLocked": true,
+    "componentConformant": false,
+    "interopCertified": false
+  }
+}

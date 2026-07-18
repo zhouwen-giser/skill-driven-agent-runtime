@@ -1,0 +1,16 @@
+{
+  "schema": "mcp-stateless-request.schema.json",
+  "value": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tasks/get",
+    "params": {
+      "taskId": "remote-task-001",
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { "name": "sdar", "version": "1.2.1" },
+        "io.modelcontextprotocol/clientCapabilities": { "extensions": {} }
+      }
+    }
+  }
+}

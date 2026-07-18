@@ -1,0 +1,12 @@
+{
+  "schema": "mcp-streamable-http-routing.schema.json",
+  "value": {
+    "method": "tasks/observations",
+    "headers": {
+      "Accept": "application/json, text/event-stream",
+      "Content-Type": "application/json",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "tasks/observations"
+    }
+  }
+}

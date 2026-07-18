@@ -1,0 +1,12 @@
+{
+  "schema": "mcp-task-notifications.schema.json",
+  "ref": "#/$defs/SubscriptionAck",
+  "value": {
+    "jsonrpc": "2.0",
+    "method": "notifications/subscriptions/acknowledged",
+    "params": {
+      "_meta": { "io.modelcontextprotocol/subscriptionId": "task-sub-001" },
+      "notifications": { "taskIds": ["remote-task-001"] }
+    }
+  }
+}
