@@ -221,6 +221,32 @@ describe('WorkflowValidator', () => {
       );
     },
   );
+
+  it('accepts Frozen invocation controls without legacy mode and rejects mixed contracts', async () => {
+    const source = validWorkflow();
+    const withTaskExecution = (taskExecution: Readonly<Record<string, unknown>>) => ({
+      ...source,
+      nodes: source.nodes.map((node) =>
+        node.type === 'mcp_tool' ? { ...node, taskExecution } : node,
+      ),
+    });
+
+    const frozen = await validator().validate(
+      withTaskExecution({
+        protocolMode: 'frozen_v1',
+        availabilityCheck: 'required',
+        reservationRef: 'reservation-123',
+      }),
+    );
+    expect(frozen.valid).toBe(true);
+
+    const mixed = await validator().validate(
+      withTaskExecution({ protocolMode: 'frozen_v1', mode: 'require_task' }),
+    );
+    expect(mixed.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'WORKFLOW_SCHEMA_INVALID' })]),
+    );
+  });
 });
 
 function recoveryWorkflow() {

@@ -247,6 +247,17 @@ describe('Workflow DSL JSON Schema contract', () => {
       edges: [],
     };
     expect(validator.validate(schema, candidate)).toEqual({ valid: true, errors: [] });
+    const frozen = structuredClone(candidate) as { nodes: Record<string, unknown>[] };
+    const frozenNode = frozen.nodes[0];
+    if (frozenNode === undefined) throw new Error('FROZEN_TASK_NODE_FIXTURE_MISSING');
+    frozenNode['taskExecution'] = {
+      protocolMode: 'frozen_v1',
+      availabilityCheck: 'required',
+      reservationRef: 'reservation-123',
+    };
+    expect(validator.validate(schema, frozen)).toEqual({ valid: true, errors: [] });
+    frozenNode['taskExecution'] = { protocolMode: 'frozen_v1', mode: 'require_task' };
+    expect(validator.validate(schema, frozen).valid).toBe(false);
     for (const mutate of [
       (node: Record<string, unknown>) => {
         node['source'] = 'globalThis';

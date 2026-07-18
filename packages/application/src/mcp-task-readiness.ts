@@ -617,11 +617,19 @@ function planningExecution(
       : undefined;
   }
   const timing = planningTiming(spec);
+  if (spec.protocolMode === 'frozen_v1')
+    return {
+      protocolMode: 'frozen_v1',
+      availabilityCheck: spec.availabilityCheck ?? 'best_effort',
+      ...(timing === undefined ? {} : { timing }),
+      ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
+    };
   return {
     mode: spec.mode,
     availabilityCheck:
       spec.availabilityCheck ?? (spec.mode === 'require_task' ? 'required' : 'best_effort'),
     ...(timing === undefined ? {} : { timing }),
+    ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
   };
 }
 
@@ -654,7 +662,11 @@ function validateCapabilities(
   if (execution === undefined) return [];
   if (semantics === undefined || semantics.execution === 'unknown')
     return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  if (execution.mode === 'require_task' && semantics.execution === 'synchronous')
+  if (
+    execution.protocolMode !== 'frozen_v1' &&
+    execution.mode === 'require_task' &&
+    semantics.execution === 'synchronous'
+  )
     return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
   if (execution.timing?.start.mode === 'scheduled' && !semantics.supportsScheduling)
     return ['WORKFLOW_TASK_SCHEDULING_UNSUPPORTED'];

@@ -63,25 +63,34 @@ const TaskStartSchema = z.discriminatedUnion('mode', [
     })
     .strict(),
 ]);
-const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z
+const TaskExecutionBase = {
+  availabilityCheck: z.enum(['required', 'best_effort']).optional(),
+  reservationRef: z.string().min(1).max(256).optional(),
+  timing: z
+    .object({
+      start: TaskStartSchema,
+      maxElapsedMs: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
+    })
+    .strict()
+    .optional(),
+};
+const LegacyTaskExecutionSchema = z
   .object({
+    ...TaskExecutionBase,
+    protocolMode: z.literal('legacy_v11').optional(),
     mode: z.enum(['allow_task', 'require_task']),
-    availabilityCheck: z.enum(['required', 'best_effort']).optional(),
-    timing: z
-      .object({
-        start: TaskStartSchema,
-        maxElapsedMs: z
-          .number()
-          .int()
-          .positive()
-          .max(Number.MAX_SAFE_INTEGER)
-          .nullable()
-          .optional(),
-      })
-      .strict()
-      .optional(),
   })
   .strict();
+const FrozenTaskExecutionSchema = z
+  .object({
+    ...TaskExecutionBase,
+    protocolMode: z.literal('frozen_v1'),
+  })
+  .strict();
+const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z.union([
+  LegacyTaskExecutionSchema,
+  FrozenTaskExecutionSchema,
+]);
 const MappingPath = z
   .string()
   .min(1)

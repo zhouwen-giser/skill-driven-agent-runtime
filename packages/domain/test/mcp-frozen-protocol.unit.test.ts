@@ -64,14 +64,10 @@ describe('Frozen MCP domain contracts', () => {
   it('enforces the Frozen taskBehavior result matrix', () => {
     expect(() => {
       validateFrozenTaskBehaviorOutcome('synchronous_only', 'task');
-    }).toThrow(
-      expect.objectContaining({ code: 'TASK_BEHAVIOR_PROFILE_MISMATCH' }),
-    );
+    }).toThrow(expect.objectContaining({ code: 'TASK_BEHAVIOR_PROFILE_MISMATCH' }));
     expect(() => {
       validateFrozenTaskBehaviorOutcome('task_required', 'synchronous_success');
-    }).toThrow(
-      expect.objectContaining({ code: 'TASK_BEHAVIOR_PROFILE_MISMATCH' }),
-    );
+    }).toThrow(expect.objectContaining({ code: 'TASK_BEHAVIOR_PROFILE_MISMATCH' }));
     expect(() => {
       validateFrozenTaskBehaviorOutcome('task_required', 'pre_admission_error');
     }).not.toThrow();

@@ -12,11 +12,19 @@ export function resolveMcpTaskExecution(
   context: WorkflowBindingContext,
 ): ResolvedMcpTaskExecution {
   const timing = spec.timing === undefined ? undefined : resolveTiming(spec.timing, context);
+  if (spec.protocolMode === 'frozen_v1')
+    return deepFreeze({
+      protocolMode: 'frozen_v1',
+      availabilityCheck: spec.availabilityCheck ?? 'best_effort',
+      ...(timing === undefined ? {} : { timing }),
+      ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
+    });
   return deepFreeze({
     mode: spec.mode,
     availabilityCheck:
       spec.availabilityCheck ?? (spec.mode === 'require_task' ? 'required' : 'best_effort'),
     ...(timing === undefined ? {} : { timing }),
+    ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
   });
 }
 

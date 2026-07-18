@@ -29,12 +29,16 @@ export interface TaskExecutionTiming {
   readonly maxElapsedMs: number | null;
 }
 
-export interface ResolvedMcpTaskExecution {
-  readonly mode: McpTaskExecutionMode;
+interface ResolvedMcpTaskExecutionBase {
   readonly availabilityCheck: McpTaskAvailabilityCheckMode;
   readonly timing?: TaskExecutionTiming | undefined;
   readonly reservationRef?: string | undefined;
 }
+
+export type ResolvedMcpTaskExecution =
+  | (ResolvedMcpTaskExecutionBase &
+      Readonly<{ protocolMode?: 'legacy_v11' | undefined; mode: McpTaskExecutionMode }>)
+  | (ResolvedMcpTaskExecutionBase & Readonly<{ protocolMode: 'frozen_v1'; mode?: undefined }>);
 
 export type TaskOperationAvailability = 'available' | 'restricted' | 'disabled' | 'unknown';
 export type TaskAvailabilityRiskLevel = 'low' | 'medium' | 'high' | 'critical';
