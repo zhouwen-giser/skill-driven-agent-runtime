@@ -111,6 +111,7 @@ export class WorkflowControllerService {
         input: Readonly<{
           outcome: RuntimeTerminalOutcomeRecord;
           control: WorkflowControlRecord;
+          instance: WorkflowInstance;
         }>,
       ) => Promise<void>)
     | undefined;
@@ -140,6 +141,7 @@ export class WorkflowControllerService {
         input: Readonly<{
           outcome: RuntimeTerminalOutcomeRecord;
           control: WorkflowControlRecord;
+          instance: WorkflowInstance;
         }>,
       ) => Promise<void>;
       reportWarning?: (warning: RuntimeEnhancementWarning) => void;
@@ -514,7 +516,7 @@ export class WorkflowControllerService {
                   : { eventId: `event-terminal-${control.taskId}` }),
                 committedAt: this.#clock.now(),
               });
-        await this.#onTerminalCommitted?.({ outcome, control });
+        await this.#onTerminalCommitted?.({ outcome, control, instance });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
           control,
@@ -539,7 +541,7 @@ export class WorkflowControllerService {
           ...(control.taskId === undefined ? {} : { eventId: `event-terminal-${control.taskId}` }),
           committedAt: this.#clock.now(),
         });
-        await this.#onTerminalCommitted?.({ outcome, control });
+        await this.#onTerminalCommitted?.({ outcome, control, instance });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
           control,

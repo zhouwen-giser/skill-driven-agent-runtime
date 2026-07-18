@@ -113,6 +113,40 @@ describe('Skill usage recursive composition and three-mode IR', () => {
     ).rejects.toMatchObject({ code: 'SKILL_USAGE_COMPOSITION_SLOT_CHOICE_INVALID' });
   });
 
+  it('freezes two different legal plans when context selects different compatible slot Skills', async () => {
+    const root = usageSkill('patrol.contextual', rootComposition({ fixedDependencies: [] }));
+    const visual = usageSkill('inspect.visual', undefined, {
+      capabilities: ['embodied.inspect_area'],
+      inputFields: ['area'],
+      outputFields: ['anomalies'],
+    });
+    const thermal = usageSkill('inspect.thermal', undefined, {
+      capabilities: ['embodied.inspect_area'],
+      inputFields: ['area'],
+      outputFields: ['anomalies'],
+    });
+    const planner = usagePlanner(
+      [root, visual, thermal],
+      [
+        relation('visual', root.skillId, visual.skillId, 'capability_coverage'),
+        relation('thermal', root.skillId, thermal.skillId, 'capability_coverage'),
+      ],
+    );
+
+    const visualPlan = await planner.composeUsage({ skillId: root.skillId, skillVersion: 1 }, [
+      slotChoice(root.skillId, 'inspection', visual.skillId),
+    ]);
+    const thermalPlan = await planner.composeUsage({ skillId: root.skillId, skillVersion: 1 }, [
+      slotChoice(root.skillId, 'inspection', thermal.skillId),
+    ]);
+
+    expect(visualPlan.edges[0]?.child).toEqual({ skillId: visual.skillId, skillVersion: 1 });
+    expect(thermalPlan.edges[0]?.child).toEqual({ skillId: thermal.skillId, skillVersion: 1 });
+    expect(visualPlan).not.toEqual(thermalPlan);
+    expect(Object.isFrozen(visualPlan)).toBe(true);
+    expect(Object.isFrozen(thermalPlan)).toBe(true);
+  });
+
   it('rejects missing graph authority and incompatible parent-child mappings', async () => {
     const composition = rootComposition({ capabilitySlots: [] });
     const root = usageSkill('patrol', composition);
@@ -196,6 +230,14 @@ describe('Skill usage recursive composition and three-mode IR', () => {
   });
 
   it('enforces default-three depth and expanded-Skill size limits', async () => {
+    expect(() =>
+      usageSkill('depth.hard-limit', {
+        maxDepth: 6,
+        fixedDependencies: [],
+        capabilitySlots: [],
+      }),
+    ).toThrow(expect.objectContaining({ code: 'SKILL_USAGE_SPEC_INVALID' }));
+
     const chain = ['depth.0', 'depth.1', 'depth.2', 'depth.3', 'depth.4'];
     const versions = chain.map((skillId, index) =>
       usageSkill(

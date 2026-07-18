@@ -13,9 +13,19 @@
     "inputSchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["resourceId", "area", "timeWindow"],
+      "required": ["resourceId", "target", "area", "timeWindow"],
       "properties": {
         "resourceId": { "type": "string", "minLength": 1 },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "frame": { "type": "string" }
+          }
+        },
         "area": {
           "type": "object",
           "additionalProperties": false,
@@ -80,7 +90,7 @@
   "files": {
     "normative": {
       "path": "normative.json",
-      "sha256": "88d02badb4a826149eafee7d823ad0f404006a0b8fd8e36b6cac7aa5c185d9d6"
+      "sha256": "4cee1280e5711ab115af3446b8ccaef7e4c735bbbdca3b2443ff449df59277db"
     },
     "adaptive": {
       "path": "adaptive.json",
@@ -92,7 +102,7 @@
     },
     "composition": {
       "path": "composition.json",
-      "sha256": "149fb9b07d3912bb270b5d216df09acec9d4dfc4653a70df42c50fb9930ab546"
+      "sha256": "00e4a4d2e694594ca23a60eabf5feb2e1e1ac8bbca17ae67d76f08e0a0e394d5"
     },
     "evidence": {
       "path": "evidence.json",

@@ -773,13 +773,33 @@ export class WorkflowExecutionService {
     const governingIds = new Set(requestedSkillIds ?? []);
     const ids = new Set(governingIds);
     for (const node of definition.nodes) if (node.type === 'skill_call') ids.add(node.skillId);
+    const exactVersions = new Map<string, number>();
+    if (definition.skillUsagePolicy !== undefined) {
+      exactVersions.set(
+        definition.skillUsagePolicy.skill.skillId,
+        definition.skillUsagePolicy.skill.skillVersion,
+      );
+      for (const child of definition.skillUsagePolicy.childPolicies)
+        exactVersions.set(child.child.skillId, child.child.skillVersion);
+    }
     const versions = [];
     for (const skillId of ids) {
-      const version = await this.#skills.findCurrentVersion(skillId);
-      if (version?.status !== 'enabled')
+      const expectedVersion = exactVersions.get(skillId);
+      const [version, current] = await Promise.all([
+        expectedVersion === undefined
+          ? this.#skills.findCurrentVersion(skillId)
+          : this.#skills.findVersion(skillId, expectedVersion),
+        this.#skills.findCurrentVersion(skillId),
+      ]);
+      if (
+        version?.status !== 'enabled' ||
+        (expectedVersion !== undefined && current?.version !== expectedVersion)
+      )
         throw new WorkflowExecutionError(
           'WORKFLOW_SKILL_NOT_ENABLED',
-          `Enabled Skill ${skillId} was not found for budget resolution.`,
+          expectedVersion === undefined
+            ? `Enabled Skill ${skillId} was not found for budget resolution.`
+            : `Exact Skill ${skillId}@${String(expectedVersion)} is no longer current and enabled.`,
         );
       versions.push(version);
     }

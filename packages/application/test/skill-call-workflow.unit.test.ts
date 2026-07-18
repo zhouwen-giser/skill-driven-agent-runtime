@@ -114,7 +114,7 @@ describe('SkillCallWorkflowService', () => {
       }),
     ).resolves.toEqual({ status: 'completed', output: { status: 'online' } });
 
-    expect(loadToolPlanningMetadata).toHaveBeenCalledWith(skill);
+    expect(loadToolPlanningMetadata).toHaveBeenCalledWith(skill, []);
     const planningCall = planner.plan.mock.calls[0]?.[0];
     if (planningCall === undefined) throw new Error('CHILD_PLANNING_CALL_MISSING');
     expect(JSON.parse(planningCall.planningInstruction)).toMatchObject({

@@ -1,7 +1,7 @@
 {
   "skillId": "embodied.area_patrol",
   "version": 1,
-  "packageChecksum": "194ed0c08582c9a779e56df7dfc084c2c53a4351e5a8714510dde28de933a747",
+  "packageChecksum": "77b318b4be9a340f30acdbc1d1af9f2ea10c7afbbe8e182a1640444010eb3ebb",
   "capabilities": ["embodied.area_patrol", "embodied.coverage", "embodied.anomaly_reporting"],
   "visibility": { "userSelectable": true, "composable": true, "internalOnly": false },
   "supportedModes": ["guidance", "template", "procedure"],
@@ -13,11 +13,10 @@
       {
         "dependencyId": "move-between-subregions",
         "skillId": "embodied.move_to",
-        "skillVersion": 1,
         "failurePolicy": "recoverable",
         "inputMappings": [
           { "sourcePath": "resourceId", "targetPath": "resourceId" },
-          { "sourcePath": "context.subregionTarget", "targetPath": "target" }
+          { "sourcePath": "target", "targetPath": "target" }
         ],
         "outputMappings": [{ "sourcePath": "finalPosition", "targetPath": "evidence.trajectory" }]
       }
@@ -29,7 +28,7 @@
         "required": true,
         "candidateSkillIds": [],
         "failurePolicy": "degraded",
-        "inputMappings": [{ "sourcePath": "context.subregion", "targetPath": "area" }],
+        "inputMappings": [{ "sourcePath": "area", "targetPath": "area" }],
         "outputMappings": [{ "sourcePath": "anomalies", "targetPath": "evidence.anomalies" }]
       }
     ]

@@ -6,6 +6,7 @@ import {
   START,
   StateGraph,
   interrupt,
+  isGraphInterrupt,
 } from '@langchain/langgraph';
 
 import {
@@ -843,7 +844,7 @@ function createNodeAction(
         ],
       };
     } catch (error: unknown) {
-      if (error instanceof WorkflowBudgetExceededError) throw error;
+      if (error instanceof WorkflowBudgetExceededError || isGraphInterrupt(error)) throw error;
       const handler = handlers.get(node.nodeId);
       if (handler === undefined) throw error;
       return {

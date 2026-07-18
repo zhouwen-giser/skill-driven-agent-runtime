@@ -54,7 +54,7 @@
         "selection": "preferred",
         "preferredProviderIds": ["mobile-fleet-primary"],
         "forbiddenProviderIds": [],
-        "requiredAttributes": ["trajectory-evidence", "cooperative-cancellation"]
+        "requiredAttributes": ["observations", "cancellation:task_cancel"]
       }
     }
   ]

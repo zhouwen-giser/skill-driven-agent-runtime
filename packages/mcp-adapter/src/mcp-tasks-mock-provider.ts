@@ -65,6 +65,12 @@ interface MockTaskState {
     target: Readonly<{ x: number; y: number; frame?: string }>;
     includeEvidence: boolean;
   }>;
+  readonly patrolResult?: Readonly<{
+    resourceId: string;
+    target: Readonly<{ x: number; y: number; frame?: string }>;
+    degraded: boolean;
+    includeEvidence: boolean;
+  }>;
 }
 
 interface MockProviderState {
@@ -72,7 +78,9 @@ interface MockProviderState {
   readonly phaseSixTimeline: readonly [string, string, string, string];
   readonly phaseSixValidUntil: string;
   readonly moveTo?: McpTasksMockMoveToOptions;
+  readonly areaPatrol?: McpTasksMockAreaPatrolOptions;
   nextMoveTask: number;
+  nextPatrolTask: number;
 }
 
 class MockTransportOutage extends Error {}
@@ -99,10 +107,16 @@ export interface McpTasksMockMoveToOptions {
   readonly availability?: 'available' | 'restricted' | 'disabled';
 }
 
+export interface McpTasksMockAreaPatrolOptions {
+  readonly outcome: 'remote_success' | 'remote_degraded' | 'remote_missing_evidence';
+  readonly availability?: 'available' | 'restricted' | 'disabled';
+}
+
 export async function startMcpTasksMockProvider(
   options: Readonly<{
     declareTasks?: boolean;
     moveTo?: McpTasksMockMoveToOptions;
+    areaPatrol?: McpTasksMockAreaPatrolOptions;
   }> = {},
 ): Promise<McpTasksMockProviderHandle> {
   const requests: McpTasksMockRequest[] = [];
@@ -112,7 +126,9 @@ export async function startMcpTasksMockProvider(
     phaseSixTimeline: timelineFrom(startedAt),
     phaseSixValidUntil: new Date(startedAt + 86_400_000).toISOString(),
     ...(options.moveTo === undefined ? {} : { moveTo: options.moveTo }),
+    ...(options.areaPatrol === undefined ? {} : { areaPatrol: options.areaPatrol }),
     nextMoveTask: 0,
+    nextPatrolTask: 0,
   };
   const declareTasks = options.declareTasks ?? true;
   const server = createServer((request, response) => {
@@ -279,6 +295,7 @@ function toolListResult(state?: MockProviderState): Readonly<Record<string, unkn
               },
             },
           ]),
+      ...(state?.areaPatrol === undefined ? [] : areaPatrolTools()),
     ],
   };
 }
@@ -329,6 +346,32 @@ function availabilityResult(
           ...common,
           availability,
           riskLevel: 'low',
+          reservationMode: 'none',
+          possibleEffects: [],
+        };
+      }
+      if (operationName === 'embodied.area_patrol') {
+        const availability = state.areaPatrol?.availability ?? 'available';
+        if (availability === 'restricted')
+          return {
+            ...common,
+            availability,
+            riskLevel: 'high',
+            reasonCode: 'PATROL_WINDOW_RESTRICTED',
+            description: 'Patrol must start inside the declared Provider window.',
+            validUntil: state.phaseSixValidUntil,
+            earliestStartTime: state.phaseSixTimeline[1],
+            nextAvailableWindows: [
+              { startTime: state.phaseSixTimeline[1], endTime: state.phaseSixTimeline[3] },
+            ],
+            reservationMode: 'best_effort',
+            possibleEffects: ['start_rejection'],
+          };
+        return {
+          ...common,
+          availability,
+          riskLevel: availability === 'disabled' ? 'high' : 'low',
+          ...(availability === 'disabled' ? { reasonCode: 'PATROL_PROVIDER_DISABLED' } : {}),
           reservationMode: 'none',
           possibleEffects: [],
         };
@@ -396,6 +439,8 @@ function toolCallResult(
 ): Readonly<Record<string, unknown>> {
   const name = stringParam(params, 'name');
   if (name === 'embodied.move') return moveToolCallResult(params, state);
+  if (name === 'embodied.area_patrol') return patrolToolCallResult(params, state);
+  if (name === 'embodied.inspect_area') return inspectionToolCallResult(params);
   if (name === 'sync_success')
     return { resultType: 'complete', ...successfulToolResult('sync_complete', 'sync complete') };
   if (name === 'rejected_without_task' || name === 'task_restricted_reject') {
@@ -469,6 +514,57 @@ function moveToolCallResult(
   };
   state.tasks.set(task.taskId, task);
   return createdTask(task);
+}
+
+function patrolToolCallResult(
+  params: Readonly<Record<string, unknown>>,
+  state: MockProviderState,
+): Readonly<Record<string, unknown>> {
+  const options = state.areaPatrol;
+  if (options === undefined) throw new Error('Area-patrol scenario is not enabled.');
+  const arguments_ = params['arguments'];
+  if (!isRecord(arguments_)) throw new Error('embodied.area_patrol requires arguments.');
+  const resourceId = stringParam(arguments_, 'resourceId');
+  const targetValue = arguments_['target'];
+  if (!isRecord(targetValue)) throw new Error('embodied.area_patrol target is required.');
+  const x = numberParam(targetValue, 'x');
+  const y = numberParam(targetValue, 'y');
+  const frame = targetValue['frame'];
+  if (frame !== undefined && typeof frame !== 'string')
+    throw new Error('embodied.area_patrol target frame must be a string.');
+  if (!isRecord(arguments_['area']) || !isRecord(arguments_['timeWindow']))
+    throw new Error('embodied.area_patrol area and timeWindow are required.');
+  state.nextPatrolTask += 1;
+  const task: MockTaskState = {
+    scenario: 'task_success',
+    taskId: `remote-task-embodied-area-patrol-${String(state.nextPatrolTask)}`,
+    timeline: state.phaseSixTimeline,
+    getCount: 0,
+    updateCount: 0,
+    cancelAcknowledged: false,
+    patrolResult: {
+      resourceId,
+      target: { x, y, ...(frame === undefined ? {} : { frame }) },
+      degraded: options.outcome === 'remote_degraded',
+      includeEvidence: options.outcome !== 'remote_missing_evidence',
+    },
+  };
+  state.tasks.set(task.taskId, task);
+  return createdTask(task);
+}
+
+function inspectionToolCallResult(
+  params: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const arguments_ = params['arguments'];
+  if (!isRecord(arguments_) || !isRecord(arguments_['area']))
+    throw new Error('embodied.inspect_area requires area.');
+  return {
+    resultType: 'complete',
+    content: [{ type: 'text', text: 'Inspected the admitted patrol area.' }],
+    structuredContent: { anomalies: [] },
+    isError: false,
+  };
 }
 
 function taskGetResult(
@@ -613,13 +709,15 @@ function completedTask(
     status: 'completed',
     _meta: observationMetadata('stopping', 100, sequence, taskObservedAt(task, sequence)),
     result:
-      task.moveResult === undefined
-        ? successfulToolResult(status, text)
-        : successfulMoveResult(
+      task.moveResult !== undefined
+        ? successfulMoveResult(
             task.moveResult.resourceId,
             task.moveResult.target,
             task.moveResult.includeEvidence,
-          ),
+          )
+        : task.patrolResult !== undefined
+          ? successfulPatrolResult(task.patrolResult)
+          : successfulToolResult(status, text),
   };
 }
 
@@ -736,6 +834,95 @@ function successfulMoveResult(
     isError: false,
     ...(includeEvidence ? { _meta: { 'io.sdar/evidence': { 'final-position': true } } } : {}),
   };
+}
+
+function successfulPatrolResult(
+  result: NonNullable<MockTaskState['patrolResult']>,
+): Readonly<Record<string, unknown>> {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: result.degraded
+          ? `Patrol for ${result.resourceId} completed with one missing subregion.`
+          : `Patrol for ${result.resourceId} completed with full evidence.`,
+      },
+    ],
+    structuredContent: {
+      status: result.degraded ? 'degraded' : 'completed',
+      coveredSubregions: ['subregion-1'],
+      missingSubregions: result.degraded ? ['subregion-2'] : [],
+      trajectory: [{ resourceId: result.resourceId, position: result.target }],
+      anomalies: [],
+      ...(result.degraded
+        ? {
+            missingEffects: ['subregion-2 inspection'],
+            missingEvidence: ['subregion-2 coverage'],
+          }
+        : {}),
+    },
+    isError: false,
+    ...(result.includeEvidence
+      ? {
+          _meta: {
+            'io.sdar/evidence': {
+              'coverage-report': true,
+              trajectory: true,
+              'anomaly-report': true,
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+function areaPatrolTools(): readonly Readonly<Record<string, unknown>>[] {
+  const taskExecution = {
+    execution: 'task_capable',
+    availability: 'dynamic',
+    supportsScheduling: true,
+    supportsMaxElapsed: true,
+    supportsObservations: true,
+    cancellation: 'task_cancel',
+    revision: '1.0',
+  };
+  return [
+    {
+      name: 'embodied.area_patrol',
+      description: 'Patrol one admitted area and return coverage, trajectory and anomaly evidence.',
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['resourceId', 'target', 'area', 'timeWindow'],
+        properties: {
+          resourceId: { type: 'string', minLength: 1 },
+          target: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['x', 'y'],
+            properties: {
+              x: { type: 'number' },
+              y: { type: 'number' },
+              frame: { type: 'string' },
+            },
+          },
+          area: { type: 'object' },
+          timeWindow: { type: 'object' },
+        },
+      },
+      _meta: { 'io.sdar/taskExecution': taskExecution },
+    },
+    {
+      name: 'embodied.inspect_area',
+      description: 'Inspect an admitted patrol area and return anomaly evidence.',
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['area'],
+        properties: { area: { type: 'object' } },
+      },
+    },
+  ];
 }
 
 function businessToolResult(

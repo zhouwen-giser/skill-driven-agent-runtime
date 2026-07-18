@@ -224,6 +224,65 @@ describe('Phase 6 deterministic MCP Tasks Mock Provider', () => {
     expect(provider.requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
   });
 
+  it.each([
+    ['remote_success', 'completed', true],
+    ['remote_degraded', 'degraded', true],
+    ['remote_missing_evidence', 'completed', false],
+  ] as const)(
+    'returns bounded embodied.area_patrol %s coverage and evidence',
+    async (outcome, status, includesEvidence) => {
+      provider = await startMcpTasksMockProvider({ areaPatrol: { outcome } });
+      adapter = new StreamableHttpMcpAdapter();
+      const runtime = { provider, adapter, endpoint: provider.endpoint.toString() };
+      const started = await adapter.call({
+        endpoint: runtime.endpoint,
+        headers: {},
+        toolName: 'embodied.area_patrol',
+        arguments: {
+          resourceId: 'robot-17',
+          target: { x: 4, y: 6, frame: 'map' },
+          area: {
+            boundary: [
+              { x: 0, y: 0 },
+              { x: 10, y: 0 },
+              { x: 10, y: 10 },
+            ],
+          },
+          timeWindow: {
+            earliestStart: '2026-07-18T00:00:00.000Z',
+            deadline: '2026-07-19T00:00:00.000Z',
+          },
+        },
+        executionContext: { mode: 'live' },
+      });
+      if (started.kind !== 'remote_task') throw new Error('PATROL_TASK_EXPECTED');
+      await expect(get(runtime, started.task.remoteTaskId)).resolves.toMatchObject({
+        status: 'working',
+      });
+      const terminal = await get(runtime, started.task.remoteTaskId);
+      expect(terminal).toMatchObject({
+        status: 'completed',
+        result: {
+          structuredContent: {
+            status,
+            coveredSubregions: ['subregion-1'],
+            missingSubregions: status === 'degraded' ? ['subregion-2'] : [],
+            trajectory: [expect.any(Object)],
+            anomalies: [],
+          },
+        },
+      });
+      if (terminal.status !== 'completed') throw new Error('PATROL_TERMINAL_EXPECTED');
+      if (includesEvidence)
+        expect(terminal.result.metadata?.['io.sdar/evidence']).toEqual({
+          'coverage-report': true,
+          trajectory: true,
+          'anomaly-report': true,
+        });
+      else expect(terminal.result.metadata?.['io.sdar/evidence']).toBeUndefined();
+    },
+  );
+
   it('returns deterministic restricted acceptance/rejection and scheduled availability', async () => {
     const runtime = await createRuntime();
     const availability = await runtime.adapter.checkTaskAvailability({

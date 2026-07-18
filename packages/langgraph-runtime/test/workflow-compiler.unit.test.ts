@@ -562,7 +562,7 @@ describe('LangGraph Workflow compiler', () => {
     expect(callMcpTool).toHaveBeenCalledWith(expect.objectContaining({ executionContext }));
   });
 
-  it('pauses for an independently confirmable child Skill and resumes the same node once', async () => {
+  it('does not route a child Skill confirmation interrupt through its failure handler', async () => {
     let confirmed = false;
     const executeSkill = vi.fn(() =>
       Promise.resolve(
@@ -596,8 +596,20 @@ describe('LangGraph Workflow compiler', () => {
             type: 'result',
             value: { op: 'ref', path: ['outputs', 'child', 'child'] },
           },
+          {
+            nodeId: 'child_handler',
+            name: 'Recover child failure',
+            type: 'error_handler',
+            handledNodeId: 'child',
+            strategy: 'goto',
+            gotoNodeId: 'result',
+            skillFailurePolicy: 'recoverable',
+          },
         ],
-        [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+        [
+          { sourceNodeId: 'child', targetNodeId: 'result' },
+          { sourceNodeId: 'child_handler', targetNodeId: 'result' },
+        ],
         'child',
         ['result'],
       ),

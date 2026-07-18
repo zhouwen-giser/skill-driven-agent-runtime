@@ -88,6 +88,7 @@ import {
   type SkillSelectionDecider,
   type TextEmbeddingProvider,
   type RemoteTaskPollingOptions,
+  type SkillUsageSlotChoice,
 } from '../../../packages/application/src/index.js';
 import {
   createGoalExecutionContract,
@@ -200,6 +201,17 @@ export interface ServerRuntimeOptions {
       }>,
     ): SkillUsageSelectionContext | Promise<SkillUsageSelectionContext>;
   }>;
+  /** Supplies an exact deployment/model decision for declared capability slots; empty is fail-closed. */
+  readonly skillUsageComposition?: Readonly<{
+    resolveSlotChoices(
+      input: Readonly<{
+        goalContract: GoalExecutionContract;
+        skill: SkillVersion;
+        value: unknown;
+        task?: AgentTask;
+      }>,
+    ): readonly SkillUsageSlotChoice[] | Promise<readonly SkillUsageSlotChoice[]>;
+  }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -295,6 +307,20 @@ export async function startServerRuntime(
         ...(task === undefined ? {} : { task }),
       }) ?? conservativeSkillUsageSelectionContext(),
     );
+  const resolveSkillUsageSlotChoices = (
+    goalContract: GoalExecutionContract,
+    skill: SkillVersion,
+    value: unknown,
+    task?: AgentTask,
+  ): Promise<readonly SkillUsageSlotChoice[]> =>
+    Promise.resolve(
+      options.skillUsageComposition?.resolveSlotChoices({
+        goalContract,
+        skill,
+        value,
+        ...(task === undefined ? {} : { task }),
+      }) ?? [],
+    );
   const mcpRepository = new PostgresMcpRegistryRepository(pool, {
     v11TaskMetadata: options.v11McpTasks !== undefined,
   });
@@ -312,6 +338,20 @@ export async function startServerRuntime(
     clock,
     nextId: (kind) => `skill-execution-${kind}-${randomUUID()}`,
   });
+  const recordSkillProjectionSafely = async (operation: () => Promise<unknown>): Promise<void> => {
+    try {
+      await operation();
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({
+          level: 'warn',
+          event: 'skill_execution_projection_failed',
+          errorCode: runtimeErrorCode(error),
+          summary: error instanceof Error ? error.message : 'Unknown projection failure.',
+        })}\n`,
+      );
+    }
+  };
   const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
   const implicitFeedback = new ImplicitFeedbackService({
     repository: new PostgresImplicitFeedbackRepository(pool),
@@ -1130,12 +1170,115 @@ export async function startServerRuntime(
     confirmation: skillConfirmation,
     records: skillCallWorkflows,
     schemas: schemaValidator,
-    loadToolPlanningMetadata: (skill) =>
-      buildMcpToolPlanningMetadata(skill.toolPolicy, async (reference) =>
-        (await mcpRepository.listTools(reference.serverId)).find(
-          (tool) => tool.toolName === reference.toolName,
-        ),
+    loadToolPlanningMetadata: (skill, taskOperations) =>
+      buildMcpToolPlanningMetadata(
+        {
+          required: [
+            ...skill.toolPolicy.required,
+            ...taskOperations.map((operation) => ({
+              serverId: operation.providerId,
+              toolName: operation.operationName,
+            })),
+          ],
+          optional: skill.toolPolicy.optional,
+          forbidden: skill.toolPolicy.forbidden,
+        },
+        async (reference) =>
+          (await mcpRepository.listTools(reference.serverId)).find(
+            (tool) => tool.toolName === reference.toolName,
+          ),
       ),
+    async prepareUsage({ skill, value, goalContract, workflowDefinitionId, taskId }) {
+      const task = taskId === undefined ? undefined : await tasks.findById(taskId);
+      const usageContext = await resolveSkillUsageContext(goalContract, task);
+      const candidate = await skillUsage.assess(
+        skill,
+        skill.usageSpecification === undefined
+          ? {
+              ...usageContext,
+              risk: 'low',
+              systemPolicy: {
+                ...usageContext.systemPolicy,
+                preferredMode: 'guidance',
+                requireProcedureForHighRisk: false,
+              },
+            }
+          : usageContext,
+      );
+      if (candidate.modeDecision.decision !== 'selected')
+        throw new Error('CHILD_SKILL_USAGE_MODE_NOT_SELECTED');
+      const composition = await skillComposition.composeUsage(
+        { skillId: skill.skillId, skillVersion: skill.version },
+        await resolveSkillUsageSlotChoices(goalContract, skill, value, task),
+      );
+      return {
+        prepared: prepareSkillUsagePlan({
+          skill,
+          candidate,
+          interpretation: skillComposition.interpretUsage(
+            skill,
+            candidate.modeDecision,
+            composition,
+          ),
+          goalContract,
+          workflowDefinitionId,
+          workflowVersion: skill.version,
+        }),
+        applicabilityStatus: candidate.applicability.status,
+        ...(skill.usageSpecification === undefined ? { useLegacyPlanningInstruction: true } : {}),
+      };
+    },
+    async onUsagePlanPrepared({ skill, plan, preparedUsage, parentPlanId }) {
+      await recordSkillProjectionSafely(async () => {
+        const parent = await skillExecutionRepository.findByPlan(parentPlanId);
+        if (parent === undefined || plan.definition === undefined) return;
+        await skillExecutionRecording.recordPlanning({
+          executionId: `skill-execution-${plan.planId}`,
+          parentExecutionId: parent.executionId,
+          taskId: parent.taskId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          selectionRef: `composition:${parent.executionId}:${skill.skillId}@${String(skill.version)}`,
+          applicabilityStatus: preparedUsage.applicabilityStatus,
+          policy: preparedUsage.prepared.policy,
+          workflowPlanId: plan.planId,
+          workflowDefinitionId: plan.definition.workflowDefinitionId,
+          workflowDefinitionVersion: plan.definition.version,
+          procedureCompiled:
+            preparedUsage.prepared.deterministicDefinition !== undefined &&
+            preparedUsage.prepared.policy.mode === 'procedure',
+          planCompliancePassed: true,
+        });
+      });
+    },
+    async onExecutionStatus({ childPlanId, childInstanceId, status, summary }) {
+      await recordSkillProjectionSafely(async () => {
+        if (childInstanceId !== undefined && ['completed', 'failed', 'cancelled'].includes(status))
+          await skillExecutionRecording.recordReference({
+            workflowPlanId: childPlanId,
+            kind: 'outcome',
+            referenceId: childInstanceId,
+            referenceType: 'workflow.instance.outcome',
+            sourceSystem: 'skill_call_workflow',
+            producerRefs: [childInstanceId],
+            metadata: { status },
+          });
+        await skillExecutionRecording.recordStatus({
+          workflowPlanId: childPlanId,
+          eventType:
+            status === 'executing'
+              ? 'skill.execution_started'
+              : status === 'waiting_external'
+                ? 'skill.execution_waiting_external'
+                : status === 'completed'
+                  ? 'skill.execution_completed'
+                  : 'skill.execution_failed',
+          status,
+          summary,
+          ...(childInstanceId === undefined ? {} : { details: { childInstanceId } }),
+        });
+      });
+    },
     clock,
     nextId: randomUUID,
   });
@@ -1310,13 +1453,25 @@ export async function startServerRuntime(
             typeof error.code === 'string'
               ? error.code
               : 'TASK_EXECUTION_FAILED';
+          const errorSummary =
+            error instanceof Error ? error.message : 'Unknown confirmed execution failure.';
+          process.stderr.write(
+            `${JSON.stringify({
+              level: 'error',
+              event: 'task_confirmed_execution_failed',
+              taskId: task.taskId,
+              workflowPlanId: planId,
+              errorCode: code,
+              errorSummary,
+            })}\n`,
+          );
           await recordSkillProjectionSafely(() =>
             skillExecutionRecording.recordStatus({
               workflowPlanId: planId,
               eventType: 'skill.execution_failed',
               status: 'failed',
               summary: 'Confirmed authoritative Workflow execution failed.',
-              details: { errorCode: code },
+              details: { errorCode: code, errorSummary },
             }),
           );
           await service.fail(task.taskId, code, `Confirmed Task execution failed with ${code}.`);
@@ -1538,8 +1693,9 @@ export async function startServerRuntime(
       },
     },
     terminalOutcomes: runtimeTerminalOutcomes,
-    onTerminalCommitted: async ({ outcome, control }) => {
+    onTerminalCommitted: async ({ outcome, control, instance }) => {
       try {
+        const degraded = isRecord(instance.result) && instance.result['status'] === 'degraded';
         await skillExecutionRecording.recordReference({
           workflowPlanId: control.currentPlanId,
           kind: 'outcome',
@@ -1551,20 +1707,32 @@ export async function startServerRuntime(
         });
         await skillExecutionRecording.recordStatus({
           workflowPlanId: control.currentPlanId,
-          eventType:
-            outcome.controlStatus === 'achieved'
+          eventType: degraded
+            ? 'skill.execution_degraded'
+            : outcome.controlStatus === 'achieved'
               ? 'skill.execution_completed'
               : outcome.controlStatus === 'canceled'
                 ? 'skill.execution_failed'
                 : 'skill.execution_failed',
-          status:
-            outcome.controlStatus === 'achieved'
+          status: degraded
+            ? 'degraded'
+            : outcome.controlStatus === 'achieved'
               ? 'completed'
               : outcome.controlStatus === 'canceled'
                 ? 'cancelled'
                 : 'failed',
-          summary: `Authoritative terminal outcome ${outcome.outcomeId} was committed atomically.`,
-          details: { workflowControlStatus: outcome.controlStatus },
+          summary: degraded
+            ? `Authoritative terminal outcome ${outcome.outcomeId} retained degraded patrol evidence.`
+            : `Authoritative terminal outcome ${outcome.outcomeId} was committed atomically.`,
+          details: {
+            workflowControlStatus: outcome.controlStatus,
+            ...(degraded
+              ? {
+                  missingEffects: instance.result['missingEffects'] ?? [],
+                  missingEvidence: instance.result['missingEvidence'] ?? [],
+                }
+              : {}),
+          },
         });
       } catch (error: unknown) {
         process.stderr.write(
@@ -1826,14 +1994,16 @@ export async function startServerRuntime(
     }
     if (status === 'achieved') {
       await recordSkillControlOutcome(workflowPlanId, control);
-      await recordSkillProjectionSafely(() =>
-        skillExecutionRecording.recordStatus({
+      await recordSkillProjectionSafely(async () => {
+        const projected = await skillExecutionRepository.findByPlan(workflowPlanId);
+        if (projected?.status === 'degraded') return;
+        await skillExecutionRecording.recordStatus({
           workflowPlanId,
           eventType: 'skill.execution_completed',
           status: 'completed',
           summary: 'Authoritative Workflow achieved the Goal.',
-        }),
-      );
+        });
+      });
       return;
     }
     await recordSkillControlOutcome(workflowPlanId, control);
@@ -1870,20 +2040,6 @@ export async function startServerRuntime(
         metadata: { workflowControlStatus: control.status, controlId: control.controlId },
       }),
     );
-  };
-  const recordSkillProjectionSafely = async (operation: () => Promise<unknown>): Promise<void> => {
-    try {
-      await operation();
-    } catch (error: unknown) {
-      process.stderr.write(
-        `${JSON.stringify({
-          level: 'warn',
-          event: 'skill_execution_projection_failed',
-          errorCode: runtimeErrorCode(error),
-          summary: error instanceof Error ? error.message : 'Unknown projection failure.',
-        })}\n`,
-      );
-    }
   };
   const temporarySkillOperations = {
     create: temporarySkills.create.bind(temporarySkills),
@@ -2001,10 +2157,18 @@ export async function startServerRuntime(
                 )?.usageCandidate;
                 if (candidate === undefined)
                   throw new Error('SKILL_USAGE_SELECTION_EVIDENCE_REQUIRED');
-                const composition = await skillComposition.composeUsage({
-                  skillId: skill.skillId,
-                  skillVersion: skill.version,
-                });
+                const composition = await skillComposition.composeUsage(
+                  {
+                    skillId: skill.skillId,
+                    skillVersion: skill.version,
+                  },
+                  await resolveSkillUsageSlotChoices(
+                    input.goalContract,
+                    skill,
+                    input.skillInputResolution?.structuredInput,
+                    input.task,
+                  ),
+                );
                 const interpretation = skillComposition.interpretUsage(
                   skill,
                   candidate.modeDecision,

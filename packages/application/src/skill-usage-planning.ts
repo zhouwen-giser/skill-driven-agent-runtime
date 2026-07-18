@@ -369,8 +369,9 @@ function compileDeterministicDefinition(
     const handledNodeId = `usage_child_${String(index)}`;
     const handledIndex = primary.findIndex((node) => node.nodeId === handledNodeId);
     const next = primary[handledIndex + 1] ?? primary.at(-1) ?? failure;
+    const handlerNodeId = `usage_child_handler_${String(index)}`;
     nodes.push({
-      nodeId: `usage_child_handler_${String(index)}`,
+      nodeId: handlerNodeId,
       name: `${child.failurePolicy} ${child.edgeId}`,
       type: 'error_handler',
       handledNodeId,
@@ -383,6 +384,8 @@ function compileDeterministicDefinition(
             : 'continue',
       ...(child.failurePolicy === 'recoverable' ? { gotoNodeId: next.nodeId } : {}),
     });
+    if (child.failurePolicy === 'optional' || child.failurePolicy === 'degraded')
+      edges.push({ sourceNodeId: handlerNodeId, targetNodeId: next.nodeId });
   });
   return Object.freeze({
     workflowDefinitionId: input.workflowDefinitionId,

@@ -30,6 +30,8 @@ let controlEvaluationCalls = 0;
 let replacementEvaluationCalls = 0;
 let inputContinuationEvaluationCalls = 0;
 let postCommitMemoryFailures = 0;
+let areaPatrolInspectionVersion = 1;
+let areaPatrolInitialized = false;
 let mcpWorkflowTarget:
   | Readonly<{
       serverId: string;
@@ -79,6 +81,55 @@ beforeAll(async () => {
     },
     skillUsageContext: {
       resolve({ goalContract }) {
+        if (goalContract.description.includes('GLOBAL_SHARED_SKILL:embodied.area_patrol'))
+          return {
+            observations: [
+              {
+                requirementId: 'area-boundary',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'area-boundary:patrol-a',
+              },
+              {
+                requirementId: 'resource-state',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'resource-state:robot-17:ready',
+              },
+              {
+                requirementId: 'time-window',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'time-window:patrol-a',
+              },
+              {
+                requirementId: 'area-partition',
+                source: 'deterministic_derivation' as const,
+                status: 'available' as const,
+                evidenceRef: 'area-partition:patrol-a:bounded',
+              },
+              {
+                requirementId: 'current-position',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'position-observation:robot-17:before-patrol',
+              },
+              {
+                requirementId: 'permission-context',
+                source: 'authoritative_context' as const,
+                status: 'available' as const,
+                evidenceRef: 'permission:patrol-area-a:permitted',
+              },
+            ],
+            risk: 'high' as const,
+            humanConfirmation: 'pending' as const,
+            systemPolicy: {
+              allowedModes: ['guidance', 'template', 'procedure'] as const,
+              preferredMode: 'procedure' as const,
+              requireProcedureForHighRisk: true,
+              allowGuidanceWithIncompleteContext: false,
+            },
+          };
         const requestedMode = goalContract.description.includes('MOVE_TO_GUIDANCE')
           ? ('guidance' as const)
           : goalContract.description.includes('MOVE_TO_PROCEDURE')
@@ -115,6 +166,21 @@ beforeAll(async () => {
             allowGuidanceWithIncompleteContext: true,
           },
         };
+      },
+    },
+    skillUsageComposition: {
+      resolveSlotChoices({ skill }) {
+        return skill.skillId === 'embodied.area_patrol'
+          ? [
+              {
+                parentSkillId: skill.skillId,
+                parentSkillVersion: skill.version,
+                slotId: 'subregion-inspection',
+                skillId: 'embodied.inspect_area',
+                skillVersion: areaPatrolInspectionVersion,
+              },
+            ]
+          : [];
       },
     },
   });
@@ -2973,6 +3039,339 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         );
         if (expectsCompletion) expect(moveExecution?.status).toBe('completed');
         else expect(moveExecution?.status).not.toBe('completed');
+      } finally {
+        await runtime.deleteMcpServer(serverId).catch(() => undefined);
+        await provider.close();
+      }
+    },
+  );
+
+  it.each([
+    ['remote_success', 'completed', 'completed'],
+    ['remote_degraded', 'degraded', 'degraded'],
+  ] as const)(
+    'runs recursive embodied.area_patrol with exact child versions and a %s terminal projection',
+    async (outcome, resultStatus, executionStatus) => {
+      const provider = await startMcpTasksMockProvider({
+        moveTo: { outcome: 'remote_success' },
+        areaPatrol: { outcome },
+      });
+      const serverId = `mcp.area-patrol.${outcome}.${randomUUID()}`;
+      try {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: `Area patrol ${outcome} Provider`,
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        });
+        expect(registered.status, await registered.text()).toBe(201);
+
+        const inspection = await runtime.registerSkill({
+          skillId: 'embodied.inspect_area',
+          name: `Area inspection ${outcome}`,
+          summary: 'Inspect one admitted patrol area.',
+          description: 'Return anomaly evidence for one authorized patrol area.',
+          capabilities: ['embodied.inspect_area'],
+          workflowGuidance: 'Call the required inspection Tool with the mapped area.',
+          outputInstruction: 'Return the anomalies array.',
+          inputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['area'],
+            properties: {
+              area: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['boundary'],
+                properties: {
+                  boundary: {
+                    type: 'array',
+                    minItems: 3,
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['x', 'y'],
+                      properties: { x: { type: 'number' }, y: { type: 'number' } },
+                    },
+                  },
+                  excludedZones: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+          outputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['anomalies'],
+            properties: { anomalies: { type: 'array', items: { type: 'object' } } },
+          },
+          toolPolicy: {
+            required: [{ serverId, toolName: 'embodied.inspect_area' }],
+            optional: [],
+            forbidden: [],
+          },
+          runtimePolicy: { autoConfirmPlan: true },
+          status: 'enabled',
+          sourceKind: 'admin',
+          validationPassed: true,
+        });
+        areaPatrolInspectionVersion = inspection.version;
+
+        if (!areaPatrolInitialized) {
+          const imported = await fetch(
+            `${runtime.management.baseUrl}/api/v1/skill-packages/import`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ packageRoot: 'skills/embodied.area_patrol' }),
+            },
+          );
+          expect(imported.status, await imported.text()).toBe(201);
+          for (const relation of [
+            {
+              sourceSkillId: 'embodied.area_patrol',
+              targetSkillId: 'embodied.move_to',
+              relationType: 'parent_child',
+            },
+            {
+              sourceSkillId: 'embodied.area_patrol',
+              targetSkillId: 'embodied.inspect_area',
+              relationType: 'parent_child',
+            },
+          ]) {
+            const response = await fetch(
+              `${runtime.management.baseUrl}/api/v1/skill-graph/relations`,
+              {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  ...relation,
+                  metadata: { purpose: 'v1.2 recursive area patrol E2E' },
+                }),
+              },
+            );
+            expect(response.status, await response.text()).toBe(201);
+          }
+          areaPatrolInitialized = true;
+        }
+
+        const submitted = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: `message-${randomUUID()}`,
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: 'AREA_PATROL_PROCEDURE GLOBAL_SHARED_SKILL:embodied.area_patrol',
+                  mediaType: 'text/plain',
+                },
+              ],
+              metadata: {
+                structured_input: {
+                  resourceId: 'robot-17',
+                  target: { x: 4, y: 6, frame: 'map' },
+                  area: {
+                    boundary: [
+                      { x: 0, y: 0 },
+                      { x: 10, y: 0 },
+                      { x: 10, y: 10 },
+                    ],
+                  },
+                  timeWindow: {
+                    earliestStart: '2026-07-18T00:00:00.000Z',
+                    deadline: '2026-07-19T00:00:00.000Z',
+                  },
+                },
+              },
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+        if (submitted.status?.state !== TaskState.TASK_STATE_INPUT_REQUIRED) {
+          const failedTask = await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+          ).then((response) => response.text());
+          throw new Error(
+            `AREA_PATROL_PREPARATION_FAILED:${String(submitted.status?.state)}:${failedTask}`,
+          );
+        }
+
+        const task = z
+          .object({ planId: z.string(), selectedSkillVersion: z.number().int().positive() })
+          .parse(
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
+              (response) => response.json(),
+            ),
+          );
+        const plan = z
+          .object({
+            definition: z.object({
+              skillUsagePolicy: z.object({
+                maxDepth: z.number().optional(),
+                composition: z.object({ maxDepth: z.literal(3) }),
+                childPolicies: z.array(
+                  z.object({
+                    child: z.object({ skillId: z.string(), skillVersion: z.number() }),
+                    failurePolicy: z.string(),
+                  }),
+                ),
+              }),
+              nodes: z.array(z.object({ nodeId: z.string(), type: z.string() }).loose()),
+            }),
+          })
+          .parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
+            ).then((response) => response.json()),
+          );
+        expect(plan.definition.skillUsagePolicy.childPolicies).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              child: { skillId: 'embodied.move_to', skillVersion: 3 },
+              failurePolicy: 'recoverable',
+            }),
+            expect.objectContaining({
+              child: {
+                skillId: 'embodied.inspect_area',
+                skillVersion: inspection.version,
+              },
+              failurePolicy: 'degraded',
+            }),
+          ]),
+        );
+        expect(plan.definition.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'usage_child_0', type: 'skill_call' }),
+            expect.objectContaining({ nodeId: 'usage_child_1', type: 'skill_call' }),
+            expect.objectContaining({ nodeId: 'usage_task_0', type: 'mcp_tool' }),
+          ]),
+        );
+
+        await sendFollowUp(
+          submitted.id,
+          submitted.contextId,
+          'confirm_plan',
+          'Confirm the bounded area patrol plan.',
+        );
+        await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+        await sendFollowUp(
+          submitted.id,
+          submitted.contextId,
+          'confirm_plan',
+          'Confirm the exact move-to child plan.',
+        );
+        const terminal = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+        expect(terminal.artifacts[0]?.parts[1]?.content).toMatchObject({
+          $case: 'data',
+          value: expect.objectContaining({ status: resultStatus }),
+        });
+
+        const toolCalls = provider.requests.filter((request) => request.method === 'tools/call');
+        expect(toolCalls.map((request) => request.params['name'])).toEqual([
+          'embodied.move',
+          'embodied.inspect_area',
+          'embodied.area_patrol',
+        ]);
+        expect(toolCalls[0]?.params['arguments']).toEqual({
+          resourceId: 'robot-17',
+          target: { x: 4, y: 6, frame: 'map' },
+        });
+
+        const executionSchema = z.object({
+          items: z.array(
+            z.object({
+              executionId: z.string(),
+              parentExecutionId: z.string().optional(),
+              skillId: z.string(),
+              skillVersion: z.number(),
+              status: z.string(),
+              events: z.array(z.object({ eventType: z.string() }).loose()),
+              evidenceReferences: z.array(z.object({ kind: z.string() }).loose()),
+            }),
+          ),
+          tree: z.array(
+            z.object({
+              item: z.object({ executionId: z.string(), skillId: z.string() }).loose(),
+              children: z.array(
+                z.object({ item: z.object({ skillId: z.string() }).loose() }).loose(),
+              ),
+            }),
+          ),
+        });
+        let executions: z.infer<typeof executionSchema> | undefined;
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          executions = executionSchema.parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
+            ).then((response) => response.json()),
+          );
+          if (
+            executions.items.length === 3 &&
+            executions.items.some(
+              (execution) =>
+                execution.skillId === 'embodied.area_patrol' &&
+                execution.status === executionStatus,
+            )
+          )
+            break;
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+        }
+        if (executions === undefined) throw new Error('AREA_PATROL_EXECUTIONS_NOT_OBSERVED');
+        const root = executions.items.find(
+          (execution) => execution.skillId === 'embodied.area_patrol',
+        );
+        expect(root).toEqual(
+          expect.objectContaining({
+            skillVersion: task.selectedSkillVersion,
+            status: executionStatus,
+            events: expect.arrayContaining([
+              expect.objectContaining({
+                eventType:
+                  executionStatus === 'degraded'
+                    ? 'skill.execution_degraded'
+                    : 'skill.execution_completed',
+              }),
+            ]),
+            evidenceReferences: expect.arrayContaining([
+              expect.objectContaining({ kind: 'outcome' }),
+            ]),
+          }),
+        );
+        const children = executions.items.filter(
+          (execution) => execution.parentExecutionId === root?.executionId,
+        );
+        expect(children).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              skillId: 'embodied.move_to',
+              skillVersion: 3,
+              status: 'completed',
+            }),
+            expect.objectContaining({
+              skillId: 'embodied.inspect_area',
+              skillVersion: inspection.version,
+              status: 'completed',
+            }),
+          ]),
+        );
+        expect(executions.tree).toEqual([
+          expect.objectContaining({
+            item: expect.objectContaining({ skillId: 'embodied.area_patrol' }),
+            children: expect.arrayContaining([
+              expect.objectContaining({
+                item: expect.objectContaining({ skillId: 'embodied.move_to' }),
+              }),
+              expect.objectContaining({
+                item: expect.objectContaining({ skillId: 'embodied.inspect_area' }),
+              }),
+            ]),
+          }),
+        ]);
       } finally {
         await runtime.deleteMcpServer(serverId).catch(() => undefined);
         await provider.close();
@@ -5840,20 +6239,35 @@ async function startModelLoopback(): Promise<Server> {
             ['resourceId', 'status', 'finalPosition'].every((field) =>
               required.data.required?.includes(field),
             );
+          const requiresPatrolResult =
+            required.success &&
+            ['status', 'coveredSubregions', 'missingSubregions', 'trajectory', 'anomalies'].every(
+              (field) => required.data.required?.includes(field),
+            );
           respondStructured(response, {
-            text: requiresMoveResult
-              ? 'Resource reached the permitted target.'
-              : 'Device is online.',
-            structured: requiresMoveResult
-              ? requestData.normalized.data
-              : {
-                  status: 'online',
-                  ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
-                },
+            text: requiresPatrolResult
+              ? 'Patrol evidence was preserved with its authoritative completion status.'
+              : requiresMoveResult
+                ? 'Resource reached the permitted target.'
+                : 'Device is online.',
+            structured:
+              requiresPatrolResult || requiresMoveResult
+                ? requestData.normalized.data
+                : {
+                    status: 'online',
+                    ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
+                  },
             keyFacts: [
               {
-                name: requiresMoveResult ? 'final-position' : 'status',
-                value: requiresMoveResult ? requestData.normalized.data : 'online',
+                name: requiresPatrolResult
+                  ? 'patrol-coverage'
+                  : requiresMoveResult
+                    ? 'final-position'
+                    : 'status',
+                value:
+                  requiresPatrolResult || requiresMoveResult
+                    ? requestData.normalized.data
+                    : 'online',
                 confidence: 1,
               },
             ],
@@ -5861,14 +6275,18 @@ async function startModelLoopback(): Promise<Server> {
               valuable: true,
               summary: requiresMoveResult
                 ? 'The authoritative final position proves movement completion.'
-                : 'Current device state is useful.',
+                : requiresPatrolResult
+                  ? 'Coverage, trajectory, and anomaly evidence remain authoritative.'
+                  : 'Current device state is useful.',
             },
             memoryCandidates: [
               {
                 kind: 'fact',
                 content: requiresMoveResult
                   ? 'The resource reached its permitted target.'
-                  : 'The device was online.',
+                  : requiresPatrolResult
+                    ? 'The patrol retained coverage, trajectory, and anomaly evidence.'
+                    : 'The device was online.',
                 confidence: 0.9,
               },
             ],
@@ -5968,6 +6386,7 @@ async function startModelLoopback(): Promise<Server> {
             (candidate) => candidate.policy === 'required',
           )?.reference;
           if (tool === undefined) throw new Error('SKILL_CHILD_REQUIRED_TOOL_MISSING');
+          const inspection = tool.toolName === 'embodied.inspect_area';
           respondStructured(response, {
             workflowDefinitionId: requestData.workflowIdentity.workflowDefinitionId,
             version: requestData.workflowIdentity.version,
@@ -5981,7 +6400,9 @@ async function startModelLoopback(): Promise<Server> {
                 name: 'Execute child Tool',
                 type: 'mcp_tool',
                 tool,
-                arguments: { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
+                arguments: inspection
+                  ? { area: { op: 'ref', path: ['input', 'area'] } }
+                  : { deviceId: { op: 'ref', path: ['input', 'deviceId'] } },
               },
               {
                 nodeId: 'result',
@@ -7140,7 +7561,30 @@ async function waitForTaskState(taskId: string, expected: TaskState): Promise<Ta
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
     task = await runtime.a2a.client.getTask({ tenant: '', id: taskId });
   }
-  expect(task.status?.state).toBe(expected);
+  if (task.status?.state !== expected) {
+    const internalResponse = await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`);
+    const internal = await internalResponse.text();
+    const planId = z
+      .object({ planId: z.string().optional() })
+      .safeParse(JSON.parse(internal) as unknown);
+    const [events, executions] = await Promise.all([
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/events`).then((response) =>
+        response.text(),
+      ),
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}/skill-executions`).then(
+        (response) => response.text(),
+      ),
+    ]);
+    const trace =
+      planId.success && planId.data.planId !== undefined
+        ? await fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId.data.planId)}/trace`,
+          ).then((response) => response.text())
+        : 'unavailable';
+    throw new Error(
+      `TASK_STATE_NOT_REACHED:${String(expected)}:${String(task.status?.state)}:TASK=${internal}:TRACE=${trace}:EVENTS=${events}:EXECUTIONS=${executions}`,
+    );
+  }
   return task;
 }
 

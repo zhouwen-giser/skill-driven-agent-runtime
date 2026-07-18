@@ -2,6 +2,7 @@ import type {
   RuntimeExecutionContext,
   SkillCallExecutionResult,
   SkillCallWorkflowRecord,
+  SkillApplicabilityStatus,
   SkillVersion,
   WorkflowInstance,
   WorkflowPlanRecord,
@@ -20,6 +21,16 @@ import type { TransitiveSkillConfirmationEvaluator } from './skill-confirmation.
 import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
+import type { PreparedSkillUsagePlan } from './skill-usage-planning.js';
+
+export interface PreparedChildSkillUsage {
+  readonly prepared: PreparedSkillUsagePlan;
+  readonly applicabilityStatus: SkillApplicabilityStatus;
+  readonly useLegacyPlanningInstruction?: boolean;
+}
+
+export type ChildSkillExecutionStatus =
+  'executing' | 'waiting_external' | 'completed' | 'failed' | 'cancelled';
 
 export const MAX_SKILL_CALL_DEPTH = 8;
 export const MAX_SKILL_CHILD_RESULT_CHARACTERS = 64_000;
@@ -38,7 +49,39 @@ export class SkillCallWorkflowService {
   readonly #schemas: JsonSchemaValidator;
   readonly #toolPlanningMetadata: (
     skill: SkillVersion,
+    taskOperations: readonly Readonly<{ providerId: string; operationName: string }>[],
   ) => Promise<readonly McpToolPlanningMetadata[]>;
+  readonly #prepareUsage:
+    | ((
+        input: Readonly<{
+          skill: SkillVersion;
+          value: unknown;
+          goalContract: WorkflowPlanRecord['goalContract'];
+          workflowDefinitionId: string;
+          taskId?: string;
+        }>,
+      ) => Promise<PreparedChildSkillUsage | undefined>)
+    | undefined;
+  readonly #onUsagePlanPrepared:
+    | ((
+        input: Readonly<{
+          skill: SkillVersion;
+          plan: WorkflowPlanRecord;
+          preparedUsage: PreparedChildSkillUsage;
+          parentPlanId: string;
+        }>,
+      ) => Promise<void>)
+    | undefined;
+  readonly #onExecutionStatus:
+    | ((
+        input: Readonly<{
+          childPlanId: string;
+          childInstanceId?: string;
+          status: ChildSkillExecutionStatus;
+          summary: string;
+        }>,
+      ) => Promise<void>)
+    | undefined;
   readonly #clock: Clock;
   readonly #nextId: () => string;
 
@@ -57,7 +100,33 @@ export class SkillCallWorkflowService {
       schemas: JsonSchemaValidator;
       loadToolPlanningMetadata: (
         skill: SkillVersion,
+        taskOperations: readonly Readonly<{ providerId: string; operationName: string }>[],
       ) => Promise<readonly McpToolPlanningMetadata[]>;
+      prepareUsage?: (
+        input: Readonly<{
+          skill: SkillVersion;
+          value: unknown;
+          goalContract: WorkflowPlanRecord['goalContract'];
+          workflowDefinitionId: string;
+          taskId?: string;
+        }>,
+      ) => Promise<PreparedChildSkillUsage | undefined>;
+      onUsagePlanPrepared?: (
+        input: Readonly<{
+          skill: SkillVersion;
+          plan: WorkflowPlanRecord;
+          preparedUsage: PreparedChildSkillUsage;
+          parentPlanId: string;
+        }>,
+      ) => Promise<void>;
+      onExecutionStatus?: (
+        input: Readonly<{
+          childPlanId: string;
+          childInstanceId?: string;
+          status: ChildSkillExecutionStatus;
+          summary: string;
+        }>,
+      ) => Promise<void>;
       clock: Clock;
       nextId: () => string;
     }>,
@@ -71,6 +140,9 @@ export class SkillCallWorkflowService {
     this.#records = dependencies.records;
     this.#schemas = dependencies.schemas;
     this.#toolPlanningMetadata = dependencies.loadToolPlanningMetadata;
+    this.#prepareUsage = dependencies.prepareUsage;
+    this.#onUsagePlanPrepared = dependencies.onUsagePlanPrepared;
+    this.#onExecutionStatus = dependencies.onExecutionStatus;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
   }
@@ -94,8 +166,24 @@ export class SkillCallWorkflowService {
       }>;
     }>,
   ): Promise<SkillCallExecutionResult> {
-    await this.#assertParentCompositionAuthority(input.parentPlanId, input.skillId);
-    const skill = await this.#skills.findCurrentVersion(input.skillId);
+    const expectedVersion = await this.#assertParentCompositionAuthority(
+      input.parentPlanId,
+      input.skillId,
+    );
+    const [skill, current] = await Promise.all([
+      expectedVersion === undefined
+        ? this.#skills.findCurrentVersion(input.skillId)
+        : this.#skills.findVersion(input.skillId, expectedVersion),
+      this.#skills.findCurrentVersion(input.skillId),
+    ]);
+    if (
+      expectedVersion !== undefined &&
+      (current?.status !== 'enabled' || current.version !== expectedVersion)
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_VERSION_STALE',
+        `Parent plan requires ${input.skillId}@${String(expectedVersion)}, which is no longer current and enabled.`,
+      );
     if (skill?.status !== 'enabled') throw new Error('WORKFLOW_SKILL_NOT_ENABLED');
     const inputValidation = this.#schemas.validate(skill.inputSchema, input.value);
     if (!inputValidation.valid)
@@ -305,7 +393,6 @@ export class SkillCallWorkflowService {
     const childPlanId = `plan-skill-call-${callId}`;
     const childWorkflowDefinitionId = `workflow-skill-${skill.skillId}-${String(skill.version)}-${callId}`;
     const createdAt = this.#clock.now();
-    const toolPlanningMetadata = await this.#toolPlanningMetadata(skill);
     const parentPlan = await this.#plans.findPlan(input.parentPlanId);
     if (
       parentPlan?.goalId !== input.parentGoalId ||
@@ -315,6 +402,19 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
         'Child Skill planning requires the immutable parent plan Goal contract.',
       );
+    const preparedUsage = await this.#prepareUsage?.({
+      skill,
+      value: input.value,
+      goalContract: parentPlan.goalContract,
+      workflowDefinitionId: childWorkflowDefinitionId,
+      ...(input.continuationAuthority === undefined
+        ? {}
+        : { taskId: input.continuationAuthority.agentTaskId }),
+    });
+    const toolPlanningMetadata = await this.#toolPlanningMetadata(
+      skill,
+      preparedUsage?.prepared.policy.taskOperations ?? [],
+    );
     const plan = await this.#planner.plan({
       planId: childPlanId,
       workflowDefinitionId: childWorkflowDefinitionId,
@@ -324,16 +424,42 @@ export class SkillCallWorkflowService {
       goalContract: parentPlan.goalContract,
       toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
       compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
-      planningInstruction: childPlanningInstruction(
-        skill,
-        input.value,
-        toolPlanningMetadata,
-        childWorkflowDefinitionId,
-        input.parentGoalId,
-        input.parentGoalVersion,
-      ),
+      ...(preparedUsage === undefined
+        ? {}
+        : {
+            skillUsagePolicy: preparedUsage.prepared.policy,
+            ...(preparedUsage.prepared.deterministicDefinition === undefined
+              ? {}
+              : { deterministicDefinition: preparedUsage.prepared.deterministicDefinition }),
+          }),
+      planningInstruction:
+        preparedUsage?.useLegacyPlanningInstruction !== true
+          ? (preparedUsage?.prepared.planningInstruction ??
+            childPlanningInstruction(
+              skill,
+              input.value,
+              toolPlanningMetadata,
+              childWorkflowDefinitionId,
+              input.parentGoalId,
+              input.parentGoalVersion,
+            ))
+          : childPlanningInstruction(
+              skill,
+              input.value,
+              toolPlanningMetadata,
+              childWorkflowDefinitionId,
+              input.parentGoalId,
+              input.parentGoalVersion,
+            ),
     });
     const definition = await this.#requireValidatedDefinition(plan);
+    if (preparedUsage !== undefined)
+      await this.#onUsagePlanPrepared?.({
+        skill,
+        plan,
+        preparedUsage,
+        parentPlanId: input.parentPlanId,
+      });
     const evaluation = await this.#confirmation.evaluate([skill.skillId], definition);
     let record: SkillCallWorkflowRecord = {
       callId,
@@ -399,13 +525,20 @@ export class SkillCallWorkflowService {
       ...(input.continuationAuthority === undefined
         ? {}
         : { continuationAuthority: input.continuationAuthority }),
-      onStarted: () =>
-        this.#records.save({
+      onStarted: async () => {
+        await this.#records.save({
           ...record,
           childInstanceId,
           status: 'running',
           evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
-        }),
+        });
+        await this.#onExecutionStatus?.({
+          childPlanId: record.childPlanId,
+          childInstanceId,
+          status: 'executing',
+          summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} started.`,
+        });
+      },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
     if (child.status === 'waiting_external') {
@@ -414,6 +547,12 @@ export class SkillCallWorkflowService {
         childInstanceId,
         status: 'waiting_external',
         evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is waiting for external work.`,
+      });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId,
+        status: 'waiting_external',
+        summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is waiting for external work.`,
       });
       return {
         status: 'waiting_external',
@@ -435,6 +574,12 @@ export class SkillCallWorkflowService {
         evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} ended with ${child.status}.`,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId,
+        status: child.status === 'canceled' ? 'cancelled' : 'failed',
+        summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} ended with ${child.status}.`,
+      });
       throw new SkillCallWorkflowError(
         child.status === 'canceled'
           ? 'WORKFLOW_SKILL_CHILD_CANCELED'
@@ -452,6 +597,12 @@ export class SkillCallWorkflowService {
         evaluationSummary: `Skill output contained ${String(resultSize)} JSON characters, exceeding the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId,
+        status: 'failed',
+        summary: 'Skill child Workflow output exceeded the bounded result size.',
+      });
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_OUTPUT_TOO_LARGE',
         `Child result exceeds the ${String(MAX_SKILL_CHILD_RESULT_CHARACTERS)} character limit.`,
@@ -466,6 +617,12 @@ export class SkillCallWorkflowService {
         evaluationSummary: `Skill output failed ${skill.skillId}@${String(skill.version)} schema validation: ${outputValidation.errors.join('; ')}`,
         completedAt: child.completedAt ?? this.#clock.now(),
       });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId,
+        status: 'failed',
+        summary: `Skill child Workflow output failed ${skill.skillId}@${String(skill.version)} validation.`,
+      });
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_OUTPUT_INVALID',
         `Child result does not satisfy ${skill.skillId}@${String(skill.version)}: ${outputValidation.errors.join('; ')}`,
@@ -478,6 +635,12 @@ export class SkillCallWorkflowService {
       status: 'succeeded',
       evaluationSummary: `Skill output passed ${skill.skillId}@${String(skill.version)} schema validation after executing ${definition.workflowDefinitionId}@${String(definition.version)}.`,
       completedAt: child.completedAt ?? this.#clock.now(),
+    });
+    await this.#onExecutionStatus?.({
+      childPlanId: record.childPlanId,
+      childInstanceId,
+      status: 'completed',
+      summary: `Skill child Workflow output passed ${skill.skillId}@${String(skill.version)} validation.`,
     });
     return { status: 'completed', output: child.result };
   }
@@ -553,6 +716,12 @@ export class SkillCallWorkflowService {
           evaluationSummary: outputFailure.message,
           completedAt,
         });
+        await this.#onExecutionStatus?.({
+          childPlanId: record.childPlanId,
+          childInstanceId: child.instanceId,
+          status: 'failed',
+          summary: outputFailure.message,
+        });
         return {
           parentInstanceId: record.parentInstanceId,
           parentNodeId: record.parentNodeId,
@@ -572,6 +741,12 @@ export class SkillCallWorkflowService {
         evaluationSummary: `Externally continued child output passed ${skill.skillId}@${String(skill.version)} validation.`,
         completedAt,
       });
+      await this.#onExecutionStatus?.({
+        childPlanId: record.childPlanId,
+        childInstanceId: child.instanceId,
+        status: 'completed',
+        summary: `Externally continued child output passed ${skill.skillId}@${String(skill.version)} validation.`,
+      });
       return {
         parentInstanceId: record.parentInstanceId,
         parentNodeId: record.parentNodeId,
@@ -586,6 +761,12 @@ export class SkillCallWorkflowService {
       status: canceled ? 'canceled' : 'failed',
       evaluationSummary: `Externally continued child Workflow ended with ${child.status}.`,
       completedAt,
+    });
+    await this.#onExecutionStatus?.({
+      childPlanId: record.childPlanId,
+      childInstanceId: child.instanceId,
+      status: canceled ? 'cancelled' : 'failed',
+      summary: `Externally continued child Workflow ended with ${child.status}.`,
     });
     return {
       parentInstanceId: record.parentInstanceId,
@@ -623,7 +804,10 @@ export class SkillCallWorkflowService {
     return validation.definition;
   }
 
-  async #assertParentCompositionAuthority(parentPlanId: string, skillId: string): Promise<void> {
+  async #assertParentCompositionAuthority(
+    parentPlanId: string,
+    skillId: string,
+  ): Promise<number | undefined> {
     const plan = await this.#plans.findPlan(parentPlanId);
     const enforced =
       plan?.compositionContext !== undefined || plan?.capabilityGapSkillIds !== undefined;
@@ -637,6 +821,15 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
         `Skill ${skillId} is not authorized by the immutable parent composition context.`,
       );
+    const nativeChildren = plan.definition?.skillUsagePolicy?.childPolicies.filter(
+      (child) => child.child.skillId === skillId,
+    );
+    if (nativeChildren !== undefined && nativeChildren.length > 1)
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_NOT_ALLOWED_BY_COMPOSITION',
+        `Skill ${skillId} has ambiguous exact-version authority in the parent plan.`,
+      );
+    return nativeChildren?.[0]?.child.skillVersion;
   }
 }
 
@@ -778,6 +971,7 @@ export type SkillCallWorkflowErrorCode =
   | 'WORKFLOW_SKILL_CHILD_LINK_NOT_FOUND'
   | 'WORKFLOW_SKILL_CHILD_NOT_TERMINAL'
   | 'WORKFLOW_SKILL_NOT_ENABLED'
+  | 'WORKFLOW_SKILL_VERSION_STALE'
   | 'WORKFLOW_SKILL_CONFIRMATION_REJECTED'
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
   | 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE'
