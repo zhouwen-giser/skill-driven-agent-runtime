@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "phase": 14,
+  "status": "passed",
+  "goal": "Actively review and harden Skill Usage authority, safety, boundedness, evidence, continuation and legacy compatibility against every required adversarial case.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "c5a4de954b02f02a8b475dee5f10de47ecac5a24",
+  "auditSha": "ad08397da901931fbdba5083e2d877af2f818262",
+  "resultingSha": "74344ceadfa28d3940118ec3cfdd437cde2e0b97",
+  "findings": [
+    {
+      "code": "NATIVE_CHILD_ALLOWLIST_NOT_ENFORCED_WITHOUT_LEGACY_CONTEXT",
+      "severity": "required",
+      "status": "fixed",
+      "fixCommit": "39fdaa22b8183f0d75c7160a5a9c981af9b890a3"
+    },
+    {
+      "code": "LEGACY_USAGE_PROJECTION_MISCLASSIFIED_AS_NATIVE_AUTHORITY",
+      "severity": "required",
+      "status": "fixed",
+      "detectedBy": "first mandatory full-gate legacy nested-child E2E",
+      "fixCommit": "74344ceadfa28d3940118ec3cfdd437cde2e0b97"
+    }
+  ],
+  "threats": [
+    "normative_adaptive_confusion",
+    "prompt_injection_safety_rewrite",
+    "oversized_markdown_json",
+    "cyclic_json",
+    "symlink_path_traversal",
+    "stale_skill_version",
+    "active_skill_in_place_modification",
+    "llm_non_candidate_skill",
+    "llm_unsupported_mode",
+    "invented_task_provider",
+    "preferred_required_drift",
+    "recursive_explosion",
+    "duplicate_child_execution",
+    "stale_readiness",
+    "old_reservation",
+    "parent_child_terminal_overwrite",
+    "remote_task_duplicate_event",
+    "restart_replay",
+    "evidence_spoofing",
+    "degraded_as_full_success",
+    "human_gate_bypass",
+    "legacy_regression"
+  ],
+  "threatCount": 22,
+  "requiredFindingsOpen": 0,
+  "fullVerification": {
+    "command": "pnpm verify",
+    "commit": "74344ceadfa28d3940118ec3cfdd437cde2e0b97",
+    "cleanTree": true,
+    "status": "passed",
+    "durationMs": 153204,
+    "unitContract": { "files": 84, "tests": 574 },
+    "integration": { "files": 9, "tests": 82 },
+    "e2e": { "files": 2, "tests": 59 },
+    "architectureSourceFiles": 256,
+    "managementOpenapiOperations": 116,
+    "acceptanceScenarios": 18,
+    "v11AcceptanceScenarios": 16,
+    "a2aMust": { "passed": 74, "failed": 0, "nonMustClassifiedSkipped": 161 },
+    "runtimeMigrations": 70,
+    "build": "passed",
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed"
+  },
+  "environment": {
+    "infrastructure": "self-managed local Compose with explicitly isolated verification database",
+    "repositoryContainersAfterVerification": "stopped with volumes preserved",
+    "disposableDatabase": "deleted",
+    "operatorEnv": "ignored and unchanged",
+    "operatorDatabase": "unchanged",
+    "externalProviderRuntimePostgres": "untouched"
+  },
+  "knownLimitations": [
+    "External production MCP Tasks Provider interoperability remains unverified.",
+    "Phase 15 final release and Ready-for-Review gates remain."
+  ],
+  "push": {
+    "commits": [
+      "ad08397da901931fbdba5083e2d877af2f818262",
+      "39fdaa22b8183f0d75c7160a5a9c981af9b890a3",
+      "74344ceadfa28d3940118ec3cfdd437cde2e0b97"
+    ],
+    "status": "passed",
+    "remote": "origin"
+  }
+}
