@@ -30,6 +30,13 @@ legacy loopback Server fixture，旧实验性 Tasks API 不是 v1.1 权威。`mo
 精确 License hash、package integrity、schema blob 和兼容边界
 见三个 MCP OSS Intake、ADR-085 与 ADR-090。
 
+v1.2.1 Frozen MCP Tasks 追加锁定 `modelcontextprotocol/modelcontextprotocol` commit
+`26897cc322f356487da89113451bd16b520b9288` 和 `schema/draft/schema.json` blob
+`cc44564e33305dbc07e820cdd0a97648f3852019`。源 Schema 未修改地保存在 `protocol/source`，
+SDAR 派生 Schema 单独标识为修改产物。精确 commit LICENSE 是 Apache-2.0 迁移文本并保留未
+重授权贡献的 MIT 权利，非规范文档为 CC-BY-4.0；该 commit 没有根 NOTICE。Frozen Handler
+不新增 SDK 依赖且不得使用 Legacy Bridge。详见 ADR-108 和 Phase 0 OSS Intake。
+
 ## 发布前要求
 
 - 生成 SBOM；

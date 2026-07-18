@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/mcp-streamable-http-routing.schema.json",
+  "title": "SDAR Frozen MCP Streamable HTTP Routing Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "headers"],
+  "properties": {
+    "method": {
+      "enum": [
+        "server/discover",
+        "tools/list",
+        "tools/call",
+        "tasks/get",
+        "tasks/update",
+        "tasks/cancel",
+        "io.sdar/taskExecution/checkAvailability",
+        "subscriptions/listen"
+      ]
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "headers": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["Accept", "Content-Type", "MCP-Protocol-Version", "Mcp-Method"],
+      "properties": {
+        "Accept": { "const": "application/json, text/event-stream" },
+        "Content-Type": { "const": "application/json" },
+        "MCP-Protocol-Version": { "const": "2026-07-28" },
+        "Mcp-Method": { "type": "string", "minLength": 1 },
+        "Mcp-Name": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "method": { "enum": ["tools/call", "tasks/get", "tasks/update", "tasks/cancel"] }
+        },
+        "required": ["method"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "headers": { "type": "object", "required": ["Mcp-Name"] } }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "headers": {
+            "type": "object",
+            "not": { "type": "object", "required": ["Mcp-Name"] }
+          }
+        }
+      }
+    }
+  ]
+}

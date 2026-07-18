@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/sdar-availability-v1.schema.json",
+  "title": "SDAR Task Availability V1",
+  "$defs": {
+    "Timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "maxElapsedMs"],
+      "properties": {
+        "start": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "startToleranceMs"],
+              "properties": {
+                "mode": { "const": "immediate" },
+                "startToleranceMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400000
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "scheduledAt", "startToleranceMs"],
+              "properties": {
+                "mode": { "const": "scheduled" },
+                "scheduledAt": { "type": "string", "format": "date-time" },
+                "startToleranceMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400000
+                }
+              }
+            }
+          ]
+        },
+        "maxElapsedMs": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 31536000000
+        }
+      }
+    },
+    "Arguments": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "value"],
+          "properties": { "state": { "const": "complete" }, "value": true }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "knownValue", "unresolvedPaths"],
+          "properties": {
+            "state": { "const": "partial" },
+            "knownValue": true,
+            "unresolvedPaths": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 512,
+                "pattern": "^(|/(?:[^~/]|~0|~1)*)$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "operationName", "arguments", "timing"],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+        },
+        "operationName": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$"
+        },
+        "arguments": { "$ref": "#/$defs/Arguments" },
+        "timing": { "$ref": "#/$defs/Timing" }
+      }
+    },
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileVersion", "checks", "_meta"],
+      "properties": {
+        "profileVersion": { "const": "1.0" },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/Check" }
+        },
+        "_meta": { "type": "object" }
+      }
+    },
+    "ResultItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "operationName", "availability", "riskLevel", "reservationMode"],
+      "properties": {
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "operationName": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$"
+        },
+        "availability": { "enum": ["available", "restricted", "disabled", "unknown"] },
+        "riskLevel": { "enum": ["low", "medium", "high", "critical"] },
+        "reasonCode": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 2048 },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "earliestStartTime": { "type": "string", "format": "date-time" },
+        "nextAvailableWindows": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["startTime", "endTime"],
+            "properties": {
+              "startTime": { "type": "string", "format": "date-time" },
+              "endTime": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "estimatedDelayMs": { "type": "integer", "minimum": 0 },
+        "reservationMode": { "enum": ["none", "best_effort", "guaranteed"] },
+        "reservationRef": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "possibleEffects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "task_preemption",
+              "task_pause",
+              "start_rejection",
+              "start_window_missed",
+              "deadline_reached",
+              "partial_completion"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "availability": { "const": "restricted" } }
+          },
+          "then": {
+            "type": "object",
+            "required": ["validUntil"],
+            "anyOf": [
+              { "type": "object", "required": ["earliestStartTime"] },
+              {
+                "type": "object",
+                "required": ["nextAvailableWindows"],
+                "properties": { "nextAvailableWindows": { "minItems": 1 } }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "reservationMode": { "const": "guaranteed" } }
+          },
+          "then": { "type": "object", "required": ["reservationRef"] },
+          "else": {
+            "type": "object",
+            "not": { "type": "object", "required": ["reservationRef"] }
+          }
+        }
+      ]
+    },
+    "Response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resultType", "profileVersion", "results"],
+      "properties": {
+        "resultType": { "const": "complete" },
+        "profileVersion": { "const": "1.0" },
+        "results": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/ResultItem" }
+        }
+      }
+    }
+  }
+}

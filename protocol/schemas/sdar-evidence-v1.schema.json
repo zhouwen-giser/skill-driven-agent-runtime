@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/sdar-evidence-v1.schema.json",
+  "title": "SDAR Provider Evidence Profile V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profileVersion", "items"],
+  "properties": {
+    "profileVersion": { "const": "1.0" },
+    "items": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/EvidenceItem" }
+    }
+  },
+  "$defs": {
+    "EvidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceId", "evidenceType", "observedAt", "payloadRef"],
+      "properties": {
+        "evidenceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "evidenceType": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "subjectRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "producer": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "payloadRef": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "jsonPointer"],
+              "properties": {
+                "kind": { "const": "structured_content" },
+                "jsonPointer": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|/(?:[^~/]|~0|~1)*)$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "uri"],
+              "properties": {
+                "kind": { "const": "uri" },
+                "uri": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(https|s3|gs|azblob|urn):"
+                },
+                "mediaType": { "type": "string", "minLength": 1, "maxLength": 256 },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
+            }
+          ]
+        }
+      },
+      "not": { "required": ["requirementId"] }
+    }
+  }
+}

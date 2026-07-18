@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/mcp-tasks-sep2663.schema.json",
+  "title": "SDAR Frozen SEP-2663 Task Shapes",
+  "$defs": {
+    "TaskStatus": {
+      "enum": ["working", "input_required", "completed", "cancelled", "failed"]
+    },
+    "TaskExecutionMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileVersion", "runtimeRevision"],
+      "properties": {
+        "profileVersion": { "const": "1.0" },
+        "runtimeRevision": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+        "providerRevision": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "substate": {
+          "enum": ["scheduled", "queued", "running", "paused", "resuming", "stopping"]
+        },
+        "progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["percent"],
+          "properties": { "percent": { "type": "number", "minimum": 0, "maximum": 100 } }
+        }
+      }
+    },
+    "TaskMeta": {
+      "type": "object",
+      "required": ["io.sdar/taskExecution"],
+      "properties": {
+        "io.sdar/taskExecution": { "$ref": "#/$defs/TaskExecutionMeta" }
+      },
+      "additionalProperties": true
+    },
+    "TaskBase": {
+      "type": "object",
+      "required": ["taskId", "status", "createdAt", "lastUpdatedAt", "ttlMs", "_meta"],
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "status": { "$ref": "#/$defs/TaskStatus" },
+        "statusMessage": { "type": "string", "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastUpdatedAt": { "type": "string", "format": "date-time" },
+        "ttlMs": { "type": ["integer", "null"], "minimum": 0 },
+        "pollIntervalMs": { "type": "integer", "minimum": 1 },
+        "_meta": { "$ref": "#/$defs/TaskMeta" }
+      }
+    },
+    "JsonRpcError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "integer" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "data": true
+      }
+    },
+    "CallToolResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resultType", "content", "isError"],
+      "properties": {
+        "resultType": { "const": "complete" },
+        "content": { "type": "array", "maxItems": 128 },
+        "structuredContent": true,
+        "isError": { "type": "boolean" },
+        "_meta": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "CreateTaskResult": {
+      "allOf": [
+        { "$ref": "#/$defs/TaskBase" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resultType",
+            "taskId",
+            "status",
+            "createdAt",
+            "lastUpdatedAt",
+            "ttlMs",
+            "_meta"
+          ],
+          "properties": {
+            "resultType": { "const": "task" },
+            "taskId": true,
+            "status": true,
+            "statusMessage": true,
+            "createdAt": true,
+            "lastUpdatedAt": true,
+            "ttlMs": true,
+            "pollIntervalMs": true,
+            "_meta": true
+          },
+          "not": { "required": ["task"] }
+        }
+      ]
+    },
+    "DetailedTask": {
+      "allOf": [
+        { "$ref": "#/$defs/TaskBase" },
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": { "status": { "const": "working" } },
+              "not": { "anyOf": [{ "required": ["result"] }, { "required": ["error"] }] }
+            },
+            {
+              "type": "object",
+              "required": ["inputRequests"],
+              "properties": {
+                "status": { "const": "input_required" },
+                "inputRequests": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "maxProperties": 128,
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["method", "params"],
+                    "properties": {
+                      "method": { "const": "elicitation/create" },
+                      "params": { "type": "object" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["result"],
+              "properties": {
+                "status": { "const": "completed" },
+                "result": { "$ref": "#/$defs/CallToolResult" }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["error"],
+              "properties": {
+                "status": { "const": "failed" },
+                "error": { "$ref": "#/$defs/JsonRpcError" }
+              }
+            },
+            {
+              "type": "object",
+              "properties": { "status": { "const": "cancelled" } },
+              "not": { "anyOf": [{ "required": ["result"] }, { "required": ["error"] }] }
+            }
+          ]
+        }
+      ]
+    },
+    "GetTaskResult": {
+      "allOf": [
+        { "$ref": "#/$defs/DetailedTask" },
+        {
+          "type": "object",
+          "required": ["resultType"],
+          "properties": { "resultType": { "const": "complete" } }
+        }
+      ]
+    },
+    "TaskAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resultType"],
+      "properties": {
+        "resultType": { "const": "complete" },
+        "_meta": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "InputResponses": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 128,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action"],
+        "properties": {
+          "action": { "enum": ["accept", "decline", "cancel"] },
+          "content": true
+        }
+      }
+    }
+  }
+}

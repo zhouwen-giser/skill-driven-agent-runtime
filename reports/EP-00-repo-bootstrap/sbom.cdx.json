@@ -5735,6 +5735,32 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:github/modelcontextprotocol/modelcontextprotocol@26897cc322f356487da89113451bd16b520b9288",
+      "name": "modelcontextprotocol/modelcontextprotocol frozen schema",
+      "version": "26897cc322f356487da89113451bd16b520b9288",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0 transition / retained MIT contributions / CC-BY-4.0 non-spec docs"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/modelcontextprotocol/modelcontextprotocol"
+        }
+      ],
+      "purl": "pkg:github/modelcontextprotocol/modelcontextprotocol@26897cc322f356487da89113451bd16b520b9288"
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f",
       "name": "modelcontextprotocol/ext-tasks",
       "version": "8966bea9c4f4e6d71060cc8284a539086e9e234f",
