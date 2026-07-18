@@ -53,6 +53,6 @@
   intervention and degraded-outcome references without replacing authoritative records.
 - [x] Phase 14 closes every required adversarial finding with a regression test; no required finding is
   deferred.
-- [ ] Phase 15 explicit command matrix and clean full `pnpm verify` pass.
+- [x] Phase 15 explicit command matrix and clean full `pnpm verify` pass on `b3b6e67`.
 - [ ] Final human/JSON acceptance evidence is published, the branch is pushed and PR #5 is Ready for
   Review without automatic merge.

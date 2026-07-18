@@ -50,6 +50,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
+- SDAR v1.2 Phase 15 clean release-candidate SHA `b3b6e67` passed every explicit final command and the 148,794 ms self-managed `pnpm verify`: 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116-operation OpenAPI, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, fresh 1.2.0 SBOM, build and both smoke stages.
 - SDAR v1.2 Phase 14 clean-feature-SHA self-managed `pnpm verify` passed at `74344ce` in 153,204 ms with 574 unit/contract, 82 integration, 59 E2E, 256-source architecture, 116 OpenAPI operations, 18+16 acceptance scenarios, A2A MUST 74/74, 70 migrations, production build and both smoke stages.
 - SDAR v1.2 Phase 13 passed all 20 area-patrol scenarios at `83753db`: 569 unit/contract tests, 82 isolated real integration tests, 59 real PostgreSQL/Redis A2A E2E tests, empty/0049 migration verification, production smoke, format/lint/typecheck/build and 256-source architecture.
 - SDAR v1.2 Phase 12 passed all 14 move-to scenarios at `873ee80`: 565 unit/contract tests, 55 real PostgreSQL/Redis A2A E2E tests, 11 restart/remote integration tests, format/lint/typecheck, production build and 256-source architecture.

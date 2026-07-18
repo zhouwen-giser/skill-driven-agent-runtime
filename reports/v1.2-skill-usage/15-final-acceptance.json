@@ -1,18 +1,80 @@
 {
   "schemaVersion": 1,
   "phase": 15,
-  "status": "pending",
+  "status": "verified_pending_pr_ready",
   "version": "1.2.0",
   "goal": "Verify and publish final SDAR v1.2 Skill-driven capability usage release evidence.",
+  "releaseCandidateSha": "b3b6e67d1e84ee462a57f209417521c6008be989",
   "requiredDeferredItems": [],
   "verification": {
-    "status": "pending",
-    "commands": []
+    "status": "passed",
+    "fullVerificationDurationMs": 148794,
+    "commands": [
+      { "command": "pnpm format:check", "status": "passed" },
+      { "command": "pnpm lint", "status": "passed" },
+      { "command": "pnpm typecheck", "status": "passed" },
+      { "command": "pnpm test:unit", "status": "passed", "files": 73, "tests": 462 },
+      { "command": "pnpm test:contract", "status": "passed", "files": 11, "tests": 112 },
+      { "command": "pnpm test:integration", "status": "passed", "files": 9, "tests": 82 },
+      { "command": "pnpm test:e2e", "status": "passed", "files": 2, "tests": 59 },
+      { "command": "pnpm build", "status": "passed" },
+      { "command": "pnpm smoke", "status": "passed" },
+      { "command": "pnpm verify:migrations", "status": "passed", "runtimeMigrations": 70 },
+      { "command": "pnpm verify:architecture", "status": "passed", "sourceFiles": 256 },
+      { "command": "pnpm verify:management-openapi", "status": "passed", "operations": 116 },
+      { "command": "pnpm verify:acceptance", "status": "passed", "scenarios": 18 },
+      { "command": "pnpm verify", "status": "passed", "cleanTree": true }
+    ],
+    "additional": {
+      "v11AcceptanceScenarios": 16,
+      "a2aMustPassed": 74,
+      "a2aMustFailed": 0,
+      "a2aNonMustClassifiedSkipped": 161,
+      "ossSourcePins": 19,
+      "npmPackagesInSbom": 286,
+      "externalServicesInSbom": 2
+    }
   },
+  "remediatedGateFindings": [
+    {
+      "code": "DISPOSABLE_DATABASE_NOT_BOOTSTRAPPED",
+      "status": "fixed",
+      "evidence": "The first integration attempt was rejected because schema_migration was absent; the named disposable database was bootstrapped through 0106 and the complete 82-test suite then passed twice."
+    },
+    {
+      "code": "RELEASE_SBOM_VERSION_STALE",
+      "status": "fixed",
+      "evidence": "The first full verification rejected the 1.1.0 SBOM metadata after package version advanced to 1.2.0; the SBOM was regenerated and checked before the clean full rerun passed."
+    }
+  ],
   "evidenceClassification": {
-    "real": [],
-    "simulated": [],
-    "unverified": []
+    "real": [
+      "PostgreSQL 17 with pgvector 0.8.5 and released migrations through 0106",
+      "Redis/BullMQ queue and same-context runtime behavior",
+      "HTTP/A2A transport, streaming, confirmation and task projection",
+      "single LangGraph runtime, external-wait continuation, restart, input and cancellation",
+      "MCP adapter wire contracts and local deterministic Provider transport",
+      "Management API, OpenAPI and production Console bundle/server smoke",
+      "move-to and recursive area-patrol parent/child execution evidence"
+    ],
+    "simulated": [
+      "structured model decisions and semantic quality",
+      "MCP Tasks Provider business/resource/state behavior in deterministic local fixtures"
+    ],
+    "unverified": [
+      "external production MCP Tasks Provider interoperability",
+      "visual DOCX pagination/rendering because soffice is unavailable"
+    ]
+  },
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux/x64",
+    "infrastructure": "self-managed local Compose with an explicitly isolated database",
+    "disposableDatabase": "sdar_phase15_verify_20260718 deleted after verification",
+    "repositoryContainers": "stopped with volumes preserved",
+    "operatorEnv": "ignored and unchanged",
+    "operatorDatabase": "unchanged",
+    "externalProviderRuntimePostgres": "untouched"
   },
   "pr": {
     "number": 5,

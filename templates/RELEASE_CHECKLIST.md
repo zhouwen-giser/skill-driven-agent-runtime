@@ -39,6 +39,6 @@ The RC checklist is complete. Do not create or announce stable `v1.1.0` until PR
   composition/failure semantics, remote waits, input, cancel, restart, hard gates and evidence trees.
 - [x] Real local versus simulated versus externally unverified evidence is explicitly classified;
   external production Provider interoperability is a limitation, not claimed evidence.
-- [ ] Every explicit Phase 15 command and the final clean `pnpm verify` pass.
+- [x] Every explicit Phase 15 command and the final clean `pnpm verify` pass on `b3b6e67`.
 - [ ] `15-final-acceptance.{md,json}` records no required deferred item and is committed and pushed.
 - [ ] Draft PR #5 is updated and marked Ready for Review; merge remains a separate protected action.
