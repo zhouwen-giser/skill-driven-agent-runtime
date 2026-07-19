@@ -139,6 +139,70 @@ export class FrozenV1McpClient {
     return parsed.data.result;
   }
 
+  async listenToTaskNotifications(
+    input: Omit<FrozenMcpRequestInput, 'method' | 'params'> &
+      Readonly<{ taskIds: readonly string[] }>,
+  ): Promise<Readonly<{ requestId: number; messages: AsyncIterable<unknown> }>> {
+    const uniqueTaskIds = [...new Set(input.taskIds)].sort();
+    if (uniqueTaskIds.length > 256 || uniqueTaskIds.some((value) => value.trim() === ''))
+      throw new FrozenMcpProtocolError(
+        'FROZEN_MCP_PARAMS_INVALID',
+        'Task Notification subscription requires at most 256 non-empty unique Task IDs.',
+        { rpcCode: -32602 },
+      );
+    const id = ++this.#requestSequence;
+    const body = {
+      jsonrpc: '2.0',
+      id,
+      method: 'subscriptions/listen',
+      params: {
+        notifications: { taskIds: uniqueTaskIds },
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': FROZEN_MCP_PROTOCOL_VERSION,
+          'io.modelcontextprotocol/clientInfo': { name: 'sdar', version: '1.2.1' },
+          'io.modelcontextprotocol/clientCapabilities': {
+            extensions: { [FROZEN_MCP_TASKS_EXTENSION]: {} },
+          },
+        },
+      },
+    };
+    let response: Response;
+    try {
+      response = await this.#fetch(input.endpoint, {
+        method: 'POST',
+        headers: {
+          ...input.headers,
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+          'MCP-Protocol-Version': FROZEN_MCP_PROTOCOL_VERSION,
+          'Mcp-Method': 'subscriptions/listen',
+        },
+        body: JSON.stringify(body),
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+      });
+    } catch (error: unknown) {
+      throw new FrozenMcpProtocolError(
+        'FROZEN_MCP_TRANSPORT_FAILED',
+        'Frozen Task Notification stream failed to open.',
+        { cause: error },
+      );
+    }
+    if (
+      !response.ok ||
+      !response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')
+    )
+      throw new FrozenMcpProtocolError(
+        'FROZEN_MCP_RESPONSE_INVALID',
+        'Frozen Task Notification response must be a successful SSE stream.',
+      );
+    if (response.body === null)
+      throw new FrozenMcpProtocolError(
+        'FROZEN_MCP_RESPONSE_INVALID',
+        'Frozen Task Notification SSE response has no body.',
+      );
+    return Object.freeze({ requestId: id, messages: parseSseMessages(response.body) });
+  }
+
   async discover(
     input: Omit<FrozenMcpRequestInput, 'method' | 'params'>,
   ): Promise<z.output<typeof DiscoverySchema>> {
@@ -245,6 +309,27 @@ function parseFirstSseMessage(value: string): unknown {
     }
   }
   return invalidResponse('Frozen MCP SSE response contains no valid JSON-RPC message.');
+}
+
+async function* parseSseMessages(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let pending = '';
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      pending += decoder.decode(chunk.value, { stream: true });
+      const events = pending.split(/\r?\n\r?\n/u);
+      pending = events.pop() ?? '';
+      for (const event of events) yield parseFirstSseMessage(`${event}\n\n`);
+    }
+    pending += decoder.decode();
+    if (pending.trim() !== '') yield parseFirstSseMessage(`${pending}\n\n`);
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
 }
 
 function invalidResponse(message: string): never {

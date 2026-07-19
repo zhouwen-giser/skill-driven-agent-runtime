@@ -189,6 +189,15 @@ export class FrozenTaskLifecycleClient {
   }
 
   async getTask(taskId: string): Promise<FrozenDetailedRemoteTask> {
+    return (await this.getTaskAdmission(taskId)).task;
+  }
+
+  async getTaskAdmission(taskId: string): Promise<
+    Readonly<{
+      task: FrozenDetailedRemoteTask;
+      accepted: boolean;
+    }>
+  > {
     const raw = await this.#client.request({
       ...this.#requestBase,
       method: 'tasks/get',
@@ -197,9 +206,23 @@ export class FrozenTaskLifecycleClient {
     const task = parseDetailedTask(raw, this.#now());
     if (task.taskId !== taskId)
       throw lifecycleError('FROZEN_TASK_ID_MISMATCH', 'tasks/get returned a different Task ID.');
-    this.#admitObservation(task);
+    const accepted = this.#admitObservation(task);
     this.#reconcileInputKeys(task);
-    return task;
+    return { task, accepted };
+  }
+
+  admitNotification(
+    value: unknown,
+  ): Readonly<{ task: FrozenDetailedRemoteTask; accepted: boolean }> {
+    if (typeof value !== 'object' || value === null || Array.isArray(value))
+      throw lifecycleError(
+        'FROZEN_DETAILED_TASK_INVALID',
+        'Task Notification params must be a DetailedTask object.',
+      );
+    const task = parseDetailedTask({ ...value, resultType: 'complete' }, this.#now());
+    const accepted = this.#admitObservation(task);
+    this.#reconcileInputKeys(task);
+    return { task, accepted };
   }
 
   async updateTask(
@@ -282,7 +305,7 @@ export class FrozenTaskLifecycleClient {
     });
   }
 
-  #admitObservation(task: FrozenRemoteTaskBase): void {
+  #admitObservation(task: FrozenRemoteTaskBase): boolean {
     const fingerprint = canonicalJson({ ...task, resultType: undefined });
     const previous = this.#observations.get(task.taskId);
     if (previous !== undefined) {
@@ -302,13 +325,14 @@ export class FrozenTaskLifecycleClient {
           'FROZEN_TASK_TERMINAL_ROLLBACK',
           'A terminal Task returned to a non-terminal state.',
         );
-      if (order === 0) return;
+      if (order === 0) return false;
     }
     this.#observations.set(task.taskId, {
       runtimeRevision: task.observation.runtimeRevision,
       fingerprint,
       terminal: isTerminal(task.status),
     });
+    return true;
   }
 
   #reconcileInputKeys(task: FrozenDetailedRemoteTask): void {
