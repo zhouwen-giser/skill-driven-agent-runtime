@@ -13,7 +13,10 @@ import {
 } from '../../domain/src/index.js';
 
 import type { FrozenMcpRequestInput, FrozenV1McpClient } from './frozen-v1-mcp-client.js';
-import { validateFrozenToolOutput } from './frozen-v1-evidence.js';
+import {
+  validateFrozenToolOutput,
+  type FrozenOutputSchemaValidator,
+} from './frozen-v1-evidence.js';
 
 const MAX_CONTENT_BLOCKS = 128;
 const MAX_INPUT_KEYS = 128;
@@ -152,6 +155,11 @@ export interface FrozenTaskLifecycleClientOptions {
   readonly restoredState?: FrozenTaskLifecycleState;
 }
 
+export interface FrozenToolOutputValidation {
+  readonly outputSchema: unknown;
+  readonly validator: FrozenOutputSchemaValidator;
+}
+
 export class FrozenTaskLifecycleClient {
   readonly #client: FrozenV1McpClient;
   readonly #requestBase: Pick<FrozenMcpRequestInput, 'endpoint' | 'headers'>;
@@ -174,7 +182,11 @@ export class FrozenTaskLifecycleClient {
   }
 
   async callTool(
-    input: Readonly<{ name: string; arguments: unknown }>,
+    input: Readonly<{
+      name: string;
+      arguments: unknown;
+      outputValidation?: FrozenToolOutputValidation;
+    }>,
   ): Promise<FrozenTaskInvocationOutcome> {
     const raw = await this.#client.request({
       ...this.#requestBase,
@@ -182,18 +194,28 @@ export class FrozenTaskLifecycleClient {
       params: { name: input.name, arguments: input.arguments },
     });
     const immediate = toolResultSchema.safeParse(raw);
-    if (immediate.success) return { kind: 'immediate', result: mapToolResult(immediate.data) };
+    if (immediate.success)
+      return {
+        kind: 'immediate',
+        result: mapToolResult(immediate.data, input.outputValidation),
+      };
     const created = parseCreatedTask(raw, this.#now());
     this.#admitObservation(created);
-    const reconciled = await this.getTask(created.taskId);
+    const reconciled = await this.getTask(created.taskId, input.outputValidation);
     return { kind: 'remote_task', created, reconciled };
   }
 
-  async getTask(taskId: string): Promise<FrozenDetailedRemoteTask> {
-    return (await this.getTaskAdmission(taskId)).task;
+  async getTask(
+    taskId: string,
+    outputValidation?: FrozenToolOutputValidation,
+  ): Promise<FrozenDetailedRemoteTask> {
+    return (await this.getTaskAdmission(taskId, outputValidation)).task;
   }
 
-  async getTaskAdmission(taskId: string): Promise<
+  async getTaskAdmission(
+    taskId: string,
+    outputValidation?: FrozenToolOutputValidation,
+  ): Promise<
     Readonly<{
       task: FrozenDetailedRemoteTask;
       accepted: boolean;
@@ -204,7 +226,7 @@ export class FrozenTaskLifecycleClient {
       method: 'tasks/get',
       params: { taskId },
     });
-    const task = parseDetailedTask(raw, this.#now());
+    const task = parseDetailedTask(raw, this.#now(), outputValidation);
     if (task.taskId !== taskId)
       throw lifecycleError('FROZEN_TASK_ID_MISMATCH', 'tasks/get returned a different Task ID.');
     const accepted = this.#admitObservation(task);
@@ -214,13 +236,18 @@ export class FrozenTaskLifecycleClient {
 
   admitNotification(
     value: unknown,
+    outputValidation?: FrozenToolOutputValidation,
   ): Readonly<{ task: FrozenDetailedRemoteTask; accepted: boolean }> {
     if (typeof value !== 'object' || value === null || Array.isArray(value))
       throw lifecycleError(
         'FROZEN_DETAILED_TASK_INVALID',
         'Task Notification params must be a DetailedTask object.',
       );
-    const task = parseDetailedTask({ ...value, resultType: 'complete' }, this.#now());
+    const task = parseDetailedTask(
+      { ...value, resultType: 'complete' },
+      this.#now(),
+      outputValidation,
+    );
     const accepted = this.#admitObservation(task);
     this.#reconcileInputKeys(task);
     return { task, accepted };
@@ -380,7 +407,11 @@ export function parseCreatedTask(value: unknown, observedAt: string): FrozenRemo
   return { resultType: 'task', ...mapTaskBase(parsed.data, observedAt) };
 }
 
-export function parseDetailedTask(value: unknown, observedAt: string): FrozenDetailedRemoteTask {
+export function parseDetailedTask(
+  value: unknown,
+  observedAt: string,
+  outputValidation?: FrozenToolOutputValidation,
+): FrozenDetailedRemoteTask {
   const parsed = detailedTaskSchema.safeParse(value);
   if (!parsed.success)
     throw lifecycleError(
@@ -403,7 +434,7 @@ export function parseDetailedTask(value: unknown, observedAt: string): FrozenDet
         ...base,
         resultType: 'complete',
         status: 'completed',
-        result: mapToolResult(parsed.data.result),
+        result: mapToolResult(parsed.data.result, outputValidation),
       };
     case 'failed':
       return { ...base, resultType: 'complete', status: 'failed', error: parsed.data.error };
@@ -457,7 +488,10 @@ function mapTaskBase(
   });
 }
 
-function mapToolResult(value: z.output<typeof toolResultSchema>): InternalToolResult {
+function mapToolResult(
+  value: z.output<typeof toolResultSchema>,
+  outputValidation?: FrozenToolOutputValidation,
+): InternalToolResult {
   assertBoundedJson(value);
   return validateFrozenToolOutput(
     Object.freeze({
@@ -468,6 +502,7 @@ function mapToolResult(value: z.output<typeof toolResultSchema>): InternalToolRe
       isError: value.isError,
       ...(value._meta === undefined ? {} : { metadata: Object.freeze({ ...value._meta }) }),
     }),
+    outputValidation,
   );
 }
 

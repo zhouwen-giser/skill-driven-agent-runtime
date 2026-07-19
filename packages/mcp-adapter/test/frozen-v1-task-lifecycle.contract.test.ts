@@ -12,6 +12,26 @@ const endpoint = 'https://provider.example.test/mcp';
 const now = '2026-07-18T03:10:00.000Z';
 
 describe('Frozen V1 Task lifecycle', () => {
+  it('enforces the discovered Tool output schema on the actual lifecycle result path', async () => {
+    const lifecycle = createLifecycle(() => ({
+      resultType: 'complete',
+      content: [],
+      structuredContent: { position: 'invalid' },
+      isError: false,
+    }));
+
+    await expect(
+      lifecycle.callTool({
+        name: 'embodied.move',
+        arguments: {},
+        outputValidation: {
+          outputSchema: { type: 'object' },
+          validator: { validate: () => ({ valid: false, errors: ['/position must be object'] }) },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'FROZEN_OUTPUT_SCHEMA_MISMATCH' });
+  });
+
   it('parses a synchronous business-error result without creating a Task', async () => {
     const methods: string[] = [];
     const lifecycle = createLifecycle((body) => {
