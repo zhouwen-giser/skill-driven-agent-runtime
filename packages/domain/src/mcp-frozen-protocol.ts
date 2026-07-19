@@ -76,6 +76,57 @@ export interface FrozenTaskAvailabilityCheckRequest {
   }>;
 }
 
+export interface FrozenTaskAvailabilityResult {
+  readonly requestId: string;
+  readonly operationName: string;
+  readonly availability: 'available' | 'restricted' | 'disabled' | 'unknown';
+  readonly riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  readonly reasonCode?: string | undefined;
+  readonly description?: string | undefined;
+  readonly validUntil?: string | undefined;
+  readonly earliestStartTime?: string | undefined;
+  readonly nextAvailableWindows: readonly Readonly<{ startTime: string; endTime: string }>[];
+  readonly estimatedDelayMs?: number | undefined;
+  readonly reservationMode: 'none' | 'best_effort' | 'guaranteed';
+  readonly reservationRef?: string | undefined;
+  readonly possibleEffects: readonly (
+    | 'task_preemption'
+    | 'task_pause'
+    | 'start_rejection'
+    | 'start_window_missed'
+    | 'deadline_reached'
+    | 'partial_completion'
+  )[];
+}
+
+export type FrozenTaskReadinessAttribute =
+  | `task_behavior:${McpTaskBehavior}`
+  | 'availability:dynamic'
+  | 'scheduling'
+  | 'max_elapsed'
+  | 'observations'
+  | 'input_required'
+  | 'idempotency:client_request_key'
+  | 'idempotency:server_managed'
+  | 'task_notifications';
+
+export function frozenTaskReadinessAttributes(
+  profile: McpTaskExecutionProfile,
+  taskNotifications: boolean,
+): readonly FrozenTaskReadinessAttribute[] {
+  const attributes: FrozenTaskReadinessAttribute[] = [`task_behavior:${profile.taskBehavior}`];
+  if (profile.availability === 'dynamic') attributes.push('availability:dynamic');
+  if (profile.supportsScheduling) attributes.push('scheduling');
+  if (profile.supportsMaxElapsed) attributes.push('max_elapsed');
+  if (profile.supportsObservations) attributes.push('observations');
+  if (profile.supportsInputRequired) attributes.push('input_required');
+  if (profile.idempotency === 'client_request_key')
+    attributes.push('idempotency:client_request_key');
+  if (profile.idempotency === 'server_managed') attributes.push('idempotency:server_managed');
+  if (taskNotifications) attributes.push('task_notifications');
+  return Object.freeze(attributes);
+}
+
 export interface FrozenTaskObservationMeta {
   readonly profileVersion: '1.0';
   readonly runtimeRevision: string;
