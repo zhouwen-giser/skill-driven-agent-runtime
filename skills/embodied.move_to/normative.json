@@ -48,7 +48,7 @@
         "selection": "dynamic",
         "preferredProviderIds": [],
         "forbiddenProviderIds": [],
-        "requiredAttributes": ["observations", "cancellation:task_cancel"]
+        "requiredAttributes": ["observations", "task_notifications"]
       }
     }
   ]

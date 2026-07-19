@@ -90,7 +90,7 @@
   "files": {
     "normative": {
       "path": "normative.json",
-      "sha256": "4cee1280e5711ab115af3446b8ccaef7e4c735bbbdca3b2443ff449df59277db"
+      "sha256": "c16175d80badab07981e8dd55658018205bebd75c6444af2086e637a6327721d"
     },
     "adaptive": {
       "path": "adaptive.json",

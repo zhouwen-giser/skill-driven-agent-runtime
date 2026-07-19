@@ -64,7 +64,7 @@
   "files": {
     "normative": {
       "path": "normative.json",
-      "sha256": "969d921df54781cb63944e79d5c3a6064cc0b29897cef66da11c2d16cb06f424"
+      "sha256": "22e90ef79cb04c3469257a608fab9bd37fc588507ec0e4a78de6d682fcb1696b"
     },
     "adaptive": {
       "path": "adaptive.json",

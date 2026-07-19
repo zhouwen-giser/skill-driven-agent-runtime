@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "phase": 6,
+  "status": "passed_with_host_limitation",
+  "availability": {
+    "method": "io.sdar/taskExecution/checkAvailability",
+    "profileVersion": "1.0",
+    "legacyTranslation": false
+  },
+  "skills": {
+    "requiredAttributes": ["observations", "task_notifications"],
+    "moveToPackageChecksum": "84d61ce94077b982e0aabef8799e75352dbbf12dacd107e4350193ca726732c1",
+    "areaPatrolPackageChecksum": "755f46b21cf0a8f1c2e92dd373d79cccb624e9e20d39e84b39f4cc13a44b65ed"
+  },
+  "verification": {
+    "availabilityContract": { "status": "passed", "tests": 6 },
+    "formalSkillPackages": { "status": "passed", "tests": 5 },
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "contract": { "status": "host_limited", "passed": 140, "total": 141 },
+    "architecture": { "status": "passed", "typescriptSources": 267 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  }
+}

@@ -35,11 +35,11 @@ describe('formal SDAR v1.2 Skill Packages', () => {
     const areaPatrol = await importer.import(packageRoots.areaPatrol);
 
     expect(moveTo).toMatchObject({
-      packageChecksum: 'f63b97f8a594cce1c7e4c464e5bc66b668ce50fd877de4af90a22dc04e6f89d6',
+      packageChecksum: '84d61ce94077b982e0aabef8799e75352dbbf12dacd107e4350193ca726732c1',
       skillVersion: { skillId: 'embodied.move_to', version: 1, status: 'enabled' },
     });
     expect(areaPatrol).toMatchObject({
-      packageChecksum: '77b318b4be9a340f30acdbc1d1af9f2ea10c7afbbe8e182a1640444010eb3ebb',
+      packageChecksum: '755f46b21cf0a8f1c2e92dd373d79cccb624e9e20d39e84b39f4cc13a44b65ed',
       skillVersion: { skillId: 'embodied.area_patrol', version: 1, status: 'enabled' },
     });
     expect(Object.isFrozen(moveTo.skillVersion.usageSpecification)).toBe(true);
@@ -65,6 +65,10 @@ describe('formal SDAR v1.2 Skill Packages', () => {
       rejectSuccessWithoutRequiredEvidence: true,
       requirements: [{ evidenceType: 'position.observation', required: true, hardGate: true }],
     });
+    expect(moveUsage.taskBindings[0]?.providerPolicy.requiredAttributes).toEqual([
+      'observations',
+      'task_notifications',
+    ]);
 
     expect(patrol.skillMarkdown).toContain('a degraded edge');
     expect(patrolUsage.contextRequirements.map((item) => item.requirementId)).toEqual([
@@ -82,6 +86,10 @@ describe('formal SDAR v1.2 Skill Packages', () => {
       'patrol.coverage',
       'patrol.trajectory',
       'patrol.anomalies',
+    ]);
+    expect(patrolUsage.taskBindings[0]?.providerPolicy.requiredAttributes).toEqual([
+      'observations',
+      'task_notifications',
     ]);
   });
 

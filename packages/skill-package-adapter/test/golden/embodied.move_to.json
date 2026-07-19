@@ -1,7 +1,7 @@
 {
   "skillId": "embodied.move_to",
   "version": 1,
-  "packageChecksum": "f63b97f8a594cce1c7e4c464e5bc66b668ce50fd877de4af90a22dc04e6f89d6",
+  "packageChecksum": "84d61ce94077b982e0aabef8799e75352dbbf12dacd107e4350193ca726732c1",
   "capabilities": ["embodied.move", "embodied.navigation"],
   "visibility": { "userSelectable": true, "composable": true, "internalOnly": false },
   "supportedModes": ["guidance", "template", "procedure"],
