@@ -13,6 +13,7 @@ import {
 } from '../../domain/src/index.js';
 
 import type { FrozenMcpRequestInput, FrozenV1McpClient } from './frozen-v1-mcp-client.js';
+import { validateFrozenToolOutput } from './frozen-v1-evidence.js';
 
 const MAX_CONTENT_BLOCKS = 128;
 const MAX_INPUT_KEYS = 128;
@@ -458,14 +459,16 @@ function mapTaskBase(
 
 function mapToolResult(value: z.output<typeof toolResultSchema>): InternalToolResult {
   assertBoundedJson(value);
-  return Object.freeze({
-    content: Object.freeze([...value.content]),
-    ...(value.structuredContent === undefined
-      ? {}
-      : { structuredContent: value.structuredContent }),
-    isError: value.isError,
-    ...(value._meta === undefined ? {} : { metadata: Object.freeze({ ...value._meta }) }),
-  });
+  return validateFrozenToolOutput(
+    Object.freeze({
+      content: Object.freeze([...value.content]),
+      ...(value.structuredContent === undefined
+        ? {}
+        : { structuredContent: value.structuredContent }),
+      isError: value.isError,
+      ...(value._meta === undefined ? {} : { metadata: Object.freeze({ ...value._meta }) }),
+    }),
+  );
 }
 
 function parseAck(value: unknown): void {

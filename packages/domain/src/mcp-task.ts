@@ -1,3 +1,5 @@
+import type { ProviderEvidenceItem } from './mcp-frozen-protocol.js';
+
 export type McpProtocolEra = 'legacy' | 'modern';
 
 export interface McpProtocolCapabilities {
@@ -12,6 +14,8 @@ export interface InternalToolResult {
   readonly structuredContent?: unknown;
   readonly isError: boolean;
   readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly evidence?: readonly ProviderEvidenceItem[];
+  readonly validatedEvidence?: Readonly<Record<string, boolean>>;
 }
 
 export type McpTaskStatus = 'working' | 'input_required' | 'completed' | 'failed' | 'cancelled';
