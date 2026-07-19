@@ -13,6 +13,7 @@ const databases = [
   'sdar_v11_verify_upgrade',
   'sdar_v11_verify_guard',
   'sdar_v11_verify_gap',
+  'sdar_v11_verify_frozen_rollback',
 ];
 
 try {
@@ -64,12 +65,15 @@ try {
     await assertMigration(upgrade, '0104_workflow_external_wait_event', true, 'upgrade-released');
     await assertMigration(upgrade, '0105_skill_usage_specification', true, 'upgrade-released');
     await assertMigration(upgrade, '0106_skill_execution_record', true, 'upgrade-released');
+    await assertMigration(upgrade, '0107_frozen_mcp_tasks_protocol', true, 'upgrade-released');
+    await verifyFrozenSchema(upgrade, 'upgrade-released');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'upgrade-from-0064');
     for (const name of [
+      '0107_frozen_mcp_tasks_protocol.down.sql',
       '0106_skill_execution_record.down.sql',
       '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
@@ -92,11 +96,14 @@ try {
     await assertMigration(upgrade, '0104_workflow_external_wait_event', false, 'rollback');
     await assertMigration(upgrade, '0105_skill_usage_specification', false, 'rollback');
     await assertMigration(upgrade, '0106_skill_execution_record', false, 'rollback');
+    await assertMigration(upgrade, '0107_frozen_mcp_tasks_protocol', false, 'rollback');
     await applyRuntimeMigrations(upgrade, {
       profile: 'v1.1-isolated',
       isolationAcknowledged: true,
     });
     await verifyV11Schema(upgrade, 'reapply-after-rollback');
+    await applyRuntimeMigrations(upgrade);
+    await verifyFrozenSchema(upgrade, 'released-reapply-after-rollback');
   } finally {
     await upgrade.end();
   }
@@ -106,6 +113,7 @@ try {
     await guard.query(bootstrap);
     await applyRuntimeMigrations(guard);
     await verifyV11Schema(guard, 'released-profile');
+    await verifyFrozenSchema(guard, 'released-profile');
     await expectRejection(
       () =>
         applyRuntimeMigrations(guard, {
@@ -124,6 +132,7 @@ try {
     await gap.query(bootstrap);
     await applyRuntimeMigrations(gap);
     for (const name of [
+      '0107_frozen_mcp_tasks_protocol.down.sql',
       '0106_skill_execution_record.down.sql',
       '0105_skill_usage_specification.down.sql',
       '0104_workflow_external_wait_event.down.sql',
@@ -149,12 +158,61 @@ try {
     await assertMigration(gap, '0104_workflow_external_wait_event', false, 'ledger-gap');
     await assertMigration(gap, '0105_skill_usage_specification', false, 'ledger-gap');
     await assertMigration(gap, '0106_skill_execution_record', false, 'ledger-gap');
+    await assertMigration(gap, '0107_frozen_mcp_tasks_protocol', false, 'ledger-gap');
   } finally {
     await gap.end();
   }
 
+  const frozenRollback = databasePool(databases[4]);
+  try {
+    await frozenRollback.query(bootstrap);
+    await applyRuntimeMigrations(frozenRollback);
+    await frozenRollback.query(
+      `INSERT INTO mcp_server
+         (server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
+          created_at,updated_at,protocol_mode)
+       VALUES ('frozen-rollback','Frozen rollback','https://provider.invalid/mcp',
+          'streamable_http','enabled',1,'encrypted','2026-07-18T00:00:00Z',
+          '2026-07-18T00:00:00Z','frozen_v1')`,
+    );
+    const rollback = await readFile(
+      resolve(
+        root,
+        'infra',
+        'postgres',
+        'migrations',
+        '0107_frozen_mcp_tasks_protocol.down.sql',
+      ),
+      'utf8',
+    );
+    await expectRejection(
+      () => frozenRollback.query(rollback),
+      'FROZEN_MCP_TASKS_UNSAFE_ROLLBACK',
+    );
+    await assertMigration(
+      frozenRollback,
+      '0107_frozen_mcp_tasks_protocol',
+      true,
+      'unsafe-rollback-rejected',
+    );
+    await frozenRollback.query(
+      "UPDATE mcp_server SET protocol_mode='legacy_v11' WHERE server_id='frozen-rollback'",
+    );
+    await frozenRollback.query(rollback);
+    await assertMigration(
+      frozenRollback,
+      '0107_frozen_mcp_tasks_protocol',
+      false,
+      'safe-rollback',
+    );
+    await applyRuntimeMigrations(frozenRollback);
+    await verifyFrozenSchema(frozenRollback, 'safe-rollback-reapply');
+  } finally {
+    await frozenRollback.end();
+  }
+
   process.stdout.write(
-    'Post-main migration path verified through 0106: released empty/0064 upgrade, rollback/reapply, isolated-profile guards, and ledger-gap fail-closed.\n',
+    'Post-main migration path verified through 0107: released/isolated upgrade, rollback/reapply, unsafe Frozen rollback rejection, isolation guards, and ledger-gap fail-closed.\n',
   );
 } finally {
   const admin = databasePool('sdar');
@@ -294,6 +352,33 @@ async function verifyV11Schema(pool, label) {
   if (executionTables.rows[0]?.count !== 3) {
     throw new Error(`V12_SKILL_EXECUTION_TABLES_MISSING:${label}`);
   }
+}
+
+async function verifyFrozenSchema(pool, label) {
+  await assertMigration(pool, '0107_frozen_mcp_tasks_protocol', true, label);
+  const snapshotTable = await pool.query(
+    "SELECT to_regclass('public.mcp_protocol_snapshot') IS NOT NULL AS present",
+  );
+  if (snapshotTable.rows[0]?.present !== true)
+    throw new Error(`FROZEN_MCP_PROTOCOL_SNAPSHOT_MISSING:${label}`);
+  const columns = await pool.query(
+    `SELECT count(*)::integer AS count FROM information_schema.columns
+     WHERE (table_name='mcp_server' AND column_name IN ('protocol_mode','current_protocol_snapshot_id'))
+        OR (table_name='mcp_tool' AND column_name='output_schema_json')
+        OR (table_name IN ('workflow_plan','workflow_plan_attempt') AND column_name='mcp_protocol_contract_json')
+        OR (table_name='remote_task_binding' AND column_name IN
+          ('protocol_contract_json','task_behavior','runtime_revision','provider_revision','task_ttl_ms','task_expires_at'))
+        OR (table_name='remote_task_observation' AND column_name IN
+          ('observation_source','runtime_revision','provider_revision','subscription_id'))
+        OR (table_name='remote_task_control_event' AND column_name='runtime_revision')`,
+  );
+  if (columns.rows[0]?.count !== 16)
+    throw new Error(`FROZEN_MCP_PROTOCOL_COLUMNS_MISSING:${label}`);
+  const indexes = await pool.query(
+    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('remote_task_observation_frozen_revision_idx','remote_task_control_frozen_revision_idx') AND relkind='i'",
+  );
+  if (indexes.rows[0]?.count !== 2)
+    throw new Error(`FROZEN_MCP_REVISION_UNIQUENESS_MISSING:${label}`);
 }
 
 async function expectRejection(operation, code) {

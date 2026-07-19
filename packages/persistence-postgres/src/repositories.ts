@@ -72,6 +72,9 @@ import type {
   McpToolEnhancement,
   McpTaskOperationSemantics,
   McpTaskOperationCandidate,
+  McpProtocolContractSnapshot,
+  McpProtocolDiscoverySnapshot,
+  McpTaskExecutionProfile,
   ModelInvocationRecord,
   ModelProviderConfiguration,
   StageModelRoute,
@@ -310,6 +313,34 @@ const McpTaskOperationSemanticsSchema: z.ZodType<McpTaskOperationSemantics> = z
     revision: z.literal('1.0'),
   })
   .strict();
+const McpTaskExecutionProfileSchema: z.ZodType<McpTaskExecutionProfile> = z
+  .object({
+    profileVersion: z.literal('1.0'),
+    taskBehavior: z.enum(['synchronous_only', 'server_directed', 'task_required']),
+    availability: z.enum(['not_supported', 'dynamic']),
+    supportsScheduling: z.boolean(),
+    supportsMaxElapsed: z.boolean(),
+    supportsObservations: z.boolean(),
+    supportsInputRequired: z.boolean(),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+  })
+  .strict();
+const McpProtocolContractSchema: z.ZodType<McpProtocolContractSnapshot> = z
+  .object({
+    mode: z.enum(['legacy_v11', 'frozen_v1']),
+    protocolVersion: z.string().min(1),
+    baselineSha256: z.string().min(1),
+    tasksSchemaSha256: z.string().optional(),
+    taskExecutionProfileVersion: z.literal('1.0').optional(),
+    evidenceProfileVersion: z.literal('1.0').optional(),
+    serverDiscoverySnapshotId: z.string().optional(),
+  })
+  .strict();
+const LEGACY_MCP_PROTOCOL_CONTRACT: McpProtocolContractSnapshot = Object.freeze({
+  mode: 'legacy_v11',
+  protocolVersion: 'legacy',
+  baselineSha256: 'legacy-v11-historical',
+});
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
@@ -762,6 +793,8 @@ interface McpServerRow extends QueryResultRow {
   transport: McpServer['transport'];
   status: McpServer['status'];
   tool_revision: number;
+  protocol_mode: NonNullable<McpServer['protocolMode']>;
+  current_protocol_snapshot_id: string | null;
   encrypted_credential: string;
   created_at: Date | string;
   updated_at: Date | string;
@@ -773,12 +806,29 @@ interface McpToolRow extends QueryResultRow {
   title: string | null;
   description: string | null;
   input_schema_json: unknown;
+  output_schema_json: unknown;
+  protocol_mode: NonNullable<McpServer['protocolMode']>;
   enhancement_json: Record<string, unknown> | null;
   declared_execution_semantics_json: unknown;
   admin_execution_semantics_override_json: unknown;
   execution_semantics_json: unknown;
   task_execution_json?: unknown;
   discovered_at: Date | string;
+}
+
+interface McpProtocolSnapshotRow extends QueryResultRow {
+  snapshot_id: string;
+  server_id: string;
+  protocol_mode: McpProtocolDiscoverySnapshot['protocolMode'];
+  protocol_version: string;
+  baseline_sha256: string;
+  supported_versions_json: unknown;
+  capabilities_json: unknown;
+  server_info_json: unknown;
+  task_notifications: boolean;
+  discovered_at: Date | string;
+  valid_until: Date | string | null;
+  tool_revision: number;
 }
 
 interface McpWarningRow extends QueryResultRow {
@@ -4395,6 +4445,7 @@ interface WorkflowPlanRow extends QueryResultRow {
   composition_context_json: unknown;
   capability_gap_skill_ids_json: unknown;
   tool_execution_semantics_json: unknown;
+  mcp_protocol_contract_json: unknown;
   definition_json: unknown;
   source_confirmed_plan_id: string | null;
   source_plan_id: string | null;
@@ -4593,6 +4644,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       goalId: row.goal_id,
       goalVersion: row.goal_version,
       goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+      mcpProtocolContract: McpProtocolContractSchema.parse(row.mcp_protocol_contract_json),
       ...mapWorkflowPlanCompositionAuthority(row),
       ...(row.definition_json === null
         ? {}
@@ -4643,8 +4695,9 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     await this.#pool.query(
       `INSERT INTO workflow_plan_attempt
          (plan_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
-          tool_execution_semantics_json,attempt,candidate_json,validation_errors_json,valid,created_at)
-       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7::jsonb,$8::jsonb,$9,$10)`,
+          tool_execution_semantics_json,mcp_protocol_contract_json,attempt,candidate_json,
+          validation_errors_json,valid,created_at)
+       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10,$11)`,
       [
         attempt.planId,
         JSON.stringify(attempt.goalContract),
@@ -4653,6 +4706,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           : JSON.stringify(attempt.compositionContext),
         JSON.stringify(attempt.capabilityGapSkillIds ?? []),
         JSON.stringify(attempt.toolExecutionSemantics ?? []),
+        JSON.stringify(attempt.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -4666,8 +4720,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       `INSERT INTO workflow_plan
          (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
           capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-          revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
+          mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12,$13,$14,$15)`,
       [
         plan.planId,
         plan.goalId,
@@ -4679,6 +4733,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
+        JSON.stringify(plan.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
         plan.revisionKind ?? null,
         plan.confirmationStatus,
         plan.attemptCount,
@@ -4700,8 +4755,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
         `INSERT INTO workflow_plan
            (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
             capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-            revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14)`,
+            mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
+         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12,$13,$14,$15)`,
         [
           plan.planId,
           plan.goalId,
@@ -4713,6 +4768,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
+          JSON.stringify(plan.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
           plan.revisionKind ?? null,
           plan.confirmationStatus,
           plan.attemptCount,
@@ -5388,6 +5444,7 @@ function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
     goalId: row.goal_id,
     goalVersion: row.goal_version,
     goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
+    mcpProtocolContract: McpProtocolContractSchema.parse(row.mcp_protocol_contract_json),
     ...mapWorkflowPlanCompositionAuthority(row),
     ...(row.definition_json === null
       ? {}
@@ -5706,7 +5763,8 @@ export class PostgresMcpRegistryRepository
   async findServer(serverId: string): Promise<McpServerRecord | undefined> {
     const result = await this.#pool.query<McpServerRow>(
       `SELECT server_id, name, endpoint, transport, status, tool_revision,
-              encrypted_credential, created_at, updated_at
+              encrypted_credential, protocol_mode, current_protocol_snapshot_id,
+              created_at, updated_at
        FROM mcp_server WHERE server_id = $1`,
       [serverId],
     );
@@ -5719,7 +5777,8 @@ export class PostgresMcpRegistryRepository
   async listServers(): Promise<readonly McpServer[]> {
     const result = await this.#pool.query<McpServerRow>(
       `SELECT server_id, name, endpoint, transport, status, tool_revision,
-              encrypted_credential, created_at, updated_at
+              encrypted_credential, protocol_mode, current_protocol_snapshot_id,
+              created_at, updated_at
        FROM mcp_server ORDER BY server_id`,
     );
     return result.rows.map(mapMcpServerRow);
@@ -5727,14 +5786,69 @@ export class PostgresMcpRegistryRepository
 
   async listTools(serverId: string): Promise<readonly McpTool[]> {
     const result = await this.#pool.query<McpToolRow>(
-      `SELECT server_id, tool_name, title, description, input_schema_json,
+      `SELECT t.server_id, tool_name, title, description, input_schema_json,output_schema_json,
+              s.protocol_mode,
               enhancement_json, declared_execution_semantics_json,
               admin_execution_semantics_override_json, execution_semantics_json,
               discovered_at${this.#v11TaskMetadata ? ', task_execution_json' : ''}
-       FROM mcp_tool WHERE server_id = $1 ORDER BY tool_name`,
+       FROM mcp_tool t JOIN mcp_server s ON s.server_id=t.server_id
+       WHERE t.server_id = $1 ORDER BY tool_name`,
       [serverId],
     );
     return result.rows.map(mapMcpToolRow);
+  }
+
+  async findCurrentProtocolSnapshot(
+    serverId: string,
+  ): Promise<McpProtocolDiscoverySnapshot | undefined> {
+    const result = await this.#pool.query<McpProtocolSnapshotRow>(
+      `SELECT snapshot.* FROM mcp_server server
+       JOIN mcp_protocol_snapshot snapshot
+         ON snapshot.snapshot_id=server.current_protocol_snapshot_id
+       WHERE server.server_id=$1`,
+      [serverId],
+    );
+    return result.rows[0] === undefined ? undefined : mapMcpProtocolSnapshotRow(result.rows[0]);
+  }
+
+  async saveProtocolSnapshot(snapshot: McpProtocolDiscoverySnapshot): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO mcp_protocol_snapshot
+           (snapshot_id,server_id,protocol_mode,protocol_version,baseline_sha256,
+            supported_versions_json,capabilities_json,server_info_json,task_notifications,
+            discovered_at,valid_until,tool_revision)
+         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12)`,
+        [
+          snapshot.snapshotId,
+          snapshot.serverId,
+          snapshot.protocolMode,
+          snapshot.protocolVersion,
+          snapshot.baselineSha256,
+          JSON.stringify(snapshot.supportedVersions),
+          JSON.stringify(snapshot.capabilities),
+          JSON.stringify(snapshot.serverInfo),
+          snapshot.taskNotifications,
+          snapshot.discoveredAt,
+          snapshot.validUntil ?? null,
+          snapshot.toolRevision,
+        ],
+      );
+      const updated = await client.query(
+        `UPDATE mcp_server SET protocol_mode=$2,current_protocol_snapshot_id=$3
+         WHERE server_id=$1 AND tool_revision=$4`,
+        [snapshot.serverId, snapshot.protocolMode, snapshot.snapshotId, snapshot.toolRevision],
+      );
+      if (updated.rowCount !== 1) throw new Error('MCP_PROTOCOL_SNAPSHOT_SERVER_REVISION_MISMATCH');
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async exists(reference: ToolReference): Promise<boolean> {
@@ -5807,11 +5921,13 @@ export class PostgresMcpRegistryRepository
       await client.query(
         `INSERT INTO mcp_server
            (server_id, name, endpoint, transport, status, tool_revision,
-            encrypted_credential, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            encrypted_credential, protocol_mode, current_protocol_snapshot_id,created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (server_id) DO UPDATE SET
            name = EXCLUDED.name, endpoint = EXCLUDED.endpoint,
            status = EXCLUDED.status, tool_revision = EXCLUDED.tool_revision,
+           protocol_mode = EXCLUDED.protocol_mode,
+           current_protocol_snapshot_id = EXCLUDED.current_protocol_snapshot_id,
            encrypted_credential = EXCLUDED.encrypted_credential,
            updated_at = EXCLUDED.updated_at`,
         [
@@ -5822,6 +5938,8 @@ export class PostgresMcpRegistryRepository
           record.server.status,
           record.server.toolRevision,
           record.encryptedCredential,
+          record.server.protocolMode ?? 'legacy_v11',
+          record.server.currentProtocolSnapshotId ?? null,
           record.server.createdAt,
           record.server.updatedAt,
         ],
@@ -5831,22 +5949,23 @@ export class PostgresMcpRegistryRepository
         await client.query(
           this.#v11TaskMetadata
             ? `INSERT INTO mcp_tool
-                 (server_id,tool_name,title,description,input_schema_json,
+                 (server_id,tool_name,title,description,input_schema_json,output_schema_json,
                   enhancement_json,declared_execution_semantics_json,
                   admin_execution_semantics_override_json,execution_semantics_json,
                   discovered_at,task_execution_json)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`
             : `INSERT INTO mcp_tool
-                 (server_id,tool_name,title,description,input_schema_json,
+                 (server_id,tool_name,title,description,input_schema_json,output_schema_json,
                   enhancement_json,declared_execution_semantics_json,
                   admin_execution_semantics_override_json,execution_semantics_json,discovered_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             tool.serverId,
             tool.toolName,
             tool.title ?? null,
             tool.description ?? null,
             JSON.stringify(tool.inputSchema),
+            tool.outputSchema === undefined ? null : JSON.stringify(tool.outputSchema),
             tool.enhancement === undefined ? null : JSON.stringify(tool.enhancement),
             tool.declaredExecutionSemantics === undefined
               ? null
@@ -5857,7 +5976,13 @@ export class PostgresMcpRegistryRepository
             JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
             ...(this.#v11TaskMetadata
-              ? [tool.taskExecution === undefined ? null : JSON.stringify(tool.taskExecution)]
+              ? [
+                  tool.protocolMode === 'frozen_v1'
+                    ? JSON.stringify(tool.taskExecutionProfile)
+                    : tool.taskExecution === undefined
+                      ? null
+                      : JSON.stringify(tool.taskExecution),
+                ]
               : []),
           ],
         );
@@ -6417,8 +6542,29 @@ function mapMcpServerRow(row: McpServerRow): McpServer {
     transport: row.transport,
     status: row.status,
     toolRevision: row.tool_revision,
+    protocolMode: row.protocol_mode,
+    ...(row.current_protocol_snapshot_id === null
+      ? {}
+      : { currentProtocolSnapshotId: row.current_protocol_snapshot_id }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function mapMcpProtocolSnapshotRow(row: McpProtocolSnapshotRow): McpProtocolDiscoverySnapshot {
+  return {
+    snapshotId: row.snapshot_id,
+    serverId: row.server_id,
+    protocolMode: row.protocol_mode,
+    protocolVersion: row.protocol_version,
+    baselineSha256: row.baseline_sha256,
+    supportedVersions: Object.freeze(StringArraySchema.parse(row.supported_versions_json)),
+    capabilities: Object.freeze(z.record(z.string(), z.unknown()).parse(row.capabilities_json)),
+    serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(row.server_info_json)),
+    taskNotifications: row.task_notifications,
+    discoveredAt: toIsoString(row.discovered_at),
+    ...(row.valid_until === null ? {} : { validUntil: toIsoString(row.valid_until) }),
+    toolRevision: row.tool_revision,
   };
 }
 
@@ -6486,6 +6632,8 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     ...(row.title === null ? {} : { title: row.title }),
     ...(row.description === null ? {} : { description: row.description }),
     inputSchema: row.input_schema_json,
+    ...(row.output_schema_json === null ? {} : { outputSchema: row.output_schema_json }),
+    protocolMode: row.protocol_mode,
     ...(row.enhancement_json === null
       ? {}
       : { enhancement: McpEnhancementSchema.parse(row.enhancement_json) }),
@@ -6508,7 +6656,9 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     ...(row.task_execution_json === undefined || row.task_execution_json === null
       ? {}
-      : { taskExecution: McpTaskOperationSemanticsSchema.parse(row.task_execution_json) }),
+      : row.protocol_mode === 'frozen_v1'
+        ? { taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json) }
+        : { taskExecution: McpTaskOperationSemanticsSchema.parse(row.task_execution_json) }),
     discoveredAt: toIsoString(row.discovered_at),
   });
 }

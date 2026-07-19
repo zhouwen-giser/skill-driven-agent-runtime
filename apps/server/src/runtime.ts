@@ -2902,6 +2902,11 @@ export async function applyRuntimeMigrations(
     '0106_skill_execution_record.up.sql',
   ] as const;
   const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
+  if (
+    applied.has('0107_frozen_mcp_tasks_protocol') &&
+    v11Versions.some((version) => !applied.has(version))
+  )
+    throw new Error('FROZEN_MCP_MIGRATION_LEDGER_GAP');
   for (const [index, version] of v11Versions.entries()) {
     if (
       !applied.has(version) &&

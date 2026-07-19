@@ -24,6 +24,21 @@ export interface McpProtocolContractSnapshot {
   readonly serverDiscoverySnapshotId?: string | undefined;
 }
 
+export interface McpProtocolDiscoverySnapshot {
+  readonly snapshotId: string;
+  readonly serverId: string;
+  readonly protocolMode: McpProviderProtocolMode;
+  readonly protocolVersion: string;
+  readonly baselineSha256: string;
+  readonly supportedVersions: readonly string[];
+  readonly capabilities: Readonly<Record<string, unknown>>;
+  readonly serverInfo: Readonly<Record<string, unknown>>;
+  readonly taskNotifications: boolean;
+  readonly discoveredAt: string;
+  readonly validUntil?: string | undefined;
+  readonly toolRevision: number;
+}
+
 export type FrozenTaskOutcomeKind = 'synchronous_success' | 'pre_admission_error' | 'task';
 
 export function validateFrozenTaskBehaviorOutcome(

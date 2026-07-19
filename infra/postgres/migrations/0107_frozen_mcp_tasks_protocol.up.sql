@@ -64,6 +64,8 @@ WHERE protocol_contract_json IS NULL;
 
 ALTER TABLE remote_task_binding
   ALTER COLUMN protocol_contract_json SET NOT NULL,
+  ALTER COLUMN protocol_contract_json SET DEFAULT
+    '{"mode":"legacy_v11","protocolVersion":"legacy","baselineSha256":"legacy-v11-historical"}'::jsonb,
   ADD CONSTRAINT remote_task_binding_protocol_contract_object_check
     CHECK (jsonb_typeof(protocol_contract_json)='object'),
   ADD CONSTRAINT remote_task_binding_frozen_authority_check CHECK (

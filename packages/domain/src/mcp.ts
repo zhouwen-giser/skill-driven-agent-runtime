@@ -14,6 +14,8 @@ export interface McpServer {
   readonly transport: McpTransportKind;
   readonly status: McpServerStatus;
   readonly toolRevision: number;
+  readonly protocolMode?: McpProviderProtocolMode;
+  readonly currentProtocolSnapshotId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
