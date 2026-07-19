@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js';
+import type { InternalToolResult, McpTaskStatus } from './mcp-task.js';
 
 export type McpProviderProtocolMode = 'legacy_v11' | 'frozen_v1';
 export type McpTaskBehavior = 'synchronous_only' | 'server_directed' | 'task_required';
@@ -83,6 +84,54 @@ export interface FrozenTaskObservationMeta {
   readonly observedAt?: string | undefined;
   readonly substate?: string | undefined;
   readonly progress?: Readonly<{ percent: number }> | undefined;
+}
+
+export interface FrozenRemoteTaskBase {
+  readonly protocolMode: 'frozen_v1';
+  readonly taskId: string;
+  readonly status: McpTaskStatus;
+  readonly statusMessage?: string | undefined;
+  readonly createdAt: string;
+  readonly lastUpdatedAt: string;
+  readonly ttlMs: number | null;
+  readonly expiresAt?: string | undefined;
+  readonly pollIntervalMs?: number | undefined;
+  readonly observation: FrozenTaskObservationMeta;
+}
+
+export interface FrozenRemoteTaskCreated extends FrozenRemoteTaskBase {
+  readonly resultType: 'task';
+}
+
+export type FrozenDetailedRemoteTask =
+  | (FrozenRemoteTaskBase & Readonly<{ resultType: 'complete'; status: 'working' }>)
+  | (FrozenRemoteTaskBase &
+      Readonly<{
+        resultType: 'complete';
+        status: 'input_required';
+        inputRequests: Readonly<Record<string, unknown>>;
+      }>)
+  | (FrozenRemoteTaskBase &
+      Readonly<{ resultType: 'complete'; status: 'completed'; result: InternalToolResult }>)
+  | (FrozenRemoteTaskBase &
+      Readonly<{
+        resultType: 'complete';
+        status: 'failed';
+        error: Readonly<{ code: number; message: string; data?: unknown }>;
+      }>)
+  | (FrozenRemoteTaskBase & Readonly<{ resultType: 'complete'; status: 'cancelled' }>);
+
+export type FrozenTaskInvocationOutcome =
+  | Readonly<{ kind: 'immediate'; result: InternalToolResult }>
+  | Readonly<{
+      kind: 'remote_task';
+      created: FrozenRemoteTaskCreated;
+      reconciled: FrozenDetailedRemoteTask;
+    }>;
+
+export interface FrozenTaskOperationAck {
+  readonly resultType: 'complete';
+  readonly meaning: 'input_update_received' | 'cancellation_intent_received';
 }
 
 const RUNTIME_REVISION_PATTERN = /^(?:0|[1-9][0-9]*)$/u;
