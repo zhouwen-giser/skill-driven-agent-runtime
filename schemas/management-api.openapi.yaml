@@ -592,6 +592,41 @@ paths:
       operationId: refreshMcpServer
       responses:
         '200': { description: Refreshed Tools and dependency changes }
+  /api/v1/mcp/servers/{serverId}/protocol:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    get:
+      operationId: diagnoseMcpServerProtocol
+      description: Returns the current PostgreSQL discovery snapshot, supported versions, frozen baseline hash, Task Notification capability, per-Tool task behavior and output-schema hashes without credentials.
+      responses:
+        '200': { description: Current Provider protocol execution evidence and fallback warnings }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/servers/{serverId}/protocol-baseline-audit:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: auditMcpServerProtocolBaseline
+      description: Compares the persisted Provider discovery baseline SHA-256 to the frozen SDAR baseline without refreshing or mutating Provider state.
+      responses:
+        '200': { description: Expected/actual baseline hashes and audit disposition }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/servers/{serverId}/mode-switch-guard:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: guardMcpServerProtocolModeSwitch
+      description: Fails closed for any attempt to change an existing Provider between Legacy and Frozen handlers; registering a new explicit Provider identity is required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetMode]
+              additionalProperties: false
+              properties:
+                targetMode: { enum: [legacy_v11, frozen_v1] }
+      responses:
+        '200': { description: Target is the already persisted mode }
+        '409': { description: Immutable Provider mode blocks the requested switch }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/mcp/servers/{serverId}/health:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     post:

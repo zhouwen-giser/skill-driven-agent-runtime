@@ -220,6 +220,14 @@ describe('operational console static accessibility contract', () => {
               observations: [{ sequence: 1 }],
               controls: [{ type: 'task.input_required' }],
               protocolAttempts: [{ method: 'tasks/get' }],
+              protocol: {
+                runtimeRevision: '12',
+                providerRevision: 'provider-4',
+                latestObservationSource: 'notification',
+                notificationHealth: 'observed',
+                pollHealth: 'healthy',
+                evidenceSummary: { providerItems: 1, validatedRequirements: 1 },
+              },
               continuations: [{ lifecycle: 'active' }],
               inputRounds: [
                 {
@@ -250,6 +258,9 @@ describe('operational console static accessibility contract', () => {
     );
     expect(markup).toContain('POSTGRESQL REMOTE TASK AUTHORITY');
     expect(markup).toContain('Provider input_required / paused');
+    expect(markup).toContain('revision 12');
+    expect(markup).toContain('observation notification');
+    expect(markup).toContain('notifications observed');
     expect(markup).toContain('Approve patrol?');
     expect(markup).toContain('delivery uncertain');
     expect(markup).toContain('not observed');

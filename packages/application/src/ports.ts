@@ -930,6 +930,20 @@ export interface RemoteTaskLifecycleEvidence {
   readonly continuations: readonly RemoteTaskContinuationLifecycleEvidence[];
   readonly inputRounds: readonly RemoteTaskInputLifecycleEvidence[];
   readonly cancellations: readonly RemoteTaskCancellationLifecycleEvidence[];
+  readonly frozenProtocol?: Readonly<{
+    ttlMs?: number;
+    expiresAt?: string;
+    runtimeRevision?: string;
+    providerRevision?: string;
+    latestObservationSource?: 'admission' | 'poll' | 'notification' | 'reconciliation';
+    pollHealth: 'healthy' | 'degraded';
+    notificationHealth: 'observed' | 'fallback_polling' | 'not_observed';
+    evidenceSummary: Readonly<{
+      providerItems: number;
+      validatedRequirements: number;
+      unsatisfiedRequirements: number;
+    }>;
+  }>;
 }
 
 export interface RemoteTaskLifecycleQuery {

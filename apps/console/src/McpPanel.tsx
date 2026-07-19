@@ -3,13 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { managementRequest } from './api.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
-type McpView = 'tools' | 'operations' | 'invocations' | 'warnings';
+type McpView = 'tools' | 'operations' | 'invocations' | 'warnings' | 'protocol';
 interface McpServerRecord extends Record<string, unknown> {
   readonly serverId: string;
   readonly name: string;
   readonly status: string;
   readonly endpoint: string;
   readonly toolRevision: number;
+  readonly protocolMode?: 'legacy_v11' | 'frozen_v1';
+  readonly notificationStatus?: 'streaming_supported' | 'polling_fallback';
 }
 
 export function McpPanel({
@@ -225,6 +227,16 @@ export function McpPanel({
               </div>
               <span className="status ok">{server.status}</span>
             </div>
+            <div className="action-row" aria-label="MCP protocol status">
+              <span className="status">{server.protocolMode ?? 'legacy_v11'}</span>
+              <span
+                className={
+                  server.notificationStatus === 'streaming_supported' ? 'status ok' : 'status'
+                }
+              >
+                notifications: {server.notificationStatus ?? 'polling_fallback'}
+              </span>
+            </div>
             <p className="endpoint">{server.endpoint}</p>
             <div className="credential-row">
               <label>
@@ -247,11 +259,13 @@ export function McpPanel({
             <div className="action-row">
               <button onClick={() => void mutate(server.serverId, 'refresh')}>刷新 Tools</button>
               <button onClick={() => void mutate(server.serverId, 'health')}>健康检查</button>
-              {(['tools', 'operations', 'invocations', 'warnings'] as const).map((view) => (
-                <button key={view} onClick={() => void inspect(server.serverId, view)}>
-                  {view}
-                </button>
-              ))}
+              {(['protocol', 'tools', 'operations', 'invocations', 'warnings'] as const).map(
+                (view) => (
+                  <button key={view} onClick={() => void inspect(server.serverId, view)}>
+                    {view}
+                  </button>
+                ),
+              )}
               {pendingDelete === server.serverId ? (
                 <button className="danger" onClick={() => void mutate(server.serverId, 'delete')}>
                   确认删除

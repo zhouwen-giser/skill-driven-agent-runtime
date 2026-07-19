@@ -19,6 +19,7 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  McpProtocolOperationsService,
   RemoteTaskAdmissionService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
@@ -322,7 +323,7 @@ export async function startServerRuntime(
       }) ?? [],
     );
   const mcpRepository = new PostgresMcpRegistryRepository(pool, {
-    v11TaskMetadata: options.v11McpTasks !== undefined,
+    v11TaskMetadata: true,
   });
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
@@ -538,6 +539,10 @@ export async function startServerRuntime(
       nextInvocationId: () => `mcp-invocation-${randomUUID()}`,
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
+  });
+  const mcpProtocolOperations = new McpProtocolOperationsService({
+    repository: mcpRepository,
+    expectedBaselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
   });
   const taskAvailabilityEvidence =
     options.v11McpTasks === undefined
@@ -2508,6 +2513,7 @@ export async function startServerRuntime(
         goalInputInference,
         skillInputResolution,
         mcp: mcpRegistry,
+        mcpProtocol: mcpProtocolOperations,
         skills: skillRegistry,
         skillAuthoring,
         models: modelRuntime,

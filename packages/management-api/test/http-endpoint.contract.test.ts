@@ -241,6 +241,20 @@ describe('management HTTP API contract', () => {
                 continuations: [],
                 inputRounds: [],
                 cancellations: [],
+                frozenProtocol: {
+                  ttlMs: 60_000,
+                  expiresAt: '2026-07-17T00:01:00.000Z',
+                  runtimeRevision: '9',
+                  providerRevision: 'provider-3',
+                  latestObservationSource: 'notification',
+                  pollHealth: 'healthy',
+                  notificationHealth: 'observed',
+                  evidenceSummary: {
+                    providerItems: 1,
+                    validatedRequirements: 1,
+                    unsatisfiedRequirements: 0,
+                  },
+                },
               },
             ]),
         },
@@ -301,6 +315,11 @@ describe('management HTTP API contract', () => {
         {
           binding: { remoteTaskId: 'provider-task-1' },
           capability: { status: 'registered' },
+          protocol: {
+            runtimeRevision: '9',
+            latestObservationSource: 'notification',
+            notificationHealth: 'observed',
+          },
           finalOutcome: { providerStatus: 'completed', authoritative: true },
         },
       ],
@@ -992,6 +1011,102 @@ describe('management HTTP API contract', () => {
 
     const response = await fetch(`${endpoint.baseUrl}/api/v1/mcp/servers`);
     expect(JSON.stringify(await response.json())).not.toContain('credential');
+  });
+
+  it('exposes frozen Provider protocol evidence, baseline audit and immutable mode guard', async () => {
+    const base = operations();
+    const server = (await base.mcp.listServers())[0];
+    if (server === undefined) throw new Error('MCP_SERVER_FIXTURE_MISSING');
+    const evidence = {
+      server: { ...server, protocolMode: 'frozen_v1' as const },
+      currentDiscovery: {
+        snapshotId: 'snapshot-1',
+        serverId: server.serverId,
+        protocolMode: 'frozen_v1' as const,
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'a'.repeat(64),
+        supportedVersions: ['2026-07-28'],
+        capabilities: {},
+        serverInfo: {},
+        taskNotifications: true,
+        discoveredAt: '2026-07-19T00:00:00.000Z',
+        toolRevision: 1,
+      },
+      tools: [
+        {
+          toolName: 'move_to',
+          taskBehavior: 'server_directed',
+          outputSchemaHash: 'b'.repeat(64),
+        },
+      ],
+      notificationStatus: 'streaming_supported' as const,
+      warnings: [],
+      operations: {
+        registerOrRefresh: 'frozen_adapter_required' as const,
+        protocolDiagnosis: true as const,
+        reconnect: 'component_required' as const,
+        forceReconciliation: true as const,
+        modeSwitchGuard: true as const,
+        baselineAudit: true as const,
+      },
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...base,
+        mcpProtocol: {
+          listProviders: () => Promise.resolve([evidence]),
+          diagnose: () => Promise.resolve(evidence),
+          auditBaseline: () =>
+            Promise.resolve({
+              serverId: server.serverId,
+              expectedBaselineSha256: 'a'.repeat(64),
+              actualBaselineSha256: 'a'.repeat(64),
+              passed: true,
+            }),
+          guardModeSwitch: (_serverId, targetMode) =>
+            Promise.resolve({
+              serverId: server.serverId,
+              currentMode: 'frozen_v1',
+              targetMode,
+              allowed: targetMode === 'frozen_v1',
+              reason:
+                targetMode === 'frozen_v1'
+                  ? ('same_mode' as const)
+                  : ('immutable_provider_mode' as const),
+            }),
+        },
+      },
+    });
+
+    await expect(
+      fetch(`${endpoint.baseUrl}/api/v1/mcp/servers`).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          protocolMode: 'frozen_v1',
+          supportedVersions: ['2026-07-28'],
+          baselineHash: 'a'.repeat(64),
+          taskNotifications: true,
+          taskBehavior: [{ toolName: 'move_to', taskBehavior: 'server_directed' }],
+          outputSchemaHash: [{ toolName: 'move_to', outputSchemaHash: 'b'.repeat(64) }],
+        },
+      ],
+    });
+    const audit = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/protocol-baseline-audit`,
+      { method: 'POST' },
+    );
+    expect(audit.status).toBe(200);
+    await expect(audit.json()).resolves.toMatchObject({ passed: true });
+    const guard = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/mode-switch-guard`,
+      jsonPost({ targetMode: 'legacy_v11' }),
+    );
+    expect(guard.status).toBe(409);
+    await expect(guard.json()).resolves.toMatchObject({
+      allowed: false,
+      reason: 'immutable_provider_mode',
+    });
   });
 
   it('rejects invalid external input with a stable error envelope before application calls', async () => {

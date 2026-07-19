@@ -59,6 +59,14 @@ export interface RemoteTaskLifecycleResponse {
     observations: readonly unknown[];
     controls: readonly unknown[];
     protocolAttempts: readonly unknown[];
+    protocol?: Readonly<{
+      runtimeRevision?: string;
+      providerRevision?: string;
+      latestObservationSource?: string;
+      notificationHealth: string;
+      pollHealth: string;
+      evidenceSummary: unknown;
+    }>;
     continuations: readonly unknown[];
     inputRounds: readonly Readonly<{
       link: Readonly<{ inputRequestId: string; status: string }>;
@@ -519,6 +527,19 @@ export function RemoteTaskLifecyclePanel({
               : ` / ${item.binding.providerSubstate}`}{' '}
             · local {item.binding.localState}
           </p>
+          <div className="action-row" aria-label="Frozen Task protocol evidence">
+            <span className="status">revision {item.protocol?.runtimeRevision ?? 'legacy'}</span>
+            <span className="status">
+              observation {item.protocol?.latestObservationSource ?? 'not observed'}
+            </span>
+            <span
+              className={
+                item.protocol?.notificationHealth === 'observed' ? 'status ok' : 'status'
+              }
+            >
+              notifications {item.protocol?.notificationHealth ?? 'not_observed'}
+            </span>
+          </div>
           <p>
             Poll attempt {item.binding.pollAttempt}; Provider failures{' '}
             {item.binding.providerFailureCount}; next {item.binding.nextPollAt ?? 'not scheduled'}

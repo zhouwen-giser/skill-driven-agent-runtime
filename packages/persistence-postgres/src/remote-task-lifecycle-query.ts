@@ -40,6 +40,15 @@ interface ContinuationRow extends QueryResultRow {
   updated_at: Date | string;
 }
 
+interface FrozenOperationalRow extends QueryResultRow {
+  task_ttl_ms: string | number | null;
+  task_expires_at: Date | string | null;
+  runtime_revision: string | null;
+  provider_revision: string | null;
+  latest_observation_source: 'admission' | 'poll' | 'notification' | 'reconciliation' | null;
+  notification_count: string | number;
+}
+
 /**
  * Builds a credential-free read model from the authoritative V1.1 tables.
  * The projection deliberately delegates persisted protocol payload validation to
@@ -70,15 +79,23 @@ export class PostgresRemoteTaskLifecycleQuery implements RemoteTaskLifecycleQuer
   async #readBinding(bindingId: string): Promise<RemoteTaskLifecycleEvidence> {
     const binding = await this.#remoteTasks.findById(bindingId);
     if (binding === undefined) throw new Error('REMOTE_TASK_LIFECYCLE_BINDING_DISAPPEARED');
-    const [observations, controls, protocolAttempts, continuations, inputRounds, cancellations] =
-      await Promise.all([
-        this.#remoteTasks.listObservations(bindingId),
-        this.#remoteTasks.listControlEvents(bindingId),
-        this.#remoteTasks.listProtocolAttempts(bindingId),
-        this.#readContinuations(bindingId),
-        this.#readInputs(bindingId),
-        this.#readCancellations(bindingId),
-      ]);
+    const [
+      observations,
+      controls,
+      protocolAttempts,
+      continuations,
+      inputRounds,
+      cancellations,
+      frozenProtocol,
+    ] = await Promise.all([
+      this.#remoteTasks.listObservations(bindingId),
+      this.#remoteTasks.listControlEvents(bindingId),
+      this.#remoteTasks.listProtocolAttempts(bindingId),
+      this.#readContinuations(bindingId),
+      this.#readInputs(bindingId),
+      this.#readCancellations(bindingId),
+      this.#readFrozenProtocol(bindingId, binding),
+    ]);
     return {
       binding,
       observations,
@@ -87,7 +104,49 @@ export class PostgresRemoteTaskLifecycleQuery implements RemoteTaskLifecycleQuer
       continuations,
       inputRounds,
       cancellations,
+      ...(frozenProtocol === undefined ? {} : { frozenProtocol }),
     };
+  }
+
+  async #readFrozenProtocol(bindingId: string, binding: RemoteTaskLifecycleEvidence['binding']) {
+    const result = await this.#pool.query<FrozenOperationalRow>(
+      `SELECT binding.task_ttl_ms,binding.task_expires_at,binding.runtime_revision,
+              binding.provider_revision,
+              (SELECT observation_source FROM remote_task_observation observation
+               WHERE observation.binding_id=binding.binding_id AND observation.accepted=true
+               ORDER BY observation.sequence DESC LIMIT 1) AS latest_observation_source,
+              (SELECT count(*) FROM remote_task_observation observation
+               WHERE observation.binding_id=binding.binding_id AND observation.accepted=true
+                 AND observation.observation_source='notification') AS notification_count
+       FROM remote_task_binding binding WHERE binding.binding_id=$1`,
+      [bindingId],
+    );
+    const row = result.rows[0];
+    if (row === undefined || (row.runtime_revision === null && row.task_ttl_ms === null))
+      return undefined;
+    const validated = Object.values(binding.resultSnapshot?.validatedEvidence ?? {});
+    return Object.freeze({
+      ...(row.task_ttl_ms === null ? {} : { ttlMs: toSafeNumber(row.task_ttl_ms) }),
+      ...(row.task_expires_at === null ? {} : { expiresAt: toIsoString(row.task_expires_at) }),
+      ...(row.runtime_revision === null ? {} : { runtimeRevision: row.runtime_revision }),
+      ...(row.provider_revision === null ? {} : { providerRevision: row.provider_revision }),
+      ...(row.latest_observation_source === null
+        ? {}
+        : { latestObservationSource: row.latest_observation_source }),
+      pollHealth: binding.providerFailureCount === 0 ? ('healthy' as const) : ('degraded' as const),
+      notificationHealth:
+        toSafeNumber(row.notification_count) > 0
+          ? ('observed' as const)
+          : row.latest_observation_source === 'poll' ||
+              row.latest_observation_source === 'reconciliation'
+            ? ('fallback_polling' as const)
+            : ('not_observed' as const),
+      evidenceSummary: Object.freeze({
+        providerItems: binding.resultSnapshot?.evidence?.length ?? 0,
+        validatedRequirements: validated.filter((value) => value).length,
+        unsatisfiedRequirements: validated.filter((value) => !value).length,
+      }),
+    });
   }
 
   async #readInputs(bindingId: string): Promise<readonly RemoteTaskInputLifecycleEvidence[]> {

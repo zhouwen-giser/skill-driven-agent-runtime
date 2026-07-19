@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import type {
   McpRegistryService,
+  McpProtocolOperationsService,
   ModelRuntimeService,
   PromptService,
   SkillAuthoringService,
@@ -147,6 +148,9 @@ const RegisterMcpServerSchema = z.object({
   endpoint: z.url(),
   credentialHeaders: z.record(z.string(), z.string()),
 });
+const McpModeSwitchGuardSchema = z
+  .object({ targetMode: z.enum(['legacy_v11', 'frozen_v1']) })
+  .strict();
 const CredentialHeadersSchema = z.object({
   credentialHeaders: z.record(z.string(), z.string()),
 });
@@ -417,6 +421,10 @@ export interface ManagementOperations {
     | 'updateToolEnhancement'
     | 'updateToolExecutionSemantics'
     | 'updateCredentials'
+  >;
+  readonly mcpProtocol?: Pick<
+    McpProtocolOperationsService,
+    'auditBaseline' | 'diagnose' | 'guardModeSwitch' | 'listProviders'
   >;
   readonly skills: Pick<
     SkillRegistryService,
@@ -908,6 +916,16 @@ export async function startManagementHttpEndpoint(
             path: `/api/v1/tasks/${encodeURIComponent(taskId)}/actions`,
             action: 'cancel_goal',
           },
+          forceReconciliation: {
+            method: 'POST',
+            pathTemplate: '/api/v1/remote-task-bindings/{bindingId}/refresh',
+            concurrency: 'expectedVersion CAS',
+          },
+          reconnectNotifications: {
+            status: 'component_required',
+            warning:
+              'Notification reconnect is unavailable until a Frozen subscription component is composed; polling remains authoritative fallback.',
+          },
         },
         correlationRoot: {
           taskId: task.taskId,
@@ -939,7 +957,8 @@ export async function startManagementHttpEndpoint(
                   ? { status: 'not_found_in_current_registry' }
                   : {
                       status: 'registered',
-                      taskExecution: tool.taskExecution ?? null,
+                      protocolMode: tool.protocolMode ?? 'legacy_v11',
+                      taskExecution: tool.taskExecution ?? tool.taskExecutionProfile ?? null,
                       executionSemantics: tool.executionSemantics,
                       discoveredAt: tool.discoveredAt,
                     },
@@ -953,6 +972,19 @@ export async function startManagementHttpEndpoint(
                 payload: sanitizeDisplayableValue(control.payload),
               })),
               protocolAttempts: item.protocolAttempts,
+              protocol: item.frozenProtocol ?? {
+                pollHealth: item.binding.providerFailureCount === 0 ? 'healthy' : 'degraded',
+                notificationHealth: 'not_observed',
+                evidenceSummary: {
+                  providerItems: item.binding.resultSnapshot?.evidence?.length ?? 0,
+                  validatedRequirements: Object.values(
+                    item.binding.resultSnapshot?.validatedEvidence ?? {},
+                  ).filter((value) => value).length,
+                  unsatisfiedRequirements: Object.values(
+                    item.binding.resultSnapshot?.validatedEvidence ?? {},
+                  ).filter((value) => !value).length,
+                },
+              },
               continuations: item.continuations,
               inputRounds: item.inputRounds.map((round) => ({
                 ...round,
@@ -1424,8 +1456,77 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get('/api/v1/mcp/servers', async (_request, response) => {
-    response.json({ items: await options.operations.mcp.listServers() });
+    if (options.operations.mcpProtocol === undefined) {
+      response.json({ items: await options.operations.mcp.listServers() });
+      return;
+    }
+    const providers = await options.operations.mcpProtocol.listProviders();
+    response.json({
+      items: providers.map((provider) => ({
+        ...provider.server,
+        ...(provider.currentDiscovery === undefined
+          ? {}
+          : {
+              currentDiscovery: provider.currentDiscovery,
+              supportedVersions: provider.currentDiscovery.supportedVersions,
+              baselineHash: provider.currentDiscovery.baselineSha256,
+              taskNotifications: provider.currentDiscovery.taskNotifications,
+            }),
+        taskBehavior: provider.tools.map((tool) => ({
+          toolName: tool.toolName,
+          ...(tool.taskBehavior === undefined ? {} : { taskBehavior: tool.taskBehavior }),
+        })),
+        outputSchemaHash: provider.tools.map((tool) => ({
+          toolName: tool.toolName,
+          ...(tool.outputSchemaHash === undefined
+            ? {}
+            : { outputSchemaHash: tool.outputSchemaHash }),
+        })),
+        notificationStatus: provider.notificationStatus,
+        protocolWarnings: provider.warnings,
+      })),
+    });
   });
+  app.get(
+    '/api/v1/mcp/servers/:serverId/protocol',
+    asyncRoute(async (request, response) => {
+      if (options.operations.mcpProtocol === undefined)
+        throw new HttpInputError(
+          'MCP_PROTOCOL_OPERATIONS_UNAVAILABLE',
+          'MCP protocol diagnosis is not composed in this runtime.',
+        );
+      response.json(await options.operations.mcpProtocol.diagnose(pathValue(request, 'serverId')));
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/servers/:serverId/protocol-baseline-audit',
+    asyncRoute(async (request, response) => {
+      if (options.operations.mcpProtocol === undefined)
+        throw new HttpInputError(
+          'MCP_PROTOCOL_OPERATIONS_UNAVAILABLE',
+          'MCP protocol baseline audit is not composed in this runtime.',
+        );
+      response.json(
+        await options.operations.mcpProtocol.auditBaseline(pathValue(request, 'serverId')),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/servers/:serverId/mode-switch-guard',
+    asyncRoute(async (request, response) => {
+      if (options.operations.mcpProtocol === undefined)
+        throw new HttpInputError(
+          'MCP_PROTOCOL_OPERATIONS_UNAVAILABLE',
+          'MCP protocol mode guard is not composed in this runtime.',
+        );
+      const input = McpModeSwitchGuardSchema.parse(request.body);
+      const guard = await options.operations.mcpProtocol.guardModeSwitch(
+        pathValue(request, 'serverId'),
+        input.targetMode,
+      );
+      response.status(guard.allowed ? 200 : 409).json(guard);
+    }),
+  );
   app.get(
     '/api/v1/mcp/invocations',
     asyncRoute(async (request, response) => {
