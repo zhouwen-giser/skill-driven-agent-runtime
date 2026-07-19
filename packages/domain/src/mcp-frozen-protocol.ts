@@ -222,6 +222,19 @@ export interface ProviderEvidenceItem {
   readonly payloadRef: ProviderEvidencePayloadRef;
 }
 
+export interface SkillEvidenceMatch {
+  readonly requirementId: string;
+  readonly evidenceType: string;
+  readonly required: boolean;
+  readonly hardGate: boolean;
+  readonly satisfied: boolean;
+  readonly evidenceId?: string | undefined;
+  readonly observedAt?: string | undefined;
+  readonly payloadRef?: ProviderEvidencePayloadRef | undefined;
+  readonly resolvedValue?: unknown;
+  readonly runtimeRevision?: string | undefined;
+}
+
 export function createProviderEvidenceItem(input: ProviderEvidenceItem): ProviderEvidenceItem {
   if ('requirementId' in input)
     throw new DomainError(

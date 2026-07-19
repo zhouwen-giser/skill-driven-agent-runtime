@@ -8,6 +8,7 @@ import {
   type SkillExecutionReferenceKind,
   type SkillExecutionStatus,
   type SkillExecutionView,
+  type SkillEvidenceMatch,
   type SkillUsagePlanPolicy,
 } from '../../domain/src/index.js';
 import type { Clock, SkillExecutionRepository } from './ports.js';
@@ -269,6 +270,57 @@ export class SkillExecutionRecordingService {
         createdAt: this.#clock.now(),
       }),
     );
+  }
+
+  async recordEvidenceMatches(
+    input: Readonly<{
+      workflowPlanId: string;
+      sourceSystem: string;
+      matches: readonly SkillEvidenceMatch[];
+    }>,
+  ): Promise<SkillExecutionView | undefined> {
+    let execution = await this.#repository.findByPlan(input.workflowPlanId);
+    if (execution === undefined) return undefined;
+    for (const match of input.matches) {
+      if (match.evidenceId === undefined) continue;
+      const referenceId = `${match.evidenceId}/${match.requirementId}`;
+      if (
+        execution.references.some(
+          (reference) => reference.kind === 'evidence' && reference.referenceId === referenceId,
+        )
+      )
+        continue;
+      execution = await this.#repository.appendReference(
+        createSkillExecutionReference({
+          linkId: this.#nextId('reference'),
+          executionId: execution.executionId,
+          kind: 'evidence',
+          referenceId,
+          referenceType: match.evidenceType,
+          sourceSystem: input.sourceSystem,
+          ...(match.payloadRef?.kind === 'uri' ? { uri: match.payloadRef.uri } : {}),
+          ...(match.payloadRef?.kind === 'uri' && match.payloadRef.sha256 !== undefined
+            ? { checksum: match.payloadRef.sha256 }
+            : {}),
+          ...(match.observedAt === undefined ? {} : { producedAt: match.observedAt }),
+          producerRefs: [],
+          metadata: {
+            providerEvidenceId: match.evidenceId,
+            requirementId: match.requirementId,
+            matched: match.satisfied,
+            hardGate: match.hardGate,
+            ...(match.payloadRef?.kind === 'structured_content'
+              ? { jsonPointer: match.payloadRef.jsonPointer }
+              : {}),
+            ...(match.runtimeRevision === undefined
+              ? {}
+              : { runtimeRevision: match.runtimeRevision }),
+          },
+          createdAt: this.#clock.now(),
+        }),
+      );
+    }
+    return execution;
   }
 
   #planningReferences(

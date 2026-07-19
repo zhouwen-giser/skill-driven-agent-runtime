@@ -36,6 +36,31 @@ const InternalToolResultSchema = z
     structuredContent: z.unknown().optional(),
     isError: z.boolean(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    evidence: z
+      .array(
+        z
+          .object({
+            evidenceId: z.string(),
+            evidenceType: z.string(),
+            observedAt: z.string(),
+            subjectRef: z.string().optional(),
+            producer: z.array(z.string()).optional(),
+            payloadRef: z.discriminatedUnion('kind', [
+              z.object({ kind: z.literal('structured_content'), jsonPointer: z.string() }).strict(),
+              z
+                .object({
+                  kind: z.literal('uri'),
+                  uri: z.string(),
+                  mediaType: z.string().optional(),
+                  sha256: z.string().optional(),
+                })
+                .strict(),
+            ]),
+          })
+          .strict(),
+      )
+      .optional(),
+    validatedEvidence: z.record(z.string(), z.boolean()).optional(),
   })
   .strict();
 const FailureSnapshotSchema = z
