@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "phase": 4,
+  "status": "passed_with_host_limitation",
+  "implementation": {
+    "protocolVersion": "2026-07-28",
+    "transport": "stateless_http_post",
+    "responseMedia": ["application/json", "text/event-stream"],
+    "initializeUsed": false,
+    "legacyFallback": false
+  },
+  "verification": {
+    "focusedContract": { "status": "passed", "tests": 10 },
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "contract": { "status": "host_limited", "passed": 122, "total": 123 },
+    "architecture": { "status": "passed", "typescriptSources": 263 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "hostLimitation": {
+    "test": "skill-package symlink rejection fixture",
+    "error": "EPERM"
+  }
+}
