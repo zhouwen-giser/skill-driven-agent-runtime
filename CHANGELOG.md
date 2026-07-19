@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Frozen stateless HTTP client with normative per-request metadata/headers, validated discovery snapshots, JSON/SSE response correlation, frozen error normalization and explicit no-fallback Legacy/Frozen routing.
 - Frozen Task lifecycle contracts for flat creation, immediate reconciliation, real TTL, numeric Runtime Revision monotonicity, partial MRTR, restart-safe input dedupe and cooperative cancel intent.
 - Frozen Availability profile/client, frozen-only readiness attribute derivation and refreshed `embodied.move_to`/`embodied.area_patrol` package policies requiring observations plus Task Notifications.
+- Frozen POST SSE Task subscriptions with Ack-first authorization, bounded interests, reconnect reconciliation and unified Runtime Revision admission across polling and notifications.
 - ADR-108 explicit Legacy/Frozen dual-protocol boundary, Phase 0 OSS Intake and Draft PR #6 upgrade evidence.
 - Nine derived JSON Schemas, nine valid fixtures, twelve Legacy/invalid fixtures and an eleven-file drift lock verified by `pnpm verify:protocol` and the normal bootstrap gate.
 
@@ -28,6 +29,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 4 passes 10/10 focused Frozen HTTP contracts, all 471 unit tests, 263-source architecture, format/lint/typecheck and production build; full contract is 122/123 only because of the unchanged Windows symlink `EPERM` limitation.
 - Phase 5 passes 12/12 focused lifecycle contracts, all 471 unit tests, 265-source architecture, format/lint/typecheck and production build; full contract is 134/135 with only the unchanged Windows symlink `EPERM` limitation.
 - Phase 6 passes 6/6 Frozen Availability plus 5/5 formal Skill package contracts, all 471 unit tests, 267-source architecture, format/lint/typecheck and production build; full contract is 140/141 with only the unchanged Windows symlink `EPERM` limitation.
+- Phase 7 passes 7/7 subscription and 19/19 combined subscription/lifecycle contracts, all 471 unit tests, 269-source architecture, format/lint/typecheck and production build; full contract is 147/148 with only the unchanged Windows symlink `EPERM` limitation. Provider-side queue overflow remains a Phase 10 component gate.
 
 ## [1.2.0] - 2026-07-18
 
