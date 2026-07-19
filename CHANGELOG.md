@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Frozen/Legacy Domain contracts, task-behavior outcome matrix, canonical runtime revision and Provider Evidence types plus a Workflow DSL union that keeps historical Legacy `mode` readable while rejecting it from Frozen plans.
 - Migration 0107 and PostgreSQL repositories for append-only protocol snapshots, Server/Tool authority, output schemas, Workflow protocol contracts and Frozen binding/observation/control revisions, with fail-closed unsafe rollback.
 - Frozen stateless HTTP client with normative per-request metadata/headers, validated discovery snapshots, JSON/SSE response correlation, frozen error normalization and explicit no-fallback Legacy/Frozen routing.
+- Frozen Task lifecycle contracts for flat creation, immediate reconciliation, real TTL, numeric Runtime Revision monotonicity, partial MRTR, restart-safe input dedupe and cooperative cancel intent.
 - ADR-108 explicit Legacy/Frozen dual-protocol boundary, Phase 0 OSS Intake and Draft PR #6 upgrade evidence.
 - Nine derived JSON Schemas, nine valid fixtures, twelve Legacy/invalid fixtures and an eleven-file drift lock verified by `pnpm verify:protocol` and the normal bootstrap gate.
 
@@ -24,6 +25,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 2 passes all 471 unit tests, focused Workflow unit/schema contracts, format, lint, strict typecheck and the 260-source architecture gate. The full contract suite is 112/113 because the unchanged Windows symlink setup still fails with `EPERM`.
 - Phase 3 passes isolated real PostgreSQL migration verification, 58/58 Repository integration tests, all 471 unit tests, 260-source architecture, build and the static 71-migration/Compose gate; the unchanged symlink-only contract limitation remains explicit.
 - Phase 4 passes 10/10 focused Frozen HTTP contracts, all 471 unit tests, 263-source architecture, format/lint/typecheck and production build; full contract is 122/123 only because of the unchanged Windows symlink `EPERM` limitation.
+- Phase 5 passes 12/12 focused lifecycle contracts, all 471 unit tests, 265-source architecture, format/lint/typecheck and production build; full contract is 134/135 with only the unchanged Windows symlink `EPERM` limitation.
 
 ## [1.2.0] - 2026-07-18
 
