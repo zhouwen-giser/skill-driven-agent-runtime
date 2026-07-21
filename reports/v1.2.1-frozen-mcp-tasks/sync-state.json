@@ -11,6 +11,6 @@
   "interopCertified": false,
   "requiredDeferred": [
     "external_provider_wire_fixes_and_real_interop_retest",
-    "clean_exact_commit_audit_and_publication"
+    "publication_after_external_interop_certification"
   ]
 }

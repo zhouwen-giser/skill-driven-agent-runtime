@@ -68,7 +68,7 @@
   unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages.
 - [ ] The external Provider Runtime passes strict real interop for Availability, MRTR/terminal Task
   creation and byte-equivalent Poll/Notification projections.
-- [ ] The complete final command matrix passes on a restored dependency tree and clean exact commit.
+- [x] The complete final command matrix passes on restored dependencies at clean exact commit `f7bdd7b`.
 - [ ] G4 Interop Certified and G5 Release Ready pass with no required deferred items.
 
 Therefore v1.2.1 remains unreleased and PR #6 must remain Draft. Component Conformant does not imply

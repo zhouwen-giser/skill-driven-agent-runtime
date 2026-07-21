@@ -56,10 +56,11 @@
     "runtimeMigrations": 71
   },
   "finalLocalVerification": {
-    "status": "passed_dirty_worktree",
+    "status": "passed_clean_exact_commit",
     "command": "pnpm verify",
-    "commit": "c979feb7a5ddd56cefcf126a763c370e626170fd",
-    "durationMs": 207100,
+    "commit": "f7bdd7b2b8e51fe11868e153fd38099699d8cae8",
+    "dirty": false,
+    "durationMs": 212915,
     "infrastructureMode": "self-managed-compose",
     "unitAndContract": { "passed": 648, "total": 648 },
     "integration": { "passed": 84, "total": 84 },
@@ -77,8 +78,7 @@
     "mock_task_ttl_and_availability_windows_are_startup_relative"
   ],
   "releaseBlockers": [
-    "phase_11_external_provider_wire_mismatches",
-    "clean_exact_commit_gate_pending_after_interop"
+    "phase_11_external_provider_wire_mismatches"
   ],
   "gates": {
     "G2SdarComponentConformant": "passed",

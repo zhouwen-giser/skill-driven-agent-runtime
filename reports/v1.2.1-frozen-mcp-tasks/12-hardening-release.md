@@ -26,23 +26,22 @@ an explicit `TEST_DATABASE_URL` in operator-managed mode. Two calendar-sensitive
 also fixed: restart acceptance no longer receives an unintended terminal Notification, and Task TTL plus
 restricted Availability windows derive from Provider startup time instead of an expired fixed date.
 
-The mandatory final `pnpm verify` passed all seven steps in self-managed Compose mode in 207,100 ms:
+The mandatory final `pnpm verify` first passed all seven steps in self-managed Compose mode on the working
+tree, then passed again from clean exact commit `f7bdd7b2b8e51fe11868e153fd38099699d8cae8` in 212,915 ms:
 format/lint/strict typecheck, 648/648 unit+contract tests, 285-source architecture, protocol/source/license/
 SBOM/OpenAPI/acceptance checks, production build, the complete migration chain, 84/84 real PostgreSQL/Redis
 integration tests, 60/60 E2E tests, infrastructure smoke and Server/Console smoke. The generated verification
-report is honest that this is a dirty-worktree gate at base commit `c979feb`; the required clean exact-commit
-audit remains pending until the external interoperability defect is fixed and the release candidate is
-committed.
+report records `dirty=false`. The evidence-only follow-up commit does not change the tested implementation.
 
 ## Release decision
 
 G2 (SDAR local component conformance) and the complete local command matrix pass. G3 is invalidated for
 cross-implementation purposes by the four Provider wire defects in the Phase 11 report. Therefore G4
-Interop Certified and G5 Release Ready remain blocked by real interoperability and the subsequent clean
-exact-commit audit. PR #6 must remain Draft. There is no tag, Ready
+Interop Certified and G5 Release Ready remain blocked by real interoperability. PR #6 must remain Draft.
+There is no tag, Ready
 transition or release claim, and no required deferred item has been hidden.
 
 Required next actions are: fix and merge the external Provider projection defects; rerun the complete real
-interop matrix against its new exact commit; then commit the release candidate, perform a clean exact-commit
-audit, push it and only afterward reconsider Ready for Review. The isolated Phase 9 Compose project and
-temporary external archive were removed on 2026-07-22.
+interop matrix against its new exact commit; publish the resulting evidence-only update and only afterward
+reconsider Ready for Review. The isolated Phase 9 Compose project and temporary external archive were
+removed on 2026-07-22.

@@ -160,10 +160,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The frozen dependency tree is restored. A Windows junction fixture preserves the symlink-rejection
   security assertion without privileged file-link creation; the Frozen migration verifier now owns its
   default Compose lifecycle; Mock Task TTL and Availability windows are startup-relative. The complete
-  dirty-worktree `pnpm verify` passes 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations,
-  build and both smoke stages. A clean exact-commit audit still cannot substitute for the blocked real
-  interop gate.
+  `pnpm verify` passes 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both
+  smoke stages. Clean exact commit `f7bdd7b` repeats the full gate with `dirty=false` in 212,915 ms; this
+  still cannot substitute for the blocked real interop gate.
 - The isolated `sdar-codex-phase9` Compose resources and extracted external archive were removed on
   2026-07-22 after independently verifying that the archive's junction target remained intact. External
-  Provider fixes, real interop requalification and the clean exact-commit audit are the remaining required
+  Provider fixes, real interop requalification and publication of its evidence are the remaining required
   deferred items; v1.2.1 is not release-ready.
