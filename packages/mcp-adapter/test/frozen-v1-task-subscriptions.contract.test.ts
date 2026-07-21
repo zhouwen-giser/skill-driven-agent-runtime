@@ -135,6 +135,27 @@ describe('Frozen V1 Task subscriptions', () => {
     ).rejects.toMatchObject({ code: 'FROZEN_TASK_SUBSCRIPTION_REQUEST_INVALID' });
     expect(calls).toBe(0);
   });
+
+  it('fails closed when one incomplete SSE event overflows the bounded receive buffer', async () => {
+    const client = new FrozenV1McpClient(() =>
+      Promise.resolve(
+        new Response(`data: ${'x'.repeat(1_048_577)}`, {
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    );
+    const stream = await client.listenToTaskNotifications({
+      endpoint,
+      headers: {},
+      taskIds: ['task-1'],
+    });
+    await expect(async () => {
+      for await (const message of stream.messages) {
+        // The oversized incomplete event must fail before yielding.
+        void message;
+      }
+    }).rejects.toMatchObject({ code: 'FROZEN_MCP_SSE_BUFFER_OVERFLOW' });
+  });
 });
 
 function manager(client: FrozenV1McpClient): FrozenRemoteTaskSubscriptionManager {

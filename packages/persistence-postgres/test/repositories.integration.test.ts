@@ -3830,7 +3830,21 @@ describe('PostgreSQL protocol-domain repositories', () => {
       supportsInputRequired: true,
       idempotency: 'client_request_key' as const,
     };
-    await repository.saveServerAndReplaceTools(
+    const snapshot = {
+      snapshotId: 'snapshot.frozen.db.1',
+      serverId: 'mcp.frozen.db',
+      protocolMode: 'frozen_v1' as const,
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+      supportedVersions: ['2026-07-28'],
+      capabilities: { tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } } },
+      serverInfo: { name: 'Frozen Provider', version: '1.0.0' },
+      taskNotifications: true,
+      discoveredAt: '2026-07-18T00:00:00.000Z',
+      validUntil: '2026-07-18T01:00:00.000Z',
+      toolRevision: 1,
+    };
+    await repository.saveFrozenServerAndReplaceTools(
       {
         server: {
           serverId: 'mcp.frozen.db',
@@ -3840,6 +3854,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
           status: 'enabled',
           toolRevision: 1,
           protocolMode: 'frozen_v1',
+          currentProtocolSnapshotId: snapshot.snapshotId,
           createdAt: '2026-07-18T00:00:00.000Z',
           updatedAt: '2026-07-18T00:00:00.000Z',
         },
@@ -3857,22 +3872,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
           discoveredAt: '2026-07-18T00:00:00.000Z',
         },
       ],
+      snapshot,
     );
-    const snapshot = {
-      snapshotId: 'snapshot.frozen.db.1',
-      serverId: 'mcp.frozen.db',
-      protocolMode: 'frozen_v1' as const,
-      protocolVersion: '2026-07-28',
-      baselineSha256: 'a'.repeat(64),
-      supportedVersions: ['2026-07-28'],
-      capabilities: { tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } } },
-      serverInfo: { name: 'Frozen Provider', version: '1.0.0' },
-      taskNotifications: true,
-      discoveredAt: '2026-07-18T00:00:00.000Z',
-      validUntil: '2026-07-18T01:00:00.000Z',
-      toolRevision: 1,
-    };
-    await repository.saveProtocolSnapshot(snapshot);
 
     await expect(repository.findCurrentProtocolSnapshot('mcp.frozen.db')).resolves.toEqual(
       snapshot,
@@ -3891,6 +3892,54 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskExecutionProfile: profile,
       }),
     ]);
+
+    await repository.saveServerAndReplaceTools(
+      {
+        server: {
+          serverId: 'mcp.legacy.mode-guard',
+          name: 'Legacy Provider',
+          endpoint: 'https://legacy.example.test/mcp',
+          transport: 'streamable_http',
+          status: 'enabled',
+          toolRevision: 1,
+          protocolMode: 'legacy_v11',
+          createdAt: '2026-07-18T00:00:00.000Z',
+          updatedAt: '2026-07-18T00:00:00.000Z',
+        },
+        encryptedCredential: 'encrypted-legacy-credential',
+      },
+      [],
+    );
+    const guardedSnapshot = {
+      ...snapshot,
+      snapshotId: 'snapshot.mode-guard.1',
+      serverId: 'mcp.legacy.mode-guard',
+    };
+    await expect(
+      repository.saveFrozenServerAndReplaceTools(
+        {
+          server: {
+            serverId: 'mcp.legacy.mode-guard',
+            name: 'Frozen overwrite attempt',
+            endpoint: 'https://frozen.example.test/mcp',
+            transport: 'streamable_http',
+            status: 'enabled',
+            toolRevision: 1,
+            protocolMode: 'frozen_v1',
+            currentProtocolSnapshotId: guardedSnapshot.snapshotId,
+            createdAt: '2026-07-18T00:00:00.000Z',
+            updatedAt: '2026-07-18T00:01:00.000Z',
+          },
+          encryptedCredential: 'encrypted-frozen-credential',
+        },
+        [],
+        guardedSnapshot,
+      ),
+    ).rejects.toThrow('FROZEN_MCP_PROVIDER_MODE_IMMUTABLE');
+    await expect(repository.findServer('mcp.legacy.mode-guard')).resolves.toMatchObject({
+      server: { name: 'Legacy Provider', protocolMode: 'legacy_v11' },
+      encryptedCredential: 'encrypted-legacy-credential',
+    });
   });
 
   it('atomically stores immutable Skill versions and publishes only the enabled current version', async () => {

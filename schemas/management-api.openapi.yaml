@@ -580,6 +580,34 @@ paths:
       responses:
         '201': { description: Registered Server and discovered Tools }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/frozen/servers:
+    post:
+      operationId: registerFrozenMcpServer
+      description: Registers a new explicitly Frozen Provider identity, validates server/discover and tools/list, and atomically persists the discovery snapshot, Tool profiles, output schemas and encrypted credentials without using the Legacy Bridge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterMcpServer' }
+      responses:
+        '201': { description: Frozen Provider, current discovery snapshot and Tools }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/frozen/servers/{serverId}/refresh:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: refreshFrozenMcpServer
+      description: Refreshes only an explicitly Frozen Provider through server/discover and tools/list, atomically replacing Tool/profile/schema authority and creating a new immutable discovery snapshot.
+      responses:
+        '200': { description: Refreshed Frozen Provider evidence and dependency changes }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/mcp/frozen/servers/{serverId}/notifications/reconnect:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    post:
+      operationId: reconnectFrozenMcpTaskNotifications
+      description: Restarts the composed Frozen Task Notification stream; accepted Task IDs are reconciled after the mandatory subscription Ack.
+      responses:
+        '202': { description: Reconnect accepted by the local Frozen subscription component }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/mcp/servers/{serverId}:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     delete:

@@ -3,7 +3,10 @@ import { z } from 'zod';
 import type { FrozenDetailedRemoteTask } from '../../domain/src/index.js';
 
 import type { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
-import type { FrozenTaskLifecycleClient } from './frozen-v1-task-lifecycle.js';
+import type {
+  FrozenTaskLifecycleClient,
+  FrozenToolOutputValidation,
+} from './frozen-v1-task-lifecycle.js';
 
 const taskIdSchema = z.string().min(1).max(512);
 const ackSchema = z
@@ -68,10 +71,12 @@ export class FrozenRemoteTaskSubscriptionManager {
     input: Readonly<{
       taskIds: readonly string[];
       reconnecting: boolean;
+      outputValidationByTaskId?: ReadonlyMap<string, FrozenToolOutputValidation>;
       signal?: AbortSignal;
       onObservation(
         task: FrozenDetailedRemoteTask,
         source: FrozenTaskObservationSource,
+        subscriptionId: number,
       ): Promise<void>;
     }>,
   ): Promise<FrozenTaskSubscriptionRunResult> {
@@ -97,8 +102,12 @@ export class FrozenRemoteTaskSubscriptionManager {
         acceptedTaskIds = parseAck(message, stream.requestId, requested);
         if (input.reconnecting)
           for (const taskId of acceptedTaskIds) {
-            const admission = await this.#lifecycle.getTaskAdmission(taskId);
-            if (admission.accepted) await input.onObservation(admission.task, 'reconciliation');
+            const admission = await this.#lifecycle.getTaskAdmission(
+              taskId,
+              input.outputValidationByTaskId?.get(taskId),
+            );
+            if (admission.accepted)
+              await input.onObservation(admission.task, 'reconciliation', stream.requestId);
             reconciled += 1;
           }
         continue;
@@ -118,9 +127,12 @@ export class FrozenRemoteTaskSubscriptionManager {
           'FROZEN_TASK_NOTIFICATION_UNAUTHORIZED',
           'Task Notification is outside the acknowledged subscription.',
         );
-      const admission = this.#lifecycle.admitNotification(parsed.data.params);
+      const admission = this.#lifecycle.admitNotification(
+        parsed.data.params,
+        input.outputValidationByTaskId?.get(parsed.data.params.taskId),
+      );
       if (admission.accepted) {
-        await input.onObservation(admission.task, 'notification');
+        await input.onObservation(admission.task, 'notification', stream.requestId);
         notifications += 1;
       }
     }

@@ -107,6 +107,7 @@ describe('RemoteTaskPollingService', () => {
     expect(harness.reader.readRemoteTask).toHaveBeenCalledWith({
       serverId: 'server-1',
       remoteTaskId: 'remote-1',
+      operationName: 'long-tool',
       executionContext: { mode: 'historical-replay', simulationId: 'replay-1' },
     });
     expect(harness.repository.binding.version).toBe(3);
@@ -318,6 +319,7 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
       bindingId: binding.bindingId,
       sequence: 1,
       type: 'task.accepted',
+      source: 'admission',
       payload: {},
       accepted: true,
       observedAt: binding.createdAt,
@@ -339,6 +341,10 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
 
   listRequiringPoll() {
     return Promise.resolve(this.pollable ?? [this.binding]);
+  }
+
+  listActiveByServer(serverId: string) {
+    return Promise.resolve(serverId === this.binding.serverId ? [this.binding] : []);
   }
 
   claimPoll(input: Parameters<RemoteTaskRepository['claimPoll']>[0]) {
@@ -366,6 +372,7 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
       bindingId: this.binding.bindingId,
       sequence: this.observations.length + 1,
       type: 'task.snapshot',
+      source: 'poll',
       payload: input.snapshot,
       accepted,
       ...(accepted ? {} : { rejectionReason: 'stale_provider_revision' as const }),
@@ -453,6 +460,7 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
       bindingId: this.binding.bindingId,
       sequence: this.observations.length + 1,
       type: 'provider_unreachable',
+      source: 'poll',
       payload: { errorCode: input.errorCode },
       accepted: true,
       observedAt: input.observedAt,
@@ -464,6 +472,10 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
       version: this.binding.version + 1,
     });
     return Promise.resolve({ applied: true as const, binding: this.binding });
+  }
+
+  recordExternalSnapshot() {
+    return Promise.resolve({ applied: false as const, reason: 'missing' as const });
   }
 
   quarantine(input: Parameters<RemoteTaskRepository['quarantine']>[0]) {

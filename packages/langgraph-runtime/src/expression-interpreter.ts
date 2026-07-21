@@ -97,13 +97,26 @@ function mergedEvidence(
     : {};
   for (const output of Object.values(outputs)) {
     if (isRecord(output) && isRecord(output['evidence'])) Object.assign(merged, output['evidence']);
+    if (isRecord(output) && Array.isArray(output['evidence']))
+      projectEvidenceItems(merged, output['evidence']);
     const structured = structuredContent(output);
     if (isRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
     const metadata = resultMetadata(output);
-    if (isRecord(metadata?.['io.sdar/evidence']))
+    if (isRecord(metadata?.['io.sdar/evidence'])) {
       Object.assign(merged, metadata['io.sdar/evidence']);
+      const items = metadata['io.sdar/evidence']['items'];
+      if (Array.isArray(items)) projectEvidenceItems(merged, items);
+    }
   }
   return Object.freeze(merged);
+}
+
+function projectEvidenceItems(target: Record<string, unknown>, items: readonly unknown[]): void {
+  for (const item of items) {
+    if (!isRecord(item) || typeof item['evidenceType'] !== 'string') continue;
+    target[item['evidenceType']] = item;
+    if (typeof item['evidenceId'] === 'string') target[item['evidenceId']] = true;
+  }
 }
 
 function resultMetadata(value: unknown): Readonly<Record<string, unknown>> | undefined {

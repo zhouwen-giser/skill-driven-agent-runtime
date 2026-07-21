@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "status": "passed",
-  "generatedAt": "2026-07-16T22:41:15.251Z",
-  "startedAt": "2026-07-16T22:40:11.201Z",
-  "finishedAt": "2026-07-16T22:41:15.251Z",
-  "durationMs": 64050,
-  "commit": "df8b6e0fa0d0934ca4412d409c1749ede1911aa3",
+  "generatedAt": "2026-07-19T04:31:13.002Z",
+  "startedAt": "2026-07-19T04:29:51.068Z",
+  "finishedAt": "2026-07-19T04:31:13.002Z",
+  "durationMs": 81934,
+  "commit": "c979feb7a5ddd56cefcf126a763c370e626170fd",
   "dirty": true,
-  "infrastructure": "real PostgreSQL/pgvector and Redis/BullMQ through compose or operator-managed equivalents",
+  "infrastructure": "real operator-managed PostgreSQL/pgvector and Redis/BullMQ supplied by the caller",
   "providerAndModel": "deterministic local Mock MCP Tasks Provider and Mock Model loopbacks",
   "commands": [
     {
@@ -15,54 +15,54 @@
       "command": "pnpm build",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:40:11.201Z",
-      "finishedAt": "2026-07-16T22:40:21.137Z",
-      "durationMs": 9936
+      "startedAt": "2026-07-19T04:29:51.068Z",
+      "finishedAt": "2026-07-19T04:30:05.922Z",
+      "durationMs": 14854
     },
     {
       "name": "mcp-tasks-sixteen-scenario-contract",
       "command": "pnpm exec vitest run --project contract packages/mcp-adapter/test/mcp-tasks-mock-provider.contract.test.ts",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:40:21.138Z",
-      "finishedAt": "2026-07-16T22:40:22.727Z",
-      "durationMs": 1589
+      "startedAt": "2026-07-19T04:30:05.923Z",
+      "finishedAt": "2026-07-19T04:30:08.418Z",
+      "durationMs": 2495
     },
     {
       "name": "acceptance-unit-evidence",
       "command": "pnpm test:unit",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:40:29.355Z",
-      "finishedAt": "2026-07-16T22:40:35.812Z",
-      "durationMs": 6457
+      "startedAt": "2026-07-19T04:30:08.418Z",
+      "finishedAt": "2026-07-19T04:30:17.523Z",
+      "durationMs": 9105
     },
     {
       "name": "postgres-redis-integration-including-restart",
       "command": "pnpm test:integration",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:40:35.812Z",
-      "finishedAt": "2026-07-16T22:40:45.424Z",
-      "durationMs": 9612
+      "startedAt": "2026-07-19T04:30:17.523Z",
+      "finishedAt": "2026-07-19T04:30:33.121Z",
+      "durationMs": 15598
     },
     {
       "name": "full-e2e",
       "command": "pnpm test:e2e",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:40:45.424Z",
-      "finishedAt": "2026-07-16T22:41:13.621Z",
-      "durationMs": 28197
+      "startedAt": "2026-07-19T04:30:33.121Z",
+      "finishedAt": "2026-07-19T04:31:12.860Z",
+      "durationMs": 39739
     },
     {
       "name": "acceptance-report-verifier",
       "command": "pnpm verify:v11-acceptance",
       "status": "passed",
       "exitCode": 0,
-      "startedAt": "2026-07-16T22:41:15.194Z",
-      "finishedAt": "2026-07-16T22:41:15.251Z",
-      "durationMs": 57
+      "startedAt": "2026-07-19T04:31:12.936Z",
+      "finishedAt": "2026-07-19T04:31:13.002Z",
+      "durationMs": 66
     }
   ],
   "acceptanceReport": "reports/v1.1-mcp-tasks/V11-ACCEPTANCE.json"

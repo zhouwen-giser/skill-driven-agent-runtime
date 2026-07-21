@@ -149,3 +149,21 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   unverified because `soffice` is unavailable; v1.2 does not modify or publish that DOCX.
 - As of Phase 14 there are zero open required findings. Phase 15 completion remains conditional on its
   explicit command matrix, final reports, pushed evidence and Ready-for-Review transition.
+
+## v1.2.1 Frozen MCP Tasks release blockers (2026-07-19)
+
+- Real interop against `sdar-mcp-tasks-provider-runtime origin/main@c5594e4` found four external wire
+  mismatches despite its 74/74 self-report: missing required Availability `reservationMode`; MRTR
+  `inputRequests` embedded in CreateTaskResult; terminal `result/error` embedded in CreateTaskResult; and
+  different `tasks/get`/Notification content for the same Runtime Revision. SDAR remains strict and is not
+  Interop Certified. See `reports/v1.2.1-frozen-mcp-tasks/11-real-provider-interop.{md,json}`.
+- The frozen dependency tree is restored. A Windows junction fixture preserves the symlink-rejection
+  security assertion without privileged file-link creation; the Frozen migration verifier now owns its
+  default Compose lifecycle; Mock Task TTL and Availability windows are startup-relative. The complete
+  dirty-worktree `pnpm verify` passes 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations,
+  build and both smoke stages. A clean exact-commit audit still cannot substitute for the blocked real
+  interop gate.
+- The isolated `sdar-codex-phase9` Compose resources and extracted external archive were removed on
+  2026-07-22 after independently verifying that the archive's junction target remained intact. External
+  Provider fixes, real interop requalification and the clean exact-commit audit are the remaining required
+  deferred items; v1.2.1 is not release-ready.

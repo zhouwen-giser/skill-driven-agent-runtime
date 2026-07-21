@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format follows Keep
 - Frozen Availability profile/client, frozen-only readiness attribute derivation and refreshed `embodied.move_to`/`embodied.area_patrol` package policies requiring observations plus Task Notifications.
 - Frozen POST SSE Task subscriptions with Ack-first authorization, bounded interests, reconnect reconciliation and unified Runtime Revision admission across polling and notifications.
 - Frozen Evidence A parsing/output-schema validation, exact-type local Skill matching, validated-only Workflow hard gates and execution-reference lineage for Provider evidence, local requirements, pointers/hashes and Runtime Revisions.
+- Frozen Provider/Remote Task operational projections, transactional Frozen registration/refresh, protocol diagnosis, baseline audit, immutable mode guard, reconnect surface, version-CAS reconciliation and Console protocol/revision/observation status.
+- Composed Frozen Notification runtime with durable post-Ack reconciliation, shared poll/Notification Runtime Revision admission, persisted Frozen contract/task behavior/TTL/revision authority and output-schema validation on every observation source.
+- Explicit local Frozen Mock Provider conformance for send-time Task authorization and bounded producer overflow, plus a bounded 1 MiB client SSE receive buffer.
 - ADR-108 explicit Legacy/Frozen dual-protocol boundary, Phase 0 OSS Intake and Draft PR #6 upgrade evidence.
 - Nine derived JSON Schemas, nine valid fixtures, twelve Legacy/invalid fixtures and an eleven-file drift lock verified by `pnpm verify:protocol` and the normal bootstrap gate.
 
@@ -21,6 +24,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 - PROJECT_STATUS and v1.2 sync state now reflect protected PR #5 merge commit `922f428`; historical v1.2 reports remain unchanged.
 - The exact MCP source Schema is vendored unmodified with attribution; derived SDAR schemas are separate modified artifacts and Frozen traffic cannot use the Legacy SDK Bridge.
+- Package and SBOM component metadata target 1.2.1; the version remains unreleased while real interop and the clean exact-commit gate are blocked.
 
 ### Verification
 
@@ -32,6 +36,8 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 8 passes 11/11 focused Evidence unit tests, 18/18 focused Evidence/lifecycle contracts, all 475 unit tests, isolated PostgreSQL Repository integration 58/58, 273-source architecture, format/lint/typecheck and production build; full contract is 153/154 with only the unchanged Windows symlink `EPERM` limitation.
 - Phase 6 passes 6/6 Frozen Availability plus 5/5 formal Skill package contracts, all 471 unit tests, 267-source architecture, format/lint/typecheck and production build; full contract is 140/141 with only the unchanged Windows symlink `EPERM` limitation.
 - Phase 7 passes 7/7 subscription and 19/19 combined subscription/lifecycle contracts, all 471 unit tests, 269-source architecture, format/lint/typecheck and production build; full contract is 147/148 with only the unchanged Windows symlink `EPERM` limitation. Provider-side queue overflow remains a Phase 10 component gate.
+- Phase 10 passes 54/54 focused Frozen contracts, 480/480 unit, 84/84 real PostgreSQL/Redis integration, 60/60 E2E, 16/16 Legacy acceptance, migration 0107, protocol, 122-operation OpenAPI, 285-source architecture and production build. Full contract is 166/167 solely because Windows cannot create the unchanged symlink fixture. Local Client/Mock Provider component conformance is distinct from Phase 11 real Provider interoperability.
+- Phase 12 maps all 26 adversarial items and the restored dependency tree passes the complete self-managed `pnpm verify`: 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages. Cross-platform link-fixture, migration-lifecycle and Mock TTL/window regressions are fixed. Phase 11 real Provider Runtime interop remains blocked by four external Frozen wire mismatches: missing Availability `reservationMode`, invalid MRTR/terminal fields in CreateTaskResult, and non-identical get/Notification content at one Runtime Revision. G3/G4/G5 remain blocked and PR #6 stays Draft.
 
 ## [1.2.0] - 2026-07-18
 

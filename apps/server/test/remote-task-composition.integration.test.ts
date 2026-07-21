@@ -48,8 +48,9 @@ import {
 } from '../../../packages/runtime-redis/src/index.js';
 
 const databaseName = 'sdar_v11_remote_composition_integration';
-const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
-const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${databaseName}`;
+const adminConnection =
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const databaseConnection = replaceDatabase(adminConnection, databaseName);
 const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
 const timestamp = '2026-07-17T08:00:00.000Z';
 const resources: { close(): Promise<void> }[] = [];
@@ -76,7 +77,7 @@ beforeAll(async () => {
   );
   await pool.query(bootstrap);
   await applyRuntimeMigrations(pool, {
-    profile: 'v1.1-isolated',
+    profile: 'released',
     isolationAcknowledged: true,
   });
 }, 60_000);
@@ -747,6 +748,18 @@ function remoteAdmission(
     protocolStatus: 'working',
     protocolRevision: '2026-07-28',
     tasksSchemaRevision: 'tasks-schema-revision-1',
+    protocolContract: {
+      mode: 'frozen_v1',
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+      taskExecutionProfileVersion: '1.0',
+      evidenceProfileVersion: '1.0',
+    },
+    taskBehavior: 'server_directed',
+    runtimeRevision: '1',
+    providerRevision: 'provider-1',
+    taskTtlMs: 3_600_000,
+    taskExpiresAt: '2026-07-17T09:00:00.000Z',
     providerSubstate: 'queued',
     remoteRevision: 'provider-revision-1',
     executionContext: { mode: 'live' },
@@ -821,6 +834,9 @@ async function completeRemoteTask(
           createdAt: binding.createdAt,
           lastUpdatedAt: '2026-07-17T08:00:30.000Z',
           ttlMs: 3_600_000,
+          expiresAt: '2026-07-17T09:00:00.000Z',
+          runtimeRevision: '2',
+          providerRevision: `provider-terminal-${marker}`,
           protocolRevision: binding.protocolRevision,
           tasksSchemaRevision: binding.tasksSchemaRevision,
           providerObservation: {
@@ -891,6 +907,12 @@ function advancingClock(): { now(): string } {
 function sequentialId(prefix: string): () => string {
   let sequence = 0;
   return () => `${prefix}-${String(++sequence)}`;
+}
+
+function replaceDatabase(connection: string, database: string): string {
+  const url = new URL(connection);
+  url.pathname = `/${database}`;
+  return url.toString();
 }
 
 class SequenceReader implements RemoteTaskSnapshotReader {

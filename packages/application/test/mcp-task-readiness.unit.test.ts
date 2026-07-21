@@ -341,7 +341,7 @@ function createService(
   let readiness = 0;
   let snapshot = 0;
   return new McpTaskReadinessService({
-    operations: { getTaskOperationSemantics: () => Promise.resolve(semantics) },
+    operations: { getTaskOperationDefinition: () => Promise.resolve({ semantics }) },
     provider: { checkTaskAvailability: reader },
     evidence,
     riskDecider: decider,

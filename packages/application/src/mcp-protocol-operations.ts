@@ -24,9 +24,9 @@ export interface McpProviderProtocolEvidence {
   readonly notificationStatus: 'streaming_supported' | 'polling_fallback';
   readonly warnings: readonly string[];
   readonly operations: Readonly<{
-    registerOrRefresh: 'legacy_registry' | 'frozen_adapter_required';
+    registerOrRefresh: 'legacy_registry' | 'frozen_registry';
     protocolDiagnosis: true;
-    reconnect: 'component_required';
+    reconnect: 'component_required' | 'subscription_component';
     forceReconciliation: true;
     modeSwitchGuard: true;
     baselineAudit: true;
@@ -36,15 +36,18 @@ export interface McpProviderProtocolEvidence {
 export class McpProtocolOperationsService {
   readonly #repository: McpProtocolOperationsRepository;
   readonly #expectedBaselineSha256: string;
+  readonly #notificationReconnectComposed: boolean;
 
   constructor(
     input: Readonly<{
       repository: McpProtocolOperationsRepository;
       expectedBaselineSha256: string;
+      notificationReconnectComposed?: boolean;
     }>,
   ) {
     this.#repository = input.repository;
     this.#expectedBaselineSha256 = input.expectedBaselineSha256;
+    this.#notificationReconnectComposed = input.notificationReconnectComposed ?? false;
   }
 
   async listProviders(): Promise<readonly McpProviderProtocolEvidence[]> {
@@ -134,10 +137,12 @@ export class McpProtocolOperationsService {
       operations: Object.freeze({
         registerOrRefresh:
           (server.protocolMode ?? 'legacy_v11') === 'frozen_v1'
-            ? 'frozen_adapter_required'
+            ? 'frozen_registry'
             : 'legacy_registry',
         protocolDiagnosis: true,
-        reconnect: 'component_required',
+        reconnect: this.#notificationReconnectComposed
+          ? 'subscription_component'
+          : 'component_required',
         forceReconciliation: true,
         modeSwitchGuard: true,
         baselineAudit: true,

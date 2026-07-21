@@ -9,7 +9,7 @@ import {
   type DslRiskAction,
   type DslRiskDecision,
   type McpTaskExecutionSpec,
-  type McpTaskOperationSemantics,
+  type McpTaskOperationDefinition,
   type ResolvedMcpTaskExecution,
   type RuntimeExecutionContext,
   type TaskAvailabilityArguments,
@@ -155,7 +155,7 @@ export interface WorkflowCandidateReadinessPolicy {
 interface CandidateRequest {
   readonly nodeId: string;
   readonly serverId: string;
-  readonly semantics: McpTaskOperationSemantics;
+  readonly definition: McpTaskOperationDefinition;
   readonly request: TaskAvailabilityCheckRequest;
 }
 
@@ -342,11 +342,11 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       signal?: AbortSignal;
     }>,
   ): Promise<ResolvedMcpTaskExecution> {
-    const semantics = await this.#operations.getTaskOperationSemantics({
+    const definition = await this.#operations.getTaskOperationDefinition({
       serverId: input.serverId,
       toolName: input.operationName,
     });
-    const capabilityErrors = validateCapabilities(semantics, input.taskExecution);
+    const capabilityErrors = validateCapabilities(definition, input.taskExecution);
     const checkedAt = this.#clock.now();
     const readinessId = this.#ids.nextReadinessId();
     const base = {
@@ -371,7 +371,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       await this.#evidence.saveEvaluation(readiness, []);
       throw new TaskReadinessError('MCP_TASK_PRECALL_NOT_READY', capabilityErrors.join('; '));
     }
-    if (semantics === undefined)
+    if (definition === undefined)
       throw new TaskReadinessError(
         'MCP_TASK_PRECALL_NOT_READY',
         'WORKFLOW_TASK_EXECUTION_UNSUPPORTED',
@@ -400,7 +400,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
         {
           nodeId: input.workflowNodeId,
           serverId: input.serverId,
-          semantics,
+          definition,
           request,
         },
       ],
@@ -465,19 +465,19 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
     const blockerCodes: string[] = [];
     for (const node of definition.nodes) {
       if (node.type !== 'mcp_tool') continue;
-      const semantics = await this.#operations.getTaskOperationSemantics(node.tool);
-      if (node.taskExecution === undefined && semantics?.execution !== 'task_required') continue;
-      const execution = planningExecution(node.taskExecution, semantics);
-      const errors = validateCapabilities(semantics, execution);
+      const operation = await this.#operations.getTaskOperationDefinition(node.tool);
+      if (node.taskExecution === undefined && !operationRequiresTask(operation)) continue;
+      const execution = planningExecution(node.taskExecution, operation);
+      const errors = validateCapabilities(operation, execution);
       if (errors.length > 0) {
         blockerCodes.push(...errors.map((code) => `${code}:${node.nodeId}`));
         continue;
       }
-      if (semantics === undefined || execution === undefined) continue;
+      if (operation === undefined || execution === undefined) continue;
       requests.push({
         nodeId: node.nodeId,
         serverId: node.tool.serverId,
-        semantics,
+        definition: operation,
         request: {
           nodeId: node.nodeId,
           operationName: node.tool.toolName,
@@ -609,10 +609,11 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
 
 function planningExecution(
   spec: McpTaskExecutionSpec | undefined,
-  semantics: McpTaskOperationSemantics | undefined,
+  definition: McpTaskOperationDefinition | undefined,
 ): ResolvedMcpTaskExecution | undefined {
   if (spec === undefined) {
-    return semantics?.execution === 'task_required'
+    return definition?.protocolMode !== 'frozen_v1' &&
+      definition?.semantics.execution === 'task_required'
       ? { mode: 'require_task', availabilityCheck: 'required' }
       : undefined;
   }
@@ -656,17 +657,31 @@ function planningTiming(spec: McpTaskExecutionSpec): TaskExecutionTiming | undef
 }
 
 function validateCapabilities(
-  semantics: McpTaskOperationSemantics | undefined,
+  definition: McpTaskOperationDefinition | undefined,
   execution: ResolvedMcpTaskExecution | undefined,
 ): readonly string[] {
   if (execution === undefined) return [];
-  if (semantics === undefined || semantics.execution === 'unknown')
-    return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  if (
-    execution.protocolMode !== 'frozen_v1' &&
-    execution.mode === 'require_task' &&
-    semantics.execution === 'synchronous'
-  )
+  if (definition === undefined) return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+  if (execution.protocolMode === 'frozen_v1') {
+    if (definition.protocolMode !== 'frozen_v1') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+    const profile = definition.taskExecutionProfile;
+    if (profile.taskBehavior === 'synchronous_only') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+    if (execution.timing?.start.mode === 'scheduled' && !profile.supportsScheduling)
+      return ['WORKFLOW_TASK_SCHEDULING_UNSUPPORTED'];
+    if (
+      execution.timing?.maxElapsedMs !== null &&
+      execution.timing?.maxElapsedMs !== undefined &&
+      !profile.supportsMaxElapsed
+    )
+      return ['WORKFLOW_TASK_MAX_ELAPSED_UNSUPPORTED'];
+    if (profile.availability !== 'dynamic' && execution.availabilityCheck === 'required')
+      return ['MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED'];
+    return [];
+  }
+  if (definition.protocolMode === 'frozen_v1') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+  if (definition.semantics.execution === 'unknown') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+  const semantics = definition.semantics;
+  if (execution.mode === 'require_task' && semantics.execution === 'synchronous')
     return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
   if (execution.timing?.start.mode === 'scheduled' && !semantics.supportsScheduling)
     return ['WORKFLOW_TASK_SCHEDULING_UNSUPPORTED'];
@@ -679,6 +694,12 @@ function validateCapabilities(
   if (semantics.availability !== 'dynamic' && execution.availabilityCheck === 'required')
     return ['MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED'];
   return [];
+}
+
+function operationRequiresTask(definition: McpTaskOperationDefinition | undefined): boolean {
+  return definition?.protocolMode === 'frozen_v1'
+    ? definition.taskExecutionProfile.taskBehavior === 'task_required'
+    : definition?.semantics.execution === 'task_required';
 }
 
 function partitionArguments(value: WorkflowBoundValue): TaskAvailabilityArguments {

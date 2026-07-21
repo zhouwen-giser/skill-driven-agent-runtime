@@ -17,9 +17,16 @@ import {
 } from '../src/index.js';
 
 const databaseName = 'sdar_v11_continuation_integration';
-const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
-const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${databaseName}`;
+const adminConnection =
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const databaseConnection = replaceDatabase(adminConnection, databaseName);
 let pool: Pool;
+
+function replaceDatabase(connection: string, database: string): string {
+  const url = new URL(connection);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
 
 beforeAll(async () => {
   const admin = new Pool({ connectionString: adminConnection });
@@ -41,7 +48,7 @@ beforeAll(async () => {
     ),
   );
   await applyRuntimeMigrations(pool, {
-    profile: 'v1.1-isolated',
+    profile: 'released',
     isolationAcknowledged: true,
   });
   const applied = await pool.query<{ applied: boolean }>(

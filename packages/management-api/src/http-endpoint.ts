@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type {
   McpRegistryService,
   McpProtocolOperationsService,
+  FrozenMcpRegistryService,
   ModelRuntimeService,
   PromptService,
   SkillAuthoringService,
@@ -426,6 +427,16 @@ export interface ManagementOperations {
     McpProtocolOperationsService,
     'auditBaseline' | 'diagnose' | 'guardModeSwitch' | 'listProviders'
   >;
+  readonly frozenMcp?: Pick<FrozenMcpRegistryService, 'refresh' | 'register'>;
+  readonly frozenMcpNotifications?: Readonly<{
+    reconnect(serverId: string): Promise<
+      Readonly<{
+        serverId: string;
+        disposition: 'started' | 'already_running' | 'no_active_tasks';
+        taskIds: readonly string[];
+      }>
+    >;
+  }>;
   readonly skills: Pick<
     SkillRegistryService,
     | 'diff'
@@ -922,9 +933,18 @@ export async function startManagementHttpEndpoint(
             concurrency: 'expectedVersion CAS',
           },
           reconnectNotifications: {
-            status: 'component_required',
-            warning:
-              'Notification reconnect is unavailable until a Frozen subscription component is composed; polling remains authoritative fallback.',
+            status:
+              options.operations.frozenMcpNotifications === undefined
+                ? 'component_required'
+                : 'available',
+            ...(options.operations.frozenMcpNotifications === undefined
+              ? {
+                  warning:
+                    'Notification reconnect is unavailable until a Frozen subscription component is composed; polling remains authoritative fallback.',
+                }
+              : {
+                  note: 'Reconnect performs tasks/get reconciliation before admitting subscription Notifications; polling remains authoritative fallback.',
+                }),
           },
         },
         correlationRoot: {
@@ -1543,6 +1563,47 @@ export async function startManagementHttpEndpoint(
       response.status(201).json(result);
     }),
   );
+  app.post(
+    '/api/v1/mcp/frozen/servers',
+    asyncRoute(async (request, response) => {
+      if (options.operations.frozenMcp === undefined)
+        throw new HttpInputError(
+          'FROZEN_MCP_REGISTRY_UNAVAILABLE',
+          'Frozen MCP registration is not composed in this runtime.',
+        );
+      response
+        .status(201)
+        .json(
+          await options.operations.frozenMcp.register(RegisterMcpServerSchema.parse(request.body)),
+        );
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/frozen/servers/:serverId/refresh',
+    asyncRoute(async (request, response) => {
+      if (options.operations.frozenMcp === undefined)
+        throw new HttpInputError(
+          'FROZEN_MCP_REGISTRY_UNAVAILABLE',
+          'Frozen MCP refresh is not composed in this runtime.',
+        );
+      response.json(await options.operations.frozenMcp.refresh(pathValue(request, 'serverId')));
+    }),
+  );
+  app.post(
+    '/api/v1/mcp/frozen/servers/:serverId/notifications/reconnect',
+    asyncRoute(async (request, response) => {
+      if (options.operations.frozenMcpNotifications === undefined)
+        throw new HttpInputError(
+          'FROZEN_MCP_NOTIFICATION_RUNTIME_UNAVAILABLE',
+          'Frozen notification reconnect requires the local subscription component.',
+        );
+      response
+        .status(202)
+        .json(
+          await options.operations.frozenMcpNotifications.reconnect(pathValue(request, 'serverId')),
+        );
+    }),
+  );
   app.get(
     '/api/v1/mcp/servers/:serverId/tools',
     asyncRoute(async (request, response) => {
@@ -2024,6 +2085,14 @@ function sanitizeRemoteTaskBinding(binding: LifecycleBinding) {
       : { parentSkillCallId: binding.parentSkillCallId }),
     mcpInvocationId: binding.mcpInvocationId,
     protocolStatus: binding.protocolStatus,
+    protocolContract: binding.protocolContract,
+    ...(binding.taskBehavior === undefined ? {} : { taskBehavior: binding.taskBehavior }),
+    ...(binding.runtimeRevision === undefined ? {} : { runtimeRevision: binding.runtimeRevision }),
+    ...(binding.providerRevision === undefined
+      ? {}
+      : { providerRevision: binding.providerRevision }),
+    ...(binding.taskTtlMs === undefined ? {} : { taskTtlMs: binding.taskTtlMs }),
+    ...(binding.taskExpiresAt === undefined ? {} : { taskExpiresAt: binding.taskExpiresAt }),
     ...(binding.providerSubstate === undefined
       ? {}
       : { providerSubstate: binding.providerSubstate }),

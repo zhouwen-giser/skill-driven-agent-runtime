@@ -8,7 +8,10 @@ import {
   createMcpToolEnhancement,
   type McpInvocation,
   type McpInvocationOutcome,
+  type McpProtocolContractSnapshot,
+  type McpTaskBehavior,
   type RemoteTaskOperationAck,
+  type RemoteTaskSnapshot,
   type McpManagementOperation,
   type McpManagementOperationType,
   type McpServer,
@@ -59,6 +62,60 @@ export interface RecordedMcpInvocationOutcome {
   readonly outcome: McpInvocationOutcome;
   readonly credentialRevision: string;
   readonly sessionRevision: string;
+  readonly protocolContract?: McpProtocolContractSnapshot;
+  readonly taskBehavior?: McpTaskBehavior;
+}
+
+export interface FrozenTaskAvailabilityRuntimePort {
+  check(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      requests: readonly TaskAvailabilityCheckRequest[];
+      signal?: AbortSignal;
+    }>,
+  ): Promise<TaskAvailabilityReadResult>;
+}
+
+export interface FrozenTaskLifecycleRuntimePort {
+  disconnect?(
+    input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
+  ): void;
+  call(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      toolName: string;
+      arguments: Readonly<Record<string, unknown>>;
+      outputSchema?: unknown;
+      outputValidator: JsonSchemaValidator;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<McpInvocationOutcome>;
+  get(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      outputSchema?: unknown;
+      outputValidator: JsonSchemaValidator;
+    }>,
+  ): Promise<RemoteTaskSnapshot>;
+  update(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+      inputResponses: Readonly<Record<string, unknown>>;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
+  cancel(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      remoteTaskId: string;
+    }>,
+  ): Promise<RemoteTaskOperationAck>;
 }
 
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
@@ -82,6 +139,8 @@ export class McpRegistryService {
   readonly #schemas: JsonSchemaValidator;
   readonly #clock: Clock;
   readonly #enhancer: McpToolEnhancer;
+  readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
+  readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
   constructor(
@@ -91,6 +150,8 @@ export class McpRegistryService {
       cipher: SecretCipher;
       schemas: JsonSchemaValidator;
       enhancer: McpToolEnhancer;
+      frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
+      frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
     }>,
@@ -100,6 +161,8 @@ export class McpRegistryService {
     this.#cipher = dependencies.cipher;
     this.#schemas = dependencies.schemas;
     this.#enhancer = dependencies.enhancer;
+    this.#frozenAvailability = dependencies.frozenAvailability;
+    this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
@@ -195,18 +258,34 @@ export class McpRegistryService {
     );
     let outcome: McpInvocationOutcome;
     try {
-      outcome = await this.#transport.call({
-        endpoint: record.server.endpoint,
-        headers: executionHeaders(
-          this.#cipher.decrypt(record.encryptedCredential),
+      if (record.server.protocolMode === 'frozen_v1') {
+        if (this.#frozenLifecycle === undefined)
+          throw new McpRegistryError(
+            'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+            'Frozen MCP lifecycle runtime is not composed.',
+          );
+        outcome = await this.#frozenLifecycle.call({
+          endpoint: record.server.endpoint,
+          headers: this.#cipher.decrypt(record.encryptedCredential),
+          toolName,
+          arguments: arguments_,
+          outputValidator: this.#schemas,
+          ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+          ...(signal === undefined ? {} : { signal }),
+        });
+      } else
+        outcome = await this.#transport.call({
+          endpoint: record.server.endpoint,
+          headers: executionHeaders(
+            this.#cipher.decrypt(record.encryptedCredential),
+            executionContext,
+          ),
           executionContext,
-        ),
-        executionContext,
-        toolName,
-        arguments: arguments_,
-        ...(context.taskExecution === undefined ? {} : { taskExecution: context.taskExecution }),
-        ...(signal === undefined ? {} : { signal }),
-      });
+          toolName,
+          arguments: arguments_,
+          ...(context.taskExecution === undefined ? {} : { taskExecution: context.taskExecution }),
+          ...(signal === undefined ? {} : { signal }),
+        });
     } catch (error: unknown) {
       const completedAt = this.#clock.now();
       const canceled = signal?.aborted === true;
@@ -259,15 +338,48 @@ export class McpRegistryService {
         outcome.kind === 'remote_task'
           ? `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`
           : String(record.server.toolRevision),
+      ...(record.server.protocolMode !== 'frozen_v1'
+        ? {}
+        : await this.#frozenInvocationAuthority(serverId, tool)),
+    };
+  }
+
+  async #frozenInvocationAuthority(
+    serverId: string,
+    tool: McpTool,
+  ): Promise<
+    Readonly<{ protocolContract: McpProtocolContractSnapshot; taskBehavior: McpTaskBehavior }>
+  > {
+    const snapshot = await this.#repository.findCurrentProtocolSnapshot?.(serverId);
+    if (snapshot?.protocolMode !== 'frozen_v1')
+      throw new McpRegistryError(
+        'MCP_FROZEN_PROTOCOL_SNAPSHOT_REQUIRED',
+        'Frozen MCP invocation requires its persisted discovery snapshot.',
+      );
+    if (tool.protocolMode !== 'frozen_v1' || tool.taskExecutionProfile === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_TOOL_PROFILE_REQUIRED',
+        'Frozen MCP invocation requires its persisted Tool execution profile.',
+      );
+    return {
+      protocolContract: Object.freeze({
+        mode: 'frozen_v1',
+        protocolVersion: snapshot.protocolVersion,
+        baselineSha256: snapshot.baselineSha256,
+        taskExecutionProfileVersion: tool.taskExecutionProfile.profileVersion,
+        evidenceProfileVersion: '1.0',
+        serverDiscoverySnapshotId: snapshot.snapshotId,
+      }),
+      taskBehavior: tool.taskExecutionProfile.taskBehavior,
     };
   }
 
   async delete(serverId: string): Promise<void> {
     const record = await this.#requireServer(serverId);
-    await this.#transport.disconnect({
-      endpoint: record.server.endpoint,
-      headers: sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential)),
-    });
+    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
+    if (record.server.protocolMode === 'frozen_v1')
+      this.#frozenLifecycle?.disconnect?.({ endpoint: record.server.endpoint, headers });
+    else await this.#transport.disconnect({ endpoint: record.server.endpoint, headers });
     await this.#repository.deleteServer(serverId);
     await this.#auditManagementOperation(serverId, 'delete', { disconnected: true });
   }
@@ -338,6 +450,7 @@ export class McpRegistryService {
   async readRemoteTask(
     input: Readonly<{
       serverId: string;
+      operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -345,14 +458,28 @@ export class McpRegistryService {
     try {
       const record = await this.#requireServer(input.serverId);
       const executionContext = createRuntimeExecutionContext(input.executionContext);
-      const snapshot = await this.#transport.getTask({
-        endpoint: record.server.endpoint,
-        headers: executionHeaders(
-          this.#cipher.decrypt(record.encryptedCredential),
-          executionContext,
-        ),
-        remoteTaskId: input.remoteTaskId,
-      });
+      const tool = (await this.#repository.listTools(input.serverId)).find(
+        (candidate) => candidate.toolName === input.operationName,
+      );
+      if (tool === undefined)
+        throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
+      const snapshot =
+        record.server.protocolMode === 'frozen_v1'
+          ? await this.#requireFrozenLifecycle().get({
+              endpoint: record.server.endpoint,
+              headers: this.#cipher.decrypt(record.encryptedCredential),
+              remoteTaskId: input.remoteTaskId,
+              outputValidator: this.#schemas,
+              ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+            })
+          : await this.#transport.getTask({
+              endpoint: record.server.endpoint,
+              headers: executionHeaders(
+                this.#cipher.decrypt(record.encryptedCredential),
+                executionContext,
+              ),
+              remoteTaskId: input.remoteTaskId,
+            });
       return { kind: 'snapshot', snapshot };
     } catch (error: unknown) {
       const code = stableErrorCode(error);
@@ -384,6 +511,12 @@ export class McpRegistryService {
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
     const executionContext = createRuntimeExecutionContext(input.executionContext);
+    if (record.server.protocolMode === 'frozen_v1')
+      return this.#requireFrozenLifecycle().cancel({
+        endpoint: record.server.endpoint,
+        headers: this.#cipher.decrypt(record.encryptedCredential),
+        remoteTaskId: input.remoteTaskId,
+      });
     return this.#transport.cancelTask({
       endpoint: record.server.endpoint,
       headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
@@ -403,6 +536,13 @@ export class McpRegistryService {
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
     const executionContext = createRuntimeExecutionContext(input.executionContext);
+    if (record.server.protocolMode === 'frozen_v1')
+      return this.#requireFrozenLifecycle().update({
+        endpoint: record.server.endpoint,
+        headers: this.#cipher.decrypt(record.encryptedCredential),
+        remoteTaskId: input.remoteTaskId,
+        inputResponses: input.inputResponses,
+      });
     return this.#transport.updateTask({
       endpoint: record.server.endpoint,
       headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
@@ -422,6 +562,19 @@ export class McpRegistryService {
   ): Promise<TaskAvailabilityReadResult> {
     try {
       const record = await this.#requireServer(input.serverId);
+      if (record.server.protocolMode === 'frozen_v1') {
+        if (this.#frozenAvailability === undefined)
+          return {
+            kind: 'capability_missing',
+            errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
+          };
+        return await this.#frozenAvailability.check({
+          endpoint: record.server.endpoint,
+          headers: this.#cipher.decrypt(record.encryptedCredential),
+          requests: input.requests,
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+        });
+      }
       if (this.#transport.checkTaskAvailability === undefined)
         return {
           kind: 'capability_missing',
@@ -623,6 +776,15 @@ export class McpRegistryService {
       throw new McpRegistryError('MCP_SERVER_NOT_FOUND', 'MCP Server was not found.');
     return record;
   }
+
+  #requireFrozenLifecycle(): FrozenTaskLifecycleRuntimePort {
+    if (this.#frozenLifecycle === undefined)
+      throw new McpRegistryError(
+        'MCP_FROZEN_RUNTIME_UNAVAILABLE',
+        'Frozen MCP lifecycle runtime is not composed.',
+      );
+    return this.#frozenLifecycle;
+  }
 }
 
 function invocationRecord(
@@ -732,6 +894,9 @@ export type McpRegistryErrorCode =
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_FOUND'
   | 'MCP_RESERVED_HEADER_CONFLICT'
+  | 'MCP_FROZEN_RUNTIME_UNAVAILABLE'
+  | 'MCP_FROZEN_PROTOCOL_SNAPSHOT_REQUIRED'
+  | 'MCP_FROZEN_TOOL_PROFILE_REQUIRED'
   | 'MCP_TOOL_NOT_FOUND'
   | 'MCP_TOOL_SCHEMA_INVALID';
 

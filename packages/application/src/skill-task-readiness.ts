@@ -73,6 +73,7 @@ export class V11SkillTaskReadinessAdapter implements SkillTaskReadinessPort {
         return candidateReadiness(
           candidate.providerId,
           candidate.operationName,
+          candidate.protocolMode ?? 'legacy_v11',
           candidate.attributes,
           outcome,
           binding.bindingId,
@@ -98,6 +99,7 @@ export class V11SkillTaskReadinessAdapter implements SkillTaskReadinessPort {
         : {
             selectedProviderId: selected.providerId,
             selectedOperationName: selected.operationName,
+            selectedProtocolMode: selected.protocolMode,
           }),
       candidates: Object.freeze(candidates),
     });
@@ -137,6 +139,7 @@ function policyCandidates(
 function candidateReadiness(
   providerId: string,
   operationName: string,
+  protocolMode: 'legacy_v11' | 'frozen_v1',
   attributes: readonly string[],
   outcome: TaskAvailabilityReadResult,
   bindingId: string,
@@ -164,6 +167,7 @@ function candidateReadiness(
   return Object.freeze({
     providerId,
     operationName,
+    protocolMode,
     attributes: Object.freeze([...attributes]),
     disposition,
     riskLevel: invalid === undefined ? result.riskLevel : 'high',

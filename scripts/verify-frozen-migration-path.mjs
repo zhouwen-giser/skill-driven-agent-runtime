@@ -5,11 +5,19 @@ import { URL } from 'node:url';
 
 import pg from 'pg';
 
+import {
+  reuseExistingInfrastructure,
+  startInfrastructure,
+  stopInfrastructure,
+} from './lib/infrastructure.mjs';
+
 const { Pool } = pg;
 const root = process.cwd();
-const connectionString = process.env['TEST_DATABASE_URL'];
-if (connectionString === undefined)
+const configuredConnectionString = process.env['TEST_DATABASE_URL'];
+if (reuseExistingInfrastructure && configuredConnectionString === undefined)
   throw new Error('TEST_DATABASE_URL_REQUIRED_FOR_FROZEN_MIGRATION_VERIFICATION');
+const connectionString =
+  configuredConnectionString ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 const baseUrl = new URL(connectionString);
 const admin = new Pool({ connectionString });
@@ -21,6 +29,7 @@ const bootstrap = await readFile(
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 
 try {
+  startInfrastructure(root);
   for (const database of databases) {
     await dropDatabase(admin, database);
     await admin.query(`CREATE DATABASE ${database}`);
@@ -101,8 +110,12 @@ try {
     'Frozen migration 0107 verified: empty, 0106 upgrade, idempotent, rollback/reapply, Legacy backfill, unsafe rollback and ledger-gap fail-closed.\n',
   );
 } finally {
-  for (const database of databases) await dropDatabase(admin, database).catch(() => undefined);
-  await admin.end();
+  try {
+    for (const database of databases) await dropDatabase(admin, database).catch(() => undefined);
+  } finally {
+    await admin.end().catch(() => undefined);
+    stopInfrastructure(root);
+  }
 }
 
 async function applyThrough0106(pool) {

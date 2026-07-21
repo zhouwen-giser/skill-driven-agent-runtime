@@ -6,6 +6,7 @@ import type {
   RemoteTaskSnapshot,
 } from './mcp-task.js';
 import type { TaskExecutionTiming } from './mcp-task-availability.js';
+import type { McpProtocolContractSnapshot, McpTaskBehavior } from './mcp-frozen-protocol.js';
 import {
   createRuntimeExecutionContext,
   type RuntimeExecutionContext,
@@ -82,6 +83,8 @@ export type RemoteTaskObservationType =
   | 'provider_unreachable'
   | 'schema_invalid';
 
+export type RemoteTaskObservationSource = 'admission' | 'poll' | 'notification' | 'reconciliation';
+
 export type RemoteTaskControlEventType =
   'task.input_required' | 'task.completed' | 'task.failed' | 'task.cancelled';
 
@@ -108,6 +111,12 @@ export interface RemoteTaskBinding {
   readonly protocolStatus: McpTaskStatus;
   readonly protocolRevision: string;
   readonly tasksSchemaRevision: string;
+  readonly protocolContract: McpProtocolContractSnapshot;
+  readonly taskBehavior?: McpTaskBehavior;
+  readonly runtimeRevision?: string;
+  readonly providerRevision?: string;
+  readonly taskTtlMs?: number;
+  readonly taskExpiresAt?: string;
   readonly providerSubstate?: RemoteTaskProviderSubstate;
   readonly remoteRevision?: string;
   readonly localState: RemoteTaskLocalState;
@@ -159,6 +168,12 @@ export interface RemoteTaskAdmission {
   readonly protocolStatus: McpTaskStatus;
   readonly protocolRevision: string;
   readonly tasksSchemaRevision: string;
+  readonly protocolContract?: McpProtocolContractSnapshot;
+  readonly taskBehavior?: McpTaskBehavior;
+  readonly runtimeRevision?: string;
+  readonly providerRevision?: string;
+  readonly taskTtlMs?: number;
+  readonly taskExpiresAt?: string;
   readonly providerSubstate?: RemoteTaskProviderSubstate;
   readonly remoteRevision?: string;
   readonly requestedTiming?: TaskExecutionTiming;
@@ -176,8 +191,12 @@ export interface RemoteTaskObservation {
   readonly bindingId: string;
   readonly sequence: number;
   readonly type: RemoteTaskObservationType;
+  readonly source: RemoteTaskObservationSource;
   readonly providerEventId?: string;
   readonly remoteRevision?: string;
+  readonly runtimeRevision?: string;
+  readonly providerRevision?: string;
+  readonly subscriptionId?: string;
   readonly payload: unknown;
   readonly accepted: boolean;
   readonly rejectionReason?: 'stale_provider_revision' | 'binding_closed';
@@ -189,6 +208,7 @@ export interface RemoteTaskControlEvent {
   readonly bindingId: string;
   readonly type: RemoteTaskControlEventType;
   readonly remoteRevision?: string;
+  readonly runtimeRevision?: string;
   readonly resultHash: string;
   readonly payload: unknown;
   readonly status: RemoteTaskControlEventStatus;
@@ -261,8 +281,28 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   // Every accepted remote Task therefore enters one initial poll before its
   // observed Provider status is projected into awaiting/terminal local state.
   const localState = 'polling' as const;
+  const protocolContract =
+    input.protocolContract ??
+    Object.freeze({
+      mode: 'legacy_v11' as const,
+      protocolVersion: input.protocolRevision,
+      baselineSha256: 'legacy-v11-historical',
+    });
+  if (protocolContract.mode === 'frozen_v1') {
+    if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
+      throw new DomainError(
+        'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+        'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
+      );
+  }
+  if ((input.taskTtlMs === undefined) !== (input.taskExpiresAt === undefined))
+    throw new DomainError(
+      'REMOTE_TASK_TTL_EXPIRY_MISMATCH',
+      'Remote Task TTL and expiry must be supplied together.',
+    );
   return Object.freeze({
     ...input,
+    protocolContract,
     executionContext: createRuntimeExecutionContext(input.executionContext),
     localState,
     nextPollAt: input.nextPollAt ?? input.createdAt,

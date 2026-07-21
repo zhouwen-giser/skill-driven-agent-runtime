@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "phase": 11,
+  "status": "blocked_external_protocol_mismatch",
+  "provider": {
+    "repository": "zhouwen-giser/sdar-mcp-tasks-provider-runtime",
+    "testedRef": "origin/main",
+    "testedCommit": "c5594e4",
+    "runtimeVersion": "2.0.0-rc.1",
+    "reportedComponentConformance": { "passed": 74, "total": 74 },
+    "endpoint": "isolated_local_http_18080",
+    "adapter": "reference_typescript_grpc_17001",
+    "database": "isolated_postgresql_55443_database_removed"
+  },
+  "matchingBaselines": {
+    "protocolVersion": "2026-07-28",
+    "sourceCommit": "26897cc322f356487da89113451bd16b520b9288",
+    "sourceSchemaGitBlob": "cc44564e33305dbc07e820cdd0a97648f3852019"
+  },
+  "passed": {
+    "healthReady": true,
+    "serverDiscover": true,
+    "taskNotificationsAdvertised": true,
+    "toolProfilesAndOutputSchemas": true,
+    "synchronousTool": true,
+    "admissionRejection": true,
+    "flatWorkingCreateTask": true,
+    "immediateGet": true,
+    "trueTtl": true,
+    "workingToCompletedAfterReferenceAdapterObservation": true,
+    "evidenceA": true,
+    "notificationAckFirst": true
+  },
+  "blockers": [
+    {
+      "code": "PROVIDER_AVAILABILITY_RESERVATION_MODE_MISSING",
+      "method": "io.sdar/taskExecution/checkAvailability",
+      "expected": "every result has reservationMode",
+      "actual": "field omitted",
+      "sdarError": "FROZEN_AVAILABILITY_RESPONSE_INVALID"
+    },
+    {
+      "code": "PROVIDER_CREATE_TASK_RESULT_CONTAINS_MRTR",
+      "method": "tools/call",
+      "scenario": "input_required_frozen",
+      "expected": "flat CreateTaskResult contains Task base only; inputRequests arrive through tasks/get",
+      "actual": "resultType=task contains status=input_required and inputRequests",
+      "sdarError": "FROZEN_CREATE_TASK_RESULT_INVALID"
+    },
+    {
+      "code": "PROVIDER_CREATE_TASK_RESULT_CONTAINS_TERMINAL_PAYLOAD",
+      "method": "tools/call",
+      "scenarios": ["business_failure", "technical_failure"],
+      "expected": "flat CreateTaskResult contains Task base only; terminal result/error arrives through tasks/get",
+      "actual": "resultType=task contains completed result or failed error",
+      "sdarError": "FROZEN_CREATE_TASK_RESULT_INVALID"
+    },
+    {
+      "code": "PROVIDER_SAME_RUNTIME_REVISION_CONTENT_MISMATCH",
+      "methods": ["tasks/get", "notifications/tasks"],
+      "taskId": "93a7ae16-e246-48f7-a5e1-a0692573d815",
+      "runtimeRevision": "29",
+      "expected": "identical DetailedTask for the same taskId and runtimeRevision",
+      "actual": "Notification adds eventId and observedAt that tasks/get omits",
+      "sdarError": "FROZEN_TASK_REVISION_CONTENT_MISMATCH"
+    }
+  ],
+  "notCertified": [
+    "availability",
+    "input_required_end_to_end",
+    "business_error_and_failed_task_creation",
+    "poll_notification_convergence",
+    "provider_restart_interop",
+    "duplicate_revision_and_no_duplicate_side_effect_full_gate",
+    "dot_tool_live_reference_adapter"
+  ],
+  "cleanup": {
+    "runtimeAndAdapterStopped": true,
+    "databaseDropped": true,
+    "temporaryArchiveRemoval": "completed_2026-07-22"
+  },
+  "claim": "not_interop_certified"
+}

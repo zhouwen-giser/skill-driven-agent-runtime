@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "version": "1.2.1",
+  "branch": "feature/v1.2.1-frozen-mcp-tasks-protocol",
+  "pr": 6,
+  "prState": "draft",
+  "completedThrough": "phase_10_component_conformance",
+  "phase11": "blocked_external_protocol_mismatch",
+  "phase12": "hardening_complete_release_blocked",
+  "releaseReady": false,
+  "interopCertified": false,
+  "requiredDeferred": [
+    "external_provider_wire_fixes_and_real_interop_retest",
+    "clean_exact_commit_audit_and_publication"
+  ]
+}

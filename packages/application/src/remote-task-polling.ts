@@ -154,6 +154,7 @@ export class RemoteTaskPollingService {
       const protocolStartedAt = this.#clock.now();
       const read = await this.#reader.readRemoteTask({
         serverId: binding.serverId,
+        operationName: binding.operationName,
         remoteTaskId: binding.remoteTaskId,
         executionContext: binding.executionContext,
       });

@@ -11,6 +11,7 @@ import type {
   McpToolEnhancement,
   McpInvocationOutcome,
   McpProtocolCapabilities,
+  McpProtocolDiscoverySnapshot,
   McpToolExecutionSemantics,
   McpToolExecutionSemanticsValues,
   RemoteTaskOperationAck,
@@ -96,6 +97,7 @@ import type {
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
   McpTaskOperationSemantics,
+  McpTaskOperationDefinition,
   McpTaskOperationCandidate,
   ResolvedMcpTaskExecution,
   TaskAvailabilityCheckRequest,
@@ -499,9 +501,9 @@ export interface McpToolCatalog {
 }
 
 export interface McpTaskOperationCatalog {
-  getTaskOperationSemantics(
+  getTaskOperationDefinition(
     reference: ToolReference,
-  ): Promise<McpTaskOperationSemantics | undefined>;
+  ): Promise<McpTaskOperationDefinition | undefined>;
 }
 
 export interface SkillTaskOperationCandidateCatalog {
@@ -566,6 +568,7 @@ export interface McpRegistryRepository {
   findServer(serverId: string): Promise<McpServerRecord | undefined>;
   listServers(): Promise<readonly McpServer[]>;
   listTools(serverId: string): Promise<readonly McpTool[]>;
+  findCurrentProtocolSnapshot?(serverId: string): Promise<McpProtocolDiscoverySnapshot | undefined>;
   saveServerAndReplaceTools(
     record: McpServerRecord,
     tools: readonly McpTool[],
@@ -690,6 +693,7 @@ export interface RemoteTaskSnapshotReader {
   readRemoteTask(
     input: Readonly<{
       serverId: string;
+      operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -724,6 +728,7 @@ export interface RemoteTaskRepository {
     limit: number,
     afterBindingId?: string,
   ): Promise<readonly RemoteTaskBinding[]>;
+  listActiveByServer(serverId: string, limit: number): Promise<readonly RemoteTaskBinding[]>;
   claimPoll(
     input: Readonly<{
       bindingId: string;
@@ -745,6 +750,19 @@ export interface RemoteTaskRepository {
       observedAt: string;
       nextPollAt?: string;
       protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  recordExternalSnapshot(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      snapshot: RemoteTaskSnapshot;
+      observationId: string;
+      source: 'notification' | 'reconciliation';
+      subscriptionId?: string;
+      controlEventId?: string;
+      resultHash?: string;
+      observedAt: string;
     }>,
   ): Promise<RemoteTaskMutationResult>;
   recordProviderFailure(

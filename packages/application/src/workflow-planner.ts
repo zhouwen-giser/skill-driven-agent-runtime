@@ -187,8 +187,9 @@ export class WorkflowPlannerService {
               responseSchema: this.#schema,
               correctionErrors,
             });
+      const contractedCandidate = applySkillTaskExecutionContracts(candidate, skillUsagePolicy);
       const validation = await this.#validateExpected(
-        candidate,
+        contractedCandidate,
         input,
         compositionContext,
         capabilityGapSkillIds,
@@ -202,7 +203,7 @@ export class WorkflowPlannerService {
           capabilityGapSkillIds,
           toolExecutionSemantics,
           attempt,
-          candidate,
+          contractedCandidate,
           validation,
           this.#clock.now(),
         ),
@@ -441,6 +442,37 @@ function toAttempt(
     valid: validation.valid,
     createdAt,
   };
+}
+
+function applySkillTaskExecutionContracts(
+  candidate: unknown,
+  policy: SkillUsagePlanPolicy | undefined,
+): unknown {
+  if (policy === undefined || !isRecord(candidate) || !Array.isArray(candidate['nodes']))
+    return candidate;
+  const nodes: unknown[] = candidate['nodes'];
+  return {
+    ...candidate,
+    nodes: nodes.map((node) => {
+      if (!isRecord(node) || node['type'] !== 'mcp_tool' || !isRecord(node['tool'])) return node;
+      const tool = node['tool'];
+      const operation = policy.taskOperations.find(
+        (item) => item.providerId === tool['serverId'] && item.operationName === tool['toolName'],
+      );
+      if (operation === undefined) return node;
+      return {
+        ...node,
+        taskExecution:
+          operation.protocolMode === 'frozen_v1'
+            ? { protocolMode: 'frozen_v1', availabilityCheck: 'required' }
+            : { mode: 'require_task', availabilityCheck: 'required' },
+      };
+    }),
+  };
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toolExecutionSemanticsEqual(

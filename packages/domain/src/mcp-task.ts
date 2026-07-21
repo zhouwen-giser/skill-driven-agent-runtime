@@ -33,16 +33,20 @@ export interface RemoteTaskProviderObservation {
 }
 
 export interface RemoteTaskCreated {
+  readonly protocolMode?: 'legacy_v11' | 'frozen_v1';
   readonly remoteTaskId: string;
   readonly status: McpTaskStatus;
   readonly statusMessage?: string;
   readonly createdAt: string;
   readonly lastUpdatedAt: string;
   readonly ttlMs: number | null;
+  readonly expiresAt?: string;
   readonly pollIntervalMs?: number;
   readonly protocolRevision: string;
   readonly tasksSchemaRevision: string;
   readonly providerObservation?: RemoteTaskProviderObservation;
+  readonly runtimeRevision?: string;
+  readonly providerRevision?: string;
 }
 
 type RemoteTaskSnapshotBase = RemoteTaskCreated;
@@ -88,4 +92,8 @@ export interface RemoteTaskOperationAck {
 
 export type McpInvocationOutcome =
   | Readonly<{ kind: 'immediate'; result: InternalToolResult }>
-  | Readonly<{ kind: 'remote_task'; task: RemoteTaskCreated }>;
+  | Readonly<{
+      kind: 'remote_task';
+      task: RemoteTaskCreated;
+      reconciledTask?: RemoteTaskSnapshot;
+    }>;

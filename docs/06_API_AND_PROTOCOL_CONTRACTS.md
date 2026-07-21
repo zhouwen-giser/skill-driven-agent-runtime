@@ -62,6 +62,8 @@ API 必须提供 OpenAPI 文档和契约测试。
 ### v1.1 remote Task lifecycle
 
 - `GET /api/v1/tasks/{taskId}/remote-task-lifecycle` 返回 credential-free 的 PostgreSQL 权威关联：Task/Context/Goal/plan/Skill → capability/availability → Binding → observations/controls/protocol attempts → continuation/input/cancellation → Provider final result。
+- `GET /api/v1/mcp/servers` 与 `GET /api/v1/mcp/servers/{serverId}/protocol` 展示显式 `protocolMode`、当前 discovery、`supportedVersions`、冻结 baseline hash、Task Notification 状态、每 Tool `taskBehavior` 与 `outputSchemaHash`。`POST .../protocol-baseline-audit` 只读核验基线；`POST .../mode-switch-guard` 对既有 Provider 的 Legacy/Frozen 切换一律 fail closed。
+- Remote Task lifecycle 的 `protocol` 投影展示 TTL/expiry、Runtime/Provider Revision、最新 observation source、poll/notification health 和 Evidence 摘要；`POST /api/v1/remote-task-bindings/{bindingId}/refresh` 是一次带版本 CAS 的强制 reconciliation，不是无限重试或伪造状态。
 - `POST /api/v1/remote-task-bindings/{bindingId}/refresh` 必须提供 `expectedVersion`，并通过同一 `context_id` 串行、版本 CAS 的 polling service 执行一次有界 `tasks/get`；它不直接改写 Provider 状态。
 - `POST /api/v1/remote-task-bindings/{bindingId}/cancel` 创建 `source=management` 的幂等 cooperative cancellation request。ack/uncertain 与 Provider terminal `cancelled` 保持分离。
 - 远程输入继续使用 `POST /api/v1/tasks/{taskId}/actions` 的 `provide_input`，绑定当前 `TaskInputRequest` 后通过 `tasks/update` 返回原 remote Task，不触发 Goal planning。
@@ -86,3 +88,19 @@ A2A 返回自然语言结果，并在有主 Skill 时返回符合 `output_schema
   responses do not manufacture availability or Provider terminal state.
 - Every route retains the trusted-intranet/no-auth warning and redacts credentials, private reasoning,
   package filesystem paths and unknown internal errors.
+
+## v1.2.1 Frozen MCP operations
+
+- `POST /api/v1/mcp/frozen/servers` creates a new explicit `frozen_v1` Provider identity. It performs
+  stateless `server/discover` and one bounded complete `tools/list`, requires Tool output schemas and the
+  frozen task-execution profile, encrypts configured headers, and atomically stores the Provider, Tools
+  and immutable discovery snapshot. It never invokes or translates through the Legacy Bridge.
+- `POST /api/v1/mcp/frozen/servers/{serverId}/refresh` uses the same Frozen-only transaction and creates
+  a new Tool revision/snapshot. A database-level mode guard prevents overwriting a Legacy identity even
+  if registration and refresh race.
+- `POST /api/v1/mcp/frozen/servers/{serverId}/notifications/reconnect` is the explicit reconnect boundary.
+  The composed runtime subscribes only active Frozen bindings, persists one post-Ack reconciliation and
+  then admits validated Notifications through the same Runtime Revision authority as polling. Polling
+  remains the explicit fallback; a polling refresh is never represented as a successful reconnect.
+- Protocol diagnosis, read-only baseline audit, immutable mode guard and expected-version-CAS remote
+  reconciliation remain credential-free Management operations.

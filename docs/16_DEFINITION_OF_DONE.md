@@ -56,3 +56,20 @@
 - [x] Phase 15 explicit command matrix and clean full `pnpm verify` pass on `b3b6e67`.
 - [x] Final human/JSON acceptance evidence is published, the branch is pushed and PR #5 is Ready for
   Review without automatic merge.
+
+## v1.2.1 Frozen MCP Tasks addendum
+
+- [x] Frozen source/schema/lock, explicit dual Handler, stateless HTTP, Task lifecycle, Availability,
+  Notification, Evidence A, Management operations and local component conformance are implemented.
+- [x] `embodied.move_to`, `embodied.area_patrol` and all 16 Legacy MCP Tasks scenarios are locally
+  requalified with real PostgreSQL/Redis and explicitly simulated Providers.
+- [x] All 26 required Frozen adversarial classes have reproducible owning-layer evidence.
+- [x] The restored dependency tree passes the complete self-managed local command matrix with 648/648
+  unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages.
+- [ ] The external Provider Runtime passes strict real interop for Availability, MRTR/terminal Task
+  creation and byte-equivalent Poll/Notification projections.
+- [ ] The complete final command matrix passes on a restored dependency tree and clean exact commit.
+- [ ] G4 Interop Certified and G5 Release Ready pass with no required deferred items.
+
+Therefore v1.2.1 remains unreleased and PR #6 must remain Draft. Component Conformant does not imply
+Interop Certified; see the Phase 11 and Phase 12 reports.

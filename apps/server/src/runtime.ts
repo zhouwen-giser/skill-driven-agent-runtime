@@ -20,6 +20,8 @@ import {
   RuntimeRecoveryService,
   McpRegistryService,
   McpProtocolOperationsService,
+  FrozenMcpRegistryService,
+  FrozenRemoteTaskNotificationService,
   RemoteTaskAdmissionService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
@@ -106,7 +108,13 @@ import {
 } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
-import { StreamableHttpMcpAdapter } from '../../../packages/mcp-adapter/src/index.js';
+import {
+  FrozenV1RegistryAdapter,
+  FrozenV1RuntimeAvailabilityAdapter,
+  FrozenV1RuntimeLifecycleAdapter,
+  FrozenV1RuntimeNotificationAdapter,
+  StreamableHttpMcpAdapter,
+} from '../../../packages/mcp-adapter/src/index.js';
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
 import {
@@ -280,12 +288,7 @@ export async function startServerRuntime(
     taskStateNotifier.publish(task);
   };
   if (options.applyMigrations === true) {
-    await applyRuntimeMigrations(
-      pool,
-      options.v11McpTasks === undefined
-        ? { profile: 'released' }
-        : { profile: 'v1.1-isolated', isolationAcknowledged: true },
-    );
+    await applyRuntimeMigrations(pool, { profile: 'released' });
   } else if (options.v11McpTasks !== undefined) {
     await assertV11RuntimeReady(pool);
   }
@@ -534,6 +537,8 @@ export async function startServerRuntime(
     cipher: secretCipher,
     schemas: schemaValidator,
     enhancer: new StructuredMcpToolEnhancer(modelRuntime),
+    frozenAvailability: new FrozenV1RuntimeAvailabilityAdapter(),
+    frozenLifecycle: new FrozenV1RuntimeLifecycleAdapter({ now: clock.now }),
     clock,
     ids: {
       nextInvocationId: () => `mcp-invocation-${randomUUID()}`,
@@ -543,6 +548,15 @@ export async function startServerRuntime(
   const mcpProtocolOperations = new McpProtocolOperationsService({
     repository: mcpRepository,
     expectedBaselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
+    notificationReconnectComposed: options.v11McpTasks !== undefined,
+  });
+  const frozenMcpRegistry = new FrozenMcpRegistryService({
+    repository: mcpRepository,
+    discovery: new FrozenV1RegistryAdapter(),
+    cipher: secretCipher,
+    clock,
+    nextSnapshotId: () => `mcp-protocol-snapshot-${randomUUID()}`,
+    baselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
   });
   const taskAvailabilityEvidence =
     options.v11McpTasks === undefined
@@ -611,6 +625,25 @@ export async function startServerRuntime(
   });
   const remoteTaskRepository =
     options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+  const frozenTaskNotifications =
+    remoteTaskRepository === undefined
+      ? undefined
+      : new FrozenRemoteTaskNotificationService({
+          registry: mcpRepository,
+          remoteTasks: remoteTaskRepository,
+          cipher: secretCipher,
+          runtime: new FrozenV1RuntimeNotificationAdapter({ now: clock.now }),
+          schemas: schemaValidator,
+          serial: contextSerial,
+          clock,
+          nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+          nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+          hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
+          onError: (serverId, error) =>
+            process.stderr.write(
+              `${JSON.stringify({ event: 'frozen_task_notification.failed', serverId, error: error instanceof Error ? error.message : String(error) })}\n`,
+            ),
+        });
   const remoteTaskQueue =
     options.v11McpTasks === undefined
       ? undefined
@@ -771,13 +804,14 @@ export async function startServerRuntime(
           ? undefined
           : await skillCallWorkflows.findByChildInstanceId(instance.instanceId);
       const planDefinition = plan?.definition;
-      const declaredTaskSemantics =
+      const declaredTaskOperation =
         taskExecution === undefined
-          ? await mcpRepository.getTaskOperationSemantics(tool)
+          ? await mcpRepository.getTaskOperationDefinition(tool)
           : undefined;
       const effectiveTaskExecution =
         taskExecution ??
-        (declaredTaskSemantics?.execution === 'task_required'
+        (declaredTaskOperation?.protocolMode !== 'frozen_v1' &&
+        declaredTaskOperation?.semantics.execution === 'task_required'
           ? { mode: 'require_task' as const, availabilityCheck: 'required' as const }
           : undefined);
       if (effectiveTaskExecution !== undefined && taskReadiness === undefined)
@@ -870,6 +904,16 @@ export async function startServerRuntime(
       }
       const bindingId = `remote-task-binding-${randomUUID()}`;
       try {
+        if (
+          remote.protocolMode === 'frozen_v1' &&
+          (receipt.protocolContract === undefined || receipt.taskBehavior === undefined)
+        )
+          throw new Error('MCP_FROZEN_INVOCATION_AUTHORITY_MISSING');
+        const taskExpiresAt =
+          remote.ttlMs === null
+            ? undefined
+            : (remote.expiresAt ??
+              new Date(Date.parse(remote.createdAt) + remote.ttlMs).toISOString());
         const admitted = await remoteTaskAdmission.admit({
           bindingId,
           serverId: tool.serverId,
@@ -895,6 +939,19 @@ export async function startServerRuntime(
           protocolStatus: remote.status,
           protocolRevision: remote.protocolRevision,
           tasksSchemaRevision: remote.tasksSchemaRevision,
+          ...(receipt.protocolContract === undefined
+            ? {}
+            : { protocolContract: receipt.protocolContract }),
+          ...(receipt.taskBehavior === undefined ? {} : { taskBehavior: receipt.taskBehavior }),
+          ...(remote.runtimeRevision === undefined
+            ? {}
+            : { runtimeRevision: remote.runtimeRevision }),
+          ...(remote.providerRevision === undefined
+            ? {}
+            : { providerRevision: remote.providerRevision }),
+          ...(remote.ttlMs === null || taskExpiresAt === undefined
+            ? {}
+            : { taskTtlMs: remote.ttlMs, taskExpiresAt }),
           ...(remote.providerObservation?.substate === undefined
             ? {}
             : { providerSubstate: remote.providerObservation.substate }),
@@ -911,6 +968,30 @@ export async function startServerRuntime(
           pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
           createdAt: clock.now(),
         });
+        const reconciled = receipt.outcome.reconciledTask;
+        const reconciliation =
+          reconciled === undefined || remoteTaskRepository === undefined
+            ? undefined
+            : await remoteTaskRepository.recordExternalSnapshot({
+                bindingId: admitted.binding.bindingId,
+                expectedVersion: admitted.binding.version,
+                snapshot: reconciled,
+                observationId: `remote-task-observation-${randomUUID()}`,
+                source: 'reconciliation',
+                ...(reconciled.status === 'working'
+                  ? {}
+                  : {
+                      controlEventId: `remote-task-control-${randomUUID()}`,
+                      resultHash: createHash('sha256')
+                        .update(canonicalJson(reconciled))
+                        .digest('hex'),
+                    }),
+                observedAt: clock.now(),
+              });
+        if (reconciliation !== undefined && !reconciliation.applied)
+          throw new Error(
+            `REMOTE_TASK_INITIAL_RECONCILIATION_${reconciliation.reason.toUpperCase()}`,
+          );
         if (!admitted.pollScheduled)
           process.stderr.write(
             `${JSON.stringify({
@@ -946,7 +1027,8 @@ export async function startServerRuntime(
             sourceId: admitted.binding.bindingId,
             nodeId: workflowNodeId,
             nodeRunId: workflowNodeRunId,
-            state: remote.status === 'input_required' ? 'awaiting_input' : 'waiting',
+            state:
+              (reconciled ?? remote).status === 'input_required' ? 'awaiting_input' : 'waiting',
           },
         };
       } catch (error: unknown) {
@@ -2514,6 +2596,10 @@ export async function startServerRuntime(
         skillInputResolution,
         mcp: mcpRegistry,
         mcpProtocol: mcpProtocolOperations,
+        frozenMcp: frozenMcpRegistry,
+        ...(frozenTaskNotifications === undefined
+          ? {}
+          : { frozenMcpNotifications: frozenTaskNotifications }),
         skills: skillRegistry,
         skillAuthoring,
         models: modelRuntime,
@@ -2695,6 +2781,7 @@ export async function startServerRuntime(
         if (remoteTaskCancellationReconcileTimer !== undefined)
           clearInterval(remoteTaskCancellationReconcileTimer);
         taskExecutor.close();
+        frozenTaskNotifications?.close();
         await a2a.close();
         await startedManagement.close();
         await remoteTaskWorker?.close();
@@ -2723,6 +2810,7 @@ export async function startServerRuntime(
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
     taskStateNotifier.close();
+    frozenTaskNotifications?.close();
     await management?.close();
     await mcpTransport.close();
     await remoteTaskWorker?.close();
@@ -2949,7 +3037,11 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
   if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
     throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
   }
-  const ledger = await pool.query<{ released_present: boolean; v11_count: number }>(
+  const ledger = await pool.query<{
+    released_present: boolean;
+    v11_count: number;
+    frozen_present: boolean;
+  }>(
     `SELECT EXISTS (
        SELECT 1 FROM schema_migration WHERE version = '0064_memory_production_hardening'
      ) AS released_present,
@@ -2962,12 +3054,15 @@ async function assertV11RuntimeReady(pool: Pool): Promise<void> {
         '0104_workflow_external_wait_event',
         '0105_skill_usage_specification',
         '0106_skill_execution_record'
-      )) AS v11_count`,
+      )) AS v11_count,
+     EXISTS (
+       SELECT 1 FROM schema_migration WHERE version = '0107_frozen_mcp_tasks_protocol'
+     ) AS frozen_present`,
   );
   const ledgerState = ledger.rows[0];
-  if (ledgerState?.released_present !== true)
-    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
+  if (!ledgerState?.released_present) throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
   if (ledgerState.v11_count !== 7) throw new Error('V11_MIGRATION_NOT_APPLIED');
+  if (!ledgerState.frozen_present) throw new Error('FROZEN_MCP_MIGRATION_NOT_APPLIED');
 }
 
 function runtimeErrorCode(error: unknown): string {

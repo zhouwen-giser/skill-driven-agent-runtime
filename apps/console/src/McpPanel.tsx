@@ -47,7 +47,13 @@ export function McpPanel({
     idempotency: 'unknown',
     replay: 'unknown',
   });
-  const [form, setForm] = useState({ serverId: '', name: '', endpoint: '', authorization: '' });
+  const [form, setForm] = useState({
+    serverId: '',
+    name: '',
+    endpoint: '',
+    authorization: '',
+    protocolMode: 'legacy_v11' as 'legacy_v11' | 'frozen_v1',
+  });
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -64,16 +70,26 @@ export function McpPanel({
   async function register(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     await runAction(async () => {
-      await managementRequest('/api/v1/mcp/servers', {
-        method: 'POST',
-        body: JSON.stringify({
-          serverId: form.serverId,
-          name: form.name,
-          endpoint: form.endpoint,
-          credentialHeaders: form.authorization === '' ? {} : { Authorization: form.authorization },
-        }),
+      await managementRequest(
+        form.protocolMode === 'frozen_v1' ? '/api/v1/mcp/frozen/servers' : '/api/v1/mcp/servers',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            serverId: form.serverId,
+            name: form.name,
+            endpoint: form.endpoint,
+            credentialHeaders:
+              form.authorization === '' ? {} : { Authorization: form.authorization },
+          }),
+        },
+      );
+      setForm({
+        serverId: '',
+        name: '',
+        endpoint: '',
+        authorization: '',
+        protocolMode: 'legacy_v11',
       });
-      setForm({ serverId: '', name: '', endpoint: '', authorization: '' });
       await reload();
       return 'MCP Server 已注册并完成 Tool 发现。';
     }, setMessage);
@@ -82,7 +98,12 @@ export function McpPanel({
   async function mutate(serverId: string, operation: 'refresh' | 'health' | 'delete') {
     await runAction(async () => {
       const suffix = operation === 'delete' ? '' : `/${operation}`;
-      await managementRequest(`/api/v1/mcp/servers/${encodeURIComponent(serverId)}${suffix}`, {
+      const server = servers.find((candidate) => candidate.serverId === serverId);
+      const base =
+        operation === 'refresh' && server?.protocolMode === 'frozen_v1'
+          ? '/api/v1/mcp/frozen/servers'
+          : '/api/v1/mcp/servers';
+      await managementRequest(`${base}/${encodeURIComponent(serverId)}${suffix}`, {
         method: operation === 'delete' ? 'DELETE' : 'POST',
       });
       setPendingDelete(undefined);
@@ -167,6 +188,21 @@ export function McpPanel({
           </p>
         )}
         <form className="admin-form" onSubmit={(event) => void register(event)}>
+          <label>
+            Protocol mode
+            <select
+              value={form.protocolMode}
+              onChange={(event) => {
+                setForm({
+                  ...form,
+                  protocolMode: event.target.value as 'legacy_v11' | 'frozen_v1',
+                });
+              }}
+            >
+              <option value="legacy_v11">Legacy v1.1</option>
+              <option value="frozen_v1">Frozen V1</option>
+            </select>
+          </label>
           <label>
             Server ID
             <input

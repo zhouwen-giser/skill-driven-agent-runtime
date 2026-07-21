@@ -49,6 +49,7 @@ import {
   createMemoryItem,
   createMcpTool,
   createMcpToolExecutionSemantics,
+  frozenTaskReadinessAttributes,
   createSkillVersion,
   DomainError,
   MAX_SKILL_COMPOSITION_RELATED_SKILLS,
@@ -71,6 +72,7 @@ import type {
   McpToolDependencyChange,
   McpToolEnhancement,
   McpTaskOperationSemantics,
+  McpTaskOperationDefinition,
   McpTaskOperationCandidate,
   McpProtocolContractSnapshot,
   McpProtocolDiscoverySnapshot,
@@ -378,6 +380,7 @@ const SkillTaskProviderCandidateReadinessSchema = z
   .object({
     providerId: z.string(),
     operationName: z.string(),
+    protocolMode: z.enum(['legacy_v11', 'frozen_v1']),
     attributes: z.array(z.string()),
     disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
     riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
@@ -447,6 +450,7 @@ const SkillUsageCandidateSchema = z
                   reasonCodes: z.array(z.string()),
                   selectedProviderId: z.string().optional(),
                   selectedOperationName: z.string().optional(),
+                  selectedProtocolMode: z.enum(['legacy_v11', 'frozen_v1']).optional(),
                   candidates: z.array(SkillTaskProviderCandidateReadinessSchema).optional(),
                 })
                 .strict(),
@@ -5872,34 +5876,70 @@ export class PostgresMcpRegistryRepository
     return result.rows[0]?.input_schema_json;
   }
 
-  async getTaskOperationSemantics(
+  async getTaskOperationDefinition(
     reference: ToolReference,
-  ): Promise<McpTaskOperationSemantics | undefined> {
+  ): Promise<McpTaskOperationDefinition | undefined> {
     if (!this.#v11TaskMetadata) return undefined;
-    const result = await this.#pool.query<{ task_execution_json: unknown }>(
-      `SELECT t.task_execution_json FROM mcp_tool t
+    const result = await this.#pool.query<{
+      task_execution_json: unknown;
+      protocol_mode: 'legacy_v11' | 'frozen_v1';
+      task_notifications: boolean | null;
+    }>(
+      `SELECT t.task_execution_json,s.protocol_mode,p.task_notifications FROM mcp_tool t
        JOIN mcp_server s ON s.server_id=t.server_id
+       LEFT JOIN mcp_protocol_snapshot p ON p.snapshot_id=s.current_protocol_snapshot_id
        WHERE t.server_id=$1 AND t.tool_name=$2 AND s.status='enabled'`,
       [reference.serverId, reference.toolName],
     );
-    const value = result.rows[0]?.task_execution_json;
-    return value === undefined || value === null
-      ? undefined
-      : McpTaskOperationSemanticsSchema.parse(value);
+    const row = result.rows[0];
+    if (row === undefined || row.task_execution_json === null) return undefined;
+    if (row.protocol_mode === 'frozen_v1')
+      return Object.freeze({
+        protocolMode: 'frozen_v1' as const,
+        taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json),
+        taskNotifications: row.task_notifications === true,
+      });
+    return Object.freeze({
+      semantics: McpTaskOperationSemanticsSchema.parse(row.task_execution_json),
+    });
+  }
+
+  async getTaskOperationSemantics(
+    reference: ToolReference,
+  ): Promise<McpTaskOperationSemantics | undefined> {
+    const definition = await this.getTaskOperationDefinition(reference);
+    return definition?.protocolMode === 'frozen_v1' ? undefined : definition?.semantics;
   }
 
   async listTaskOperationCandidates(
     taskType: string,
   ): Promise<readonly McpTaskOperationCandidate[]> {
     if (!this.#v11TaskMetadata) return [];
-    const result = await this.#pool.query<{ server_id: string; task_execution_json: unknown }>(
-      `SELECT t.server_id,t.task_execution_json FROM mcp_tool t
+    const result = await this.#pool.query<{
+      server_id: string;
+      task_execution_json: unknown;
+      protocol_mode: 'legacy_v11' | 'frozen_v1';
+      task_notifications: boolean | null;
+    }>(
+      `SELECT t.server_id,t.task_execution_json,s.protocol_mode,p.task_notifications FROM mcp_tool t
        JOIN mcp_server s ON s.server_id=t.server_id
+       LEFT JOIN mcp_protocol_snapshot p ON p.snapshot_id=s.current_protocol_snapshot_id
        WHERE t.tool_name=$1 AND s.status='enabled' AND t.task_execution_json IS NOT NULL
        ORDER BY t.server_id`,
       [taskType],
     );
     return result.rows.map((row) => {
+      if (row.protocol_mode === 'frozen_v1') {
+        const profile = McpTaskExecutionProfileSchema.parse(row.task_execution_json);
+        return Object.freeze({
+          providerId: row.server_id,
+          operationName: taskType,
+          protocolMode: 'frozen_v1' as const,
+          taskExecutionProfile: profile,
+          taskNotifications: row.task_notifications === true,
+          attributes: frozenTaskReadinessAttributes(profile, row.task_notifications === true),
+        });
+      }
       const semantics = McpTaskOperationSemanticsSchema.parse(row.task_execution_json);
       return Object.freeze({
         providerId: row.server_id,
@@ -6023,8 +6063,149 @@ export class PostgresMcpRegistryRepository
     }
   }
 
+  async saveFrozenServerAndReplaceTools(
+    record: McpServerRecord,
+    tools: readonly McpTool[],
+    snapshot: McpProtocolDiscoverySnapshot,
+    changes: readonly McpToolDependencyChange[] = [],
+  ): Promise<void> {
+    if (
+      record.server.protocolMode !== 'frozen_v1' ||
+      snapshot.protocolMode !== 'frozen_v1' ||
+      snapshot.serverId !== record.server.serverId ||
+      snapshot.toolRevision !== record.server.toolRevision ||
+      record.server.currentProtocolSnapshotId !== snapshot.snapshotId ||
+      tools.some(
+        (tool) =>
+          tool.serverId !== record.server.serverId ||
+          tool.protocolMode !== 'frozen_v1' ||
+          tool.taskExecutionProfile === undefined,
+      )
+    )
+      throw new Error('FROZEN_MCP_REGISTRATION_AUTHORITY_MISMATCH');
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const serverWrite = await client.query(
+        `INSERT INTO mcp_server
+           (server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
+            protocol_mode,current_protocol_snapshot_id,created_at,updated_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,'frozen_v1',NULL,$8,$9)
+         ON CONFLICT (server_id) DO UPDATE SET
+           name=EXCLUDED.name,endpoint=EXCLUDED.endpoint,status=EXCLUDED.status,
+           tool_revision=EXCLUDED.tool_revision,encrypted_credential=EXCLUDED.encrypted_credential,
+           updated_at=EXCLUDED.updated_at
+         WHERE mcp_server.protocol_mode='frozen_v1'`,
+        [
+          record.server.serverId,
+          record.server.name,
+          record.server.endpoint,
+          record.server.transport,
+          record.server.status,
+          record.server.toolRevision,
+          record.encryptedCredential,
+          record.server.createdAt,
+          record.server.updatedAt,
+        ],
+      );
+      if (serverWrite.rowCount !== 1) throw new Error('FROZEN_MCP_PROVIDER_MODE_IMMUTABLE');
+      await client.query('DELETE FROM mcp_tool WHERE server_id=$1', [record.server.serverId]);
+      for (const tool of tools) {
+        await client.query(
+          `INSERT INTO mcp_tool
+             (server_id,tool_name,title,description,input_schema_json,output_schema_json,
+              enhancement_json,declared_execution_semantics_json,
+              admin_execution_semantics_override_json,execution_semantics_json,
+              discovered_at,task_execution_json)
+           VALUES($1,$2,$3,$4,$5,$6,NULL,NULL,NULL,$7,$8,$9)`,
+          [
+            tool.serverId,
+            tool.toolName,
+            tool.title ?? null,
+            tool.description ?? null,
+            JSON.stringify(tool.inputSchema),
+            JSON.stringify(tool.outputSchema),
+            JSON.stringify(tool.executionSemantics),
+            tool.discoveredAt,
+            JSON.stringify(tool.taskExecutionProfile),
+          ],
+        );
+      }
+      await client.query(
+        `INSERT INTO mcp_protocol_snapshot
+           (snapshot_id,server_id,protocol_mode,protocol_version,baseline_sha256,
+            supported_versions_json,capabilities_json,server_info_json,task_notifications,
+            discovered_at,valid_until,tool_revision)
+         VALUES($1,$2,'frozen_v1',$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10,$11)`,
+        [
+          snapshot.snapshotId,
+          snapshot.serverId,
+          snapshot.protocolVersion,
+          snapshot.baselineSha256,
+          JSON.stringify(snapshot.supportedVersions),
+          JSON.stringify(snapshot.capabilities),
+          JSON.stringify(snapshot.serverInfo),
+          snapshot.taskNotifications,
+          snapshot.discoveredAt,
+          snapshot.validUntil ?? null,
+          snapshot.toolRevision,
+        ],
+      );
+      await client.query(
+        `UPDATE mcp_server SET current_protocol_snapshot_id=$2
+         WHERE server_id=$1 AND protocol_mode='frozen_v1' AND tool_revision=$3`,
+        [record.server.serverId, snapshot.snapshotId, record.server.toolRevision],
+      );
+      for (const change of changes)
+        await client.query(
+          `INSERT INTO mcp_dependency_warning
+             (warning_id,server_id,tool_name,reason,skill_id,skill_version,tool_revision,created_at)
+           SELECT concat_ws(':',$1::text,$2::text,$3::text,s.skill_id,s.current_version::text,$4::text),
+                  $1,$2,$3,s.skill_id,s.current_version,$4,$5
+           FROM skill s JOIN skill_version v
+             ON v.skill_id=s.skill_id AND v.version=s.current_version
+           WHERE v.status='enabled' AND EXISTS (
+             SELECT 1 FROM jsonb_array_elements(
+               COALESCE(v.tool_policy_json->'required','[]'::jsonb) ||
+               COALESCE(v.tool_policy_json->'optional','[]'::jsonb) ||
+               COALESCE(v.tool_policy_json->'forbidden','[]'::jsonb)
+             ) reference
+             WHERE reference->>'serverId'=$1 AND reference->>'toolName'=$2
+           ) ON CONFLICT DO NOTHING`,
+          [
+            record.server.serverId,
+            change.toolName,
+            change.reason,
+            record.server.toolRevision,
+            record.server.updatedAt,
+          ],
+        );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async deleteServer(serverId: string): Promise<void> {
-    await this.#pool.query('DELETE FROM mcp_server WHERE server_id = $1', [serverId]);
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE mcp_server SET current_protocol_snapshot_id = NULL WHERE server_id = $1',
+        [serverId],
+      );
+      await client.query('DELETE FROM mcp_protocol_snapshot WHERE server_id = $1', [serverId]);
+      await client.query('DELETE FROM mcp_server WHERE server_id = $1', [serverId]);
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async saveInvocation(invocation: McpInvocation): Promise<void> {

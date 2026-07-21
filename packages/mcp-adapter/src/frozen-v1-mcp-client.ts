@@ -4,6 +4,7 @@ import type { McpProtocolDiscoverySnapshot } from '../../domain/src/index.js';
 
 export const FROZEN_MCP_PROTOCOL_VERSION = '2026-07-28' as const;
 export const FROZEN_MCP_TASKS_EXTENSION = 'io.modelcontextprotocol/tasks' as const;
+const MAX_SSE_PENDING_BYTES = 1_048_576;
 
 export type FrozenMcpMethod =
   | 'server/discover'
@@ -260,6 +261,7 @@ export type FrozenMcpProtocolErrorCode =
   | 'FROZEN_MCP_VERSION_UNSUPPORTED'
   | 'FROZEN_MCP_METHOD_NOT_FOUND'
   | 'FROZEN_MCP_PARAMS_INVALID'
+  | 'FROZEN_MCP_SSE_BUFFER_OVERFLOW'
   | 'FROZEN_MCP_PROVIDER_ERROR';
 
 export class FrozenMcpProtocolError extends Error {
@@ -320,6 +322,11 @@ async function* parseSseMessages(stream: ReadableStream<Uint8Array>) {
       const chunk = await reader.read();
       if (chunk.done) break;
       pending += decoder.decode(chunk.value, { stream: true });
+      if (pending.length > MAX_SSE_PENDING_BYTES)
+        throw new FrozenMcpProtocolError(
+          'FROZEN_MCP_SSE_BUFFER_OVERFLOW',
+          'Frozen Task Notification SSE event exceeded the bounded receive buffer.',
+        );
       const events = pending.split(/\r?\n\r?\n/u);
       pending = events.pop() ?? '';
       for (const event of events) yield parseFirstSseMessage(`${event}\n\n`);

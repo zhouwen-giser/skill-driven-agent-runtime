@@ -533,9 +533,7 @@ export function RemoteTaskLifecyclePanel({
               observation {item.protocol?.latestObservationSource ?? 'not observed'}
             </span>
             <span
-              className={
-                item.protocol?.notificationHealth === 'observed' ? 'status ok' : 'status'
-              }
+              className={item.protocol?.notificationHealth === 'observed' ? 'status ok' : 'status'}
             >
               notifications {item.protocol?.notificationHealth ?? 'not_observed'}
             </span>

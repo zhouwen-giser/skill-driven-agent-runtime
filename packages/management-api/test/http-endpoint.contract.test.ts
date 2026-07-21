@@ -231,6 +231,7 @@ describe('management HTTP API contract', () => {
                     bindingId: 'binding-1',
                     sequence: 1,
                     type: 'task.snapshot' as const,
+                    source: 'poll' as const,
                     payload: { status: 'completed' },
                     accepted: true,
                     observedAt: '2026-07-17T00:00:03.000Z',
@@ -1015,6 +1016,7 @@ describe('management HTTP API contract', () => {
 
   it('exposes frozen Provider protocol evidence, baseline audit and immutable mode guard', async () => {
     const base = operations();
+    const frozenCalls: string[] = [];
     const server = (await base.mcp.listServers())[0];
     if (server === undefined) throw new Error('MCP_SERVER_FIXTURE_MISSING');
     const evidence = {
@@ -1042,7 +1044,7 @@ describe('management HTTP API contract', () => {
       notificationStatus: 'streaming_supported' as const,
       warnings: [],
       operations: {
-        registerOrRefresh: 'frozen_adapter_required' as const,
+        registerOrRefresh: 'frozen_registry' as const,
         protocolDiagnosis: true as const,
         reconnect: 'component_required' as const,
         forceReconciliation: true as const,
@@ -1074,6 +1076,26 @@ describe('management HTTP API contract', () => {
                   ? ('same_mode' as const)
                   : ('immutable_provider_mode' as const),
             }),
+        },
+        frozenMcp: {
+          register: (input) => {
+            frozenCalls.push(`register:${input.serverId}`);
+            return Promise.resolve({ server: { serverId: input.serverId } } as never);
+          },
+          refresh: (serverId) => {
+            frozenCalls.push(`refresh:${serverId}`);
+            return Promise.resolve({ server: { serverId } } as never);
+          },
+        },
+        frozenMcpNotifications: {
+          reconnect: (serverId) => {
+            frozenCalls.push(`reconnect:${serverId}`);
+            return Promise.resolve({
+              serverId,
+              disposition: 'started' as const,
+              taskIds: ['remote-task-1'],
+            });
+          },
         },
       },
     });
@@ -1107,6 +1129,32 @@ describe('management HTTP API contract', () => {
       allowed: false,
       reason: 'immutable_provider_mode',
     });
+    const registration = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers`,
+      jsonPost({
+        serverId: 'provider-new',
+        name: 'Frozen Provider',
+        endpoint: 'https://provider-new.test/mcp',
+        credentialHeaders: { Authorization: 'Bearer secret' },
+      }),
+    );
+    expect(registration.status).toBe(201);
+    const refresh = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers/${server.serverId}/refresh`,
+      { method: 'POST' },
+    );
+    expect(refresh.status).toBe(200);
+    const reconnect = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers/${server.serverId}/notifications/reconnect`,
+      { method: 'POST' },
+    );
+    expect(reconnect.status).toBe(202);
+    await expect(reconnect.json()).resolves.toMatchObject({ disposition: 'started' });
+    expect(frozenCalls).toEqual([
+      'register:provider-new',
+      `refresh:${server.serverId}`,
+      `reconnect:${server.serverId}`,
+    ]);
   });
 
   it('rejects invalid external input with a stable error envelope before application calls', async () => {

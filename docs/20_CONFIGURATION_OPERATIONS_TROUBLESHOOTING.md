@@ -80,6 +80,17 @@ Check Redis health, Task phase, wait policy, and Task events in Console. Confirm
 
 For an MCP Task, inspect `GET /api/v1/tasks/{taskId}/remote-task-lifecycle` or the Console lifecycle panel. Compare Binding version, Provider status/substate, next poll time, accepted/rejected observations, active continuation, input round, and cancellation uncertainty. A versioned `POST /api/v1/remote-task-bindings/{bindingId}/refresh` performs one bounded observation; it must not be used as an unbounded retry loop. A cancel acknowledgement is not remote cancellation.
 
+For a Frozen Provider, inspect `GET /api/v1/mcp/servers/{serverId}/protocol` before changing credentials or diagnosing Task latency. Compare the current discovery snapshot, supported versions, baseline hash, Task Notification capability, Tool task behavior and output-schema hash. Run `POST .../protocol-baseline-audit` for a read-only drift check. Existing Provider identities cannot switch between `legacy_v11` and `frozen_v1`; `POST .../mode-switch-guard` returns HTTP 409 and a new explicitly registered Provider identity is required. If Task Notifications are unavailable or no accepted notification has been observed, the API and Console show a polling-fallback warning; use one version-CAS binding refresh for reconciliation and investigate the stream component instead of looping refresh calls.
+
+Register Frozen Providers only through `POST /api/v1/mcp/frozen/servers`; the Legacy registration route
+does not infer or upgrade protocol mode. Use the corresponding Frozen refresh route so discovery, Tool
+profiles/output schemas and the snapshot commit atomically. For a broken Notification stream, invoke the
+Frozen reconnect endpoint once and inspect its disposition. If the runtime reports the subscription
+component unavailable, startup composition failed and polling remains the explicit fallback; inspect the
+credential-safe protocol diagnosis and server logs. Do not loop force-reconciliation calls or claim that
+they restored streaming. A successful reconnect reconciles accepted active Task IDs before admitting
+Notifications, and the API reports `started` or `already_running`.
+
 ### Model or MCP stage fails
 
 There is no Provider fallback. Inspect credential-safe model/MCP invocation audits, fixed stage route, Prompt version, endpoint health, schema mismatch warnings, and timeout. Never paste secrets into logs or reports.
