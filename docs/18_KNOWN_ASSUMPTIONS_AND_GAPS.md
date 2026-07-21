@@ -157,6 +157,9 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   `inputRequests` embedded in CreateTaskResult; terminal `result/error` embedded in CreateTaskResult; and
   different `tasks/get`/Notification content for the same Runtime Revision. SDAR remains strict and is not
   Interop Certified. See `reports/v1.2.1-frozen-mcp-tasks/11-real-provider-interop.{md,json}`.
+- The 2026-07-22 refresh of Provider Draft PR #15 at exact `65ac78a` fixes the get/Notification projection,
+  but still omits `reservationMode` and emits MRTR/terminal-only fields in CreateTaskResult. Its green CI
+  and 13/13 focused tests do not exercise the strict SDAR consumer schema, so they do not close G3/G4/G5.
 - The frozen dependency tree is restored. A Windows junction fixture preserves the symlink-rejection
   security assertion without privileged file-link creation; the Frozen migration verifier now owns its
   default Compose lifecycle; Mock Task TTL and Availability windows are startup-relative. The complete

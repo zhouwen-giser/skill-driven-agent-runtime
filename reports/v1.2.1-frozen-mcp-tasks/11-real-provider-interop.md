@@ -2,6 +2,34 @@
 
 Status: **BLOCKED — EXTERNAL FROZEN WIRE MISMATCH**
 
+## 2026-07-22 Provider update audit
+
+Provider Draft PR #15 (`fix/frozen-runtime-conformance-closure`) was refreshed from GitHub and audited at
+exact head `65ac78a7137272d8380d2232038ac7f1a237db4e`. Both PR checks are green, and an isolated detached
+worktree passed the focused Provider suites 13/13:
+
+```text
+vitest run --configLoader runner
+  tests/protocol-conformance/detailed-task.test.ts
+  tests/unit/availability.test.ts
+  tests/runtime-conformance-closure/notification-equality.test.ts
+```
+
+The candidate fixes the previously observed get/Notification split projection by building both from the
+authoritative Task Engine notification projection. It does **not** close the other wire blockers:
+
+- `fromAdapterAvailability` still drops Adapter reservation data and emits no required
+  `reservationMode`; its response model still marks that field optional.
+- `mapTaskToDetailedTask(..., "create")` still appends `inputRequests`, terminal `result`, or terminal
+  `error`. The candidate's own `detailed-task.test.ts` explicitly expects terminal `result` in a
+  `resultType: "task"` creation response, while SDAR's frozen `createTaskSchema` is strict and permits
+  only the Task base.
+
+Because these mismatches are deterministic before transport startup, the candidate was not promoted to
+the expensive real HTTP/PostgreSQL/reference-Adapter matrix. The last completed real-wire run below
+remains the authoritative interop execution. PR #15 is Draft and unmerged; no Provider component or
+Interop certification is inferred from its green self-tests.
+
 The external component gate was evaluated against the locally available remote-tracking ref
 `zhouwen-giser/sdar-mcp-tasks-provider-runtime origin/main@c5594e4`. That ref contains the merged Frozen
 Runtime and its 74/74 component report. An exact Git archive was started as Runtime `2.0.0-rc.1` with the

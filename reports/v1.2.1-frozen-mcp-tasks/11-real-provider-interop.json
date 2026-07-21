@@ -12,6 +12,23 @@
     "adapter": "reference_typescript_grpc_17001",
     "database": "isolated_postgresql_55443_database_removed"
   },
+  "latestCandidateAudit": {
+    "pullRequest": 15,
+    "url": "https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime/pull/15",
+    "state": "open_draft",
+    "ref": "origin/fix/frozen-runtime-conformance-closure",
+    "commit": "65ac78a7137272d8380d2232038ac7f1a237db4e",
+    "githubChecks": ["runtime-ci:success", "runtime-compose:success"],
+    "focusedProviderTests": { "passed": 13, "total": 13 },
+    "realWireMatrixRerun": false,
+    "realWireMatrixRerunReason": "deterministic strict-schema mismatches remain before transport startup",
+    "resolvedFromPreviousRun": ["PROVIDER_SAME_RUNTIME_REVISION_CONTENT_MISMATCH"],
+    "remaining": [
+      "PROVIDER_AVAILABILITY_RESERVATION_MODE_MISSING",
+      "PROVIDER_CREATE_TASK_RESULT_CONTAINS_MRTR",
+      "PROVIDER_CREATE_TASK_RESULT_CONTAINS_TERMINAL_PAYLOAD"
+    ]
+  },
   "matchingBaselines": {
     "protocolVersion": "2026-07-28",
     "sourceCommit": "26897cc322f356487da89113451bd16b520b9288",
