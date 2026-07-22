@@ -1,0 +1,150 @@
+{
+  "featureFlags": {
+    "schemaVersion": "1.0",
+    "capabilitySummaryEnabled": true,
+    "publicCapabilityCardEnabled": true,
+    "understandingMode": "ambiguous_only",
+    "interactiveMode": "manual",
+    "experienceCaptureEnabled": true,
+    "experienceObserverEnabled": true,
+    "inductionMode": "shadow",
+    "promotionMode": "manual",
+    "injectionMode": "shadow"
+  },
+  "sourceRef": {
+    "schemaVersion": "1.0",
+    "sourceRefId": "source.goal.1",
+    "sourceKind": "goal_contract",
+    "sourceId": "goal.v123",
+    "sourceRevision": 1,
+    "authority": "runtime_fact",
+    "dataClassification": "internal",
+    "capturedAt": "2026-07-23T00:00:00.000Z",
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "domainEvent": {
+    "schemaVersion": "1.0",
+    "eventId": "event.cognitive.1",
+    "eventType": "user_goal.terminal_committed",
+    "aggregateType": "user_goal",
+    "aggregateId": "goal.v123",
+    "aggregateVersion": 1,
+    "occurredAt": "2026-07-23T00:00:00.000Z",
+    "correlation": { "correlationId": "correlation.v123", "goalId": "goal.v123" },
+    "payload": { "terminalOutcomeId": "outcome.v123" }
+  },
+  "capabilitySummary": {
+    "schemaVersion": "1.0",
+    "summaryId": "summary.v123",
+    "revision": 1,
+    "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "status": "building",
+    "items": [
+      {
+        "capabilityId": "capability.inspect",
+        "title": "Inspect a device",
+        "effects": ["device state observed"],
+        "evidence": ["structured inspection evidence"],
+        "artifacts": [],
+        "contexts": ["trusted intranet"],
+        "modes": ["read_only"],
+        "taskTypes": [],
+        "composition": [],
+        "limitations": ["current Provider readiness is not asserted"],
+        "exactSkillVersionRefs": ["embodied.inspect@1"]
+      }
+    ],
+    "sourceRefs": [],
+    "builtAt": "2026-07-23T00:00:00.000Z"
+  },
+  "taskUnderstanding": {
+    "schemaVersion": "1.0",
+    "understandingId": "understanding.v123",
+    "taskId": "task.v123",
+    "revision": 1,
+    "disposition": "clarification_required",
+    "objective": "Inspect a device.",
+    "knownConstraints": ["No side effects."],
+    "assumptions": [],
+    "missingDimensions": [
+      {
+        "dimensionId": "dimension.target",
+        "kind": "target",
+        "severity": "blocking",
+        "question": "Which device should be inspected?",
+        "answered": false,
+        "authorizationSensitive": false
+      }
+    ],
+    "sourceRefs": [],
+    "policyVersion": "policy.v123.1",
+    "stateHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "createdAt": "2026-07-23T00:00:00.000Z"
+  },
+  "interactiveSession": {
+    "schemaVersion": "1.0",
+    "sessionId": "session.v123",
+    "taskId": "task.v123",
+    "kind": "goal",
+    "state": "understand",
+    "version": 1,
+    "clarificationRounds": 0,
+    "revisionCount": 0,
+    "maxClarificationRounds": 4,
+    "maxRevisions": 4,
+    "idempotencyKeys": [],
+    "createdAt": "2026-07-23T00:00:00.000Z",
+    "updatedAt": "2026-07-23T00:00:00.000Z"
+  },
+  "experienceEpisode": {
+    "schemaVersion": "1.0",
+    "episodeId": "episode.v123",
+    "goalId": "goal.v123",
+    "goalVersion": 1,
+    "revision": 1,
+    "episodeHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "completeness": 1,
+    "dataClassification": "internal",
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.goal.1",
+        "sourceKind": "goal_contract",
+        "sourceId": "goal.v123",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-23T00:00:00.000Z"
+      }
+    ],
+    "redactionCodes": ["credentials_excluded"],
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "knowledgeCandidate": {
+    "schemaVersion": "1.0",
+    "knowledgeId": "knowledge.v123",
+    "kind": "planning_heuristic",
+    "revision": 1,
+    "status": "candidate",
+    "scope": "global_candidate",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "risk": "low",
+    "supportSourceRefs": [],
+    "contradictionSourceRefs": [],
+    "createdAt": "2026-07-23T00:00:02.000Z"
+  },
+  "knowledgeTransition": {
+    "schemaVersion": "1.0",
+    "transitionId": "transition.v123",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "expectedVersion": 1,
+    "fromStatus": "candidate",
+    "toStatus": "validating",
+    "reason": "evaluation_started",
+    "actorId": "operator.v123",
+    "humanApproved": false,
+    "occurredAt": "2026-07-23T00:00:03.000Z"
+  }
+}

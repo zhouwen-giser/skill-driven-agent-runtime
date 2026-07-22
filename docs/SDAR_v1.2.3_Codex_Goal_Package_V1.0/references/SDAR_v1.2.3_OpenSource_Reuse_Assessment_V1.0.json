@@ -1,0 +1,95 @@
+{
+  "title": "SDAR v1.2.3 Open Source Reuse Assessment",
+  "version": "1.0",
+  "date": "2026-07-22",
+  "repositories": [
+    {
+      "repository": "google-gemini/gemini-cli",
+      "commit": "c776c665b00a39d55c470beb788a2b9a77a2feb7",
+      "language": "TypeScript/Node.js",
+      "license": "Apache-2.0",
+      "reuse_level": "L3/L2",
+      "direct_reuse": "non-blocking startup; extraction run DTO; eligibility; candidate inbox lifecycle; patch/path validation; evals",
+      "rewrite": "filesystem scan/state/locks to PostgreSQL+BullMQ; transcript to GoalExperienceEpisode; CLI UI to API/Console",
+      "independent_days": "15-21",
+      "adaptation_days": "7-11",
+      "net_saved_days": "7-10",
+      "recommendation": "Selective source port"
+    },
+    {
+      "repository": "ECNU-ICALK/AutoSkill",
+      "commit": "94c47ca488d4ba4117d20272e66d49b9877e68cf",
+      "language": "Python>=3.9",
+      "license": "README claims MIT; root LICENSE absent",
+      "reuse_level": "L2",
+      "direct_reuse": "decision taxonomy; identity scoring; lineage/champion schema; replay split; promotion metrics",
+      "rewrite": "all Python runtime/storage; Skill authority; auto-publish; add contradiction/risk/scope/human gate",
+      "independent_days": "20-28",
+      "adaptation_days": "10-15",
+      "net_saved_days": "9-13",
+      "recommendation": "Algorithm rewrite; no source copying until license clarified"
+    },
+    {
+      "repository": "langchain-ai/langmem",
+      "commit": "a2d580946465137c89162e67dc0b18108bd4850c",
+      "language": "Python>=3.10",
+      "license": "MIT",
+      "reuse_level": "L2",
+      "direct_reuse": "typed extractor API; insert/update/delete change set; bounded consolidation; prompt principles",
+      "rewrite": "LangChain Runnable/Pydantic/trustcall/Store to TS/Zod/SDAR Model Runtime/PostgreSQL",
+      "independent_days": "10-15",
+      "adaptation_days": "6-9",
+      "net_saved_days": "4-6",
+      "recommendation": "Clean-room TypeScript port"
+    },
+    {
+      "repository": "agentscope-ai/ReMe",
+      "commit": "46adb5ae1e94715ecdffe201a46933fbd419a5e1",
+      "language": "Python>=3.11",
+      "license": "Apache-2.0",
+      "reuse_level": "L2/L1",
+      "direct_reuse": "capture/daily/digest semantics; RRF; context dedupe; link expansion; declarative job ideas",
+      "rewrite": "file authority/FastAPI/FastMCP/job runtime to PostgreSQL/BullMQ/TS; typed knowledge lifecycle",
+      "independent_days": "13-19",
+      "adaptation_days": "8-12",
+      "net_saved_days": "5-8",
+      "recommendation": "Algorithm rewrite; optional offline benchmark only"
+    },
+    {
+      "repository": "zorazrw/agent-workflow-memory",
+      "commit": "8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1",
+      "language": "Python",
+      "license": "Apache-2.0",
+      "reuse_level": "L2/L1",
+      "direct_reuse": "hierarchical grouping; workflow induction prompts; abstract pattern+exemplars; offline/online modes",
+      "rewrite": "research scripts/domain-specific actions/plaintext workflow to TS typed TaskType and replay",
+      "independent_days": "7-11",
+      "adaptation_days": "4-7",
+      "net_saved_days": "3-5",
+      "recommendation": "Design/prompt reference"
+    },
+    {
+      "repository": "ace-agent/ace",
+      "commit": "bcb7cea0504afad6f55fec4845dd4864c9f9eee7",
+      "language": "Python>=3.10",
+      "license": "Apache-2.0",
+      "reuse_level": "L2",
+      "direct_reuse": "Generator/Reflector/Curator split; helpful/harmful counters; delta operation schema; no-op on error; pre/post eval",
+      "rewrite": "free-text playbook/reasoning trace/direct apply/model clients to typed candidates/PostgreSQL/SDAR Model Runtime",
+      "independent_days": "12-18",
+      "adaptation_days": "7-11",
+      "net_saved_days": "5-8",
+      "recommendation": "Clean-room TypeScript port"
+    }
+  ],
+  "combined_net_saved_days": {
+    "low": 22,
+    "recommended": 27,
+    "high": 34
+  },
+  "policy": {
+    "python_sidecar_product_runtime": false,
+    "direct_port_primary_source": "google-gemini/gemini-cli",
+    "authority": "SDAR PostgreSQL + v1.2.2 Goal Runtime"
+  }
+}

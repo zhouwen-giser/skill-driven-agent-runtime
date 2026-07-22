@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { Pool } from 'pg';
@@ -3253,11 +3253,15 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
   const state = schemaState.rows[0];
   if (state?.migration_table !== null && state?.migration_table !== undefined) {
     const versions = await pool.query<{ version: string }>(
-      'SELECT version FROM public.schema_migration ORDER BY version',
+      `SELECT version
+       FROM public.schema_migration
+       ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
     );
-    if (versions.rows.length === 1 && versions.rows[0]?.version === 'v1.2.2_clean_slate_baseline')
-      return;
-    throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+    await applyPostV122Migrations(
+      pool,
+      versions.rows.map((row) => row.version),
+    );
+    return;
   }
   if ((state?.public_table_count ?? 0) !== 0) throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
 
@@ -3272,6 +3276,30 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
   );
   await pool.query(seed);
   await assertV122RuntimeReady(pool);
+  await applyPostV122Migrations(pool, ['v1.2.2_clean_slate_baseline']);
+}
+
+async function applyPostV122Migrations(
+  pool: Pool,
+  appliedVersions: readonly string[],
+): Promise<void> {
+  const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
+  const migrationFiles = (await readdir(migrationDirectory))
+    .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .sort();
+  const expectedVersions = [
+    'v1.2.2_clean_slate_baseline',
+    ...migrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
+  ];
+  if (
+    appliedVersions.length > expectedVersions.length ||
+    appliedVersions.some((version, index) => version !== expectedVersions[index])
+  ) {
+    throw new Error('SDAR_V123_MIGRATION_LEDGER_INVALID');
+  }
+  for (const file of migrationFiles.slice(Math.max(0, appliedVersions.length - 1))) {
+    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
+  }
 }
 
 async function assertV122RuntimeReady(pool: Pool): Promise<void> {

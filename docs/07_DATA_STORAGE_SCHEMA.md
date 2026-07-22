@@ -87,6 +87,19 @@ V1.1 的例外只适用于有完整 PostgreSQL 证据的 `waiting_external`：ac
 - CI 在空库和升级库上都运行 migration test；
 - 种子数据只包含 Mock Skill、Mock MCP 和开发配置，不含真实凭据。
 
+### v1.2.3 cognitive planning skeleton
+
+ADR-114 在 v1.2.2 clean-slate baseline 之后建立单调的 post-baseline ledger。`0108_v123_cognitive_skeleton` 只增加 G00 冻结的数据结构、状态约束、索引和 migration marker，不启用认知运行时产品行为。主要关系按权威边界分组：
+
+- Capability：`runtime_capability_summary`、`runtime_capability_summary_item`、`runtime_capability_limitation`、`public_capability_card_snapshot`；
+- Understanding / Interaction：`generic_task_understanding`、交互式 Goal/Planning session、turn、candidate 与 correction fact；
+- Experience：outbox、consumer cursor、job/dead-letter、episode、source、observation、fact、extraction 与 reflection；
+- Knowledge：Planning Heuristic、Task Type、Capability Pattern 分别保有独立 definition/evidence 表，并通过 promotion evaluation/status transition 审计候选态到正式态的人工批准。
+
+PostgreSQL 是上述记录的唯一持久权威；后续 Goal 使用的 BullMQ job 只能保存可由 PostgreSQL outbox/job 记录重建的调度副本。`scripts/verify-migration-path.mjs` 在隔离数据库验证 fresh baseline + 0108、幂等重放、0108 rollback/reapply、受保护 reset 和异常 ledger fail-closed。
+
+开发期 rollback 仅允许在确认所有 v1.2.3 实验数据可丢弃后执行 `0108_v123_cognitive_skeleton.down.sql`；它删除全部 v1.2.3 cognitive 表和 marker，但不修改 v1.2.2 baseline。进入发布升级承诺后不得用该 rollback 迁移正式数据，必须新增 forward migration 保持既有版本语义。
+
 Migration `0054_skill_call_history` 将 `skill_call_workflow` 的主键改为独立 `call_id`，使同一父实例/节点的重复执行保留追加历史；`find(parent,node)` 仍按时间返回最新调用。其 rollback 为兼容旧主键会只保留每个父实例/节点最新一条关系，因此回滚前必须备份需要保留的重复调用审计。
 
 Migration `0055_task_input_continuation` 新增 `task_input_request`、`task_input_response` 与 `task_execution_attempt`。问题和回答以 PostgreSQL 为权威；同一 Task 同时最多一个 `waiting` 问题，回答与新的 `input_response` attempt 在一个事务内创建。Goal Evaluation 问题保存 `control_id` 和 `control_round_index`，BullMQ 只携带 Task/Context/attempt/mode 的临时调度副本。rollback 会删除全部补充输入与 attempt 审计，回滚前必须备份。

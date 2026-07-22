@@ -1,0 +1,478 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/schemas/v1.2.3/cognitive-domain.schema.json",
+  "title": "SDAR v1.2.3 Cognitive Domain Skeleton",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "featureFlags",
+    "sourceRef",
+    "domainEvent",
+    "capabilitySummary",
+    "taskUnderstanding",
+    "interactiveSession",
+    "experienceEpisode",
+    "knowledgeCandidate",
+    "knowledgeTransition"
+  ],
+  "properties": {
+    "featureFlags": { "$ref": "#/$defs/featureFlags" },
+    "sourceRef": { "$ref": "#/$defs/sourceRef" },
+    "domainEvent": { "$ref": "#/$defs/domainEvent" },
+    "capabilitySummary": { "$ref": "#/$defs/capabilitySummary" },
+    "taskUnderstanding": { "$ref": "#/$defs/taskUnderstanding" },
+    "interactiveSession": { "$ref": "#/$defs/interactiveSession" },
+    "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
+    "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
+    "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "sourceRefId",
+        "sourceKind",
+        "sourceId",
+        "sourceRevision",
+        "authority",
+        "dataClassification",
+        "capturedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "sourceRefId": { "$ref": "#/$defs/id" },
+        "sourceKind": {
+          "enum": [
+            "goal_contract",
+            "plan_revision",
+            "skill_attempt",
+            "workflow_outcome",
+            "runtime_terminal_outcome",
+            "recovery_decision",
+            "business_event",
+            "planning_correction",
+            "model_invocation",
+            "knowledge_revision",
+            "skill_version"
+          ]
+        },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "sourceRevision": { "type": "integer", "minimum": 1 },
+        "authority": {
+          "enum": [
+            "runtime_fact",
+            "user_instruction",
+            "user_confirmation",
+            "domain_rule",
+            "model_candidate",
+            "promoted_knowledge",
+            "skill_declaration"
+          ]
+        },
+        "dataClassification": {
+          "enum": ["public", "internal", "user_scoped", "restricted"]
+        },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "contentHash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "featureFlags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "capabilitySummaryEnabled",
+        "publicCapabilityCardEnabled",
+        "understandingMode",
+        "interactiveMode",
+        "experienceCaptureEnabled",
+        "experienceObserverEnabled",
+        "inductionMode",
+        "promotionMode",
+        "injectionMode"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "capabilitySummaryEnabled": { "type": "boolean" },
+        "publicCapabilityCardEnabled": { "type": "boolean" },
+        "understandingMode": { "enum": ["off", "ambiguous_only", "all"] },
+        "interactiveMode": { "enum": ["off", "manual", "policy"] },
+        "experienceCaptureEnabled": { "type": "boolean" },
+        "experienceObserverEnabled": { "type": "boolean" },
+        "inductionMode": { "enum": ["off", "shadow", "candidate"] },
+        "promotionMode": { "const": "manual" },
+        "injectionMode": { "enum": ["off", "shadow", "advisory", "active_low_risk"] }
+      }
+    },
+    "domainEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventId",
+        "eventType",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "occurredAt",
+        "correlation",
+        "payload"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "eventId": { "$ref": "#/$defs/id" },
+        "eventType": {
+          "enum": [
+            "skill.catalog_changed",
+            "capability.summary_built",
+            "capability.card_published",
+            "task.understanding_created",
+            "task.clarification_requested",
+            "task.clarification_answered",
+            "goal.contract_candidate_created",
+            "goal.contract_confirmed",
+            "plan.candidate_created",
+            "plan.revised",
+            "plan.confirmed",
+            "planning.correction_recorded",
+            "user_goal.terminal_committed",
+            "experience.episode_created",
+            "experience.observation_completed",
+            "experience.reflection_completed",
+            "knowledge.candidate_created",
+            "knowledge.contradiction_recorded",
+            "knowledge.validating",
+            "knowledge.promoted",
+            "knowledge.rejected",
+            "capability.gap_candidate_created",
+            "planning.knowledge_used"
+          ]
+        },
+        "aggregateType": { "$ref": "#/$defs/id" },
+        "aggregateId": { "$ref": "#/$defs/id" },
+        "aggregateVersion": { "type": "integer", "minimum": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "correlation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["correlationId"],
+          "properties": {
+            "correlationId": { "$ref": "#/$defs/id" },
+            "causationId": { "$ref": "#/$defs/id" },
+            "goalId": { "$ref": "#/$defs/id" },
+            "taskId": { "$ref": "#/$defs/id" },
+            "tenantId": { "$ref": "#/$defs/id" },
+            "userId": { "$ref": "#/$defs/id" }
+          }
+        },
+        "payload": { "type": "object", "maxProperties": 64 }
+      }
+    },
+    "capabilitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "summaryId",
+        "revision",
+        "catalogHash",
+        "status",
+        "items",
+        "sourceRefs",
+        "builtAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "summaryId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "status": { "enum": ["building", "active", "superseded", "failed"] },
+        "items": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capabilityId",
+              "title",
+              "effects",
+              "evidence",
+              "artifacts",
+              "contexts",
+              "modes",
+              "taskTypes",
+              "composition",
+              "limitations",
+              "exactSkillVersionRefs"
+            ],
+            "properties": {
+              "capabilityId": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "effects": { "$ref": "#/$defs/strings" },
+              "evidence": { "$ref": "#/$defs/strings" },
+              "artifacts": { "$ref": "#/$defs/strings" },
+              "contexts": { "$ref": "#/$defs/strings" },
+              "modes": { "$ref": "#/$defs/strings" },
+              "taskTypes": { "$ref": "#/$defs/strings" },
+              "composition": { "$ref": "#/$defs/strings" },
+              "limitations": { "$ref": "#/$defs/strings" },
+              "exactSkillVersionRefs": { "$ref": "#/$defs/strings" }
+            }
+          }
+        },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "builtAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "taskUnderstanding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "understandingId",
+        "taskId",
+        "revision",
+        "disposition",
+        "objective",
+        "knownConstraints",
+        "assumptions",
+        "missingDimensions",
+        "sourceRefs",
+        "policyVersion",
+        "stateHash",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "understandingId": { "$ref": "#/$defs/id" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "disposition": {
+          "enum": [
+            "clarification_required",
+            "confirmation_required",
+            "contract_candidate",
+            "rejected"
+          ]
+        },
+        "objective": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "knownConstraints": { "$ref": "#/$defs/strings" },
+        "assumptions": { "$ref": "#/$defs/strings" },
+        "missingDimensions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimensionId",
+              "kind",
+              "severity",
+              "question",
+              "answered",
+              "authorizationSensitive"
+            ],
+            "properties": {
+              "dimensionId": { "$ref": "#/$defs/id" },
+              "kind": {
+                "enum": [
+                  "target",
+                  "scope",
+                  "time_range",
+                  "criteria",
+                  "artifact",
+                  "evidence",
+                  "side_effect_authorization"
+                ]
+              },
+              "severity": { "enum": ["blocking", "conditional", "non_blocking"] },
+              "question": { "type": "string", "minLength": 1, "maxLength": 2048 },
+              "answered": { "type": "boolean" },
+              "authorizationSensitive": { "type": "boolean" }
+            }
+          }
+        },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "policyVersion": { "$ref": "#/$defs/id" },
+        "stateHash": { "$ref": "#/$defs/hash" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "interactiveSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "sessionId",
+        "taskId",
+        "kind",
+        "state",
+        "version",
+        "clarificationRounds",
+        "revisionCount",
+        "maxClarificationRounds",
+        "maxRevisions",
+        "idempotencyKeys",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["goal", "planning"] },
+        "state": {
+          "enum": [
+            "understand",
+            "goal_review",
+            "plan_review",
+            "confirmed",
+            "rejected",
+            "canceled",
+            "budget_exhausted"
+          ]
+        },
+        "version": { "type": "integer", "minimum": 1 },
+        "currentCandidateId": { "$ref": "#/$defs/id" },
+        "currentCandidateRevision": { "type": "integer", "minimum": 1 },
+        "clarificationRounds": { "type": "integer", "minimum": 0 },
+        "revisionCount": { "type": "integer", "minimum": 0 },
+        "maxClarificationRounds": { "type": "integer", "minimum": 0 },
+        "maxRevisions": { "type": "integer", "minimum": 0 },
+        "idempotencyKeys": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "dependentRequired": {
+        "currentCandidateId": ["currentCandidateRevision"],
+        "currentCandidateRevision": ["currentCandidateId"]
+      }
+    },
+    "experienceEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "episodeId",
+        "goalId",
+        "goalVersion",
+        "revision",
+        "episodeHash",
+        "completeness",
+        "dataClassification",
+        "sourceRefs",
+        "redactionCodes",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "episodeId": { "$ref": "#/$defs/id" },
+        "goalId": { "$ref": "#/$defs/id" },
+        "goalVersion": { "type": "integer", "minimum": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "episodeHash": { "$ref": "#/$defs/hash" },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dataClassification": { "enum": ["public", "internal", "user_scoped", "restricted"] },
+        "sourceRefs": { "type": "array", "$ref": "#/$defs/sourceRefs", "minItems": 1 },
+        "redactionCodes": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "knowledgeId",
+        "kind",
+        "revision",
+        "status",
+        "scope",
+        "title",
+        "summary",
+        "risk",
+        "supportSourceRefs",
+        "contradictionSourceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["candidate", "validating", "deprecated", "rejected"] },
+        "scope": { "enum": ["task", "user", "tenant", "global_candidate"] },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "userId": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "supportSourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "contradictionSourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "transitionId",
+        "knowledgeId",
+        "knowledgeRevision",
+        "expectedVersion",
+        "fromStatus",
+        "toStatus",
+        "reason",
+        "actorId",
+        "humanApproved",
+        "occurredAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "transitionId": { "$ref": "#/$defs/id" },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "expectedVersion": { "type": "integer", "minimum": 1 },
+        "fromStatus": { "enum": ["candidate", "validating", "active", "deprecated", "rejected"] },
+        "toStatus": { "enum": ["candidate", "validating", "active", "deprecated", "rejected"] },
+        "reason": {
+          "enum": [
+            "evaluation_started",
+            "promotion_approved",
+            "promotion_rejected",
+            "contradiction_detected",
+            "catalog_changed",
+            "policy_changed",
+            "skill_version_changed",
+            "manual_deprecation"
+          ]
+        },
+        "actorId": { "$ref": "#/$defs/id" },
+        "humanApproved": { "type": "boolean" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "strings": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "sourceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/sourceRef" }
+    }
+  }
+}

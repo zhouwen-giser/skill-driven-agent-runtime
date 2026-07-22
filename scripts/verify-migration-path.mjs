@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { URL } from 'node:url';
@@ -9,10 +10,14 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 
 const { Pool } = pg;
 const root = process.cwd();
-const databases = ['sdar_v122_verify_empty', 'sdar_v122_verify_existing'];
+const databases = [
+  'sdar_v122_verify_empty',
+  'sdar_v122_verify_existing',
+  'sdar_v122_verify_rogue_ledger',
+];
+const expectedVersions = ['v1.2.2_clean_slate_baseline', '0108_v123_cognitive_skeleton'];
 const adminUrl =
-  process.env.SDAR_POSTGRES_ADMIN_URL ??
-  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+  process.env.SDAR_POSTGRES_ADMIN_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure(root);
@@ -25,6 +30,10 @@ try {
   try {
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
+    await applyRuntimeMigrations(emptyPool);
+    await verifyBaseline(emptyPool);
+    await rollbackCognitiveSkeleton(emptyPool);
+    await verifyCognitiveSkeletonRolledBack(emptyPool);
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
   } finally {
@@ -40,17 +49,24 @@ try {
     );
     if (preserved.rows[0]?.preserved !== true)
       throw new Error('CLEAN_DATABASE_REJECTION_DESTROYED_EXISTING_DATA');
-    verifyResetRejected({
-      SDAR_ENV: 'production',
-      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
-      SDAR_POSTGRES_URL: databaseUrl(databases[1]),
-    }, 'V122_RESET_ENVIRONMENT_REJECTED');
-    verifyResetRejected({
-      SDAR_ENV: 'test',
-      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
-      SDAR_POSTGRES_URL: databaseUrl('sdar'),
-    }, 'V122_RESET_DATABASE_NAME_REJECTED');
+    verifyResetRejected(
+      {
+        SDAR_ENV: 'production',
+        SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+        SDAR_POSTGRES_URL: databaseUrl(databases[1]),
+      },
+      'V122_RESET_ENVIRONMENT_REJECTED',
+    );
+    verifyResetRejected(
+      {
+        SDAR_ENV: 'test',
+        SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+        SDAR_POSTGRES_URL: databaseUrl('sdar'),
+      },
+      'V122_RESET_DATABASE_NAME_REJECTED',
+    );
     runReset(databaseUrl(databases[1]));
+    await applyRuntimeMigrations(existingPool);
     await verifyBaseline(existingPool);
     const seed = await existingPool.query(
       `SELECT
@@ -63,8 +79,17 @@ try {
     await existingPool.end();
   }
 
+  const roguePool = databasePool(databases[2]);
+  try {
+    await applyRuntimeMigrations(roguePool);
+    await roguePool.query("INSERT INTO schema_migration(version) VALUES ('9999_unknown')");
+    await expectLedgerRejection(applyRuntimeMigrations, roguePool);
+  } finally {
+    await roguePool.end();
+  }
+
   process.stdout.write(
-    'SDAR v1.2.2 clean baseline verified: empty apply, idempotency, schema contract, and existing-database rejection.\n',
+    'SDAR v1.2.3 migration path verified: v1.2.2 clean baseline, additive 0108, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n',
   );
 } finally {
   await dropDatabases().catch(() => undefined);
@@ -121,10 +146,13 @@ async function verifyBaseline(pool) {
       `V122_BASELINE_TABLE_MISSING:${String(identity.rows[0]?.database_name)}:${String(identity.rows[0]?.marker_table)}`,
     );
   const marker = await pool.query(
-    'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
+    `SELECT array_agg(
+       version ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version
+     ) AS versions
+     FROM public.schema_migration`,
   );
-  if (JSON.stringify(marker.rows[0]?.versions) !== '["v1.2.2_clean_slate_baseline"]')
-    throw new Error('V122_BASELINE_MARKER_INVALID');
+  if (JSON.stringify(marker.rows[0]?.versions) !== JSON.stringify(expectedVersions))
+    throw new Error('V123_MIGRATION_MARKERS_INVALID');
 
   const requiredTables = [
     'goal',
@@ -135,6 +163,11 @@ async function verifyBaseline(pool) {
     'skill_goal',
     'skill_attempt',
     'business_event_inbox',
+    'runtime_capability_summary',
+    'generic_task_understanding',
+    'interactive_goal_session',
+    'goal_experience_episode',
+    'knowledge_status_transition',
   ];
   const tables = await pool.query(
     `SELECT table_name
@@ -154,6 +187,47 @@ async function verifyBaseline(pool) {
   const definition = modes.rows[0]?.definition;
   if (typeof definition !== 'string' || !definition.includes('frozen_v1'))
     throw new Error('V122_FROZEN_PROTOCOL_CONSTRAINT_MISSING');
+}
+
+async function rollbackCognitiveSkeleton(pool) {
+  const migration = await readFile(
+    resolve(root, 'infra/postgres/migrations/0108_v123_cognitive_skeleton.down.sql'),
+    'utf8',
+  );
+  await pool.query(migration);
+}
+
+async function verifyCognitiveSkeletonRolledBack(pool) {
+  const marker = await pool.query(
+    'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
+  );
+  if (
+    JSON.stringify(marker.rows[0]?.versions) !== JSON.stringify(['v1.2.2_clean_slate_baseline'])
+  ) {
+    throw new Error('V123_ROLLBACK_MARKER_INVALID');
+  }
+  const tables = await pool.query(
+    `SELECT to_regclass('public.runtime_capability_summary') IS NULL AS capability_absent,
+            to_regclass('public.goal_experience_episode') IS NULL AS experience_absent,
+            to_regclass('public.knowledge_status_transition') IS NULL AS knowledge_absent`,
+  );
+  if (
+    tables.rows[0]?.capability_absent !== true ||
+    tables.rows[0]?.experience_absent !== true ||
+    tables.rows[0]?.knowledge_absent !== true
+  ) {
+    throw new Error('V123_ROLLBACK_TABLES_REMAIN');
+  }
+}
+
+async function expectLedgerRejection(applyRuntimeMigrations, pool) {
+  try {
+    await applyRuntimeMigrations(pool);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SDAR_V123_MIGRATION_LEDGER_INVALID') return;
+    throw error;
+  }
+  throw new Error('V123_ROGUE_MIGRATION_LEDGER_ACCEPTED');
 }
 
 async function expectCleanDatabaseRejection(applyRuntimeMigrations, pool, label) {
@@ -187,6 +261,5 @@ function runReset(connectionString) {
       SDAR_POSTGRES_URL: connectionString,
     },
   });
-  if (result.status !== 0)
-    throw new Error(`V122_RESET_FAILED:${result.stdout}${result.stderr}`);
+  if (result.status !== 0) throw new Error(`V122_RESET_FAILED:${result.stdout}${result.stderr}`);
 }

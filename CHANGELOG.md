@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## [1.2.3] - Unreleased
+
+### Added
+
+- The complete SDAR v1.2.3 Goal package, Master ExecPlan and machine-readable Goal sync state.
+- ADR-111–114 for cognitive planning authority, Experience/knowledge governance, deterministic
+  snapshots/CAS and post-v1.2.2 migrations.
+- G00 cognitive Domain factories, stable errors/states/events/feature flags, Application Ports, JSON
+  Schema Golden fixture and additive 0108 DDL skeleton.
+- A cognitive reverse-dependency/Python-runtime architecture guard and six exact-commit OSS
+  design-reference intakes with license/NOTICE verification.
+
+### Changed
+
+- The task-package self-check now uses `fileURLToPath` on Windows and remains protected by its updated
+  package hash manifest.
+- Runtime migration startup accepts only the ordered v1.2.2 baseline plus known `01xx_v123_*` prefix;
+  the v1.2.2 baseline SQL remains unchanged.
+
+### Verification
+
+- In progress. Focused cognitive Domain tests, Schema contract and strict typecheck pass; G00 full gates
+  and the Draft PR are not yet complete.
+
 ## [1.2.2] - Unreleased
 
 ### Added

@@ -1,6 +1,48 @@
 schema_version: 1
-updated_at: 2026-07-16
+updated_at: 2026-07-23
 sources:
+  - name: Gemini CLI Auto Memory
+    repository: https://github.com/google-gemini/gemini-cli
+    license: 'Apache-2.0; LICENSE blob 7a4a3ea2424c09fbe48d455aed1eaa94d9124835; no root NOTICE at pin'
+    use: design_reference
+    pin: "commit:c776c665b00a39d55c470beb788a2b9a77a2feb7"
+    allowed: 'candidate lifecycle, eligibility, bounded extraction and patch-safety behavior reference; a later small TypeScript port requires separate intake'
+    forbidden: 'CLI/Core runtime integration, filesystem authority, unreviewed source copy, model client reuse, second runtime'
+  - name: AutoSkill
+    repository: https://github.com/ECNU-ICALK/AutoSkill
+    license: 'UNCONFIRMED: README MIT badge; no LICENSE or NOTICE at pinned commit'
+    use: design_reference
+    pin: "commit:94c47ca488d4ba4117d20272e66d49b9877e68cf"
+    allowed: 'identity, lineage, replay-split and promotion-metric behavior reference only'
+    forbidden: 'source or prompt copying, Python runtime, automatic Skill publication, file authority'
+  - name: LangMem
+    repository: https://github.com/langchain-ai/langmem
+    license: 'MIT; LICENSE blob c38f6f284dc464af69e9f618bc0304d299d0bdf0; no root NOTICE at pin'
+    use: design_reference
+    pin: "commit:a2d580946465137c89162e67dc0b18108bd4850c"
+    allowed: 'typed extraction, bounded consolidation and change-set behavior reference for clean-room TypeScript implementation'
+    forbidden: 'Python/LangChain runtime integration, Store authority, copied source without a new intake'
+  - name: ReMe
+    repository: https://github.com/agentscope-ai/ReMe
+    license: 'Apache-2.0; LICENSE blob 65c2c5cf06d722c79d8105cfce97016491a7a7f4; no root NOTICE at pin'
+    use: design_reference
+    pin: "commit:46adb5ae1e94715ecdffe201a46933fbd419a5e1"
+    allowed: 'RRF, bounded relation expansion, staged processing and context-dedupe behavior reference'
+    forbidden: 'Python service, FastAPI/FastMCP, file authority, external knowledge runtime'
+  - name: Agent Workflow Memory
+    repository: https://github.com/zorazrw/agent-workflow-memory
+    license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; no root NOTICE at pin'
+    use: design_reference
+    pin: "commit:8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1"
+    allowed: 'task-type induction, abstract-pattern/exemplar and replay dataset-shape reference'
+    forbidden: 'research runtime integration, plaintext workflow authority, Python product dependency'
+  - name: ACE
+    repository: https://github.com/ace-agent/ace
+    license: 'Apache-2.0; LICENSE.txt blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; no root NOTICE at pin'
+    use: design_reference
+    pin: "commit:bcb7cea0504afad6f55fec4845dd4864c9f9eee7"
+    allowed: 'Generator/Reflector/Curator separation, typed delta and pre/post evaluation behavior reference'
+    forbidden: 'free-text playbook authority, reasoning trace storage, Python/model client integration, direct active mutation'
   - name: Ajv
     repository: https://github.com/ajv-validator/ajv
     license: 'MIT'

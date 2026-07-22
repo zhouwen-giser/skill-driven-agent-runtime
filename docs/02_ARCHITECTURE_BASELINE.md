@@ -87,6 +87,24 @@ Phase 6 保持现有模块边界：`mcp_tool` 仍由唯一 LangGraph.js Runtime 
 
 Management API/Console 是 PostgreSQL 权威证据的清洗投影，提供按 Task 关联的 capability、availability、Binding、观察、控制、continuation、输入、取消和最终结果，以及版本 CAS refresh、幂等 cooperative cancel 和既有 Task input action。它不成为第二状态源。Provider 对资源接纳、预约、业务 Timer 和远程终态权威；SDAR 不申请锁、不暂停远程 Task，也不伪造 Provider 终态。
 
+## v1.2.3 Cognitive planning and Experience increment
+
+V1.2.3 adds a cognitive Domain/Application slice but no second Agent, Workflow, Memory or model runtime.
+The online cognitive path produces only immutable Understanding, Goal Contract and Plan candidates;
+only confirmed Contract/Plan data crosses into the existing v1.2.2 planner/controller authority.
+`UserGoalPlanController` remains the sole User Goal/A2A terminal writer, and LangGraph.js remains the
+only executable workflow graph.
+
+The offline path begins with a PostgreSQL transactional outbox committed with v1.2.2 runtime facts.
+Episode/Observation/Reflection and three separate knowledge targets are asynchronous. Redis/BullMQ is
+rebuildable scheduling state. Candidate knowledge is excluded from formal planning, MemoryService is an
+active-only search projection, and Experience failure falls back to the base planner.
+
+Capability Summary/Card are activated hash-matched snapshots; Summary is deterministic and excludes
+current readiness, while optional narrative is display-only. Interactive sessions use immutable
+revisions, expected-version CAS and idempotency keys. The detailed authority, states and KD register are
+frozen by `docs/27_V1_2_3_COGNITIVE_RUNTIME_DESIGN.md` and ADR-111–114.
+
 ## v1.2 Skill-driven capability usage increment
 
 V1.2 extends the existing Skill Registry, Selection, Skill Graph, Workflow Planner/Validator and single

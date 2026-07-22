@@ -2585,6 +2585,66 @@
       "license": "Apache-2.0",
       "modified_by": "zhouwen",
       "local_file": "packages/mcp-adapter/src/mcp-tasks-contract.ts"
+    },
+    {
+      "name": "google-gemini/gemini-cli",
+      "commit": "c776c665b00a39d55c470beb788a2b9a77a2feb7",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "license_blob": "7a4a3ea2424c09fbe48d455aed1eaa94d9124835",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
+    },
+    {
+      "name": "ECNU-ICALK/AutoSkill",
+      "commit": "94c47ca488d4ba4117d20272e66d49b9877e68cf",
+      "license": "UNCONFIRMED",
+      "license_file": "absent",
+      "license_blob": "absent",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
+    },
+    {
+      "name": "langchain-ai/langmem",
+      "commit": "a2d580946465137c89162e67dc0b18108bd4850c",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "license_blob": "c38f6f284dc464af69e9f618bc0304d299d0bdf0",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
+    },
+    {
+      "name": "agentscope-ai/ReMe",
+      "commit": "46adb5ae1e94715ecdffe201a46933fbd419a5e1",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "license_blob": "65c2c5cf06d722c79d8105cfce97016491a7a7f4",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
+    },
+    {
+      "name": "zorazrw/agent-workflow-memory",
+      "commit": "8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "license_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
+    },
+    {
+      "name": "ace-agent/ace",
+      "commit": "bcb7cea0504afad6f55fec4845dd4864c9f9eee7",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE.txt",
+      "license_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "notice": "absent",
+      "use": "design_reference",
+      "copied_code": false
     }
   ]
 }

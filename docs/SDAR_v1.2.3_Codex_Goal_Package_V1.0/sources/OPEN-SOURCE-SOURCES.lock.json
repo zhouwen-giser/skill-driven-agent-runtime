@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-07-22",
+  "sources": [
+    {
+      "name": "Gemini CLI Auto Memory",
+      "repository": "google-gemini/gemini-cli",
+      "commit": "c776c665b00a39d55c470beb788a2b9a77a2feb7",
+      "license": "Apache-2.0",
+      "reuseType": [
+        "selective_source_port",
+        "algorithm_reference",
+        "test_reference"
+      ],
+      "reviewedPaths": [
+        "packages/cli/src/utils/autoMemory.ts",
+        "packages/core/src/services/memoryService.ts",
+        "packages/core/src/services/memoryPatchUtils.ts",
+        "packages/core/src/agents/skill-extraction-agent.ts",
+        "evals/auto_memory_modes.eval.ts",
+        "evals/auto_memory_contract.eval.ts",
+        "evals/skill_extraction.eval.ts"
+      ],
+      "rules": "Only small isolated TypeScript algorithms may be ported. Preserve license headers, mark changes, update notices and sources lock."
+    },
+    {
+      "name": "AutoSkill",
+      "repository": "ECNU-ICALK/AutoSkill",
+      "commit": "94c47ca488d4ba4117d20272e66d49b9877e68cf",
+      "license": "UNCONFIRMED: README claims MIT; root LICENSE absent at audited commit",
+      "reuseType": [
+        "algorithm_reference",
+        "prompt_behavior_reference",
+        "test_model_reference"
+      ],
+      "reviewedPaths": [
+        "autoskill/management/maintenance.py",
+        "SkillEvo/runner.py",
+        "SkillEvo/replay_builder.py",
+        "SkillEvo/evals.py",
+        "SkillEvo/mutators.py"
+      ],
+      "rules": "Do not copy substantive source until a standard license or written permission is confirmed. Clean-room TypeScript reimplementation only."
+    },
+    {
+      "name": "LangMem",
+      "repository": "langchain-ai/langmem",
+      "commit": "a2d580946465137c89162e67dc0b18108bd4850c",
+      "license": "MIT",
+      "reuseType": [
+        "algorithm_reference",
+        "schema_reference",
+        "test_reference"
+      ],
+      "reviewedPaths": [
+        "src/langmem/knowledge/extraction.py",
+        "src/langmem/reflection.py",
+        "src/langmem/graphs/semantic.py",
+        "src/langmem/prompts/_layers.py"
+      ],
+      "rules": "Clean-room TypeScript implementation. Do not introduce LangChain Python or LangGraph Store as a runtime dependency."
+    },
+    {
+      "name": "ReMe",
+      "repository": "agentscope-ai/ReMe",
+      "commit": "46adb5ae1e94715ecdffe201a46933fbd419a5e1",
+      "license": "Apache-2.0",
+      "reuseType": [
+        "algorithm_reference",
+        "configuration_reference",
+        "test_reference"
+      ],
+      "reviewedPaths": [
+        "reme/config/default.yaml",
+        "reme/steps/index/search.py",
+        "reme/steps/index/vector_search.py",
+        "reme/steps/index/bm25_search.py",
+        "reme/utils/link_expansion.py"
+      ],
+      "rules": "Reimplement RRF, relation expansion and staged processing in TypeScript/PostgreSQL. Do not introduce ReMe service or file authority."
+    },
+    {
+      "name": "Agent Workflow Memory",
+      "repository": "zorazrw/agent-workflow-memory",
+      "commit": "8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1",
+      "license": "Apache-2.0",
+      "reuseType": [
+        "algorithm_reference",
+        "prompt_behavior_reference",
+        "dataset_shape_reference"
+      ],
+      "reviewedPaths": [
+        "mind2web/offline_induction.py",
+        "mind2web/online_induction.py",
+        "mind2web/memory.py",
+        "webarena/induce_prompt.py",
+        "webarena/induce_rule.py"
+      ],
+      "rules": "Research reference only. Rebuild typed task-type induction and replay in SDAR; no research runtime in production."
+    },
+    {
+      "name": "ACE",
+      "repository": "ace-agent/ace",
+      "commit": "bcb7cea0504afad6f55fec4845dd4864c9f9eee7",
+      "license": "Apache-2.0",
+      "reuseType": [
+        "algorithm_reference",
+        "operation_schema_reference",
+        "evaluation_reference"
+      ],
+      "reviewedPaths": [
+        "ace/ace.py",
+        "ace/core/generator.py",
+        "ace/core/reflector.py",
+        "ace/core/curator.py",
+        "ace/core/bulletpoint_analyzer.py",
+        "playbook_utils.py"
+      ],
+      "rules": "Rebuild Reflector/Curator/Delta operations in TypeScript. Do not store reasoning traces or use free-text playbook as authority."
+    }
+  ]
+}
