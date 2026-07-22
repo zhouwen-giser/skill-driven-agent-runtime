@@ -4,10 +4,10 @@ Status: implementation and verification **completed**; Draft PR publication pend
 
 ## Passing gates
 
-- Clean candidate `3d3ad6fe0075f04edcadaac5cb7c585ed22db238` passed the unified 110,418 ms
-  `pnpm verify`: 628 unit/contract, 68 real integration, 59 E2E, 296-source architecture, A2A MUST
+- Clean candidate `2db399693b2754f17a2ecc78356f3aab19f1297b` passed the unified 109,118 ms
+  `pnpm verify`: 629 unit/contract, 68 real integration, 59 E2E, 296-source architecture, A2A MUST
   74/74, 124 OpenAPI operations, baseline/migrations, license/SBOM, production build and both smokes.
-- The v1.2.2 Console view regression passes 20/20 after the independent acceptance audit.
+- The v1.2.2 Console view regression is included in the 20/20 Console suite.
 - Exact SDAR `325b8d0` ↔ Provider `8a81b1b` real Streamable HTTP interop passed Discovery, 260 Tasks,
   Task/Resource Events, 128/128/4 Relation pages, durable admission, Drain, Reset, Continuity,
   unavailability, Provider restart and eight reconnects.

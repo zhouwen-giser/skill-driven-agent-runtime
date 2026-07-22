@@ -25,7 +25,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
-- Clean candidate `3d3ad6f` passes unified verification: 628 unit/contract, 68 real integration, 59 E2E,
+- Clean candidate `2db3996` passes unified verification: 629 unit/contract, 68 real integration, 59 E2E,
   296-source architecture, A2A MUST 74/74, 124 OpenAPI operations, clean baseline/migrations, production
   build and both smoke stages.
 - Real Streamable HTTP interop passes against exact Provider `8a81b1b` with 260 Tasks, Task/Resource

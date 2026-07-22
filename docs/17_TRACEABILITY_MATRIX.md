@@ -6,7 +6,7 @@ The Master Goal, G00–G10 and every acceptance item AC-001–AC-078 are verifie
 test and evidence mappings in `docs/26_V1_2_2_TRACEABILITY.md`. ADR-109/110 and
 `docs/25_V1_2_2_USER_GOAL_RUNTIME_DESIGN.md` freeze the authority, state and external protocol
 boundaries. Real external Provider Business Events interop passed for exact Provider `8a81b1b` and
-SDAR candidate `325b8d0`; the clean unified repository gate passed on `3d3ad6f`.
+SDAR candidate `325b8d0`; the clean unified repository gate passed on `2db3996`.
 
 ## EP-06 developing evidence supplements (2026-07-13)
 

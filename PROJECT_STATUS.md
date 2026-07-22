@@ -6,7 +6,7 @@ Goal contract/planning → Skill Goal DAG/scheduler/attempt → layered outcome 
 the single LangGraph runtime. Provider Business Events Profile 1.0 assets are pinned at `8a81b1b`; the
 strict client, durable dual cursors, generation/continuity/relation runtime and event-impact recovery are
 complete. Exact real Provider Streamable HTTP interop passes all Task/Event/Drain/Reset/Relation/restart
-cases. Clean candidate `3d3ad6f` passes unified verification with 628 unit/contract, 68 real integration,
+cases. Clean candidate `2db3996` passes unified verification with 629 unit/contract, 68 real integration,
 59 E2E, A2A MUST 74/74, migrations, production build and both smoke stages; an isolated real pgvector
 database restart audit also passes. AC-001–AC-078 are verified and failed attempts remain recorded.
 Final evidence reconciliation, clean-head repetition and Draft PR publication are the only remaining

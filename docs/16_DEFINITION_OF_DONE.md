@@ -89,9 +89,9 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       impact assessment, Incident/handling Goal and plan revision are verified.
 - [x] Exact Provider assets are locked to `8a81b1b`; real Streamable HTTP Provider interop passes Task,
       Event, Drain, Reset, Relation, unavailability, restart and reconnect without modifying Provider.
-- [x] Clean unified verification passes 628 unit/contract, 68 real integration, 59 E2E, migrations,
-      production build, A2A MUST, infrastructure and Server/Console smoke; an additional Console
-      v1.2.2 view regression passes 20/20.
+- [x] Clean unified verification passes 629 unit/contract, 68 real integration, 59 E2E, migrations,
+      production build, A2A MUST, infrastructure and Server/Console smoke, including the Console
+      v1.2.2 DAG/Judgment/Event view regression.
 - [x] Security/capacity/SBOM/Compose and an isolated real PostgreSQL restart audit pass; trusted-intranet
       and claim boundaries remain explicit.
 - [x] Failed gate/interop attempts are retained. The release action is a Draft PR only; no merge or tag

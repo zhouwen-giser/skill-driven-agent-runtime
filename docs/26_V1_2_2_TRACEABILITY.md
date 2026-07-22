@@ -58,7 +58,7 @@ package under `docs/SDAR_v1.2.2_Codex_Goal_Package_SDAR_Only/`.
 | AC-065     | G09     | Incident AgentTask idempotency                                  | dedupe and interrupted-attachment repair unit                                                      | verified |
 | AC-066     | G09     | conservative continuity recovery                                | continuity trace/runtime tests                                                                     | verified |
 | AC-067     | G09     | policy/confirmation boundary                                    | low-confidence and Emergency Skill isolation unit                                                  | verified |
-| AC-070     | G10     | unified release gate                                            | clean `3d3ad6f` `pnpm verify` all-pass summary                                                     | verified |
+| AC-070     | G10     | unified release gate                                            | clean `2db3996` `pnpm verify` all-pass summary                                                     | verified |
 | AC-071     | G10     | external Provider runtime                                       | real POST/SSE interop against exact `8a81b1b`; interop md/json                                     | verified |
 | AC-072     | G10     | A2A SUT/TCK                                                     | 74/74 applicable MUST, 161 scoped skips, 0 failures/errors                                         | verified |
 | AC-073     | G10     | Management/OpenAPI/React Console                                | 124-operation contract, React view unit, production bundle/server smoke                            | verified |
