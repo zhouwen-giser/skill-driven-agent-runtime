@@ -100,6 +100,8 @@ export interface RemoteTaskBinding {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly workflowPlanId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly workflowDefinitionId: string;
   readonly workflowDefinitionVersion: number;
   readonly workflowInstanceId: string;
@@ -157,6 +159,8 @@ export interface RemoteTaskAdmission {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly workflowPlanId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly workflowDefinitionId: string;
   readonly workflowDefinitionVersion: number;
   readonly workflowInstanceId: string;
@@ -271,6 +275,11 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
       'Remote Task Goal and Workflow definition versions must be positive integers.',
     );
   }
+  if ((input.skillGoalId === undefined) !== (input.skillAttemptId === undefined))
+    throw new DomainError(
+      'REMOTE_TASK_BINDING_INVALID',
+      'Remote Task binding must bind Skill Goal and Skill Attempt together.',
+    );
   if (!Number.isInteger(input.pollIntervalMs) || input.pollIntervalMs < 100) {
     throw new DomainError(
       'REMOTE_TASK_POLL_INTERVAL_INVALID',

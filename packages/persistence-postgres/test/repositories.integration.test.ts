@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -1013,6 +1013,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.child.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -2250,6 +2251,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
           outputSchema: { type: 'object' },
           toolPolicy: { required: [], optional: [], forbidden: [] },
           runtimePolicy: { autoConfirmPlan: false },
+          outcomeSpecification: testOutcome(skillId, 1),
           status: 'enabled',
           sourceKind: 'admin',
           validationPassed: true,
@@ -2489,6 +2491,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.selection', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -2684,6 +2687,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.input.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -2826,6 +2830,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         outputSchema: { type: 'object' },
         toolPolicy: { required: [], optional: [], forbidden: [] },
         runtimePolicy: { autoConfirmPlan: false },
+        outcomeSpecification: testOutcome(skillId, 1),
         status: 'enabled',
         sourceKind: 'admin',
         validationPassed: true,
@@ -2910,6 +2915,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         forbidden: [],
       },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.mcp-dependent', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3193,6 +3199,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.inspect', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3204,6 +3211,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       version: 2,
       previousVersion: 1,
       status: 'disabled',
+      outcomeSpecification: testOutcome('skill.inspect', 2),
       createdAt: '2026-07-11T10:01:00.000Z',
     });
     await repository.saveVersionAndSetCurrent(second, second.createdAt);
@@ -3228,6 +3236,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('embodied.move-to.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3778,6 +3787,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
 
     expect(repeated).toEqual(first);
+    expect(first.authority).toBe('user_goal_plan_controller');
     expect(fixture.outcomeNotifications).toEqual([
       expect.objectContaining({ taskId: fixture.taskId, phase: 'completed' }),
     ]);
@@ -4087,6 +4097,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.root.db', 2),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -4641,6 +4652,24 @@ async function createGoalContinuationInvalidationFixture(
     }),
   );
   return { prefix, goalId, snapshotId, bindingIds };
+}
+
+function testOutcome(skillId: string, skillVersion: number) {
+  const specificationHash = `sha256:${createHash('sha256')
+    .update(`${skillId}:${String(skillVersion)}`)
+    .digest('hex')}`;
+  return {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion,
+    specificationHash,
+    effects: ['effect.test'],
+    evidence: ['evidence.test'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
+  };
 }
 
 async function expectContinuationInvalidated(

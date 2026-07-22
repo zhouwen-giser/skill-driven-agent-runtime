@@ -399,6 +399,11 @@ function stagePolicy(stage: MemoryRetrievalStage): Readonly<{
         types: ['skill_learning', 'success_experience', 'failure_experience'],
         queryTemplate: (subject) => `Skill selection outcomes and lessons for Goal: ${subject}`,
       };
+    case 'goal_planning':
+      return {
+        types: ['fact', 'success_experience', 'failure_experience', 'skill_learning'],
+        queryTemplate: (subject) => `User Goal decomposition evidence for request: ${subject}`,
+      };
     case 'skill_input_resolution':
       return {
         types: ['fact', 'success_experience', 'failure_experience'],

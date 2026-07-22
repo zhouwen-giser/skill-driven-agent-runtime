@@ -27,6 +27,8 @@ export interface PlanWorkflowInput {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly goalContract: GoalExecutionContract;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly compositionRoot?: SkillCompositionRoot;
   readonly compositionContext?: SkillCompositionContext;
   readonly capabilityGapSkillIds?: readonly string[];
@@ -104,6 +106,11 @@ export class WorkflowPlannerService {
       throw new WorkflowPlannerError(
         'WORKFLOW_COMPOSITION_AUTHORITY_AMBIGUOUS',
         'Planning must use either an exact graph root or an inherited composition snapshot.',
+      );
+    if ((input.skillGoalId === undefined) !== (input.skillAttemptId === undefined))
+      throw new WorkflowPlannerError(
+        'WORKFLOW_SKILL_ATTEMPT_BINDING_INVALID',
+        'Workflow planning binds Skill Goal and Skill Attempt together.',
       );
     const compositionContext =
       input.compositionRoot === undefined
@@ -198,6 +205,8 @@ export class WorkflowPlannerService {
       await this.#repository.saveAttempt(
         toAttempt(
           input.planId,
+          input.skillGoalId,
+          input.skillAttemptId,
           goalContract,
           compositionContext,
           capabilityGapSkillIds,
@@ -211,6 +220,8 @@ export class WorkflowPlannerService {
       if (validation.valid && validation.definition !== undefined) {
         const readiness = await this.#readiness?.assess({
           planId: input.planId,
+          ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
+          ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           attempt,
           definition: validation.definition,
           ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
@@ -225,6 +236,8 @@ export class WorkflowPlannerService {
         }
         const plan: WorkflowPlanRecord = {
           planId: input.planId,
+          ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
+          ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           goalId: input.goalId,
           goalVersion: input.goalVersion,
           goalContract,
@@ -267,6 +280,8 @@ export class WorkflowPlannerService {
     }
     await this.#repository.savePlan({
       planId: input.planId,
+      ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
+      ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
       goalId: input.goalId,
       goalVersion: input.goalVersion,
       goalContract,
@@ -282,7 +297,9 @@ export class WorkflowPlannerService {
     });
     throw new WorkflowPlannerError(
       'WORKFLOW_PLANNING_FAILED',
-      'Workflow remained invalid after configured correction attempts.',
+      `Workflow remained invalid after configured correction attempts${
+        correctionErrors.length === 0 ? '.' : `: ${correctionErrors.join('; ')}`
+      }`,
     );
   }
 
@@ -421,6 +438,8 @@ function addMemoryContext(
 
 function toAttempt(
   planId: string,
+  skillGoalId: string | undefined,
+  skillAttemptId: string | undefined,
   goalContract: GoalExecutionContract,
   compositionContext: SkillCompositionContext | undefined,
   capabilityGapSkillIds: readonly string[],
@@ -432,6 +451,8 @@ function toAttempt(
 ): WorkflowPlanAttempt {
   return {
     planId,
+    ...(skillGoalId === undefined ? {} : { skillGoalId }),
+    ...(skillAttemptId === undefined ? {} : { skillAttemptId }),
     goalContract,
     ...(compositionContext === undefined ? {} : { compositionContext }),
     ...(capabilityGapSkillIds.length === 0 ? {} : { capabilityGapSkillIds }),
@@ -514,6 +535,7 @@ export type WorkflowPlannerErrorCode =
   | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_CAPABILITY_GAP_SKILL_INVALID'
   | 'WORKFLOW_COMPOSITION_AUTHORITY_AMBIGUOUS'
+  | 'WORKFLOW_SKILL_ATTEMPT_BINDING_INVALID'
   | 'WORKFLOW_COMPOSITION_PLANNER_UNAVAILABLE'
   | 'WORKFLOW_REPAIR_GOAL_CONTRACT_MISMATCH'
   | 'WORKFLOW_REPAIR_TOOL_SEMANTICS_MISMATCH'

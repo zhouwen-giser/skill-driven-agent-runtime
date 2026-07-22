@@ -27,10 +27,15 @@ export async function createIsolatedRuntimeDatabase(
   const database = new Pool({ connectionString: databaseConnection });
   try {
     const bootstrap = await readFile(
-      new URL('../../../infra/postgres/init/0001_sdar_bootstrap.up.sql', import.meta.url),
+      new URL('../../../infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql', import.meta.url),
       'utf8',
     );
     await database.query(bootstrap);
+    const seed = await readFile(
+      new URL('../../../infra/postgres/seed/0001_sdar_v1_2_2_minimal_seed.sql', import.meta.url),
+      'utf8',
+    );
+    await database.query(seed);
   } finally {
     await database.end();
   }

@@ -149,6 +149,8 @@ export interface WorkflowDefinition {
 
 export interface WorkflowPlanAttempt {
   readonly planId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly goalContract: GoalExecutionContract;
   readonly compositionContext?: SkillCompositionContext;
   readonly capabilityGapSkillIds?: readonly string[];
@@ -163,6 +165,8 @@ export interface WorkflowPlanAttempt {
 
 export interface WorkflowPlanRecord {
   readonly planId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly goalId: string;
   readonly goalVersion: number;
   readonly goalContract: GoalExecutionContract;
@@ -219,9 +223,20 @@ export function snapshotWorkflowToolExecutionSemantics(
   );
 }
 
+export type WorkflowConfirmationResume =
+  | boolean
+  | Readonly<{
+      confirmed: boolean;
+      childPlanId: string;
+      childSkillId: string;
+      childSkillVersion: number;
+    }>;
+
 export interface WorkflowInstance {
   readonly instanceId: string;
   readonly planId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly workflowDefinitionId: string;
   readonly workflowVersion: number;
   readonly goalId: string;

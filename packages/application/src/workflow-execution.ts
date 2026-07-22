@@ -212,6 +212,8 @@ export class WorkflowExecutionService {
     const running: WorkflowInstance = {
       instanceId: input.instanceId,
       planId: plan.planId,
+      ...(plan.skillGoalId === undefined ? {} : { skillGoalId: plan.skillGoalId }),
+      ...(plan.skillAttemptId === undefined ? {} : { skillAttemptId: plan.skillAttemptId }),
       workflowDefinitionId: validation.definition.workflowDefinitionId,
       workflowVersion: validation.definition.version,
       goalId: plan.goalId,
@@ -366,9 +368,21 @@ export class WorkflowExecutionService {
       );
     const instanceWithoutPending = withoutPendingConfirmation(instance);
     try {
+      const confirmationResume =
+        instance.pendingConfirmation.kind === 'skill_confirmation' &&
+        instance.pendingConfirmation.childPlanId !== undefined &&
+        instance.pendingConfirmation.childSkillId !== undefined &&
+        instance.pendingConfirmation.childSkillVersion !== undefined
+          ? {
+              confirmed: input.confirmed,
+              childPlanId: instance.pendingConfirmation.childPlanId,
+              childSkillId: instance.pendingConfirmation.childSkillId,
+              childSkillVersion: instance.pendingConfirmation.childSkillVersion,
+            }
+          : input.confirmed;
       const outcome = await this.#executor.resumeHumanConfirmation(
         instance.instanceId,
-        input.confirmed,
+        confirmationResume,
         input.signal,
       );
       const eventCount = await this.#instances.countNodeEvents(instance.instanceId);

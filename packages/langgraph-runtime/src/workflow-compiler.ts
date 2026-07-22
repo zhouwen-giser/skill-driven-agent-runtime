@@ -33,6 +33,7 @@ import type {
   WorkflowMcpCallOutcome,
   WorkflowParallelJoinState,
   WorkflowRuntimeContinuationState,
+  WorkflowConfirmationResume,
 } from '../../domain/src/index.js';
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
 import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
@@ -230,7 +231,7 @@ export interface CompiledWorkflow {
   ): Promise<WorkflowExecutionResult>;
   resume(
     executionId: string,
-    confirmed: boolean,
+    confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
   ): Promise<WorkflowExecutionResult>;
   continueExternal(
@@ -954,7 +955,7 @@ async function executeNode(
       while (result.status === 'awaiting_confirmation') {
         runtimeContext.control.pendingSkillReservations.add(node.nodeId);
         budgetMeter.pause();
-        const confirmed = interrupt<
+        const decision = interrupt<
           Readonly<{
             nodeId: string;
             prompt: string;
@@ -965,7 +966,7 @@ async function executeNode(
             childSkillId: string;
             childSkillVersion: number;
           }>,
-          boolean
+          WorkflowConfirmationResume
         >({
           nodeId: node.nodeId,
           prompt: `Confirm child Skill plan ${result.childPlanId} for ${result.childSkillId}@${String(result.childSkillVersion)}.`,
@@ -977,6 +978,13 @@ async function executeNode(
           childSkillVersion: result.childSkillVersion,
         });
         budgetMeter.resume();
+        const matchesCheckpoint =
+          typeof decision === 'boolean' ||
+          (decision.childPlanId === result.childPlanId &&
+            decision.childSkillId === result.childSkillId &&
+            decision.childSkillVersion === result.childSkillVersion);
+        if (!matchesCheckpoint) continue;
+        const confirmed = typeof decision === 'boolean' ? decision : decision.confirmed;
         if (!confirmed)
           throw new WorkflowCompilerError(
             'WORKFLOW_SKILL_CONFIRMATION_REJECTED',

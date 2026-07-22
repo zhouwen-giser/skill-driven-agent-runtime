@@ -14,6 +14,7 @@ export type MemoryAuthority = 'mcp' | 'skill_experience' | 'admin' | 'model_infe
 export const MAX_MEMORY_CONTENT_JSON_DEPTH = 64;
 export type MemoryRetrievalStage =
   | 'intent'
+  | 'goal_planning'
   | 'skill_selection'
   | 'skill_input_resolution'
   | 'workflow_generation'
