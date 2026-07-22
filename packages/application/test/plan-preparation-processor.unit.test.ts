@@ -11,8 +11,22 @@ const initialJob = {
   mode: 'initial' as const,
 };
 
+function skillAttempt() {
+  return {
+    attemptId: 'skill-attempt-1',
+    planId: 'user-goal-plan-1',
+    skillGoalId: 'skill-goal-1',
+    ordinal: 1,
+    status: 'selecting' as const,
+    strategyFingerprint: `sha256:${'a'.repeat(64)}`,
+    budget: { maxAttempts: 2, consumedAttempts: 0 },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 describe('PlanPreparationProcessor LLM decisions', () => {
-  it('binds the LLM-formulated Goal and LLM-selected Skill before planning', async () => {
+  it('binds the User Goal Plan scheduled Skill before Workflow planning', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
     const processor = processorWith(tasks);
@@ -25,7 +39,8 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       planId: 'plan-task-1',
     });
     expect(tasks.messages.join(' ')).toContain('LLM intent execute');
-    expect(tasks.messages.join(' ')).toContain('LLM selected skill-1@2');
+    expect(tasks.messages.join(' ')).toContain('Scheduled skill-1@2 from User Goal Plan');
+    expect(tasks.userGoalRuntimeCalls).toEqual(['goal_planning', 'skill_goal_scheduling']);
   });
 
   it('marks the Task failed when a configured decision model fails without fallback', async () => {
@@ -37,7 +52,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     });
     expect(tasks.value).toMatchObject({
       phase: 'failed',
-      phaseMessage: 'Task preparation failed with MODEL_INVOCATION_FAILED.',
+      phaseMessage: 'Task preparation failed with MODEL_INVOCATION_FAILED: configured model failed',
     });
   });
 
@@ -107,22 +122,20 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     ]);
   });
 
-  it('binds a task-scoped Temporary Skill and always stops at plan confirmation', async () => {
+  it('uses the immutable scheduled Skill contract for auto-confirmed Workflow execution', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
-    tasks.useTemporarySkill = true;
     tasks.autoConfirm = true;
 
     await processorWith(tasks).process(initialJob);
 
     expect(tasks.value).toMatchObject({
-      phase: 'awaiting_plan_confirmation',
-      temporarySkillId: 'temporary-1',
+      phase: 'executing',
+      selectedSkillId: 'skill-1',
       planId: 'plan-task-1',
     });
-    expect(tasks.value.selectedSkillId).toBeUndefined();
-    expect(tasks.planningInput).toMatchObject({ temporarySkillId: 'temporary-1' });
-    expect(tasks.autoExecutions).toEqual([]);
+    expect(tasks.planningInput).toMatchObject({ skillId: 'skill-1', skillVersion: 2 });
+    expect(tasks.autoExecutions).toHaveLength(1);
   });
 
   it('continues Goal deliberation on the original Task using the saved answer', async () => {
@@ -344,26 +357,52 @@ function processorWith(
         });
       },
     },
-    skillSelection: {
-      select: (goalContract) =>
-        Promise.resolve(
-          tasks.useTemporarySkill
-            ? {
-                temporarySkillId: 'temporary-1',
-                name: 'Temporary device status',
-                decisionSummary: 'No formal Skill matched; use the registered Tool once.',
-              }
-            : {
-                selectionId: 'selection-1',
-                goalContract,
-                goalDescription: goalContract.description,
-                candidates: [],
-                selectedSkillId: 'skill-1',
-                selectedSkillVersion: 2,
-                decisionSummary: 'Selected by the configured LLM.',
-                createdAt: timestamp,
+    userGoalPlanning: {
+      findReusablePlan: () => Promise.resolve(undefined),
+      plan: () => {
+        tasks.userGoalRuntimeCalls.push('goal_planning');
+        return Promise.resolve({ plan: { planId: 'user-goal-plan-1' } });
+      },
+    },
+    skillGoalScheduler: {
+      dispatchReady: () => {
+        tasks.userGoalRuntimeCalls.push('skill_goal_scheduling');
+        return Promise.resolve([
+          {
+            kind: 'selected' as const,
+            attempt: skillAttempt(),
+            skill: {
+              skillId: 'skill-1',
+              version: 2,
+              name: 'Device Skill',
+              summary: 'Inspect a device.',
+              description: 'Inspect a device.',
+              capabilities: ['device'],
+              workflowGuidance: 'Inspect once.',
+              outputInstruction: 'Return the result.',
+              inputSchema: {
+                type: 'object',
+                required: ['deviceId'],
+                properties: { deviceId: { type: 'string' } },
               },
-        ),
+              outputSchema: { type: 'object' },
+              toolPolicy: { required: [], optional: [], forbidden: [] },
+              runtimePolicy: { autoConfirmPlan: tasks.autoConfirm },
+              status: 'enabled' as const,
+              sourceKind: 'admin' as const,
+              validationPassed: true,
+              createdAt: timestamp,
+            },
+            selectionRecordId: 'selection-1',
+          },
+        ]);
+      },
+      findAttempt: () => Promise.resolve(skillAttempt()),
+      createExecutionContract: ({ attempt }) =>
+        Promise.resolve({
+          attempt: { ...attempt, status: 'planning_workflow' as const },
+          contract: { executionContractId: 'execution-contract-1' },
+        }),
     },
     nextGoalId: () => 'goal-1',
     nextGoalTransitionId: () => 'goal-transition-1',
@@ -509,6 +548,7 @@ class MemoryTasks {
   readonly messages: string[] = [];
   goalFormulations = 0;
   readonly formulationInputs: string[] = [];
+  readonly userGoalRuntimeCalls: string[] = [];
   attemptReason: 'initial' | 'input_response' = 'initial';
   inputRequestSource: 'goal_deliberation' | 'skill_input_resolution' | 'remote_task' =
     'goal_deliberation';

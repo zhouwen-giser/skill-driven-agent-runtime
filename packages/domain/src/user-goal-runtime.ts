@@ -49,6 +49,7 @@ export type OutcomeLevel = 'task_goal' | 'skill_goal' | 'user_goal';
 export type OutcomeStatus = 'achieved' | 'partially_achieved' | 'not_achieved' | 'unknown';
 export type OutcomeConfidence = 'high' | 'medium' | 'low';
 export type ProgressClass = 'progressing' | 'stalled' | 'regressing' | 'complete';
+export type RecoveryBudgetLevel = 'task' | 'workflow' | 'attempt' | 'plan';
 export type BusinessEventSubscriptionStatus =
   'current' | 'draining_closed' | 'reset_required' | 'retired';
 export type BusinessEventInboxStatus =
@@ -102,6 +103,7 @@ export interface UserGoalPlan {
   readonly goalVersion: number;
   readonly revision: number;
   readonly revisionKind: UserGoalPlanRevisionKind;
+  readonly sourcePlanId?: string;
   readonly status: UserGoalPlanStatus;
   readonly contractHash: string;
   readonly contentHash: string;
@@ -128,6 +130,7 @@ export interface SkillOutcomeSpecification {
 export interface SkillExecutionContract {
   readonly schemaVersion: '1.0';
   readonly executionContractId: string;
+  readonly selectionRecordId?: string;
   readonly planId: string;
   readonly skillGoalId: string;
   readonly attemptId: string;
@@ -140,6 +143,30 @@ export interface SkillExecutionContract {
   readonly confirmationRequired: boolean;
   readonly forbiddenReplayFingerprints: readonly string[];
   readonly contractHash: string;
+}
+
+export interface TaskGoalCompletionContract {
+  readonly schemaVersion: '1.0';
+  readonly taskGoalContractId: string;
+  readonly planId: string;
+  readonly skillGoalId: string;
+  readonly attemptId: string;
+  readonly agentTaskId: string;
+  readonly requiredEffectRefs: readonly string[];
+  readonly evidenceRequirements: readonly string[];
+  readonly artifactRequirements: readonly string[];
+}
+
+export interface WorkflowExecutionOutcome {
+  readonly schemaVersion: '1.0';
+  readonly workflowPlanId: string;
+  readonly workflowInstanceId: string;
+  readonly executionStatus: 'succeeded' | 'failed' | 'canceled';
+  readonly effectRefs: readonly string[];
+  readonly evidenceRefs: readonly string[];
+  readonly artifactRefs: readonly string[];
+  readonly confidence: OutcomeConfidence;
+  readonly summary: string;
 }
 
 export interface SkillAttempt {
@@ -170,11 +197,32 @@ export interface OutcomeDecision {
   readonly createdAt: string;
 }
 
+export interface RecoveryBudgetSnapshot {
+  readonly task: number;
+  readonly workflow: number;
+  readonly attempt: number;
+  readonly plan: number;
+}
+
+export interface ProgressVector {
+  readonly requiredCriterionCount: number;
+  readonly satisfiedCriterionRefs: readonly string[];
+  readonly effectRefs: readonly string[];
+  readonly evidenceRefs: readonly string[];
+  readonly artifactRefs: readonly string[];
+  readonly invalidatedEffectRefs: readonly string[];
+  readonly uncertainty: number;
+  readonly attemptOrdinal: number;
+  readonly planRevision: number;
+  readonly strategyFingerprint: string;
+  readonly remainingBudget: RecoveryBudgetSnapshot;
+}
+
 export interface ProgressObservation {
   readonly progressObservationId: string;
   readonly planId: string;
   readonly classification: ProgressClass;
-  readonly vector: Readonly<Record<string, unknown>>;
+  readonly vector: ProgressVector;
   readonly observedAt: string;
 }
 
@@ -207,6 +255,67 @@ export interface RecoveryDecision {
   readonly createdAt: string;
 }
 
+export function createProgressObservation(input: ProgressObservation): ProgressObservation {
+  assertId(input.progressObservationId, 'USER_GOAL_PLAN_INVALID');
+  assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
+  const vector = input.vector;
+  const integers = [
+    vector.requiredCriterionCount,
+    vector.attemptOrdinal,
+    vector.planRevision,
+    vector.remainingBudget.task,
+    vector.remainingBudget.workflow,
+    vector.remainingBudget.attempt,
+    vector.remainingBudget.plan,
+  ];
+  if (integers.some((value) => !Number.isSafeInteger(value) || value < 0))
+    invalid(
+      'USER_GOAL_PLAN_INVALID',
+      'Progress counters and remaining budgets must be nonnegative.',
+    );
+  if (!Number.isFinite(vector.uncertainty) || vector.uncertainty < 0 || vector.uncertainty > 1)
+    invalid('USER_GOAL_PLAN_INVALID', 'Progress uncertainty must be between zero and one.');
+  assertHash(vector.strategyFingerprint, 'USER_GOAL_PLAN_INVALID');
+  for (const refs of [
+    vector.satisfiedCriterionRefs,
+    vector.effectRefs,
+    vector.evidenceRefs,
+    vector.artifactRefs,
+    vector.invalidatedEffectRefs,
+  ]) {
+    if (refs.some((value) => value.trim() === '') || new Set(refs).size !== refs.length)
+      invalid('USER_GOAL_PLAN_INVALID', 'Progress references must be non-empty and unique.');
+  }
+  assertBoundedJson(input, 'USER_GOAL_PLAN_INVALID');
+  return Object.freeze(input);
+}
+
+export function createCompletedEffect(input: CompletedEffect): CompletedEffect {
+  assertId(input.completedEffectId, 'USER_GOAL_PLAN_INVALID');
+  assertId(input.goalId, 'USER_GOAL_PLAN_INVALID');
+  assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
+  if (input.skillGoalId !== undefined) assertId(input.skillGoalId, 'USER_GOAL_PLAN_INVALID');
+  if (input.predecessorEffectId !== undefined)
+    assertId(input.predecessorEffectId, 'USER_GOAL_PLAN_INVALID');
+  assertHash(input.effectFingerprint, 'USER_GOAL_PLAN_INVALID');
+  if (input.evidenceRefs.some((value) => value.trim() === ''))
+    invalid('USER_GOAL_PLAN_INVALID', 'Completed Effect evidence references must be non-empty.');
+  assertBoundedJson(input, 'USER_GOAL_PLAN_INVALID');
+  return Object.freeze(input);
+}
+
+export function createRecoveryDecision(input: RecoveryDecision): RecoveryDecision {
+  assertId(input.recoveryDecisionId, 'USER_GOAL_PLAN_INVALID');
+  assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
+  if (input.skillGoalId !== undefined) assertId(input.skillGoalId, 'USER_GOAL_PLAN_INVALID');
+  if (input.attemptId !== undefined) assertId(input.attemptId, 'USER_GOAL_PLAN_INVALID');
+  if (input.reasonCode.trim() === '')
+    invalid('USER_GOAL_PLAN_INVALID', 'Recovery reason code is required.');
+  assertHash(input.strategyFingerprint, 'USER_GOAL_PLAN_INVALID');
+  assertBoundedJson(input, 'USER_GOAL_PLAN_INVALID');
+  return Object.freeze(input);
+}
+
 export interface BusinessEventSubscription {
   readonly subscriptionId: string;
   readonly providerId: string;
@@ -231,6 +340,73 @@ export interface BusinessEventInboxRecord {
   readonly admittedAt: string;
 }
 
+export type BusinessEventEnvelope =
+  | Readonly<{
+      streamId: string;
+      eventId: string;
+      sequence: string;
+      sourceId: string;
+      eventType: string;
+      occurredAt: string;
+      scope: 'task';
+      description: string;
+      reasonCode?: string;
+      severityHint?: 'info' | 'warning' | 'critical';
+      rawPayload?: unknown;
+      taskId: string;
+    }>
+  | Readonly<{
+      streamId: string;
+      eventId: string;
+      sequence: string;
+      sourceId: string;
+      eventType: string;
+      occurredAt: string;
+      scope: 'resource';
+      description: string;
+      reasonCode?: string;
+      severityHint?: 'info' | 'warning' | 'critical';
+      rawPayload?: unknown;
+      resourceRef: string;
+      relatedTaskIds: readonly string[];
+      relatedTaskCount: number;
+      relationTruncated: boolean;
+    }>;
+
+export interface BusinessEventContinuityRecord {
+  readonly continuityId: string;
+  readonly subscriptionId: string;
+  readonly previousStreamId: string;
+  readonly newStreamId: string;
+  readonly reasonCode:
+    | 'SOURCE_CURSOR_EXPIRED'
+    | 'SOURCE_STREAM_RESET'
+    | 'SOURCE_DATA_LOSS'
+    | 'SOURCE_SEQUENCE_REGRESSION'
+    | 'SOURCE_IDENTITY_CONFLICT'
+    | 'SOURCE_POISON_EVENT'
+    | 'TASK_MAPPING_FAILED'
+    | 'SOURCE_ROSTER_CHANGED'
+    | 'OPERATOR_ROTATION';
+  readonly affectedSourceIds: readonly string[];
+  readonly gapDetectedAt: string;
+  readonly lastReplayableSequence: string;
+  readonly lastContinuousSequence?: string;
+  readonly createdAt: string;
+}
+
+export interface BusinessEventRelationProjection {
+  readonly relationProjectionId: string;
+  readonly inboxId: string;
+  readonly status:
+    'complete' | 'incomplete' | 'expired' | 'authorization_mismatch' | 'stream_reset';
+  readonly relationHash: string;
+  readonly taskIds: readonly string[];
+  readonly total: number;
+  readonly projectionToken?: string;
+  readonly createdAt: string;
+}
+
 export interface EventImpactAssessment {
   readonly assessmentId: string;
   readonly inboxId: string;
@@ -246,8 +422,11 @@ export interface EventImpactAssessment {
     | 'cross_goal_incident';
   readonly confidence: OutcomeConfidence;
   readonly goalId?: string;
+  readonly goalVersion?: number;
   readonly planId?: string;
   readonly skillGoalId?: string;
+  readonly criterionIds: readonly string[];
+  readonly relatedBindingIds: readonly string[];
   readonly ruleIds: readonly string[];
   readonly action:
     | 'record_only'
@@ -259,6 +438,18 @@ export interface EventImpactAssessment {
     | 'create_incident_task'
     | 'request_confirmation'
     | 'request_input';
+  readonly createdAt: string;
+}
+
+export interface EventIncident {
+  readonly incidentId: string;
+  readonly providerId: string;
+  readonly streamId: string;
+  readonly dedupeKey: string;
+  readonly incidentKind: 'continuity_loss' | 'cross_goal' | 'contract_violation';
+  readonly agentTaskId?: string;
+  readonly summary: string;
+  readonly relatedGoalIds: readonly string[];
   readonly createdAt: string;
 }
 
@@ -293,6 +484,16 @@ export function createUserGoalPlan(input: UserGoalPlan): UserGoalPlan {
   assertId(input.goalId, 'USER_GOAL_PLAN_INVALID');
   if (input.goalVersion < 1 || input.revision < 1 || input.revision > 4)
     invalid('USER_GOAL_PLAN_INVALID', 'Goal version and plan revision must be in range.');
+  if (
+    (input.revision === 1 &&
+      (input.revisionKind !== 'initial' || input.sourcePlanId !== undefined)) ||
+    (input.revision > 1 && (input.revisionKind === 'initial' || input.sourcePlanId === undefined))
+  )
+    invalid(
+      'USER_GOAL_PLAN_INVALID',
+      'Initial plans cannot have a source; every later revision must identify its source.',
+    );
+  if (input.sourcePlanId !== undefined) assertId(input.sourcePlanId, 'USER_GOAL_PLAN_INVALID');
   assertHash(input.contractHash, 'USER_GOAL_PLAN_INVALID');
   assertHash(input.contentHash, 'USER_GOAL_PLAN_INVALID');
   assertBoundedJson(input, 'USER_GOAL_PLAN_INVALID');
@@ -349,6 +550,16 @@ export function validateUserGoalPlan(
   const knownCriteria = new Set(contract.criteria.map((criterion) => criterion.criterionId));
   if ([...covered].some((criterionId) => !knownCriteria.has(criterionId)))
     invalid('USER_GOAL_PLAN_INVALID', 'Skill Goal references an unknown criterion.');
+  const inheritedEffects = new Set(plan.inheritedCompletedEffectIds);
+  if (
+    plan.skillGoals.some((goal) =>
+      goal.requiredEffectRefs.some((effectRef) => inheritedEffects.has(effectRef)),
+    )
+  )
+    invalid(
+      'USER_GOAL_PLAN_FORBIDDEN_REPLAY',
+      'A revised plan must not reconstruct an inherited completed effect.',
+    );
   return plan;
 }
 
@@ -416,6 +627,123 @@ export function createBusinessEventInboxRecord(
   assertDecimalSequence(input.sequence);
   assertHash(input.envelopeHash, 'BUSINESS_EVENT_RECORD_INVALID');
   assertBoundedJson(input.envelope, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createBusinessEventSubscription(
+  input: BusinessEventSubscription,
+): BusinessEventSubscription {
+  for (const id of [input.subscriptionId, input.providerId, input.streamId])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (!Number.isInteger(input.generation) || input.generation < 1)
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Business Event generation must be positive.');
+  assertDecimalSequence(input.lastDurablyAdmittedSequence, true);
+  assertDecimalSequence(input.lastProcessedSequence, true);
+  if (input.lastReplayableSequence !== undefined)
+    assertDecimalSequence(input.lastReplayableSequence, true);
+  if (BigInt(input.lastProcessedSequence) > BigInt(input.lastDurablyAdmittedSequence))
+    invalid(
+      'BUSINESS_EVENT_RECORD_INVALID',
+      'Processed cursor cannot exceed the durably admitted cursor.',
+    );
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createBusinessEventEnvelope(input: BusinessEventEnvelope): BusinessEventEnvelope {
+  for (const id of [input.streamId, input.eventId, input.sourceId])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertDecimalSequence(input.sequence);
+  if (input.eventType.trim() === '' || input.description.trim() === '')
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Business Event type and description are required.');
+  if (input.scope === 'task' && input.taskId.trim() === '')
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Task Business Event requires taskId.');
+  if (input.scope === 'resource') {
+    if (input.resourceRef.trim() === '')
+      invalid('BUSINESS_EVENT_RECORD_INVALID', 'Resource Business Event requires resourceRef.');
+    if (input.relatedTaskIds.length > 256 || input.relatedTaskCount < input.relatedTaskIds.length)
+      invalid('BUSINESS_EVENT_RECORD_INVALID', 'Resource relation preview is inconsistent.');
+    if (input.relationTruncated !== input.relatedTaskCount > input.relatedTaskIds.length)
+      invalid(
+        'BUSINESS_EVENT_RECORD_INVALID',
+        'Resource relation truncation flag is inconsistent.',
+      );
+  }
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createBusinessEventContinuityRecord(
+  input: BusinessEventContinuityRecord,
+): BusinessEventContinuityRecord {
+  for (const id of [
+    input.continuityId,
+    input.subscriptionId,
+    input.previousStreamId,
+    input.newStreamId,
+  ])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (input.previousStreamId === input.newStreamId)
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Continuity must rotate to a different stream.');
+  assertDecimalSequence(input.lastReplayableSequence, true);
+  if (input.lastContinuousSequence !== undefined)
+    assertDecimalSequence(input.lastContinuousSequence, true);
+  if (input.affectedSourceIds.length === 0 || input.affectedSourceIds.length > 16)
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Continuity affected sources are out of bounds.');
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createBusinessEventRelationProjection(
+  input: BusinessEventRelationProjection,
+): BusinessEventRelationProjection {
+  for (const id of [input.relationProjectionId, input.inboxId])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertHash(input.relationHash, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (input.taskIds.length > 4096 || input.total < input.taskIds.length)
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Relation projection is out of bounds.');
+  if (input.status !== 'complete' && input.total === 0)
+    invalid(
+      'BUSINESS_EVENT_RECORD_INVALID',
+      'Incomplete relation cannot authorize a negative result.',
+    );
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createEventImpactAssessment(input: EventImpactAssessment): EventImpactAssessment {
+  for (const id of [
+    input.assessmentId,
+    input.inboxId,
+    ...(input.goalId === undefined ? [] : [input.goalId]),
+    ...(input.planId === undefined ? [] : [input.planId]),
+    ...(input.skillGoalId === undefined ? [] : [input.skillGoalId]),
+  ])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (input.confidence === 'low' && input.classification === 'none')
+    invalid(
+      'BUSINESS_EVENT_RECORD_INVALID',
+      'Low-confidence impact assessment cannot authorize no impact.',
+    );
+  if (
+    input.goalVersion !== undefined &&
+    (!Number.isInteger(input.goalVersion) || input.goalVersion < 1)
+  )
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Impact Goal version must be positive.');
+  assertUnique(input.criterionIds, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertUnique(input.relatedBindingIds, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertUnique(input.ruleIds, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
+  return Object.freeze(input);
+}
+
+export function createEventIncident(input: EventIncident): EventIncident {
+  for (const id of [input.incidentId, input.providerId, input.streamId, input.dedupeKey])
+    assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (input.summary.trim() === '')
+    invalid('BUSINESS_EVENT_RECORD_INVALID', 'Event incident summary is required.');
+  assertUnique(input.relatedGoalIds, 'BUSINESS_EVENT_RECORD_INVALID');
+  assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
   return Object.freeze(input);
 }
 
@@ -494,8 +822,9 @@ function assertHash(value: string, code: Parameters<typeof invalid>[0]): void {
     invalid(code, 'Hash must use sha256:<64 lowercase hex>.');
 }
 
-function assertDecimalSequence(value: string): void {
-  if (!/^(0|[1-9][0-9]*)$/u.test(value))
+function assertDecimalSequence(value: string, allowZero = false): void {
+  const pattern = allowZero ? /^(0|[1-9][0-9]{0,18})$/u : /^[1-9][0-9]{0,18}$/u;
+  if (!pattern.test(value))
     invalid('BUSINESS_EVENT_RECORD_INVALID', 'Business Event sequence must be a decimal string.');
 }
 

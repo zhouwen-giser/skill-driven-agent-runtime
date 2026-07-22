@@ -121,6 +121,23 @@ describe('SDAR v1.2.2 User Goal domain', () => {
     ).toThrow(expect.objectContaining({ code: 'SKILL_GOAL_EXECUTION_AUTHORITY_FORBIDDEN' }));
   });
 
+  it('requires revision source identity and rejects reconstruction of inherited effects', () => {
+    const initial = validPlan();
+    expect(() =>
+      createUserGoalPlan({ ...initial, revision: 2, revisionKind: 'goal_patch' }),
+    ).toThrow(expect.objectContaining({ code: 'USER_GOAL_PLAN_INVALID' }));
+    expect(() =>
+      validateUserGoalPlan(contract(), {
+        ...initial,
+        planId: 'plan.v122.2',
+        revision: 2,
+        revisionKind: 'goal_patch',
+        sourcePlanId: initial.planId,
+        inheritedCompletedEffectIds: ['effect.result'],
+      }),
+    ).toThrow(expect.objectContaining({ code: 'USER_GOAL_PLAN_FORBIDDEN_REPLAY' }));
+  });
+
   it('allows only explicit Skill Attempt state transitions', () => {
     const attempt = createSkillAttempt({
       attemptId: 'attempt.1',

@@ -105,6 +105,7 @@ import type {
   WorkflowContinuationAttemptStatus,
   WorkflowExternalWaitResolution,
   WorkflowRuntimeContinuationState,
+  WorkflowConfirmationResume,
   SkillTaskReadinessSummary,
   SkillTaskBinding,
 } from '../../domain/src/index.js';
@@ -1103,7 +1104,7 @@ export interface WorkflowExecutor {
   ): ReturnType<WorkflowExecutor['execute']>;
   resumeHumanConfirmation?(
     executionId: string,
-    confirmed: boolean,
+    confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
   ): ReturnType<WorkflowExecutor['execute']>;
   requestPause?(executionId: string): boolean;

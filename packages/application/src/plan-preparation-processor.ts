@@ -2,13 +2,16 @@ import {
   bindTaskPlan,
   bindTaskGoal,
   bindTaskSkill,
+  bindTaskSkillExecutionContract,
   bindTaskTemporarySkill,
   createGoalExecutionContract,
   transitionTask,
   type AgentTask,
   type GoalExecutionContract,
-  type SkillSelectionRecord,
   type TaskPhase,
+  type SkillAttempt,
+  type SkillGoal,
+  type SkillVersion,
 } from '../../domain/src/index.js';
 
 import type {
@@ -41,14 +44,54 @@ export interface PlanPreparationProcessorDependencies {
   >;
   readonly skills: Pick<SkillRepository, 'findVersion'>;
   readonly skillInputs: Pick<SkillInputResolutionService, 'resolve'>;
-  readonly skillSelection: Readonly<{
-    select(
+  readonly userGoalPlanning: Readonly<{
+    plan(
+      input: Readonly<{ goal: Awaited<ReturnType<GoalService['get']>> }>,
+    ): Promise<Readonly<{ plan: { planId: string } }>>;
+    findReusablePlan(
+      goalId: string,
+      goalVersion: number,
+    ): Promise<Readonly<{ plan: { planId: string } }> | undefined>;
+  }>;
+  readonly skillGoalScheduler: Readonly<{
+    dispatchReady(
+      planId: string,
+      agentTaskId?: string,
+    ): Promise<
+      readonly (
+        | Readonly<{
+            kind: 'selected';
+            attempt: SkillAttempt;
+            skill: SkillVersion;
+            selectionRecordId?: string;
+          }>
+        | Readonly<{
+            kind: 'capability_gap';
+            attempt: SkillAttempt;
+            skillGoal: SkillGoal;
+          }>
+      )[]
+    >;
+    findAttempt(attemptId: string): Promise<SkillAttempt | undefined>;
+    createExecutionContract(
+      input: Readonly<{
+        attempt: SkillAttempt;
+        skill: SkillVersion;
+        resolvedInput: unknown;
+        selectionRecordId?: string;
+      }>,
+    ): Promise<
+      Readonly<{
+        attempt: SkillAttempt;
+        contract: { executionContractId: string };
+      }>
+    >;
+  }>;
+  readonly temporarySkillSelection?: Readonly<{
+    resolve(
       goalContract: GoalExecutionContract,
       task: AgentTask,
-    ): Promise<
-      | SkillSelectionRecord
-      | Readonly<{ temporarySkillId: string; name: string; decisionSummary: string }>
-    >;
+    ): Promise<Readonly<{ temporarySkillId: string; name: string; decisionSummary: string }>>;
   }>;
   readonly nextGoalId: () => string;
   readonly nextGoalTransitionId: () => string;
@@ -92,6 +135,8 @@ export interface PlanPreparationProcessorDependencies {
           structuredInput: unknown;
           sourceRefs: readonly string[];
         }>;
+        skillGoalId?: string;
+        skillAttemptId?: string;
       }>,
     ): Promise<Readonly<{ planId: string; autoConfirmed: boolean }>>;
     executeAuto(
@@ -155,10 +200,24 @@ export class PlanPreparationProcessor {
         await this.#transition(
           latest,
           'failed',
-          `Task preparation failed with ${errorCode(error)}.`,
+          `Task preparation failed with ${errorCode(error)}: ${errorMessage(error)}`,
         );
       throw error;
     }
+  }
+
+  async continueUserGoalPlan(taskId: string, userGoalPlanId: string): Promise<void> {
+    const task = await this.#dependencies.tasks.findById(taskId);
+    if (
+      task?.userGoalPlanId !== userGoalPlanId ||
+      task.goalId === undefined ||
+      task.goalVersion === undefined
+    )
+      throw new Error('USER_GOAL_PLAN_CONTINUATION_BINDING_INVALID');
+    const goal = await this.#dependencies.goals.get(task.goalId);
+    if (goal.version !== task.goalVersion || goal.status !== 'active')
+      throw new Error('USER_GOAL_PLAN_CONTINUATION_GOAL_STALE');
+    await this.#scheduleUserGoalPlan(task, goal, userGoalPlanId);
   }
 
   async #prepare(initialTask: AgentTask): Promise<void> {
@@ -216,7 +275,9 @@ export class PlanPreparationProcessor {
       task.goalId === undefined ||
       task.goalVersion === undefined ||
       task.selectedSkillId === undefined ||
-      task.selectedSkillVersion === undefined
+      task.selectedSkillVersion === undefined ||
+      task.skillAttemptId === undefined ||
+      task.skillGoalId === undefined
     )
       throw new Error('TASK_SKILL_INPUT_IDENTITY_INCOMPLETE');
     const [goal, skill, responses] = await Promise.all([
@@ -242,10 +303,26 @@ export class PlanPreparationProcessor {
     }
     if (resolution.status !== 'resolved' || resolution.structuredInput === undefined)
       throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
-    await this.#plan(task, goal, {
+    const attempt = await this.#dependencies.skillGoalScheduler.findAttempt(task.skillAttemptId);
+    if (attempt?.skillGoalId !== task.skillGoalId)
+      throw new Error('TASK_SKILL_ATTEMPT_BINDING_STALE');
+    const execution = await this.#dependencies.skillGoalScheduler.createExecutionContract({
+      attempt,
+      skill,
+      resolvedInput: resolution.structuredInput,
+      ...(task.skillSelectionId === undefined ? {} : { selectionRecordId: task.skillSelectionId }),
+    });
+    const boundTask = bindTaskSkillExecutionContract(task, {
+      executionContractId: execution.contract.executionContractId,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(boundTask);
+    await this.#plan(boundTask, goal, {
       skillId: skill.skillId,
       skillVersion: skill.version,
       resolution,
+      skillGoalId: attempt.skillGoalId,
+      skillAttemptId: attempt.attemptId,
     });
   }
 
@@ -334,60 +411,101 @@ export class PlanPreparationProcessor {
       timestamp: this.#dependencies.clock.now(),
       summary: goalSummary,
     });
-    const selection = await this.#dependencies.skillSelection.select(
-      createGoalExecutionContract(goal),
-      task,
+    const userGoalPlan =
+      (await this.#dependencies.userGoalPlanning.findReusablePlan(goal.goalId, goal.version)) ??
+      (await this.#dependencies.userGoalPlanning.plan({ goal }));
+    await this.#scheduleUserGoalPlan(task, goal, userGoalPlan.plan.planId);
+  }
+
+  async #scheduleUserGoalPlan(
+    initialTask: AgentTask,
+    goal: Awaited<ReturnType<GoalService['get']>>,
+    userGoalPlanId: string,
+  ): Promise<void> {
+    let task = initialTask;
+    const dispatches = await this.#dependencies.skillGoalScheduler.dispatchReady(
+      userGoalPlanId,
+      task.taskId,
     );
-    const temporary = 'temporarySkillId' in selection;
+    const dispatch = dispatches[0];
+    if (dispatch === undefined) throw new Error('USER_GOAL_PLAN_HAS_NO_READY_SKILL_GOAL');
+    if (dispatch.kind === 'capability_gap') {
+      if (this.#dependencies.temporarySkillSelection === undefined)
+        throw new Error('SKILL_GOAL_NO_COMPATIBLE_SKILL');
+      const temporary = await this.#dependencies.temporarySkillSelection.resolve(
+        createGoalExecutionContract(goal),
+        task,
+      );
+      task = await this.#transition(
+        task,
+        'skill_resolution',
+        `Created task-scoped Temporary Skill ${temporary.name}: ${temporary.decisionSummary}`,
+      );
+      task = bindTaskTemporarySkill(task, {
+        temporarySkillId: temporary.temporarySkillId,
+        userGoalPlanId,
+        skillGoalId: dispatch.attempt.skillGoalId,
+        skillAttemptId: dispatch.attempt.attemptId,
+        timestamp: this.#dependencies.clock.now(),
+      });
+      await this.#dependencies.tasks.save(task);
+      await this.#plan(task, goal, { temporarySkillId: temporary.temporarySkillId });
+      return;
+    }
+    const selection = dispatch.skill;
     task = await this.#transition(
       task,
       'skill_resolution',
-      temporary
-        ? `Created task-scoped Temporary Skill ${selection.name}: ${selection.decisionSummary}`
-        : `LLM selected ${selection.selectedSkillId}@${String(selection.selectedSkillVersion)}: ${selection.decisionSummary}`,
+      `Scheduled ${selection.skillId}@${String(selection.version)} from User Goal Plan ${userGoalPlanId}.`,
     );
-    task = temporary
-      ? bindTaskTemporarySkill(task, {
-          temporarySkillId: selection.temporarySkillId,
-          timestamp: this.#dependencies.clock.now(),
-        })
-      : bindTaskSkill(task, {
-          skillId: selection.selectedSkillId,
-          skillVersion: selection.selectedSkillVersion,
-          selectionId: selection.selectionId,
-          timestamp: this.#dependencies.clock.now(),
-        });
+    task = bindTaskSkill(task, {
+      skillId: selection.skillId,
+      skillVersion: selection.version,
+      selectionId: dispatch.selectionRecordId ?? dispatch.attempt.attemptId,
+      userGoalPlanId,
+      skillGoalId: dispatch.attempt.skillGoalId,
+      skillAttemptId: dispatch.attempt.attemptId,
+      timestamp: this.#dependencies.clock.now(),
+    });
     await this.#dependencies.tasks.save(task);
-    if (!temporary) {
-      const skill = await this.#dependencies.skills.findVersion(
-        selection.selectedSkillId,
-        selection.selectedSkillVersion,
+    const skill = await this.#dependencies.skills.findVersion(selection.skillId, selection.version);
+    if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
+    const resolution = await this.#dependencies.skillInputs.resolve({
+      task,
+      goal,
+      skill,
+      supplementaryInputs: await this.#dependencies.taskInputs.listResponses(task.taskId),
+    });
+    if (resolution.status === 'input_required') {
+      await this.#dependencies.requestTaskInput(
+        task.taskId,
+        skillInputResolutionQuestion(resolution),
+        { source: 'skill_input_resolution' },
       );
-      if (skill?.status !== 'enabled') throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
-      const resolution = await this.#dependencies.skillInputs.resolve({
-        task,
-        goal,
-        skill,
-        supplementaryInputs: await this.#dependencies.taskInputs.listResponses(task.taskId),
-      });
-      if (resolution.status === 'input_required') {
-        await this.#dependencies.requestTaskInput(
-          task.taskId,
-          skillInputResolutionQuestion(resolution),
-          { source: 'skill_input_resolution' },
-        );
-        return;
-      }
-      if (resolution.status !== 'resolved' || resolution.structuredInput === undefined)
-        throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
-      await this.#plan(task, goal, {
-        skillId: skill.skillId,
-        skillVersion: skill.version,
-        resolution,
-      });
       return;
     }
-    await this.#plan(task, goal, { temporarySkillId: selection.temporarySkillId });
+    if (resolution.status !== 'resolved' || resolution.structuredInput === undefined)
+      throw new Error('TASK_SKILL_INPUT_NOT_RESOLVED');
+    const execution = await this.#dependencies.skillGoalScheduler.createExecutionContract({
+      attempt: dispatch.attempt,
+      skill,
+      resolvedInput: resolution.structuredInput,
+      ...(dispatch.selectionRecordId === undefined
+        ? {}
+        : { selectionRecordId: dispatch.selectionRecordId }),
+    });
+    task = bindTaskSkillExecutionContract(task, {
+      executionContractId: execution.contract.executionContractId,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
+    await this.#plan(task, goal, {
+      skillId: skill.skillId,
+      skillVersion: skill.version,
+      resolution,
+      skillGoalId: dispatch.attempt.skillGoalId,
+      skillAttemptId: dispatch.attempt.attemptId,
+    });
   }
 
   async #plan(
@@ -402,6 +520,8 @@ export class PlanPreparationProcessor {
             structuredInput?: unknown;
             sourceRefs: readonly string[];
           }>;
+          skillGoalId: string;
+          skillAttemptId: string;
         }>
       | Readonly<{ temporarySkillId: string }>,
   ): Promise<void> {
@@ -414,6 +534,8 @@ export class PlanPreparationProcessor {
       goalVersion: goal.version,
       goalDescription: goal.description,
       goalContract: createGoalExecutionContract(goal),
+      ...(task.skillGoalId === undefined ? {} : { skillGoalId: task.skillGoalId }),
+      ...(task.skillAttemptId === undefined ? {} : { skillAttemptId: task.skillAttemptId }),
       ...('temporarySkillId' in selected
         ? { temporarySkillId: selected.temporarySkillId }
         : {
@@ -498,4 +620,8 @@ function errorCode(error: unknown): string {
     typeof error.code === 'string'
     ? error.code
     : 'TASK_PREPARATION_FAILED';
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown preparation failure.';
 }
