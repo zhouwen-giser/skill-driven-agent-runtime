@@ -4,13 +4,13 @@
   "branch": "feature/v1.2.1-frozen-mcp-tasks-protocol",
   "pr": 6,
   "prState": "draft",
-  "completedThrough": "phase_10_component_conformance",
-  "phase11": "blocked_external_protocol_mismatch",
-  "phase12": "hardening_complete_release_blocked",
+  "completedThrough": "phase_11_local_interop",
+  "phase11": "passed_local_candidate_publication_pending",
+  "phase12": "hardening_complete_refresh_gate_pending",
   "releaseReady": false,
   "interopCertified": false,
   "requiredDeferred": [
-    "external_provider_wire_fixes_and_real_interop_retest",
-    "publication_after_external_interop_certification"
+    "refreshed_sdar_clean_exact_commit_gate",
+    "provider_and_sdar_remote_publication_checks"
   ]
 }

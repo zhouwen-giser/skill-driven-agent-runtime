@@ -1,14 +1,16 @@
 # SDAR v1.2.1 Phase 12 Adversarial Hardening and Release Gate
 
-Status: **HARDENING COMPLETE; RELEASE BLOCKED**
+Status: **HARDENING COMPLETE; REFRESHED RELEASE GATE PENDING**
 
 All 26 required adversarial classes have owning-layer evidence. The audit covers explicit Legacy/Frozen
 isolation, missing/spoofed metadata and discovery, baseline/routing mismatches, Bridge aliases, Task result
 shape and task-behavior conflicts, TTL/revision/terminal monotonicity, subscription authorization/Ack/order/
 overflow, MRTR reuse, cooperative cancellation, Poll/Notification convergence, Evidence A injection and
 pointer/URI bounds, output-schema enforcement, hard-gate isolation and immutable Provider protocol mode.
-The Phase 11 real chain independently demonstrated that the same-revision content guard rejects a real
-Provider split-brain projection rather than accepting it for compatibility.
+The initial Phase 11 real chain independently demonstrated that the same-revision content guard rejects a
+real Provider split-brain projection rather than accepting it for compatibility. The refreshed chain now
+passes after the Provider correction and adds a regression distinguishing the base CreateTaskResult from
+the first DetailedTask projection at the same Runtime Revision.
 
 Package metadata is upgraded from 1.2.0 to 1.2.1. The full SBOM records version 1.2.1 with 290 components.
 The source-pin gate remains 20/20,
@@ -35,13 +37,14 @@ report records `dirty=false`. The evidence-only follow-up commit does not change
 
 ## Release decision
 
-G2 (SDAR local component conformance) and the complete local command matrix pass. G3 is invalidated for
-cross-implementation purposes by the four Provider wire defects in the Phase 11 report. Therefore G4
-Interop Certified and G5 Release Ready remain blocked by real interoperability. PR #6 must remain Draft.
-There is no tag, Ready
-transition or release claim, and no required deferred item has been hidden.
+G2 (SDAR local component conformance) passes. Provider candidate `b30d839` passes its complete `verify:v2`,
+and the refreshed real HTTP matrix passes strict Availability, Create/get, MRTR, business/technical failure
+and Notification paths, so G3 and G4 pass for the tested local candidate contents. G5 remains pending because
+the SDAR lifecycle correction has not yet passed a new clean exact-commit full gate and neither candidate has
+completed its remote publication checks. PR #6 remains Draft. There is no tag, Ready transition or release
+claim, and no required deferred item has been hidden.
 
-Required next actions are: fix and merge the external Provider projection defects; rerun the complete real
-interop matrix against its new exact commit; publish the resulting evidence-only update and only afterward
-reconsider Ready for Review. The isolated Phase 9 Compose project and temporary external archive were
-removed on 2026-07-22.
+Required next actions are: commit the SDAR correction, rerun the complete SDAR gate from that clean exact
+commit, publish both branches, verify remote checks and only afterward reconsider Ready for Review. The
+earlier isolated Phase 9 Compose project and temporary archive were removed; the current disposable Provider
+PostgreSQL container is retained only until the refreshed SDAR gate is complete.

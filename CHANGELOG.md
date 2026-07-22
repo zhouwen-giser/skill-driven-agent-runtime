@@ -24,7 +24,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 - PROJECT_STATUS and v1.2 sync state now reflect protected PR #5 merge commit `922f428`; historical v1.2 reports remain unchanged.
 - The exact MCP source Schema is vendored unmodified with attribution; derived SDAR schemas are separate modified artifacts and Frozen traffic cannot use the Legacy SDK Bridge.
-- Package and SBOM component metadata target 1.2.1; the version remains unreleased while real interop and the clean exact-commit gate are blocked.
+- Package and SBOM component metadata target 1.2.1; the version remains unreleased while the refreshed clean exact-commit and remote publication gates are pending.
 
 ### Verification
 
@@ -39,6 +39,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Phase 10 passes 54/54 focused Frozen contracts, 480/480 unit, 84/84 real PostgreSQL/Redis integration, 60/60 E2E, 16/16 Legacy acceptance, migration 0107, protocol, 122-operation OpenAPI, 285-source architecture and production build. Full contract is 166/167 solely because Windows cannot create the unchanged symlink fixture. Local Client/Mock Provider component conformance is distinct from Phase 11 real Provider interoperability.
 - Phase 12 maps all 26 adversarial items and clean exact commit `f7bdd7b` passes the complete self-managed `pnpm verify` with `dirty=false`: 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages. Cross-platform link-fixture, migration-lifecycle and Mock TTL/window regressions are fixed. Phase 11 real Provider Runtime interop remains blocked by four external Frozen wire mismatches: missing Availability `reservationMode`, invalid MRTR/terminal fields in CreateTaskResult, and non-identical get/Notification content at one Runtime Revision. G3/G4/G5 remain blocked and PR #6 stays Draft.
 - Provider Draft PR #15 was refreshed at exact head `65ac78a`: its shared get/Notification projection closes one prior mismatch, but required Availability `reservationMode` and base-only CreateTaskResult remain incompatible. Green CI plus 13/13 focused Provider tests do not establish SDAR interop, so G3/G4/G5 and Draft PR #6 remain unchanged.
+- Phase 11 closure against Provider merged baseline `217e089` plus candidate `b30d839` passes Provider `verify:v2` (74/74 frozen, 29/29 closure, 79 unit, 9 contract, 199 integration, 9 recovery, 29 security, 6 E2E, TS/Python conformance, capacity and container) and the real SDAR HTTP Availability/MRTR/business/technical/Notification matrix. Projection-aware SDAR admission fixes the discovered base CreateTaskResult to first same-revision DetailedTask false mismatch while requiring identical Task base fields and retaining strict later equality; focused lifecycle passes 15/15. G3/G4 pass locally; G5 awaits the refreshed clean exact-commit SDAR gate and green remote checks.
 
 ## [1.2.0] - 2026-07-18
 

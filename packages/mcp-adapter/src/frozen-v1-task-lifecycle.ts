@@ -141,7 +141,15 @@ type FrozenInputKeyState = Readonly<{
 
 export interface FrozenTaskLifecycleState {
   readonly observations: Readonly<
-    Record<string, Readonly<{ runtimeRevision: string; fingerprint: string; terminal: boolean }>>
+    Record<
+      string,
+      Readonly<{
+        runtimeRevision: string;
+        fingerprint: string;
+        terminal: boolean;
+        projection?: 'create' | 'detailed';
+      }>
+    >
   >;
   readonly inputKeys: Readonly<Record<string, Readonly<Record<string, FrozenInputKeyState>>>>;
   readonly completedSubmissionKeys: readonly string[];
@@ -166,7 +174,12 @@ export class FrozenTaskLifecycleClient {
   readonly #now: () => string;
   readonly #observations = new Map<
     string,
-    { runtimeRevision: string; fingerprint: string; terminal: boolean }
+    {
+      runtimeRevision: string;
+      fingerprint: string;
+      terminal: boolean;
+      projection: 'create' | 'detailed';
+    }
   >();
   readonly #inputKeys = new Map<
     string,
@@ -200,7 +213,7 @@ export class FrozenTaskLifecycleClient {
         result: mapToolResult(immediate.data, input.outputValidation),
       };
     const created = parseCreatedTask(raw, this.#now());
-    this.#admitObservation(created);
+    this.#admitObservation(created, 'create');
     const reconciled = await this.getTask(created.taskId, input.outputValidation);
     return { kind: 'remote_task', created, reconciled };
   }
@@ -229,7 +242,7 @@ export class FrozenTaskLifecycleClient {
     const task = parseDetailedTask(raw, this.#now(), outputValidation);
     if (task.taskId !== taskId)
       throw lifecycleError('FROZEN_TASK_ID_MISMATCH', 'tasks/get returned a different Task ID.');
-    const accepted = this.#admitObservation(task);
+    const accepted = this.#admitObservation(task, 'detailed');
     this.#reconcileInputKeys(task);
     return { task, accepted };
   }
@@ -248,7 +261,7 @@ export class FrozenTaskLifecycleClient {
       this.#now(),
       outputValidation,
     );
-    const accepted = this.#admitObservation(task);
+    const accepted = this.#admitObservation(task, 'detailed');
     this.#reconcileInputKeys(task);
     return { task, accepted };
   }
@@ -333,8 +346,15 @@ export class FrozenTaskLifecycleClient {
     });
   }
 
-  #admitObservation(task: FrozenRemoteTaskBase): boolean {
+  #admitObservation(task: FrozenRemoteTaskBase, projection: 'create' | 'detailed'): boolean {
     const fingerprint = canonicalJson({ ...task, resultType: undefined });
+    const baseFingerprint = canonicalJson({
+      ...task,
+      resultType: undefined,
+      inputRequests: undefined,
+      result: undefined,
+      error: undefined,
+    });
     const previous = this.#observations.get(task.taskId);
     if (previous !== undefined) {
       const order = compareRuntimeRevisions(
@@ -343,7 +363,14 @@ export class FrozenTaskLifecycleClient {
       );
       if (order < 0)
         throw lifecycleError('FROZEN_TASK_REVISION_REGRESSION', 'Task runtimeRevision regressed.');
-      if (order === 0 && fingerprint !== previous.fingerprint)
+      const isInitialDetailedProjection =
+        order === 0 && previous.projection === 'create' && projection === 'detailed';
+      if (isInitialDetailedProjection && baseFingerprint !== previous.fingerprint)
+        throw lifecycleError(
+          'FROZEN_TASK_REVISION_CONTENT_MISMATCH',
+          'The same Task runtimeRevision represented different Task base content.',
+        );
+      if (order === 0 && fingerprint !== previous.fingerprint && !isInitialDetailedProjection)
         throw lifecycleError(
           'FROZEN_TASK_REVISION_CONTENT_MISMATCH',
           'The same Task runtimeRevision represented different Task content.',
@@ -353,12 +380,13 @@ export class FrozenTaskLifecycleClient {
           'FROZEN_TASK_TERMINAL_ROLLBACK',
           'A terminal Task returned to a non-terminal state.',
         );
-      if (order === 0) return false;
+      if (order === 0 && !isInitialDetailedProjection) return false;
     }
     this.#observations.set(task.taskId, {
       runtimeRevision: task.observation.runtimeRevision,
       fingerprint,
       terminal: isTerminal(task.status),
+      projection,
     });
     return true;
   }
@@ -387,7 +415,10 @@ export class FrozenTaskLifecycleClient {
   #restore(state: FrozenTaskLifecycleState | undefined): void {
     if (state === undefined) return;
     for (const [taskId, observation] of Object.entries(state.observations))
-      this.#observations.set(taskId, { ...observation });
+      this.#observations.set(taskId, {
+        ...observation,
+        projection: observation.projection ?? 'detailed',
+      });
     for (const [taskId, keys] of Object.entries(state.inputKeys))
       this.#inputKeys.set(
         taskId,

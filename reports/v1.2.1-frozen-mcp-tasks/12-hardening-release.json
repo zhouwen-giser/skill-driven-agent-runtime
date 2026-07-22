@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": 12,
-  "status": "hardening_complete_release_blocked",
+  "status": "hardening_complete_refresh_gate_pending",
   "targetVersion": "1.2.1",
   "adversarialCoverage": [
     { "threat": "legacy_frozen_confusion", "status": "passed", "evidence": "frozen-v1-component explicit non-interchangeability" },
@@ -78,13 +78,14 @@
     "mock_task_ttl_and_availability_windows_are_startup_relative"
   ],
   "releaseBlockers": [
-    "phase_11_external_provider_wire_mismatches"
+    "refreshed_sdar_clean_exact_commit_gate",
+    "provider_and_sdar_remote_publication_checks"
   ],
   "gates": {
     "G2SdarComponentConformant": "passed",
-    "G3ProviderRuntimeComponentConformant": "invalidated_by_cross_implementation_evidence",
-    "G4InteropCertified": "blocked",
-    "G5ReleaseReady": "blocked"
+    "G3ProviderRuntimeComponentConformant": "passed_local_candidate",
+    "G4InteropCertified": "passed_local_candidate",
+    "G5ReleaseReady": "pending_refresh_gate_and_remote_checks"
   },
   "prDisposition": "draft"
 }

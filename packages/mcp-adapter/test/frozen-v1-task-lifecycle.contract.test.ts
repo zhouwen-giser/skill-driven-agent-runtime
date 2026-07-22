@@ -70,6 +70,50 @@ describe('Frozen V1 Task lifecycle', () => {
     expect(methods).toEqual(['tools/call', 'tasks/get']);
   });
 
+  it('upgrades a base-only CreateTaskResult to its first DetailedTask at the same revision', async () => {
+    const lifecycle = createLifecycle((body) =>
+      body['method'] === 'tools/call'
+        ? task('input_required', '1', { resultType: 'task', inputRequests: undefined })
+        : task('input_required', '1', { inputRequests: inputRequests() }),
+    );
+
+    await expect(
+      lifecycle.callTool({ name: 'embodied.move', arguments: {} }),
+    ).resolves.toMatchObject({
+      kind: 'remote_task',
+      created: { status: 'input_required', observation: { runtimeRevision: '1' } },
+      reconciled: {
+        status: 'input_required',
+        observation: { runtimeRevision: '1' },
+        inputRequests: { approval: expect.any(Object) },
+      },
+    });
+
+    expect(() =>
+      lifecycle.admitNotification(
+        task('input_required', '1', {
+          resultType: undefined,
+          inputRequests: inputRequests('Changed at the same revision'),
+        }),
+      ),
+    ).toThrow('same Task runtimeRevision represented different Task content');
+  });
+
+  it('rejects changed Task base content during a same-revision projection upgrade', async () => {
+    const lifecycle = createLifecycle((body) =>
+      body['method'] === 'tools/call'
+        ? task('input_required', '1', { resultType: 'task', inputRequests: undefined })
+        : task('input_required', '1', {
+            statusMessage: 'Changed without a Runtime Revision',
+            inputRequests: inputRequests(),
+          }),
+    );
+
+    await expect(
+      lifecycle.callTool({ name: 'embodied.move', arguments: {} }),
+    ).rejects.toMatchObject({ code: 'FROZEN_TASK_REVISION_CONTENT_MISMATCH' });
+  });
+
   it('rejects Legacy nested Tasks and missing result discriminators', () => {
     expect(() => parseCreatedTask({ resultType: 'task', task: task('working', '1') }, now)).toThrow(
       FrozenTaskLifecycleError,
