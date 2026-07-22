@@ -51,6 +51,5 @@ get/Notification equality. The refreshed run additionally found the Provider `to
 the SDAR create/detailed projection-state bug; both now have strict regressions.
 
 G3 Provider Runtime Component Conformant and G4 Interop Certified pass for the tested local candidate
-contents. G5 remains pending until the SDAR change is committed, the complete clean exact-commit SDAR gate
-passes, both branches are published, and remote PR checks are green. No merge or stable release is claimed
-by this report.
+contents. SDAR clean exact commit `61142f9` passes the complete refreshed gate with `dirty=false`; G5 now
+awaits only publication and green remote PR checks. No merge or stable release is claimed by this report.

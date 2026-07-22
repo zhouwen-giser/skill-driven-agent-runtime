@@ -1,6 +1,6 @@
 # SDAR v1.2.1 Phase 12 Adversarial Hardening and Release Gate
 
-Status: **HARDENING COMPLETE; REFRESHED RELEASE GATE PENDING**
+Status: **LOCAL RELEASE GATE PASSED; REMOTE CHECKS PENDING**
 
 All 26 required adversarial classes have owning-layer evidence. The audit covers explicit Legacy/Frozen
 isolation, missing/spoofed metadata and discovery, baseline/routing mismatches, Bridge aliases, Task result
@@ -35,16 +35,22 @@ SBOM/OpenAPI/acceptance checks, production build, the complete migration chain, 
 integration tests, 60/60 E2E tests, infrastructure smoke and Server/Console smoke. The generated verification
 report records `dirty=false`. The evidence-only follow-up commit does not change the tested implementation.
 
+After Phase 11 interop added projection-aware lifecycle admission, the first refreshed clean run at
+`2ada181` exposed and recorded a read-after-request E2E race. The unchanged strict management assertion now
+waits for the reconciliation transaction. Clean exact commit `61142f9a776a73ac5cccee97f3a47a0f62f1ed79`
+then passed all seven `pnpm verify` stages with `dirty=false` in 184,634 ms: 650/650 unit+contract, 84/84
+integration, 60/60 E2E, 71 migrations, production build, infrastructure smoke and Server/Console smoke.
+
 ## Release decision
 
 G2 (SDAR local component conformance) passes. Provider candidate `b30d839` passes its complete `verify:v2`,
 and the refreshed real HTTP matrix passes strict Availability, Create/get, MRTR, business/technical failure
-and Notification paths, so G3 and G4 pass for the tested local candidate contents. G5 remains pending because
-the SDAR lifecycle correction has not yet passed a new clean exact-commit full gate and neither candidate has
-completed its remote publication checks. PR #6 remains Draft. There is no tag, Ready transition or release
-claim, and no required deferred item has been hidden.
+and Notification paths, so G3 and G4 pass for the tested local candidate contents. The refreshed clean
+exact-commit gate completes the local G5 evidence; final G5 disposition remains pending only because neither
+candidate has completed all remote publication checks. PR #6 remains Draft. There is no tag, Ready transition
+or release claim, and no required deferred item has been hidden.
 
-Required next actions are: commit the SDAR correction, rerun the complete SDAR gate from that clean exact
-commit, publish both branches, verify remote checks and only afterward reconsider Ready for Review. The
+Required next actions are: publish the SDAR evidence update, verify both PRs' remote checks and only afterward
+reconsider Ready for Review. The
 earlier isolated Phase 9 Compose project and temporary archive were removed; the current disposable Provider
-PostgreSQL container is retained only until the refreshed SDAR gate is complete.
+PostgreSQL container is retained only until remote checks are complete.

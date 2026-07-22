@@ -61,7 +61,7 @@
   "gates": {
     "G3ProviderRuntimeComponentConformant": "passed_local_candidate",
     "G4InteropCertified": "passed_local_candidate",
-    "G5ReleaseReady": "pending_clean_exact_commit_and_remote_checks"
+    "G5ReleaseReady": "local_gate_passed_remote_checks_pending"
   },
   "claim": "interop_certified_local_candidate_no_release_or_merge_claim"
 }
