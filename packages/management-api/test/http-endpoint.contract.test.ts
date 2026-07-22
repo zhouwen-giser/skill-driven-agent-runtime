@@ -57,6 +57,70 @@ describe('management HTTP API contract', () => {
     await expect(uses.json()).resolves.toEqual({ items: [] });
   });
 
+  it('projects Business Event health, cursors, Inbox, impact and incidents without credentials', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        businessEvents: {
+          start: () => Promise.resolve('started'),
+          health: () => ({ providerId: 'mcp.devices', state: 'healthy', admitted: 2 }),
+          listSubscriptions: () =>
+            Promise.resolve([
+              {
+                subscriptionId: 'subscription-1',
+                providerId: 'mcp.devices',
+                lastDurablyAdmittedSequence: '2',
+                lastProcessedSequence: '1',
+              },
+            ]),
+          listInbox: () => Promise.resolve([{ inboxId: 'inbox-1', status: 'processed' }]),
+          listAssessments: () =>
+            Promise.resolve([
+              { assessmentId: 'assessment-1', classification: 'current_task_goal' },
+            ]),
+          listIncidents: () =>
+            Promise.resolve([{ incidentId: 'incident-1', incidentKind: 'continuity_loss' }]),
+        },
+        userGoalRuntime: {
+          current: () =>
+            Promise.resolve({
+              plan: { planId: 'user-goal-plan-1', revision: 2, skillGoals: [] },
+              outcomes: [{ outcomeDecisionId: 'judgment-1' }],
+            }),
+        },
+      },
+    });
+    const health = await fetch(
+      `${endpoint.baseUrl}/api/v1/business-events/providers/mcp.devices/health`,
+    );
+    await expect(health.json()).resolves.toMatchObject({
+      enabled: true,
+      health: { state: 'healthy' },
+    });
+    const reconnect = await fetch(
+      `${endpoint.baseUrl}/api/v1/business-events/providers/mcp.devices/reconnect`,
+      { method: 'POST' },
+    );
+    expect(reconnect.status).toBe(202);
+    await expect(reconnect.json()).resolves.toMatchObject({ disposition: 'started' });
+    for (const [path, id] of [
+      ['subscriptions', 'subscription-1'],
+      ['inbox', 'inbox-1'],
+      ['impact-assessments', 'assessment-1'],
+      ['incidents', 'incident-1'],
+    ] as const) {
+      const response = await fetch(`${endpoint.baseUrl}/api/v1/business-events/${path}`);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain(id);
+    }
+    const plan = await fetch(
+      `${endpoint.baseUrl}/api/v1/goals/goal-1/user-goal-plan?goalVersion=1`,
+    );
+    expect(plan.status).toBe(200);
+    await expect(plan.text()).resolves.toContain('judgment-1');
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -1193,6 +1257,18 @@ describe('management HTTP API contract', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: {
+        schemaVersion: '1.0' as const,
+        skillId: 'embodied.move-to',
+        skillVersion: 1,
+        specificationHash: `sha256:${'5'.repeat(64)}`,
+        effects: ['effect.final_position'],
+        evidence: ['evidence.final_position'],
+        artifacts: [],
+        taskGoalPolicy: {},
+        confidencePolicy: {},
+        sideEffectPolicy: {},
+      },
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -1432,6 +1508,41 @@ describe('management HTTP API contract', () => {
       inputSchema: { type: 'object' },
       outputSchema: { type: 'object' },
       tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+      usageSpecification: createSkillUsageSpecification({
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: [],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Validate before calling the Tool.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['procedure'],
+          defaultMode: 'procedure',
+          procedure: { summary: 'Validate and call.', instructions: ['Validate.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      }),
+      outcomeSpecification: {
+        schemaVersion: '1.0' as const,
+        skillId: 'skill.existing',
+        skillVersion: 1,
+        specificationHash: `sha256:${'a'.repeat(64)}`,
+        effects: ['device.status.observed'],
+        evidence: ['device-status'],
+        artifacts: [],
+        taskGoalPolicy: {},
+        confidencePolicy: {},
+        sideEffectPolicy: {},
+      },
     };
     const candidate = {
       candidateId: 'candidate-1',

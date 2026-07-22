@@ -242,6 +242,8 @@ function result(
       if (outcome === 'remote_input_required' && !state.updated)
         return task('complete', 'input_required', state);
       if (outcome === 'remote_notification_success') return task('complete', 'working', state);
+      if (state.operationName === 'task_success' && state.taskGetCalls === 1)
+        return task('complete', 'working', state);
       if (outcome === 'remote_restart_success' && state.taskGetCalls <= 2)
         return task('complete', 'working', state);
       return task('complete', 'completed', state);
@@ -296,6 +298,13 @@ function task(
 
 function toolResult(state: FrozenMockState) {
   if (state.operationName === 'embodied.area_patrol') return patrolResult(state);
+  if (state.operationName === 'task_success')
+    return {
+      resultType: 'complete',
+      content: [{ type: 'text', text: 'task completed' }],
+      structuredContent: { status: 'online' },
+      isError: false,
+    };
   return {
     resultType: 'complete',
     content: [{ type: 'text', text: 'move completed' }],
@@ -401,6 +410,22 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
     idempotency: 'client_request_key',
   };
   return [
+    ...(options.areaPatrol === undefined
+      ? [
+          {
+            name: 'task_success',
+            description: 'Complete one generic remote Task.',
+            inputSchema: { type: 'object' },
+            outputSchema: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['status'],
+              properties: { status: { type: 'string', enum: ['online'] } },
+            },
+            _meta: { [TASK_PROFILE]: taskProfile },
+          },
+        ]
+      : []),
     {
       name: 'embodied.move',
       description: 'Move one embodied resource.',
@@ -576,7 +601,9 @@ function sendSubscription(
           ? 'cancelled'
           : outcome === 'remote_input_required' && !state.updated
             ? 'input_required'
-            : 'completed';
+            : state.operationName === 'task_success' && state.taskGetCalls === 0
+              ? 'working'
+              : 'completed';
         const snapshot = task('complete', status, state);
         pending.push(
           `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/tasks', params: { ...snapshot, _meta: { ...record(snapshot['_meta']), 'io.modelcontextprotocol/subscriptionId': id } } })}\n\n`,

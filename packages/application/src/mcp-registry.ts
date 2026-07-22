@@ -162,12 +162,17 @@ export class McpRegistryService {
     }
     const invocationId = this.#ids.nextInvocationId();
     const startedAt = this.#clock.now();
-    createRuntimeExecutionContext(context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT);
+    const executionContext = createRuntimeExecutionContext(
+      context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
+    );
     let outcome: McpInvocationOutcome;
     try {
       outcome = await this.#requireFrozenLifecycle().call({
         endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
+        headers: withExecutionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
         toolName,
         arguments: arguments_,
         outputValidator: this.#schemas,
@@ -286,7 +291,7 @@ export class McpRegistryService {
   ): Promise<RemoteTaskReadResult> {
     try {
       const record = await this.#requireServer(input.serverId);
-      createRuntimeExecutionContext(input.executionContext);
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
       const tool = (await this.#repository.listTools(input.serverId)).find(
         (candidate) => candidate.toolName === input.operationName,
       );
@@ -294,7 +299,10 @@ export class McpRegistryService {
         throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
       const snapshot = await this.#requireFrozenLifecycle().get({
         endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
+        headers: withExecutionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
         remoteTaskId: input.remoteTaskId,
         outputValidator: this.#schemas,
         ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
@@ -329,10 +337,13 @@ export class McpRegistryService {
     }>,
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
-    createRuntimeExecutionContext(input.executionContext);
+    const executionContext = createRuntimeExecutionContext(input.executionContext);
     return this.#requireFrozenLifecycle().cancel({
       endpoint: record.server.endpoint,
-      headers: this.#cipher.decrypt(record.encryptedCredential),
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(record.encryptedCredential),
+        executionContext,
+      ),
       remoteTaskId: input.remoteTaskId,
     });
   }
@@ -347,10 +358,13 @@ export class McpRegistryService {
     }>,
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
-    createRuntimeExecutionContext(input.executionContext);
+    const executionContext = createRuntimeExecutionContext(input.executionContext);
     return this.#requireFrozenLifecycle().update({
       endpoint: record.server.endpoint,
-      headers: this.#cipher.decrypt(record.encryptedCredential),
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(record.encryptedCredential),
+        executionContext,
+      ),
       remoteTaskId: input.remoteTaskId,
       inputResponses: input.inputResponses,
     });
@@ -371,10 +385,13 @@ export class McpRegistryService {
           kind: 'capability_missing',
           errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
         };
-      createRuntimeExecutionContext(input.executionContext);
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
       return await this.#frozenAvailability.check({
         endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
+        headers: withExecutionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
         requests: input.requests,
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       });
@@ -551,6 +568,19 @@ function invocationRecord(
     startedAt: input.startedAt,
     completedAt: input.completedAt,
     durationMs: duration,
+  };
+}
+
+function withExecutionHeaders(
+  credentials: Readonly<Record<string, string>>,
+  executionContext: RuntimeExecutionContext,
+): Readonly<Record<string, string>> {
+  return {
+    ...credentials,
+    [SDAR_EXECUTION_MODE_HEADER]: executionContext.mode,
+    ...(executionContext.simulationId === undefined
+      ? {}
+      : { [SDAR_SIMULATION_ID_HEADER]: executionContext.simulationId }),
   };
 }
 

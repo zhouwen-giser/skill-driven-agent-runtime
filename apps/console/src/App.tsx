@@ -15,6 +15,7 @@ import { MemoryPanel } from './MemoryPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { EvaluationPanel } from './EvaluationPanel.js';
 import { SystemPanel } from './SystemPanel.js';
+import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 
 type Section =
   | 'overview'
@@ -25,6 +26,7 @@ type Section =
   | 'prompts'
   | 'memory'
   | 'evaluation'
+  | 'business-events'
   | 'system';
 
 const navigation: readonly {
@@ -37,6 +39,7 @@ const navigation: readonly {
   { id: 'skills', label: 'Skills', note: 'Lifecycle' },
   { id: 'workflows', label: 'Workflows', note: 'DAG' },
   { id: 'mcp', label: 'MCP Servers', note: 'Tools' },
+  { id: 'business-events', label: 'Business Events', note: 'Inbox' },
   { id: 'prompts', label: 'Prompts', note: 'Versions' },
   { id: 'memory', label: '长期记忆', note: 'Recall' },
   { id: 'evaluation', label: '评估分析', note: 'Quality' },
@@ -177,6 +180,7 @@ function SectionView({
         }}
       />
     );
+  if (section === 'business-events') return <BusinessEventsPanel />;
   if (section === 'workflows')
     return (
       <WorkflowPanel
@@ -305,7 +309,7 @@ export function Lookup({
 }: {
   readonly section: Exclude<
     Section,
-    'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts' | 'system'
+    'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts' | 'system' | 'business-events'
   >;
 }) {
   const config = useMemo(

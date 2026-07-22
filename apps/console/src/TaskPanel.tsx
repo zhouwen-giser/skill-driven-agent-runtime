@@ -87,6 +87,10 @@ export interface RemoteTaskLifecycleResponse {
   }>[];
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function GoalTaskNavigation({
   goalId,
   onExploreGoal,
@@ -364,6 +368,9 @@ export function TaskPanel({
           )}
           <TaskRelatedNavigation task={task} onNavigate={onNavigate} />
           <TaskEvidenceNavigation task={task} evidence={evidence} onNavigate={onNavigate} />
+          <UserGoalPlanPanel
+            value={evidence.find((item) => item.key === 'user-goal-plan')?.value}
+          />
           <RemoteTaskLifecyclePanel
             value={evidence.find((item) => item.key === 'remote-task-lifecycle')?.value}
             onRefresh={() => void loadTask(task.taskId)}
@@ -480,6 +487,66 @@ export function TaskPanel({
       </section>
     </div>
   );
+}
+
+export function UserGoalPlanPanel({ value }: { readonly value: unknown }) {
+  if (!isRecord(value) || !isRecord(value.plan)) return null;
+  const plan = value.plan;
+  const goals = Array.isArray(plan.skillGoals) ? plan.skillGoals.filter(isRecord) : [];
+  const dependencies = Array.isArray(plan.dependencies) ? plan.dependencies.filter(isRecord) : [];
+  const outcomes = Array.isArray(value.outcomes) ? value.outcomes.filter(isRecord) : [];
+  return (
+    <section className="panel" aria-label="User Goal Plan DAG and judgments">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">USER GOAL RUNTIME AUTHORITY</span>
+          <h2>Skill Goal DAG &amp; Layered Judgments</h2>
+        </div>
+        <span className="status">
+          rev {displayPlanScalar(plan.revision, '—')} · {displayPlanScalar(plan.status, 'unknown')}
+        </span>
+      </div>
+      <div className="dag-grid">
+        {goals.map((goal) => {
+          const goalId = displayPlanScalar(goal.skillGoalId, 'unknown');
+          const judgment = outcomes.find((item) => item.subjectId === goalId);
+          return (
+            <article className="dag-node" key={goalId}>
+              <span>{displayPlanScalar(goal.status, 'unknown')}</span>
+              <strong>{goalId}</strong>
+              <p>{displayPlanScalar(goal.requiredResult, '')}</p>
+              <small>
+                criteria{' '}
+                {Array.isArray(goal.coveredCriterionIds)
+                  ? goal.coveredCriterionIds.map(String).join(', ')
+                  : '—'}
+              </small>
+              <code>
+                judgment {displayPlanScalar(judgment?.status, 'pending')} /{' '}
+                {displayPlanScalar(judgment?.confidence, '—')}
+              </code>
+            </article>
+          );
+        })}
+      </div>
+      <div className="dependency-strip">
+        {dependencies.length === 0
+          ? 'No dependency edges.'
+          : dependencies
+              .map(
+                (edge) =>
+                  `${String(edge.predecessorSkillGoalId)} → ${String(edge.successorSkillGoalId)}`,
+              )
+              .join(' · ')}
+      </div>
+    </section>
+  );
+}
+
+function displayPlanScalar(value: unknown, fallback: string): string {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? String(value)
+    : fallback;
 }
 
 export function RemoteTaskLifecyclePanel({
@@ -808,6 +875,12 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       label: 'Goal Patches',
       endpoint: `/api/v1/goals/${goalId}/patches`,
     });
+    if (task.goalVersion !== undefined)
+      links.push({
+        key: 'user-goal-plan',
+        label: 'User Goal Plan · DAG · Judgments',
+        endpoint: `/api/v1/goals/${goalId}/user-goal-plan?goalVersion=${String(task.goalVersion)}`,
+      });
     links.push({
       key: 'goal-experiences',
       label: 'Goal Evolution',

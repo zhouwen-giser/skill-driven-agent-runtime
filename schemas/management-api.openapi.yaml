@@ -6,6 +6,46 @@ info:
 servers:
   - url: http://127.0.0.1:9998
 paths:
+  /api/v1/business-events/providers/{serverId}/health:
+    parameters: [{ name: serverId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getBusinessEventProviderHealth
+      description: Returns the isolated Provider-level Business Event subscription health and reconnect counters.
+      responses: { '200': { description: Feature status and Provider subscription health } }
+  /api/v1/business-events/providers/{serverId}/reconnect:
+    parameters: [{ name: serverId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: reconnectBusinessEventProvider
+      description: Starts or confirms the explicitly enabled Provider-level Business Event subscription.
+      responses:
+        '202': { description: Subscription coordinator disposition }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/business-events/subscriptions:
+    get:
+      operationId: listBusinessEventSubscriptions
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        {
+          '200':
+            { description: Durable generation state and independent admitted/processed cursors },
+        }
+  /api/v1/business-events/inbox:
+    get:
+      operationId: listBusinessEventInbox
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        { '200': { description: PostgreSQL-authoritative durable Business Event Inbox records } }
+  /api/v1/business-events/impact-assessments:
+    get:
+      operationId: listBusinessEventImpactAssessments
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        { '200': { description: Rule/semantic impact decisions traced to User Goal criteria } }
+  /api/v1/business-events/incidents:
+    get:
+      operationId: listBusinessEventIncidents
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses: { '200': { description: Deduplicated continuity and cross-Goal incidents } }
   /api/v1/tasks:
     get:
       operationId: listTasks
@@ -87,6 +127,17 @@ paths:
       responses:
         '200': { description: Current Goal record }
         '404': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}/user-goal-plan:
+    parameters:
+      - { name: goalId, in: path, required: true, schema: { type: string } }
+      - { name: goalVersion, in: query, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getCurrentUserGoalPlan
+      description: Projects the immutable Skill Goal DAG, layered judgments, completed effects and latest progress for one Goal version.
+      responses:
+        '200':
+          { description: Current User Goal Plan authority or null when planning has not started }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/goals/{goalId}/cancel:
     parameters: [{ name: goalId, in: path, required: true, schema: { type: string } }]
     post:
@@ -1130,6 +1181,13 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
 components:
   parameters:
+    BoundedListLimit:
+      {
+        name: limit,
+        in: query,
+        required: false,
+        schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+      }
     CandidateId: { name: candidateId, in: path, required: true, schema: { type: string } }
     MemoryId: { name: memoryId, in: path, required: true, schema: { type: string } }
     ServerId: { name: serverId, in: path, required: true, schema: { type: string } }

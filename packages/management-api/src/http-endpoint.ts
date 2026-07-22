@@ -180,6 +180,18 @@ const SkillRelationSchema = z.object({
   ]),
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
+const SkillOutcomeSpecificationSchema = z.object({
+  schemaVersion: z.literal('1.0'),
+  skillId: z.string().min(1),
+  skillVersion: z.number().int().positive(),
+  specificationHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+  effects: z.array(z.string().min(1)).min(1),
+  evidence: z.array(z.string().min(1)).min(1),
+  artifacts: z.array(z.string().min(1)),
+  taskGoalPolicy: z.record(z.string(), z.unknown()),
+  confidencePolicy: z.record(z.string(), z.unknown()),
+  sideEffectPolicy: z.record(z.string(), z.unknown()),
+});
 const RegisterSkillSchema = z.object({
   skillId: z.string().min(1),
   name: z.string().min(1),
@@ -210,6 +222,7 @@ const RegisterSkillSchema = z.object({
   sourceKind: z.enum(['admin', 'a2a_draft', 'experience_evolution', 'manual_correction']),
   validationPassed: z.boolean(),
   usageSpecification: z.unknown().optional(),
+  outcomeSpecification: SkillOutcomeSpecificationSchema.optional(),
 });
 const SkillPackageRootSchema = z.object({ packageRoot: z.string().min(1).max(4096) }).strict();
 const SkillCatalogQuerySchema = z
@@ -251,6 +264,8 @@ const CorrectEvolutionCandidateSchema = z.object({
     inputSchema: JsonSchema,
     outputSchema: JsonSchema,
     tools: z.array(ToolReferenceSchema).min(1),
+    usageSpecification: z.unknown(),
+    outcomeSpecification: SkillOutcomeSpecificationSchema,
   }),
 });
 const AuthorSkillSchema = z.object({
@@ -264,6 +279,8 @@ const AuthorSkillSchema = z.object({
   runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
   status: z.enum(['draft', 'enabled', 'disabled']),
   sourceKind: z.enum(['admin', 'a2a_draft']),
+  outcomeSpecification: RegisterSkillSchema.shape.outcomeSpecification,
+  usageSpecification: RegisterSkillSchema.shape.usageSpecification,
 });
 const PublishSkillDraftSchema = z.object({
   actor: z.string().min(1),
@@ -271,6 +288,8 @@ const PublishSkillDraftSchema = z.object({
   toolPolicy: RegisterSkillSchema.shape.toolPolicy,
   runtimePolicy: RegisterSkillSchema.shape.runtimePolicy,
   status: z.enum(['enabled', 'disabled']),
+  outcomeSpecification: RegisterSkillSchema.shape.outcomeSpecification,
+  usageSpecification: RegisterSkillSchema.shape.usageSpecification,
 });
 const GoalExecutionContractSchema = z
   .object({
@@ -294,6 +313,7 @@ const ModelStageSchema = z.enum([
   'goal',
   'tool_enhancement',
   'skill_authoring',
+  'goal_planning',
   'skill_selection',
   'skill_input_resolution',
   'workflow_planning',
@@ -495,6 +515,17 @@ export interface ManagementOperations {
   readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
   readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
   readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
+  readonly businessEvents?: Readonly<{
+    start(serverId: string): Promise<'disabled' | 'started' | 'already_running'>;
+    health(serverId: string): unknown;
+    listSubscriptions(limit: number): Promise<readonly unknown[]>;
+    listInbox(limit: number): Promise<readonly unknown[]>;
+    listAssessments(limit: number): Promise<readonly unknown[]>;
+    listIncidents(limit: number): Promise<readonly unknown[]>;
+  }>;
+  readonly userGoalRuntime?: Readonly<{
+    current(goalId: string, goalVersion: number): Promise<unknown>;
+  }>;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -529,6 +560,64 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+  app.get(
+    '/api/v1/business-events/providers/:serverId/health',
+    asyncRoute((request, response) => {
+      response.json({
+        enabled: options.operations.businessEvents !== undefined,
+        health: options.operations.businessEvents?.health(pathValue(request, 'serverId')) ?? null,
+      });
+      return Promise.resolve();
+    }),
+  );
+  app.post(
+    '/api/v1/business-events/providers/:serverId/reconnect',
+    asyncRoute(async (request, response) => {
+      if (options.operations.businessEvents === undefined)
+        throw new HttpInputError(
+          'BUSINESS_EVENTS_DISABLED',
+          'Business Events runtime is disabled by default and requires explicit opt-in.',
+        );
+      response.status(202).json({
+        serverId: pathValue(request, 'serverId'),
+        disposition: await options.operations.businessEvents.start(pathValue(request, 'serverId')),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/business-events/subscriptions',
+    asyncRoute(async (request, response) => {
+      const limit = boundedQueryLimit(request, 100);
+      response.json({
+        items: (await options.operations.businessEvents?.listSubscriptions(limit)) ?? [],
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/business-events/inbox',
+    asyncRoute(async (request, response) => {
+      const limit = boundedQueryLimit(request, 100);
+      response.json({ items: (await options.operations.businessEvents?.listInbox(limit)) ?? [] });
+    }),
+  );
+  app.get(
+    '/api/v1/business-events/impact-assessments',
+    asyncRoute(async (request, response) => {
+      const limit = boundedQueryLimit(request, 100);
+      response.json({
+        items: (await options.operations.businessEvents?.listAssessments(limit)) ?? [],
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/business-events/incidents',
+    asyncRoute(async (request, response) => {
+      const limit = boundedQueryLimit(request, 100);
+      response.json({
+        items: (await options.operations.businessEvents?.listIncidents(limit)) ?? [],
+      });
+    }),
+  );
   app.get(
     '/api/v1/runtime-terminal-outcomes/:outcomeId',
     asyncRoute(async (request, response) => {
@@ -691,6 +780,20 @@ export async function startManagementHttpEndpoint(
     '/api/v1/goals/:goalId',
     asyncRoute(async (request, response) => {
       response.json(await options.operations.goals.get(pathValue(request, 'goalId')));
+    }),
+  );
+  app.get(
+    '/api/v1/goals/:goalId/user-goal-plan',
+    asyncRoute(async (request, response) => {
+      if (options.operations.userGoalRuntime === undefined)
+        throw new HttpInputError(
+          'USER_GOAL_RUNTIME_UNAVAILABLE',
+          'User Goal runtime projection is unavailable.',
+        );
+      const goalVersion = z.coerce.number().int().positive().parse(request.query['goalVersion']);
+      response.json(
+        await options.operations.userGoalRuntime.current(pathValue(request, 'goalId'), goalVersion),
+      );
     }),
   );
   app.post(
@@ -1738,7 +1841,13 @@ export async function startManagementHttpEndpoint(
       response.json(
         await options.operations.skillEvolution.correctAndRevalidate(
           pathValue(request, 'candidateId'),
-          input,
+          {
+            ...input,
+            proposedSkill: {
+              ...input.proposedSkill,
+              usageSpecification: input.proposedSkill.usageSpecification as SkillUsageSpecification,
+            },
+          },
         ),
       );
     }),
@@ -1825,10 +1934,15 @@ export async function startManagementHttpEndpoint(
         );
       }
       const parsed = AuthorSkillSchema.parse(request.body);
+      const { outcomeSpecification, usageSpecification, ...authoring } = parsed;
       response.status(201).json(
         await options.operations.skillAuthoring.authorAndRegister({
-          ...parsed,
+          ...authoring,
           runtimePolicy: compactRuntimePolicy(parsed.runtimePolicy),
+          ...(outcomeSpecification === undefined ? {} : { outcomeSpecification }),
+          ...(usageSpecification === undefined
+            ? {}
+            : { usageSpecification: usageSpecification as SkillUsageSpecification }),
         }),
       );
     }),
@@ -1850,10 +1964,15 @@ export async function startManagementHttpEndpoint(
       if (options.operations.skillAuthoring === undefined)
         throw new HttpInputError('SKILL_AUTHORING_UNAVAILABLE', 'Skill authoring is unavailable.');
       const input = PublishSkillDraftSchema.parse(request.body);
+      const { outcomeSpecification, usageSpecification, ...publication } = input;
       response.json(
         await options.operations.skillAuthoring.publishDraft(pathValue(request, 'draftId'), {
-          ...input,
+          ...publication,
           runtimePolicy: compactRuntimePolicy(input.runtimePolicy),
+          ...(outcomeSpecification === undefined ? {} : { outcomeSpecification }),
+          ...(usageSpecification === undefined
+            ? {}
+            : { usageSpecification: usageSpecification as SkillUsageSpecification }),
         }),
       );
     }),
@@ -2114,6 +2233,16 @@ function sanitizeDisplayableValue(value: unknown, depth = 0): unknown {
   );
 }
 
+function boundedQueryLimit(request: Request, defaultValue: number): number {
+  return z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .default(defaultValue)
+    .parse(request.query['limit']);
+}
+
 function sanitizeTaskAvailabilityEvidence(item: TaskAvailabilityEvidence) {
   return {
     readiness: item.readiness,
@@ -2162,13 +2291,14 @@ function skillRegistrationInput(
   parsed: z.infer<typeof RegisterSkillSchema>,
 ): RegisterSkillVersionInput {
   const policy = parsed.runtimePolicy;
-  const { usageSpecification, ...definition } = parsed;
+  const { usageSpecification, outcomeSpecification, ...definition } = parsed;
   return {
     ...definition,
     runtimePolicy: compactRuntimePolicy(policy),
     ...(usageSpecification === undefined
       ? {}
       : { usageSpecification: usageSpecification as SkillUsageSpecification }),
+    ...(outcomeSpecification === undefined ? {} : { outcomeSpecification: outcomeSpecification }),
   };
 }
 
