@@ -11,6 +11,11 @@ Failed attempts are retained; neither failure was hidden or converted into a wea
    infrastructure smoke loaded a stale local `.env` port `54329` and received `ECONNREFUSED`. The
    operator-managed test service is explicitly exposed on `55432`; the next clean-candidate run supplies
    that endpoint without changing or weakening the smoke test.
+3. Candidate `08b552c` passed every preceding gate, including the explicit infrastructure smoke, then
+   the Server smoke rejected its historical Skill fixture. The fixture lacked the v1.2.2 mandatory
+   native Usage and `SkillOutcomeSpecification`; the product API correctly refused it. The smoke fixture
+   now publishes both frozen contracts, and the focused Server/Console smoke passes without weakening
+   Skill publication validation.
 
 The machine summary in commit history records each attempt. The final acceptance report points only to
 the later clean-candidate all-pass summary.
