@@ -291,34 +291,45 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 
 ## SDAR v1.2.3 G03 Addendum
 
-| Acceptance | Status | Implementation | Tests / evidence |
-| --- | --- | --- | --- |
-| AC-G03-01 ambiguous requests enter Understanding | verified | `CognitiveEntryRouter`; `GenericTaskUnderstandingService`; Task preparation integration | router/service unit and real A2A `INPUT_REQUIRED` E2E |
-| AC-G03-02 explicit requests avoid unnecessary clarification | verified | conservative explicit route preserves the existing v1.2.2 Goal path | explicit concrete router unit plus 62/62 existing/new E2E |
-| AC-G03-03 gaps are typed dimensions | verified | 12 dimension kinds and deterministic blocking/conditional/non-blocking classifier | focused dimension unit, Domain factory and JSON Schema golden contract |
-| AC-G03-04 authorization is never silently filled | verified | safety assumption filter and `confirmation_required` disposition | prompt-injection/high-risk authorization unit |
-| AC-G03-05 structured, versioned, linked and bounded | verified | strict Zod/JSON Schema, two attempts, migration 0111, PostgreSQL revision/CAS/outbox and audited model FK | model/unit, migration rollback/reapply and real repository integration |
-| AC-G03-06 injected text remains data | verified | JSON instruction separates policy from untrusted request/context | unit prompt inspection and real prompt-injection A2A E2E; `reports/goal/g03-completion.md` |
+| Acceptance                                                  | Status   | Implementation                                                                                            | Tests / evidence                                                                           |
+| ----------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| AC-G03-01 ambiguous requests enter Understanding            | verified | `CognitiveEntryRouter`; `GenericTaskUnderstandingService`; Task preparation integration                   | router/service unit and real A2A `INPUT_REQUIRED` E2E                                      |
+| AC-G03-02 explicit requests avoid unnecessary clarification | verified | conservative explicit route preserves the existing v1.2.2 Goal path                                       | explicit concrete router unit plus 62/62 existing/new E2E                                  |
+| AC-G03-03 gaps are typed dimensions                         | verified | 12 dimension kinds and deterministic blocking/conditional/non-blocking classifier                         | focused dimension unit, Domain factory and JSON Schema golden contract                     |
+| AC-G03-04 authorization is never silently filled            | verified | safety assumption filter and `confirmation_required` disposition                                          | prompt-injection/high-risk authorization unit                                              |
+| AC-G03-05 structured, versioned, linked and bounded         | verified | strict Zod/JSON Schema, two attempts, migration 0111, PostgreSQL revision/CAS/outbox and audited model FK | model/unit, migration rollback/reapply and real repository integration                     |
+| AC-G03-06 injected text remains data                        | verified | JSON instruction separates policy from untrusted request/context                                          | unit prompt inspection and real prompt-injection A2A E2E; `reports/goal/g03-completion.md` |
 
 ## SDAR v1.2.3 G04 Addendum
 
-| Acceptance | Status | Implementation | Tests / evidence |
-| --- | --- | --- | --- |
-| AC-G04-01 interactive Goal state machine | verified | `InteractiveGoalSessionService`; confirmed contract enters existing Goal service before Planner | focused unit plus real A2A clarification/review/confirm E2E |
-| AC-G04-02 information-gain questions without repetition | verified | `MissingDimensionQuestionService`; turn dimension/criterion/reason binding | deterministic answered-dimension unit and persisted turn integration |
-| AC-G04-03 immutable Understanding revision per answer | verified | audited `task_clarification`; prior Understanding source ref; G03 repository CAS | real E2E revision 1/2 and source-lineage assertions |
-| AC-G04-04 candidate generation, diff and user patch precedence | verified | strict bounded `goal_contract_generation`; `GoalContractCandidateFactory` | invalid/valid model boundary and deterministic patch-diff unit |
-| AC-G04-05 session CAS, idempotency and recovery | verified | migration 0112; `PostgresInteractiveGoalRepository`; transaction locks/outbox | concurrent real PostgreSQL apply/conflict, duplicate replay, migration rollback/reapply |
-| AC-G04-06 API, Console and A2A interaction boundary | verified | Goal Session GET/actions, 132-operation OpenAPI, operational Console, `io.sdar/interaction` | API contract and 62/62 real E2E; `reports/goal/g04-completion.md` |
+| Acceptance                                                     | Status   | Implementation                                                                                  | Tests / evidence                                                                        |
+| -------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| AC-G04-01 interactive Goal state machine                       | verified | `InteractiveGoalSessionService`; confirmed contract enters existing Goal service before Planner | focused unit plus real A2A clarification/review/confirm E2E                             |
+| AC-G04-02 information-gain questions without repetition        | verified | `MissingDimensionQuestionService`; turn dimension/criterion/reason binding                      | deterministic answered-dimension unit and persisted turn integration                    |
+| AC-G04-03 immutable Understanding revision per answer          | verified | audited `task_clarification`; prior Understanding source ref; G03 repository CAS                | real E2E revision 1/2 and source-lineage assertions                                     |
+| AC-G04-04 candidate generation, diff and user patch precedence | verified | strict bounded `goal_contract_generation`; `GoalContractCandidateFactory`                       | invalid/valid model boundary and deterministic patch-diff unit                          |
+| AC-G04-05 session CAS, idempotency and recovery                | verified | migration 0112; `PostgresInteractiveGoalRepository`; transaction locks/outbox                   | concurrent real PostgreSQL apply/conflict, duplicate replay, migration rollback/reapply |
+| AC-G04-06 API, Console and A2A interaction boundary            | verified | Goal Session GET/actions, 132-operation OpenAPI, operational Console, `io.sdar/interaction`     | API contract and 62/62 real E2E; `reports/goal/g04-completion.md`                       |
 
 ## SDAR v1.2.3 G05 Addendum
 
-| Acceptance | Status | Implementation | Tests / evidence |
-| --- | --- | --- | --- |
-| AC-G05-01 PLAN_REVIEW and base Planner candidate | verified | `InteractivePlanningSessionService`; split `generateCandidate`/`commitCandidate` boundary | focused state-machine/unit and real ambiguous-task A2A E2E |
-| AC-G05-02 structured Plan Patch compiler | verified | strict audited `interactive_plan_patch`; add/remove/update Goal/dependency/priority/parallel/policy | patch-schema, operation and two-attempt/3000 ms unit; three real audited E2E patches |
-| AC-G05-03 full candidate validation | verified | `UserGoalPlanCandidateValidator`; DAG/bounds/coverage/capability/policy/side-effect/no-replay checks | cyclic, orphan, cross-group, coverage and risk-policy regressions |
-| AC-G05-04 immutable review evidence | verified | candidate revisions, diff, hints, metadata and model invocation FK; migration 0113 | unit plus real PostgreSQL restart/collision/outbox integration |
-| AC-G05-05 confirmed-only v1.2.2 handoff | verified | `ConfirmedPlanHandoff`; dedicated `goalId + goalVersion` lock | no formal plan/Skill Attempt/MCP before accept; lock and idempotent crash-replay tests |
-| AC-G05-06 CAS/idempotency/recovery/events | verified | `PostgresInteractivePlanningRepository`; atomic candidate/session/turn/outbox transaction | concurrent real PostgreSQL integration; `plan.candidate_created/revised/confirmed` assertions |
-| AC-G05-07 API/Console/A2A/performance regression | verified | Planning Session GET/actions, 134-operation OpenAPI, Task Console and `io.sdar/interaction` | 526 unit, 149 contract, 74 integration, 62 real E2E, build; `reports/goal/g05-completion.md` |
+| Acceptance                                       | Status   | Implementation                                                                                       | Tests / evidence                                                                              |
+| ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| AC-G05-01 PLAN_REVIEW and base Planner candidate | verified | `InteractivePlanningSessionService`; split `generateCandidate`/`commitCandidate` boundary            | focused state-machine/unit and real ambiguous-task A2A E2E                                    |
+| AC-G05-02 structured Plan Patch compiler         | verified | strict audited `interactive_plan_patch`; add/remove/update Goal/dependency/priority/parallel/policy  | patch-schema, operation and two-attempt/3000 ms unit; three real audited E2E patches          |
+| AC-G05-03 full candidate validation              | verified | `UserGoalPlanCandidateValidator`; DAG/bounds/coverage/capability/policy/side-effect/no-replay checks | cyclic, orphan, cross-group, coverage and risk-policy regressions                             |
+| AC-G05-04 immutable review evidence              | verified | candidate revisions, diff, hints, metadata and model invocation FK; migration 0113                   | unit plus real PostgreSQL restart/collision/outbox integration                                |
+| AC-G05-05 confirmed-only v1.2.2 handoff          | verified | `ConfirmedPlanHandoff`; dedicated `goalId + goalVersion` lock                                        | no formal plan/Skill Attempt/MCP before accept; lock and idempotent crash-replay tests        |
+| AC-G05-06 CAS/idempotency/recovery/events        | verified | `PostgresInteractivePlanningRepository`; atomic candidate/session/turn/outbox transaction            | concurrent real PostgreSQL integration; `plan.candidate_created/revised/confirmed` assertions |
+| AC-G05-07 API/Console/A2A/performance regression | verified | Planning Session GET/actions, 134-operation OpenAPI, Task Console and `io.sdar/interaction`          | 526 unit, 149 contract, 74 integration, 62 real E2E, build; `reports/goal/g05-completion.md`  |
+
+## SDAR v1.2.3 G06 Addendum
+
+| Acceptance                                  | Status   | Implementation                                                                                                | Tests / evidence                                                                                  |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| AC-G06-01 complete correction evidence      | verified | immutable `PlanningCorrectionFact`; G04/G05 observer hooks preserve before/instruction/patch/after/validation | focused unit, real PostgreSQL integration and real A2A Goal/Plan correction E2E                   |
+| AC-G06-02 normalized type/scope and queries | verified | Domain allowlists; task/user/tenant repository queries; migration 0114 indexes                                | factory negatives and exact-scope repository integration                                          |
+| AC-G06-03 no automatic globalization        | verified | `PlanningPreferenceProjector` admits neither task nor tenant nor `global_candidate` scope                     | unit denial cases and real E2E user-only Memory assertion                                         |
+| AC-G06-04 immutable final Outcome revision  | verified | deterministic Episode builder/hash; append-only revision and outcome/counterexample refs                      | focused unit plus real PostgreSQL prior/new revision assertions                                   |
+| AC-G06-05 low-risk user projection only     | verified | accepted explicit preference allowlist; safety/degradation denial; existing Memory projection                 | projector unit and real A2A scoped preference lifecycle                                           |
+| AC-G06-06 deletion and tenant isolation     | verified | exact-user Memory search; projection invalidation; exact-tenant correction query                              | user A/user B and tenant A/tenant B integration plus DELETE E2E; `reports/goal/g06-completion.md` |

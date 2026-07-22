@@ -34,6 +34,10 @@ All notable changes to this project are documented here. The format follows Keep
   natural-language patch compilation, full candidate validation and confirmed-only v1.2.2 handoff.
 - Management Planning Session read/action operations, operational DAG/diff/validation Console controls
   and A2A plan-review metadata at the existing `INPUT_REQUIRED` boundary.
+- G06 immutable Planning Correction Facts and deterministic Interaction Episode revisions spanning
+  Understanding, Goal Contract, Plan review, final Outcome and later counterexamples.
+- Scoped low-risk user-preference projection into the existing Memory service, exact-user retrieval,
+  propagated deletion, task/user/tenant correction queries and management interaction evidence.
 
 ### Changed
 
@@ -49,6 +53,8 @@ All notable changes to this project are documented here. The format follows Keep
   requests preserve the v1.2.2 Goal path and unconfirmed candidates never become authority.
 - Confirmed G04 Goal Contracts now generate non-authoritative plan candidates first. Only an explicit
   G05 accept under the `goalId + goalVersion` lock may create the existing formal plan and schedule it.
+- G04/G05 interaction actions and terminal Outcomes now append non-authoritative correction/Episode
+  evidence; task, tenant, global-candidate and safety/authorization corrections never auto-promote.
 
 ### Verification
 
@@ -76,6 +82,11 @@ All notable changes to this project are documented here. The format follows Keep
   operations, 338-source architecture, migration 0108-0113 rollback/reapply and production build.
   The retained parallel-contract timing flake passes in isolation and the full serial contract gate;
   implementation `02a367d` is pushed and Draft PR #8 remains Draft.
+- G06 affected gates pass 529 unit, 150 serial contract, 75 real integration, 62 real E2E, 136 OpenAPI
+  operations, 344-source architecture, migration 0108-0114 rollback/reapply and production build.
+  Failed test-first, assertion-shape, formatting, lint, CLI-option and non-TTY build attempts are
+  retained in `reports/goal/g06-completion.md`; implementation `cade96f` is pushed and Draft PR #8
+  remains Draft.
 
 ## [1.2.2] - Unreleased
 

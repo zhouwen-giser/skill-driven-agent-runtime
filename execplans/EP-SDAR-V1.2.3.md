@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G05 is complete and pushed; G06 is next
+Status: ACTIVE — G06 is complete and pushed; G07 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -84,11 +84,11 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G00  | completed   | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none           | hand off frozen contracts to G01                               |
 | G01  | completed   | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke        | `reports/goal/g01-completion.md` | none           | hand off activated Summary to G02                              |
 | G02  | completed   | `2ec8987` | full `pnpm verify`: 656 unit/contract, 71 integration, 61 E2E, build/smoke        | `reports/goal/g02-completion.md` | none           | hand off declared Summary to G03; preserve public Card for G15 |
-| G03  | completed   | `05b4df4` | 663 unit/contract, 72 integration, 62 real E2E, migration/API/build gates          | `reports/goal/g03-completion.md` | none           | hand off immutable Understanding revisions to G04              |
-| G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates          | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
-| G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates     | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
-| G06  | not_started | —         | —                                                                                 | —                                | none           | correction facts/interaction episode                           |
-| G07  | not_started | —         | —                                                                                 | —                                | G00            | outbox/job/Goal episode                                        |
+| G03  | completed   | `05b4df4` | 663 unit/contract, 72 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g03-completion.md` | none           | hand off immutable Understanding revisions to G04              |
+| G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
+| G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
+| G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
+| G07  | not_started | —         | —                                                                                 | —                                | none           | outbox/job/Goal episode                                        |
 | G08  | not_started | —         | —                                                                                 | —                                | G07            | observer/typed extractors                                      |
 | G09  | not_started | —         | —                                                                                 | —                                | G08            | reflector/identity/curator                                     |
 | G10  | not_started | —         | —                                                                                 | —                                | G06/G09        | Task Type induction                                            |
@@ -147,6 +147,13 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: the default-parallel combined test command exposed the pre-existing 5 ms frozen MCP
   notification timing test once; its isolated run and the complete serial contract suite pass without
   weakening assertions. Final unit, integration and E2E suites also pass independently.
+- 2026-07-23: G06's test-first suite failed before the correction factory/service/projector existed.
+  The first integration rerun also exposed an assertion that confused an absent optional JSON property
+  with an `undefined` property. The implemented product path and corrected assertion pass 75/75.
+- 2026-07-23: the local Vitest 4 CLI supports `--maxWorkers` but not `--minWorkers`; the invalid command
+  started no tests. The supported serial command passes the complete contract suite 150/150.
+- 2026-07-23: pnpm's build-time dependency status check needs `CI=true` in this non-TTY Windows run.
+  The unchanged build then passed with approved registry access and did not change dependencies.
 
 ## Decision Log
 
@@ -181,6 +188,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   formal commit boundary; legacy `plan()` continues to compose both for unchanged v1.2.2 callers.
 - 2026-07-23: candidate revisions are session-local immutable review data. They retain formal plan
   revision 1 and never pretend an unpersisted candidate is a persisted `sourcePlanId`.
+- 2026-07-23: G06 corrections and Episodes are immutable evidence, never Goal/Plan/Outcome authority.
+  Only explicit accepted low-risk user preferences may project into the existing Memory service;
+  task, tenant, global-candidate, safety and degradation corrections cannot auto-promote.
+- 2026-07-23: Memory projection scope is additive and fail-closed: callers without a user id retrieve
+  only global Memory, while callers with a user id retrieve global plus that exact user. Deletion
+  invalidates the rebuildable projection without deleting immutable correction evidence.
 
 ## Implementation Steps
 
@@ -255,23 +268,29 @@ Workflow Memory and ACE. All are `design_reference`/`algorithm_reference`; AutoS
 artifact at its pin, remains `UNCONFIRMED`, and is prohibited for source copying. No new product runtime
 dependency was added.
 
+G06 uses original repository code and existing approved dependencies. Gemini Auto Memory and Claude
+Auto Memory remain concept-only references; no source was copied or translated, so no new Source
+Intake, license ledger, lockfile, NOTICE or SBOM change is required.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0113 ledger is implemented; Interactive Planning session/turn/candidate,
-  model audit and event changes pass fresh apply, idempotency, rollback/reapply, guarded reset and
-  rogue-ledger rejection on real PostgreSQL 17 + pgvector.
-- OpenAPI: 134 management operations include Capability, Understanding, Goal Session and Planning
-  Session read/action boundaries.
-- A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects both Goal and Plan
-  review boundaries. The G05 real A2A path remains `INPUT_REQUIRED` until explicit confirmation.
-- Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions.
-  It remains a projection over PostgreSQL/Application authority; broader G15 integration remains open.
+- Migration: additive 0108–0114 ledger is implemented; Planning Correction Facts, Interaction Episode
+  revisions, scoped Memory projection and events pass fresh apply, idempotency, rollback/reapply,
+  guarded reset and rogue-ledger rejection on real PostgreSQL 17 + pgvector.
+- OpenAPI: 136 management operations include Capability, Understanding, Goal/Plan review, task
+  planning-interaction reads and user preference deletion boundaries.
+- A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
+  boundaries. The real path captures four correction Facts, scoped preference deletion and unique
+  Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
+- Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions
+  and links Correction/Episode evidence. It remains a projection over PostgreSQL/Application authority;
+  broader G15 integration remains open.
 
 ## Branch / HEAD / Main / Draft PR
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current implementation HEAD: `02a367d85903f29a1147116c4af2952ab32716db`
+- Current implementation HEAD: `cade96f4c26637ec2b6412a276fffa3e27fed4c3`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 
 ## Changed Files
@@ -294,17 +313,19 @@ dependency was added.
 - G05 implementation `02a367d`: Interactive Planning Domain/Application/PostgreSQL state machine,
   migration 0113, strict audited patch compiler, seven-check validator, confirmed-only plan handoff,
   API/OpenAPI/Console and real A2A evidence.
+- G06 implementation `cade96f`: immutable correction/Episode Domain/Application/PostgreSQL path,
+  migration 0114, scoped low-risk Memory projection/deletion, API/OpenAPI/Console and real A2A evidence.
 
 ## Open Blockers
 
 None. The package self-check is platform-safe and passing. The default operator database's historical
 ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names. G05 implementation `02a367d` is pushed and Draft PR #8 remains Draft.
+database names. G06 implementation `cade96f` is pushed and Draft PR #8 remains Draft.
 
 ## Next Execution Step
 
-Start G06 from G03-G05 immutable Goal/Plan interaction lineage. Persist correction facts and
-interaction episodes with actor/source provenance without changing v1.2.2 Goal/Plan authority, then
+Start G07 from G00/G06 immutable correction and interaction lineage. Implement the PostgreSQL
+Experience outbox, job lifecycle and Goal Episode builder without blocking online execution, then
 update Draft PR #8 without changing Draft status.
 
 ## Outcomes and Retrospective
@@ -312,8 +333,9 @@ update Draft PR #8 without changing Draft status.
 G00 completed without activating cognitive behavior. G01 provides the deterministic declared Summary.
 G02 adds an allowlisted, hash-bound Public Card without Provider/readiness/model authority. G03 routes
 ambiguous requests through bounded structured Understanding. G04 persists interactive Goal review;
-G05 now adds immutable Plan review/patch validation and hands only a confirmed candidate to the
-existing v1.2.2 formal plan authority. Its affected gates pass 526 unit, 149 contract, 74 integration
-and 62 E2E tests plus migration/OpenAPI/architecture/build. Implementation `02a367d` is pushed.
-Disposable test databases were deleted and the default local `sdar` volume remains protected
-historical operator data. G06–G17 remain open.
+G05 adds immutable Plan review/patch validation and hands only a confirmed candidate to the existing
+v1.2.2 formal plan authority. G06 now records immutable correction and Episode evidence with scoped,
+low-risk-only Memory projection. Its affected gates pass 529 unit, 150 contract, 75 integration and 62
+E2E tests plus migration/OpenAPI/architecture/build. Implementation `cade96f` is pushed. Disposable
+test databases were deleted and the default local `sdar` volume remains protected historical operator
+data. G07–G17 remain open.

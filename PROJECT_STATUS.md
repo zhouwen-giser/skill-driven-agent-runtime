@@ -1,5 +1,17 @@
 # Project Status
 
+SDAR v1.2.3 G06 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Understanding, Goal Contract and Plan corrections now
+persist immutable actor/source-attributed before/instruction/patch/after/validation Facts and
+deterministic Interaction Episode revisions. Terminal Outcome/counterexamples append rather than
+mutate history. Only explicit accepted low-risk user preferences enter the existing scoped Memory
+projection; task, tenant, global-candidate, safety and authorization evidence cannot auto-promote, and
+user deletion propagates without cross-user leakage. API/OpenAPI, Console evidence links and the real
+A2A flow are wired. Affected gates pass 529 unit, 150 serial contract, 75 real integration, 62 real
+E2E, 136 OpenAPI operations, 344-source architecture, 0108-0114 migration rollback/reapply and
+production build. Implementation `cade96f` is pushed and Draft PR #8 remains Draft; G07 durable
+Experience outbox/jobs and Goal Episodes are next.
+
 SDAR v1.2.3 G05 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. A confirmed G04 Goal Contract now enters a
 PostgreSQL-authoritative PLAN_REVIEW session whose immutable candidates can be inspected, patched,
