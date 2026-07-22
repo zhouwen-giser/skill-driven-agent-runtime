@@ -25,6 +25,11 @@ All notable changes to this project are documented here. The format follows Keep
 - G03 bounded Generic Task Understanding with deployment-owned Task Type fixtures, Capability Summary
   checks, three-severity missing dimensions, immutable PostgreSQL revisions and audited model lineage.
 - Management current/revision Task Understanding reads and Task Console evidence links.
+- G04 restart-safe Interactive Goal Sessions with information-gain clarification, immutable
+  Understanding revisions, reviewable Goal Contract candidates/diffs, bounded rounds and
+  PostgreSQL CAS/idempotency/outbox evidence.
+- Management Goal Session read/action operations, operational Task Console review controls and A2A
+  `io.sdar/interaction` metadata at the existing `INPUT_REQUIRED` boundary.
 
 ### Changed
 

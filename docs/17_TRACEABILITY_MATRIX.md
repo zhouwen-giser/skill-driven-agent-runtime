@@ -299,3 +299,14 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G03-04 authorization is never silently filled | verified | safety assumption filter and `confirmation_required` disposition | prompt-injection/high-risk authorization unit |
 | AC-G03-05 structured, versioned, linked and bounded | verified | strict Zod/JSON Schema, two attempts, migration 0111, PostgreSQL revision/CAS/outbox and audited model FK | model/unit, migration rollback/reapply and real repository integration |
 | AC-G03-06 injected text remains data | verified | JSON instruction separates policy from untrusted request/context | unit prompt inspection and real prompt-injection A2A E2E; `reports/goal/g03-completion.md` |
+
+## SDAR v1.2.3 G04 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G04-01 interactive Goal state machine | verified | `InteractiveGoalSessionService`; confirmed contract enters existing Goal service before Planner | focused unit plus real A2A clarification/review/confirm E2E |
+| AC-G04-02 information-gain questions without repetition | verified | `MissingDimensionQuestionService`; turn dimension/criterion/reason binding | deterministic answered-dimension unit and persisted turn integration |
+| AC-G04-03 immutable Understanding revision per answer | verified | audited `task_clarification`; prior Understanding source ref; G03 repository CAS | real E2E revision 1/2 and source-lineage assertions |
+| AC-G04-04 candidate generation, diff and user patch precedence | verified | strict bounded `goal_contract_generation`; `GoalContractCandidateFactory` | invalid/valid model boundary and deterministic patch-diff unit |
+| AC-G04-05 session CAS, idempotency and recovery | verified | migration 0112; `PostgresInteractiveGoalRepository`; transaction locks/outbox | concurrent real PostgreSQL apply/conflict, duplicate replay, migration rollback/reapply |
+| AC-G04-06 API, Console and A2A interaction boundary | verified | Goal Session GET/actions, 132-operation OpenAPI, operational Console, `io.sdar/interaction` | API contract and 62/62 real E2E; `reports/goal/g04-completion.md` |

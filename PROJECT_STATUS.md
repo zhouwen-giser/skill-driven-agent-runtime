@@ -1,5 +1,15 @@
 # Project Status
 
+SDAR v1.2.3 G04 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Ambiguous tasks now use a PostgreSQL-authoritative
+Interactive Goal Session with non-repeating clarification, immutable Understanding revisions,
+reviewable/diffable Goal Contract candidates, explicit actor confirmation, bounded budgets and
+transactional CAS/idempotency/outbox evidence. Only a confirmed contract creates the existing v1.2.2
+Goal and enters its existing Planner. API/OpenAPI, operational Console and A2A
+`io.sdar/interaction` are wired. Affected gates pass 667 unit/contract, 73 integration, 62 real E2E,
+132 OpenAPI operations, 329-source architecture, 0108-0112 rollback/reapply and production build.
+Implementation `d226bfb` is pushed and Draft PR #8 remains Draft; G05 interactive planning is next.
+
 SDAR v1.2.3 G03 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Ambiguous requests now pass through strict bounded Task
 Understanding, persist immutable PostgreSQL revisions/dimensions/source lineage and a real audited model
