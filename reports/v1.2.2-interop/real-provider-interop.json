@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "claimLevel": "Real SDAR Interop",
+  "providerCommit": "8a81b1b02971fb124ed96372c440c449f9087c99",
+  "providerRequirementsCommit": "ee14d2fa2b5130d3c7c016c71737175a124d5134",
+  "sdarCommit": "24b94211745c097d4bad2ef7da246b45d1deae2b",
+  "startedAt": "2026-07-22T13:30:34.513Z",
+  "completedAt": "2026-07-22T13:30:49.768Z",
+  "transport": "real_streamable_http_post_sse",
+  "persistence": {
+    "provider": "sdar_provider_interop_v122_20260722_2109",
+    "sdar": "sdar_v122_interop_20260722_2109"
+  },
+  "matrix": {
+    "discovery": {
+      "status": "pass",
+      "taskProtocolVersion": "2026-07-28",
+      "businessEventsProfileVersion": "1.0",
+      "continuityClass": "mixed"
+    },
+    "emptyStream": {
+      "status": "pass",
+      "streamId": "74adf592-866b-4518-99a5-51270992e2e8",
+      "currentSequence": "0"
+    },
+    "task": {
+      "status": "pass",
+      "created": 260,
+      "firstTaskId": "01ac80e4-df09-422a-8e03-65afad807af6"
+    },
+    "event": {
+      "status": "pass",
+      "streamId": "74adf592-866b-4518-99a5-51270992e2e8",
+      "currentSequence": "0",
+      "taskEventId": "q700UgetKDicj9lPL_Dz5fSvMxgezM4ALHRQllsJfNg",
+      "resourceEventId": "BwtuH0lrcqwT_mbbsm36VpbL2BpFO4J-Ye3jOH5x59Y",
+      "scopes": [
+        "resource",
+        "task"
+      ]
+    },
+    "relation": {
+      "status": "pass",
+      "total": 260,
+      "pageSizes": [
+        128,
+        128,
+        4
+      ]
+    },
+    "sdarRuntimeAdmission": {
+      "status": "pass",
+      "admittedAtLeast": 3
+    },
+    "drain": {
+      "status": "pass",
+      "previousStreamId": "74adf592-866b-4518-99a5-51270992e2e8",
+      "newStreamId": "b5da4da3-b0f6-4555-afcf-5da4ef1733f4",
+      "replayedMessages": 4
+    },
+    "reset": {
+      "status": "pass",
+      "code": "BUSINESS_EVENT_STREAM_RESET"
+    },
+    "sdarContinuity": {
+      "status": "pass",
+      "currentStreamId": "b5da4da3-b0f6-4555-afcf-5da4ef1733f4"
+    },
+    "providerUnavailable": {
+      "status": "pass",
+      "code": "BUSINESS_EVENTS_TRANSPORT_FAILED"
+    },
+    "restart": {
+      "status": "pass",
+      "profileVersion": "1.0"
+    },
+    "reconnect": {
+      "status": "pass",
+      "reconnects": 8
+    }
+  }
+}
