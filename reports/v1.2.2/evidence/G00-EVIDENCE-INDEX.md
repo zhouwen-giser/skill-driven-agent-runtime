@@ -8,12 +8,14 @@ SDAR baseline SHA: 0f52a6dd277f8ca850b47467814680c8fee09901
 Branch: feature/v1.2.2-user-goal-planning-business-events
 External Provider observed SHA: 196620a
 Started At: 2026-07-22T15:35:00+08:00
-Completed At: pending G00 commit
+Completed At: 2026-07-22T16:01:00+08:00
+Content Commit: 414d167
 ```
 
 ## Changed files
 
-Only `skill-driven-agent-runtime` files listed by the G00 commit. The external Provider has no SDAR write.
+Only `skill-driven-agent-runtime` files listed by content commit `414d167`. The external Provider has no
+SDAR write.
 
 ## Commands
 
