@@ -376,6 +376,11 @@ export function TaskPanel({
             value={evidence.find((item) => item.key === 'goal-session')?.value}
             onApplied={() => loadTask(task.taskId)}
           />
+          <InteractivePlanningPanel
+            taskId={task.taskId}
+            value={evidence.find((item) => item.key === 'planning-session')?.value}
+            onApplied={() => loadTask(task.taskId)}
+          />
           <RemoteTaskLifecyclePanel
             value={evidence.find((item) => item.key === 'remote-task-lifecycle')?.value}
             onRefresh={() => void loadTask(task.taskId)}
@@ -629,6 +634,124 @@ export function InteractiveGoalPanel({
             />
           </label>
           <button type="submit">Apply CAS-protected action</button>
+        </form>
+      )}
+      {message === undefined ? null : <p className="action-message">{message}</p>}
+    </section>
+  );
+}
+
+export function InteractivePlanningPanel({
+  taskId,
+  value,
+  onApplied,
+}: {
+  readonly taskId: string;
+  readonly value: unknown;
+  readonly onApplied: () => Promise<void>;
+}) {
+  const [action, setAction] = useState<'accept' | 'patch' | 'reject' | 'cancel'>('accept');
+  const [instruction, setInstruction] = useState('Prioritize the most direct verified result.');
+  const [message, setMessage] = useState<string>();
+  if (!isRecord(value) || !isRecord(value.session) || !isRecord(value.candidate)) return null;
+  const session = value.session;
+  const candidate = value.candidate;
+  const plan = isRecord(candidate.plan) ? candidate.plan : undefined;
+  const goals = Array.isArray(plan?.skillGoals) ? plan.skillGoals.filter(isRecord) : [];
+  const sessionId = displayPlanScalar(session.sessionId, 'unknown');
+  const state = displayPlanScalar(session.state, 'unknown');
+  const version = typeof session.version === 'number' ? session.version : 0;
+
+  async function apply(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await managementRequest(
+        `/api/v1/tasks/${encodeURIComponent(taskId)}/planning-session/actions`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            expectedVersion: version,
+            idempotencyKey: `console:${sessionId}:${String(version)}:${action}`,
+            actorId: 'console.operator',
+            action,
+            payload: action === 'patch' ? { instruction } : {},
+          }),
+        },
+      );
+      setMessage(`${action} applied at planning session version ${String(version)}.`);
+      await onApplied();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Interactive planning action failed.');
+    }
+  }
+
+  return (
+    <section className="panel" aria-label="Interactive planning session">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">CANDIDATE ONLY / CONFIRMATION BOUNDARY</span>
+          <h2>Skill Goal DAG Review</h2>
+        </div>
+        <span className="status">
+          {state} 路 v{String(version)} 路{' '}
+          {displayPlanScalar(candidate.confirmationPolicy, 'unknown')}
+        </span>
+      </div>
+      <div className="dag-grid">
+        {goals.map((goal) => (
+          <article className="dag-node" key={displayPlanScalar(goal.skillGoalId, 'unknown')}>
+            <strong>{displayPlanScalar(goal.skillGoalId, 'unknown')}</strong>
+            <p>{displayPlanScalar(goal.requiredResult, '')}</p>
+            <small>
+              capabilities{' '}
+              {Array.isArray(goal.capabilityNeeds)
+                ? goal.capabilityNeeds.map(String).join(', ')
+                : '—'}
+            </small>
+          </article>
+        ))}
+      </div>
+      <pre>
+        {JSON.stringify(
+          {
+            validation: candidate.validation,
+            diff: candidate.diff,
+            experienceHints: candidate.experienceHints,
+            planningMetadata: candidate.planningMetadata,
+          },
+          null,
+          2,
+        )}
+      </pre>
+      {state !== 'plan_review' ? null : (
+        <form className="task-action" onSubmit={(event) => void apply(event)}>
+          <label>
+            Planning action
+            <select
+              value={action}
+              onChange={(event) => {
+                setAction(event.target.value as typeof action);
+              }}
+            >
+              <option value="accept">Confirm candidate plan</option>
+              <option value="patch">Compile natural-language patch</option>
+              <option value="reject">Reject candidate</option>
+              <option value="cancel">Cancel session</option>
+            </select>
+          </label>
+          {action !== 'patch' ? null : (
+            <label>
+              Plan patch instruction
+              <textarea
+                required
+                value={instruction}
+                onChange={(event) => {
+                  setInstruction(event.target.value);
+                }}
+              />
+            </label>
+          )}
+          <button type="submit">Apply CAS-protected planning action</button>
         </form>
       )}
       {message === undefined ? null : <p className="action-message">{message}</p>}
@@ -940,6 +1063,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       key: 'goal-session',
       label: 'Interactive Goal Session',
       endpoint: `/api/v1/tasks/${id}/goal-session`,
+    },
+    {
+      key: 'planning-session',
+      label: 'Interactive Planning Session',
+      endpoint: `/api/v1/tasks/${id}/planning-session`,
     },
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
     {

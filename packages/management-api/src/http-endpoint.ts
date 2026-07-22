@@ -53,6 +53,7 @@ import type {
   CapabilityCardPublisher,
   TaskUnderstandingRepository,
   InteractiveGoalSessionService,
+  InteractivePlanningSessionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -106,6 +107,15 @@ const InteractiveGoalActionSchema = z
     idempotencyKey: z.string().min(1).max(256),
     actorId: z.string().min(1).max(128),
     action: z.enum(['answer', 'accept', 'patch', 'reject', 'restart_understanding', 'cancel']),
+    payload: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict();
+const InteractivePlanningActionSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().min(1).max(256),
+    actorId: z.string().min(1).max(128),
+    action: z.enum(['accept', 'patch', 'reject', 'cancel']),
     payload: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
@@ -343,6 +353,7 @@ const ModelStageSchema = z.enum([
   'task_understanding',
   'task_clarification',
   'goal_contract_generation',
+  'interactive_plan_patch',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -486,6 +497,7 @@ export interface ManagementOperations {
   readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
   readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
   readonly goalSessions?: Pick<InteractiveGoalSessionService, 'getByTask' | 'applyAction'>;
+  readonly planningSessions?: Pick<InteractivePlanningSessionService, 'getByTask' | 'applyAction'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1871,6 +1883,52 @@ export async function startManagementHttpEndpoint(
       const input = InteractiveGoalActionSchema.parse(request.body);
       response.json(
         await options.operations.goalSessions.applyAction({
+          sessionId: session.session.sessionId,
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/planning-session',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_UNAVAILABLE',
+          'Interactive planning sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.planningSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_NOT_FOUND',
+          `No interactive planning session exists for Task ${taskId}.`,
+        );
+      }
+      response.json(session);
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/planning-session/actions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_UNAVAILABLE',
+          'Interactive planning sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.planningSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_NOT_FOUND',
+          `No interactive planning session exists for Task ${taskId}.`,
+        );
+      }
+      const input = InteractivePlanningActionSchema.parse(request.body);
+      response.json(
+        await options.operations.planningSessions.applyAction({
           sessionId: session.session.sessionId,
           ...input,
         }),

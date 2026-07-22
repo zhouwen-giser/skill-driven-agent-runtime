@@ -52,6 +52,8 @@ import {
   PostgresCapabilityCardRepository,
   PostgresTaskUnderstandingRepository,
   PostgresInteractiveGoalRepository,
+  PostgresInteractivePlanningRepository,
+  PostgresGoalVersionLock,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -76,6 +78,10 @@ import {
   createGoalContractCandidateSnapshot,
   createInteractiveGoalSessionSnapshot,
   createInteractiveGoalTurn,
+  createInteractivePlanningSessionSnapshot,
+  createInteractivePlanningTurn,
+  createUserGoalPlan,
+  createUserGoalPlanCandidateSnapshot,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -4546,7 +4552,241 @@ describe('PostgreSQL protocol-domain repositories', () => {
       'goal.contract_confirmed',
     ]);
   });
+
+  it('persists interactive planning across restart with CAS, idempotency, events and Goal-version locking', async () => {
+    const goalSession = await seedConfirmedGoalSessionForPlanning();
+    const repository = new PostgresInteractivePlanningRepository(pool);
+    const candidate = createUserGoalPlanCandidateSnapshot({
+      schemaVersion: '1.0',
+      candidateId: 'plan-candidate.pg.1',
+      sessionId: 'planning-session.pg.1',
+      revision: 1,
+      status: 'candidate',
+      plan: createUserGoalPlan({
+        schemaVersion: '1.0',
+        planId: 'user-goal-plan.pg.1',
+        goalId: 'goal.interactive-planning.pg',
+        goalVersion: 1,
+        revision: 1,
+        revisionKind: 'initial',
+        status: 'validated',
+        contractHash: `sha256:${'1'.repeat(64)}`,
+        contentHash: `sha256:${'2'.repeat(64)}`,
+        skillGoals: [
+          {
+            skillGoalId: 'skill-goal.inspect.pg',
+            requiredResult: 'Inspection evidence exists.',
+            capabilityNeeds: ['inspection'],
+            coveredCriterionIds: ['criterion-1'],
+            requiredEffectRefs: ['effect-1'],
+            evidenceRequirements: ['evidence-1'],
+            artifactRequirements: [],
+            assumptions: [],
+            constraints: ['Read only.'],
+            status: 'pending',
+          },
+        ],
+        dependencies: [],
+        inheritedCompletedEffectIds: [],
+        forbiddenReplayFingerprints: [],
+        createdAt: '2026-07-23T04:00:00.000Z',
+      }),
+      planHash: `sha256:${'2'.repeat(64)}`,
+      validation: {
+        valid: true,
+        errorCodes: [],
+        checks: [
+          'dag',
+          'bounds',
+          'coverage',
+          'capability_shape',
+          'policy',
+          'side_effect',
+          'no_replay',
+        ].map((check) => ({
+          check: check as
+            | 'dag'
+            | 'bounds'
+            | 'coverage'
+            | 'capability_shape'
+            | 'policy'
+            | 'side_effect'
+            | 'no_replay',
+          passed: true,
+        })),
+      },
+      diff: {
+        changedFields: ['skillGoals'],
+        addedSkillGoalIds: ['skill-goal.inspect.pg'],
+        removedSkillGoalIds: [],
+      },
+      experienceHints: ['Display only: inspect similar pumps read-only.'],
+      confirmationPolicy: 'manual_all',
+      riskLevel: 'low',
+      planningMetadata: { priorities: { 'skill-goal.inspect.pg': 10 }, parallelGroups: {} },
+      sourceRefs: goalSession.sourceRefs,
+      createdAt: '2026-07-23T04:00:00.000Z',
+    });
+    const session = createInteractivePlanningSessionSnapshot({
+      schemaVersion: '1.0',
+      sessionId: candidate.sessionId,
+      taskId: 'task.interactive-planning.pg',
+      goalSessionId: goalSession.sessionId,
+      confirmedContractCandidateId: goalSession.candidateId,
+      goalId: candidate.plan.goalId,
+      goalVersion: candidate.plan.goalVersion,
+      state: 'plan_review',
+      version: 1,
+      currentCandidateId: candidate.candidateId,
+      currentCandidateRevision: candidate.revision,
+      revisionCount: 1,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: candidate.createdAt,
+      updatedAt: candidate.createdAt,
+    });
+    await repository.start(session, candidate);
+    const mutations = ['planning.accept.a', 'planning.accept.b'].map((key, index) => ({
+      expectedVersion: 1,
+      idempotencyKey: key,
+      turn: createInteractivePlanningTurn({
+        turnId: `planning-turn.pg.${String(index + 1)}`,
+        sessionId: session.sessionId,
+        ordinal: 1,
+        expectedSessionVersion: 1,
+        idempotencyKey: key,
+        action: 'accept',
+        actorId: 'operator.pg',
+        payload: {},
+        createdAt: `2026-07-23T04:00:0${String(index + 1)}.000Z`,
+      }),
+      nextSession: createInteractivePlanningSessionSnapshot({
+        ...session,
+        state: 'confirmed',
+        version: 2,
+        updatedAt: `2026-07-23T04:00:0${String(index + 1)}.000Z`,
+      }),
+      candidate: createUserGoalPlanCandidateSnapshot({ ...candidate, status: 'confirmed' }),
+    }));
+    const results = await Promise.all(mutations.map((mutation) => repository.apply(mutation)));
+    expect(results.map((result) => result.outcome).sort()).toEqual(['applied', 'conflict']);
+    const applied = mutations[results.findIndex((result) => result.outcome === 'applied')];
+    if (applied === undefined) throw new Error('INTERACTIVE_PLANNING_APPLIED_MUTATION_MISSING');
+    await expect(repository.apply(applied)).resolves.toMatchObject({
+      outcome: 'duplicate',
+      session: { state: 'confirmed', version: 2 },
+      candidate: { status: 'confirmed' },
+    });
+    const restarted = new PostgresInteractivePlanningRepository(pool);
+    await expect(restarted.findByTask(session.taskId)).resolves.toMatchObject({
+      sessionId: session.sessionId,
+      state: 'confirmed',
+    });
+    await expect(restarted.listCandidates(session.sessionId)).resolves.toMatchObject([
+      { candidateId: candidate.candidateId, status: 'confirmed' },
+    ]);
+    const events = await pool.query<{ event_type: string }>(
+      `SELECT event_type FROM cognitive_runtime_outbox WHERE aggregate_id=$1 ORDER BY event_type`,
+      [session.sessionId],
+    );
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'plan.candidate_created',
+      'plan.confirmed',
+    ]);
+
+    const lock = new PostgresGoalVersionLock(pool);
+    let active = 0;
+    let maxActive = 0;
+    await Promise.all(
+      [1, 2].map(() =>
+        lock.withLock(session.goalId, session.goalVersion, async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          active -= 1;
+        }),
+      ),
+    );
+    expect(maxActive).toBe(1);
+  });
 });
+
+async function seedConfirmedGoalSessionForPlanning() {
+  await pool.query(
+    `INSERT INTO model_invocation(
+       invocation_id,stage,provider_id,model,operation,request_json,context_json,
+       raw_response_json,structured_result_json,duration_ms,status,created_at
+     ) VALUES ('model-invocation.planning.goal-contract','goal_contract_generation','provider.test',
+       'model.test','structured_generation','{}','{}','{}','{}',5,'succeeded',$1)`,
+    ['2026-07-23T03:59:00.000Z'],
+  );
+  const understanding = createGenericTaskUnderstandingRevision({
+    schemaVersion: '1.0',
+    understandingId: 'understanding.planning.pg.1',
+    taskId: 'task.interactive-planning.pg',
+    revision: 1,
+    originalRequest: 'Inspect pump-17.',
+    objective: 'Inspect pump-17.',
+    taskTypeCandidates: [],
+    capabilityRequirements: [
+      {
+        capabilityId: 'inspection',
+        description: 'Inspect a device read-only.',
+        required: true,
+        available: true,
+      },
+    ],
+    knownConstraints: ['Read only.'],
+    knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+    assumptions: [],
+    missingDimensions: [],
+    confidence: 0.99,
+    disposition: 'contract_candidate',
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation.planning.goal-contract',
+    policyVersion: 'task-understanding-v1',
+    stateHash: `sha256:${'3'.repeat(64)}`,
+    createdAt: '2026-07-23T03:59:00.000Z',
+  });
+  await new PostgresTaskUnderstandingRepository(pool).saveRevision(understanding);
+  const candidate = createGoalContractCandidateSnapshot({
+    schemaVersion: '1.0',
+    candidateId: 'goal-contract-candidate.planning.pg',
+    sessionId: 'goal-session.planning.pg',
+    revision: 1,
+    status: 'confirmed',
+    contract: {
+      title: 'Inspect pump-17',
+      description: 'Inspect pump-17 read-only.',
+      constraints: ['Read only.'],
+      successCriteria: ['Inspection evidence exists.'],
+    },
+    contractHash: `sha256:${'4'.repeat(64)}`,
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation.planning.goal-contract',
+    diff: { changedFields: ['title', 'description', 'constraints', 'successCriteria'] },
+    createdAt: '2026-07-23T03:59:01.000Z',
+  });
+  const session = createInteractiveGoalSessionSnapshot({
+    schemaVersion: '1.0',
+    sessionId: candidate.sessionId,
+    taskId: understanding.taskId,
+    state: 'confirmed',
+    version: 1,
+    currentUnderstandingId: understanding.understandingId,
+    currentCandidateId: candidate.candidateId,
+    currentCandidateRevision: candidate.revision,
+    clarificationRounds: 0,
+    revisionCount: 1,
+    maxClarificationRounds: 4,
+    maxRevisions: 4,
+    maxElapsedMs: 900_000,
+    createdAt: candidate.createdAt,
+    updatedAt: candidate.createdAt,
+  });
+  await new PostgresInteractiveGoalRepository(pool).start(session, candidate);
+  return { sessionId: session.sessionId, candidateId: candidate.candidateId, sourceRefs: [] };
+}
 
 function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {
   return createRuntimeCapabilitySummarySnapshot({

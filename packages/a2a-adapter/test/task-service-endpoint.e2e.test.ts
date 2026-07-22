@@ -301,6 +301,7 @@ beforeAll(async () => {
     'task_understanding',
     'task_clarification',
     'goal_contract_generation',
+    'interactive_plan_patch',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -476,14 +477,155 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       session: { state: 'confirmed', version: 3 },
       candidate: { status: 'confirmed' },
     });
+    const planReviewTask = z
+      .object({
+        goalId: z.string(),
+        goalVersion: z.number(),
+        phase: z.string(),
+      })
+      .loose()
+      .parse(
+        await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+          response.json(),
+        ),
+      );
+    expect(planReviewTask).toMatchObject({
+      goalId: expect.any(String),
+      goalVersion: 1,
+      phase: 'awaiting_user_input',
+    });
+    expect(planReviewTask).not.toHaveProperty('userGoalPlanId');
+    expect(planReviewTask).not.toHaveProperty('skillAttemptId');
+    expect(planReviewTask).not.toHaveProperty('planId');
+
+    const initialPlanning = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session`,
+    );
+    expect(initialPlanning.status).toBe(200);
+    await expect(initialPlanning.json()).resolves.toMatchObject({
+      session: { state: 'plan_review', version: 1, currentCandidateRevision: 1 },
+      candidate: {
+        status: 'candidate',
+        validation: { valid: true },
+        confirmationPolicy: 'manual_all',
+        plan: { skillGoals: [{ capabilityNeeds: ['inspection'] }] },
+      },
+    });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(planReviewTask.goalId)}/user-goal-plan?goalVersion=1`,
+      ).then((response) => response.json()),
+    ).resolves.toBeNull();
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/mcp/invocations?taskId=${encodeURIComponent(submitted.id)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ items: [] });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: submitted.id }),
+    ).resolves.toMatchObject({
+      metadata: {
+        'io.sdar/interaction': {
+          kind: 'interactive_planning',
+          state: 'plan_review',
+          version: 1,
+          allowedActions: ['accept', 'patch', 'reject', 'cancel'],
+        },
+      },
+    });
+
+    const patchStartedAt = Date.now();
+    const patched = await sendFollowUp(
+      submitted.id,
+      submitted.contextId,
+      'provide_input',
+      'Make inspection evidence explicit and prioritize it.',
+    );
+    if (!('id' in patched)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(Date.now() - patchStartedAt).toBeLessThanOrEqual(3_000);
+    const revisedPlanning = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session`,
+    );
+    await expect(revisedPlanning.json()).resolves.toMatchObject({
+      session: { state: 'plan_review', version: 2, currentCandidateRevision: 2 },
+      candidate: {
+        revision: 2,
+        status: 'candidate',
+        diff: { changedFields: expect.arrayContaining(['skillGoals', 'planningMetadata']) },
+        planningMetadata: { priorities: expect.any(Object) },
+        patchModelInvocationId: expect.any(String),
+      },
+    });
+    for (const instruction of [
+      'Keep the inspection read-only and retain the same evidence priority.',
+      'Make the verified inspection result concise without changing coverage.',
+    ]) {
+      const revision = await sendFollowUp(
+        submitted.id,
+        submitted.contextId,
+        'provide_input',
+        instruction,
+      );
+      if (!('id' in revision)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+      await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+    }
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      session: { state: 'plan_review', version: 4, currentCandidateRevision: 4 },
+      candidate: { revision: 4, status: 'candidate' },
+    });
+    const patchInvocations = z
+      .object({
+        items: z.array(
+          z.object({ stage: z.literal('interactive_plan_patch'), durationMs: z.number() }),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/models/invocations?stage=interactive_plan_patch`,
+        ).then((response) => response.json()),
+      ).items;
+    expect(patchInvocations).toHaveLength(3);
+    const sortedDurations = patchInvocations.map((item) => item.durationMs).sort((a, b) => a - b);
+    const p95Index = Math.max(0, Math.ceil(sortedDurations.length * 0.95) - 1);
+    expect(sortedDurations[p95Index]).toBeLessThanOrEqual(3_000);
+    const stillUnconfirmed = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+    ).then((response) => response.json());
+    expect(stillUnconfirmed).not.toHaveProperty('userGoalPlanId');
+    expect(stillUnconfirmed).not.toHaveProperty('skillAttemptId');
+
+    const planAccepted = await sendFollowUp(
+      submitted.id,
+      submitted.contextId,
+      'provide_input',
+      'accept',
+    );
+    if (!('id' in planAccepted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session`).then(
+        (response) => response.json(),
+      ),
+    ).resolves.toMatchObject({
+      session: { state: 'confirmed', version: 5 },
+      candidate: { revision: 4, status: 'confirmed' },
+    });
     await expect(
       fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
         response.json(),
       ),
     ).resolves.toMatchObject({
-      goalId: expect.any(String),
+      goalId: planReviewTask.goalId,
       goalVersion: 1,
       phase: 'awaiting_plan_confirmation',
+      userGoalPlanId: expect.any(String),
+      skillAttemptId: expect.any(String),
+      planId: expect.any(String),
     });
   });
 
@@ -6724,6 +6866,9 @@ async function startModelLoopback(): Promise<Server> {
             message.content?.includes('Produce a candidate only') === true &&
             message.content.includes('taskUnderstanding'),
         );
+        const interactivePlanPatchRequest = body.messages?.some(
+          (message) => message.content?.includes('untrustedUserInstruction') === true,
+        );
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
@@ -6873,6 +7018,32 @@ async function startModelLoopback(): Promise<Server> {
             description: 'Inspect pump-17 without side effects and preserve evidence.',
             constraints: ['Do not mutate pump-17.'],
             successCriteria: ['Inspection evidence is recorded.'],
+          });
+          return;
+        }
+        if (interactivePlanPatchRequest === true) {
+          const requestData = z
+            .object({
+              currentCandidate: z.object({
+                plan: z.object({
+                  skillGoals: z.array(z.object({ skillGoalId: z.string() })).min(1),
+                }),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'compile_interactive_plan_patch'));
+          const skillGoalId = requestData.currentCandidate.plan.skillGoals[0]?.skillGoalId;
+          if (skillGoalId === undefined) throw new Error('PLAN_PATCH_SKILL_GOAL_MISSING');
+          respondStructured(response, {
+            operations: [
+              {
+                op: 'update_skill_goal',
+                skillGoalId,
+                changes: {
+                  requiredResult: 'Inspect pump-17 and preserve explicit verification evidence.',
+                },
+              },
+              { op: 'set_priority', skillGoalId, priority: 10 },
+            ],
           });
           return;
         }
@@ -7524,7 +7695,9 @@ async function startModelLoopback(): Promise<Server> {
               {
                 skillGoalId: `skill-goal-${randomUUID()}`,
                 requiredResult: requestData.contract.description,
-                capabilityNeeds: [],
+                capabilityNeeds: requestData.contract.description.includes('pump-17')
+                  ? ['inspection']
+                  : [],
                 coveredCriterionIds: requestData.contract.criteria.map((item) => item.criterionId),
                 requiredEffectRefs: [],
                 evidenceRequirements: [],

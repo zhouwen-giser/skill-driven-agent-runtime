@@ -19,6 +19,7 @@ const stages = [
   'task_understanding',
   'task_clarification',
   'goal_contract_generation',
+  'interactive_plan_patch',
 ] as const;
 interface Inventory<T> {
   readonly items: readonly T[];

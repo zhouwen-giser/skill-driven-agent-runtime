@@ -11,6 +11,7 @@ import {
   type A2AHttpEndpointHandle,
 } from '../../../packages/a2a-adapter/src/http-endpoint.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
+import { projectInteractivePlanningInteraction } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
@@ -100,6 +101,10 @@ import {
   CognitiveEntryRouter,
   GenericTaskUnderstandingService,
   InteractiveGoalSessionService,
+  InteractivePlanningSessionService,
+  InteractivePlanPatchService,
+  UserGoalPlanCandidateValidator,
+  ConfirmedPlanHandoff,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -168,6 +173,8 @@ import {
   PostgresCapabilityCardRepository,
   PostgresTaskUnderstandingRepository,
   PostgresInteractiveGoalRepository,
+  PostgresInteractivePlanningRepository,
+  PostgresGoalVersionLock,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -525,7 +532,8 @@ export async function startServerRuntime(
       if (
         input.stage !== 'task_understanding' &&
         input.stage !== 'task_clarification' &&
-        input.stage !== 'goal_contract_generation'
+        input.stage !== 'goal_contract_generation' &&
+        input.stage !== 'interactive_plan_patch'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -535,6 +543,7 @@ export async function startServerRuntime(
         responseSchema: input.responseSchema,
         correctionErrors: [],
         context: { sourceRefs: input.sourceRefs },
+        timeoutMs: input.timeoutMs,
         ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       });
     },
@@ -626,12 +635,18 @@ export async function startServerRuntime(
             maxElapsedMs: 900_000,
           },
         });
+  let interactivePlanningSessions: InteractivePlanningSessionService | undefined;
   const interactiveGoalMetadata = async (
     taskId: string,
   ): Promise<Readonly<Record<string, unknown>> | undefined> => {
+    const planning = await interactivePlanningSessions?.getByTask(taskId);
+    if (planning !== undefined) {
+      return projectInteractivePlanningInteraction(planning);
+    }
     const view = await interactiveGoalSessions?.getByTask(taskId);
     if (view === undefined) return undefined;
     return {
+      kind: 'interactive_goal',
       sessionId: view.session.sessionId,
       state: view.session.state,
       version: view.session.version,
@@ -1631,6 +1646,35 @@ export async function startServerRuntime(
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
   });
+  if (interactiveGoalSessions !== undefined) {
+    const planCandidateValidator = new UserGoalPlanCandidateValidator();
+    interactivePlanningSessions = new InteractivePlanningSessionService({
+      repository: new PostgresInteractivePlanningRepository(pool),
+      planner: userGoalPlanning,
+      patches: new InteractivePlanPatchService({
+        model: cognitiveModel,
+        validator: planCandidateValidator,
+        clock,
+        nextCandidateId: () => `plan-candidate-${randomUUID()}`,
+        nextPlanId: () => `user-goal-plan-${randomUUID()}`,
+      }),
+      validator: planCandidateValidator,
+      handoff: new ConfirmedPlanHandoff({
+        lock: new PostgresGoalVersionLock(pool),
+        planner: userGoalPlanning,
+      }),
+      goals: goalService,
+      clock,
+      ids: {
+        nextSessionId: () => `planning-session-${randomUUID()}`,
+        nextTurnId: () => `planning-turn-${randomUUID()}`,
+        nextCandidateId: () => `plan-candidate-${randomUUID()}`,
+      },
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      defaultConfirmationPolicy: 'manual_all',
+    });
+  }
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -2530,6 +2574,9 @@ export async function startServerRuntime(
           },
         }),
     ...(interactiveGoalSessions === undefined ? {} : { goalSessions: interactiveGoalSessions }),
+    ...(interactivePlanningSessions === undefined
+      ? {}
+      : { planningSessions: interactivePlanningSessions }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -3135,6 +3182,23 @@ export async function startServerRuntime(
                     await processor.continueConfirmedGoalSession(
                       view.session.taskId,
                       view.candidate.contract,
+                    );
+                  }
+                  return view;
+                },
+              },
+            }),
+        ...(interactivePlanningSessions === undefined
+          ? {}
+          : {
+              planningSessions: {
+                getByTask: interactivePlanningSessions.getByTask.bind(interactivePlanningSessions),
+                async applyAction(input) {
+                  const view = await interactivePlanningSessions.applyAction(input);
+                  if (view.session.state === 'confirmed') {
+                    await processor.continueConfirmedPlanningSession(
+                      view.session.taskId,
+                      view.candidate.plan.planId,
                     );
                   }
                   return view;

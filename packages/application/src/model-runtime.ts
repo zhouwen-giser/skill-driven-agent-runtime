@@ -74,6 +74,7 @@ export class ModelRuntimeService {
       correctionErrors: readonly string[];
       context?: unknown;
       taskId?: string;
+      timeoutMs?: number;
     }>,
   ): Promise<unknown> {
     return (await this.#invokeStructured(input)).structuredResult;
@@ -87,6 +88,7 @@ export class ModelRuntimeService {
       correctionErrors: readonly string[];
       context?: unknown;
       taskId?: string;
+      timeoutMs?: number;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
     return this.#invokeStructured(input);
@@ -116,6 +118,7 @@ export class ModelRuntimeService {
       correctionErrors: readonly string[];
       context?: unknown;
       taskId?: string;
+      timeoutMs?: number;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
     const provider = await this.#requiredProvider(input.stage);
@@ -140,7 +143,11 @@ export class ModelRuntimeService {
         instruction: renderedInstruction,
         responseSchema: input.responseSchema,
         correctionErrors: input.correctionErrors,
-        signal: AbortSignal.timeout(provider.configuration.timeoutMs),
+        signal: AbortSignal.timeout(
+          input.timeoutMs === undefined
+            ? provider.configuration.timeoutMs
+            : Math.min(provider.configuration.timeoutMs, input.timeoutMs),
+        ),
       });
       const invocationId = await this.#audit(
         provider.configuration,

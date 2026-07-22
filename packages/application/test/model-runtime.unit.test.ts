@@ -104,6 +104,26 @@ describe('ModelRuntimeService', () => {
     });
   });
 
+  it('caps a cognitive structured invocation below the provider timeout when requested', async () => {
+    const repository = new MemoryModelRepository();
+    const transport = new FakeTransport();
+    const service = createService(repository, transport);
+    await service.configureProvider(configuration('provider-primary'), {});
+    await service.route('interactive_plan_patch', 'provider-primary');
+    await service.generateStructuredWithAudit({
+      stage: 'interactive_plan_patch',
+      instruction: 'Compile one bounded candidate patch.',
+      responseSchema: { type: 'object' },
+      correctionErrors: [],
+      timeoutMs: 10,
+    });
+    const signal = transport.signals[0];
+    if (signal === undefined) throw new Error('MODEL_SIGNAL_NOT_CAPTURED');
+    expect(signal.aborted).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(signal.aborted).toBe(true);
+  });
+
   it('fails before transport when a stage has no route', async () => {
     const transport = new FakeTransport();
     await expect(
@@ -144,12 +164,14 @@ function configuration(providerId: string): ModelProviderConfiguration {
 
 class FakeTransport implements ModelTransportAdapter {
   readonly providerIds: string[] = [];
+  readonly signals: AbortSignal[] = [];
   readonly #fail: boolean;
   constructor(fail = false) {
     this.#fail = fail;
   }
   generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
     this.providerIds.push(input.configuration.providerId);
+    this.signals.push(input.signal);
     if (this.#fail)
       return Promise.reject(
         Object.assign(new Error('upstream unavailable'), { code: 'UPSTREAM_FAILED' }),

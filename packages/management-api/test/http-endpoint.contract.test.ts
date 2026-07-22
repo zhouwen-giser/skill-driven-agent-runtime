@@ -230,6 +230,50 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('reads an interactive planning session and applies a CAS/idempotent plan patch', async () => {
+    const view = interactivePlanningSessionView();
+    let received: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        planningSessions: {
+          getByTask: () => Promise.resolve(view),
+          applyAction: (input) => {
+            received = input;
+            return Promise.resolve(view);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/planning-session`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(view);
+    const applied = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/planning-session/actions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedVersion: 1,
+          idempotencyKey: 'planning-input-1',
+          actorId: 'operator-1',
+          action: 'patch',
+          payload: { instruction: 'Prioritize inspection evidence.' },
+        }),
+      },
+    );
+    expect(applied.status).toBe(200);
+    expect(received).toEqual({
+      sessionId: 'planning-session-1',
+      expectedVersion: 1,
+      idempotencyKey: 'planning-input-1',
+      actorId: 'operator-1',
+      action: 'patch',
+      payload: { instruction: 'Prioritize inspection evidence.' },
+    });
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2729,6 +2773,62 @@ function interactiveGoalSessionView() {
       modelInvocationId: 'model-invocation-1',
       diff: { changedFields: ['title' as const] },
       createdAt: '2026-07-23T03:30:00.000Z',
+    },
+  };
+}
+
+function interactivePlanningSessionView() {
+  return {
+    outcome: 'duplicate' as const,
+    session: {
+      schemaVersion: '1.0' as const,
+      sessionId: 'planning-session-1',
+      taskId: 'task-1',
+      goalSessionId: 'goal-session-1',
+      confirmedContractCandidateId: 'candidate-1',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      state: 'plan_review' as const,
+      version: 1,
+      currentCandidateId: 'plan-candidate-1',
+      currentCandidateRevision: 1,
+      revisionCount: 1,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T04:00:00.000Z',
+      updatedAt: '2026-07-23T04:00:00.000Z',
+    },
+    candidate: {
+      schemaVersion: '1.0' as const,
+      candidateId: 'plan-candidate-1',
+      sessionId: 'planning-session-1',
+      revision: 1,
+      status: 'candidate' as const,
+      plan: {
+        schemaVersion: '1.0' as const,
+        planId: 'user-goal-plan-1',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        revision: 1,
+        revisionKind: 'initial' as const,
+        status: 'validated' as const,
+        contractHash: `sha256:${'a'.repeat(64)}`,
+        contentHash: `sha256:${'b'.repeat(64)}`,
+        skillGoals: [],
+        dependencies: [],
+        inheritedCompletedEffectIds: [],
+        forbiddenReplayFingerprints: [],
+        createdAt: '2026-07-23T04:00:00.000Z',
+      },
+      planHash: `sha256:${'b'.repeat(64)}`,
+      validation: { valid: true, errorCodes: [], checks: [] },
+      diff: { changedFields: [], addedSkillGoalIds: [], removedSkillGoalIds: [] },
+      experienceHints: [],
+      confirmationPolicy: 'manual_all' as const,
+      riskLevel: 'low' as const,
+      planningMetadata: { priorities: {}, parallelGroups: {} },
+      sourceRefs: [],
+      createdAt: '2026-07-23T04:00:00.000Z',
     },
   };
 }

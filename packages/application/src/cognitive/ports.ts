@@ -8,11 +8,15 @@ import type {
   GoalContractCandidateSnapshot,
   InteractiveGoalSessionSnapshot,
   InteractiveGoalTurn,
+  InteractivePlanningSessionSnapshot,
+  InteractivePlanningTurn,
   KnowledgeCandidateSnapshot,
   KnowledgeStatusTransition,
   PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
+  UserGoalPlanCandidateSnapshot,
+  UserGoalPlan,
 } from '../../../domain/src/index.js';
 
 export interface CognitiveFeatureFlagSource {
@@ -103,6 +107,47 @@ export interface InteractiveGoalRepository {
     candidate?: GoalContractCandidateSnapshot,
   ): Promise<InteractiveGoalSessionSnapshot>;
   apply(mutation: InteractiveGoalMutation): Promise<InteractiveGoalMutationResult>;
+}
+
+export interface InteractivePlanningMutation {
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+  readonly turn: InteractivePlanningTurn;
+  readonly nextSession: InteractivePlanningSessionSnapshot;
+  readonly candidate?: UserGoalPlanCandidateSnapshot<UserGoalPlan>;
+}
+
+export type InteractivePlanningMutationResult =
+  | Readonly<{
+      outcome: 'applied' | 'duplicate';
+      session: InteractivePlanningSessionSnapshot;
+      candidate?: UserGoalPlanCandidateSnapshot<UserGoalPlan>;
+    }>
+  | Readonly<{
+      outcome: 'conflict';
+      session: InteractivePlanningSessionSnapshot;
+    }>;
+
+export interface InteractivePlanningRepository {
+  findByTask(taskId: string): Promise<InteractivePlanningSessionSnapshot | undefined>;
+  find(sessionId: string): Promise<InteractivePlanningSessionSnapshot | undefined>;
+  listTurns(sessionId: string): Promise<readonly InteractivePlanningTurn[]>;
+  listCandidates(
+    sessionId: string,
+  ): Promise<readonly UserGoalPlanCandidateSnapshot<UserGoalPlan>[]>;
+  findTurnByIdempotencyKey(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<InteractivePlanningTurn | undefined>;
+  start(
+    session: InteractivePlanningSessionSnapshot,
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+  ): Promise<InteractivePlanningSessionSnapshot>;
+  apply(mutation: InteractivePlanningMutation): Promise<InteractivePlanningMutationResult>;
+}
+
+export interface GoalVersionLock {
+  withLock<T>(goalId: string, goalVersion: number, operation: () => Promise<T>): Promise<T>;
 }
 
 export interface GoalExperienceEpisodeRepository {

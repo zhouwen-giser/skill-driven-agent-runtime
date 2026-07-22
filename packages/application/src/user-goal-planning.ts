@@ -96,6 +96,7 @@ const planCandidateResponseSchema = {
 } as const;
 
 export interface UserGoalPlanningRepository {
+  findPlan(planId: string): Promise<UserGoalPlan | undefined>;
   saveContract(
     contract: UserGoalCompletionContract,
     contractHash: string,
@@ -157,8 +158,31 @@ export class UserGoalPlanningService {
       }>;
     }>,
   ): Promise<Readonly<{ contract: UserGoalCompletionContract; plan: UserGoalPlan }>> {
+    const generated = await this.generateCandidate(input);
+    await this.commitCandidate({
+      ...generated,
+      ...(input.sourcePlan === undefined ? {} : { sourcePlan: input.sourcePlan }),
+    });
+    return generated;
+  }
+
+  async generateCandidate(
+    input: Readonly<{
+      goal: Goal;
+      revision?: number;
+      revisionKind?: UserGoalPlanRevisionKind;
+      sourcePlan?: Readonly<{
+        planId: string;
+        revision: number;
+        lockVersion: number;
+        status: Extract<UserGoalPlan['status'], 'validated' | 'active' | 'revision_pending'>;
+        inheritedCompletedEffectIds: readonly string[];
+        forbiddenReplayFingerprints: readonly string[];
+      }>;
+    }>,
+  ): Promise<Readonly<{ contract: UserGoalCompletionContract; plan: UserGoalPlan }>> {
     const createdAt = this.#now();
-    const contract = completionContract(input.goal);
+    const contract = userGoalCompletionContractFor(input.goal);
     const contractHash = hashJson(contract);
     const correctionErrors: string[] = [];
     for (let attempt = 1; attempt <= contract.policy.maxPlanningModelAttempts; attempt += 1) {
@@ -211,16 +235,6 @@ export class UserGoalPlanningService {
             createdAt,
           }),
         );
-        await this.#repository.saveContract(contract, contractHash, createdAt);
-        if (input.sourcePlan !== undefined) {
-          if (!(await this.#repository.replacePlan(input.sourcePlan, plan, createdAt)))
-            throw new UserGoalPlanningError(
-              'USER_GOAL_PLAN_SOURCE_CAS_FAILED',
-              'Source User Goal Plan changed before revision commit.',
-            );
-        } else {
-          await this.#repository.createPlan(plan);
-        }
         return { contract, plan };
       } catch (error) {
         if (error instanceof UserGoalPlanningError) throw error;
@@ -233,6 +247,46 @@ export class UserGoalPlanningService {
     );
   }
 
+  async commitCandidate(
+    input: Readonly<{
+      contract: UserGoalCompletionContract;
+      plan: UserGoalPlan;
+      sourcePlan?: Readonly<{
+        planId: string;
+        revision: number;
+        lockVersion: number;
+        status: Extract<UserGoalPlan['status'], 'validated' | 'active' | 'revision_pending'>;
+        inheritedCompletedEffectIds: readonly string[];
+        forbiddenReplayFingerprints: readonly string[];
+      }>;
+    }>,
+  ): Promise<void> {
+    validateUserGoalPlan(input.contract, input.plan);
+    const existing = await this.#repository.findPlan(input.plan.planId);
+    if (existing !== undefined) {
+      if (existing.contentHash === input.plan.contentHash) return;
+      throw new UserGoalPlanningError(
+        'USER_GOAL_PLAN_ID_COLLISION',
+        'A different User Goal Plan already uses this candidate plan ID.',
+      );
+    }
+    await this.#repository.saveContract(
+      input.contract,
+      input.plan.contractHash,
+      input.plan.createdAt,
+    );
+    if (input.sourcePlan === undefined) {
+      await this.#repository.createPlan(input.plan);
+      return;
+    }
+    if (!(await this.#repository.replacePlan(input.sourcePlan, input.plan, this.#now()))) {
+      throw new UserGoalPlanningError(
+        'USER_GOAL_PLAN_SOURCE_CAS_FAILED',
+        'Source User Goal Plan changed before revision commit.',
+      );
+    }
+  }
+
   findReusablePlan(
     goalId: string,
     goalVersion: number,
@@ -242,7 +296,10 @@ export class UserGoalPlanningService {
 }
 
 export class UserGoalPlanningError extends Error {
-  readonly code: 'USER_GOAL_PLANNING_EXHAUSTED' | 'USER_GOAL_PLAN_SOURCE_CAS_FAILED';
+  readonly code:
+    | 'USER_GOAL_PLANNING_EXHAUSTED'
+    | 'USER_GOAL_PLAN_SOURCE_CAS_FAILED'
+    | 'USER_GOAL_PLAN_ID_COLLISION';
 
   constructor(code: UserGoalPlanningError['code'], message: string) {
     super(message);
@@ -251,7 +308,7 @@ export class UserGoalPlanningError extends Error {
   }
 }
 
-function completionContract(goal: Goal): UserGoalCompletionContract {
+export function userGoalCompletionContractFor(goal: Goal): UserGoalCompletionContract {
   return createUserGoalCompletionContract({
     schemaVersion: '1.0',
     goalId: goal.goalId,

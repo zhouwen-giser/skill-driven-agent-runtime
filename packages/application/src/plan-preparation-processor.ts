@@ -4,6 +4,8 @@ import {
   bindTaskSkill,
   bindTaskSkillExecutionContract,
   bindTaskTemporarySkill,
+  COGNITIVE_SCHEMA_VERSION,
+  createCognitiveSourceRef,
   createGoalExecutionContract,
   transitionTask,
   type AgentTask,
@@ -32,6 +34,7 @@ import type {
   CognitiveEntryRoute,
   GenericTaskUnderstandingService,
   InteractiveGoalSessionService,
+  InteractivePlanningSessionService,
   UnderstandGenericTaskInput,
 } from './cognitive/index.js';
 
@@ -160,6 +163,10 @@ export interface PlanPreparationProcessorDependencies {
     InteractiveGoalSessionService,
     'start' | 'getByTask' | 'applyAction'
   >;
+  readonly planningSessions?: Pick<
+    InteractivePlanningSessionService,
+    'start' | 'getByTask' | 'applyAction'
+  >;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -254,6 +261,24 @@ export class PlanPreparationProcessor {
     await this.#createConfirmedGoalAndPlan(task, contract);
   }
 
+  async continueConfirmedPlanningSession(taskId: string, userGoalPlanId: string): Promise<void> {
+    const task = await this.#dependencies.tasks.findById(taskId);
+    if (task === undefined)
+      throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
+    if (task.userGoalPlanId === userGoalPlanId) return;
+    if (
+      task.userGoalPlanId !== undefined ||
+      task.goalId === undefined ||
+      task.goalVersion === undefined
+    )
+      throw new Error('CONFIRMED_PLANNING_CONTINUATION_BINDING_INVALID');
+    const goal = await this.#dependencies.goals.get(task.goalId);
+    if (goal.version !== task.goalVersion || goal.status !== 'active')
+      throw new Error('CONFIRMED_PLANNING_CONTINUATION_GOAL_STALE');
+    await this.#dependencies.closePendingGoalInput?.close(taskId);
+    await this.#scheduleUserGoalPlan(task, goal, userGoalPlanId);
+  }
+
   async #prepare(initialTask: AgentTask): Promise<void> {
     let task = initialTask;
     task = await this.#transition(task, 'context_loading', 'Context loaded.');
@@ -345,6 +370,44 @@ export class PlanPreparationProcessor {
         content: continuation.response.content,
       });
       return;
+    }
+    const planningSession = await this.#dependencies.planningSessions?.getByTask(task.taskId);
+    if (planningSession !== undefined) {
+      const action = interactivePlanningActionFor(continuation.response.content);
+      const view = await this.#dependencies.planningSessions?.applyAction({
+        sessionId: planningSession.session.sessionId,
+        expectedVersion: planningSession.session.version,
+        idempotencyKey: continuation.request.inputRequestId,
+        actorId: 'a2a:user',
+        action: action.action,
+        payload: action.payload,
+      });
+      if (view === undefined) throw new Error('INTERACTIVE_PLANNING_SESSION_UNAVAILABLE');
+      if (view.session.state === 'plan_review') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          'Review the candidate Skill Goal DAG and submit accept, patch, reject, or cancel.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'confirmed') {
+        await this.#scheduleUserGoalPlan(
+          task,
+          await this.#dependencies.goals.get(view.session.goalId),
+          view.candidate.plan.planId,
+        );
+        return;
+      }
+      if (view.session.state === 'canceled') {
+        await this.#transition(
+          task,
+          'canceled',
+          'Interactive planning session canceled by the user.',
+        );
+        return;
+      }
+      throw new Error(`INTERACTIVE_PLANNING_SESSION_${view.session.state.toUpperCase()}`);
     }
     const goalSession = await this.#dependencies.goalSessions?.getByTask(task.taskId);
     if (goalSession !== undefined) {
@@ -453,6 +516,44 @@ export class PlanPreparationProcessor {
       summary:
         continuity?.decisionSummary ?? 'Created a Goal from the user-confirmed Goal Contract.',
     });
+    if (this.#dependencies.planningSessions !== undefined) {
+      const goalSession = await this.#dependencies.goalSessions?.getByTask(task.taskId);
+      if (
+        goalSession?.session.state !== 'confirmed' ||
+        goalSession.candidate?.status !== 'confirmed'
+      ) {
+        throw new Error('CONFIRMED_GOAL_CONTRACT_REQUIRED_FOR_INTERACTIVE_PLANNING');
+      }
+      const planning = await this.#dependencies.planningSessions.start({
+        taskId: task.taskId,
+        goalSessionId: goalSession.session.sessionId,
+        confirmedContractCandidateId: goalSession.candidate.candidateId,
+        goal,
+        sourceRefs: [
+          createCognitiveSourceRef({
+            schemaVersion: COGNITIVE_SCHEMA_VERSION,
+            sourceRefId: `source.goal-contract.${goalSession.candidate.candidateId}`,
+            sourceKind: 'goal_contract',
+            sourceId: goalSession.candidate.candidateId,
+            sourceRevision: goalSession.candidate.revision,
+            authority: 'user_confirmation',
+            dataClassification: 'user_scoped',
+            capturedAt: this.#dependencies.clock.now(),
+            contentHash: goalSession.candidate.contractHash,
+          }),
+        ],
+      });
+      if (planning.session.state === 'confirmed') {
+        await this.#scheduleUserGoalPlan(bound, goal, planning.candidate.plan.planId);
+        return;
+      }
+      await this.#dependencies.requestTaskInput(
+        task.taskId,
+        'Review the candidate Skill Goal DAG and submit accept, patch, reject, or cancel.',
+        { source: 'goal_deliberation' },
+      );
+      return;
+    }
     const userGoalPlan = await this.#dependencies.userGoalPlanning.plan({ goal });
     await this.#scheduleUserGoalPlan(bound, goal, userGoalPlan.plan.planId);
   }
@@ -835,6 +936,34 @@ function interactiveActionFor(
     return { action: 'accept', payload: {} };
   }
   throw new Error('INTERACTIVE_GOAL_ACTION_REQUIRED');
+}
+
+function interactivePlanningActionFor(content: unknown): Readonly<{
+  action: 'accept' | 'patch' | 'reject' | 'cancel';
+  payload: Readonly<Record<string, unknown>>;
+}> {
+  if (typeof content === 'object' && content !== null && !Array.isArray(content)) {
+    const record = content as Readonly<Record<string, unknown>>;
+    const action = record['action'];
+    if (action === 'accept' || action === 'patch' || action === 'reject' || action === 'cancel') {
+      const payload = record['payload'];
+      return {
+        action,
+        payload:
+          typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+            ? (payload as Readonly<Record<string, unknown>>)
+            : action === 'patch' && typeof record['instruction'] === 'string'
+              ? { instruction: record['instruction'] }
+              : {},
+      };
+    }
+  }
+  if (typeof content === 'string') {
+    const normalized = content.trim();
+    if (normalized.toLocaleLowerCase() === 'accept') return { action: 'accept', payload: {} };
+    if (normalized !== '') return { action: 'patch', payload: { instruction: normalized } };
+  }
+  throw new Error('INTERACTIVE_PLANNING_ACTION_REQUIRED');
 }
 
 function errorCode(error: unknown): string {
