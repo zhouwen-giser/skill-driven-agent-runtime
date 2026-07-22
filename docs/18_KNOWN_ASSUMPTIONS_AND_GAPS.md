@@ -59,6 +59,23 @@
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
+## v1.2.2 final acceptance boundary (2026-07-22)
+
+- The external Provider source worktree advanced independently during the Goal. SDAR used a byte-exact
+  isolated archive of commit `8a81b1b02971fb124ed96372c440c449f9087c99`; it did not edit, branch,
+  commit or submit a PR to the Provider repository. A moving external HEAD is not implicitly qualified.
+- Provider Requirements Contract Frozen, Provider Runtime Candidate, SDAR Client Contract Passed, Real
+  Interop Passed and arbitrary Profile 1.0 freeze are separate claims. Only the first four exact claims
+  in the final reports passed; future Provider commits require requalification.
+- The repository `.env` points at an unavailable historical port 54329. Final acceptance uses explicit
+  disposable database URLs on the operator-managed test service at 55432. No operator ledger was
+  repaired. Failed runs caused by the stale port and a historical smoke fixture are retained.
+- Model decisions and Frozen Mock Provider scenarios are deterministic simulations. PostgreSQL/Redis,
+  HTTP/A2A/LangGraph, Management API, production bundle/smoke, database restart and exact external
+  Provider interop are real local evidence.
+- Original SRS content was audited by complete OOXML extraction. Visual pagination/rendering remains
+  unverified because no DOCX renderer is installed; v1.2.2 does not modify or publish the DOCX.
+
 ## EP-00 执行发现
 
 - 2026-07-11：当前目录不包含 Git 元数据，无法生成 Conventional Commit 证据，也无法基于 Git 恢复文件字节版本。首次建立格式门禁时，宽范围 Prettier 对部分 Markdown/JSON 基线执行了内容等价的排版重写；未改变需求文本或状态。格式脚本现已限制为代码与配置文件，后续不得格式化 `docs/`、`schemas/`、`examples/`、`source/`。如获得仓库原始 Git 历史，应恢复这些基线文件的原始排版后再重放明确的状态/缺口编辑。

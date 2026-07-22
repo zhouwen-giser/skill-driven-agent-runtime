@@ -11,18 +11,25 @@ All notable changes to this project are documented here. The format follows Keep
   recovery/no-replay and Business Events client/impact implementation contract.
 - AC-001–AC-078 traceability, G00 baseline, repository/symbol map, Legacy removal inventory, external
   dependency status and evidence index.
+- Versioned User Goal completion contracts, validated Skill Goal DAG planning, compatibility-aware
+  scheduling/attempts, layered outcome judges and persisted bounded recovery/no-replay.
+- Strict Provider Business Events Profile 1.0 client, durable Inbox/dual cursors, generation drain,
+  continuity/relation resolution, event impact, Incident handling and real Console/API projections.
 
 ### Changed
 
 - v1.2.2 is a clean-slate development upgrade: Legacy MCP, Legacy Skill projection and competing terminal
-  authorities are scheduled for removal; Frozen MCP Tasks and the sole LangGraph runtime remain.
+  authorities are removed; Frozen MCP Tasks and the sole LangGraph runtime remain.
 - User Goal planning must precede Skill selection, and only UserGoalPlanController may commit the User
   Goal/A2A terminal state.
 
 ### Verification
 
-- Pre-upgrade `pnpm verify` passes 650 unit/contract, 84 integration, 60 E2E, all migration/build and
-  smoke gates on an explicitly bootstrapped disposable database.
+- Clean candidate `3d3ad6f` passes unified verification: 628 unit/contract, 68 real integration, 59 E2E,
+  296-source architecture, A2A MUST 74/74, 124 OpenAPI operations, clean baseline/migrations, production
+  build and both smoke stages.
+- Real Streamable HTTP interop passes against exact Provider `8a81b1b` with 260 Tasks, Task/Resource
+  Events, 128/128/4 Relation pages, drain, Reset, continuity, unavailability, restart and reconnect.
 
 ## [1.2.1] - Unreleased
 

@@ -76,3 +76,23 @@
 
 Therefore v1.2.1 remains unreleased and PR #6 remains Draft until Provider PR #16 is merged. Component
 Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 reports.
+
+## v1.2.2 User Goal Planning and Business Events addendum
+
+- [x] G00–G10 and AC-001–AC-078 have implementation, automated/repeatable tests, documentation,
+      evidence and independent commits.
+- [x] The clean-slate baseline removes Legacy MCP/Skill projection and competing terminal authority;
+      `UserGoalPlanController` is the sole User Goal/A2A terminal authority.
+- [x] User Goal contract/planning, Skill Goal DAG/scheduler/attempts, layered judgment and bounded
+      progress/recovery/no-replay are composed through the sole LangGraph Workflow runtime.
+- [x] The strict Business Events client, durable dual cursors, generation/continuity/relation handling,
+      impact assessment, Incident/handling Goal and plan revision are verified.
+- [x] Exact Provider assets are locked to `8a81b1b`; real Streamable HTTP Provider interop passes Task,
+      Event, Drain, Reset, Relation, unavailability, restart and reconnect without modifying Provider.
+- [x] Clean unified verification passes 628 unit/contract, 68 real integration, 59 E2E, migrations,
+      production build, A2A MUST, infrastructure and Server/Console smoke; an additional Console
+      v1.2.2 view regression passes 20/20.
+- [x] Security/capacity/SBOM/Compose and an isolated real PostgreSQL restart audit pass; trusted-intranet
+      and claim boundaries remain explicit.
+- [x] Failed gate/interop attempts are retained. The release action is a Draft PR only; no merge or tag
+      is authorized.

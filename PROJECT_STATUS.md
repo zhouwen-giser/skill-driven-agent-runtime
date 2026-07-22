@@ -1,5 +1,17 @@
 # Project Status
 
+SDAR v1.2.2 G00–G10 implementation and local acceptance complete (2026-07-22): the clean-slate User
+Goal contract/planning → Skill Goal DAG/scheduler/attempt → layered outcome → sole
+`UserGoalPlanController` terminal authority → bounded recovery/no-replay chain is implemented through
+the single LangGraph runtime. Provider Business Events Profile 1.0 assets are pinned at `8a81b1b`; the
+strict client, durable dual cursors, generation/continuity/relation runtime and event-impact recovery are
+complete. Exact real Provider Streamable HTTP interop passes all Task/Event/Drain/Reset/Relation/restart
+cases. Clean candidate `3d3ad6f` passes unified verification with 628 unit/contract, 68 real integration,
+59 E2E, A2A MUST 74/74, migrations, production build and both smoke stages; an isolated real pgvector
+database restart audit also passes. AC-001–AC-078 are verified and failed attempts remain recorded.
+Final evidence reconciliation, clean-head repetition and Draft PR publication are the only remaining
+Master Goal handoff actions; merge/tag are not authorized.
+
 SDAR v1.2.2 G00 baseline and contract freeze (2026-07-22): development started from exact
 `origin/main@0f52a6d` on `feature/v1.2.2-user-goal-planning-business-events`; the minimum ancestor and all
 21 Goal-package hashes pass. The explicit disposable-infrastructure pre-upgrade `pnpm verify` passes all
