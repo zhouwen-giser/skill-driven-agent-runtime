@@ -3,6 +3,7 @@ import { DomainError, type DomainErrorCode } from '../errors.js';
 export type CognitiveDomainErrorCode =
   | Extract<DomainErrorCode, `COGNITIVE_${string}`>
   | 'CAPABILITY_SUMMARY_INVALID'
+  | 'CAPABILITY_INDEX_INVALID'
   | 'TASK_UNDERSTANDING_INVALID'
   | 'INTERACTIVE_SESSION_INVALID'
   | 'EXPERIENCE_EPISODE_INVALID'

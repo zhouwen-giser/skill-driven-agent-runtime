@@ -131,6 +131,24 @@ of known `01xx_v123_*.up.sql` markers is accepted. Development/test reset requir
 environment, database-name and confirmation guards; production reset is forbidden. Unreleased v1.2.3
 experimental rows may be reset, while in-database revisions/status history remain immutable.
 
+## G01 deterministic Capability Summary
+
+`CapabilityCatalogSnapshotBuilder` 从现有 `SkillRepository.listEnabledVersions()` 读取精确、已验证的
+Enabled `SkillVersion`。Canonical JSON 对对象键、Skill 集合、Capability 和 Outcome 集合采用稳定
+排序；Hash 输入包含精确版本、Usage/visibility/composition、Outcome Specification、Schema、Tool 和
+Runtime Policy 等声明。输入 Skill 顺序不会改变 `catalogHash`，任何权威声明变化都会改变 Hash。
+
+`CapabilitySummaryBuilder` 只聚合声明态 Capability、Domain、Effect、Evidence、Artifact、Context、
+Mode、Task Type、Composition 和结构化 Limitation。它不读取 MCP Provider、设备在线状态、当前
+readiness、历史成功率或模型叙述。Level-0 Index 受 entry/character budget 限制，Level-1 Detail
+返回聚合声明，Level-2 只携带精确 `skillId:version` 引用并延迟到现有 Skill Selection 权威。
+
+PostgreSQL 以 `(catalogHash, generationPolicyVersion)` 幂等激活一个 Snapshot。读路径先计算当前
+Catalog Hash，只返回 Hash/Policy 匹配的 Active Snapshot；不匹配时返回 unavailable，禁止陈旧摘要。
+Skill catalog Outbox 事件驱动异步重建，失败会结构化记录并重试，不改变 Skill 或 v1.2.2 执行权威。
+管理 API 提供 `GET /api/v1/capabilities/summary` 和显式
+`POST /api/v1/capabilities/rebuild`；G02 才负责隐私过滤后的 Public Card/A2A 投影。
+
 ## Open-source boundary
 
 Six sources are exact-commit design references in `third_party/sources.lock.yaml` and the G00 intake

@@ -266,3 +266,14 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G00-03 no v1.2.2 reverse dependency | verified | `scripts/check-cognitive-architecture.mjs` integrated into architecture gate | 307-source architecture gate passes |
 | AC-G00-04 every used source pinned/licensed | verified | six intake reports; `third_party/sources.lock.yaml`; license ledger; generated NOTICE/SBOM | 27 pinned/no unpinned; license/SBOM gate passes |
 | AC-G00-05 skeleton activates no behavior | verified | Domain/Ports/schema and additive DDL only; no composition-root service/route/queue seed | migration rollback/reapply; 68 integration; 59 E2E; build and smoke pass |
+
+## SDAR v1.2.3 G01 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G01-01 exact Enabled Skill catalog and deterministic Hash | verified | `CapabilityCatalogSnapshotBuilder`; canonical JSON includes exact version, visibility, composition and Outcome declarations | property/permutation, exact-version, visibility and Outcome hash unit tests |
+| AC-G01-02 declared Capability aggregation and limitations | verified | `CapabilitySummaryBuilder`; Domain/Effect/Evidence/Artifact/Context/Mode/Task Type/Composition plus five stable limitations | Domain/Application unit and cognitive JSON Schema contract; Provider/readiness exclusion assertion |
+| AC-G01-03 one idempotent active Hash-matched Snapshot | verified | `PostgresCapabilitySummaryRepository`; migration 0109 unique policy key, transaction lock and active pointer | real PostgreSQL concurrent activation integration; migration rollback/reapply |
+| AC-G01-04 Skill catalog changes rebuild Summary | verified | transactional `skill.catalog_changed`; `CapabilityCatalogChangeProjector`; Server retry loop | repository outbox integration, projector unit, real Server enable/disable E2E |
+| AC-G01-05 progressive Index/Detail and cache budget | verified | bounded `CapabilityIndexBuilder`; `CapabilitySummaryService.getSummary/getDetail` | entry/character budget, stale-hash rejection and cached P95 < 50 ms unit tests |
+| AC-G01-06 API/schema/build regression | verified | Management API summary/rebuild routes; OpenAPI schemas; composition-root wiring | 126-operation OpenAPI, 45 focused API contracts, full unit 501, contract 144, integration 70, E2E 60, production build; `reports/goal/g01-completion.md` |

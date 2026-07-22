@@ -68,11 +68,15 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
       summaryId: 'summary.v123',
       revision: 1,
       catalogHash: hash('b'),
+      generationPolicyVersion: 'policy.v123.1',
       status: 'building',
       items: [
         {
           capabilityId: 'capability.inspect',
+          domain: 'capability',
           title: ' Inspect ',
+          shortDescription: 'Inspect a device.',
+          public: true,
           effects: ['observed'],
           evidence: ['structured'],
           artifacts: [],
@@ -80,7 +84,13 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
           modes: ['read_only'],
           taskTypes: [],
           composition: [],
-          limitations: ['not readiness'],
+          limitations: [
+            {
+              limitationId: 'limitation.readiness',
+              reasonCode: 'confirmation_required',
+              detail: 'Current Provider readiness is not asserted.',
+            },
+          ],
           exactSkillVersionRefs: ['skill.inspect@1'],
         },
       ],

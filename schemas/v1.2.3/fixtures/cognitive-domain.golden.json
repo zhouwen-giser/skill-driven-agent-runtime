@@ -38,11 +38,15 @@
     "summaryId": "summary.v123",
     "revision": 1,
     "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "generationPolicyVersion": "policy.v123.1",
     "status": "building",
     "items": [
       {
         "capabilityId": "capability.inspect",
+        "domain": "capability",
         "title": "Inspect a device",
+        "shortDescription": "Inspect a device deterministically.",
+        "public": true,
         "effects": ["device state observed"],
         "evidence": ["structured inspection evidence"],
         "artifacts": [],
@@ -50,7 +54,13 @@
         "modes": ["read_only"],
         "taskTypes": [],
         "composition": [],
-        "limitations": ["current Provider readiness is not asserted"],
+        "limitations": [
+          {
+            "limitationId": "limitation.readiness",
+            "reasonCode": "confirmation_required",
+            "detail": "Current Provider readiness is not asserted."
+          }
+        ],
         "exactSkillVersionRefs": ["embodied.inspect@1"]
       }
     ],

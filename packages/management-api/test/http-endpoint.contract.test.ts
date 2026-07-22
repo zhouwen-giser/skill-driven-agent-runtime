@@ -121,6 +121,30 @@ describe('management HTTP API contract', () => {
     await expect(plan.text()).resolves.toContain('judgment-1');
   });
 
+  it('reads and rebuilds the hash-matched Capability Summary with a bounded Level-0 index', async () => {
+    const view = capabilitySummaryView();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        capabilities: {
+          getSummary: () => Promise.resolve(view),
+          rebuild: () => Promise.resolve(view),
+        },
+      },
+    });
+
+    const read = await fetch(
+      `${endpoint.baseUrl}/api/v1/capabilities/summary?maxEntries=8&maxCharacters=4096`,
+    );
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toEqual(view);
+    const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuild.status).toBe(200);
+    await expect(rebuild.json()).resolves.toEqual(view);
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2647,6 +2671,7 @@ function operations(failServerList = false): ManagementOperations {
       setEnabled: unused,
       validatePackage: unused,
     },
+    capabilities: { getSummary: unused, rebuild: unused },
     temporarySkills: {
       complete: unused,
       create: unused,
@@ -2687,6 +2712,31 @@ function operations(failServerList = false): ManagementOperations {
       start: unused,
     },
     workflowRevisions: { get: unused, reviseAdmin: unused },
+  };
+}
+
+function capabilitySummaryView() {
+  const catalogHash = `sha256:${'a'.repeat(64)}`;
+  return {
+    summary: {
+      schemaVersion: '1.0' as const,
+      summaryId: 'summary.api.1',
+      revision: 1,
+      catalogHash,
+      generationPolicyVersion: 'capability-policy-v1',
+      status: 'active' as const,
+      items: [],
+      sourceRefs: [],
+      builtAt: '2026-07-23T01:20:00.000Z',
+    },
+    index: {
+      schemaVersion: '1.0' as const,
+      summaryId: 'summary.api.1',
+      catalogHash,
+      entries: [],
+      characterCount: 2,
+      truncated: false,
+    },
   };
 }
 

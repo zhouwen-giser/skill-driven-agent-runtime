@@ -186,6 +186,7 @@
         "summaryId",
         "revision",
         "catalogHash",
+        "generationPolicyVersion",
         "status",
         "items",
         "sourceRefs",
@@ -196,6 +197,7 @@
         "summaryId": { "$ref": "#/$defs/id" },
         "revision": { "type": "integer", "minimum": 1 },
         "catalogHash": { "$ref": "#/$defs/hash" },
+        "generationPolicyVersion": { "$ref": "#/$defs/id" },
         "status": { "enum": ["building", "active", "superseded", "failed"] },
         "items": {
           "type": "array",
@@ -205,7 +207,10 @@
             "additionalProperties": false,
             "required": [
               "capabilityId",
+              "domain",
               "title",
+              "shortDescription",
+              "public",
               "effects",
               "evidence",
               "artifacts",
@@ -218,7 +223,10 @@
             ],
             "properties": {
               "capabilityId": { "$ref": "#/$defs/id" },
+              "domain": { "$ref": "#/$defs/id" },
               "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "shortDescription": { "type": "string", "minLength": 1, "maxLength": 2048 },
+              "public": { "type": "boolean" },
               "effects": { "$ref": "#/$defs/strings" },
               "evidence": { "$ref": "#/$defs/strings" },
               "artifacts": { "$ref": "#/$defs/strings" },
@@ -226,7 +234,28 @@
               "modes": { "$ref": "#/$defs/strings" },
               "taskTypes": { "$ref": "#/$defs/strings" },
               "composition": { "$ref": "#/$defs/strings" },
-              "limitations": { "$ref": "#/$defs/strings" },
+              "limitations": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["limitationId", "reasonCode", "detail"],
+                  "properties": {
+                    "limitationId": { "$ref": "#/$defs/id" },
+                    "reasonCode": {
+                      "enum": [
+                        "missing_outcome_specification",
+                        "internal_only",
+                        "confirmation_required",
+                        "not_composable",
+                        "no_enabled_skill"
+                      ]
+                    },
+                    "detail": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                  }
+                }
+              },
               "exactSkillVersionRefs": { "$ref": "#/$defs/strings" }
             }
           }

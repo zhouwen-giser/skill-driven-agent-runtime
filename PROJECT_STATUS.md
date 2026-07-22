@@ -1,5 +1,16 @@
 # Project Status
 
+SDAR v1.2.3 G01 is complete locally (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Exact Enabled Skill declarations now produce a canonical,
+order-independent Catalog Hash and a PostgreSQL-authoritative active Capability Summary with bounded
+Index/Detail loading. Skill enable/disable/version/Usage/Outcome changes emit transactional
+`skill.catalog_changed` events and the one-process Server deterministically rebuilds; no Provider
+readiness or request-time model becomes summary authority. Affected gates pass 501 unit, 144 contract,
+70 real integration, 60 real E2E, migration 0108/0109 rollback/reapply, 126 OpenAPI operations and
+production build. A final isolated-database `pnpm verify` passes all six stages and both smokes in
+166,839 ms. The implementation SHA/push and Draft PR evidence update are the remaining G01 publication
+steps; G02 Public Card/A2A projection is next.
+
 SDAR v1.2.3 G00 is complete (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime` from exact `origin/main@35cb927`. Implementation commit
 `ffd9791` is pushed and Draft PR #8 is open. ADR-111–114, Domain/Port/schema/DDL, exact source intake,

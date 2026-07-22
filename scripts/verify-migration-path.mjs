@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { URL } from 'node:url';
@@ -15,7 +15,14 @@ const databases = [
   'sdar_v122_verify_existing',
   'sdar_v122_verify_rogue_ledger',
 ];
-const expectedVersions = ['v1.2.2_clean_slate_baseline', '0108_v123_cognitive_skeleton'];
+const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
+const postBaselineMigrationFiles = (await readdir(migrationDirectory))
+  .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+  .sort();
+const expectedVersions = [
+  'v1.2.2_clean_slate_baseline',
+  ...postBaselineMigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
+];
 const adminUrl =
   process.env.SDAR_POSTGRES_ADMIN_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
@@ -32,8 +39,8 @@ try {
     await verifyBaseline(emptyPool);
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
-    await rollbackCognitiveSkeleton(emptyPool);
-    await verifyCognitiveSkeletonRolledBack(emptyPool);
+    await rollbackPostBaselineMigrations(emptyPool);
+    await verifyPostBaselineMigrationsRolledBack(emptyPool);
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
   } finally {
@@ -89,7 +96,7 @@ try {
   }
 
   process.stdout.write(
-    'SDAR v1.2.3 migration path verified: v1.2.2 clean baseline, additive 0108, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n',
+    `SDAR v1.2.3 migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
   );
 } finally {
   await dropDatabases().catch(() => undefined);
@@ -187,17 +194,43 @@ async function verifyBaseline(pool) {
   const definition = modes.rows[0]?.definition;
   if (typeof definition !== 'string' || !definition.includes('frozen_v1'))
     throw new Error('V122_FROZEN_PROTOCOL_CONSTRAINT_MISSING');
-}
 
-async function rollbackCognitiveSkeleton(pool) {
-  const migration = await readFile(
-    resolve(root, 'infra/postgres/migrations/0108_v123_cognitive_skeleton.down.sql'),
-    'utf8',
+  const capabilitySchema = await pool.query(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='runtime_capability_summary'
+           AND column_name='generation_policy_version'
+           AND is_nullable='NO'
+       ) AS policy_column,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='runtime_capability_summary_catalog_policy_unique'
+       ) AS catalog_policy_unique,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='runtime_capability_limitation_reason_check'
+           AND pg_get_constraintdef(oid) LIKE '%no_enabled_skill%'
+       ) AS limitation_reason_check`,
   );
-  await pool.query(migration);
+  if (
+    capabilitySchema.rows[0]?.policy_column !== true ||
+    capabilitySchema.rows[0]?.catalog_policy_unique !== true ||
+    capabilitySchema.rows[0]?.limitation_reason_check !== true
+  ) {
+    throw new Error('V123_CAPABILITY_SUMMARY_SCHEMA_INVALID');
+  }
 }
 
-async function verifyCognitiveSkeletonRolledBack(pool) {
+async function rollbackPostBaselineMigrations(pool) {
+  for (const upFile of [...postBaselineMigrationFiles].reverse()) {
+    const downFile = upFile.replace(/\.up\.sql$/u, '.down.sql');
+    await pool.query(await readFile(resolve(migrationDirectory, downFile), 'utf8'));
+  }
+}
+
+async function verifyPostBaselineMigrationsRolledBack(pool) {
   const marker = await pool.query(
     'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
   );
@@ -218,6 +251,17 @@ async function verifyCognitiveSkeletonRolledBack(pool) {
   ) {
     throw new Error('V123_ROLLBACK_TABLES_REMAIN');
   }
+
+  const capabilityColumn = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='runtime_capability_summary'
+         AND column_name='generation_policy_version'
+     ) AS present`,
+  );
+  if (capabilityColumn.rows[0]?.present === true)
+    throw new Error('V123_CAPABILITY_SUMMARY_ROLLBACK_INCOMPLETE');
 }
 
 async function expectLedgerRejection(applyRuntimeMigrations, pool) {

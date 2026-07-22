@@ -93,6 +93,8 @@ import {
   TaskAttemptDispatchService,
   TaskWaitTimeoutService,
   TaskQualityEvaluationService,
+  CapabilitySummaryService,
+  CapabilityCatalogChangeProjector,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
@@ -151,6 +153,8 @@ import {
   PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresCapabilitySummaryRepository,
+  PostgresCapabilityCatalogChangeSource,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -357,6 +361,20 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const capabilitySummaries = new CapabilitySummaryService({
+    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    repository: new PostgresCapabilitySummaryRepository(pool),
+    generationPolicyVersion: 'capability-policy-v1',
+    clock,
+    nextSummaryId: () => `capability-summary-${randomUUID()}`,
+  });
+  const capabilityCatalogChanges = new CapabilityCatalogChangeProjector({
+    changes: new PostgresCapabilityCatalogChangeSource(pool),
+    summaries: capabilitySummaries,
+    clock,
+  });
+  await capabilitySummaries.rebuild();
+  await capabilityCatalogChanges.drain();
   const skillExecutionRepository = new PostgresSkillExecutionRepository(pool);
   const skillExecutionRecording = new SkillExecutionRecordingService({
     repository: skillExecutionRepository,
@@ -2758,6 +2776,22 @@ export async function startServerRuntime(
       });
   }, options.taskAttemptDispatchIntervalMs ?? 1000);
   attemptDispatchTimer.unref();
+  let capabilityCatalogRefreshRunning = false;
+  const capabilityCatalogRefreshTimer = setInterval(() => {
+    if (capabilityCatalogRefreshRunning) return;
+    capabilityCatalogRefreshRunning = true;
+    void capabilityCatalogChanges
+      .drain()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'capability_catalog_refresh.failed', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        capabilityCatalogRefreshRunning = false;
+      });
+  }, 250);
+  capabilityCatalogRefreshTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -2867,6 +2901,7 @@ export async function startServerRuntime(
     const startedManagement = await startManagementHttpEndpoint({
       operations: {
         graph: skillGraph,
+        capabilities: capabilitySummaries,
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3118,6 +3153,7 @@ export async function startServerRuntime(
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
+        clearInterval(capabilityCatalogRefreshTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -3150,6 +3186,7 @@ export async function startServerRuntime(
   } catch (error: unknown) {
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
+    clearInterval(capabilityCatalogRefreshTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);

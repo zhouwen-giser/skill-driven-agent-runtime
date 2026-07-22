@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00 is complete; G01 is next
+Status: ACTIVE — G01 implementation/gates are complete locally; publication evidence is pending
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -82,7 +82,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | Goal | Status | Commit | Tests | Evidence | Blocker | Next |
 | --- | --- | --- | --- | --- | --- | --- |
 | G00 | completed | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none | hand off frozen contracts to G01 |
-| G01 | not_started | — | — | — | G00 | deterministic capability summary |
+| G01 | in_progress | pending immutable commit | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke | `reports/goal/g01-completion.md` | none | commit/push/update Draft PR, then G02 |
 | G02 | not_started | — | — | — | G01 | public snapshot/A2A projection |
 | G03 | not_started | — | — | — | G00/G01 | generic task understanding |
 | G04 | not_started | — | — | — | G03 | interactive Goal session |
@@ -121,6 +121,15 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   timing failure; the unchanged E2E suite then passed 59/59. A later smoke failure revealed that the
   default operator `sdar` volume retains the historical 0001-0107 ledger. It was not reset; final
   evidence used and removed an isolated `sdar_test_v123_full_gate` database.
+- 2026-07-23: G01 can reuse `PostgresSkillRepository.saveVersionAndSetCurrent` as the single catalog
+  mutation boundary. Emitting `skill.catalog_changed` in that transaction covers enable/disable,
+  version, Usage/visibility/composition and Outcome changes without a parallel registry.
+- 2026-07-23: the first G01 E2E run reproduced the existing remote-lifecycle observation race while the
+  new Capability Summary case passed. The unchanged suite rerun passed 60/60; no timing or assertion was
+  weakened.
+- 2026-07-23: the first complete G01 gate reproduced that race and exposed its exact test defect: the
+  polling Schema accepted an empty lifecycle collection and stopped before the subsequent length check.
+  Requiring one item strengthens the original contract; independent E2E and the complete gate pass.
 
 ## Decision Log
 
@@ -133,6 +142,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   creating twenty near-empty ADR files.
 - 2026-07-23: direct source copying is not planned in G00. Six new repositories are design/algorithm
   references at exact commits; any later direct Gemini TypeScript port requires a separate source intake.
+- 2026-07-23: G01 hashes the complete exact enabled Skill declaration under a versioned deterministic
+  policy, but projects only declared capability fields. Provider readiness, device state, observed
+  success and model narrative are excluded from Summary authority.
+- 2026-07-23: one transaction-scoped PostgreSQL advisory lock plus the unique
+  `(catalog_hash,generation_policy_version)` key owns Summary activation. The catalog event is marked
+  consumed only after rebuild succeeds; retry remains safe after restart.
 
 ## Implementation Steps
 
@@ -230,22 +245,28 @@ dependency was added.
   license/SBOM evidence.
 - G00 evidence commit: this living plan, sync-state, baseline/completion reports, status/traceability and
   changelog synchronization.
+- G01 implementation/evidence candidate: deterministic builders/service, migration 0109, PostgreSQL
+  repository/outbox projection, Server/API/OpenAPI wiring, unit/contract/integration/E2E tests and
+  `reports/goal/g01-completion.md`.
 
 ## Open Blockers
 
 None. The package self-check is platform-safe and passing. The default operator database's historical
 ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names.
+database names. G01 has no implementation blocker; only its normal immutable commit/push/PR publication
+step remains.
 
 ## Next Execution Step
 
-Start G01 from the frozen contracts: implement deterministic catalog snapshot ingestion, canonical
-summary hashing, PostgreSQL activation and declared/observed/validated capability evidence without live
-Provider-readiness or request-time model authority.
+Create and push the immutable G01 implementation commit, record its exact SHA in this plan/sync state,
+update Draft PR #8 without changing Draft status, then start G02 public privacy-filtered/A2A projection
+from the activated Hash-matched Summary.
 
 ## Outcomes and Retrospective
 
-G00 completed without activating cognitive behavior. Implementation `ffd9791` is pushed, Draft PR #8 is
-open, and the isolated-database full gate passed in 168,876 ms. The major operational discovery is that
-the default local `sdar` volume is historical operator data and must never be used as the disposable
-v1.2.3 gate database. G01–G17 remain open.
+G00 completed without activating cognitive behavior. G01 now provides deterministic Capability Summary
+behavior with real PostgreSQL/API/runtime evidence and no Provider/readiness or model authority. Its
+final full gate passes 645 unit/contract, 70 integration and 60 E2E tests plus migration/OpenAPI/build
+and both smokes in 166,839 ms; publication evidence is the remaining G01 step. The disposable gate
+database was deleted and the default local `sdar` volume remains protected historical operator data.
+G02–G17 remain open.

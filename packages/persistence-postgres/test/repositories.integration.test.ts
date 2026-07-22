@@ -47,6 +47,8 @@ import {
   PostgresTaskInputRepository,
   PostgresRemoteTaskRepository,
   PostgresWorkflowContinuationRepository,
+  PostgresCapabilitySummaryRepository,
+  PostgresCapabilityCatalogChangeSource,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -65,6 +67,7 @@ import {
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
+  createRuntimeCapabilitySummarySnapshot,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -196,7 +199,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE runtime_capability_limitation, runtime_capability_summary_item, runtime_capability_summary, cognitive_runtime_outbox, skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -4227,7 +4230,95 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ),
     ).rejects.toMatchObject({ code: 'SKILL_EXECUTION_RECORD_INVALID' });
   });
+
+  it('atomically activates one idempotent hash-matched Capability Summary under concurrency', async () => {
+    const repository = new PostgresCapabilitySummaryRepository(pool);
+    const first = capabilitySummary('summary.concurrent.a', 1, 'a');
+    const second = capabilitySummary('summary.concurrent.b', 1, 'a');
+
+    const [left, right] = await Promise.all([
+      repository.saveAndActivate(first),
+      repository.saveAndActivate(second),
+    ]);
+
+    expect(left.summaryId).toBe(right.summaryId);
+    expect(left.status).toBe('active');
+    await expect(repository.findActive()).resolves.toEqual(left);
+    const rows = await pool.query<{ active_count: number; total_count: number }>(
+      `SELECT count(*) FILTER (WHERE status='active')::integer AS active_count,
+              count(*)::integer AS total_count
+       FROM runtime_capability_summary`,
+    );
+    expect(rows.rows[0]).toEqual({ active_count: 1, total_count: 1 });
+    const events = await pool.query<{ event_type: string }>(
+      "SELECT event_type FROM cognitive_runtime_outbox WHERE event_type='capability.summary_built'",
+    );
+    expect(events.rows).toEqual([{ event_type: 'capability.summary_built' }]);
+  });
+
+  it('records exact Skill catalog changes and marks only the consumed outbox batch', async () => {
+    const timestamp = '2026-07-23T01:20:00.000Z';
+    await new PostgresSkillRepository(pool).saveVersionAndSetCurrent(
+      createSkillVersion({
+        skillId: 'skill.catalog.change',
+        version: 1,
+        name: 'Catalog change',
+        summary: 'Changes the deterministic capability catalog.',
+        description: 'An enabled exact Skill declaration.',
+        capabilities: ['catalog.change'],
+        workflowGuidance: 'Use declarations.',
+        outputInstruction: 'Return evidence.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        outcomeSpecification: testOutcome('skill.catalog.change', 1),
+        status: 'enabled',
+        sourceKind: 'admin',
+        validationPassed: true,
+        createdAt: timestamp,
+      }),
+      timestamp,
+    );
+    const changes = new PostgresCapabilityCatalogChangeSource(pool);
+    const eventIds = await changes.listPendingCatalogChangeEventIds(10);
+    expect(eventIds).toEqual(['skill.catalog_changed:skill.catalog.change:1']);
+
+    await changes.markCatalogChangeEventsPublished(eventIds, '2026-07-23T01:20:01.000Z');
+    await expect(changes.listPendingCatalogChangeEventIds(10)).resolves.toEqual([]);
+  });
 });
+
+function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {
+  return createRuntimeCapabilitySummarySnapshot({
+    schemaVersion: '1.0',
+    summaryId,
+    revision,
+    catalogHash: `sha256:${hashCharacter.repeat(64)}`,
+    generationPolicyVersion: 'capability-policy-v1',
+    status: 'building',
+    items: [
+      {
+        capabilityId: 'inspection.device',
+        domain: 'inspection',
+        title: 'Device inspection',
+        shortDescription: 'Inspect a device from declared Skill evidence.',
+        public: true,
+        effects: ['effect.inspected'],
+        evidence: ['evidence.observation'],
+        artifacts: [],
+        contexts: ['device-id'],
+        modes: ['guidance'],
+        taskTypes: ['device.inspect'],
+        composition: [],
+        limitations: [],
+        exactSkillVersionRefs: ['skill.inspect:1'],
+      },
+    ],
+    sourceRefs: [],
+    builtAt: '2026-07-23T01:20:00.000Z',
+  });
+}
 
 async function createTerminalOutcomeFixture(suffix: string) {
   const contextId = `context.terminal.${suffix}`;

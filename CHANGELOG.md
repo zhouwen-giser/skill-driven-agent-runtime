@@ -13,6 +13,10 @@ All notable changes to this project are documented here. The format follows Keep
   Schema Golden fixture and additive 0108 DDL skeleton.
 - A cognitive reverse-dependency/Python-runtime architecture guard and six exact-commit OSS
   design-reference intakes with license/NOTICE verification.
+- G01 deterministic exact-Skill Capability Catalog hashing, declared Capability Summary aggregation,
+  bounded Level-0 Index/Level-1 Detail, PostgreSQL active snapshots and catalog-change projection.
+- Management `GET /api/v1/capabilities/summary` and `POST /api/v1/capabilities/rebuild` contracts with
+  OpenAPI schemas; summaries intentionally exclude live Provider readiness.
 
 ### Changed
 
@@ -20,12 +24,18 @@ All notable changes to this project are documented here. The format follows Keep
   package hash manifest.
 - Runtime migration startup accepts only the ordered v1.2.2 baseline plus known `01xx_v123_*` prefix;
   the v1.2.2 baseline SQL remains unchanged.
+- Skill version writes append `skill.catalog_changed`; the single Server process retries deterministic
+  Summary projection while PostgreSQL remains the only durable authority.
 
 ### Verification
 
 - G00 verified. The isolated-database full gate passes 635 unit/contract, 68 integration, 59 E2E,
   A2A MUST 74/74, 124 OpenAPI operations, migration rollback/reapply, build and both smoke stages in
   168,876 ms; implementation commit `ffd9791` is pushed and Draft PR #8 remains Draft.
+- G01 affected gates pass 501 unit, 144 contract, 70 real integration and 60 real E2E tests, migration
+  0108/0109 rollback/reapply, 126 OpenAPI operations and production build. The first E2E run retained an
+  unrelated remote-lifecycle timing failure; recurrence exposed an empty-array polling defect, whose
+  stronger wait condition is covered by the final 166,839 ms full `pnpm verify` including both smokes.
 
 ## [1.2.2] - Unreleased
 

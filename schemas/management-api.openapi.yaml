@@ -742,6 +742,53 @@ paths:
             schema: { type: object, additionalProperties: true }
       responses:
         '201': { description: New current Skill version }
+  /api/v1/capabilities/summary:
+    get:
+      operationId: getRuntimeCapabilitySummary
+      description: Returns only the active Capability Summary whose catalogHash matches the current enabled exact Skill declarations, plus a bounded Level-0 index. It never reports current Provider or device readiness.
+      parameters:
+        - { name: maxEntries, in: query, schema: { type: integer, minimum: 1, maximum: 256 } }
+        - {
+            name: maxCharacters,
+            in: query,
+            schema: { type: integer, minimum: 256, maximum: 65536 },
+          }
+      responses:
+        '200':
+          description: Hash-matched internal Capability Summary and bounded progressive index
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilitySummaryView' }
+              example:
+                summary:
+                  schemaVersion: '1.0'
+                  summaryId: summary.example
+                  revision: 1
+                  catalogHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  generationPolicyVersion: capability-policy-v1
+                  status: active
+                  items: []
+                  sourceRefs: []
+                  builtAt: '2026-07-23T01:20:00.000Z'
+                index:
+                  schemaVersion: '1.0'
+                  summaryId: summary.example
+                  catalogHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  entries: []
+                  characterCount: 2
+                  truncated: false
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/rebuild:
+    post:
+      operationId: rebuildRuntimeCapabilitySummary
+      description: Deterministically rebuilds and transactionally activates the exact current catalog snapshot. No model or live readiness source is called.
+      responses:
+        '200':
+          description: Idempotently activated hash-matched Capability Summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilitySummaryView' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/skills/catalog:
     get:
       operationId: listSkillUsageCatalog
@@ -1209,6 +1256,123 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    CapabilityLimitation:
+      type: object
+      additionalProperties: false
+      required: [limitationId, reasonCode, detail]
+      properties:
+        limitationId: { type: string, minLength: 1 }
+        reasonCode:
+          enum:
+            [
+              missing_outcome_specification,
+              internal_only,
+              confirmation_required,
+              not_composable,
+              no_enabled_skill,
+            ]
+        detail: { type: string, minLength: 1, maxLength: 4096 }
+    CapabilitySummaryItem:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          capabilityId,
+          domain,
+          title,
+          shortDescription,
+          public,
+          effects,
+          evidence,
+          artifacts,
+          contexts,
+          modes,
+          taskTypes,
+          composition,
+          limitations,
+          exactSkillVersionRefs,
+        ]
+      properties:
+        capabilityId: { type: string, minLength: 1 }
+        domain: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+        shortDescription: { type: string, minLength: 1, maxLength: 2048 }
+        public: { type: boolean }
+        effects: { type: array, items: { type: string } }
+        evidence: { type: array, items: { type: string } }
+        artifacts: { type: array, items: { type: string } }
+        contexts: { type: array, items: { type: string } }
+        modes: { type: array, items: { type: string } }
+        taskTypes: { type: array, items: { type: string } }
+        composition: { type: array, items: { type: string } }
+        limitations: { type: array, items: { $ref: '#/components/schemas/CapabilityLimitation' } }
+        exactSkillVersionRefs: { type: array, items: { type: string } }
+    RuntimeCapabilitySummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          summaryId,
+          revision,
+          catalogHash,
+          generationPolicyVersion,
+          status,
+          items,
+          sourceRefs,
+          builtAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        summaryId: { type: string, minLength: 1 }
+        revision: { type: integer, minimum: 1 }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        generationPolicyVersion: { type: string, minLength: 1 }
+        status: { enum: [building, active, superseded, failed] }
+        items: { type: array, items: { $ref: '#/components/schemas/CapabilitySummaryItem' } }
+        sourceRefs: { type: array, items: { type: object, additionalProperties: true } }
+        builtAt: { type: string, format: date-time }
+    CapabilityIndexEntry:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          capabilityId,
+          domain,
+          shortDescription,
+          effectSummary,
+          evidenceSummary,
+          limitationSummary,
+          detailRef,
+          public,
+        ]
+      properties:
+        capabilityId: { type: string, minLength: 1 }
+        domain: { type: string, minLength: 1 }
+        shortDescription: { type: string, minLength: 1 }
+        effectSummary: { type: array, items: { type: string } }
+        evidenceSummary: { type: array, items: { type: string } }
+        limitationSummary: { type: array, items: { type: string } }
+        detailRef: { type: string, minLength: 1 }
+        public: { type: boolean }
+    CapabilityIndex:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, summaryId, catalogHash, entries, characterCount, truncated]
+      properties:
+        schemaVersion: { const: '1.0' }
+        summaryId: { type: string, minLength: 1 }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        entries: { type: array, items: { $ref: '#/components/schemas/CapabilityIndexEntry' } }
+        characterCount: { type: integer, minimum: 0 }
+        truncated: { type: boolean }
+    CapabilitySummaryView:
+      type: object
+      additionalProperties: false
+      required: [summary, index]
+      properties:
+        summary: { $ref: '#/components/schemas/RuntimeCapabilitySummary' }
+        index: { $ref: '#/components/schemas/CapabilityIndex' }
     GoalExecutionContract:
       type: object
       additionalProperties: false

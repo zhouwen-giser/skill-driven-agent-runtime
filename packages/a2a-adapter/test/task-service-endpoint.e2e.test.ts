@@ -507,6 +507,30 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(skillId);
   });
 
+  it('rebuilds and serves the deterministic Capability Summary after Skill catalog changes', async () => {
+    const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuilt.status).toBe(200);
+    const baseline = capabilitySummaryResponse(await rebuilt.json());
+    expect(baseline.summary.catalogHash).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    expect(baseline.index.entries[0]?.detailRef).toContain(baseline.summary.summaryId);
+    expect(JSON.stringify(baseline)).not.toMatch(/provider|readiness|deviceStatus|online/iu);
+
+    const skillId = `skill.capability-summary.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(skillId, 'Capability summary Skill'));
+    const afterEnable = await waitForCapabilityHashChange(baseline.summary.catalogHash);
+    expect(afterEnable.summary.sourceRefs).toContainEqual(
+      expect.objectContaining({ sourceKind: 'skill_version', sourceId: skillId }),
+    );
+
+    await runtime.setSkillEnabled(skillId, false);
+    const afterDisable = await waitForCapabilityHashChange(afterEnable.summary.catalogHash);
+    expect(afterDisable.summary.sourceRefs).not.toContainEqual(
+      expect.objectContaining({ sourceKind: 'skill_version', sourceId: skillId }),
+    );
+  });
+
   it('validates, imports, reads, filters and lifecycle-versions a formal Skill Package', async () => {
     const packageRoot = 'skills/embodied.move_to';
     const validated = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/validate`, {
@@ -3073,43 +3097,45 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         );
         if (expectsRemoteTask) {
           const lifecycleSchema = z.object({
-            items: z.array(
-              z.object({
-                binding: z.object({
-                  protocolContract: z.object({
-                    mode: z.literal('frozen_v1'),
-                    protocolVersion: z.literal('2026-07-28'),
-                    baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-                    taskExecutionProfileVersion: z.literal('1.0'),
-                    evidenceProfileVersion: z.literal('1.0'),
-                    serverDiscoverySnapshotId: z.string().min(1),
-                  }),
-                  taskBehavior: z.enum(['server_directed', 'task_required']),
-                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                  taskTtlMs: z.number().int().positive(),
-                  taskExpiresAt: z.iso.datetime({ offset: true }),
-                }),
-                observations: z
-                  .array(
-                    z.object({
-                      source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
-                      runtimeRevision: z
-                        .string()
-                        .regex(/^(?:0|[1-9][0-9]*)$/u)
-                        .optional(),
+            items: z
+              .array(
+                z.object({
+                  binding: z.object({
+                    protocolContract: z.object({
+                      mode: z.literal('frozen_v1'),
+                      protocolVersion: z.literal('2026-07-28'),
+                      baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
+                      taskExecutionProfileVersion: z.literal('1.0'),
+                      evidenceProfileVersion: z.literal('1.0'),
+                      serverDiscoverySnapshotId: z.string().min(1),
                     }),
-                  )
-                  .min(2),
-                protocol: z.object({
-                  ttlMs: z.number().int().positive(),
-                  expiresAt: z.iso.datetime({ offset: true }),
-                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                  latestObservationSource: z.literal(
-                    outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
-                  ),
+                    taskBehavior: z.enum(['server_directed', 'task_required']),
+                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                    taskTtlMs: z.number().int().positive(),
+                    taskExpiresAt: z.iso.datetime({ offset: true }),
+                  }),
+                  observations: z
+                    .array(
+                      z.object({
+                        source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
+                        runtimeRevision: z
+                          .string()
+                          .regex(/^(?:0|[1-9][0-9]*)$/u)
+                          .optional(),
+                      }),
+                    )
+                    .min(2),
+                  protocol: z.object({
+                    ttlMs: z.number().int().positive(),
+                    expiresAt: z.iso.datetime({ offset: true }),
+                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                    latestObservationSource: z.literal(
+                      outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
+                    ),
+                  }),
                 }),
-              }),
-            ),
+              )
+              .length(1),
           });
           let lifecycle: z.infer<typeof lifecycleSchema> | undefined;
           let lastLifecycle: unknown;
@@ -6228,6 +6254,39 @@ async function readFormalSkillIds(): Promise<string[]> {
     .parse(await response.json())
     .items.map((item) => item.skillId)
     .sort();
+}
+
+const CapabilitySummaryResponseSchema = z.object({
+  summary: z.object({
+    summaryId: z.string(),
+    catalogHash: z.string(),
+    sourceRefs: z.array(z.object({ sourceKind: z.string(), sourceId: z.string() }).loose()),
+  }),
+  index: z.object({
+    entries: z.array(z.object({ detailRef: z.string() }).loose()),
+  }),
+});
+
+function capabilitySummaryResponse(
+  value: unknown,
+): z.infer<typeof CapabilitySummaryResponseSchema> {
+  return CapabilitySummaryResponseSchema.parse(value);
+}
+
+async function waitForCapabilityHashChange(
+  previousHash: string,
+): Promise<z.infer<typeof CapabilitySummaryResponseSchema>> {
+  let lastBody = '';
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const response = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/summary`);
+    lastBody = await response.text();
+    if (response.ok) {
+      const parsed = capabilitySummaryResponse(JSON.parse(lastBody) as unknown);
+      if (parsed.summary.catalogHash !== previousHash) return parsed;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`CAPABILITY_SUMMARY_HASH_NOT_CHANGED:${previousHash}:${lastBody}`);
 }
 
 function skillInput(skillId: string, name: string): RegisterSkillVersionInput {

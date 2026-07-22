@@ -100,6 +100,22 @@ PostgreSQL 是上述记录的唯一持久权威；后续 Goal 使用的 BullMQ j
 
 开发期 rollback 仅允许在确认所有 v1.2.3 实验数据可丢弃后执行 `0108_v123_cognitive_skeleton.down.sql`；它删除全部 v1.2.3 cognitive 表和 marker，但不修改 v1.2.2 baseline。进入发布升级承诺后不得用该 rollback 迁移正式数据，必须新增 forward migration 保持既有版本语义。
 
+### v1.2.3 Capability Summary activation
+
+`0109_v123_capability_summary` 在 G00 skeleton 上增加 `generation_policy_version`，并以
+`(catalog_hash, generation_policy_version)` 唯一约束定义幂等重建键。迁移同时冻结
+Capability Limitation reason code；由于 v1.2.3 尚未发布，迁移只接受空的实验 Summary 表，避免
+无声重写已有摘要语义。
+
+`runtime_capability_summary.status='active'` 是唯一可读指针。Repository 在 PostgreSQL advisory
+transaction lock 内完成同 Hash 去重、旧 Active supersede、新 Active 激活、Item/Limitation 写入和
+`capability.summary_built` Outbox 写入；并发重建不得产生两个匹配 Snapshot。Skill Version 写入与
+`skill.catalog_changed` 同事务，Server 的 projector 消费该事件后按精确 Enabled Skill Version
+重建。Redis 不保存 Capability Summary 权威。
+
+Down migration 仅在 Summary 表为空时允许删除新增列和约束；完整迁移门禁会按逆序回滚 0109、
+0108，再按顺序重放并验证 marker、列、唯一约束和 limitation CHECK。
+
 Migration `0054_skill_call_history` 将 `skill_call_workflow` 的主键改为独立 `call_id`，使同一父实例/节点的重复执行保留追加历史；`find(parent,node)` 仍按时间返回最新调用。其 rollback 为兼容旧主键会只保留每个父实例/节点最新一条关系，因此回滚前必须备份需要保留的重复调用审计。
 
 Migration `0055_task_input_continuation` 新增 `task_input_request`、`task_input_response` 与 `task_execution_attempt`。问题和回答以 PostgreSQL 为权威；同一 Task 同时最多一个 `waiting` 问题，回答与新的 `input_response` attempt 在一个事务内创建。Goal Evaluation 问题保存 `control_id` 和 `control_round_index`，BullMQ 只携带 Task/Context/attempt/mode 的临时调度副本。rollback 会删除全部补充输入与 attempt 审计，回滚前必须备份。

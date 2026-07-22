@@ -8,6 +8,7 @@ import type {
   KnowledgeCandidateSnapshot,
   KnowledgeStatusTransition,
   RuntimeCapabilitySummarySnapshot,
+  SkillVersion,
 } from '../../../domain/src/index.js';
 
 export interface CognitiveFeatureFlagSource {
@@ -15,16 +16,24 @@ export interface CognitiveFeatureFlagSource {
 }
 
 export interface CapabilityCatalogSource {
-  listEnabledSkillVersions(): Promise<readonly Readonly<Record<string, unknown>>[]>;
+  listEnabledSkillVersions(): Promise<readonly SkillVersion[]>;
 }
 
 export interface CapabilitySummaryRepository {
   findActive(): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
-  findByCatalogHash(catalogHash: string): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
+  findByCatalogHash(
+    catalogHash: string,
+    generationPolicyVersion: string,
+  ): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
   saveAndActivate(
     snapshot: RuntimeCapabilitySummarySnapshot,
     expectedActiveRevision?: number,
   ): Promise<RuntimeCapabilitySummarySnapshot>;
+}
+
+export interface CapabilityCatalogChangeSource {
+  listPendingCatalogChangeEventIds(limit: number): Promise<readonly string[]>;
+  markCatalogChangeEventsPublished(eventIds: readonly string[], publishedAt: string): Promise<void>;
 }
 
 export interface TaskUnderstandingRepository {

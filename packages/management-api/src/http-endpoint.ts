@@ -49,6 +49,7 @@ import type {
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
   SkillExecutionRepository,
+  CapabilitySummaryService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -236,6 +237,12 @@ const SkillCatalogQuerySchema = z
     userSelectable: z.enum(['true', 'false']).optional(),
     composable: z.enum(['true', 'false']).optional(),
     internalOnly: z.enum(['true', 'false']).optional(),
+  })
+  .strict();
+const CapabilitySummaryQuerySchema = z
+  .object({
+    maxEntries: z.coerce.number().int().min(1).max(256).optional(),
+    maxCharacters: z.coerce.number().int().min(256).max(65_536).optional(),
   })
   .strict();
 const CreateTemporarySkillSchema = z.object({
@@ -460,6 +467,7 @@ export interface ManagementOperations {
     | 'setEnabled'
     | 'validatePackage'
   >;
+  readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1735,6 +1743,33 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/skills', async (_request, response) => {
     response.json({ items: await options.operations.skills.listCurrentVersions() });
   });
+  app.get(
+    '/api/v1/capabilities/summary',
+    asyncRoute(async (request, response) => {
+      const query = CapabilitySummaryQuerySchema.parse(request.query);
+      const budget =
+        query.maxEntries === undefined && query.maxCharacters === undefined
+          ? undefined
+          : {
+              maxEntries: query.maxEntries ?? 32,
+              maxCharacters: query.maxCharacters ?? 12_000,
+            };
+      const view = await options.operations.capabilities.getSummary(budget);
+      if (view === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_SUMMARY_NOT_AVAILABLE',
+          'No active Capability Summary matches the current Skill catalog.',
+        );
+      }
+      response.json(view);
+    }),
+  );
+  app.post(
+    '/api/v1/capabilities/rebuild',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.capabilities.rebuild());
+    }),
+  );
   app.get(
     '/api/v1/skills/catalog',
     asyncRoute(async (request, response) => {

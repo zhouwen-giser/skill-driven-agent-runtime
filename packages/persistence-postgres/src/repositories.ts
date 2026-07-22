@@ -4085,6 +4085,27 @@ export class PostgresSkillRepository implements SkillRepository {
         `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
         [version.skillId, version.version, timestamp],
       );
+      const catalogEventId = `skill.catalog_changed:${version.skillId}:${String(version.version)}`;
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at
+         ) VALUES ($1,'skill.catalog_changed','skill',$2,$3,$4,$5,$6)`,
+        [
+          catalogEventId,
+          version.skillId,
+          version.version,
+          JSON.stringify({ correlationId: catalogEventId }),
+          JSON.stringify({
+            skillId: version.skillId,
+            skillVersion: version.version,
+            status: version.status,
+            visibility: version.usageSpecification?.visibility ?? null,
+            outcomeSpecificationHash: version.outcomeSpecification?.specificationHash ?? null,
+          }),
+          timestamp,
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
