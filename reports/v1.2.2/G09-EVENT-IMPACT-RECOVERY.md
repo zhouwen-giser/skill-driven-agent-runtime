@@ -34,6 +34,6 @@ AC-060 through AC-067 are verified.
 ```text
 pnpm exec vitest run --project unit packages/application/test/business-event-impact.unit.test.ts
 pnpm exec vitest run --project e2e apps/server/test/business-events-runtime.e2e.test.ts
-node scripts/run-v122-real-provider-interop.mjs
+pnpm exec tsx scripts/run-v122-real-provider-interop.mjs
 ```
 
