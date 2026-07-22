@@ -1,13 +1,13 @@
 # G02 Clean Baseline, Domain and Repository Report
 
-Status: implementation and focused verification complete; Goal handoff remains open with the Master
-Goal until G01 terminal-authority replacement is landed.
+Status: **completed**. The clean baseline is the only supported v1.2.2 database product shape and the
+G01 terminal-authority dependency is closed.
 
 ## Baseline and safety
 
 - Baseline: `infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql`
-- SHA-256: `753b3dbd66934404fa002dad246321fb6c2086277180aa7674f9e87199b1ef9a`
-- Seed SHA-256: `6b13a57d769f6f881e2c081465977df0925868a435e213246f327a55672cb8ba`
+- SHA-256: `b61980356fdea6cf79dcada4d857a6eccf8d5620b5f10ae18cebcf547535757b`
+- Seed SHA-256: `90bca6c0f1c238e6df78ef964db73cac2bc85a9cd7e817548cb9c1e6bc36ab8b`
 - Runtime accepts an empty database or the sole `v1.2.2_clean_slate_baseline` marker. Any other table or
   migration ledger fails with `SDAR_V122_CLEAN_DATABASE_REQUIRED`.
 - `db:reset:v1.2.2` requires `SDAR_ENV=development|test`, confirmation value `v1.2.2`, and a disposable
@@ -36,6 +36,6 @@ deduplication, and independent admitted/processed cursors.
   real reset and minimum seed.
 - `pnpm exec vitest run --project unit packages/domain/test/user-goal-runtime.unit.test.ts`: 4 passed.
 - `pnpm exec vitest run --project integration packages/persistence-postgres/test/user-goal-runtime.integration.test.ts`:
-  3 passed.
-- `pnpm test:integration`: 8 files / 63 tests passed.
+  8 passed.
+- `pnpm test:integration`: passed as part of the unified release gate.
 - `pnpm verify:infra`: passed.

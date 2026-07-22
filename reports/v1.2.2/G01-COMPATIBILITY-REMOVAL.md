@@ -1,7 +1,7 @@
 # G01 Compatibility Removal Checkpoint
 
-Status: implementation checkpoint; G01 remains open until the old terminal authority is replaced by
-the G05 `UserGoalPlanController`.
+Status: **completed**. The former terminal-authority handoff is closed by the G05
+`UserGoalPlanController` implementation.
 
 ## Removed product paths
 
@@ -23,8 +23,8 @@ the G05 `UserGoalPlanController`.
 - `pnpm test:integration`: 8 files / 63 tests passed on disposable PostgreSQL databases.
 - `pnpm verify:architecture`: passed.
 
-## Open G01 item
+## Terminal authority closure
 
-`WorkflowControllerService` still owns the pre-v1.2.2 runtime terminal repository. It must not be
-deleted without a replacement because that would leave A2A tasks without an authority. G05 will move
-the transaction behind `UserGoalPlanController`, update the architecture gate and close G01.
+`WorkflowControllerService` now emits `WorkflowExecutionOutcome` and delegates terminal adjudication.
+`UserGoalPlanController` is the only application owner of the atomic User Goal/A2A terminal commit;
+the architecture and layered-outcome tests verify the boundary.

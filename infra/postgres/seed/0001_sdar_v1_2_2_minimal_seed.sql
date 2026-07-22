@@ -14,3 +14,7 @@ INSERT INTO public.memory_retention_policy(
 )
 VALUES (true, 90, 365, 730, false, false, clock_timestamp())
 ON CONFLICT (singleton) DO NOTHING;
+
+INSERT INTO public.task_wait_policy(singleton, timeout_seconds, updated_at)
+VALUES (true, 300, clock_timestamp())
+ON CONFLICT (singleton) DO NOTHING;

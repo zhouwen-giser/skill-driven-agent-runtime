@@ -86,6 +86,10 @@ CREATE TABLE public.agent_task (
     skill_selection_id text,
     temporary_skill_id text,
     skill_input_resolution_id text,
+    user_goal_plan_id text,
+    skill_goal_id text,
+    skill_attempt_id text,
+    skill_execution_contract_id text,
     CONSTRAINT agent_task_check CHECK ((((goal_id IS NULL) AND (goal_version IS NULL)) OR ((goal_id IS NOT NULL) AND (goal_version IS NOT NULL)))),
     CONSTRAINT agent_task_phase_check CHECK ((phase = ANY (ARRAY['queued'::text, 'context_loading'::text, 'goal_deliberation'::text, 'skill_resolution'::text, 'planning'::text, 'awaiting_plan_confirmation'::text, 'awaiting_user_input'::text, 'paused'::text, 'executing'::text, 'evaluating'::text, 'capability_gap'::text, 'completed'::text, 'canceled'::text, 'failed'::text, 'invalidated'::text]))),
     CONSTRAINT agent_task_selected_skill_check CHECK ((((selected_skill_id IS NULL) AND (selected_skill_version IS NULL)) OR ((selected_skill_id IS NOT NULL) AND (selected_skill_version > 0)))),
@@ -1003,6 +1007,7 @@ CREATE TABLE public.runtime_terminal_outcome (
     final_instance_id text,
     result_id text,
     summary text NOT NULL,
+    authority text NOT NULL DEFAULT 'user_goal_plan_controller',
     enhancement_warnings_json jsonb DEFAULT '[]'::jsonb NOT NULL,
     committed_at timestamp with time zone NOT NULL,
     CONSTRAINT runtime_terminal_outcome_check CHECK (((outcome_kind <> 'achieved'::text) OR (control_status = 'achieved'::text))),
@@ -1012,7 +1017,8 @@ CREATE TABLE public.runtime_terminal_outcome (
     CONSTRAINT runtime_terminal_outcome_control_status_check CHECK ((control_status = ANY (ARRAY['achieved'::text, 'unachievable'::text, 'canceled'::text, 'replan_budget_exhausted'::text]))),
     CONSTRAINT runtime_terminal_outcome_goal_version_check CHECK ((goal_version > 0)),
     CONSTRAINT runtime_terminal_outcome_outcome_kind_check CHECK ((outcome_kind = ANY (ARRAY['achieved'::text, 'unachievable'::text, 'canceled'::text]))),
-    CONSTRAINT runtime_terminal_outcome_round_index_check CHECK ((round_index >= 0))
+    CONSTRAINT runtime_terminal_outcome_round_index_check CHECK ((round_index >= 0)),
+    CONSTRAINT runtime_terminal_outcome_authority_check CHECK ((authority = 'user_goal_plan_controller'::text))
 );
 
 
@@ -1434,7 +1440,7 @@ CREATE TABLE public.stage_model_route (
     stage text NOT NULL,
     provider_id text NOT NULL,
     updated_at timestamp with time zone NOT NULL,
-    CONSTRAINT stage_model_route_stage_check CHECK ((stage = ANY (ARRAY['intent'::text, 'goal'::text, 'tool_enhancement'::text, 'skill_authoring'::text, 'skill_selection'::text, 'skill_input_resolution'::text, 'workflow_planning'::text, 'execution_decision'::text, 'goal_evaluation'::text, 'evaluation'::text, 'result_processing'::text])))
+    CONSTRAINT stage_model_route_stage_check CHECK ((stage = ANY (ARRAY['intent'::text, 'goal'::text, 'goal_planning'::text, 'tool_enhancement'::text, 'skill_authoring'::text, 'skill_selection'::text, 'skill_input_resolution'::text, 'workflow_planning'::text, 'execution_decision'::text, 'goal_evaluation'::text, 'evaluation'::text, 'result_processing'::text])))
 );
 
 
@@ -3636,13 +3642,6 @@ ALTER TABLE ONLY public.agent_task
 
 
 --
--- Name: agent_task agent_task_skill_selection_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_task
-    ADD CONSTRAINT agent_task_skill_selection_fk FOREIGN KEY (skill_selection_id) REFERENCES public.skill_selection_record(selection_id);
-
-
 --
 -- Name: agent_task agent_task_temporary_skill_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
@@ -4750,6 +4749,7 @@ CREATE TABLE public.user_goal_plan (
     goal_version integer NOT NULL,
     revision integer NOT NULL CHECK (revision BETWEEN 1 AND 4),
     revision_kind text NOT NULL CHECK (revision_kind IN ('initial','goal_patch','user_revision','recovery','event_impact')),
+    source_plan_id text REFERENCES public.user_goal_plan(plan_id),
     status text NOT NULL CHECK (status IN ('planning','validated','active','revision_pending','superseded','completed','failed','canceled')),
     contract_hash text NOT NULL CHECK (contract_hash ~ '^sha256:[0-9a-f]{64}$'),
     content_hash text NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
@@ -4833,6 +4833,24 @@ CREATE TABLE public.skill_execution_contract (
     FOREIGN KEY (skill_id, skill_version) REFERENCES public.skill_version(skill_id, version)
 );
 
+ALTER TABLE ONLY public.agent_task
+    ADD CONSTRAINT agent_task_skill_selection_fk
+    FOREIGN KEY (skill_selection_id)
+    REFERENCES public.skill_selection_record(selection_id);
+
+ALTER TABLE ONLY public.agent_task
+    ADD CONSTRAINT agent_task_user_goal_plan_fk FOREIGN KEY (user_goal_plan_id)
+      REFERENCES public.user_goal_plan(plan_id),
+    ADD CONSTRAINT agent_task_skill_goal_fk FOREIGN KEY (skill_goal_id)
+      REFERENCES public.skill_goal(skill_goal_id),
+    ADD CONSTRAINT agent_task_skill_attempt_fk FOREIGN KEY (skill_attempt_id)
+      REFERENCES public.skill_attempt(attempt_id),
+    ADD CONSTRAINT agent_task_skill_execution_contract_fk FOREIGN KEY (skill_execution_contract_id)
+      REFERENCES public.skill_execution_contract(execution_contract_id),
+    ADD CONSTRAINT agent_task_skill_goal_attempt_binding_check
+      CHECK ((user_goal_plan_id IS NULL) = (skill_goal_id IS NULL)
+        AND (skill_goal_id IS NULL) = (skill_attempt_id IS NULL));
+
 CREATE TABLE public.task_goal_contract (
     task_goal_contract_id text PRIMARY KEY,
     attempt_id text NOT NULL REFERENCES public.skill_attempt(attempt_id),
@@ -4914,8 +4932,23 @@ CREATE TABLE public.business_event_subscription (
 );
 
 CREATE UNIQUE INDEX business_event_subscription_current_idx
-ON public.business_event_subscription(provider_id, stream_id)
+ON public.business_event_subscription(provider_id)
 WHERE status = 'current';
+
+CREATE TABLE public.business_event_continuity (
+    continuity_id text PRIMARY KEY,
+    subscription_id text NOT NULL REFERENCES public.business_event_subscription(subscription_id),
+    previous_stream_id text NOT NULL,
+    new_stream_id text NOT NULL,
+    reason_code text NOT NULL CHECK (reason_code IN ('SOURCE_CURSOR_EXPIRED','SOURCE_STREAM_RESET','SOURCE_DATA_LOSS','SOURCE_SEQUENCE_REGRESSION','SOURCE_IDENTITY_CONFLICT','SOURCE_POISON_EVENT','TASK_MAPPING_FAILED','SOURCE_ROSTER_CHANGED','OPERATOR_ROTATION')),
+    affected_source_ids_json jsonb NOT NULL CHECK (jsonb_typeof(affected_source_ids_json) = 'array' AND jsonb_array_length(affected_source_ids_json) BETWEEN 1 AND 16),
+    gap_detected_at timestamptz NOT NULL,
+    last_replayable_sequence numeric(78,0) NOT NULL CHECK (last_replayable_sequence >= 0),
+    last_continuous_sequence numeric(78,0),
+    created_at timestamptz NOT NULL,
+    CHECK (previous_stream_id <> new_stream_id),
+    UNIQUE (subscription_id, previous_stream_id, new_stream_id, reason_code, last_replayable_sequence)
+);
 
 CREATE TABLE public.business_event_inbox (
     inbox_id text PRIMARY KEY,
@@ -4973,6 +5006,18 @@ ALTER TABLE public.workflow_plan
     ADD COLUMN skill_goal_id text REFERENCES public.skill_goal(skill_goal_id),
     ADD COLUMN skill_attempt_id text REFERENCES public.skill_attempt(attempt_id),
     ADD CONSTRAINT workflow_plan_skill_goal_attempt_pair_check
+      CHECK ((skill_goal_id IS NULL) = (skill_attempt_id IS NULL));
+
+ALTER TABLE public.workflow_plan_attempt
+    ADD COLUMN skill_goal_id text REFERENCES public.skill_goal(skill_goal_id),
+    ADD COLUMN skill_attempt_id text REFERENCES public.skill_attempt(attempt_id),
+    ADD CONSTRAINT workflow_plan_attempt_skill_goal_attempt_pair_check
+      CHECK ((skill_goal_id IS NULL) = (skill_attempt_id IS NULL));
+
+ALTER TABLE public.workflow_instance
+    ADD COLUMN skill_goal_id text REFERENCES public.skill_goal(skill_goal_id),
+    ADD COLUMN skill_attempt_id text REFERENCES public.skill_attempt(attempt_id),
+    ADD CONSTRAINT workflow_instance_skill_goal_attempt_pair_check
       CHECK ((skill_goal_id IS NULL) = (skill_attempt_id IS NULL));
 
 ALTER TABLE public.remote_task_binding
