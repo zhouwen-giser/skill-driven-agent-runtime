@@ -36,6 +36,7 @@ All notable changes to this project are documented here. The format follows Keep
   0108/0109 rollback/reapply, 126 OpenAPI operations and production build. The first E2E run retained an
   unrelated remote-lifecycle timing failure; recurrence exposed an empty-array polling defect, whose
   stronger wait condition is covered by the final 166,839 ms full `pnpm verify` including both smokes.
+  Implementation `820d78d` is pushed and Draft PR #8 remains Draft.
 
 ## [1.2.2] - Unreleased
 

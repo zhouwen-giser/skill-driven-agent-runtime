@@ -10,7 +10,7 @@ served through the real Management API. Live Provider/device readiness is delibe
 ## Goal Contract Result
 
 ```text
-completed locally; publication evidence pending the immutable implementation commit
+completed
 ```
 
 ## Implementation
@@ -96,10 +96,11 @@ adds no dependency. No new Source Intake Report, license ledger entry or SBOM co
 
 ## Commit, Push and Draft PR
 
-- Implementation commit: pending immutable commit creation
-- Push: pending
+- Implementation commit: `820d78d22acd26a747448510fb02c5d1168a817b`
+- Push: `origin/feature/v1.2.3-cognitive-planning-runtime` matches the implementation SHA
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 - PR must remain Draft; no merge or tag is authorized
+- Evidence synchronization is intentionally published as a subsequent non-amended commit.
 
 The disposable `sdar_test_v123_g01_gate` database used by the final full gate was deleted after the
 successful run. The default operator `sdar` database was not reset or modified.

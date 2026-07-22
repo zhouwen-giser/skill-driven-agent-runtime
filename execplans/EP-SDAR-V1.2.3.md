@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G01 implementation/gates are complete locally; publication evidence is pending
+Status: ACTIVE — G01 is complete and pushed; G02 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -82,7 +82,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | Goal | Status | Commit | Tests | Evidence | Blocker | Next |
 | --- | --- | --- | --- | --- | --- | --- |
 | G00 | completed | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none | hand off frozen contracts to G01 |
-| G01 | in_progress | pending immutable commit | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke | `reports/goal/g01-completion.md` | none | commit/push/update Draft PR, then G02 |
+| G01 | completed | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke | `reports/goal/g01-completion.md` | none | hand off activated Summary to G02 |
 | G02 | not_started | — | — | — | G01 | public snapshot/A2A projection |
 | G03 | not_started | — | — | — | G00/G01 | generic task understanding |
 | G04 | not_started | — | — | — | G03 | interactive Goal session |
@@ -253,20 +253,18 @@ dependency was added.
 
 None. The package self-check is platform-safe and passing. The default operator database's historical
 ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names. G01 has no implementation blocker; only its normal immutable commit/push/PR publication
-step remains.
+database names. G01 implementation `820d78d` is pushed and Draft PR #8 remains Draft.
 
 ## Next Execution Step
 
-Create and push the immutable G01 implementation commit, record its exact SHA in this plan/sync state,
-update Draft PR #8 without changing Draft status, then start G02 public privacy-filtered/A2A projection
-from the activated Hash-matched Summary.
+Start G02 public privacy-filtered/A2A projection from the activated Hash-matched Summary. Update Draft
+PR #8 at each Goal boundary without changing Draft status.
 
 ## Outcomes and Retrospective
 
 G00 completed without activating cognitive behavior. G01 now provides deterministic Capability Summary
 behavior with real PostgreSQL/API/runtime evidence and no Provider/readiness or model authority. Its
 final full gate passes 645 unit/contract, 70 integration and 60 E2E tests plus migration/OpenAPI/build
-and both smokes in 166,839 ms; publication evidence is the remaining G01 step. The disposable gate
-database was deleted and the default local `sdar` volume remains protected historical operator data.
-G02–G17 remain open.
+and both smokes in 166,839 ms. Implementation `820d78d` is pushed. The disposable gate database was
+deleted and the default local `sdar` volume remains protected historical operator data. G02–G17 remain
+open.
