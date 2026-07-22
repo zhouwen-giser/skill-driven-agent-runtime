@@ -26,7 +26,6 @@ import type { PreparedSkillUsagePlan } from './skill-usage-planning.js';
 export interface PreparedChildSkillUsage {
   readonly prepared: PreparedSkillUsagePlan;
   readonly applicabilityStatus: SkillApplicabilityStatus;
-  readonly useLegacyPlanningInstruction?: boolean;
 }
 
 export type ChildSkillExecutionStatus =
@@ -433,24 +432,15 @@ export class SkillCallWorkflowService {
               : { deterministicDefinition: preparedUsage.prepared.deterministicDefinition }),
           }),
       planningInstruction:
-        preparedUsage?.useLegacyPlanningInstruction !== true
-          ? (preparedUsage?.prepared.planningInstruction ??
-            childPlanningInstruction(
-              skill,
-              input.value,
-              toolPlanningMetadata,
-              childWorkflowDefinitionId,
-              input.parentGoalId,
-              input.parentGoalVersion,
-            ))
-          : childPlanningInstruction(
-              skill,
-              input.value,
-              toolPlanningMetadata,
-              childWorkflowDefinitionId,
-              input.parentGoalId,
-              input.parentGoalVersion,
-            ),
+        preparedUsage?.prepared.planningInstruction ??
+        childPlanningInstruction(
+          skill,
+          input.value,
+          toolPlanningMetadata,
+          childWorkflowDefinitionId,
+          input.parentGoalId,
+          input.parentGoalVersion,
+        ),
     });
     const definition = await this.#requireValidatedDefinition(plan);
     if (preparedUsage !== undefined)

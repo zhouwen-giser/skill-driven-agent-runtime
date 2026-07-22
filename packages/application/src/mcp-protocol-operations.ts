@@ -1,11 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type {
-  McpProtocolDiscoverySnapshot,
-  McpProviderProtocolMode,
-  McpServer,
-  McpTool,
-} from '../../domain/src/index.js';
+import type { McpProtocolDiscoverySnapshot, McpServer, McpTool } from '../../domain/src/index.js';
 
 export interface McpProtocolOperationsRepository {
   listServers(): Promise<readonly McpServer[]>;
@@ -24,11 +19,10 @@ export interface McpProviderProtocolEvidence {
   readonly notificationStatus: 'streaming_supported' | 'polling_fallback';
   readonly warnings: readonly string[];
   readonly operations: Readonly<{
-    registerOrRefresh: 'legacy_registry' | 'frozen_registry';
+    registerOrRefresh: 'frozen_registry';
     protocolDiagnosis: true;
     reconnect: 'component_required' | 'subscription_component';
     forceReconciliation: true;
-    modeSwitchGuard: true;
     baselineAudit: true;
   }>;
 }
@@ -83,29 +77,6 @@ export class McpProtocolOperationsService {
     });
   }
 
-  async guardModeSwitch(
-    serverId: string,
-    targetMode: McpProviderProtocolMode,
-  ): Promise<
-    Readonly<{
-      serverId: string;
-      currentMode: McpProviderProtocolMode;
-      targetMode: McpProviderProtocolMode;
-      allowed: boolean;
-      reason: 'same_mode' | 'immutable_provider_mode';
-    }>
-  > {
-    const evidence = await this.diagnose(serverId);
-    const currentMode = evidence.server.protocolMode ?? 'legacy_v11';
-    return Object.freeze({
-      serverId,
-      currentMode,
-      targetMode,
-      allowed: currentMode === targetMode,
-      reason: currentMode === targetMode ? 'same_mode' : 'immutable_provider_mode',
-    });
-  }
-
   private async inspect(server: McpServer): Promise<McpProviderProtocolEvidence> {
     const [currentDiscovery, tools] = await Promise.all([
       this.#repository.findCurrentProtocolSnapshot(server.serverId),
@@ -135,16 +106,12 @@ export class McpProtocolOperationsService {
           : ['Task Notifications are unavailable; polling fallback increases observation latency.'],
       ),
       operations: Object.freeze({
-        registerOrRefresh:
-          (server.protocolMode ?? 'legacy_v11') === 'frozen_v1'
-            ? 'frozen_registry'
-            : 'legacy_registry',
+        registerOrRefresh: 'frozen_registry',
         protocolDiagnosis: true,
         reconnect: this.#notificationReconnectComposed
           ? 'subscription_component'
           : 'component_required',
         forceReconciliation: true,
-        modeSwitchGuard: true,
         baselineAudit: true,
       }),
     });

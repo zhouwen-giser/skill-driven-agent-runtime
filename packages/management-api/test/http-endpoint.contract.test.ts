@@ -154,6 +154,13 @@ describe('management HTTP API contract', () => {
       protocolStatus: 'working',
       protocolRevision: '2026-07-28',
       tasksSchemaRevision: '1.0.1',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'a'.repeat(64),
+      },
+      taskBehavior: 'server_directed',
+      runtimeRevision: '1',
       providerSubstate: 'running',
       requestedTiming: {
         start: { mode: 'immediate', startToleranceMs: 0 },
@@ -1048,7 +1055,6 @@ describe('management HTTP API contract', () => {
         protocolDiagnosis: true as const,
         reconnect: 'component_required' as const,
         forceReconciliation: true as const,
-        modeSwitchGuard: true as const,
         baselineAudit: true as const,
       },
     };
@@ -1064,17 +1070,6 @@ describe('management HTTP API contract', () => {
               expectedBaselineSha256: 'a'.repeat(64),
               actualBaselineSha256: 'a'.repeat(64),
               passed: true,
-            }),
-          guardModeSwitch: (_serverId, targetMode) =>
-            Promise.resolve({
-              serverId: server.serverId,
-              currentMode: 'frozen_v1',
-              targetMode,
-              allowed: targetMode === 'frozen_v1',
-              reason:
-                targetMode === 'frozen_v1'
-                  ? ('same_mode' as const)
-                  : ('immutable_provider_mode' as const),
             }),
         },
         frozenMcp: {
@@ -1120,17 +1115,8 @@ describe('management HTTP API contract', () => {
     );
     expect(audit.status).toBe(200);
     await expect(audit.json()).resolves.toMatchObject({ passed: true });
-    const guard = await fetch(
-      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/mode-switch-guard`,
-      jsonPost({ targetMode: 'legacy_v11' }),
-    );
-    expect(guard.status).toBe(409);
-    await expect(guard.json()).resolves.toMatchObject({
-      allowed: false,
-      reason: 'immutable_provider_mode',
-    });
     const registration = await fetch(
-      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers`,
+      `${endpoint.baseUrl}/api/v1/mcp/servers`,
       jsonPost({
         serverId: 'provider-new',
         name: 'Frozen Provider',
@@ -1140,12 +1126,12 @@ describe('management HTTP API contract', () => {
     );
     expect(registration.status).toBe(201);
     const refresh = await fetch(
-      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers/${server.serverId}/refresh`,
+      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/refresh`,
       { method: 'POST' },
     );
     expect(refresh.status).toBe(200);
     const reconnect = await fetch(
-      `${endpoint.baseUrl}/api/v1/mcp/frozen/servers/${server.serverId}/notifications/reconnect`,
+      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/notifications/reconnect`,
       { method: 'POST' },
     );
     expect(reconnect.status).toBe(202);
@@ -2497,7 +2483,6 @@ function operations(failServerList = false): ManagementOperations {
       list: () => Promise.resolve([]),
     },
     mcp: {
-      checkHealth: unused,
       delete: unused,
       listDependencyWarnings: () => Promise.resolve([]),
       listInvocations: () => Promise.resolve([]),
@@ -2514,16 +2499,14 @@ function operations(failServerList = false): ManagementOperations {
                 transport: 'streamable_http',
                 status: 'enabled',
                 toolRevision: 1,
+                protocolMode: 'frozen_v1' as const,
                 createdAt: '2026-07-11T10:00:00.000Z',
                 updatedAt: '2026-07-11T10:00:00.000Z',
               },
             ]),
       listTools: () => Promise.resolve([]),
-      refresh: unused,
-      register: unused,
       updateToolEnhancement: unused,
       updateToolExecutionSemantics: unused,
-      updateCredentials: unused,
     },
     models: {
       configureProvider: unused,

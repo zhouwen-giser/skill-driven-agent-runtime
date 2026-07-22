@@ -55,7 +55,7 @@ function policy() {
         taskType: 'embodied.move',
         providerId: 'provider-1',
         operationName: 'move_to',
-        protocolMode: 'legacy_v11',
+        protocolMode: 'frozen_v1',
       },
     ],
     childPolicies: [

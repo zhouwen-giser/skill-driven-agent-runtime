@@ -143,7 +143,7 @@ export interface SkillPatchCandidate {
   readonly createdAt: string;
 }
 
-export type SkillUsageSpecSource = 'native' | 'legacy_projection';
+export type SkillUsageSpecSource = 'native';
 
 export interface ResolvedSkillUsageSpecification {
   readonly source: SkillUsageSpecSource;
@@ -167,41 +167,6 @@ export function createSkillUsageSpecification(
   if (input.composition !== undefined) validateComposition(input.composition);
   validateEvidence(input.evidencePolicy);
   return snapshotUsage(input);
-}
-
-export function createLegacySkillUsageProjection(
-  input: Readonly<{
-    workflowGuidance: string;
-    autoConfirmPlan: boolean;
-  }>,
-): ResolvedSkillUsageSpecification {
-  const guidance = text(input.workflowGuidance, 'legacy workflow guidance');
-  return Object.freeze({
-    source: 'legacy_projection',
-    specification: createSkillUsageSpecification({
-      apiVersion: SKILL_USAGE_API_VERSION,
-      visibility: { userSelectable: true, composable: false, internalOnly: false },
-      normative: {
-        constraints: [],
-        forbiddenActions: [],
-        requiredConfirmations: input.autoConfirmPlan ? [] : ['existing_plan_confirmation'],
-        noApplicableSkill: 'confirm',
-      },
-      adaptive: {
-        instructions: [guidance],
-        optimizationHints: [],
-        allowPreferredProviderFallback: false,
-      },
-      contextRequirements: [],
-      modes: {
-        supported: ['guidance'],
-        defaultMode: 'guidance',
-        guidance: { summary: 'Legacy workflow guidance projection.', instructions: [guidance] },
-      },
-      taskBindings: [],
-      evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
-    }),
-  });
 }
 
 export function createSkillPatchCandidate(input: SkillPatchCandidate): SkillPatchCandidate {

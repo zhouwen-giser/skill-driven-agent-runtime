@@ -1,5 +1,4 @@
 import {
-  createLegacySkillUsageProjection,
   type SkillApplicabilityAssessment,
   type SkillApplicabilityStatus,
   type SkillContextObservation,
@@ -249,13 +248,12 @@ export class SkillUsageCandidateAssessor {
 }
 
 function resolveUsage(skill: SkillVersion): SkillUsageSpecification {
-  return (
-    skill.usageSpecification ??
-    createLegacySkillUsageProjection({
-      workflowGuidance: skill.workflowGuidance,
-      autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
-    }).specification
-  );
+  if (skill.usageSpecification === undefined)
+    throw new SkillUsageDecisionError(
+      'SKILL_USAGE_REQUIRED',
+      `Skill ${skill.skillId}@${String(skill.version)} requires a native usage specification.`,
+    );
+  return skill.usageSpecification;
 }
 
 function freezeContextSummary(
@@ -469,7 +467,10 @@ function isMode(value: unknown): value is SkillExecutionMode {
 }
 
 export type SkillUsageDecisionErrorCode =
-  'SKILL_CONTEXT_EVIDENCE_INVALID' | 'SKILL_MODE_POLICY_INVALID' | 'SKILL_TASK_READINESS_INVALID';
+  | 'SKILL_CONTEXT_EVIDENCE_INVALID'
+  | 'SKILL_MODE_POLICY_INVALID'
+  | 'SKILL_TASK_READINESS_INVALID'
+  | 'SKILL_USAGE_REQUIRED';
 
 export class SkillUsageDecisionError extends Error {
   readonly code: SkillUsageDecisionErrorCode;

@@ -74,23 +74,13 @@ const TaskExecutionBase = {
     .strict()
     .optional(),
 };
-const LegacyTaskExecutionSchema = z
-  .object({
-    ...TaskExecutionBase,
-    protocolMode: z.literal('legacy_v11').optional(),
-    mode: z.enum(['allow_task', 'require_task']),
-  })
-  .strict();
 const FrozenTaskExecutionSchema = z
   .object({
     ...TaskExecutionBase,
     protocolMode: z.literal('frozen_v1'),
   })
   .strict();
-const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = z.union([
-  LegacyTaskExecutionSchema,
-  FrozenTaskExecutionSchema,
-]);
+const TaskExecutionSchema: z.ZodType<McpTaskExecutionSpec> = FrozenTaskExecutionSchema;
 const MappingPath = z
   .string()
   .min(1)
@@ -324,13 +314,7 @@ export class WorkflowValidator {
     validateConditionEdges(definition.nodes, definition.edges, errors);
     validateReachability(definition, ids, errors);
     if (effectivePolicy !== undefined)
-      errors.push(
-        ...checkSkillUsagePlanCompliance(
-          definition,
-          effectivePolicy,
-          context.allowedChildSkillIds ?? [],
-        ).errors,
-      );
+      errors.push(...checkSkillUsagePlanCompliance(definition, effectivePolicy).errors);
     return errors.length === 0 ? { valid: true, errors, definition } : { valid: false, errors };
   }
   async #validateNode(

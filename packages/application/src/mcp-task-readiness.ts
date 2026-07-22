@@ -611,24 +611,14 @@ function planningExecution(
   spec: McpTaskExecutionSpec | undefined,
   definition: McpTaskOperationDefinition | undefined,
 ): ResolvedMcpTaskExecution | undefined {
-  if (spec === undefined) {
-    return definition?.protocolMode !== 'frozen_v1' &&
-      definition?.semantics.execution === 'task_required'
-      ? { mode: 'require_task', availabilityCheck: 'required' }
+  if (spec === undefined)
+    return definition?.taskExecutionProfile.taskBehavior === 'task_required'
+      ? { protocolMode: 'frozen_v1', availabilityCheck: 'required' }
       : undefined;
-  }
   const timing = planningTiming(spec);
-  if (spec.protocolMode === 'frozen_v1')
-    return {
-      protocolMode: 'frozen_v1',
-      availabilityCheck: spec.availabilityCheck ?? 'best_effort',
-      ...(timing === undefined ? {} : { timing }),
-      ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
-    };
   return {
-    mode: spec.mode,
-    availabilityCheck:
-      spec.availabilityCheck ?? (spec.mode === 'require_task' ? 'required' : 'best_effort'),
+    protocolMode: 'frozen_v1',
+    availabilityCheck: spec.availabilityCheck ?? 'best_effort',
     ...(timing === undefined ? {} : { timing }),
     ...(spec.reservationRef === undefined ? {} : { reservationRef: spec.reservationRef }),
   };
@@ -662,44 +652,23 @@ function validateCapabilities(
 ): readonly string[] {
   if (execution === undefined) return [];
   if (definition === undefined) return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  if (execution.protocolMode === 'frozen_v1') {
-    if (definition.protocolMode !== 'frozen_v1') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-    const profile = definition.taskExecutionProfile;
-    if (profile.taskBehavior === 'synchronous_only') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-    if (execution.timing?.start.mode === 'scheduled' && !profile.supportsScheduling)
-      return ['WORKFLOW_TASK_SCHEDULING_UNSUPPORTED'];
-    if (
-      execution.timing?.maxElapsedMs !== null &&
-      execution.timing?.maxElapsedMs !== undefined &&
-      !profile.supportsMaxElapsed
-    )
-      return ['WORKFLOW_TASK_MAX_ELAPSED_UNSUPPORTED'];
-    if (profile.availability !== 'dynamic' && execution.availabilityCheck === 'required')
-      return ['MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED'];
-    return [];
-  }
-  if (definition.protocolMode === 'frozen_v1') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  if (definition.semantics.execution === 'unknown') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  const semantics = definition.semantics;
-  if (execution.mode === 'require_task' && semantics.execution === 'synchronous')
-    return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
-  if (execution.timing?.start.mode === 'scheduled' && !semantics.supportsScheduling)
+  const profile = definition.taskExecutionProfile;
+  if (profile.taskBehavior === 'synchronous_only') return ['WORKFLOW_TASK_EXECUTION_UNSUPPORTED'];
+  if (execution.timing?.start.mode === 'scheduled' && !profile.supportsScheduling)
     return ['WORKFLOW_TASK_SCHEDULING_UNSUPPORTED'];
   if (
     execution.timing?.maxElapsedMs !== null &&
     execution.timing?.maxElapsedMs !== undefined &&
-    !semantics.supportsMaxElapsed
+    !profile.supportsMaxElapsed
   )
     return ['WORKFLOW_TASK_MAX_ELAPSED_UNSUPPORTED'];
-  if (semantics.availability !== 'dynamic' && execution.availabilityCheck === 'required')
+  if (profile.availability !== 'dynamic' && execution.availabilityCheck === 'required')
     return ['MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED'];
   return [];
 }
 
 function operationRequiresTask(definition: McpTaskOperationDefinition | undefined): boolean {
-  return definition?.protocolMode === 'frozen_v1'
-    ? definition.taskExecutionProfile.taskBehavior === 'task_required'
-    : definition?.semantics.execution === 'task_required';
+  return definition?.taskExecutionProfile.taskBehavior === 'task_required';
 }
 
 function partitionArguments(value: WorkflowBoundValue): TaskAvailabilityArguments {

@@ -20,15 +20,7 @@ const frozenProfile = {
 };
 
 describe('Frozen MCP domain contracts', () => {
-  it('keeps legacy Tool projections isolated from Frozen profiles', () => {
-    const legacy = createMcpTool({
-      serverId: 'server-1',
-      toolName: 'legacy.tool',
-      inputSchema: {},
-      discoveredAt: '2026-07-18T00:00:00.000Z',
-    });
-    expect(legacy.protocolMode).toBe('legacy_v11');
-
+  it('requires the Frozen Tool profile', () => {
     const frozen = createMcpTool({
       serverId: 'server-1',
       toolName: 'frozen.tool',
@@ -46,16 +38,6 @@ describe('Frozen MCP domain contracts', () => {
         toolName: 'mixed.tool',
         inputSchema: {},
         protocolMode: 'frozen_v1',
-        taskExecution: {
-          execution: 'task_required',
-          availability: 'dynamic',
-          supportsScheduling: true,
-          supportsMaxElapsed: true,
-          supportsObservations: true,
-          cancellation: 'task_cancel',
-          revision: '1.0',
-        },
-        taskExecutionProfile: frozenProfile,
         discoveredAt: '2026-07-18T00:00:00.000Z',
       }),
     ).toThrow(expect.objectContaining({ code: 'TOOL_PROFILE_FIELD_MISMATCH' }));

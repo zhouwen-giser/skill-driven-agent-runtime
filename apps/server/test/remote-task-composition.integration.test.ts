@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,15 +70,7 @@ beforeAll(async () => {
   }
   pool = new Pool({ connectionString: databaseConnection, max: 8 });
   initializedPool = pool;
-  const bootstrap = await readFile(
-    new URL('../../../infra/postgres/init/0001_sdar_bootstrap.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(bootstrap);
-  await applyRuntimeMigrations(pool, {
-    profile: 'released',
-    isolationAcknowledged: true,
-  });
+  await applyRuntimeMigrations(pool);
 }, 60_000);
 
 beforeEach(async () => {
@@ -308,7 +299,7 @@ describe('remote MCP Task composition acceptance', () => {
     const continuations = new PostgresWorkflowContinuationRepository(pool);
     const instances = new PostgresWorkflowExecutionRepository(pool);
     const validator = new WorkflowValidator({
-      tools: new PostgresMcpRegistryRepository(pool, { v11TaskMetadata: true }),
+      tools: new PostgresMcpRegistryRepository(pool),
       skills,
       schemas: new AjvJsonSchemaValidator(),
     });
@@ -686,7 +677,7 @@ function workflowExecution(
     plans,
     instances: new PostgresWorkflowExecutionRepository(pool),
     validator: new WorkflowValidator({
-      tools: new PostgresMcpRegistryRepository(pool, { v11TaskMetadata: true }),
+      tools: new PostgresMcpRegistryRepository(pool),
       skills,
       schemas: new AjvJsonSchemaValidator(),
     }),

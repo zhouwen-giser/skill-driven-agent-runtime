@@ -71,7 +71,6 @@ import type {
   McpTool,
   McpToolDependencyChange,
   McpToolEnhancement,
-  McpTaskOperationSemantics,
   McpTaskOperationDefinition,
   McpTaskOperationCandidate,
   McpProtocolContractSnapshot,
@@ -304,17 +303,6 @@ const WorkflowToolExecutionSemanticsSchema = z.array(
     })
     .strict(),
 );
-const McpTaskOperationSemanticsSchema: z.ZodType<McpTaskOperationSemantics> = z
-  .object({
-    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
-    availability: z.enum(['not_supported', 'dynamic']),
-    supportsScheduling: z.boolean(),
-    supportsMaxElapsed: z.boolean(),
-    supportsObservations: z.boolean(),
-    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
-    revision: z.literal('1.0'),
-  })
-  .strict();
 const McpTaskExecutionProfileSchema: z.ZodType<McpTaskExecutionProfile> = z
   .object({
     profileVersion: z.literal('1.0'),
@@ -329,7 +317,7 @@ const McpTaskExecutionProfileSchema: z.ZodType<McpTaskExecutionProfile> = z
   .strict();
 const McpProtocolContractSchema: z.ZodType<McpProtocolContractSnapshot> = z
   .object({
-    mode: z.enum(['legacy_v11', 'frozen_v1']),
+    mode: z.literal('frozen_v1'),
     protocolVersion: z.string().min(1),
     baselineSha256: z.string().min(1),
     tasksSchemaSha256: z.string().optional(),
@@ -338,10 +326,10 @@ const McpProtocolContractSchema: z.ZodType<McpProtocolContractSnapshot> = z
     serverDiscoverySnapshotId: z.string().optional(),
   })
   .strict();
-const LEGACY_MCP_PROTOCOL_CONTRACT: McpProtocolContractSnapshot = Object.freeze({
-  mode: 'legacy_v11',
-  protocolVersion: 'legacy',
-  baselineSha256: 'legacy-v11-historical',
+const FROZEN_MCP_PROTOCOL_CONTRACT: McpProtocolContractSnapshot = Object.freeze({
+  mode: 'frozen_v1',
+  protocolVersion: '2026-07-28',
+  baselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
 });
 const SkillMetricsSchema = z.object({
   sampleCount: z.number().int().nonnegative(),
@@ -353,7 +341,7 @@ const SkillMetricsSchema = z.object({
 });
 const SkillUsageSummarySchema = z
   .object({
-    source: z.enum(['native', 'legacy_projection']),
+    source: z.literal('native'),
     apiVersion: z.literal('sdar.io/v1alpha1'),
     visibility: z
       .object({
@@ -380,7 +368,7 @@ const SkillTaskProviderCandidateReadinessSchema = z
   .object({
     providerId: z.string(),
     operationName: z.string(),
-    protocolMode: z.enum(['legacy_v11', 'frozen_v1']),
+    protocolMode: z.literal('frozen_v1'),
     attributes: z.array(z.string()),
     disposition: z.enum(['ready', 'restricted', 'unavailable', 'unknown']),
     riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
@@ -450,7 +438,7 @@ const SkillUsageCandidateSchema = z
                   reasonCodes: z.array(z.string()),
                   selectedProviderId: z.string().optional(),
                   selectedOperationName: z.string().optional(),
-                  selectedProtocolMode: z.enum(['legacy_v11', 'frozen_v1']).optional(),
+                  selectedProtocolMode: z.literal('frozen_v1').optional(),
                   candidates: z.array(SkillTaskProviderCandidateReadinessSchema).optional(),
                 })
                 .strict(),
@@ -4710,7 +4698,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           : JSON.stringify(attempt.compositionContext),
         JSON.stringify(attempt.capabilityGapSkillIds ?? []),
         JSON.stringify(attempt.toolExecutionSemantics ?? []),
-        JSON.stringify(attempt.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
+        JSON.stringify(attempt.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
         attempt.attempt,
         JSON.stringify(attempt.candidate),
         JSON.stringify(attempt.validationErrors),
@@ -4737,7 +4725,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
         plan.definition === undefined ? null : JSON.stringify(plan.definition),
         plan.sourceConfirmedPlanId ?? null,
         plan.sourcePlanId ?? null,
-        JSON.stringify(plan.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
+        JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
         plan.revisionKind ?? null,
         plan.confirmationStatus,
         plan.attemptCount,
@@ -4772,7 +4760,7 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.definition === undefined ? null : JSON.stringify(plan.definition),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
-          JSON.stringify(plan.mcpProtocolContract ?? LEGACY_MCP_PROTOCOL_CONTRACT),
+          JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
           plan.revisionKind ?? null,
           plan.confirmationStatus,
           plan.attemptCount,
@@ -5757,11 +5745,9 @@ export class PostgresMcpRegistryRepository
     SkillTaskOperationCandidateCatalog
 {
   readonly #pool: Pool;
-  readonly #v11TaskMetadata: boolean;
 
-  constructor(pool: Pool, options: Readonly<{ v11TaskMetadata?: boolean }> = {}) {
+  constructor(pool: Pool) {
     this.#pool = pool;
-    this.#v11TaskMetadata = options.v11TaskMetadata === true;
   }
 
   async findServer(serverId: string): Promise<McpServerRecord | undefined> {
@@ -5794,7 +5780,7 @@ export class PostgresMcpRegistryRepository
               s.protocol_mode,
               enhancement_json, declared_execution_semantics_json,
               admin_execution_semantics_override_json, execution_semantics_json,
-              discovered_at${this.#v11TaskMetadata ? ', task_execution_json' : ''}
+              discovered_at,task_execution_json
        FROM mcp_tool t JOIN mcp_server s ON s.server_id=t.server_id
        WHERE t.server_id = $1 ORDER BY tool_name`,
       [serverId],
@@ -5879,10 +5865,9 @@ export class PostgresMcpRegistryRepository
   async getTaskOperationDefinition(
     reference: ToolReference,
   ): Promise<McpTaskOperationDefinition | undefined> {
-    if (!this.#v11TaskMetadata) return undefined;
     const result = await this.#pool.query<{
       task_execution_json: unknown;
-      protocol_mode: 'legacy_v11' | 'frozen_v1';
+      protocol_mode: 'frozen_v1';
       task_notifications: boolean | null;
     }>(
       `SELECT t.task_execution_json,s.protocol_mode,p.task_notifications FROM mcp_tool t
@@ -5893,32 +5878,20 @@ export class PostgresMcpRegistryRepository
     );
     const row = result.rows[0];
     if (row === undefined || row.task_execution_json === null) return undefined;
-    if (row.protocol_mode === 'frozen_v1')
-      return Object.freeze({
-        protocolMode: 'frozen_v1' as const,
-        taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json),
-        taskNotifications: row.task_notifications === true,
-      });
     return Object.freeze({
-      semantics: McpTaskOperationSemanticsSchema.parse(row.task_execution_json),
+      protocolMode: 'frozen_v1' as const,
+      taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json),
+      taskNotifications: row.task_notifications === true,
     });
-  }
-
-  async getTaskOperationSemantics(
-    reference: ToolReference,
-  ): Promise<McpTaskOperationSemantics | undefined> {
-    const definition = await this.getTaskOperationDefinition(reference);
-    return definition?.protocolMode === 'frozen_v1' ? undefined : definition?.semantics;
   }
 
   async listTaskOperationCandidates(
     taskType: string,
   ): Promise<readonly McpTaskOperationCandidate[]> {
-    if (!this.#v11TaskMetadata) return [];
     const result = await this.#pool.query<{
       server_id: string;
       task_execution_json: unknown;
-      protocol_mode: 'legacy_v11' | 'frozen_v1';
+      protocol_mode: 'frozen_v1';
       task_notifications: boolean | null;
     }>(
       `SELECT t.server_id,t.task_execution_json,s.protocol_mode,p.task_notifications FROM mcp_tool t
@@ -5929,23 +5902,14 @@ export class PostgresMcpRegistryRepository
       [taskType],
     );
     return result.rows.map((row) => {
-      if (row.protocol_mode === 'frozen_v1') {
-        const profile = McpTaskExecutionProfileSchema.parse(row.task_execution_json);
-        return Object.freeze({
-          providerId: row.server_id,
-          operationName: taskType,
-          protocolMode: 'frozen_v1' as const,
-          taskExecutionProfile: profile,
-          taskNotifications: row.task_notifications === true,
-          attributes: frozenTaskReadinessAttributes(profile, row.task_notifications === true),
-        });
-      }
-      const semantics = McpTaskOperationSemanticsSchema.parse(row.task_execution_json);
+      const profile = McpTaskExecutionProfileSchema.parse(row.task_execution_json);
       return Object.freeze({
         providerId: row.server_id,
         operationName: taskType,
-        semantics,
-        attributes: Object.freeze(taskOperationAttributes(semantics)),
+        protocolMode: 'frozen_v1' as const,
+        taskExecutionProfile: profile,
+        taskNotifications: row.task_notifications === true,
+        attributes: frozenTaskReadinessAttributes(profile, row.task_notifications === true),
       });
     });
   }
@@ -5978,7 +5942,7 @@ export class PostgresMcpRegistryRepository
           record.server.status,
           record.server.toolRevision,
           record.encryptedCredential,
-          record.server.protocolMode ?? 'legacy_v11',
+          'frozen_v1',
           record.server.currentProtocolSnapshotId ?? null,
           record.server.createdAt,
           record.server.updatedAt,
@@ -5987,18 +5951,12 @@ export class PostgresMcpRegistryRepository
       await client.query('DELETE FROM mcp_tool WHERE server_id = $1', [record.server.serverId]);
       for (const tool of tools) {
         await client.query(
-          this.#v11TaskMetadata
-            ? `INSERT INTO mcp_tool
-                 (server_id,tool_name,title,description,input_schema_json,output_schema_json,
-                  enhancement_json,declared_execution_semantics_json,
-                  admin_execution_semantics_override_json,execution_semantics_json,
-                  discovered_at,task_execution_json)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`
-            : `INSERT INTO mcp_tool
-                 (server_id,tool_name,title,description,input_schema_json,output_schema_json,
-                  enhancement_json,declared_execution_semantics_json,
-                  admin_execution_semantics_override_json,execution_semantics_json,discovered_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          `INSERT INTO mcp_tool
+             (server_id,tool_name,title,description,input_schema_json,output_schema_json,
+              enhancement_json,declared_execution_semantics_json,
+              admin_execution_semantics_override_json,execution_semantics_json,
+              discovered_at,task_execution_json)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [
             tool.serverId,
             tool.toolName,
@@ -6015,15 +5973,9 @@ export class PostgresMcpRegistryRepository
               : JSON.stringify(tool.adminExecutionSemanticsOverride),
             JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
-            ...(this.#v11TaskMetadata
-              ? [
-                  tool.protocolMode === 'frozen_v1'
-                    ? JSON.stringify(tool.taskExecutionProfile)
-                    : tool.taskExecution === undefined
-                      ? null
-                      : JSON.stringify(tool.taskExecution),
-                ]
-              : []),
+            tool.taskExecutionProfile === undefined
+              ? null
+              : JSON.stringify(tool.taskExecutionProfile),
           ],
         );
       }
@@ -6070,16 +6022,12 @@ export class PostgresMcpRegistryRepository
     changes: readonly McpToolDependencyChange[] = [],
   ): Promise<void> {
     if (
-      record.server.protocolMode !== 'frozen_v1' ||
-      snapshot.protocolMode !== 'frozen_v1' ||
       snapshot.serverId !== record.server.serverId ||
       snapshot.toolRevision !== record.server.toolRevision ||
       record.server.currentProtocolSnapshotId !== snapshot.snapshotId ||
       tools.some(
         (tool) =>
-          tool.serverId !== record.server.serverId ||
-          tool.protocolMode !== 'frozen_v1' ||
-          tool.taskExecutionProfile === undefined,
+          tool.serverId !== record.server.serverId || tool.taskExecutionProfile === undefined,
       )
     )
       throw new Error('FROZEN_MCP_REGISTRATION_AUTHORITY_MISMATCH');
@@ -6584,18 +6532,6 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
   });
 }
 
-function taskOperationAttributes(semantics: McpTaskOperationSemantics): string[] {
-  return [
-    'mcp_task',
-    `execution:${semantics.execution}`,
-    `availability:${semantics.availability}`,
-    `cancellation:${semantics.cancellation}`,
-    ...(semantics.supportsScheduling ? ['scheduling'] : []),
-    ...(semantics.supportsMaxElapsed ? ['max_elapsed'] : []),
-    ...(semantics.supportsObservations ? ['observations'] : []),
-  ].sort();
-}
-
 function mapSkillSelectionRow(row: SkillSelectionRow): SkillSelectionRecord {
   return {
     selectionId: row.selection_id,
@@ -6837,9 +6773,7 @@ function mapMcpToolRow(row: McpToolRow): McpTool {
     executionSemantics: parseMcpExecutionSemantics(row.execution_semantics_json),
     ...(row.task_execution_json === undefined || row.task_execution_json === null
       ? {}
-      : row.protocol_mode === 'frozen_v1'
-        ? { taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json) }
-        : { taskExecution: McpTaskOperationSemanticsSchema.parse(row.task_execution_json) }),
+      : { taskExecutionProfile: McpTaskExecutionProfileSchema.parse(row.task_execution_json) }),
     discoveredAt: toIsoString(row.discovered_at),
   });
 }

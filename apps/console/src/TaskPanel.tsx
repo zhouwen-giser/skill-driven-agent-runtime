@@ -528,7 +528,9 @@ export function RemoteTaskLifecyclePanel({
             · local {item.binding.localState}
           </p>
           <div className="action-row" aria-label="Frozen Task protocol evidence">
-            <span className="status">revision {item.protocol?.runtimeRevision ?? 'legacy'}</span>
+            <span className="status">
+              revision {item.protocol?.runtimeRevision ?? 'not observed'}
+            </span>
             <span className="status">
               observation {item.protocol?.latestObservationSource ?? 'not observed'}
             </span>

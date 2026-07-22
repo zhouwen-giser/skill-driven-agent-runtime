@@ -219,7 +219,7 @@ describe('SkillCallWorkflowService', () => {
     expect(harness.execute).not.toHaveBeenCalled();
   });
 
-  it('uses a native parent Usage policy as exact child authority without legacy composition context', async () => {
+  it('uses the native parent Usage policy as exact child authority', async () => {
     const harness = serviceHarness({ parentPlan: nativeParentPlan([3]) });
 
     await expect(
@@ -247,36 +247,6 @@ describe('SkillCallWorkflowService', () => {
     ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_VERSION_STALE' });
     expect(harness.plan).not.toHaveBeenCalled();
     expect(harness.execute).not.toHaveBeenCalled();
-  });
-
-  it('preserves legacy graph child authority when the Usage policy is only a compatibility projection', async () => {
-    const projected = nativeParentPlan([]);
-    const harness = serviceHarness({
-      parentPlan: {
-        ...projected,
-        compositionContext: {
-          selectedSkill: skillSnapshot('skill.root', 1),
-          relatedSkills: [skillSnapshot('skill.child', 3)],
-          relations: [
-            {
-              relationId: 'relation-root-child',
-              sourceSkillId: 'skill.root',
-              targetSkillId: 'skill.child',
-              relationType: 'parent_child',
-              metadata: {},
-              createdAt: '2026-07-12T00:00:00.000Z',
-            },
-          ],
-          allowedChildSkillIds: ['skill.child'],
-          decisionSummary: 'Legacy graph authority admits the registered child.',
-        },
-      },
-    });
-
-    await expect(
-      harness.service.execute(executionInput(harness.skill.skillId)),
-    ).resolves.toMatchObject({ status: 'completed' });
-    expect(harness.plan).toHaveBeenCalledOnce();
   });
 
   it('rejects invalid child output and records the failed Skill evaluation', async () => {

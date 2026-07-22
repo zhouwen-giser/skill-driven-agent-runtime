@@ -9,33 +9,17 @@ import {
   FrozenV1McpClient,
   FrozenV1RegistryAdapter,
   startFrozenMcpTasksMockProvider,
-  startLegacyMcpTasksMockProvider,
   type FrozenMcpTasksMockProviderHandle,
-  type McpTasksMockProviderHandle,
 } from '../src/index.js';
 
 const now = '2026-07-19T04:00:10.000Z';
 
 describe('Frozen MCP local component conformance', () => {
   let frozen: FrozenMcpTasksMockProviderHandle | undefined;
-  let legacy: McpTasksMockProviderHandle | undefined;
 
   afterEach(async () => {
-    await Promise.all([frozen?.close(), legacy?.close()]);
+    await frozen?.close();
     frozen = undefined;
-    legacy = undefined;
-  });
-
-  it('keeps explicit Legacy and Frozen Providers non-interchangeable', async () => {
-    frozen = await startFrozenMcpTasksMockProvider();
-    legacy = await startLegacyMcpTasksMockProvider();
-    const client = new FrozenV1McpClient();
-    await expect(
-      client.discover({ endpoint: frozen.endpoint.href, headers: {} }),
-    ).resolves.toMatchObject({ supportedVersions: ['2026-07-28'] });
-    await expect(
-      client.discover({ endpoint: legacy.endpoint.href, headers: {} }),
-    ).rejects.toBeDefined();
   });
 
   it('certifies discovery, Tool profile/output schema, Availability, Task, revisions and Evidence A', async () => {

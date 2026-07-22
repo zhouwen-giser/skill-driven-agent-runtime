@@ -14,10 +14,24 @@ const values = {
   idempotency: 'client_request_key',
   replay: 'allowed',
 } as const;
+const frozenContract = {
+  protocolMode: 'frozen_v1' as const,
+  taskExecutionProfile: {
+    profileVersion: '1.0' as const,
+    taskBehavior: 'server_directed' as const,
+    availability: 'dynamic' as const,
+    supportsScheduling: true,
+    supportsMaxElapsed: true,
+    supportsObservations: true,
+    supportsInputRequired: true,
+    idempotency: 'client_request_key' as const,
+  },
+};
 
 describe('MCP Tool execution semantics', () => {
   it('uses MCP declaration, then administrator override, then conservative unknown', () => {
     const declared = createMcpTool({
+      ...frozenContract,
       serverId: 'mcp.devices',
       toolName: 'status',
       inputSchema: { type: 'object' },
@@ -29,6 +43,7 @@ describe('MCP Tool execution semantics', () => {
       discoveredAt: '2026-07-16T00:00:00.000Z',
     });
     const overridden = createMcpTool({
+      ...frozenContract,
       serverId: declared.serverId,
       toolName: declared.toolName,
       inputSchema: declared.inputSchema,
@@ -39,6 +54,7 @@ describe('MCP Tool execution semantics', () => {
       discoveredAt: declared.discoveredAt,
     });
     const unknown = createMcpTool({
+      ...frozenContract,
       serverId: 'mcp.devices',
       toolName: 'undeclared',
       inputSchema: { type: 'object' },
@@ -64,6 +80,7 @@ describe('MCP Tool execution semantics', () => {
 
     expect(() =>
       createMcpTool({
+        ...frozenContract,
         serverId: 'mcp.devices',
         toolName: 'status',
         inputSchema: { type: 'object' },

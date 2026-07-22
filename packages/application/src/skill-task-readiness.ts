@@ -17,7 +17,7 @@ import type {
   TaskAvailabilityBatchReader,
 } from './ports.js';
 
-export class V11SkillTaskReadinessAdapter implements SkillTaskReadinessPort {
+export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
   readonly #operations: SkillTaskOperationCandidateCatalog;
   readonly #availability: TaskAvailabilityBatchReader;
   readonly #clock: Clock;
@@ -73,7 +73,7 @@ export class V11SkillTaskReadinessAdapter implements SkillTaskReadinessPort {
         return candidateReadiness(
           candidate.providerId,
           candidate.operationName,
-          candidate.protocolMode ?? 'legacy_v11',
+          'frozen_v1',
           candidate.attributes,
           outcome,
           binding.bindingId,
@@ -139,7 +139,7 @@ function policyCandidates(
 function candidateReadiness(
   providerId: string,
   operationName: string,
-  protocolMode: 'legacy_v11' | 'frozen_v1',
+  protocolMode: 'frozen_v1',
   attributes: readonly string[],
   outcome: TaskAvailabilityReadResult,
   bindingId: string,

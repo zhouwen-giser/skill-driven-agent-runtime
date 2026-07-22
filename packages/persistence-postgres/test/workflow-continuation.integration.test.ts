@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,22 +39,7 @@ beforeAll(async () => {
     await admin.end();
   }
   pool = new Pool({ connectionString: databaseConnection, max: 4 });
-  await pool.query(
-    await readFile(
-      new URL('../../../infra/postgres/init/0001_sdar_bootstrap.up.sql', import.meta.url),
-      'utf8',
-    ),
-  );
-  await applyRuntimeMigrations(pool, {
-    profile: 'released',
-    isolationAcknowledged: true,
-  });
-  const applied = await pool.query<{ applied: boolean }>(
-    `SELECT EXISTS(
-       SELECT 1 FROM schema_migration WHERE version='0102_remote_task_continuation'
-     ) AS applied`,
-  );
-  if (applied.rows[0]?.applied !== true) await apply0102('up');
+  await applyRuntimeMigrations(pool);
   await seedAuthority();
 }, 60_000);
 
@@ -98,6 +81,13 @@ describe('PostgreSQL remote Task continuation authority', () => {
         protocolStatus: 'working',
         protocolRevision: '2026-07-28',
         tasksSchemaRevision: 'tasks-schema-revision-1',
+        protocolContract: {
+          mode: 'frozen_v1',
+          protocolVersion: '2026-07-28',
+          baselineSha256: 'a'.repeat(64),
+        },
+        taskBehavior: 'server_directed',
+        runtimeRevision: '1',
         providerSubstate: 'running',
         remoteRevision: 'remote-revision-1',
         executionContext: { mode: 'live' },
@@ -279,9 +269,6 @@ describe('PostgreSQL remote Task continuation authority', () => {
          '2026-07-16T08:01:15.000Z')`,
     );
 
-    await expect(apply0102('down')).rejects.toThrow(
-      '0102 rollback refused: remote Task continuation evidence or waiting execution exists',
-    );
     await pool.query('DELETE FROM workflow_continuation_attempt');
     await pool.query('DELETE FROM workflow_continuation_wait_binding');
     await pool.query('DELETE FROM workflow_continuation_snapshot');
@@ -289,17 +276,7 @@ describe('PostgreSQL remote Task continuation authority', () => {
     await pool.query(
       "UPDATE workflow_instance SET status='running' WHERE instance_id='continuation-instance'",
     );
-    await expect(apply0102('down')).rejects.toThrow(
-      '0102 rollback refused: remote Task continuation evidence or waiting execution exists',
-    );
     await pool.query("DELETE FROM skill_call_workflow WHERE call_id='continuation-child-call'");
-    await apply0102('down');
-    await expect(
-      pool.query<{ exists: boolean }>(
-        "SELECT to_regclass('public.workflow_continuation_snapshot') IS NOT NULL AS exists",
-      ),
-    ).resolves.toMatchObject({ rows: [{ exists: false }] });
-    await apply0102('up');
   });
 });
 
@@ -459,17 +436,5 @@ async function seedAuthority(): Promise<void> {
             'continuation-server','long_operation','{}'::jsonb,'{"kind":"remote_task"}'::jsonb,
             'succeeded','2026-07-16T08:00:00.000Z','2026-07-16T08:00:00.001Z',1,
             'live',NULL)`,
-  );
-}
-
-async function apply0102(direction: 'up' | 'down'): Promise<void> {
-  await pool.query(
-    await readFile(
-      new URL(
-        `../../../infra/postgres/migrations/0102_remote_task_continuation.${direction}.sql`,
-        import.meta.url,
-      ),
-      'utf8',
-    ),
   );
 }

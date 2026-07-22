@@ -1,6 +1,7 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import process from 'node:process';
+import { URL } from 'node:url';
 
 import pg from 'pg';
 
@@ -8,16 +9,80 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 
 const { Pool } = pg;
 const root = process.cwd();
-const databases = ['sdar_verify_empty', 'sdar_verify_upgrade'];
+const databases = ['sdar_v122_verify_empty', 'sdar_v122_verify_existing'];
+const adminUrl =
+  process.env.SDAR_POSTGRES_ADMIN_URL ??
+  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure(root);
   const { applyRuntimeMigrations } = await import(
-    `../dist/apps/server/src/runtime.js?migration-check=${String(Date.now())}`
+    `../dist/apps/server/src/runtime.js?baseline-check=${String(Date.now())}`
   );
-  const admin = new Pool({
-    connectionString: 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar',
-  });
+  await recreateDatabases();
+
+  const emptyPool = databasePool(databases[0]);
+  try {
+    await applyRuntimeMigrations(emptyPool);
+    await verifyBaseline(emptyPool);
+    await applyRuntimeMigrations(emptyPool);
+    await verifyBaseline(emptyPool);
+  } finally {
+    await emptyPool.end();
+  }
+
+  const existingPool = databasePool(databases[1]);
+  try {
+    await existingPool.query('CREATE TABLE operator_data(id text PRIMARY KEY)');
+    await expectCleanDatabaseRejection(applyRuntimeMigrations, existingPool, 'existing-table');
+    const preserved = await existingPool.query(
+      "SELECT to_regclass('public.operator_data') IS NOT NULL AS preserved",
+    );
+    if (preserved.rows[0]?.preserved !== true)
+      throw new Error('CLEAN_DATABASE_REJECTION_DESTROYED_EXISTING_DATA');
+    verifyResetRejected({
+      SDAR_ENV: 'production',
+      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+      SDAR_POSTGRES_URL: databaseUrl(databases[1]),
+    }, 'V122_RESET_ENVIRONMENT_REJECTED');
+    verifyResetRejected({
+      SDAR_ENV: 'test',
+      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+      SDAR_POSTGRES_URL: databaseUrl('sdar'),
+    }, 'V122_RESET_DATABASE_NAME_REJECTED');
+    runReset(databaseUrl(databases[1]));
+    await verifyBaseline(existingPool);
+    const seed = await existingPool.query(
+      `SELECT
+         EXISTS(SELECT 1 FROM evolution_policy WHERE singleton=true) AS evolution,
+         EXISTS(SELECT 1 FROM memory_retention_policy WHERE singleton=true) AS memory`,
+    );
+    if (seed.rows[0]?.evolution !== true || seed.rows[0]?.memory !== true)
+      throw new Error('V122_MINIMAL_SEED_MISSING');
+  } finally {
+    await existingPool.end();
+  }
+
+  process.stdout.write(
+    'SDAR v1.2.2 clean baseline verified: empty apply, idempotency, schema contract, and existing-database rejection.\n',
+  );
+} finally {
+  await dropDatabases().catch(() => undefined);
+  stopInfrastructure(root);
+}
+
+function databasePool(database) {
+  return new Pool({ connectionString: databaseUrl(database) });
+}
+
+function databaseUrl(database) {
+  const url = new URL(adminUrl);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+async function recreateDatabases() {
+  const admin = new Pool({ connectionString: adminUrl });
   try {
     for (const database of databases) {
       await admin.query(
@@ -30,40 +95,10 @@ try {
   } finally {
     await admin.end();
   }
+}
 
-  const bootstrap = await readFile(
-    resolve(root, 'infra', 'postgres', 'init', '0001_sdar_bootstrap.up.sql'),
-    'utf8',
-  );
-  const emptyPool = databasePool(databases[0]);
-  try {
-    await emptyPool.query(bootstrap);
-    await applyRuntimeMigrations(emptyPool);
-    await verifyCurrentSchema(emptyPool, 'empty');
-  } finally {
-    await emptyPool.end();
-  }
-
-  const upgradePool = databasePool(databases[1]);
-  try {
-    await upgradePool.query(bootstrap);
-    const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
-    const historical = (await readdir(migrationDirectory))
-      .filter((name) => /^\d{4}_.+\.up\.sql$/u.test(name) && Number(name.slice(0, 4)) <= 49)
-      .sort();
-    for (const name of historical) {
-      await upgradePool.query(await readFile(resolve(migrationDirectory, name), 'utf8'));
-    }
-    await applyRuntimeMigrations(upgradePool);
-    await verifyCurrentSchema(upgradePool, 'upgrade-from-0049');
-  } finally {
-    await upgradePool.end();
-  }
-  process.stdout.write(
-    'Migration path verified from empty database and historical 0049 baseline.\n',
-  );
-} finally {
-  const admin = databasePool('sdar');
+async function dropDatabases() {
+  const admin = new Pool({ connectionString: adminUrl });
   try {
     for (const database of databases) {
       await admin.query(
@@ -72,109 +107,86 @@ try {
       );
       await admin.query(`DROP DATABASE IF EXISTS ${database}`);
     }
-  } catch {
-    // The primary failure remains authoritative when infrastructure never became reachable.
   } finally {
-    await admin.end().catch(() => undefined);
-    stopInfrastructure(root);
+    await admin.end();
   }
 }
 
-function databasePool(database) {
-  return new Pool({
-    connectionString: `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${database}`,
+async function verifyBaseline(pool) {
+  const identity = await pool.query(
+    "SELECT current_database() AS database_name, to_regclass('public.schema_migration')::text AS marker_table",
+  );
+  if (!['public.schema_migration', 'schema_migration'].includes(identity.rows[0]?.marker_table))
+    throw new Error(
+      `V122_BASELINE_TABLE_MISSING:${String(identity.rows[0]?.database_name)}:${String(identity.rows[0]?.marker_table)}`,
+    );
+  const marker = await pool.query(
+    'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
+  );
+  if (JSON.stringify(marker.rows[0]?.versions) !== '["v1.2.2_clean_slate_baseline"]')
+    throw new Error('V122_BASELINE_MARKER_INVALID');
+
+  const requiredTables = [
+    'goal',
+    'skill',
+    'workflow_plan',
+    'remote_task_binding',
+    'user_goal_plan',
+    'skill_goal',
+    'skill_attempt',
+    'business_event_inbox',
+  ];
+  const tables = await pool.query(
+    `SELECT table_name
+     FROM information_schema.tables
+     WHERE table_schema='public' AND table_name=ANY($1::text[])
+     ORDER BY table_name`,
+    [requiredTables],
+  );
+  if (tables.rows.length !== requiredTables.length)
+    throw new Error('V122_BASELINE_REQUIRED_TABLES_MISSING');
+
+  const modes = await pool.query(
+    `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+     WHERE conname='mcp_server_protocol_mode_check'`,
+  );
+  const definition = modes.rows[0]?.definition;
+  if (typeof definition !== 'string' || !definition.includes('frozen_v1'))
+    throw new Error('V122_FROZEN_PROTOCOL_CONSTRAINT_MISSING');
+}
+
+async function expectCleanDatabaseRejection(applyRuntimeMigrations, pool, label) {
+  try {
+    await applyRuntimeMigrations(pool);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SDAR_V122_CLEAN_DATABASE_REQUIRED') return;
+    throw error;
+  }
+  throw new Error(`V122_EXISTING_DATABASE_ACCEPTED:${label}`);
+}
+
+function verifyResetRejected(environment, expectedCode) {
+  const result = spawnSync(process.execPath, [resolve(root, 'scripts/reset-v122-database.mjs')], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, ...environment },
   });
+  if (result.status === 0 || !`${result.stdout}${result.stderr}`.includes(expectedCode))
+    throw new Error(`V122_RESET_GUARD_NOT_ENFORCED:${expectedCode}`);
 }
 
-async function verifyCurrentSchema(pool, label) {
-  const latest = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
-  );
-  if (latest.rows[0]?.applied !== true)
-    throw new Error(`MIGRATION_0064_MISSING:${label}`);
-  const memoryHardening = await pool.query(
-    "SELECT a.atttypmod, count(c.column_name)::integer AS semantic_columns FROM pg_attribute a CROSS JOIN information_schema.columns c WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding' AND NOT a.attisdropped AND c.table_name='memory_item' AND c.column_name IN ('durability','authority','durability_reason') GROUP BY a.atttypmod",
-  );
-  if (
-    memoryHardening.rows[0]?.atttypmod !== -1 ||
-    memoryHardening.rows[0]?.semantic_columns !== 3
-  )
-    throw new Error(`MIGRATION_MEMORY_PRODUCTION_HARDENING_MISSING:${label}`);
-  const semanticsColumns = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='mcp_tool' AND column_name IN ('declared_execution_semantics_json','admin_execution_semantics_override_json','execution_semantics_json')) OR (table_name='mcp_invocation' AND column_name='execution_semantics_json') OR (table_name IN ('workflow_plan','workflow_plan_attempt') AND column_name='tool_execution_semantics_json')",
-  );
-  if (semanticsColumns.rows[0]?.count !== 6)
-    throw new Error(`MIGRATION_MCP_TOOL_EXECUTION_SEMANTICS_MISSING:${label}`);
-  const semanticsOperationConstraint = await pool.query(
-    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='mcp_management_operation'::regclass AND conname='mcp_management_operation_operation_type_check'",
-  );
-  if (!semanticsOperationConstraint.rows[0]?.definition?.includes('tool_semantics_override'))
-    throw new Error(`MIGRATION_MCP_TOOL_SEMANTICS_OPERATION_MISSING:${label}`);
-  const compositionColumns = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json') AND table_name IN ('workflow_plan','workflow_plan_attempt')",
-  );
-  if (compositionColumns.rows[0]?.count !== 4)
-    throw new Error(`MIGRATION_SKILL_COMPOSITION_CONTEXT_MISSING:${label}`);
-  const goalContractColumns = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE column_name='goal_contract_json' AND table_name IN ('workflow_plan','workflow_plan_attempt','skill_selection_record','skill_replacement_plan')",
-  );
-  if (goalContractColumns.rows[0]?.count !== 4)
-    throw new Error(`MIGRATION_GOAL_EXECUTION_CONTRACT_MISSING:${label}`);
-  const inputResolutionTable = await pool.query(
-    "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
-  );
-  if (inputResolutionTable.rows[0]?.exists !== true)
-    throw new Error(`MIGRATION_SKILL_INPUT_RESOLUTION_MISSING:${label}`);
-  const taskBinding = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='agent_task' AND column_name='skill_input_resolution_id') AS exists",
-  );
-  if (taskBinding.rows[0]?.exists !== true)
-    throw new Error(`MIGRATION_TASK_SKILL_INPUT_BINDING_MISSING:${label}`);
-  const terminalOutcomeTables = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id') OR (table_name IN ('workflow_control','workflow_control_round') AND column_name='terminal_outcome_id')",
-  );
-  if (terminalOutcomeTables.rows[0]?.count !== 3)
-    throw new Error(`MIGRATION_RUNTIME_TERMINAL_OUTCOME_MISSING:${label}`);
-  const continuationTables = await pool.query(
-    "SELECT count(*)::integer AS count FROM pg_class WHERE relname IN ('task_input_request','task_input_response','task_execution_attempt') AND relkind='r'",
-  );
-  if (continuationTables.rows[0]?.count !== 3)
-    throw new Error(`MIGRATION_TASK_INPUT_TABLES_MISSING:${label}`);
-  const executionColumns = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')",
-  );
-  if (executionColumns.rows[0]?.count !== 2)
-    throw new Error(`MIGRATION_MCP_EXECUTION_CONTEXT_MISSING:${label}`);
-  const historyKey = await pool.query(
-    "SELECT string_agg(a.attname,',' ORDER BY key_position.ordinality) AS columns FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS key_position(attnum,ordinality) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=key_position.attnum WHERE c.conname='skill_call_workflow_pkey' GROUP BY c.oid",
-  );
-  if (historyKey.rows[0]?.columns !== 'call_id') {
-    throw new Error(`MIGRATION_SKILL_CALL_HISTORY_KEY_STALE:${label}`);
-  }
-  const nestedConfirmationColumns = await pool.query(
-    "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name='skill_call_workflow' AND column_name IN ('parent_plan_id','confirmation_status')",
-  );
-  if (nestedConfirmationColumns.rows[0]?.count !== 2)
-    throw new Error(`MIGRATION_NESTED_CONFIRMATION_COLUMNS_MISSING:${label}`);
-  const childInstanceForeignKey = await pool.query(
-    "SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='skill_call_workflow'::regclass AND conname='skill_call_workflow_child_instance_id_fkey') AS exists",
-  );
-  if (childInstanceForeignKey.rows[0]?.exists !== true)
-    throw new Error(`MIGRATION_NESTED_CONFIRMATION_CHILD_FK_MISSING:${label}`);
-  const constraint = await pool.query(
-    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='stage_model_route_stage_check'",
-  );
-  const definition = constraint.rows[0]?.definition;
-  if (
-    typeof definition !== 'string' ||
-    !definition.includes('tool_enhancement') ||
-    !definition.includes('skill_input_resolution')
-  ) {
-    throw new Error(`MIGRATION_STAGE_CONSTRAINT_STALE:${label}`);
-  }
-  const inputSourceConstraint = await pool.query(
-    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='task_input_request'::regclass AND conname='task_input_request_source_check'",
-  );
-  if (!inputSourceConstraint.rows[0]?.definition?.includes('skill_input_resolution'))
-    throw new Error(`MIGRATION_TASK_INPUT_SOURCE_STALE:${label}`);
+function runReset(connectionString) {
+  const result = spawnSync(process.execPath, [resolve(root, 'scripts/reset-v122-database.mjs')], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      SDAR_ENV: 'test',
+      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+      SDAR_POSTGRES_URL: connectionString,
+    },
+  });
+  if (result.status !== 0)
+    throw new Error(`V122_RESET_FAILED:${result.stdout}${result.stderr}`);
 }

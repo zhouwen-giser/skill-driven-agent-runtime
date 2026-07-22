@@ -92,7 +92,7 @@ const TaskExecutionTimingSchema: z.ZodType<TaskExecutionTiming> = z
   .strict();
 const McpProtocolContractSnapshotSchema: z.ZodType<McpProtocolContractSnapshot> = z
   .object({
-    mode: z.enum(['legacy_v11', 'frozen_v1']),
+    mode: z.literal('frozen_v1'),
     protocolVersion: z.string().min(1),
     baselineSha256: z.string().min(1),
     tasksSchemaSha256: z.string().min(1).optional(),
@@ -563,11 +563,6 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
       if (locked.terminalAt !== undefined || locked.invalidatedAt !== undefined)
         return { applied: false, reason: 'closed' };
-      if (locked.protocolContract.mode !== 'frozen_v1')
-        throw new RemoteTaskPersistenceError(
-          'REMOTE_TASK_EXTERNAL_OBSERVATION_MODE_INVALID',
-          'Notification and reconnect reconciliation observations require Frozen mode.',
-        );
       if (input.snapshot.runtimeRevision === undefined)
         throw new RemoteTaskPersistenceError(
           'REMOTE_TASK_EXTERNAL_REVISION_REQUIRED',

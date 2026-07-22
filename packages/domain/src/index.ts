@@ -45,6 +45,7 @@ export * from './processed-result.js';
 export * from './provider-business-outcome.js';
 export * from './runtime-execution.js';
 export * from './runtime-terminal-outcome.js';
+export * from './user-goal-runtime.js';
 export * from './task.js';
 export * from './task-input.js';
 export * from './task-quality.js';

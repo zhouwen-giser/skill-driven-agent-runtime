@@ -8,7 +8,6 @@ import type { SkillUsagePlanPolicy } from './skill-usage-planning.js';
 import type {
   DslExecutionReadiness,
   McpTaskAvailabilityCheckMode,
-  McpTaskExecutionMode,
 } from './mcp-task-availability.js';
 import type { McpProtocolContractSnapshot } from './mcp-frozen-protocol.js';
 import type {
@@ -75,10 +74,8 @@ interface McpTaskExecutionSpecBase {
   readonly reservationRef?: string | undefined;
 }
 
-export type McpTaskExecutionSpec =
-  | (McpTaskExecutionSpecBase &
-      Readonly<{ protocolMode?: 'legacy_v11' | undefined; mode: McpTaskExecutionMode }>)
-  | (McpTaskExecutionSpecBase & Readonly<{ protocolMode: 'frozen_v1'; mode?: undefined }>);
+export type McpTaskExecutionSpec = McpTaskExecutionSpecBase &
+  Readonly<{ protocolMode: 'frozen_v1' }>;
 
 export type WorkflowNode =
   | (WorkflowNodeBase &

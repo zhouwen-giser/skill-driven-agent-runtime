@@ -33,7 +33,6 @@ import {
   RemoteTaskCancellationWorker,
   McpTaskReadinessService,
   StructuredTaskRiskDecider,
-  StructuredMcpToolEnhancer,
   buildMcpToolPlanningMetadata,
   snapshotMcpToolPlanningExecutionSemantics,
   ModelRuntimeService,
@@ -48,7 +47,7 @@ import {
   SkillUsageCandidateAssessor,
   prepareSkillUsagePlan,
   SkillExecutionRecordingService,
-  V11SkillTaskReadinessAdapter,
+  FrozenSkillTaskReadinessAdapter,
   SkillInputResolutionService,
   SkillQualityService,
   SkillCallWorkflowService,
@@ -113,7 +112,6 @@ import {
   FrozenV1RuntimeAvailabilityAdapter,
   FrozenV1RuntimeLifecycleAdapter,
   FrozenV1RuntimeNotificationAdapter,
-  StreamableHttpMcpAdapter,
 } from '../../../packages/mcp-adapter/src/index.js';
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
@@ -225,7 +223,7 @@ export interface ServerRuntimeOptions {
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
   readonly taskAttemptDispatchIntervalMs?: number;
-  readonly v11McpTasks?: Readonly<{
+  readonly frozenMcpTasks?: Readonly<{
     /** Explicit opt-in for the additive V1.1 migration/runtime profile. */
     isolationAcknowledged: true;
     queueName?: string;
@@ -250,9 +248,9 @@ export interface ServerRuntimeHandle {
     candidate: Readonly<{ text: string; structured: unknown }>,
   ): Promise<void>;
   registerMcpServer(
-    input: Parameters<McpRegistryService['register']>[0],
-  ): ReturnType<McpRegistryService['register']>;
-  refreshMcpServer(serverId: string): ReturnType<McpRegistryService['refresh']>;
+    input: Parameters<FrozenMcpRegistryService['register']>[0],
+  ): ReturnType<FrozenMcpRegistryService['register']>;
+  refreshMcpServer(serverId: string): ReturnType<FrozenMcpRegistryService['refresh']>;
   callMcpTool(
     serverId: string,
     toolName: string,
@@ -288,9 +286,9 @@ export async function startServerRuntime(
     taskStateNotifier.publish(task);
   };
   if (options.applyMigrations === true) {
-    await applyRuntimeMigrations(pool, { profile: 'released' });
-  } else if (options.v11McpTasks !== undefined) {
-    await assertV11RuntimeReady(pool);
+    await applyRuntimeMigrations(pool);
+  } else if (options.frozenMcpTasks !== undefined) {
+    await assertV122RuntimeReady(pool);
   }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
@@ -325,9 +323,7 @@ export async function startServerRuntime(
         ...(task === undefined ? {} : { task }),
       }) ?? [],
     );
-  const mcpRepository = new PostgresMcpRegistryRepository(pool, {
-    v11TaskMetadata: true,
-  });
+  const mcpRepository = new PostgresMcpRegistryRepository(pool);
   const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
@@ -385,7 +381,7 @@ export async function startServerRuntime(
   });
   await new RuntimeRecoveryService({
     repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState, {
-      preserveRemoteWaits: options.v11McpTasks !== undefined,
+      preserveRemoteWaits: options.frozenMcpTasks !== undefined,
     }),
     clock,
   }).failInterruptedExecutions();
@@ -530,13 +526,10 @@ export async function startServerRuntime(
     clock,
     nextId: () => `skill-input-resolution-${randomUUID()}`,
   });
-  const mcpTransport = new StreamableHttpMcpAdapter();
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
-    transport: mcpTransport,
     cipher: secretCipher,
     schemas: schemaValidator,
-    enhancer: new StructuredMcpToolEnhancer(modelRuntime),
     frozenAvailability: new FrozenV1RuntimeAvailabilityAdapter(),
     frozenLifecycle: new FrozenV1RuntimeLifecycleAdapter({ now: clock.now }),
     clock,
@@ -548,7 +541,7 @@ export async function startServerRuntime(
   const mcpProtocolOperations = new McpProtocolOperationsService({
     repository: mcpRepository,
     expectedBaselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
-    notificationReconnectComposed: options.v11McpTasks !== undefined,
+    notificationReconnectComposed: options.frozenMcpTasks !== undefined,
   });
   const frozenMcpRegistry = new FrozenMcpRegistryService({
     repository: mcpRepository,
@@ -559,7 +552,7 @@ export async function startServerRuntime(
     baselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
   });
   const taskAvailabilityEvidence =
-    options.v11McpTasks === undefined
+    options.frozenMcpTasks === undefined
       ? undefined
       : new PostgresTaskAvailabilityEvidenceRepository(pool);
   const taskReadiness =
@@ -576,7 +569,7 @@ export async function startServerRuntime(
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
           },
         });
-  const skillTaskReadiness = new V11SkillTaskReadinessAdapter({
+  const skillTaskReadiness = new FrozenSkillTaskReadinessAdapter({
     operations: mcpRepository,
     availability: mcpRegistry,
     clock,
@@ -624,7 +617,7 @@ export async function startServerRuntime(
     ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
   });
   const remoteTaskRepository =
-    options.v11McpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+    options.frozenMcpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
   const frozenTaskNotifications =
     remoteTaskRepository === undefined
       ? undefined
@@ -645,20 +638,20 @@ export async function startServerRuntime(
             ),
         });
   const remoteTaskQueue =
-    options.v11McpTasks === undefined
+    options.frozenMcpTasks === undefined
       ? undefined
       : new BullMqRemoteTaskPollQueue({
           connection: options.redis,
-          ...(options.v11McpTasks.queueName === undefined
+          ...(options.frozenMcpTasks.queueName === undefined
             ? {}
-            : { queueName: options.v11McpTasks.queueName }),
+            : { queueName: options.frozenMcpTasks.queueName }),
         });
   const remoteTaskContinuationQueueName =
-    options.v11McpTasks?.queueName === undefined
+    options.frozenMcpTasks?.queueName === undefined
       ? undefined
-      : `${options.v11McpTasks.queueName}-continuations`;
+      : `${options.frozenMcpTasks.queueName}-continuations`;
   const remoteTaskContinuationQueue =
-    options.v11McpTasks === undefined
+    options.frozenMcpTasks === undefined
       ? undefined
       : new BullMqRemoteTaskContinuationQueue({
           connection: options.redis,
@@ -667,11 +660,11 @@ export async function startServerRuntime(
             : { queueName: remoteTaskContinuationQueueName }),
         });
   const remoteTaskCancellationQueueName =
-    options.v11McpTasks?.queueName === undefined
+    options.frozenMcpTasks?.queueName === undefined
       ? undefined
-      : `${options.v11McpTasks.queueName}-cancellations`;
+      : `${options.frozenMcpTasks.queueName}-cancellations`;
   const remoteTaskCancellationQueue =
-    options.v11McpTasks === undefined
+    options.frozenMcpTasks === undefined
       ? undefined
       : new BullMqRemoteTaskCancellationQueue({
           connection: options.redis,
@@ -695,9 +688,9 @@ export async function startServerRuntime(
             nextProtocolAttemptId: () => `remote-task-protocol-attempt-${randomUUID()}`,
           },
           hash: (value) => createHash('sha256').update(canonicalJson(value)).digest('hex'),
-          ...(options.v11McpTasks?.polling === undefined
+          ...(options.frozenMcpTasks?.polling === undefined
             ? {}
-            : { options: options.v11McpTasks.polling }),
+            : { options: options.frozenMcpTasks.polling }),
         });
   const remoteTaskAdmission =
     remoteTaskRepository === undefined || remoteTaskQueue === undefined
@@ -810,9 +803,8 @@ export async function startServerRuntime(
           : undefined;
       const effectiveTaskExecution =
         taskExecution ??
-        (declaredTaskOperation?.protocolMode !== 'frozen_v1' &&
-        declaredTaskOperation?.semantics.execution === 'task_required'
-          ? { mode: 'require_task' as const, availabilityCheck: 'required' as const }
+        (declaredTaskOperation?.taskExecutionProfile.taskBehavior === 'task_required'
+          ? { protocolMode: 'frozen_v1' as const, availabilityCheck: 'required' as const }
           : undefined);
       if (effectiveTaskExecution !== undefined && taskReadiness === undefined)
         throw new Error('MCP_TASK_READINESS_RUNTIME_DISABLED');
@@ -904,9 +896,14 @@ export async function startServerRuntime(
       }
       const bindingId = `remote-task-binding-${randomUUID()}`;
       try {
+        const protocolContract = receipt.protocolContract;
+        const taskBehavior = receipt.taskBehavior;
+        const runtimeRevision = remote.runtimeRevision;
         if (
-          remote.protocolMode === 'frozen_v1' &&
-          (receipt.protocolContract === undefined || receipt.taskBehavior === undefined)
+          remote.protocolMode !== 'frozen_v1' ||
+          protocolContract === undefined ||
+          taskBehavior === undefined ||
+          runtimeRevision === undefined
         )
           throw new Error('MCP_FROZEN_INVOCATION_AUTHORITY_MISSING');
         const taskExpiresAt =
@@ -939,13 +936,9 @@ export async function startServerRuntime(
           protocolStatus: remote.status,
           protocolRevision: remote.protocolRevision,
           tasksSchemaRevision: remote.tasksSchemaRevision,
-          ...(receipt.protocolContract === undefined
-            ? {}
-            : { protocolContract: receipt.protocolContract }),
-          ...(receipt.taskBehavior === undefined ? {} : { taskBehavior: receipt.taskBehavior }),
-          ...(remote.runtimeRevision === undefined
-            ? {}
-            : { runtimeRevision: remote.runtimeRevision }),
+          protocolContract,
+          taskBehavior,
+          runtimeRevision,
           ...(remote.providerRevision === undefined
             ? {}
             : { providerRevision: remote.providerRevision }),
@@ -1312,7 +1305,6 @@ export async function startServerRuntime(
           workflowVersion: skill.version,
         }),
         applicabilityStatus: candidate.applicability.status,
-        ...(skill.usageSpecification === undefined ? { useLegacyPlanningInstruction: true } : {}),
       };
     },
     async onUsagePlanPrepared({ skill, plan, preparedUsage, parentPlanId }) {
@@ -1442,7 +1434,7 @@ export async function startServerRuntime(
     events,
     skillDrafts,
     taskInputs,
-    ...(options.v11McpTasks === undefined
+    ...(options.frozenMcpTasks === undefined
       ? {}
       : {
           remoteTaskInputs: {
@@ -2479,9 +2471,9 @@ export async function startServerRuntime(
       ? undefined
       : new BullMqRemoteTaskPollWorker({
           connection: options.redis,
-          ...(options.v11McpTasks?.queueName === undefined
+          ...(options.frozenMcpTasks?.queueName === undefined
             ? {}
-            : { queueName: options.v11McpTasks.queueName }),
+            : { queueName: options.frozenMcpTasks.queueName }),
           processor: remoteTaskPolling,
         });
   const remoteTaskContinuationWorker =
@@ -2523,7 +2515,7 @@ export async function startServerRuntime(
             .finally(() => {
               remoteTaskReconcileRunning = false;
             });
-        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+        }, options.frozenMcpTasks?.reconcileIntervalMs ?? 1000);
   remoteTaskReconcileTimer?.unref();
   let remoteTaskContinuationReconcileRunning = false;
   const remoteTaskContinuationReconcileTimer =
@@ -2542,7 +2534,7 @@ export async function startServerRuntime(
             .finally(() => {
               remoteTaskContinuationReconcileRunning = false;
             });
-        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+        }, options.frozenMcpTasks?.reconcileIntervalMs ?? 1000);
   remoteTaskContinuationReconcileTimer?.unref();
   let remoteTaskCancellationReconcileRunning = false;
   const remoteTaskCancellationReconcileTimer =
@@ -2561,7 +2553,7 @@ export async function startServerRuntime(
             .finally(() => {
               remoteTaskCancellationReconcileRunning = false;
             });
-        }, options.v11McpTasks?.reconcileIntervalMs ?? 1000);
+        }, options.frozenMcpTasks?.reconcileIntervalMs ?? 1000);
   remoteTaskCancellationReconcileTimer?.unref();
   if (remoteTaskReconciler !== undefined) await remoteTaskReconciler.reconcile();
   if (remoteTaskContinuationReconciler !== undefined)
@@ -2663,7 +2655,7 @@ export async function startServerRuntime(
         ...(taskAvailabilityEvidence === undefined
           ? {}
           : { taskAvailability: taskAvailabilityEvidence }),
-        ...(options.v11McpTasks === undefined
+        ...(options.frozenMcpTasks === undefined
           ? {}
           : {
               remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool),
@@ -2744,10 +2736,10 @@ export async function startServerRuntime(
         );
       },
       registerMcpServer(input) {
-        return mcpRegistry.register(input);
+        return frozenMcpRegistry.register(input);
       },
       refreshMcpServer(serverId) {
-        return mcpRegistry.refresh(serverId);
+        return frozenMcpRegistry.refresh(serverId);
       },
       async callMcpTool(serverId, toolName, arguments_, signal, context) {
         return unwrapMcpInvocationOutcome(
@@ -2793,7 +2785,6 @@ export async function startServerRuntime(
         await remoteTaskCancellationQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
-        await mcpTransport.close();
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
           throw new AggregateError(
@@ -2812,7 +2803,6 @@ export async function startServerRuntime(
     taskStateNotifier.close();
     frozenTaskNotifications?.close();
     await management?.close();
-    await mcpTransport.close();
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();
     await worker.close();
@@ -2878,191 +2868,49 @@ class RemoteMcpTaskAdmissionUncertainError extends Error {
   }
 }
 
-export interface RuntimeMigrationOptions {
-  readonly profile?: 'released' | 'v1.1-isolated';
-  readonly isolationAcknowledged?: boolean;
-}
-
-export async function applyRuntimeMigrations(
-  pool: Pool,
-  options: RuntimeMigrationOptions = {},
-): Promise<void> {
-  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migration (
-    version text PRIMARY KEY,
-    applied_at timestamptz NOT NULL DEFAULT now()
-  )`);
-  const profile = options.profile ?? 'released';
-  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
-  const databaseName = database.rows[0]?.name ?? '';
-  if (profile === 'v1.1-isolated') {
-    if (options.isolationAcknowledged !== true || !/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
-      throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
-    }
-  }
-  let ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
-  const highestAppliedSequence = Math.max(
-    0,
-    ...ledger.rows
-      .map((row) => Number.parseInt(row.version.slice(0, 4), 10))
-      .filter(Number.isFinite),
-  );
-  const releasedMigrations = [
-    '0002_protocol_domain.up.sql',
-    '0003_external_task_projection.up.sql',
-    '0004_task_request.up.sql',
-    '0005_projection_decoupling.up.sql',
-    '0006_skill_draft.up.sql',
-    '0007_skill_registry.up.sql',
-    '0008_mcp_registry.up.sql',
-    '0009_mcp_audit.up.sql',
-    '0010_skill_graph.up.sql',
-    '0011_skill_selection.up.sql',
-    '0012_temporary_skill.up.sql',
-    '0013_skill_embedding.up.sql',
-    '0014_model_runtime.up.sql',
-    '0015_prompt_runtime.up.sql',
-    '0016_workflow_planning.up.sql',
-    '0017_workflow_execution.up.sql',
-    '0018_workflow_budget.up.sql',
-    '0019_workflow_control.up.sql',
-    '0020_plan_revision.up.sql',
-    '0021_workflow_interrupt.up.sql',
-    '0022_model_api_style.up.sql',
-    '0023_goal_patch.up.sql',
-    '0024_task_wait_timeout.up.sql',
-    '0025_workflow_execution_control.up.sql',
-    '0026_goal_continuity.up.sql',
-    '0027_goal_cancellation.up.sql',
-    '0028_result_processing.up.sql',
-    '0029_goal_evaluation_decisions.up.sql',
-    '0030_task_capability_gap.up.sql',
-    '0031_global_memory.up.sql',
-    '0032_goal_input_inference.up.sql',
-    '0033_task_selected_skill.up.sql',
-    '0034_skill_call_workflow.up.sql',
-    '0035_task_skill_selection.up.sql',
-    '0036_task_temporary_skill.up.sql',
-    '0037_skill_evolution_simulation.up.sql',
-    '0038_evolution_experience.up.sql',
-    '0039_evolution_policy.up.sql',
-    '0040_skill_evolution_correction.up.sql',
-    '0041_skill_draft_publication.up.sql',
-    '0042_skill_quality_warning.up.sql',
-    '0043_workflow_template.up.sql',
-    '0044_memory_status_transition.up.sql',
-    '0045_memory_retention_policy.up.sql',
-    '0046_task_quality_report.up.sql',
-    '0047_implicit_feedback.up.sql',
-    '0048_evaluation_influence.up.sql',
-    '0049_evaluation_analytics.up.sql',
-    '0050_mcp_management_operation.up.sql',
-    '0051_workflow_node_duration.up.sql',
-    '0052_observability_correlation.up.sql',
-    '0053_mcp_tool_enhancement_stage.up.sql',
-    '0054_skill_call_history.up.sql',
-    '0055_task_input_continuation.up.sql',
-    '0056_mcp_execution_mode.up.sql',
-    '0057_nested_skill_confirmation.up.sql',
-    '0058_runtime_terminal_outcome.up.sql',
-    '0059_skill_input_resolution.up.sql',
-    '0060_task_skill_input_resolution_binding.up.sql',
-    '0061_goal_execution_contract.up.sql',
-    '0062_skill_composition_context.up.sql',
-    '0063_mcp_tool_execution_semantics.up.sql',
-    '0064_memory_production_hardening.up.sql',
-  ] as const;
-  for (const name of releasedMigrations) {
-    const sequence = Number.parseInt(name.slice(0, 4), 10);
-    if (sequence <= highestAppliedSequence) continue;
-    const migration = await readFile(
-      resolve(process.cwd(), 'infra', 'postgres', 'migrations', name),
-      'utf8',
-    );
-    await pool.query(migration);
-  }
-  ledger = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
-  const applied = new Set(ledger.rows.map((row) => row.version));
-  // The complete v1.0.13 hardening chain must precede the reserved V1.1 range.
-  if (!applied.has('0064_memory_production_hardening')) {
-    throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  }
-  const v11Migrations = [
-    '0100_remote_mcp_task_tracking.up.sql',
-    '0101_task_execution_readiness.up.sql',
-    '0102_remote_task_continuation.up.sql',
-    '0103_remote_task_input_and_cancellation.up.sql',
-    '0104_workflow_external_wait_event.up.sql',
-    '0105_skill_usage_specification.up.sql',
-    '0106_skill_execution_record.up.sql',
-  ] as const;
-  const v11Versions = v11Migrations.map((name) => name.replace('.up.sql', ''));
-  if (
-    applied.has('0107_frozen_mcp_tasks_protocol') &&
-    v11Versions.some((version) => !applied.has(version))
-  )
-    throw new Error('FROZEN_MCP_MIGRATION_LEDGER_GAP');
-  for (const [index, version] of v11Versions.entries()) {
-    if (
-      !applied.has(version) &&
-      v11Versions.slice(index + 1).some((laterVersion) => applied.has(laterVersion))
-    )
-      throw new Error('V11_MIGRATION_LEDGER_GAP');
-  }
-  for (const v11Migration of v11Migrations) {
-    if (applied.has(v11Migration.replace('.up.sql', ''))) continue;
-    const migration = await readFile(
-      resolve(process.cwd(), 'infra', 'postgres', 'migrations', v11Migration),
-      'utf8',
-    );
-    await pool.query(migration);
-  }
-  if (profile === 'released' && !applied.has('0107_frozen_mcp_tasks_protocol')) {
-    const migration = await readFile(
-      resolve(
-        process.cwd(),
-        'infra',
-        'postgres',
-        'migrations',
-        '0107_frozen_mcp_tasks_protocol.up.sql',
-      ),
-      'utf8',
-    );
-    await pool.query(migration);
-  }
-}
-
-async function assertV11RuntimeReady(pool: Pool): Promise<void> {
-  const database = await pool.query<{ name: string }>('SELECT current_database() AS name');
-  const databaseName = database.rows[0]?.name ?? '';
-  if (!/^sdar_v11_[a-z0-9_]+$/u.test(databaseName)) {
-    throw new Error('V11_MIGRATION_ISOLATION_REQUIRED');
-  }
-  const ledger = await pool.query<{
-    released_present: boolean;
-    v11_count: number;
-    frozen_present: boolean;
+export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
+  const schemaState = await pool.query<{
+    migration_table: string | null;
+    public_table_count: number;
   }>(
-    `SELECT EXISTS (
-       SELECT 1 FROM schema_migration WHERE version = '0064_memory_production_hardening'
-     ) AS released_present,
-     (SELECT count(*)::integer FROM schema_migration
-      WHERE version IN (
-        '0100_remote_mcp_task_tracking',
-        '0101_task_execution_readiness',
-        '0102_remote_task_continuation',
-        '0103_remote_task_input_and_cancellation',
-        '0104_workflow_external_wait_event',
-        '0105_skill_usage_specification',
-        '0106_skill_execution_record'
-      )) AS v11_count,
-     EXISTS (
-       SELECT 1 FROM schema_migration WHERE version = '0107_frozen_mcp_tasks_protocol'
-     ) AS frozen_present`,
+    `SELECT to_regclass('public.schema_migration')::text AS migration_table,
+            (SELECT count(*)::integer
+             FROM information_schema.tables
+             WHERE table_schema='public' AND table_type='BASE TABLE') AS public_table_count`,
   );
-  const ledgerState = ledger.rows[0];
-  if (!ledgerState?.released_present) throw new Error('V11_MIGRATION_RELEASED_CHAIN_INCOMPLETE');
-  if (ledgerState.v11_count !== 7) throw new Error('V11_MIGRATION_NOT_APPLIED');
-  if (!ledgerState.frozen_present) throw new Error('FROZEN_MCP_MIGRATION_NOT_APPLIED');
+  const state = schemaState.rows[0];
+  if (state?.migration_table !== null && state?.migration_table !== undefined) {
+    const versions = await pool.query<{ version: string }>(
+      'SELECT version FROM public.schema_migration ORDER BY version',
+    );
+    if (versions.rows.length === 1 && versions.rows[0]?.version === 'v1.2.2_clean_slate_baseline')
+      return;
+    throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+  }
+  if ((state?.public_table_count ?? 0) !== 0) throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+
+  const baseline = await readFile(
+    resolve(process.cwd(), 'infra', 'postgres', 'baseline', '0001_sdar_v1_2_2_baseline.sql'),
+    'utf8',
+  );
+  await pool.query(baseline);
+  const seed = await readFile(
+    resolve(process.cwd(), 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql'),
+    'utf8',
+  );
+  await pool.query(seed);
+  await assertV122RuntimeReady(pool);
+}
+
+async function assertV122RuntimeReady(pool: Pool): Promise<void> {
+  const result = await pool.query<{ ready: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM public.schema_migration
+       WHERE version='v1.2.2_clean_slate_baseline'
+     ) AS ready`,
+  );
+  if (result.rows[0]?.ready !== true) throw new Error('SDAR_V122_BASELINE_NOT_APPLIED');
 }
 
 function runtimeErrorCode(error: unknown): string {

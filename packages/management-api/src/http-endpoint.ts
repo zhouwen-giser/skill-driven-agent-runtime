@@ -149,12 +149,6 @@ const RegisterMcpServerSchema = z.object({
   endpoint: z.url(),
   credentialHeaders: z.record(z.string(), z.string()),
 });
-const McpModeSwitchGuardSchema = z
-  .object({ targetMode: z.enum(['legacy_v11', 'frozen_v1']) })
-  .strict();
-const CredentialHeadersSchema = z.object({
-  credentialHeaders: z.record(z.string(), z.string()),
-});
 const ToolEnhancementSchema = z.object({
   purpose: z.string(),
   scenarios: z.array(z.string()),
@@ -410,22 +404,18 @@ export interface ManagementOperations {
   readonly mcp: Pick<
     McpRegistryService,
     | 'delete'
-    | 'checkHealth'
     | 'listDependencyWarnings'
     | 'listInvocations'
     | 'listInvocationsByTask'
     | 'listManagementOperations'
     | 'listServers'
     | 'listTools'
-    | 'refresh'
-    | 'register'
     | 'updateToolEnhancement'
     | 'updateToolExecutionSemantics'
-    | 'updateCredentials'
   >;
   readonly mcpProtocol?: Pick<
     McpProtocolOperationsService,
-    'auditBaseline' | 'diagnose' | 'guardModeSwitch' | 'listProviders'
+    'auditBaseline' | 'diagnose' | 'listProviders'
   >;
   readonly frozenMcp?: Pick<FrozenMcpRegistryService, 'refresh' | 'register'>;
   readonly frozenMcpNotifications?: Readonly<{
@@ -977,8 +967,8 @@ export async function startManagementHttpEndpoint(
                   ? { status: 'not_found_in_current_registry' }
                   : {
                       status: 'registered',
-                      protocolMode: tool.protocolMode ?? 'legacy_v11',
-                      taskExecution: tool.taskExecution ?? tool.taskExecutionProfile ?? null,
+                      protocolMode: 'frozen_v1',
+                      taskExecution: tool.taskExecutionProfile ?? null,
                       executionSemantics: tool.executionSemantics,
                       discoveredAt: tool.discoveredAt,
                     },
@@ -1531,22 +1521,6 @@ export async function startManagementHttpEndpoint(
       );
     }),
   );
-  app.post(
-    '/api/v1/mcp/servers/:serverId/mode-switch-guard',
-    asyncRoute(async (request, response) => {
-      if (options.operations.mcpProtocol === undefined)
-        throw new HttpInputError(
-          'MCP_PROTOCOL_OPERATIONS_UNAVAILABLE',
-          'MCP protocol mode guard is not composed in this runtime.',
-        );
-      const input = McpModeSwitchGuardSchema.parse(request.body);
-      const guard = await options.operations.mcpProtocol.guardModeSwitch(
-        pathValue(request, 'serverId'),
-        input.targetMode,
-      );
-      response.status(guard.allowed ? 200 : 409).json(guard);
-    }),
-  );
   app.get(
     '/api/v1/mcp/invocations',
     asyncRoute(async (request, response) => {
@@ -1557,40 +1531,17 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/mcp/servers',
     asyncRoute(async (request, response) => {
-      const result = await options.operations.mcp.register(
-        RegisterMcpServerSchema.parse(request.body),
-      );
-      response.status(201).json(result);
-    }),
-  );
-  app.post(
-    '/api/v1/mcp/frozen/servers',
-    asyncRoute(async (request, response) => {
+      const input = RegisterMcpServerSchema.parse(request.body);
       if (options.operations.frozenMcp === undefined)
         throw new HttpInputError(
           'FROZEN_MCP_REGISTRY_UNAVAILABLE',
           'Frozen MCP registration is not composed in this runtime.',
         );
-      response
-        .status(201)
-        .json(
-          await options.operations.frozenMcp.register(RegisterMcpServerSchema.parse(request.body)),
-        );
+      response.status(201).json(await options.operations.frozenMcp.register(input));
     }),
   );
   app.post(
-    '/api/v1/mcp/frozen/servers/:serverId/refresh',
-    asyncRoute(async (request, response) => {
-      if (options.operations.frozenMcp === undefined)
-        throw new HttpInputError(
-          'FROZEN_MCP_REGISTRY_UNAVAILABLE',
-          'Frozen MCP refresh is not composed in this runtime.',
-        );
-      response.json(await options.operations.frozenMcp.refresh(pathValue(request, 'serverId')));
-    }),
-  );
-  app.post(
-    '/api/v1/mcp/frozen/servers/:serverId/notifications/reconnect',
+    '/api/v1/mcp/servers/:serverId/notifications/reconnect',
     asyncRoute(async (request, response) => {
       if (options.operations.frozenMcpNotifications === undefined)
         throw new HttpInputError(
@@ -1641,24 +1592,12 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/mcp/servers/:serverId/refresh',
     asyncRoute(async (request, response) => {
-      response.json(await options.operations.mcp.refresh(pathValue(request, 'serverId')));
-    }),
-  );
-  app.post(
-    '/api/v1/mcp/servers/:serverId/health',
-    asyncRoute(async (request, response) => {
-      response.json(await options.operations.mcp.checkHealth(pathValue(request, 'serverId')));
-    }),
-  );
-  app.put(
-    '/api/v1/mcp/servers/:serverId/credentials',
-    asyncRoute(async (request, response) => {
-      const input = CredentialHeadersSchema.parse(request.body);
-      await options.operations.mcp.updateCredentials(
-        pathValue(request, 'serverId'),
-        input.credentialHeaders,
-      );
-      response.status(204).end();
+      if (options.operations.frozenMcp === undefined)
+        throw new HttpInputError(
+          'FROZEN_MCP_REGISTRY_UNAVAILABLE',
+          'Frozen MCP refresh is not composed in this runtime.',
+        );
+      response.json(await options.operations.frozenMcp.refresh(pathValue(request, 'serverId')));
     }),
   );
   app.put(

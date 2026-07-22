@@ -32,17 +32,9 @@ describe('Frozen MCP registry', () => {
     expect(repository.tools).toHaveLength(1);
   });
 
-  it('fails closed for Legacy refresh and detects removed or changed Tools', async () => {
+  it('detects removed or changed Tools on Frozen refresh', async () => {
     const repository = new MemoryRepository();
-    repository.record = {
-      server: server({ protocolMode: 'legacy_v11' }),
-      encryptedCredential: 'encrypted',
-    };
     const service = createService(repository);
-    await expect(service.refresh('provider-1')).rejects.toMatchObject({
-      code: 'MCP_PROTOCOL_MODE_MISMATCH',
-    });
-
     repository.record = {
       server: server({ protocolMode: 'frozen_v1', currentProtocolSnapshotId: 'snapshot-0' }),
       encryptedCredential: 'encrypted',

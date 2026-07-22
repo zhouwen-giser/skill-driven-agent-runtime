@@ -1465,7 +1465,7 @@ describe('LangGraph Workflow compiler', () => {
             tool: { serverId: 'provider', toolName: 'vehicle_patrol' },
             arguments: { route: { op: 'ref', path: ['input', 'route'] } },
             taskExecution: {
-              mode: 'require_task',
+              protocolMode: 'frozen_v1',
               availabilityCheck: 'required',
               timing: {
                 start: {
@@ -1499,7 +1499,7 @@ describe('LangGraph Workflow compiler', () => {
         workflowNodeId: 'patrol',
         arguments: { route: 'A' },
         taskExecution: {
-          mode: 'require_task',
+          protocolMode: 'frozen_v1',
           availabilityCheck: 'required',
           timing: {
             start: {
@@ -1530,7 +1530,7 @@ describe('LangGraph Workflow compiler', () => {
             tool: { serverId: 'provider', toolName: 'vehicle_patrol' },
             arguments: {},
             taskExecution: {
-              mode: 'require_task',
+              protocolMode: 'frozen_v1',
               timing: {
                 start: {
                   mode: 'scheduled',

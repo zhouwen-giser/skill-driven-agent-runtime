@@ -7,11 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SkillPackageImporter, SkillPackageValidator } from '../../application/src/index.js';
-import {
-  createSkillUsageSummary,
-  createSkillVersion,
-  type SkillPackageImportCandidate,
-} from '../../domain/src/index.js';
+import { type SkillPackageImportCandidate } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import { NodeSkillPackageReader } from '../src/index.js';
 
@@ -112,34 +108,6 @@ describe('formal SDAR v1.2 Skill Packages', () => {
 
     await expect((await createImporter()).import(root)).rejects.toMatchObject({
       code: 'SKILL_PACKAGE_CONTRACT_INVALID',
-    });
-  });
-
-  it('retains guidance-only legacy compatibility without inventing package capabilities', () => {
-    const legacy = createSkillVersion({
-      skillId: 'legacy.inspect',
-      version: 1,
-      name: 'Legacy Inspect',
-      summary: 'Inspect.',
-      description: 'Legacy inspection Skill.',
-      capabilities: ['inspection'],
-      workflowGuidance: 'Inspect safely.',
-      outputInstruction: 'Return status.',
-      inputSchema: { type: 'object' },
-      outputSchema: { type: 'object' },
-      toolPolicy: { required: [], optional: [], forbidden: [] },
-      runtimePolicy: { autoConfirmPlan: false },
-      status: 'enabled',
-      sourceKind: 'admin',
-      validationPassed: true,
-      createdAt: timestamp,
-    });
-
-    expect(createSkillUsageSummary(legacy)).toMatchObject({
-      source: 'legacy_projection',
-      supportedModes: ['guidance'],
-      taskTypes: [],
-      hasComposition: false,
     });
   });
 

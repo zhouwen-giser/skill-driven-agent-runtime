@@ -6,7 +6,6 @@ import {
   MAX_SKILL_USAGE_DEPTH,
   MAX_SKILL_USAGE_ITEMS,
   SKILL_USAGE_API_VERSION,
-  createLegacySkillUsageProjection,
   createSkillPatchCandidate,
   createSkillUsageSpecification,
   createSkillVersion,
@@ -114,7 +113,7 @@ describe('Skill Usage domain contract', () => {
     );
   });
 
-  it('adds an immutable usage snapshot to SkillVersion while legacy Skills remain valid', () => {
+  it('adds an immutable native usage snapshot to SkillVersion', () => {
     const base = {
       skillId: 'embodied.move-to',
       version: 1,
@@ -133,32 +132,13 @@ describe('Skill Usage domain contract', () => {
       validationPassed: true,
       createdAt: '2026-07-17T00:00:00.000Z',
     };
-    const legacy = createSkillVersion(base);
     const native = createSkillVersion({ ...base, usageSpecification: validUsage() });
     const graphSnapshot = snapshotSkillVersion(native);
 
-    expect(legacy.usageSpecification).toBeUndefined();
     expect(native.usageSpecification?.apiVersion).toBe(SKILL_USAGE_API_VERSION);
     expect(Object.isFrozen(native.usageSpecification)).toBe(true);
     expect(graphSnapshot.usageSpecification).toEqual(native.usageSpecification);
     expect(Object.isFrozen(graphSnapshot.usageSpecification)).toBe(true);
-  });
-
-  it('projects legacy workflow guidance to guidance-only without inventing new capabilities', () => {
-    const projection = createLegacySkillUsageProjection({
-      workflowGuidance: 'Inspect before invoking the allowed Tool.',
-      autoConfirmPlan: false,
-    });
-
-    expect(projection.source).toBe('legacy_projection');
-    expect(projection.specification.modes.supported).toEqual(['guidance']);
-    expect(projection.specification.modes.template).toBeUndefined();
-    expect(projection.specification.modes.procedure).toBeUndefined();
-    expect(projection.specification.composition).toBeUndefined();
-    expect(projection.specification.taskBindings).toEqual([]);
-    expect(projection.specification.normative.requiredConfirmations).toEqual([
-      'existing_plan_confirmation',
-    ]);
   });
 
   it.each([

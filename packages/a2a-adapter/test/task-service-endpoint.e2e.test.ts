@@ -16,7 +16,6 @@ import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import {
   startFrozenMcpTasksMockProvider,
   startMcpLoopbackServer,
-  startMcpTasksMockProvider,
 } from '../../mcp-adapter/src/index.js';
 
 const postgresAdminUrl =
@@ -63,7 +62,7 @@ beforeAll(async () => {
     queueName,
     applyMigrations: true,
     a2aSafetyPollIntervalMs: 5_000,
-    v11McpTasks: {
+    frozenMcpTasks: {
       isolationAcknowledged: true,
       queueName: `${queueName}-remote-tasks`,
       reconcileIntervalMs: 25,
@@ -2644,7 +2643,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('runs a confirmed Skill through availability, LangGraph, a remote MCP Task, continuation, evaluation, and A2A completion', async () => {
-    const provider = await startMcpTasksMockProvider();
+    const provider = await startFrozenMcpTasksMockProvider();
     const serverId = `mcp.tasks.vertical.${randomUUID()}`;
     const skillId = `skill.tasks.vertical.${randomUUID()}`;
     try {
@@ -2733,7 +2732,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       expect(
         provider.requests.some(
           (request) =>
-            request.method === 'io.sdar/tasks/checkAvailability' &&
+            request.method === 'io.sdar/taskExecution/checkAvailability' &&
             JSON.stringify(request.params).includes('vertical-task'),
         ),
       ).toBe(true);
@@ -2789,7 +2788,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         value: { status: 'online' },
       });
       expect(provider.requests.map((request) => request.method)).toEqual(
-        expect.arrayContaining(['io.sdar/tasks/checkAvailability', 'tools/call', 'tasks/get']),
+        expect.arrayContaining([
+          'io.sdar/taskExecution/checkAvailability',
+          'tools/call',
+          'tasks/get',
+        ]),
       );
       await expect(
         fetch(

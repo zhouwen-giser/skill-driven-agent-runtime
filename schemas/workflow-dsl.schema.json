@@ -63,31 +63,15 @@
       }
     },
     "taskExecution": {
-      "oneOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["mode"],
-          "properties": {
-            "protocolMode": { "const": "legacy_v11" },
-            "mode": { "enum": ["allow_task", "require_task"] },
-            "availabilityCheck": { "enum": ["required", "best_effort"] },
-            "reservationRef": { "type": "string", "minLength": 1, "maxLength": 256 },
-            "timing": { "$ref": "#/$defs/taskExecutionTiming" }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["protocolMode"],
-          "properties": {
-            "protocolMode": { "const": "frozen_v1" },
-            "availabilityCheck": { "enum": ["required", "best_effort"] },
-            "reservationRef": { "type": "string", "minLength": 1, "maxLength": 256 },
-            "timing": { "$ref": "#/$defs/taskExecutionTiming" }
-          }
-        }
-      ]
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocolMode"],
+      "properties": {
+        "protocolMode": { "const": "frozen_v1" },
+        "availabilityCheck": { "enum": ["required", "best_effort"] },
+        "reservationRef": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "timing": { "$ref": "#/$defs/taskExecutionTiming" }
+      }
     },
     "taskExecutionTiming": {
       "type": "object",

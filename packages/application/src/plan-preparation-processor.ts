@@ -446,12 +446,12 @@ export class PlanPreparationProcessor {
       planId: prepared.planId,
       executionInput:
         'temporarySkillId' in selected
-          ? await this.#legacyExecutionInput(task.taskId, task.requestText)
+          ? await this.#temporarySkillExecutionInput(task.taskId, task.requestText)
           : selected.resolution.structuredInput,
     });
   }
 
-  async #legacyExecutionInput(taskId: string, requestText: string): Promise<unknown> {
+  async #temporarySkillExecutionInput(taskId: string, requestText: string): Promise<unknown> {
     const responses = await this.#dependencies.taskInputs.listResponses(taskId);
     return {
       requestText,

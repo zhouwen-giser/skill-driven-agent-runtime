@@ -34,60 +34,6 @@ describe('Skill Usage Workflow planning', () => {
     expect(prepared.planningInstruction).not.toContain('privateReasoning');
   });
 
-  it('preserves exact existing Skill Graph children for a legacy projection only', () => {
-    const prepared = prepareSkillUsagePlan({
-      ...planningInput('guidance'),
-      interpretation: interpretation('guidance'),
-    });
-    const legacyPolicy = {
-      ...prepared.policy,
-      taskOperations: [],
-      childPolicies: [],
-      requiredContextIds: [],
-      evidenceRequirements: [],
-      composition: snapshotSkillUsageCompositionPlan({
-        root: { skillId: 'skill.root', skillVersion: 1 },
-        expandedSkills: [{ skillId: 'skill.root', skillVersion: 1 }],
-        edges: [],
-        maxDepth: 3,
-        consumedDepth: 0,
-        consumedSkills: 1,
-        consumedNodes: 0,
-      }),
-    };
-    const definition: WorkflowDefinition = {
-      workflowDefinitionId: 'workflow.legacy-child',
-      version: 1,
-      goalId: 'goal.move',
-      goalVersion: 1,
-      entryNodeId: 'child',
-      exitNodeIds: ['result'],
-      nodes: [
-        {
-          nodeId: 'child',
-          name: 'Existing graph child',
-          type: 'skill_call',
-          skillId: 'skill.legacy-child',
-          input: {},
-        },
-        {
-          nodeId: 'result',
-          name: 'Result',
-          type: 'result',
-          value: { op: 'ref', path: ['nodes', 'child'] },
-        },
-      ],
-      edges: [{ sourceNodeId: 'child', targetNodeId: 'result' }],
-    };
-
-    expect(checkSkillUsagePlanCompliance(definition, legacyPolicy, ['skill.legacy-child'])).toEqual(
-      { compliant: true, errors: [] },
-    );
-    expect(
-      checkSkillUsagePlanCompliance(definition, legacyPolicy).errors.map((item) => item.code),
-    ).toEqual(expect.arrayContaining(['SKILL_USAGE_CHILD_FORBIDDEN']));
-  });
-
   it.each(['template', 'procedure'] as const)(
     'compiles %s IR into the existing Workflow DSL and passes the existing Validator',
     async (mode) => {

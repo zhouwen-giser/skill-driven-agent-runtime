@@ -1,14 +1,5 @@
 import type { ProviderEvidenceItem } from './mcp-frozen-protocol.js';
 
-export type McpProtocolEra = 'legacy' | 'modern';
-
-export interface McpProtocolCapabilities {
-  readonly protocolEra: McpProtocolEra;
-  readonly protocolRevision: string;
-  readonly tasksExtension: boolean;
-  readonly tasksSchemaRevision: string;
-}
-
 export interface InternalToolResult {
   readonly content: readonly unknown[];
   readonly structuredContent?: unknown;
@@ -33,7 +24,7 @@ export interface RemoteTaskProviderObservation {
 }
 
 export interface RemoteTaskCreated {
-  readonly protocolMode?: 'legacy_v11' | 'frozen_v1';
+  readonly protocolMode?: 'frozen_v1';
   readonly remoteTaskId: string;
   readonly status: McpTaskStatus;
   readonly statusMessage?: string;

@@ -9,11 +9,8 @@ import type {
   McpManagementOperation,
   McpTool,
   McpToolEnhancement,
-  McpInvocationOutcome,
-  McpProtocolCapabilities,
   McpProtocolDiscoverySnapshot,
   McpToolExecutionSemantics,
-  McpToolExecutionSemanticsValues,
   RemoteTaskOperationAck,
   RemoteTaskBinding,
   RemoteTaskControlEvent,
@@ -96,12 +93,9 @@ import type {
   RuntimeTerminalOutcomeRecord,
   RuntimeUnachievableOutcomeInput,
   TaskExecutionAttempt,
-  McpTaskOperationSemantics,
   McpTaskOperationDefinition,
   McpTaskOperationCandidate,
-  ResolvedMcpTaskExecution,
   TaskAvailabilityCheckRequest,
-  TaskAvailabilityCheckResult,
   TaskAvailabilityReadResult,
   TaskAvailabilitySnapshot,
   DslExecutionReadiness,
@@ -598,89 +592,6 @@ export interface McpRegistryRepository {
 export interface SecretCipher {
   encrypt(secret: Readonly<Record<string, string>>): string;
   decrypt(encrypted: string): Readonly<Record<string, string>>;
-}
-
-export interface McpTransportAdapter {
-  discover(
-    input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
-  ): Promise<
-    readonly Readonly<{
-      name: string;
-      title?: string;
-      description?: string;
-      inputSchema: unknown;
-      declaredExecutionSemantics?: McpToolExecutionSemanticsValues;
-      taskExecution?: McpTaskOperationSemantics;
-    }>[]
-  >;
-  call(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      toolName: string;
-      arguments: Readonly<Record<string, unknown>>;
-      executionContext: RuntimeExecutionContext;
-      taskExecution?: ResolvedMcpTaskExecution;
-      signal?: AbortSignal;
-    }>,
-  ): Promise<McpInvocationOutcome>;
-  capabilities(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-    }>,
-  ): Promise<McpProtocolCapabilities>;
-  checkTaskAvailability?(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      requests: readonly TaskAvailabilityCheckRequest[];
-      signal?: AbortSignal;
-    }>,
-  ): Promise<
-    Readonly<{
-      protocolRevision: string;
-      availabilitySchemaRevision: string;
-      results: readonly TaskAvailabilityCheckResult[];
-    }>
-  >;
-  getTask(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      remoteTaskId: string;
-      signal?: AbortSignal;
-    }>,
-  ): Promise<RemoteTaskSnapshot>;
-  updateTask(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      remoteTaskId: string;
-      inputResponses: Readonly<Record<string, unknown>>;
-      signal?: AbortSignal;
-    }>,
-  ): Promise<RemoteTaskOperationAck>;
-  cancelTask(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-      remoteTaskId: string;
-      signal?: AbortSignal;
-    }>,
-  ): Promise<RemoteTaskOperationAck>;
-  disconnect(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-    }>,
-  ): Promise<void>;
-  ping(
-    input: Readonly<{
-      endpoint: string;
-      headers: Readonly<Record<string, string>>;
-    }>,
-  ): Promise<void>;
 }
 
 export type RemoteTaskReadResult =

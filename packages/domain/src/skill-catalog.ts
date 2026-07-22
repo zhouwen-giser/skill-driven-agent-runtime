@@ -1,5 +1,6 @@
 import { createSkillVersion, type SkillStatus, type SkillVersion } from './skill.js';
-import { createLegacySkillUsageProjection, createSkillUsageSpecification } from './skill-usage.js';
+import { DomainError } from './errors.js';
+import { createSkillUsageSpecification } from './skill-usage.js';
 import type {
   SKILL_USAGE_API_VERSION,
   SkillExecutionMode,
@@ -48,16 +49,15 @@ export interface SkillCatalogFilter {
 }
 
 export function createSkillUsageSummary(version: SkillVersion): SkillUsageSummary {
-  const resolved =
-    version.usageSpecification === undefined
-      ? createLegacySkillUsageProjection({
-          workflowGuidance: version.workflowGuidance,
-          autoConfirmPlan: version.runtimePolicy.autoConfirmPlan,
-        })
-      : {
-          source: 'native' as const,
-          specification: createSkillUsageSpecification(version.usageSpecification),
-        };
+  if (version.usageSpecification === undefined)
+    throw new DomainError(
+      'SKILL_USAGE_REQUIRED',
+      'Skill catalog projection requires a native usage specification.',
+    );
+  const resolved = {
+    source: 'native' as const,
+    specification: createSkillUsageSpecification(version.usageSpecification),
+  };
   const specification = resolved.specification;
   return Object.freeze({
     source: resolved.source,

@@ -231,7 +231,7 @@ describe('Workflow DSL JSON Schema contract', () => {
           tool: { serverId: 'provider', toolName: 'patrol' },
           arguments: { route: 'A' },
           taskExecution: {
-            mode: 'require_task',
+            protocolMode: 'frozen_v1',
             availabilityCheck: 'required',
             timing: {
               start: {

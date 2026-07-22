@@ -462,10 +462,7 @@ function applySkillTaskExecutionContracts(
       if (operation === undefined) return node;
       return {
         ...node,
-        taskExecution:
-          operation.protocolMode === 'frozen_v1'
-            ? { protocolMode: 'frozen_v1', availabilityCheck: 'required' }
-            : { mode: 'require_task', availabilityCheck: 'required' },
+        taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
       };
     }),
   };

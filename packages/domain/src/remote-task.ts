@@ -168,7 +168,7 @@ export interface RemoteTaskAdmission {
   readonly protocolStatus: McpTaskStatus;
   readonly protocolRevision: string;
   readonly tasksSchemaRevision: string;
-  readonly protocolContract?: McpProtocolContractSnapshot;
+  readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
@@ -281,20 +281,12 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   // Every accepted remote Task therefore enters one initial poll before its
   // observed Provider status is projected into awaiting/terminal local state.
   const localState = 'polling' as const;
-  const protocolContract =
-    input.protocolContract ??
-    Object.freeze({
-      mode: 'legacy_v11' as const,
-      protocolVersion: input.protocolRevision,
-      baselineSha256: 'legacy-v11-historical',
-    });
-  if (protocolContract.mode === 'frozen_v1') {
-    if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
-      throw new DomainError(
-        'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
-        'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
-      );
-  }
+  const protocolContract = input.protocolContract;
+  if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
+    throw new DomainError(
+      'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+      'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
+    );
   if ((input.taskTtlMs === undefined) !== (input.taskExpiresAt === undefined))
     throw new DomainError(
       'REMOTE_TASK_TTL_EXPIRY_MISMATCH',

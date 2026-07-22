@@ -1,7 +1,6 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { RuntimeExecutionMode } from './runtime-execution.js';
-import type { McpTaskOperationSemantics } from './mcp-task-availability.js';
 import type { McpProviderProtocolMode, McpTaskExecutionProfile } from './mcp-frozen-protocol.js';
 
 export type McpTransportKind = 'streamable_http';
@@ -63,15 +62,12 @@ export interface McpTool {
   readonly description?: string;
   readonly inputSchema: unknown;
   readonly outputSchema?: unknown;
-  /** Absent only on historical in-memory V1.1 projections; persistence resolves it to legacy_v11. */
   readonly protocolMode?: McpProviderProtocolMode;
   readonly enhancement?: McpToolEnhancement;
   readonly executionSemantics: McpToolExecutionSemantics;
   readonly declaredExecutionSemantics?: McpToolExecutionSemantics;
   readonly adminExecutionSemanticsOverride?: McpToolExecutionSemantics;
-  /** Narrow V1.1 Tasks extension projection, not generic Tool semantics. */
-  readonly taskExecution?: McpTaskOperationSemantics;
-  /** Frozen V1 Tool profile. It is mutually exclusive with the Legacy projection. */
+  /** Frozen V1 Tool profile is mandatory for every registered operation. */
   readonly taskExecutionProfile?: McpTaskExecutionProfile;
   readonly discoveredAt: string;
 }
@@ -141,29 +137,23 @@ export function createMcpServer(input: McpServer): McpServer {
   if (!Number.isInteger(input.toolRevision) || input.toolRevision < 1) {
     throw new DomainError('MCP_TOOL_REVISION_INVALID', 'MCP Tool revision must be positive.');
   }
-  return { ...input, serverId, name, endpoint };
+  return { ...input, serverId, name, endpoint, protocolMode: 'frozen_v1' };
 }
 
 export function createMcpTool(
-  input: Omit<McpTool, 'executionSemantics' | 'protocolMode'> &
+  input: Omit<McpTool, 'executionSemantics'> &
     Readonly<{
       executionSemantics?: McpToolExecutionSemantics;
-      protocolMode?: McpProviderProtocolMode;
     }>,
 ): McpTool {
   const serverId = requireIdentifier(input.serverId, 'MCP_SERVER_ID_REQUIRED');
   const toolName = input.toolName.trim();
   if (toolName === '')
     throw new DomainError('MCP_TOOL_NAME_REQUIRED', 'MCP Tool name is required.');
-  const protocolMode = input.protocolMode ?? 'legacy_v11';
-  if (
-    (protocolMode === 'legacy_v11' && input.taskExecutionProfile !== undefined) ||
-    (protocolMode === 'frozen_v1' &&
-      (input.taskExecution !== undefined || input.taskExecutionProfile === undefined))
-  )
+  if (input.protocolMode !== 'frozen_v1' || input.taskExecutionProfile === undefined)
     throw new DomainError(
       'TOOL_PROFILE_FIELD_MISMATCH',
-      'Legacy Tools may only use taskExecution; Frozen Tools require taskExecutionProfile and forbid taskExecution.',
+      'Registered Tools require the Frozen MCP Tasks V1 protocol contract.',
     );
   const declared =
     input.declaredExecutionSemantics === undefined
@@ -187,7 +177,6 @@ export function createMcpTool(
     ...input,
     serverId,
     toolName,
-    protocolMode,
     executionSemantics,
     ...(declared === undefined ? {} : { declaredExecutionSemantics: declared }),
     ...(adminOverride === undefined ? {} : { adminExecutionSemanticsOverride: adminOverride }),
@@ -254,12 +243,11 @@ export function withMcpToolAdminExecutionSemanticsOverride(
     ...(tool.description === undefined ? {} : { description: tool.description }),
     inputSchema: tool.inputSchema,
     ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
-    ...(tool.protocolMode === undefined ? {} : { protocolMode: tool.protocolMode }),
+    protocolMode: 'frozen_v1',
     ...(tool.enhancement === undefined ? {} : { enhancement: tool.enhancement }),
     ...(tool.declaredExecutionSemantics === undefined
       ? {}
       : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
-    ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
     ...(tool.taskExecutionProfile === undefined
       ? {}
       : { taskExecutionProfile: tool.taskExecutionProfile }),

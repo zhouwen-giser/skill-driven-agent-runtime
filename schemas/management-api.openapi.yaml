@@ -580,27 +580,7 @@ paths:
       responses:
         '201': { description: Registered Server and discovered Tools }
         '400': { $ref: '#/components/responses/Error' }
-  /api/v1/mcp/frozen/servers:
-    post:
-      operationId: registerFrozenMcpServer
-      description: Registers a new explicitly Frozen Provider identity, validates server/discover and tools/list, and atomically persists the discovery snapshot, Tool profiles, output schemas and encrypted credentials without using the Legacy Bridge.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/RegisterMcpServer' }
-      responses:
-        '201': { description: Frozen Provider, current discovery snapshot and Tools }
-        '400': { $ref: '#/components/responses/Error' }
-  /api/v1/mcp/frozen/servers/{serverId}/refresh:
-    parameters: [{ $ref: '#/components/parameters/ServerId' }]
-    post:
-      operationId: refreshFrozenMcpServer
-      description: Refreshes only an explicitly Frozen Provider through server/discover and tools/list, atomically replacing Tool/profile/schema authority and creating a new immutable discovery snapshot.
-      responses:
-        '200': { description: Refreshed Frozen Provider evidence and dependency changes }
-        '400': { $ref: '#/components/responses/Error' }
-  /api/v1/mcp/frozen/servers/{serverId}/notifications/reconnect:
+  /api/v1/mcp/servers/{serverId}/notifications/reconnect:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     post:
       operationId: reconnectFrozenMcpTaskNotifications
@@ -636,46 +616,6 @@ paths:
       responses:
         '200': { description: Expected/actual baseline hashes and audit disposition }
         '400': { $ref: '#/components/responses/Error' }
-  /api/v1/mcp/servers/{serverId}/mode-switch-guard:
-    parameters: [{ $ref: '#/components/parameters/ServerId' }]
-    post:
-      operationId: guardMcpServerProtocolModeSwitch
-      description: Fails closed for any attempt to change an existing Provider between Legacy and Frozen handlers; registering a new explicit Provider identity is required.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [targetMode]
-              additionalProperties: false
-              properties:
-                targetMode: { enum: [legacy_v11, frozen_v1] }
-      responses:
-        '200': { description: Target is the already persisted mode }
-        '409': { description: Immutable Provider mode blocks the requested switch }
-        '400': { $ref: '#/components/responses/Error' }
-  /api/v1/mcp/servers/{serverId}/health:
-    parameters: [{ $ref: '#/components/parameters/ServerId' }]
-    post:
-      operationId: checkMcpServerHealth
-      responses:
-        '200': { description: Remote protocol health, status, and duration }
-  /api/v1/mcp/servers/{serverId}/credentials:
-    parameters: [{ $ref: '#/components/parameters/ServerId' }]
-    put:
-      operationId: updateMcpServerCredentials
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [credentialHeaders]
-              properties:
-                credentialHeaders: { type: object, additionalProperties: { type: string } }
-      responses:
-        '204': { description: Remotely validated and encrypted credentials updated }
   /api/v1/mcp/servers/{serverId}/tools:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     get:

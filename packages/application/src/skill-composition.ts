@@ -5,7 +5,6 @@ import {
   DEFAULT_SKILL_USAGE_DEPTH,
   MAX_SKILL_USAGE_EXPANDED_SKILLS,
   MAX_SKILL_USAGE_PLAN_NODES,
-  createLegacySkillUsageProjection,
   snapshotSkillUsageCompositionPlan,
   snapshotSkillCompositionContext,
   snapshotSkillVersion,
@@ -46,13 +45,12 @@ export interface SkillCompositionRoot {
 }
 
 function usageOf(skill: SkillVersion): SkillUsageSpecification {
-  return (
-    skill.usageSpecification ??
-    createLegacySkillUsageProjection({
-      workflowGuidance: skill.workflowGuidance,
-      autoConfirmPlan: skill.runtimePolicy.autoConfirmPlan,
-    }).specification
-  );
+  if (skill.usageSpecification === undefined)
+    throw usageCompositionError(
+      'SKILL_USAGE_REQUIRED',
+      `Skill ${skill.skillId}@${String(skill.version)} requires a native usage specification.`,
+    );
+  return skill.usageSpecification;
 }
 
 function exactReference(skill: SkillVersion) {
@@ -788,7 +786,8 @@ export type SkillCompositionErrorCode =
   | 'SKILL_USAGE_COMPOSITION_SLOT_UNRESOLVED'
   | 'SKILL_USAGE_COMPOSITION_VERSION_STALE'
   | 'SKILL_USAGE_MODE_BLOCKED'
-  | 'SKILL_USAGE_MODE_INVALID';
+  | 'SKILL_USAGE_MODE_INVALID'
+  | 'SKILL_USAGE_REQUIRED';
 
 export class SkillCompositionError extends Error {
   readonly code: SkillCompositionErrorCode;

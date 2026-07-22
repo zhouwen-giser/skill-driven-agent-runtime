@@ -118,10 +118,10 @@ export class FrozenMcpRegistryService {
     const record = await this.#repository.findServer(serverId);
     if (record === undefined)
       throw registryError('MCP_SERVER_NOT_FOUND', 'MCP Server was not found.');
-    if ((record.server.protocolMode ?? 'legacy_v11') !== 'frozen_v1')
+    if (record.server.protocolMode !== 'frozen_v1')
       throw registryError(
         'MCP_PROTOCOL_MODE_MISMATCH',
-        'Frozen refresh cannot run against a Legacy Provider identity.',
+        'Provider identity does not use the Frozen MCP Tasks V1 contract.',
       );
     const previous = await this.#repository.listTools(serverId);
     const timestamp = this.#clock.now();

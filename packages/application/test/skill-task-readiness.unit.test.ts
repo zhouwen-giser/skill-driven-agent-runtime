@@ -7,7 +7,7 @@ import type {
   TaskAvailabilityCheckResult,
   TaskAvailabilityReadResult,
 } from '../../domain/src/index.js';
-import { V11SkillTaskReadinessAdapter } from '../src/index.js';
+import { FrozenSkillTaskReadinessAdapter } from '../src/index.js';
 import type {
   SkillTaskOperationCandidateCatalog,
   TaskAvailabilityBatchReader,
@@ -15,7 +15,7 @@ import type {
 
 const now = '2026-07-17T12:00:00.000Z';
 
-describe('V11SkillTaskReadinessAdapter', () => {
+describe('FrozenSkillTaskReadinessAdapter', () => {
   it('maps available and restricted candidates with earliest and multiple windows', async () => {
     const adapter = readiness(
       [candidate('provider.available'), candidate('provider.restricted')],
@@ -220,7 +220,7 @@ function readiness(
         },
       ),
   };
-  return new V11SkillTaskReadinessAdapter({
+  return new FrozenSkillTaskReadinessAdapter({
     operations,
     availability,
     clock: { now: () => now },
@@ -232,15 +232,18 @@ function candidate(providerId: string): McpTaskOperationCandidate {
     providerId,
     operationName: 'embodied.move',
     attributes: ['availability:dynamic', 'mcp_task', 'scheduling'],
-    semantics: {
-      execution: 'task_required',
+    protocolMode: 'frozen_v1',
+    taskExecutionProfile: {
+      profileVersion: '1.0',
+      taskBehavior: 'task_required',
       availability: 'dynamic',
       supportsScheduling: true,
       supportsMaxElapsed: false,
       supportsObservations: false,
-      cancellation: 'cooperative',
-      revision: '1.0',
+      supportsInputRequired: false,
+      idempotency: 'client_request_key',
     },
+    taskNotifications: false,
   };
 }
 

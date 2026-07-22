@@ -49,7 +49,7 @@ describe('SkillRegistryService', () => {
     ).rejects.toMatchObject({ code: 'SKILL_TOOL_POLICY_OVERLAP' });
   });
 
-  it('returns native and legacy usage summaries, diffs and immutable exact versions', async () => {
+  it('returns native usage summaries, diffs and immutable exact versions', async () => {
     const registry = createRegistry(new MemorySkillRepository());
     await registry.register(skillInput('embodied.move-to'));
     const native = await registry.register({
@@ -61,7 +61,7 @@ describe('SkillRegistryService', () => {
     await expect(registry.getVersionSummary(native.skillId, 1)).resolves.toMatchObject({
       current: false,
       lifecycle: 'active',
-      usage: { source: 'legacy_projection', supportedModes: ['guidance'] },
+      usage: { source: 'native', supportedModes: ['guidance'] },
     });
     await expect(registry.getCurrentSummary(native.skillId)).resolves.toMatchObject({
       current: true,
@@ -196,6 +196,15 @@ function skillInput(skillId: string): RegisterSkillVersionInput {
     },
     toolPolicy: { required: [], optional: [], forbidden: [] },
     runtimePolicy: { autoConfirmPlan: false },
+    usageSpecification: {
+      ...usageSpecification(),
+      modes: {
+        supported: ['guidance'],
+        defaultMode: 'guidance',
+        guidance: { summary: 'Guidance.', instructions: ['Inspect safely.'] },
+      },
+      taskBindings: [],
+    },
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,

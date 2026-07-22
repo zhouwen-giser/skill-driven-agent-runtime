@@ -49,14 +49,14 @@ export interface SkillTaskBindingReadiness {
   readonly reasonCodes: readonly string[];
   readonly selectedProviderId?: string;
   readonly selectedOperationName?: string;
-  readonly selectedProtocolMode?: 'legacy_v11' | 'frozen_v1';
+  readonly selectedProtocolMode?: 'frozen_v1';
   readonly candidates?: readonly SkillTaskProviderCandidateReadiness[];
 }
 
 export interface SkillTaskProviderCandidateReadiness {
   readonly providerId: string;
   readonly operationName: string;
-  readonly protocolMode: 'legacy_v11' | 'frozen_v1';
+  readonly protocolMode: 'frozen_v1';
   readonly attributes: readonly string[];
   readonly disposition: SkillTaskReadinessDisposition;
   readonly riskLevel: TaskAvailabilityRiskLevel;
