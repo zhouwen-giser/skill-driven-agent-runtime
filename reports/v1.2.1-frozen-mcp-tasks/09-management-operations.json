@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "phase": 9,
+  "status": "passed",
+  "implementation": {
+    "providerProtocolEvidence": true,
+    "remoteTaskProtocolEvidence": true,
+    "consoleProtocolFields": true,
+    "frozenRegisterRefresh": "transactional",
+    "protocolDiagnosis": true,
+    "baselineAudit": true,
+    "modeSwitchGuard": true,
+    "forceReconciliation": "expected_version_cas",
+    "notificationReconnectEndpoint": true,
+    "notificationRuntimeComposition": "phase_10_required"
+  },
+  "verification": {
+    "focusedUnit": { "status": "passed", "tests": 3 },
+    "focusedContract": { "status": "passed", "tests": 47 },
+    "unit": { "status": "passed", "files": 78, "tests": 480 },
+    "contract": { "status": "host_limited", "passed": 158, "total": 159 },
+    "repositoryIntegration": { "status": "passed", "tests": 58, "postgresPort": 55443 },
+    "managementOpenapi": { "status": "passed", "operations": 122 },
+    "architecture": { "status": "passed", "typescriptSources": 279 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "limitations": {
+    "windowsSymlink": "phase_9_EPERM_resolved_by_phase_12_cross_platform_fixture",
+    "isolatedComposeProject": "sdar-codex-phase9",
+    "cleanup": "completed_2026-07-22",
+    "realProviderInterop": false
+  }
+}

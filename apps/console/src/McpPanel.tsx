@@ -3,13 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { managementRequest } from './api.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
-type McpView = 'tools' | 'operations' | 'invocations' | 'warnings';
+type McpView = 'tools' | 'operations' | 'invocations' | 'warnings' | 'protocol';
 interface McpServerRecord extends Record<string, unknown> {
   readonly serverId: string;
   readonly name: string;
   readonly status: string;
   readonly endpoint: string;
   readonly toolRevision: number;
+  readonly protocolMode?: 'legacy_v11' | 'frozen_v1';
+  readonly notificationStatus?: 'streaming_supported' | 'polling_fallback';
 }
 
 export function McpPanel({
@@ -45,7 +47,13 @@ export function McpPanel({
     idempotency: 'unknown',
     replay: 'unknown',
   });
-  const [form, setForm] = useState({ serverId: '', name: '', endpoint: '', authorization: '' });
+  const [form, setForm] = useState({
+    serverId: '',
+    name: '',
+    endpoint: '',
+    authorization: '',
+    protocolMode: 'legacy_v11' as 'legacy_v11' | 'frozen_v1',
+  });
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -62,16 +70,26 @@ export function McpPanel({
   async function register(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     await runAction(async () => {
-      await managementRequest('/api/v1/mcp/servers', {
-        method: 'POST',
-        body: JSON.stringify({
-          serverId: form.serverId,
-          name: form.name,
-          endpoint: form.endpoint,
-          credentialHeaders: form.authorization === '' ? {} : { Authorization: form.authorization },
-        }),
+      await managementRequest(
+        form.protocolMode === 'frozen_v1' ? '/api/v1/mcp/frozen/servers' : '/api/v1/mcp/servers',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            serverId: form.serverId,
+            name: form.name,
+            endpoint: form.endpoint,
+            credentialHeaders:
+              form.authorization === '' ? {} : { Authorization: form.authorization },
+          }),
+        },
+      );
+      setForm({
+        serverId: '',
+        name: '',
+        endpoint: '',
+        authorization: '',
+        protocolMode: 'legacy_v11',
       });
-      setForm({ serverId: '', name: '', endpoint: '', authorization: '' });
       await reload();
       return 'MCP Server 已注册并完成 Tool 发现。';
     }, setMessage);
@@ -80,7 +98,12 @@ export function McpPanel({
   async function mutate(serverId: string, operation: 'refresh' | 'health' | 'delete') {
     await runAction(async () => {
       const suffix = operation === 'delete' ? '' : `/${operation}`;
-      await managementRequest(`/api/v1/mcp/servers/${encodeURIComponent(serverId)}${suffix}`, {
+      const server = servers.find((candidate) => candidate.serverId === serverId);
+      const base =
+        operation === 'refresh' && server?.protocolMode === 'frozen_v1'
+          ? '/api/v1/mcp/frozen/servers'
+          : '/api/v1/mcp/servers';
+      await managementRequest(`${base}/${encodeURIComponent(serverId)}${suffix}`, {
         method: operation === 'delete' ? 'DELETE' : 'POST',
       });
       setPendingDelete(undefined);
@@ -166,6 +189,21 @@ export function McpPanel({
         )}
         <form className="admin-form" onSubmit={(event) => void register(event)}>
           <label>
+            Protocol mode
+            <select
+              value={form.protocolMode}
+              onChange={(event) => {
+                setForm({
+                  ...form,
+                  protocolMode: event.target.value as 'legacy_v11' | 'frozen_v1',
+                });
+              }}
+            >
+              <option value="legacy_v11">Legacy v1.1</option>
+              <option value="frozen_v1">Frozen V1</option>
+            </select>
+          </label>
+          <label>
             Server ID
             <input
               required
@@ -225,6 +263,16 @@ export function McpPanel({
               </div>
               <span className="status ok">{server.status}</span>
             </div>
+            <div className="action-row" aria-label="MCP protocol status">
+              <span className="status">{server.protocolMode ?? 'legacy_v11'}</span>
+              <span
+                className={
+                  server.notificationStatus === 'streaming_supported' ? 'status ok' : 'status'
+                }
+              >
+                notifications: {server.notificationStatus ?? 'polling_fallback'}
+              </span>
+            </div>
             <p className="endpoint">{server.endpoint}</p>
             <div className="credential-row">
               <label>
@@ -247,11 +295,13 @@ export function McpPanel({
             <div className="action-row">
               <button onClick={() => void mutate(server.serverId, 'refresh')}>刷新 Tools</button>
               <button onClick={() => void mutate(server.serverId, 'health')}>健康检查</button>
-              {(['tools', 'operations', 'invocations', 'warnings'] as const).map((view) => (
-                <button key={view} onClick={() => void inspect(server.serverId, view)}>
-                  {view}
-                </button>
-              ))}
+              {(['protocol', 'tools', 'operations', 'invocations', 'warnings'] as const).map(
+                (view) => (
+                  <button key={view} onClick={() => void inspect(server.serverId, view)}>
+                    {view}
+                  </button>
+                ),
+              )}
               {pendingDelete === server.serverId ? (
                 <button className="danger" onClick={() => void mutate(server.serverId, 'delete')}>
                   确认删除

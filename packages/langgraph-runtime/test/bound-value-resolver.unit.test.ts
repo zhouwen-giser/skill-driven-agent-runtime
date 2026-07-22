@@ -68,7 +68,7 @@ describe('Workflow bound-value resolver', () => {
         input: { skillInput: {}, context: { permission: true }, evidence: {} },
         outputs: {
           move: {
-            data: { structuredContent: { evidence: { 'final-position': true } } },
+            data: { validatedEvidence: { 'final-position': true } },
           },
         },
         errors: {},
@@ -77,6 +77,20 @@ describe('Workflow bound-value resolver', () => {
     );
 
     expect(resolved).toEqual({ permission: true, position: true });
+  });
+
+  it('does not promote unvalidated Provider metadata or structuredContent into Skill evidence', () => {
+    for (const move of [
+      { structuredContent: { evidence: { 'final-position': true } } },
+      { metadata: { 'io.sdar/evidence': { 'final-position': true } } },
+      { evidence: { 'final-position': true } },
+    ])
+      expect(() =>
+        resolveWorkflowBoundValue(
+          { op: 'ref', path: ['evidence', 'final-position'] },
+          { input: {}, outputs: { move }, errors: {}, loopCounts: {} },
+        ),
+      ).toThrow(expect.objectContaining({ code: 'WORKFLOW_BINDING_REFERENCE_MISSING' }));
   });
 
   it('reports a readable stable error for a missing object or array segment', () => {

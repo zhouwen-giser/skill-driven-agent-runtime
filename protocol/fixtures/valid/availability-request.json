@@ -1,0 +1,23 @@
+{
+  "schema": "sdar-availability-v1.schema.json",
+  "ref": "#/$defs/Request",
+  "value": {
+    "profileVersion": "1.0",
+    "checks": [
+      {
+        "requestId": "skill-binding:move-resource",
+        "operationName": "embodied.move",
+        "arguments": {
+          "state": "partial",
+          "knownValue": { "resourceId": "UGV-001" },
+          "unresolvedPaths": ["/target"]
+        },
+        "timing": {
+          "start": { "mode": "immediate", "startToleranceMs": 5000 },
+          "maxElapsedMs": 600000
+        }
+      }
+    ],
+    "_meta": {}
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "phase": 11,
+  "status": "passed_local_publication_pending",
+  "provider": {
+    "repository": "zhouwen-giser/sdar-mcp-tasks-provider-runtime",
+    "mergedBaselineCommit": "217e0892c1d827c32c2a5342709fd3e77cfdb259",
+    "candidateBranch": "fix/frozen-interop-contract-alignment",
+    "candidateCommit": "b30d839",
+    "pullRequest": 16,
+    "pullRequestHead": "4d90b1998ab2d4c9212a375552b00d9326635524",
+    "actionsRun": 29882714727,
+    "runtimeVersion": "2.0.0-rc.1",
+    "endpoint": "http://127.0.0.1:18080/mcp",
+    "adapter": "reference_typescript_grpc_127.0.0.1:17001",
+    "database": "isolated_postgresql_17_127.0.0.1:55434_sdar_interop"
+  },
+  "matchingBaselines": {
+    "protocolVersion": "2026-07-28",
+    "frozenContractSha256": "d33623f33ea2dfbb0ad56868d9911af6c7b37b354a0b17a76798646bded9a845",
+    "sourceCommit": "26897cc322f356487da89113451bd16b520b9288",
+    "sourceSchemaGitBlob": "cc44564e33305dbc07e820cdd0a97648f3852019"
+  },
+  "providerVerification": {
+    "command": "pnpm verify:v2",
+    "status": "passed",
+    "durationMs": 340800,
+    "frozen": { "passed": 74, "total": 74 },
+    "runtimeClosure": { "passed": 29, "total": 29 },
+    "unit": { "passed": 79, "total": 79 },
+    "contract": { "passed": 9, "total": 9 },
+    "integration": { "passed": 199, "total": 199 },
+    "recovery": { "passed": 9, "total": 9 },
+    "security": { "passed": 29, "total": 29 },
+    "e2e": { "passed": 6, "total": 6 },
+    "typescriptConformance": "passed",
+    "pythonConformance": "passed",
+    "capacity": "passed",
+    "containerReproducibility": "passed",
+    "dependencyAudit": "passed_high_threshold_one_moderate"
+  },
+  "realWireMatrix": {
+    "status": "passed",
+    "serverDiscover": true,
+    "strictToolsList": true,
+    "tools": ["echo_sync", "durable_task", "flex_task"],
+    "availabilityReservationMode": "none",
+    "inputRequiredCreateBaseOnlyAndGetDetailed": true,
+    "businessFailureCreateBaseOnlyAndCompletedErrorResult": true,
+    "technicalFailureCreateBaseOnlyAndFailedJsonRpcError": true,
+    "taskNotificationObserved": true
+  },
+  "sdarFocusedLifecycle": { "passed": 15, "total": 15 },
+  "resolved": [
+    "PROVIDER_AVAILABILITY_RESERVATION_MODE_MISSING",
+    "PROVIDER_CREATE_TASK_RESULT_CONTAINS_MRTR",
+    "PROVIDER_CREATE_TASK_RESULT_CONTAINS_TERMINAL_PAYLOAD",
+    "PROVIDER_SAME_RUNTIME_REVISION_CONTENT_MISMATCH",
+    "PROVIDER_TOOLS_LIST_RESULT_TYPE_EXTENSION",
+    "SDAR_CREATE_TO_DETAILED_SAME_REVISION_FALSE_MISMATCH"
+  ],
+  "gates": {
+    "G3ProviderRuntimeComponentConformant": "passed_local_candidate",
+    "G4InteropCertified": "passed_local_candidate",
+    "G5ReleaseReady": "blocked_pending_provider_pr_16_merge"
+  },
+  "claim": "interop_certified_local_candidate_no_release_or_merge_claim"
+}

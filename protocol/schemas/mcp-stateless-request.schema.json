@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/mcp-stateless-request.schema.json",
+  "title": "SDAR Frozen MCP Stateless Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jsonrpc", "id", "method", "params"],
+  "properties": {
+    "jsonrpc": { "const": "2.0" },
+    "id": { "type": ["string", "number"] },
+    "method": { "type": "string", "minLength": 1 },
+    "params": {
+      "type": "object",
+      "required": ["_meta"],
+      "properties": {
+        "_meta": { "$ref": "#/$defs/requestMeta" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "requestMeta": {
+      "type": "object",
+      "required": [
+        "io.modelcontextprotocol/protocolVersion",
+        "io.modelcontextprotocol/clientInfo",
+        "io.modelcontextprotocol/clientCapabilities"
+      ],
+      "properties": {
+        "io.modelcontextprotocol/protocolVersion": { "const": "2026-07-28" },
+        "io.modelcontextprotocol/clientInfo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "version": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        },
+        "io.modelcontextprotocol/clientCapabilities": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["extensions"],
+          "properties": {
+            "extensions": {
+              "type": "object",
+              "required": ["io.modelcontextprotocol/tasks"],
+              "properties": {
+                "io.modelcontextprotocol/tasks": { "type": "object" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "io.modelcontextprotocol/logLevel": { "type": "string" },
+        "io.sdar/taskExecution": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

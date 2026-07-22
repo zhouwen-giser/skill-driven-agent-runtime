@@ -149,3 +149,36 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   unverified because `soffice` is unavailable; v1.2 does not modify or publish that DOCX.
 - As of Phase 14 there are zero open required findings. Phase 15 completion remains conditional on its
   explicit command matrix, final reports, pushed evidence and Ready-for-Review transition.
+
+## v1.2.1 Frozen MCP Tasks release blockers (2026-07-19)
+
+- Real interop against `sdar-mcp-tasks-provider-runtime origin/main@c5594e4` found four external wire
+  mismatches despite its 74/74 self-report: missing required Availability `reservationMode`; MRTR
+  `inputRequests` embedded in CreateTaskResult; terminal `result/error` embedded in CreateTaskResult; and
+  different `tasks/get`/Notification content for the same Runtime Revision. SDAR remains strict and is not
+  Interop Certified. See `reports/v1.2.1-frozen-mcp-tasks/11-real-provider-interop.{md,json}`.
+- The 2026-07-22 refresh of Provider Draft PR #15 at exact `65ac78a` fixes the get/Notification projection,
+  but still omits `reservationMode` and emits MRTR/terminal-only fields in CreateTaskResult. Its green CI
+  and 13/13 focused tests do not exercise the strict SDAR consumer schema, so they do not close G3/G4/G5.
+- The frozen dependency tree is restored. A Windows junction fixture preserves the symlink-rejection
+  security assertion without privileged file-link creation; the Frozen migration verifier now owns its
+  default Compose lifecycle; Mock Task TTL and Availability windows are startup-relative. The complete
+  `pnpm verify` passes 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both
+  smoke stages. Clean exact commit `f7bdd7b` repeats the full gate with `dirty=false` in 212,915 ms; this
+  still cannot substitute for the blocked real interop gate.
+- The isolated `sdar-codex-phase9` Compose resources and extracted external archive were removed on
+  2026-07-22 after independently verifying that the archive's junction target remained intact. External
+  Provider fixes, real interop requalification and publication of its evidence are the remaining required
+  deferred items; v1.2.1 is not release-ready.
+
+### 2026-07-22 closure update
+
+- Provider PR #15 merged as `main@217e089`. Independent Provider implementation `b30d839` corrects the
+  remaining Availability and CreateTaskResult mismatches plus strict `tools/list`; complete `verify:v2`
+  and the real SDAR HTTP matrix pass. PR #16 publishes the change at final evidence head `4d90b199`, and
+  Actions run `29882714727` passes its `runtime-ci` and `runtime-compose` jobs.
+- SDAR projection-aware admission corrects the discovered base CreateTaskResult/first DetailedTask false
+  mismatch while requiring identical Task base fields. Clean exact commit `61142f9` passes the refreshed
+  full gate with `dirty=false` in 184,634 ms.
+- The only required deferred item is protected review and merge of Provider PR #16. Automatic merge is not
+  authorized; G5 and PR #6 Ready status remain pending for that reason.

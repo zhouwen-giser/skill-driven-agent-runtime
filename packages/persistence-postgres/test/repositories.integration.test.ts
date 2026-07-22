@@ -200,6 +200,7 @@ const V12_TEST_MIGRATIONS = [
   '0104_workflow_external_wait_event.up.sql',
   '0105_skill_usage_specification.up.sql',
   '0106_skill_execution_record.up.sql',
+  '0107_frozen_mcp_tasks_protocol.up.sql',
 ] as const;
 
 async function applyV12TestMigrations(): Promise<void> {
@@ -1217,6 +1218,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
       },
     ];
+    const mcpProtocolContract = {
+      mode: 'frozen_v1' as const,
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+      tasksSchemaSha256: 'b'.repeat(64),
+      taskExecutionProfileVersion: '1.0' as const,
+      evidenceProfileVersion: '1.0' as const,
+      serverDiscoverySnapshotId: 'snapshot.workflow.db',
+    };
     const definition = {
       workflowDefinitionId: 'workflow.db',
       version: 1,
@@ -1241,6 +1251,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
       toolExecutionSemantics,
+      mcpProtocolContract,
       attempt: 1,
       candidate: { invalid: true },
       validationErrors: [{ code: 'INVALID', path: 'nodes', message: 'Invalid.' }],
@@ -1253,6 +1264,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
       toolExecutionSemantics,
+      mcpProtocolContract,
       attempt: 2,
       candidate: definition,
       validationErrors: [],
@@ -1267,6 +1279,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       compositionContext: testCompositionContext(),
       capabilityGapSkillIds: ['skill.gap.db'],
       toolExecutionSemantics,
+      mcpProtocolContract,
       definition,
       confirmationStatus: 'awaiting_confirmation',
       attemptCount: 2,
@@ -1279,6 +1292,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         compositionContext: testCompositionContext(),
         capabilityGapSkillIds: ['skill.gap.db'],
         toolExecutionSemantics,
+        mcpProtocolContract,
         attemptCount: 2,
         confirmationStatus: 'awaiting_confirmation',
       }),
@@ -1306,12 +1320,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
       compositionContexts: unknown[];
       capabilityGaps: unknown[];
       toolSemantics: unknown[];
+      protocolContracts: unknown[];
     }>(
       `SELECT COUNT(*)::int count,
               jsonb_agg(goal_contract_json ORDER BY attempt) contracts,
               jsonb_agg(composition_context_json ORDER BY attempt) "compositionContexts",
               jsonb_agg(capability_gap_skill_ids_json ORDER BY attempt) "capabilityGaps",
-              jsonb_agg(tool_execution_semantics_json ORDER BY attempt) "toolSemantics"
+              jsonb_agg(tool_execution_semantics_json ORDER BY attempt) "toolSemantics",
+              jsonb_agg(mcp_protocol_contract_json ORDER BY attempt) "protocolContracts"
        FROM workflow_plan_attempt WHERE plan_id=$1`,
       ['plan.db'],
     );
@@ -1329,6 +1345,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       toolExecutionSemantics,
       toolExecutionSemantics,
     ]);
+    expect(attempts.rows[0]?.protocolContracts).toEqual([mcpProtocolContract, mcpProtocolContract]);
     await expect(
       pool.query(
         `UPDATE workflow_plan SET capability_gap_skill_ids_json='{}'::jsonb WHERE plan_id=$1`,
@@ -3798,6 +3815,130 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     await expect(repository.listInvocations('mcp.devices')).rejects.toMatchObject({
       code: 'MCP_TOOL_EXECUTION_SEMANTICS_INVALID',
+    });
+  });
+
+  it('persists Frozen MCP discovery snapshots and Tool profiles without Legacy translation', async () => {
+    const repository = new PostgresMcpRegistryRepository(pool, { v11TaskMetadata: true });
+    const profile = {
+      profileVersion: '1.0' as const,
+      taskBehavior: 'task_required' as const,
+      availability: 'dynamic' as const,
+      supportsScheduling: true,
+      supportsMaxElapsed: true,
+      supportsObservations: true,
+      supportsInputRequired: true,
+      idempotency: 'client_request_key' as const,
+    };
+    const snapshot = {
+      snapshotId: 'snapshot.frozen.db.1',
+      serverId: 'mcp.frozen.db',
+      protocolMode: 'frozen_v1' as const,
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+      supportedVersions: ['2026-07-28'],
+      capabilities: { tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } } },
+      serverInfo: { name: 'Frozen Provider', version: '1.0.0' },
+      taskNotifications: true,
+      discoveredAt: '2026-07-18T00:00:00.000Z',
+      validUntil: '2026-07-18T01:00:00.000Z',
+      toolRevision: 1,
+    };
+    await repository.saveFrozenServerAndReplaceTools(
+      {
+        server: {
+          serverId: 'mcp.frozen.db',
+          name: 'Frozen Provider',
+          endpoint: 'https://frozen.example.test/mcp',
+          transport: 'streamable_http',
+          status: 'enabled',
+          toolRevision: 1,
+          protocolMode: 'frozen_v1',
+          currentProtocolSnapshotId: snapshot.snapshotId,
+          createdAt: '2026-07-18T00:00:00.000Z',
+          updatedAt: '2026-07-18T00:00:00.000Z',
+        },
+        encryptedCredential: 'encrypted-frozen-credential',
+      },
+      [
+        {
+          serverId: 'mcp.frozen.db',
+          toolName: 'embodied.move',
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'object', required: ['status'] },
+          protocolMode: 'frozen_v1',
+          taskExecutionProfile: profile,
+          executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+          discoveredAt: '2026-07-18T00:00:00.000Z',
+        },
+      ],
+      snapshot,
+    );
+
+    await expect(repository.findCurrentProtocolSnapshot('mcp.frozen.db')).resolves.toEqual(
+      snapshot,
+    );
+    await expect(repository.findServer('mcp.frozen.db')).resolves.toMatchObject({
+      server: {
+        protocolMode: 'frozen_v1',
+        currentProtocolSnapshotId: 'snapshot.frozen.db.1',
+      },
+    });
+    await expect(repository.listTools('mcp.frozen.db')).resolves.toEqual([
+      expect.objectContaining({
+        toolName: 'embodied.move',
+        protocolMode: 'frozen_v1',
+        outputSchema: { type: 'object', required: ['status'] },
+        taskExecutionProfile: profile,
+      }),
+    ]);
+
+    await repository.saveServerAndReplaceTools(
+      {
+        server: {
+          serverId: 'mcp.legacy.mode-guard',
+          name: 'Legacy Provider',
+          endpoint: 'https://legacy.example.test/mcp',
+          transport: 'streamable_http',
+          status: 'enabled',
+          toolRevision: 1,
+          protocolMode: 'legacy_v11',
+          createdAt: '2026-07-18T00:00:00.000Z',
+          updatedAt: '2026-07-18T00:00:00.000Z',
+        },
+        encryptedCredential: 'encrypted-legacy-credential',
+      },
+      [],
+    );
+    const guardedSnapshot = {
+      ...snapshot,
+      snapshotId: 'snapshot.mode-guard.1',
+      serverId: 'mcp.legacy.mode-guard',
+    };
+    await expect(
+      repository.saveFrozenServerAndReplaceTools(
+        {
+          server: {
+            serverId: 'mcp.legacy.mode-guard',
+            name: 'Frozen overwrite attempt',
+            endpoint: 'https://frozen.example.test/mcp',
+            transport: 'streamable_http',
+            status: 'enabled',
+            toolRevision: 1,
+            protocolMode: 'frozen_v1',
+            currentProtocolSnapshotId: guardedSnapshot.snapshotId,
+            createdAt: '2026-07-18T00:00:00.000Z',
+            updatedAt: '2026-07-18T00:01:00.000Z',
+          },
+          encryptedCredential: 'encrypted-frozen-credential',
+        },
+        [],
+        guardedSnapshot,
+      ),
+    ).rejects.toThrow('FROZEN_MCP_PROVIDER_MODE_IMMUTABLE');
+    await expect(repository.findServer('mcp.legacy.mode-guard')).resolves.toMatchObject({
+      server: { name: 'Legacy Provider', protocolMode: 'legacy_v11' },
+      encryptedCredential: 'encrypted-legacy-credential',
     });
   });
 

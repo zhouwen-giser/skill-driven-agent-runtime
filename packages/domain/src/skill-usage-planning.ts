@@ -22,6 +22,7 @@ export interface SkillUsageTaskOperationPolicy {
   readonly taskType: string;
   readonly providerId: string;
   readonly operationName: string;
+  readonly protocolMode: 'legacy_v11' | 'frozen_v1';
 }
 
 export interface SkillUsageChildPlanPolicy {

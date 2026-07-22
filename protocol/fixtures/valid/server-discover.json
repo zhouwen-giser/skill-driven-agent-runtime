@@ -1,0 +1,22 @@
+{
+  "schema": "mcp-server-discover.schema.json",
+  "value": {
+    "resultType": "complete",
+    "supportedVersions": ["2026-07-28"],
+    "capabilities": {
+      "tools": {},
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {},
+        "io.sdar/taskExecution": { "profileVersion": "1.0", "taskNotifications": true }
+      }
+    },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "frozen-provider",
+        "version": "1.0.0"
+      }
+    },
+    "ttlMs": 3600000,
+    "cacheScope": "public"
+  }
+}

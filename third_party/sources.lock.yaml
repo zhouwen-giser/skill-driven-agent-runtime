@@ -92,6 +92,13 @@ sources:
     pin: "commit:8966bea9c4f4e6d71060cc8284a539086e9e234f#schema.json-blob:d6ccaff7e3fb2131b5d752dd8b6f34096e58e976#schema.ts-blob:2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc"
     allowed: 'official io.modelcontextprotocol/tasks extension contract and attributed bounded Schema adaptation behind packages/mcp-adapter'
     forbidden: 'SDK/domain type leakage, unpinned schema use, legacy tasks/result or tasks/list, source copy without Apache-2.0 attribution'
+  - name: MCP Frozen 2026-07-28 Protocol Source
+    repository: https://github.com/modelcontextprotocol/modelcontextprotocol
+    license: 'Apache-2.0 transition / retained MIT contributions / CC-BY-4.0 non-spec documentation'
+    use: source_adaptation
+    pin: "commit:26897cc322f356487da89113451bd16b520b9288#schema/draft/schema.json-blob:cc44564e33305dbc07e820cdd0a97648f3852019#sha256:9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+    allowed: 'unmodified pinned source schema under protocol/source; SEP-2663 and SEP-986 specification reference; attributed SDAR-derived schemas'
+    forbidden: 'SDK/domain type leakage, unpinned online schema selection, Frozen-to-Legacy fallback, protocol translation, source modification without attribution'
   - name: React
     repository: https://github.com/facebook/react
     license: 'MIT'

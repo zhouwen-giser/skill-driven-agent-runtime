@@ -1,0 +1,14 @@
+{
+  "schema": "sdar-availability-v1.schema.json",
+  "ref": "#/$defs/Request",
+  "value": {
+    "revision": "1.0",
+    "requests": [
+      {
+        "nodeId": "node-1",
+        "operationName": "embodied.move",
+        "arguments": { "unresolved": true, "knownArguments": {}, "unresolvedPaths": ["$"] }
+      }
+    ]
+  }
+}

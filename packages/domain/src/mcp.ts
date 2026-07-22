@@ -2,6 +2,7 @@ import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { RuntimeExecutionMode } from './runtime-execution.js';
 import type { McpTaskOperationSemantics } from './mcp-task-availability.js';
+import type { McpProviderProtocolMode, McpTaskExecutionProfile } from './mcp-frozen-protocol.js';
 
 export type McpTransportKind = 'streamable_http';
 export type McpServerStatus = 'enabled' | 'disabled' | 'unreachable';
@@ -13,6 +14,8 @@ export interface McpServer {
   readonly transport: McpTransportKind;
   readonly status: McpServerStatus;
   readonly toolRevision: number;
+  readonly protocolMode?: McpProviderProtocolMode;
+  readonly currentProtocolSnapshotId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -59,12 +62,17 @@ export interface McpTool {
   readonly title?: string;
   readonly description?: string;
   readonly inputSchema: unknown;
+  readonly outputSchema?: unknown;
+  /** Absent only on historical in-memory V1.1 projections; persistence resolves it to legacy_v11. */
+  readonly protocolMode?: McpProviderProtocolMode;
   readonly enhancement?: McpToolEnhancement;
   readonly executionSemantics: McpToolExecutionSemantics;
   readonly declaredExecutionSemantics?: McpToolExecutionSemantics;
   readonly adminExecutionSemanticsOverride?: McpToolExecutionSemantics;
   /** Narrow V1.1 Tasks extension projection, not generic Tool semantics. */
   readonly taskExecution?: McpTaskOperationSemantics;
+  /** Frozen V1 Tool profile. It is mutually exclusive with the Legacy projection. */
+  readonly taskExecutionProfile?: McpTaskExecutionProfile;
   readonly discoveredAt: string;
 }
 
@@ -137,13 +145,26 @@ export function createMcpServer(input: McpServer): McpServer {
 }
 
 export function createMcpTool(
-  input: Omit<McpTool, 'executionSemantics'> &
-    Readonly<{ executionSemantics?: McpToolExecutionSemantics }>,
+  input: Omit<McpTool, 'executionSemantics' | 'protocolMode'> &
+    Readonly<{
+      executionSemantics?: McpToolExecutionSemantics;
+      protocolMode?: McpProviderProtocolMode;
+    }>,
 ): McpTool {
   const serverId = requireIdentifier(input.serverId, 'MCP_SERVER_ID_REQUIRED');
   const toolName = input.toolName.trim();
   if (toolName === '')
     throw new DomainError('MCP_TOOL_NAME_REQUIRED', 'MCP Tool name is required.');
+  const protocolMode = input.protocolMode ?? 'legacy_v11';
+  if (
+    (protocolMode === 'legacy_v11' && input.taskExecutionProfile !== undefined) ||
+    (protocolMode === 'frozen_v1' &&
+      (input.taskExecution !== undefined || input.taskExecutionProfile === undefined))
+  )
+    throw new DomainError(
+      'TOOL_PROFILE_FIELD_MISMATCH',
+      'Legacy Tools may only use taskExecution; Frozen Tools require taskExecutionProfile and forbid taskExecution.',
+    );
   const declared =
     input.declaredExecutionSemantics === undefined
       ? undefined
@@ -166,6 +187,7 @@ export function createMcpTool(
     ...input,
     serverId,
     toolName,
+    protocolMode,
     executionSemantics,
     ...(declared === undefined ? {} : { declaredExecutionSemantics: declared }),
     ...(adminOverride === undefined ? {} : { adminExecutionSemanticsOverride: adminOverride }),
@@ -231,11 +253,16 @@ export function withMcpToolAdminExecutionSemanticsOverride(
     ...(tool.title === undefined ? {} : { title: tool.title }),
     ...(tool.description === undefined ? {} : { description: tool.description }),
     inputSchema: tool.inputSchema,
+    ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+    ...(tool.protocolMode === undefined ? {} : { protocolMode: tool.protocolMode }),
     ...(tool.enhancement === undefined ? {} : { enhancement: tool.enhancement }),
     ...(tool.declaredExecutionSemantics === undefined
       ? {}
       : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
     ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
+    ...(tool.taskExecutionProfile === undefined
+      ? {}
+      : { taskExecutionProfile: tool.taskExecutionProfile }),
     adminExecutionSemanticsOverride: adminOverride,
     discoveredAt: tool.discoveredAt,
   });

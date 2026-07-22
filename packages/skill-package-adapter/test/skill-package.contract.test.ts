@@ -95,11 +95,28 @@ describe('Skill Package contract and safe reader', () => {
 
   it('rejects symlink entries even when the link target is readable', async () => {
     const root = await createPackage();
-    const external = path.join(path.dirname(root), 'external-normative.json');
-    await writeFile(external, JSON.stringify(validParts().normative));
+    const external = path.join(
+      path.dirname(root),
+      process.platform === 'win32' ? 'external-normative' : 'external-normative.json',
+    );
+    if (process.platform === 'win32') {
+      // Directory junctions exercise the same lstat symlink rejection without requiring
+      // Windows Developer Mode or SeCreateSymbolicLinkPrivilege for the test fixture.
+      await mkdir(external);
+      await writeFile(
+        path.join(external, 'normative.json'),
+        JSON.stringify(validParts().normative),
+      );
+    } else {
+      await writeFile(external, JSON.stringify(validParts().normative));
+    }
     roots.push(external);
     await rm(path.join(root, 'normative.json'));
-    await symlink(external, path.join(root, 'normative.json'));
+    await symlink(
+      external,
+      path.join(root, 'normative.json'),
+      process.platform === 'win32' ? 'junction' : 'file',
+    );
 
     await expect(new NodeSkillPackageReader().read(root)).rejects.toMatchObject({
       code: 'SKILL_PACKAGE_FILE_INVALID',

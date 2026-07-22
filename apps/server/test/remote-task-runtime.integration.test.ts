@@ -44,9 +44,16 @@ import {
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 
 const databaseName = 'sdar_v11_remote_task_integration';
-const adminConnection = 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
-const databaseConnection = `postgresql://sdar:sdar_local_only@127.0.0.1:55432/${databaseName}`;
+const adminConnection =
+  process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const databaseConnection = replaceDatabase(adminConnection, databaseName);
 const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
+
+function replaceDatabase(connection: string, database: string): string {
+  const url = new URL(connection);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
 const resources: { close(): Promise<void> }[] = [];
 let pool: Pool;
 let initializedPool: Pool | undefined;
@@ -73,7 +80,7 @@ beforeAll(async () => {
   );
   await pool.query(bootstrap);
   await applyRuntimeMigrations(pool, {
-    profile: 'v1.1-isolated',
+    profile: 'released',
     isolationAcknowledged: true,
   });
   await seedAuthorityRecords();

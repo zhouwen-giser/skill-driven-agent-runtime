@@ -65,6 +65,7 @@ export function prepareSkillUsagePlan(
       taskType: binding.taskType,
       providerId: readiness.selectedProviderId,
       operationName: readiness.selectedOperationName,
+      protocolMode: readiness.selectedProtocolMode ?? 'legacy_v11',
     });
   });
   const policy: SkillUsagePlanPolicy = Object.freeze({
@@ -326,7 +327,10 @@ function compileDeterministicDefinition(
       type: 'mcp_tool',
       tool: { serverId: task.providerId, toolName: task.operationName },
       arguments: { op: 'ref', path: ['input', 'skillInput'] },
-      taskExecution: { mode: 'require_task', availabilityCheck: 'required' },
+      taskExecution:
+        task.protocolMode === 'frozen_v1'
+          ? { protocolMode: 'frozen_v1', availabilityCheck: 'required' }
+          : { mode: 'require_task', availabilityCheck: 'required' },
     }),
   );
   input.policy.evidenceRequirements

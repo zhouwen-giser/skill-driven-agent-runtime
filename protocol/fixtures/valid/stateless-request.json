@@ -1,0 +1,19 @@
+{
+  "schema": "mcp-stateless-request.schema.json",
+  "value": {
+    "jsonrpc": "2.0",
+    "id": "call-1",
+    "method": "tools/call",
+    "params": {
+      "name": "embodied.move",
+      "arguments": { "resourceId": "UGV-001" },
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { "name": "sdar", "version": "1.2.1" },
+        "io.modelcontextprotocol/clientCapabilities": {
+          "extensions": { "io.modelcontextprotocol/tasks": {} }
+        }
+      }
+    }
+  }
+}

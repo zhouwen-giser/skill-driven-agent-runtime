@@ -160,6 +160,8 @@ export function toTaskAvailabilityResults(
 export function taskExecutionCallMetadata(
   execution: ResolvedMcpTaskExecution,
 ): Readonly<Record<string, unknown>> {
+  if (execution.protocolMode === 'frozen_v1')
+    throw invalid('Frozen task execution must use the Frozen V1 adapter.');
   return {
     [MCP_TASK_EXECUTION_METADATA_KEY]: {
       revision: '1.0',

@@ -55,6 +55,7 @@ function policy() {
         taskType: 'embodied.move',
         providerId: 'provider-1',
         operationName: 'move_to',
+        protocolMode: 'legacy_v11',
       },
     ],
     childPolicies: [
@@ -179,5 +180,80 @@ describe('SkillExecutionRecordingService', () => {
       ]),
     );
     expect(create).toHaveBeenCalledOnce();
+  });
+
+  it('records Provider evidence, local requirement, pointer, digest, and runtime revision', async () => {
+    const base: SkillExecutionView = {
+      executionId: 'execution-root',
+      taskId: 'task-root',
+      goalId: 'goal-root',
+      goalVersion: 1,
+      skillId: 'skill-root',
+      skillVersion: 2,
+      selectionRef: 'selection-root',
+      applicabilityStatus: 'satisfied',
+      usagePolicy: policy(),
+      workflowPlanId: 'plan-root',
+      workflowDefinitionId: 'workflow-root',
+      workflowDefinitionVersion: 1,
+      createdAt: '2026-07-19T01:00:00.000Z',
+      status: 'executing',
+      events: [],
+      references: [],
+    };
+    const appendReference = vi.fn<SkillExecutionRepository['appendReference']>((reference) =>
+      Promise.resolve({ ...base, references: [reference] }),
+    );
+    const repository: SkillExecutionRepository = {
+      create: vi.fn(),
+      appendEvent: vi.fn(),
+      appendReference,
+      find: vi.fn(),
+      findByPlan: vi.fn(() => Promise.resolve(base)),
+      listByTask: vi.fn(),
+      listChildren: vi.fn(),
+    };
+    const service = new SkillExecutionRecordingService({
+      repository,
+      clock: { now: () => '2026-07-19T03:00:00.000Z' },
+      nextId: () => 'reference-1',
+    });
+
+    await service.recordEvidenceMatches({
+      workflowPlanId: 'plan-root',
+      sourceSystem: 'provider-1',
+      matches: [
+        {
+          requirementId: 'final-photo',
+          evidenceType: 'image.capture',
+          required: true,
+          hardGate: true,
+          satisfied: true,
+          evidenceId: 'provider-photo-1',
+          observedAt: '2026-07-19T02:00:00.000Z',
+          payloadRef: {
+            kind: 'uri',
+            uri: 'https://provider.test/photo',
+            sha256: 'a'.repeat(64),
+          },
+          runtimeRevision: '9',
+        },
+      ],
+    });
+
+    expect(appendReference).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'evidence',
+        referenceId: 'provider-photo-1/final-photo',
+        uri: 'https://provider.test/photo',
+        checksum: 'a'.repeat(64),
+        metadata: expect.objectContaining({
+          providerEvidenceId: 'provider-photo-1',
+          requirementId: 'final-photo',
+          matched: true,
+          runtimeRevision: '9',
+        }),
+      }),
+    );
   });
 });

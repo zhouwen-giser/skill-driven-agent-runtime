@@ -10,6 +10,7 @@ import type {
   McpTaskAvailabilityCheckMode,
   McpTaskExecutionMode,
 } from './mcp-task-availability.js';
+import type { McpProtocolContractSnapshot } from './mcp-frozen-protocol.js';
 import type {
   WorkflowBudgetLimits,
   WorkflowBudgetTerminationReason,
@@ -63,8 +64,7 @@ export type McpTaskStartSpec =
       startToleranceMs: number;
     }>;
 
-export interface McpTaskExecutionSpec {
-  readonly mode: McpTaskExecutionMode;
+interface McpTaskExecutionSpecBase {
   readonly timing?:
     | Readonly<{
         readonly start: McpTaskStartSpec;
@@ -72,7 +72,13 @@ export interface McpTaskExecutionSpec {
       }>
     | undefined;
   readonly availabilityCheck?: McpTaskAvailabilityCheckMode | undefined;
+  readonly reservationRef?: string | undefined;
 }
+
+export type McpTaskExecutionSpec =
+  | (McpTaskExecutionSpecBase &
+      Readonly<{ protocolMode?: 'legacy_v11' | undefined; mode: McpTaskExecutionMode }>)
+  | (McpTaskExecutionSpecBase & Readonly<{ protocolMode: 'frozen_v1'; mode?: undefined }>);
 
 export type WorkflowNode =
   | (WorkflowNodeBase &
@@ -150,6 +156,7 @@ export interface WorkflowPlanAttempt {
   readonly compositionContext?: SkillCompositionContext;
   readonly capabilityGapSkillIds?: readonly string[];
   readonly toolExecutionSemantics?: readonly WorkflowToolExecutionSemanticsSnapshot[];
+  readonly mcpProtocolContract?: McpProtocolContractSnapshot;
   readonly attempt: number;
   readonly candidate: unknown;
   readonly validationErrors: readonly Readonly<{ code: string; path: string; message: string }>[];
@@ -165,6 +172,7 @@ export interface WorkflowPlanRecord {
   readonly compositionContext?: SkillCompositionContext;
   readonly capabilityGapSkillIds?: readonly string[];
   readonly toolExecutionSemantics?: readonly WorkflowToolExecutionSemanticsSnapshot[];
+  readonly mcpProtocolContract?: McpProtocolContractSnapshot;
   readonly definition?: WorkflowDefinition;
   readonly sourceConfirmedPlanId?: string;
   readonly sourcePlanId?: string;

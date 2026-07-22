@@ -2,6 +2,48 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## [1.2.1] - Unreleased
+
+### Added
+
+- Frozen MCP Tasks V1.0 source/derived protocol package pinned to MCP commit `26897cc322f356487da89113451bd16b520b9288`, schema blob `cc44564e33305dbc07e820cdd0a97648f3852019` and SHA-256 `9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708`.
+- Frozen/Legacy Domain contracts, task-behavior outcome matrix, canonical runtime revision and Provider Evidence types plus a Workflow DSL union that keeps historical Legacy `mode` readable while rejecting it from Frozen plans.
+- Migration 0107 and PostgreSQL repositories for append-only protocol snapshots, Server/Tool authority, output schemas, Workflow protocol contracts and Frozen binding/observation/control revisions, with fail-closed unsafe rollback.
+- Frozen stateless HTTP client with normative per-request metadata/headers, validated discovery snapshots, JSON/SSE response correlation, frozen error normalization and explicit no-fallback Legacy/Frozen routing.
+- Frozen Task lifecycle contracts for flat creation, immediate reconciliation, real TTL, numeric Runtime Revision monotonicity, partial MRTR, restart-safe input dedupe and cooperative cancel intent.
+- Frozen Availability profile/client, frozen-only readiness attribute derivation and refreshed `embodied.move_to`/`embodied.area_patrol` package policies requiring observations plus Task Notifications.
+- Frozen POST SSE Task subscriptions with Ack-first authorization, bounded interests, reconnect reconciliation and unified Runtime Revision admission across polling and notifications.
+- Frozen Evidence A parsing/output-schema validation, exact-type local Skill matching, validated-only Workflow hard gates and execution-reference lineage for Provider evidence, local requirements, pointers/hashes and Runtime Revisions.
+- Frozen Provider/Remote Task operational projections, transactional Frozen registration/refresh, protocol diagnosis, baseline audit, immutable mode guard, reconnect surface, version-CAS reconciliation and Console protocol/revision/observation status.
+- Composed Frozen Notification runtime with durable post-Ack reconciliation, shared poll/Notification Runtime Revision admission, persisted Frozen contract/task behavior/TTL/revision authority and output-schema validation on every observation source.
+- Explicit local Frozen Mock Provider conformance for send-time Task authorization and bounded producer overflow, plus a bounded 1 MiB client SSE receive buffer.
+- ADR-108 explicit Legacy/Frozen dual-protocol boundary, Phase 0 OSS Intake and Draft PR #6 upgrade evidence.
+- Nine derived JSON Schemas, nine valid fixtures, twelve Legacy/invalid fixtures and an eleven-file drift lock verified by `pnpm verify:protocol` and the normal bootstrap gate.
+
+### Changed
+
+- PROJECT_STATUS and v1.2 sync state now reflect protected PR #5 merge commit `922f428`; historical v1.2 reports remain unchanged.
+- The exact MCP source Schema is vendored unmodified with attribution; derived SDAR schemas are separate modified artifacts and Frozen traffic cannot use the Legacy SDK Bridge.
+- Package and SBOM component metadata target 1.2.1; the version remains unreleased while the refreshed clean exact-commit and remote publication gates are pending.
+
+### Verification
+
+- Phase 1 passes the focused protocol contract, `pnpm verify:protocol`, 20-source lock verification, format, lint and strict typecheck. The baseline contract remains 111/112 on this Windows host because the unchanged symlink fixture fails during setup with `EPERM`; Docker-backed baseline remains unverified while operator port 55432 is occupied.
+- Phase 2 passes all 471 unit tests, focused Workflow unit/schema contracts, format, lint, strict typecheck and the 260-source architecture gate. The full contract suite is 112/113 because the unchanged Windows symlink setup still fails with `EPERM`.
+- Phase 3 passes isolated real PostgreSQL migration verification, 58/58 Repository integration tests, all 471 unit tests, 260-source architecture, build and the static 71-migration/Compose gate; the unchanged symlink-only contract limitation remains explicit.
+- Phase 4 passes 10/10 focused Frozen HTTP contracts, all 471 unit tests, 263-source architecture, format/lint/typecheck and production build; full contract is 122/123 only because of the unchanged Windows symlink `EPERM` limitation.
+- Phase 5 passes 12/12 focused lifecycle contracts, all 471 unit tests, 265-source architecture, format/lint/typecheck and production build; full contract is 134/135 with only the unchanged Windows symlink `EPERM` limitation.
+- Phase 8 passes 11/11 focused Evidence unit tests, 18/18 focused Evidence/lifecycle contracts, all 475 unit tests, isolated PostgreSQL Repository integration 58/58, 273-source architecture, format/lint/typecheck and production build; full contract is 153/154 with only the unchanged Windows symlink `EPERM` limitation.
+- Phase 6 passes 6/6 Frozen Availability plus 5/5 formal Skill package contracts, all 471 unit tests, 267-source architecture, format/lint/typecheck and production build; full contract is 140/141 with only the unchanged Windows symlink `EPERM` limitation.
+- Phase 7 passes 7/7 subscription and 19/19 combined subscription/lifecycle contracts, all 471 unit tests, 269-source architecture, format/lint/typecheck and production build; full contract is 147/148 with only the unchanged Windows symlink `EPERM` limitation. Provider-side queue overflow remains a Phase 10 component gate.
+- Phase 10 passes 54/54 focused Frozen contracts, 480/480 unit, 84/84 real PostgreSQL/Redis integration, 60/60 E2E, 16/16 Legacy acceptance, migration 0107, protocol, 122-operation OpenAPI, 285-source architecture and production build. Full contract is 166/167 solely because Windows cannot create the unchanged symlink fixture. Local Client/Mock Provider component conformance is distinct from Phase 11 real Provider interoperability.
+- Phase 12 maps all 26 adversarial items and clean exact commit `f7bdd7b` passes the complete self-managed `pnpm verify` with `dirty=false`: 648/648 unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages. Cross-platform link-fixture, migration-lifecycle and Mock TTL/window regressions are fixed. Phase 11 real Provider Runtime interop remains blocked by four external Frozen wire mismatches: missing Availability `reservationMode`, invalid MRTR/terminal fields in CreateTaskResult, and non-identical get/Notification content at one Runtime Revision. G3/G4/G5 remain blocked and PR #6 stays Draft.
+- Provider Draft PR #15 was refreshed at exact head `65ac78a`: its shared get/Notification projection closes one prior mismatch, but required Availability `reservationMode` and base-only CreateTaskResult remain incompatible. Green CI plus 13/13 focused Provider tests do not establish SDAR interop, so G3/G4/G5 and Draft PR #6 remain unchanged.
+- Phase 11 closure against Provider merged baseline `217e089` plus candidate `b30d839` passes Provider `verify:v2` (74/74 frozen, 29/29 closure, 79 unit, 9 contract, 199 integration, 9 recovery, 29 security, 6 E2E, TS/Python conformance, capacity and container) and the real SDAR HTTP Availability/MRTR/business/technical/Notification matrix. Projection-aware SDAR admission fixes the discovered base CreateTaskResult to first same-revision DetailedTask false mismatch while requiring identical Task base fields and retaining strict later equality; focused lifecycle passes 15/15. G3/G4 pass locally; G5 awaits the refreshed clean exact-commit SDAR gate and green remote checks.
+- The first refreshed clean gate at `2ada181` passed 650/650 unit+contract, migrations and 84/84 integration before one E2E exposed a read-after-request race in lifecycle evidence. The test now waits for the unchanged strict PostgreSQL reconciliation projection instead of assuming that observing the mock `tasks/get` request means the following transaction has committed; the full E2E suite passes 60/60.
+- Clean exact SDAR commit `61142f9` passes the refreshed seven-stage `pnpm verify` with `dirty=false` in 184,634 ms: 650/650 unit+contract, 84/84 integration, 60/60 E2E, 71 migrations, production build, infrastructure smoke and Server/Console smoke. Local G5 evidence is complete; final disposition awaits both PR remote checks.
+- Provider PR #16 publishes the correction at final evidence head `4d90b199`; Actions run `29882714727` passes `runtime-ci` and `runtime-compose`. SDAR has no configured Actions workflow. G5 and PR #6 Ready status now await only protected Provider PR #16 review/merge; no automatic merge is authorized.
+
 ## [1.2.0] - 2026-07-18
 
 ### Added

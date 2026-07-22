@@ -119,6 +119,30 @@ const components = packageList.map((item) => ({
 components.push(
   {
     type: 'library',
+    'bom-ref':
+      'pkg:github/modelcontextprotocol/modelcontextprotocol@26897cc322f356487da89113451bd16b520b9288',
+    name: 'modelcontextprotocol/modelcontextprotocol frozen schema',
+    version: '26897cc322f356487da89113451bd16b520b9288',
+    hashes: [
+      {
+        alg: 'SHA-256',
+        content: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
+      },
+    ],
+    licenses: [
+      {
+        license: {
+          name: 'Apache-2.0 transition / retained MIT contributions / CC-BY-4.0 non-spec docs',
+        },
+      },
+    ],
+    externalReferences: [
+      { type: 'vcs', url: 'https://github.com/modelcontextprotocol/modelcontextprotocol' },
+    ],
+    purl: 'pkg:github/modelcontextprotocol/modelcontextprotocol@26897cc322f356487da89113451bd16b520b9288',
+  },
+  {
+    type: 'library',
     'bom-ref': 'pkg:github/modelcontextprotocol/ext-tasks@8966bea9c4f4e6d71060cc8284a539086e9e234f',
     name: 'modelcontextprotocol/ext-tasks',
     version: '8966bea9c4f4e6d71060cc8284a539086e9e234f',
@@ -194,6 +218,15 @@ const licenseJson = `${JSON.stringify(
     ],
     adapted_sources: [
       {
+        name: 'modelcontextprotocol/modelcontextprotocol frozen schema',
+        commit: '26897cc322f356487da89113451bd16b520b9288',
+        schema_blob: 'cc44564e33305dbc07e820cdd0a97648f3852019',
+        sha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
+        license: 'Apache-2.0 transition / retained MIT contributions / CC-BY-4.0 non-spec docs',
+        modified_by: 'source unmodified; SDAR-derived schemas by zhouwen',
+        local_file: 'protocol/source/mcp-2026-07-28.schema.json',
+      },
+      {
         name: 'modelcontextprotocol/ext-tasks',
         commit: '8966bea9c4f4e6d71060cc8284a539086e9e234f',
         schema_blob: '2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc',
@@ -214,6 +247,7 @@ Generated from the exact pnpm lockfile installation and pinned adapted sources. 
 ## Adapted protocol source
 
 - modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
+- modelcontextprotocol/modelcontextprotocol commit 26897cc322f356487da89113451bd16b520b9288, \`schema/draft/schema.json\` blob cc44564e33305dbc07e820cdd0a97648f3852019 — exact LICENSE records an Apache-2.0 transition, retained MIT contributions and CC-BY-4.0 non-specification documentation; no root NOTICE is present. The source Schema is vendored unmodified under \`protocol/source\`; SDAR-derived schemas are separate modified works under \`protocol/schemas\`.
 
 ## External services
 

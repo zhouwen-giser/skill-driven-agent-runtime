@@ -1,3 +1,5 @@
+import type { McpProviderProtocolMode, McpTaskExecutionProfile } from './mcp-frozen-protocol.js';
+
 export type McpTaskExecutionMode = 'allow_task' | 'require_task';
 export type McpTaskAvailabilityCheckMode = 'required' | 'best_effort';
 
@@ -13,12 +15,35 @@ export interface McpTaskOperationSemantics {
 }
 
 /** Registered operation projection used for Skill Task Type resolution. */
-export interface McpTaskOperationCandidate {
+interface McpTaskOperationCandidateBase {
   readonly providerId: string;
   readonly operationName: string;
-  readonly semantics: McpTaskOperationSemantics;
   readonly attributes: readonly string[];
 }
+
+export type McpTaskOperationCandidate =
+  | (McpTaskOperationCandidateBase &
+      Readonly<{
+        protocolMode?: 'legacy_v11' | undefined;
+        semantics: McpTaskOperationSemantics;
+      }>)
+  | (McpTaskOperationCandidateBase &
+      Readonly<{
+        protocolMode: 'frozen_v1';
+        taskExecutionProfile: McpTaskExecutionProfile;
+        taskNotifications: boolean;
+      }>);
+
+export type McpTaskOperationDefinition =
+  | Readonly<{
+      protocolMode?: 'legacy_v11' | undefined;
+      semantics: McpTaskOperationSemantics;
+    }>
+  | Readonly<{
+      protocolMode: Extract<McpProviderProtocolMode, 'frozen_v1'>;
+      taskExecutionProfile: McpTaskExecutionProfile;
+      taskNotifications: boolean;
+    }>;
 
 export type TaskExecutionStart =
   | Readonly<{ mode: 'immediate'; startToleranceMs: number }>
@@ -29,12 +54,16 @@ export interface TaskExecutionTiming {
   readonly maxElapsedMs: number | null;
 }
 
-export interface ResolvedMcpTaskExecution {
-  readonly mode: McpTaskExecutionMode;
+interface ResolvedMcpTaskExecutionBase {
   readonly availabilityCheck: McpTaskAvailabilityCheckMode;
   readonly timing?: TaskExecutionTiming | undefined;
   readonly reservationRef?: string | undefined;
 }
+
+export type ResolvedMcpTaskExecution =
+  | (ResolvedMcpTaskExecutionBase &
+      Readonly<{ protocolMode?: 'legacy_v11' | undefined; mode: McpTaskExecutionMode }>)
+  | (ResolvedMcpTaskExecutionBase & Readonly<{ protocolMode: 'frozen_v1'; mode?: undefined }>);
 
 export type TaskOperationAvailability = 'available' | 'restricted' | 'disabled' | 'unknown';
 export type TaskAvailabilityRiskLevel = 'low' | 'medium' | 'high' | 'critical';

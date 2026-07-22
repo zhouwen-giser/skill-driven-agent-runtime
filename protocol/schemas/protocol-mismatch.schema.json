@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/protocol-mismatch.schema.json",
+  "title": "SDAR Frozen MCP Protocol Mismatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "severity", "message", "path"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,127}$"
+    },
+    "severity": { "enum": ["error", "warning"] },
+    "message": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "path": { "type": "string", "maxLength": 1024 },
+    "expected": true,
+    "actual": true
+  }
+}

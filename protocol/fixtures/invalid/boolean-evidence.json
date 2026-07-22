@@ -1,0 +1,4 @@
+{
+  "schema": "sdar-evidence-v1.schema.json",
+  "value": { "profileVersion": "1.0", "items": { "final-position": true } }
+}

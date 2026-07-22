@@ -125,7 +125,7 @@ function createHarness(sequence: readonly TaskAvailabilityCheckResult[]) {
   let readinessId = 0;
   let snapshotId = 0;
   const readiness = new McpTaskReadinessService({
-    operations: { getTaskOperationSemantics: () => Promise.resolve(taskSemantics) },
+    operations: { getTaskOperationDefinition: () => Promise.resolve({ semantics: taskSemantics }) },
     provider: {
       checkTaskAvailability: () => {
         const value = sequence[read++];

@@ -1,0 +1,13 @@
+{
+  "schema": "sdar-task-execution-profile-v1.schema.json",
+  "value": {
+    "profileVersion": "1.0",
+    "taskBehavior": "task_required",
+    "availability": "dynamic",
+    "supportsScheduling": true,
+    "supportsMaxElapsed": true,
+    "supportsObservations": true,
+    "supportsInputRequired": true,
+    "idempotency": "server_managed"
+  }
+}

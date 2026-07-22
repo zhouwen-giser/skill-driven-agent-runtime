@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/protocol/mcp-task-notifications.schema.json",
+  "title": "SDAR Frozen MCP Task Notification Shapes",
+  "$defs": {
+    "ListenParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["notifications", "_meta"],
+      "properties": {
+        "notifications": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["taskIds"],
+          "properties": {
+            "taskIds": {
+              "type": "array",
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+            }
+          }
+        },
+        "_meta": { "type": "object" }
+      }
+    },
+    "SubscriptionAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "method": { "const": "notifications/subscriptions/acknowledged" },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["_meta", "notifications"],
+          "properties": {
+            "_meta": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["io.modelcontextprotocol/subscriptionId"],
+              "properties": {
+                "io.modelcontextprotocol/subscriptionId": {
+                  "type": ["string", "number"]
+                }
+              }
+            },
+            "notifications": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["taskIds"],
+              "properties": {
+                "taskIds": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "TaskNotification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "method": { "const": "notifications/tasks" },
+        "params": {
+          "type": "object",
+          "required": ["taskId", "status", "createdAt", "lastUpdatedAt", "ttlMs", "_meta"],
+          "properties": {
+            "taskId": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "status": {
+              "enum": ["working", "input_required", "completed", "cancelled", "failed"]
+            },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "lastUpdatedAt": { "type": "string", "format": "date-time" },
+            "ttlMs": { "type": ["integer", "null"], "minimum": 0 },
+            "_meta": {
+              "type": "object",
+              "required": ["io.modelcontextprotocol/subscriptionId", "io.sdar/taskExecution"],
+              "properties": {
+                "io.modelcontextprotocol/subscriptionId": { "type": ["string", "number"] },
+                "io.sdar/taskExecution": {
+                  "type": "object",
+                  "required": ["profileVersion", "runtimeRevision"],
+                  "properties": {
+                    "profileVersion": { "const": "1.0" },
+                    "runtimeRevision": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,19})$"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true,
+          "not": { "required": ["resultType"] }
+        }
+      }
+    }
+  }
+}

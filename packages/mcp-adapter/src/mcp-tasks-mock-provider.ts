@@ -112,7 +112,7 @@ export interface McpTasksMockAreaPatrolOptions {
   readonly availability?: 'available' | 'restricted' | 'disabled';
 }
 
-export async function startMcpTasksMockProvider(
+export async function startLegacyMcpTasksMockProvider(
   options: Readonly<{
     declareTasks?: boolean;
     moveTo?: McpTasksMockMoveToOptions;
@@ -147,6 +147,9 @@ export async function startMcpTasksMockProvider(
     close: () => closeServer(server),
   };
 }
+
+// Compatibility alias for the existing Legacy v1.1 acceptance suite.
+export const startMcpTasksMockProvider = startLegacyMcpTasksMockProvider;
 
 async function handleProviderRequest(
   request: IncomingMessage,

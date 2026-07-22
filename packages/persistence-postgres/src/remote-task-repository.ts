@@ -8,12 +8,15 @@ import type {
 } from '../../application/src/index.js';
 import {
   controlEventTypeForStatus,
+  compareRuntimeRevisions,
   createRuntimeExecutionContext,
   errorSnapshotFromRemoteTask,
   localStateForStatus,
   resultSnapshotFromRemoteTask,
   type InternalToolResult,
   type McpTaskStatus,
+  type McpProtocolContractSnapshot,
+  type McpTaskBehavior,
   type RemoteTaskBinding,
   type RemoteTaskControlEvent,
   type RemoteTaskControlEventStatus,
@@ -36,6 +39,31 @@ const InternalToolResultSchema = z
     structuredContent: z.unknown().optional(),
     isError: z.boolean(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    evidence: z
+      .array(
+        z
+          .object({
+            evidenceId: z.string(),
+            evidenceType: z.string(),
+            observedAt: z.string(),
+            subjectRef: z.string().optional(),
+            producer: z.array(z.string()).optional(),
+            payloadRef: z.discriminatedUnion('kind', [
+              z.object({ kind: z.literal('structured_content'), jsonPointer: z.string() }).strict(),
+              z
+                .object({
+                  kind: z.literal('uri'),
+                  uri: z.string(),
+                  mediaType: z.string().optional(),
+                  sha256: z.string().optional(),
+                })
+                .strict(),
+            ]),
+          })
+          .strict(),
+      )
+      .optional(),
+    validatedEvidence: z.record(z.string(), z.boolean()).optional(),
   })
   .strict();
 const FailureSnapshotSchema = z
@@ -62,6 +90,17 @@ const TaskExecutionTimingSchema: z.ZodType<TaskExecutionTiming> = z
     maxElapsedMs: z.number().int().positive().nullable(),
   })
   .strict();
+const McpProtocolContractSnapshotSchema: z.ZodType<McpProtocolContractSnapshot> = z
+  .object({
+    mode: z.enum(['legacy_v11', 'frozen_v1']),
+    protocolVersion: z.string().min(1),
+    baselineSha256: z.string().min(1),
+    tasksSchemaSha256: z.string().min(1).optional(),
+    taskExecutionProfileVersion: z.literal('1.0').optional(),
+    evidenceProfileVersion: z.literal('1.0').optional(),
+    serverDiscoverySnapshotId: z.string().min(1).optional(),
+  })
+  .strict();
 
 interface RemoteTaskBindingRow extends QueryResultRow {
   binding_id: string;
@@ -84,6 +123,12 @@ interface RemoteTaskBindingRow extends QueryResultRow {
   protocol_status: McpTaskStatus;
   protocol_revision: string;
   tasks_schema_revision: string;
+  protocol_contract_json: unknown;
+  task_behavior: McpTaskBehavior | null;
+  runtime_revision: string | null;
+  provider_revision: string | null;
+  task_ttl_ms: string | number | null;
+  task_expires_at: Date | string | null;
   provider_substate: RemoteTaskProviderSubstate | null;
   remote_revision: string | null;
   last_provider_updated_at: Date | string;
@@ -114,8 +159,12 @@ interface RemoteTaskObservationRow extends QueryResultRow {
   binding_id: string;
   sequence: string | number;
   observation_type: RemoteTaskObservationType;
+  observation_source: RemoteTaskObservation['source'];
   provider_event_id: string | null;
   remote_revision: string | null;
+  runtime_revision: string | null;
+  provider_revision: string | null;
+  subscription_id: string | null;
   payload_json: unknown;
   accepted: boolean;
   rejection_reason: 'stale_provider_revision' | 'binding_closed' | null;
@@ -127,6 +176,7 @@ interface RemoteTaskControlEventRow extends QueryResultRow {
   binding_id: string;
   event_type: RemoteTaskControlEventType;
   remote_revision: string;
+  runtime_revision: string | null;
   result_hash: string;
   payload_json: unknown;
   status: RemoteTaskControlEventStatus;
@@ -168,13 +218,16 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            workflow_definition_version,workflow_instance_id,workflow_node_id,
            workflow_node_run_id,parent_workflow_instance_id,parent_skill_call_id,
            mcp_invocation_id,protocol_status,protocol_revision,tasks_schema_revision,
+           protocol_contract_json,task_behavior,runtime_revision,provider_revision,
+           task_ttl_ms,task_expires_at,
            provider_substate,remote_revision,last_provider_updated_at,local_state,
            requested_timing_json,execution_mode,simulation_id,credential_revision,
            session_revision,poll_interval_ms,next_poll_at,poll_attempt,
            provider_failure_count,created_at,updated_at,version)
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-           $21,$22,$23,$24,$25::jsonb,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+           $21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33,$34,
+           $35,$36,$37,$38,$39,$40,$41,$42)
          ON CONFLICT (server_id,remote_task_id) DO NOTHING
          RETURNING *`,
         bindingInsertParameters(binding),
@@ -186,13 +239,25 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           bindingId: binding.bindingId,
           sequence: 1,
           type: 'task.accepted',
+          source: 'admission',
           ...(binding.remoteRevision === undefined
             ? {}
             : { remoteRevision: binding.remoteRevision }),
+          ...(binding.runtimeRevision === undefined
+            ? {}
+            : { runtimeRevision: binding.runtimeRevision }),
+          ...(binding.providerRevision === undefined
+            ? {}
+            : { providerRevision: binding.providerRevision }),
           payload: {
             protocolStatus: binding.protocolStatus,
             protocolRevision: binding.protocolRevision,
             tasksSchemaRevision: binding.tasksSchemaRevision,
+            protocolContract: binding.protocolContract,
+            ...(binding.taskBehavior === undefined ? {} : { taskBehavior: binding.taskBehavior }),
+            ...(binding.runtimeRevision === undefined
+              ? {}
+              : { runtimeRevision: binding.runtimeRevision }),
           },
           accepted: true,
           observedAt: binding.createdAt,
@@ -253,6 +318,19 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
        ORDER BY binding_id
        LIMIT $3`,
       [now, afterBindingId ?? null, safeLimit],
+    );
+    return result.rows.map(mapBinding);
+  }
+
+  async listActiveByServer(serverId: string, limit: number): Promise<readonly RemoteTaskBinding[]> {
+    const safeLimit = Math.max(1, Math.min(256, Math.trunc(limit)));
+    const result = await this.#pool.query<RemoteTaskBindingRow>(
+      `SELECT * FROM remote_task_binding
+       WHERE server_id=$1 AND protocol_contract_json->>'mode'='frozen_v1'
+         AND terminal_at IS NULL AND invalidated_at IS NULL
+         AND local_state IN ('polling','cancel_observing','awaiting_input')
+       ORDER BY binding_id LIMIT $2`,
+      [serverId, safeLimit],
     );
     return result.rows.map(mapBinding);
   }
@@ -342,6 +420,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           bindingId: locked.bindingId,
           sequence: await nextObservationSequence(client, locked.bindingId),
           type: observationType(input.snapshot),
+          source: 'poll',
           ...providerIdentity(input.snapshot),
           payload: input.snapshot,
           accepted: false,
@@ -365,6 +444,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         bindingId: locked.bindingId,
         sequence: await nextObservationSequence(client, locked.bindingId),
         type: observationType(input.snapshot),
+        source: 'poll',
         ...providerIdentity(input.snapshot),
         payload: input.snapshot,
         accepted: true,
@@ -407,11 +487,12 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       const updated = await client.query<RemoteTaskBindingRow>(
         `UPDATE remote_task_binding
          SET protocol_status=$4,provider_substate=$5,remote_revision=$6,
-             last_provider_updated_at=$7,local_state=$8,next_poll_at=$9,
-             provider_failure_count=0,poll_claim_token=NULL,poll_claimed_at=NULL,
-             poll_claim_expires_at=NULL,result_snapshot_json=$10::jsonb,
-             error_snapshot_json=$11::jsonb,last_safe_error_code=NULL,
-             terminal_at=$12,updated_at=$13,version=version+1
+             runtime_revision=$7,provider_revision=$8,task_ttl_ms=$9,
+             task_expires_at=$10,last_provider_updated_at=$11,local_state=$12,
+             next_poll_at=$13,provider_failure_count=0,poll_claim_token=NULL,
+             poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+             result_snapshot_json=$14::jsonb,error_snapshot_json=$15::jsonb,
+             last_safe_error_code=NULL,terminal_at=$16,updated_at=$17,version=version+1
          WHERE binding_id=$1 AND version=$2 AND poll_claim_token=$3
          RETURNING *`,
         [
@@ -421,6 +502,10 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           input.snapshot.status,
           input.snapshot.providerObservation?.substate ?? null,
           input.snapshot.providerObservation?.remoteRevision ?? null,
+          input.snapshot.runtimeRevision ?? null,
+          input.snapshot.providerRevision ?? null,
+          input.snapshot.ttlMs,
+          taskExpiry(input.snapshot),
           input.snapshot.lastUpdatedAt,
           localState,
           input.nextPollAt ??
@@ -443,6 +528,141 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         input.snapshot.status === 'failed' ||
         input.snapshot.status === 'cancelled'
       )
+        await resolveCancellationIfInstalled(
+          client,
+          locked.bindingId,
+          input.snapshot.status,
+          input.observedAt,
+        );
+      return {
+        applied: true,
+        binding: mapBinding(row),
+        snapshotAccepted: true,
+        ...(control === undefined ? {} : { controlEvent: control }),
+      };
+    });
+  }
+
+  recordExternalSnapshot(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      snapshot: RemoteTaskSnapshot;
+      observationId: string;
+      source: 'notification' | 'reconciliation';
+      subscriptionId?: string;
+      controlEventId?: string;
+      resultHash?: string;
+      observedAt: string;
+    }>,
+  ): Promise<RemoteTaskMutationResult> {
+    return withTransaction(this.#pool, async (client) => {
+      const locked = await lockBinding(client, input.bindingId);
+      if (locked === undefined) return { applied: false, reason: 'missing' };
+      if (locked.version !== input.expectedVersion)
+        return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
+      if (locked.terminalAt !== undefined || locked.invalidatedAt !== undefined)
+        return { applied: false, reason: 'closed' };
+      if (locked.protocolContract.mode !== 'frozen_v1')
+        throw new RemoteTaskPersistenceError(
+          'REMOTE_TASK_EXTERNAL_OBSERVATION_MODE_INVALID',
+          'Notification and reconnect reconciliation observations require Frozen mode.',
+        );
+      if (input.snapshot.runtimeRevision === undefined)
+        throw new RemoteTaskPersistenceError(
+          'REMOTE_TASK_EXTERNAL_REVISION_REQUIRED',
+          'Frozen external observations require runtimeRevision.',
+        );
+      if (
+        locked.runtimeRevision !== undefined &&
+        compareRuntimeRevisions(input.snapshot.runtimeRevision, locked.runtimeRevision) <= 0
+      )
+        return { applied: true, binding: locked, snapshotAccepted: false };
+
+      await insertObservation(client, {
+        observationId: input.observationId,
+        bindingId: locked.bindingId,
+        sequence: await nextObservationSequence(client, locked.bindingId),
+        type: observationType(input.snapshot),
+        source: input.source,
+        ...providerIdentity(input.snapshot),
+        ...(input.subscriptionId === undefined ? {} : { subscriptionId: input.subscriptionId }),
+        payload: input.snapshot,
+        accepted: true,
+        observedAt: input.observedAt,
+      });
+      const answeredInputEcho =
+        input.snapshot.status === 'input_required' &&
+        input.resultHash !== undefined &&
+        (await isAnsweredInputEcho(
+          client,
+          locked.bindingId,
+          input.snapshot.runtimeRevision,
+          input.resultHash,
+        ));
+      const cancellationObservationContinues =
+        locked.localState === 'cancel_observing' &&
+        input.snapshot.status !== 'completed' &&
+        input.snapshot.status !== 'failed' &&
+        input.snapshot.status !== 'cancelled';
+      let control: RemoteTaskControlEvent | undefined;
+      if (
+        input.snapshot.status !== 'working' &&
+        !cancellationObservationContinues &&
+        !answeredInputEcho
+      )
+        control = await insertControlEvent(client, locked, {
+          snapshot: input.snapshot,
+          ...(input.controlEventId === undefined ? {} : { controlEventId: input.controlEventId }),
+          ...(input.resultHash === undefined ? {} : { resultHash: input.resultHash }),
+          observedAt: input.observedAt,
+        });
+      const localState = cancellationObservationContinues
+        ? 'cancel_observing'
+        : answeredInputEcho
+          ? 'polling'
+          : localStateForStatus(input.snapshot.status);
+      const keepPolling = localState === 'polling' || localState === 'cancel_observing';
+      const nextPollAt = keepPolling
+        ? new Date(Date.parse(input.observedAt) + locked.pollIntervalMs).toISOString()
+        : null;
+      const resultSnapshot = resultSnapshotFromRemoteTask(input.snapshot);
+      const errorSnapshot = errorSnapshotFromRemoteTask(input.snapshot);
+      const terminal =
+        input.snapshot.status === 'completed' ||
+        input.snapshot.status === 'failed' ||
+        input.snapshot.status === 'cancelled';
+      const updated = await client.query<RemoteTaskBindingRow>(
+        `UPDATE remote_task_binding
+         SET protocol_status=$3,provider_substate=$4,remote_revision=$5,
+             runtime_revision=$6,provider_revision=$7,task_ttl_ms=$8,
+             task_expires_at=$9,last_provider_updated_at=$10,local_state=$11,
+             next_poll_at=$12,provider_failure_count=0,poll_claim_token=NULL,
+             poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+             result_snapshot_json=$13::jsonb,error_snapshot_json=$14::jsonb,
+             last_safe_error_code=NULL,terminal_at=$15,updated_at=$16,version=version+1
+         WHERE binding_id=$1 AND version=$2 RETURNING *`,
+        [
+          locked.bindingId,
+          locked.version,
+          input.snapshot.status,
+          input.snapshot.providerObservation?.substate ?? null,
+          input.snapshot.providerObservation?.remoteRevision ?? input.snapshot.runtimeRevision,
+          input.snapshot.runtimeRevision,
+          input.snapshot.providerRevision ?? null,
+          input.snapshot.ttlMs,
+          taskExpiry(input.snapshot),
+          input.snapshot.lastUpdatedAt,
+          localState,
+          nextPollAt,
+          toJsonParameter(resultSnapshot),
+          toJsonParameter(errorSnapshot),
+          terminal ? input.observedAt : null,
+          input.observedAt,
+        ],
+      );
+      const row = requiredUpdatedRow(updated.rows[0]);
+      if (terminal)
         await resolveCancellationIfInstalled(
           client,
           locked.bindingId,
@@ -486,6 +706,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         bindingId: locked.bindingId,
         sequence: await nextObservationSequence(client, locked.bindingId),
         type: 'provider_unreachable',
+        source: 'poll',
         payload: { errorCode: input.errorCode },
         accepted: true,
         observedAt: input.observedAt,
@@ -537,6 +758,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         bindingId: locked.bindingId,
         sequence: await nextObservationSequence(client, locked.bindingId),
         type: 'schema_invalid',
+        source: 'poll',
         payload: { errorCode: input.errorCode },
         accepted: true,
         observedAt: input.observedAt,
@@ -601,6 +823,12 @@ function bindingInsertParameters(binding: RemoteTaskBinding): unknown[] {
     binding.protocolStatus,
     binding.protocolRevision,
     binding.tasksSchemaRevision,
+    JSON.stringify(binding.protocolContract),
+    binding.taskBehavior ?? null,
+    binding.runtimeRevision ?? null,
+    binding.providerRevision ?? null,
+    binding.taskTtlMs ?? null,
+    binding.taskExpiresAt ?? null,
     binding.providerSubstate ?? null,
     binding.remoteRevision ?? null,
     binding.lastProviderUpdatedAt,
@@ -705,8 +933,9 @@ async function insertObservation(client: PoolClient, observation: RemoteTaskObse
   await client.query(
     `INSERT INTO remote_task_observation (
        observation_id,binding_id,sequence,observation_type,provider_event_id,
-       remote_revision,payload_json,accepted,rejection_reason,observed_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10)
+       remote_revision,payload_json,accepted,rejection_reason,observed_at,
+       observation_source,runtime_revision,provider_revision,subscription_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14)
      ON CONFLICT DO NOTHING`,
     [
       observation.observationId,
@@ -719,6 +948,10 @@ async function insertObservation(client: PoolClient, observation: RemoteTaskObse
       observation.accepted,
       observation.rejectionReason ?? null,
       observation.observedAt,
+      observation.source,
+      observation.runtimeRevision ?? null,
+      observation.providerRevision ?? null,
+      observation.subscriptionId ?? null,
     ],
   );
 }
@@ -735,6 +968,7 @@ async function insertRejectedObservation(
     bindingId: binding.bindingId,
     sequence: await nextObservationSequence(client, binding.bindingId),
     type: observationType(snapshot),
+    source: 'poll',
     ...providerIdentity(snapshot),
     payload: snapshot,
     accepted: false,
@@ -764,8 +998,9 @@ async function insertControlEvent(
     input.snapshot.providerObservation?.remoteRevision ?? input.snapshot.lastUpdatedAt;
   const inserted = await client.query<RemoteTaskControlEventRow>(
     `INSERT INTO remote_task_control_event (
-       event_id,binding_id,event_type,remote_revision,result_hash,payload_json,status,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,'pending',$7)
+       event_id,binding_id,event_type,remote_revision,runtime_revision,result_hash,
+       payload_json,status,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'pending',$8)
      ON CONFLICT (binding_id,event_type,remote_revision,result_hash)
      DO UPDATE SET event_id=remote_task_control_event.event_id
      RETURNING *`,
@@ -774,6 +1009,7 @@ async function insertControlEvent(
       binding.bindingId,
       type,
       remoteRevision,
+      input.snapshot.runtimeRevision ?? null,
       input.resultHash,
       JSON.stringify(input.snapshot),
       input.observedAt,
@@ -818,6 +1054,8 @@ function observationType(snapshot: RemoteTaskSnapshot): RemoteTaskObservationTyp
 function providerIdentity(snapshot: RemoteTaskSnapshot): Readonly<{
   providerEventId?: string;
   remoteRevision?: string;
+  runtimeRevision?: string;
+  providerRevision?: string;
 }> {
   return {
     ...(snapshot.providerObservation?.eventId === undefined
@@ -826,7 +1064,20 @@ function providerIdentity(snapshot: RemoteTaskSnapshot): Readonly<{
     ...(snapshot.providerObservation?.remoteRevision === undefined
       ? { remoteRevision: snapshot.lastUpdatedAt }
       : { remoteRevision: snapshot.providerObservation.remoteRevision }),
+    ...(snapshot.runtimeRevision === undefined
+      ? {}
+      : { runtimeRevision: snapshot.runtimeRevision }),
+    ...(snapshot.providerRevision === undefined
+      ? {}
+      : { providerRevision: snapshot.providerRevision }),
   };
+}
+
+function taskExpiry(snapshot: RemoteTaskSnapshot): string | null {
+  if (snapshot.ttlMs === null) return null;
+  return (
+    snapshot.expiresAt ?? new Date(Date.parse(snapshot.createdAt) + snapshot.ttlMs).toISOString()
+  );
 }
 
 function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
@@ -853,6 +1104,14 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
     protocolStatus: row.protocol_status,
     protocolRevision: row.protocol_revision,
     tasksSchemaRevision: row.tasks_schema_revision,
+    protocolContract: McpProtocolContractSnapshotSchema.parse(row.protocol_contract_json),
+    ...(row.task_behavior === null ? {} : { taskBehavior: row.task_behavior }),
+    ...(row.runtime_revision === null ? {} : { runtimeRevision: row.runtime_revision }),
+    ...(row.provider_revision === null ? {} : { providerRevision: row.provider_revision }),
+    ...(row.task_ttl_ms === null
+      ? {}
+      : { taskTtlMs: toSafeNumber(row.task_ttl_ms, 'REMOTE_TASK_TTL_INVALID') }),
+    ...(row.task_expires_at === null ? {} : { taskExpiresAt: toIsoString(row.task_expires_at) }),
     ...(row.provider_substate === null ? {} : { providerSubstate: row.provider_substate }),
     ...(row.remote_revision === null ? {} : { remoteRevision: row.remote_revision }),
     lastProviderUpdatedAt: toIsoString(row.last_provider_updated_at),
@@ -896,8 +1155,12 @@ function mapObservation(row: RemoteTaskObservationRow): RemoteTaskObservation {
     bindingId: row.binding_id,
     sequence: toSafeNumber(row.sequence, 'REMOTE_TASK_SEQUENCE_INVALID'),
     type: row.observation_type,
+    source: row.observation_source,
     ...(row.provider_event_id === null ? {} : { providerEventId: row.provider_event_id }),
     ...(row.remote_revision === null ? {} : { remoteRevision: row.remote_revision }),
+    ...(row.runtime_revision === null ? {} : { runtimeRevision: row.runtime_revision }),
+    ...(row.provider_revision === null ? {} : { providerRevision: row.provider_revision }),
+    ...(row.subscription_id === null ? {} : { subscriptionId: row.subscription_id }),
     payload: assertBoundedJson(row.payload_json),
     accepted: row.accepted,
     ...(rejectionReason === null ? {} : { rejectionReason }),
@@ -911,6 +1174,7 @@ function mapControlEvent(row: RemoteTaskControlEventRow): RemoteTaskControlEvent
     bindingId: row.binding_id,
     type: row.event_type,
     remoteRevision: row.remote_revision,
+    ...(row.runtime_revision === null ? {} : { runtimeRevision: row.runtime_revision }),
     resultHash: row.result_hash,
     payload: assertBoundedJson(row.payload_json),
     status: row.status,
@@ -1022,7 +1286,10 @@ async function withTransaction<T>(pool: Pool, operation: (client: PoolClient) =>
 }
 
 export type RemoteTaskPersistenceErrorCode =
-  'REMOTE_TASK_BINDING_CONFLICT' | 'REMOTE_TASK_CONTROL_IDEMPOTENCY_REQUIRED';
+  | 'REMOTE_TASK_BINDING_CONFLICT'
+  | 'REMOTE_TASK_CONTROL_IDEMPOTENCY_REQUIRED'
+  | 'REMOTE_TASK_EXTERNAL_OBSERVATION_MODE_INVALID'
+  | 'REMOTE_TASK_EXTERNAL_REVISION_REQUIRED';
 
 export class RemoteTaskPersistenceError extends Error {
   readonly code: RemoteTaskPersistenceErrorCode;

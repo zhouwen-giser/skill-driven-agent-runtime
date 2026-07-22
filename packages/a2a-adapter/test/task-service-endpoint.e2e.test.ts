@@ -13,7 +13,11 @@ import {
   isolatedDatabaseUrl,
 } from '../../../apps/server/test-support/postgres.js';
 import type { RegisterSkillVersionInput } from '../../application/src/index.js';
-import { startMcpLoopbackServer, startMcpTasksMockProvider } from '../../mcp-adapter/src/index.js';
+import {
+  startFrozenMcpTasksMockProvider,
+  startMcpLoopbackServer,
+  startMcpTasksMockProvider,
+} from '../../mcp-adapter/src/index.js';
 
 const postgresAdminUrl =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -2717,7 +2721,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         }),
       );
       if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-      expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+      const submittedState = submitted.status?.state;
+      if (submittedState !== TaskState.TASK_STATE_INPUT_REQUIRED) {
+        const failedTask = await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+        ).then((response) => response.text());
+        throw new Error(`REMOTE_TASK_PREPARATION_FAILED:${String(submittedState)}:${failedTask}`);
+      }
+      expect(submittedState).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
       expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
       expect(
         provider.requests.some(
@@ -2854,15 +2865,16 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   it.each([
     ['guidance', 'immediate_success', false, true],
     ['template', 'remote_success', true, true],
+    ['template', 'remote_notification_success', true, true],
     ['procedure', 'remote_success', true, true],
     ['template', 'remote_missing_evidence', true, false],
   ] as const)(
     'runs embodied.move_to in %s mode with %s through the existing Skill, Workflow, Provider and evidence authorities',
     async (mode, outcome, expectsRemoteTask, expectsCompletion) => {
-      const provider = await startMcpTasksMockProvider({ moveTo: { outcome } });
+      const provider = await startFrozenMcpTasksMockProvider({ moveTo: { outcome } });
       const serverId = `mcp.move-to.${mode}.${randomUUID()}`;
       try {
-        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/frozen/servers`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -2896,7 +2908,16 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           }),
         );
         if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-        expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        const submittedState = submitted.status?.state;
+        if (submittedState !== TaskState.TASK_STATE_INPUT_REQUIRED) {
+          const failedTask = await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`,
+          ).then((response) => response.text());
+          throw new Error(
+            `MOVE_TO_PREPARATION_FAILED:${String(submittedState)}:${failedTask}:PROVIDER_REQUESTS=${JSON.stringify(provider.requests)}`,
+          );
+        }
+        expect(submittedState).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
         expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
 
         const task = z
@@ -2931,7 +2952,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           );
         expect(plan.definition.nodes).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ nodeId: 'usage_task_0', type: 'mcp_tool' }),
+            expect.objectContaining({
+              nodeId: 'usage_task_0',
+              type: 'mcp_tool',
+              taskExecution: expect.objectContaining({
+                protocolMode: 'frozen_v1',
+                availabilityCheck: 'required',
+              }),
+            }),
             expect.objectContaining({ nodeId: 'usage_evidence_0', type: 'condition' }),
           ]),
         );
@@ -2943,9 +2971,30 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           `Confirm the ${mode} move-to plan.`,
         );
         expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
-        if (expectsRemoteTask) {
+        if (outcome === 'remote_notification_success') {
+          let disposition: string | undefined;
           for (let attempt = 0; attempt < 100; attempt += 1) {
-            if (provider.requests.filter((request) => request.method === 'tasks/get').length >= 2)
+            const reconnect = await fetch(
+              `${runtime.management.baseUrl}/api/v1/mcp/frozen/servers/${encodeURIComponent(serverId)}/notifications/reconnect`,
+              { method: 'POST' },
+            );
+            const reconnectBody = await reconnect.text();
+            expect(reconnect.status, reconnectBody).toBe(202);
+            disposition = z
+              .object({ disposition: z.string() })
+              .parse(JSON.parse(reconnectBody) as unknown).disposition;
+            if (disposition === 'started' || disposition === 'already_running') break;
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+          }
+          expect(['started', 'already_running']).toContain(disposition);
+        }
+        if (expectsRemoteTask) {
+          const expectedTaskReads = outcome === 'remote_notification_success' ? 2 : 1;
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            if (
+              provider.requests.filter((request) => request.method === 'tasks/get').length >=
+              expectedTaskReads
+            )
               break;
             await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
           }
@@ -2983,6 +3032,73 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         expect(provider.requests.some((request) => request.method === 'tasks/get')).toBe(
           expectsRemoteTask,
         );
+        if (expectsRemoteTask) {
+          const lifecycleSchema = z.object({
+            items: z.array(
+              z.object({
+                binding: z.object({
+                  protocolContract: z.object({
+                    mode: z.literal('frozen_v1'),
+                    protocolVersion: z.literal('2026-07-28'),
+                    baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
+                    taskExecutionProfileVersion: z.literal('1.0'),
+                    evidenceProfileVersion: z.literal('1.0'),
+                    serverDiscoverySnapshotId: z.string().min(1),
+                  }),
+                  taskBehavior: z.enum(['server_directed', 'task_required']),
+                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                  taskTtlMs: z.number().int().positive(),
+                  taskExpiresAt: z.iso.datetime({ offset: true }),
+                }),
+                observations: z
+                  .array(
+                    z.object({
+                      source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
+                      runtimeRevision: z
+                        .string()
+                        .regex(/^(?:0|[1-9][0-9]*)$/u)
+                        .optional(),
+                    }),
+                  )
+                  .min(2),
+                protocol: z.object({
+                  ttlMs: z.number().int().positive(),
+                  expiresAt: z.iso.datetime({ offset: true }),
+                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                  latestObservationSource: z.literal(
+                    outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
+                  ),
+                }),
+              }),
+            ),
+          });
+          let lifecycle: z.infer<typeof lifecycleSchema> | undefined;
+          let lastLifecycle: unknown;
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            lastLifecycle = await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/remote-task-lifecycle`,
+            ).then((response) => response.json());
+            const parsed = lifecycleSchema.safeParse(lastLifecycle);
+            if (parsed.success) {
+              lifecycle = parsed.data;
+              break;
+            }
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+          }
+          if (lifecycle === undefined)
+            throw new Error(
+              `REMOTE_TASK_RECONCILIATION_NOT_OBSERVED:${JSON.stringify(lastLifecycle)}`,
+            );
+          expect(lifecycle.items).toHaveLength(1);
+          expect(lifecycle.items[0]?.observations.map((item) => item.source)).toEqual(
+            expect.arrayContaining([
+              'admission',
+              ...(outcome === 'remote_notification_success'
+                ? (['reconciliation', 'notification'] as const)
+                : (['reconciliation'] as const)),
+            ]),
+          );
+        }
 
         const executionCollectionSchema = z.object({
           items: z.array(
@@ -3052,13 +3168,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   ] as const)(
     'runs recursive embodied.area_patrol with exact child versions and a %s terminal projection',
     async (outcome, resultStatus, executionStatus) => {
-      const provider = await startMcpTasksMockProvider({
+      const provider = await startFrozenMcpTasksMockProvider({
         moveTo: { outcome: 'remote_success' },
         areaPatrol: { outcome },
       });
       const serverId = `mcp.area-patrol.${outcome}.${randomUUID()}`;
       try {
-        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/frozen/servers`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -3248,7 +3364,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           expect.arrayContaining([
             expect.objectContaining({ nodeId: 'usage_child_0', type: 'skill_call' }),
             expect.objectContaining({ nodeId: 'usage_child_1', type: 'skill_call' }),
-            expect.objectContaining({ nodeId: 'usage_task_0', type: 'mcp_tool' }),
+            expect.objectContaining({
+              nodeId: 'usage_task_0',
+              type: 'mcp_tool',
+              taskExecution: expect.objectContaining({
+                protocolMode: 'frozen_v1',
+                availabilityCheck: 'required',
+              }),
+            }),
           ]),
         );
 
@@ -3390,12 +3513,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   ] as const)(
     'blocks embodied.move_to for %s before any Provider side effect',
     async (_scenario, marker, structuredInput, confirmBlockedPlan) => {
-      const provider = await startMcpTasksMockProvider({
+      const provider = await startFrozenMcpTasksMockProvider({
         moveTo: { outcome: 'immediate_success' },
       });
       const serverId = `mcp.move-to.blocked.${randomUUID()}`;
       try {
-        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+        const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/frozen/servers`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -3479,12 +3602,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   );
 
   it('preserves embodied.move_to restricted availability windows for procedure-mode rescheduling', async () => {
-    const provider = await startMcpTasksMockProvider({
+    const provider = await startFrozenMcpTasksMockProvider({
       moveTo: { outcome: 'remote_success', availability: 'restricted' },
     });
     const serverId = `mcp.move-to.restricted.${randomUUID()}`;
     try {
-      const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+      const registered = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/frozen/servers`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -5699,9 +5822,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ),
       ).resolves.toMatchObject({ items: [expect.objectContaining({ taskId: submitted.id })] });
       await expect(
-        fetch(
-          `${runtime.management.baseUrl}/api/v1/runtime-terminal-outcomes/terminal-outcome-task-${submitted.id}`,
-        ).then((response) => response.json()),
+        waitForRuntimeTerminalOutcomeWarning(
+          `terminal-outcome-task-${submitted.id}`,
+          'evaluation_memory',
+          'MODEL_INVOCATION_FAILED',
+        ),
       ).resolves.toMatchObject({
         kind: 'achieved',
         enhancementWarnings: [
@@ -7613,6 +7738,35 @@ async function waitForManagementJson(path: string): Promise<unknown> {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`MANAGEMENT_RESOURCE_NOT_READY:${path}:${lastBody}`);
+}
+
+async function waitForRuntimeTerminalOutcomeWarning(
+  outcomeId: string,
+  source: string,
+  code: string,
+): Promise<unknown> {
+  const schema = z.object({
+    kind: z.string(),
+    enhancementWarnings: z.array(z.object({ source: z.string(), code: z.string() }).loose()),
+  });
+  let outcome: z.infer<typeof schema> | undefined;
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    outcome = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/runtime-terminal-outcomes/${encodeURIComponent(outcomeId)}`,
+      ).then((response) => response.json()),
+    );
+    if (
+      outcome.enhancementWarnings.some(
+        (warning) => warning.source === source && warning.code === code,
+      )
+    )
+      return outcome;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(
+    `RUNTIME_TERMINAL_OUTCOME_WARNING_NOT_REACHED:${outcomeId}:${source}:${code}:${JSON.stringify(outcome)}`,
+  );
 }
 
 async function waitForTemporarySkillStatus(taskId: string, expected: string) {

@@ -71,30 +71,18 @@ function mergedEvidence(
     ? { ...input['evidence'] }
     : {};
   for (const output of Object.values(outputs)) {
-    if (isUnknownRecord(output) && isUnknownRecord(output['evidence']))
-      Object.assign(merged, output['evidence']);
-    const structured = structuredContent(output);
-    if (isUnknownRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
-    const metadata = resultMetadata(output);
-    if (isUnknownRecord(metadata?.['io.sdar/evidence']))
-      Object.assign(merged, metadata['io.sdar/evidence']);
+    const validated = validatedEvidence(output);
+    if (validated !== undefined) Object.assign(merged, validated);
   }
   return Object.freeze(merged);
 }
 
-function resultMetadata(value: unknown): Readonly<Record<string, unknown>> | undefined {
+function validatedEvidence(value: unknown): Readonly<Record<string, unknown>> | undefined {
   if (!isUnknownRecord(value)) return undefined;
-  if (isUnknownRecord(value['metadata'])) return value['metadata'];
+  if (isUnknownRecord(value['validatedEvidence'])) return value['validatedEvidence'];
   const data = value['data'];
-  return isUnknownRecord(data) && isUnknownRecord(data['metadata']) ? data['metadata'] : undefined;
-}
-
-function structuredContent(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  if (!isUnknownRecord(value)) return undefined;
-  if (isUnknownRecord(value['structuredContent'])) return value['structuredContent'];
-  const data = value['data'];
-  return isUnknownRecord(data) && isUnknownRecord(data['structuredContent'])
-    ? data['structuredContent']
+  return isUnknownRecord(data) && isUnknownRecord(data['validatedEvidence'])
+    ? data['validatedEvidence']
     : undefined;
 }
 

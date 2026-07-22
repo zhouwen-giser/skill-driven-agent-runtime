@@ -1,0 +1,21 @@
+{
+  "schema": "mcp-tasks-sep2663.schema.json",
+  "ref": "#/$defs/GetTaskResult",
+  "value": {
+    "resultType": "complete",
+    "taskId": "remote-task-001",
+    "status": "completed",
+    "createdAt": "2026-07-18T03:00:00.000Z",
+    "lastUpdatedAt": "2026-07-18T03:12:00.000Z",
+    "ttlMs": 3600000,
+    "result": {
+      "resultType": "complete",
+      "content": [],
+      "structuredContent": { "status": "completed" },
+      "isError": false
+    },
+    "_meta": {
+      "io.sdar/taskExecution": { "profileVersion": "1.0", "runtimeRevision": "42" }
+    }
+  }
+}

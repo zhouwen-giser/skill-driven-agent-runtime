@@ -1,0 +1,5 @@
+{
+  "schema": "mcp-tasks-sep2663.schema.json",
+  "ref": "#/$defs/CallToolResult",
+  "value": { "content": [], "structuredContent": {}, "isError": false }
+}

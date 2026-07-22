@@ -1,0 +1,16 @@
+{
+  "schema": "mcp-tasks-sep2663.schema.json",
+  "ref": "#/$defs/CreateTaskResult",
+  "value": {
+    "resultType": "task",
+    "taskId": "remote-task-001",
+    "status": "working",
+    "createdAt": "2026-07-18T03:00:00.000Z",
+    "lastUpdatedAt": "2026-07-18T03:00:00.000Z",
+    "ttlMs": 3600000,
+    "pollIntervalMs": 1000,
+    "_meta": {
+      "io.sdar/taskExecution": { "profileVersion": "1.0", "runtimeRevision": "1" }
+    }
+  }
+}

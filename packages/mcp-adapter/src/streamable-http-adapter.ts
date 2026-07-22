@@ -96,7 +96,11 @@ export class StreamableHttpMcpAdapter implements McpTransportAdapter {
         );
         const outcome = toMcpInvocationOutcome(value, session.capabilities.protocolRevision);
         if (outcome.kind === 'remote_task') this.#requireTasksCapability(session);
-        if (input.taskExecution?.mode === 'require_task' && outcome.kind === 'immediate')
+        if (
+          input.taskExecution?.protocolMode !== 'frozen_v1' &&
+          input.taskExecution?.mode === 'require_task' &&
+          outcome.kind === 'immediate'
+        )
           throw new McpTasksAdapterError(
             'MCP_TASK_REQUIRED_RESULT_MISMATCH',
             'Provider returned a synchronous result for require_task execution.',

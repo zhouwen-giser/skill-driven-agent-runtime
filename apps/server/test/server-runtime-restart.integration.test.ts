@@ -17,7 +17,10 @@ import {
   getA2ATestTask,
   submitA2ATestTask,
 } from '../../../packages/a2a-adapter/test-support/client.js';
-import { startMcpTasksMockProvider } from '../../../packages/mcp-adapter/src/index.js';
+import {
+  startFrozenMcpTasksMockProvider,
+  startMcpTasksMockProvider,
+} from '../../../packages/mcp-adapter/src/index.js';
 import { obliterateTestQueues } from '../../../packages/runtime-redis/test-support/queue.js';
 
 const adminConnection =
@@ -46,153 +49,203 @@ afterAll(async () => {
 });
 
 describe('production ServerRuntime remote Task restart recovery', () => {
-  it('continues embodied.move after restart without replaying tools/call or an ordinary running Task', async () => {
-    await createIsolatedDatabase();
-    const provider = await startMcpTasksMockProvider({
-      moveTo: { outcome: 'remote_success' },
-    });
-    const modelServer = await startRestartModelLoopback();
-    const modelAddress = modelServer.address();
-    if (modelAddress === null || typeof modelAddress === 'string')
-      throw new Error('RESTART_MODEL_ADDRESS_UNAVAILABLE');
+  it.each(['legacy_v11', 'frozen_v1'] as const)(
+    'continues embodied.move in %s mode after restart without replaying tools/call or an ordinary running Task',
+    async (protocolMode) => {
+      await createIsolatedDatabase();
+      const provider =
+        protocolMode === 'frozen_v1'
+          ? await startFrozenMcpTasksMockProvider({ moveTo: { outcome: 'remote_restart_success' } })
+          : await startMcpTasksMockProvider({ moveTo: { outcome: 'remote_success' } });
+      const modelServer = await startRestartModelLoopback();
+      const modelAddress = modelServer.address();
+      if (modelAddress === null || typeof modelAddress === 'string')
+        throw new Error('RESTART_MODEL_ADDRESS_UNAVAILABLE');
 
-    let firstRuntime: ServerRuntimeHandle | undefined;
-    let secondRuntime: ServerRuntimeHandle | undefined;
-    const database = new Pool({ connectionString: databaseConnection, max: 4 });
-    const serverId = `mcp.tasks.restart.${randomUUID()}`;
-    const skillId = `skill.tasks.restart.${randomUUID()}`;
-    const ordinaryTaskId = `task-ordinary-running-${randomUUID()}`;
-    try {
-      firstRuntime = await startRuntime({
-        applyMigrations: true,
-        minimumPollIntervalMs: 2_000,
-      });
-      await configureModelRuntime(firstRuntime, modelAddress.port);
-      await firstRuntime.registerMcpServer({
-        serverId,
-        name: 'Restart acceptance MCP Tasks Provider',
-        endpoint: provider.endpoint.toString(),
-        credentialHeaders: {},
-      });
-      await firstRuntime.registerSkill(restartSkill(skillId, serverId));
+      let firstRuntime: ServerRuntimeHandle | undefined;
+      let secondRuntime: ServerRuntimeHandle | undefined;
+      const database = new Pool({ connectionString: databaseConnection, max: 4 });
+      const serverId = `mcp.tasks.restart.${randomUUID()}`;
+      const skillId = `skill.tasks.restart.${randomUUID()}`;
+      const ordinaryTaskId = `task-ordinary-running-${randomUUID()}`;
+      try {
+        firstRuntime = await startRuntime({
+          applyMigrations: true,
+          minimumPollIntervalMs: 2_000,
+        });
+        await configureModelRuntime(firstRuntime, modelAddress.port);
+        if (protocolMode === 'frozen_v1') {
+          const registered = await fetch(
+            `${firstRuntime.management.baseUrl}/api/v1/mcp/frozen/servers`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                serverId,
+                name: 'Frozen restart acceptance MCP Tasks Provider',
+                endpoint: provider.endpoint.toString(),
+                credentialHeaders: {},
+              }),
+            },
+          );
+          if (registered.status !== 201)
+            throw new Error(`FROZEN_RESTART_PROVIDER_SETUP_FAILED:${await registered.text()}`);
+        } else
+          await firstRuntime.registerMcpServer({
+            serverId,
+            name: 'Restart acceptance MCP Tasks Provider',
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          });
+        await firstRuntime.registerSkill(restartSkill(skillId, serverId));
 
-      const submitted = await submitA2ATestTask(
-        firstRuntime.a2a.client,
-        `MCP_TASK_RESTART GLOBAL_SHARED_SKILL:${skillId}`,
-      );
-      expect(submitted.state).toBe('input_required');
+        let submitted = await submitA2ATestTask(
+          firstRuntime.a2a.client,
+          `MCP_TASK_RESTART GLOBAL_SHARED_SKILL:${skillId}`,
+        );
+        if (submitted.state === 'working') {
+          submitted = await waitForA2ATestTaskState(
+            firstRuntime.a2a.client,
+            submitted.id,
+            'input_required',
+          );
+        }
+        expect(submitted.state).toBe('input_required');
 
-      const confirmed = await confirmA2ATestPlan(
-        firstRuntime.a2a.client,
-        submitted,
-        'Confirm the restart acceptance plan.',
-      );
-      expect(confirmed.state).toBe('working');
+        const confirmed = await confirmA2ATestPlan(
+          firstRuntime.a2a.client,
+          submitted,
+          'Confirm the restart acceptance plan.',
+        );
+        expect(confirmed.state).toBe('working');
 
-      const beforeRestart = await waitForRow<{
-        binding_id: string;
-        workflow_instance_id: string;
-      }>(database, {
-        sql: `SELECT binding_id,workflow_instance_id
-                FROM remote_task_binding
-                WHERE agent_task_id=$1 AND local_state='polling'`,
-        values: [submitted.id],
-      });
-      const workflowBeforeRestart = await waitForRow<{ status: string; errors_json: unknown }>(
-        database,
-        {
-          sql: "SELECT status,errors_json FROM workflow_instance WHERE instance_id=$1 AND status<>'running'",
-          values: [beforeRestart.workflow_instance_id],
-        },
-      );
-      const restartDiagnostics = {
-        workflowBeforeRestart,
-        workflows: (
-          await database.query(
-            `SELECT wi.instance_id,wi.status,wi.plan_id
+        const beforeRestart = await waitForPollingBinding(
+          database,
+          submitted.id,
+          provider.requests,
+        );
+        const workflowBeforeRestart = await waitForRow<{ status: string; errors_json: unknown }>(
+          database,
+          {
+            sql: "SELECT status,errors_json FROM workflow_instance WHERE instance_id=$1 AND status<>'running'",
+            values: [beforeRestart.workflow_instance_id],
+          },
+        );
+        const restartDiagnostics = {
+          workflowBeforeRestart,
+          workflows: (
+            await database.query(
+              `SELECT wi.instance_id,wi.status,wi.plan_id
                FROM workflow_instance wi
                JOIN agent_task task ON task.plan_id=wi.plan_id
                WHERE task.task_id=$1`,
-            [submitted.id],
-          )
-        ).rows,
-        continuations: (
-          await database.query(
-            'SELECT workflow_instance_id,lifecycle FROM workflow_continuation_snapshot WHERE agent_task_id=$1',
-            [submitted.id],
-          )
-        ).rows,
-      };
-      expect(restartDiagnostics.workflowBeforeRestart).toEqual({
-        status: 'waiting_external',
-        errors_json: {},
-      });
-      expect(countRequests(provider.requests, 'tools/call')).toBe(1);
-      // Admission always performs one authoritative first observation; the long interval keeps
-      // the remaining resuming/completed observations for the restarted runtime.
-      expect(countRequests(provider.requests, 'tasks/get')).toBe(1);
+              [submitted.id],
+            )
+          ).rows,
+          continuations: (
+            await database.query(
+              'SELECT workflow_instance_id,lifecycle FROM workflow_continuation_snapshot WHERE agent_task_id=$1',
+              [submitted.id],
+            )
+          ).rows,
+        };
+        expect(restartDiagnostics.workflowBeforeRestart).toEqual({
+          status: 'waiting_external',
+          errors_json: {},
+        });
+        expect(countRequests(provider.requests, 'tools/call')).toBe(1);
+        // Admission always performs one authoritative first observation; the long interval keeps
+        // the remaining resuming/completed observations for the restarted runtime.
+        expect(countRequests(provider.requests, 'tasks/get')).toBe(1);
+        if (protocolMode === 'frozen_v1') {
+          const authority = await database.query<{
+            mode: string;
+            task_behavior: string | null;
+            runtime_revision: string | null;
+          }>(
+            `SELECT protocol_contract_json->>'mode' AS mode,task_behavior,runtime_revision
+             FROM remote_task_binding WHERE binding_id=$1`,
+            [beforeRestart.binding_id],
+          );
+          expect(authority.rows).toEqual([
+            expect.objectContaining({
+              mode: 'frozen_v1',
+              task_behavior: 'server_directed',
+              runtime_revision: expect.stringMatching(/^(?:0|[1-9][0-9]*)$/u),
+            }),
+          ]);
+        }
 
-      await firstRuntime.close();
-      firstRuntime = undefined;
-      await insertOrdinaryRunningTask(database, ordinaryTaskId);
-      const ordinaryBefore = await taskSnapshot(database, ordinaryTaskId);
-      expect(ordinaryBefore).toMatchObject({ phase: 'executing', error_code: null });
+        await firstRuntime.close();
+        firstRuntime = undefined;
+        await insertOrdinaryRunningTask(database, ordinaryTaskId);
+        const ordinaryBefore = await taskSnapshot(database, ordinaryTaskId);
+        expect(ordinaryBefore).toMatchObject({ phase: 'executing', error_code: null });
 
-      // Simulate total loss of the ephemeral runtime queues after the process has stopped.
-      await obliterateTestQueues(redis, [
-        queueName,
-        remoteQueueName,
-        `${remoteQueueName}-continuations`,
-        `${remoteQueueName}-cancellations`,
-      ]);
+        // Simulate total loss of the ephemeral runtime queues after the process has stopped.
+        await obliterateTestQueues(redis, [
+          queueName,
+          remoteQueueName,
+          `${remoteQueueName}-continuations`,
+          `${remoteQueueName}-cancellations`,
+        ]);
 
-      secondRuntime = await startRuntime({
-        applyMigrations: false,
-        minimumPollIntervalMs: 10,
-      });
-      await waitForRow(database, {
-        sql: "SELECT binding_id FROM remote_task_binding WHERE binding_id=$1 AND protocol_status='completed' AND terminal_at IS NOT NULL",
-        values: [beforeRestart.binding_id],
-        timeoutMs: 10_000,
-      });
-      const finalTask = await waitForRow<{
-        phase: string;
-        error_code: string | null;
-        phase_message: string;
-      }>(database, {
-        sql: "SELECT phase,error_code,phase_message FROM agent_task WHERE task_id=$1 AND phase IN ('completed','failed','canceled')",
-        values: [submitted.id],
-        timeoutMs: 10_000,
-      });
-      expect(finalTask).toEqual({
-        phase: 'completed',
-        error_code: null,
-        phase_message: 'Task completed.',
-      });
+        secondRuntime = await startRuntime({
+          applyMigrations: false,
+          minimumPollIntervalMs: 10,
+        });
+        await waitForRow(database, {
+          sql: "SELECT binding_id FROM remote_task_binding WHERE binding_id=$1 AND protocol_status='completed' AND terminal_at IS NOT NULL",
+          values: [beforeRestart.binding_id],
+          timeoutMs: 10_000,
+        });
+        const finalTask = await waitForRow<{
+          phase: string;
+          error_code: string | null;
+          phase_message: string;
+        }>(database, {
+          sql: "SELECT phase,error_code,phase_message FROM agent_task WHERE task_id=$1 AND phase IN ('completed','failed','canceled')",
+          values: [submitted.id],
+          timeoutMs: 10_000,
+        });
+        expect(finalTask).toEqual({
+          phase: 'completed',
+          error_code: null,
+          phase_message: 'Task completed.',
+        });
 
-      const a2aTask = await getA2ATestTask(secondRuntime.a2a.client, submitted.id);
-      expect(a2aTask.state).toBe('completed');
-      expect(countRequests(provider.requests, 'tools/call')).toBe(1);
-      expect(countRequests(provider.requests, 'tasks/get')).toBeGreaterThanOrEqual(2);
-      await expect(taskSnapshot(database, ordinaryTaskId)).resolves.toMatchObject({
-        phase: 'failed',
-        phase_message: 'Process stopped during execution; V1 does not recover or retry.',
-        error_code: 'PROCESS_EXECUTION_LOST',
-      });
-    } finally {
-      await secondRuntime?.close().catch(() => undefined);
-      await firstRuntime?.close().catch(() => undefined);
-      await database.end();
-      await provider.close();
-      modelServer.close();
-      await once(modelServer, 'close').catch(() => undefined);
-    }
-  }, 30_000);
+        const a2aTask = await getA2ATestTask(secondRuntime.a2a.client, submitted.id);
+        expect(a2aTask.state).toBe('completed');
+        expect(countRequests(provider.requests, 'tools/call')).toBe(1);
+        expect(countRequests(provider.requests, 'tasks/get')).toBeGreaterThanOrEqual(2);
+        await expect(taskSnapshot(database, ordinaryTaskId)).resolves.toMatchObject({
+          phase: 'failed',
+          phase_message: 'Process stopped during execution; V1 does not recover or retry.',
+          error_code: 'PROCESS_EXECUTION_LOST',
+        });
+      } finally {
+        await secondRuntime?.close().catch(() => undefined);
+        await firstRuntime?.close().catch(() => undefined);
+        await database.end();
+        await provider.close();
+        modelServer.close();
+        await once(modelServer, 'close').catch(() => undefined);
+      }
+    },
+    60_000,
+  );
 });
 
 async function createIsolatedDatabase(): Promise<void> {
   const admin = new Pool({ connectionString: adminConnection });
   try {
+    if (databaseCreated) {
+      await admin.query(
+        'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()',
+        [databaseName],
+      );
+      await admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
+    }
     await admin.query(`CREATE DATABASE ${quoteIdentifier(databaseName)}`);
     databaseCreated = true;
   } finally {
@@ -589,6 +642,65 @@ async function waitForRow<T extends Record<string, unknown>>(
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
   } while (Date.now() < deadline);
   throw new Error(`RESTART_ROW_TIMEOUT:${query.sql.replaceAll(/\s+/gu, ' ').trim()}`);
+}
+
+async function waitForPollingBinding(
+  pool: Pool,
+  taskId: string,
+  providerRequests: readonly Readonly<{ method: string }>[],
+): Promise<Readonly<{ binding_id: string; workflow_instance_id: string }>> {
+  try {
+    return await waitForRow(pool, {
+      sql: `SELECT binding_id,workflow_instance_id
+            FROM remote_task_binding
+            WHERE agent_task_id=$1 AND local_state='polling'`,
+      values: [taskId],
+    });
+  } catch (error: unknown) {
+    const [bindings, tasks, workflows] = await Promise.all([
+      pool.query(
+        `SELECT binding_id,workflow_instance_id,local_state,protocol_status,
+                last_safe_error_code,terminal_at,version
+         FROM remote_task_binding WHERE agent_task_id=$1`,
+        [taskId],
+      ),
+      pool.query('SELECT phase,phase_message,error_code FROM agent_task WHERE task_id=$1', [
+        taskId,
+      ]),
+      pool.query(
+        `SELECT wi.instance_id,wi.status,wi.errors_json
+         FROM workflow_instance wi
+         JOIN agent_task task ON task.plan_id=wi.plan_id
+         WHERE task.task_id=$1`,
+        [taskId],
+      ),
+    ]);
+    throw new Error(
+      `RESTART_BINDING_DIAGNOSTICS:${JSON.stringify({
+        bindings: bindings.rows,
+        tasks: tasks.rows,
+        workflows: workflows.rows,
+        providerMethods: providerRequests.map((request) => request.method),
+      })}`,
+      { cause: error },
+    );
+  }
+}
+
+async function waitForA2ATestTaskState(
+  client: ServerRuntimeHandle['a2a']['client'],
+  taskId: string,
+  expectedState: 'input_required',
+): Promise<Awaited<ReturnType<typeof getA2ATestTask>>> {
+  const deadline = Date.now() + 10_000;
+  do {
+    const task = await getA2ATestTask(client, taskId);
+    if (task.state === expectedState) return task;
+    if (task.state !== 'working')
+      throw new Error(`A2A_RESTART_TASK_UNEXPECTED_STATE:${task.state}`);
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+  } while (Date.now() < deadline);
+  throw new Error(`A2A_RESTART_TASK_STATE_TIMEOUT:${expectedState}`);
 }
 
 function countRequests(requests: readonly Readonly<{ method: string }>[], method: string): number {

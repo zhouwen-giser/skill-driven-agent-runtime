@@ -14,6 +14,7 @@ const demoMarkdownPath = resolve(reportDirectory, 'V11-LOCAL-DEMO.md');
 const startedAt = new Date();
 const commandRuns = [];
 const pnpmCli = process.env['npm_execpath'];
+const useExistingInfrastructure = process.env['SDAR_ACCEPTANCE_USE_EXISTING_INFRA'] === 'true';
 let infrastructureStarted = false;
 let failure;
 
@@ -41,8 +42,10 @@ try {
     ),
   );
 
-  startInfrastructure(root);
-  infrastructureStarted = true;
+  if (!useExistingInfrastructure) {
+    startInfrastructure(root);
+    infrastructureStarted = true;
+  }
   requirePassed(
     run(
       'acceptance-unit-evidence',
@@ -104,8 +107,9 @@ const demo = {
   durationMs: finishedAt.getTime() - startedAt.getTime(),
   commit: capture('git', ['rev-parse', 'HEAD']).trim(),
   dirty: capture('git', ['status', '--short']).trim() !== '',
-  infrastructure:
-    'real PostgreSQL/pgvector and Redis/BullMQ through compose or operator-managed equivalents',
+  infrastructure: useExistingInfrastructure
+    ? 'real operator-managed PostgreSQL/pgvector and Redis/BullMQ supplied by the caller'
+    : 'real PostgreSQL/pgvector and Redis/BullMQ started through repository Compose',
   providerAndModel: 'deterministic local Mock MCP Tasks Provider and Mock Model loopbacks',
   commands: commandRuns,
   acceptanceReport: 'reports/v1.1-mcp-tasks/V11-ACCEPTANCE.json',
