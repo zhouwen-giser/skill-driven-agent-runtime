@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": 12,
-  "status": "hardening_and_clean_exact_commit_complete_publication_pending",
+  "status": "verified_provider_merge_pending",
   "targetVersion": "1.2.1",
   "adversarialCoverage": [
     { "threat": "legacy_frozen_confusion", "status": "passed", "evidence": "frozen-v1-component explicit non-interchangeability" },
@@ -71,18 +71,26 @@
     "infrastructureSmoke": "passed",
     "serverConsoleSmoke": "passed"
   },
+  "providerPublication": {
+    "pullRequest": 16,
+    "head": "4d90b1998ab2d4c9212a375552b00d9326635524",
+    "actionsRun": 29882714727,
+    "runtimeCi": "passed",
+    "runtimeCompose": "passed",
+    "merge": "pending_protected_review"
+  },
   "resolvedFinalGateDefects": [
     "windows_symlink_fixture_uses_unprivileged_junction_without_weakening_rejection",
     "frozen_migration_verifier_owns_default_compose_lifecycle",
     "restart_mock_subscription_is_ack_only_until_poll_recovery",
     "mock_task_ttl_and_availability_windows_are_startup_relative"
   ],
-  "releaseBlockers": ["provider_and_sdar_remote_publication_checks"],
+  "releaseBlockers": ["provider_pr_16_protected_review_and_merge"],
   "gates": {
     "G2SdarComponentConformant": "passed",
     "G3ProviderRuntimeComponentConformant": "passed_local_candidate",
     "G4InteropCertified": "passed_local_candidate",
-    "G5ReleaseReady": "local_gate_passed_remote_checks_pending"
+    "G5ReleaseReady": "blocked_pending_provider_pr_16_merge"
   },
   "prDisposition": "draft"
 }

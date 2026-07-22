@@ -8,7 +8,8 @@
     "candidateBranch": "fix/frozen-interop-contract-alignment",
     "candidateCommit": "b30d839",
     "pullRequest": 16,
-    "pullRequestHead": "50a2b49f835a162db0b9fe78ed927873459b5977",
+    "pullRequestHead": "4d90b1998ab2d4c9212a375552b00d9326635524",
+    "actionsRun": 29882714727,
     "runtimeVersion": "2.0.0-rc.1",
     "endpoint": "http://127.0.0.1:18080/mcp",
     "adapter": "reference_typescript_grpc_127.0.0.1:17001",
@@ -61,7 +62,7 @@
   "gates": {
     "G3ProviderRuntimeComponentConformant": "passed_local_candidate",
     "G4InteropCertified": "passed_local_candidate",
-    "G5ReleaseReady": "local_gate_passed_remote_checks_pending"
+    "G5ReleaseReady": "blocked_pending_provider_pr_16_merge"
   },
   "claim": "interop_certified_local_candidate_no_release_or_merge_claim"
 }

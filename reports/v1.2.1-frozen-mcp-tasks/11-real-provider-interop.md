@@ -1,6 +1,6 @@
 # SDAR v1.2.1 Phase 11 Real Provider Runtime Interoperability
 
-Status: **PASSED LOCALLY — PUBLICATION CHECKS PENDING**
+Status: **PASSED — PROVIDER PR PUBLISHED, MERGE PENDING**
 
 ## Tested chain
 
@@ -9,8 +9,8 @@ The merged Provider baseline was refreshed to `origin/main@217e0892c1d827c32c2a5
 `fix/frozen-interop-contract-alignment` and committed as
 `b30d839` after the real run. The functional Runtime sources used by the run are identical to that commit;
 the later changes only finalized the Provider ExecPlan/report and strengthened its Runtime-stack E2E.
-Draft Provider PR [#16](https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime/pull/16)
-publishes the branch at documentation-only head `50a2b49` against `main@217e089`.
+Provider PR [#16](https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime/pull/16)
+publishes the branch at final evidence head `4d90b199` against `main@217e089`.
 
 ```text
 SDAR FrozenV1 components from feature/v1.2.1-frozen-mcp-tasks-protocol
@@ -51,5 +51,7 @@ get/Notification equality. The refreshed run additionally found the Provider `to
 the SDAR create/detailed projection-state bug; both now have strict regressions.
 
 G3 Provider Runtime Component Conformant and G4 Interop Certified pass for the tested local candidate
-contents. SDAR clean exact commit `61142f9` passes the complete refreshed gate with `dirty=false`; G5 now
-awaits only publication and green remote PR checks. No merge or stable release is claimed by this report.
+contents. SDAR clean exact commit `61142f9` passes the complete refreshed gate with `dirty=false`. Provider
+PR #16 publishes the correction and Actions run `29882714727` passes both `runtime-ci` and
+`runtime-compose`; SDAR has no configured Actions workflow. G5 awaits protected Provider review/merge. No
+merge or stable release is claimed here.

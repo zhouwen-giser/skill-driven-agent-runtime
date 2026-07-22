@@ -170,3 +170,15 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   2026-07-22 after independently verifying that the archive's junction target remained intact. External
   Provider fixes, real interop requalification and publication of its evidence are the remaining required
   deferred items; v1.2.1 is not release-ready.
+
+### 2026-07-22 closure update
+
+- Provider PR #15 merged as `main@217e089`. Independent Provider implementation `b30d839` corrects the
+  remaining Availability and CreateTaskResult mismatches plus strict `tools/list`; complete `verify:v2`
+  and the real SDAR HTTP matrix pass. PR #16 publishes the change at final evidence head `4d90b199`, and
+  Actions run `29882714727` passes its `runtime-ci` and `runtime-compose` jobs.
+- SDAR projection-aware admission corrects the discovered base CreateTaskResult/first DetailedTask false
+  mismatch while requiring identical Task base fields. Clean exact commit `61142f9` passes the refreshed
+  full gate with `dirty=false` in 184,634 ms.
+- The only required deferred item is protected review and merge of Provider PR #16. Automatic merge is not
+  authorized; G5 and PR #6 Ready status remain pending for that reason.

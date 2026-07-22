@@ -1,6 +1,6 @@
 # SDAR v1.2.1 Phase 12 Adversarial Hardening and Release Gate
 
-Status: **LOCAL RELEASE GATE PASSED; REMOTE CHECKS PENDING**
+Status: **VERIFIED; PROVIDER PR #16 MERGE PENDING**
 
 All 26 required adversarial classes have owning-layer evidence. The audit covers explicit Legacy/Frozen
 isolation, missing/spoofed metadata and discovery, baseline/routing mismatches, Bridge aliases, Task result
@@ -46,11 +46,13 @@ integration, 60/60 E2E, 71 migrations, production build, infrastructure smoke an
 G2 (SDAR local component conformance) passes. Provider candidate `b30d839` passes its complete `verify:v2`,
 and the refreshed real HTTP matrix passes strict Availability, Create/get, MRTR, business/technical failure
 and Notification paths, so G3 and G4 pass for the tested local candidate contents. The refreshed clean
-exact-commit gate completes the local G5 evidence; final G5 disposition remains pending only because neither
-candidate has completed all remote publication checks. PR #6 remains Draft. There is no tag, Ready transition
-or release claim, and no required deferred item has been hidden.
+exact-commit gate completes the local G5 evidence. Provider PR #16 is published at final evidence head
+`4d90b199`, and Actions run `29882714727` passes both `runtime-ci` and `runtime-compose`; SDAR has no
+configured Actions workflow. Final G5 disposition remains blocked until the protected Provider PR is
+reviewed and merged. PR #6 remains Draft. There is no tag, Ready transition or release claim, and no
+required deferred item has been hidden.
 
-Required next actions are: publish the SDAR evidence update, verify both PRs' remote checks and only afterward
-reconsider Ready for Review. The
+Required next action is protected review and merge of Provider PR #16; automatic merge is not authorized.
+After that exact merged commit is confirmed, reconsider PR #6 Ready for Review. The
 earlier isolated Phase 9 Compose project and temporary archive were removed; the current disposable Provider
-PostgreSQL container is retained only until remote checks are complete.
+PostgreSQL container is retained only until final evidence cleanup is complete.

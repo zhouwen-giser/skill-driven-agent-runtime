@@ -42,34 +42,37 @@
 ## v1.2 Skill-driven capability usage release addendum
 
 - [x] The existing Registry, Selection, Skill Graph, Workflow Validator/Planner and single LangGraph
-  runtime are extended; there is no duplicate runtime, Provider authority or lifecycle state machine.
+      runtime are extended; there is no duplicate runtime, Provider authority or lifecycle state machine.
 - [x] Native exact-version packages separate normative/adaptive/observed content, pass bounded secure
-  import validation and keep PostgreSQL as runtime authority; legacy Skills remain executable.
+      import validation and keep PostgreSQL as runtime authority; legacy Skills remain executable.
 - [x] Discovery, applicability, context evidence, three modes, fixed/dynamic composition, depth 3/hard
-  5, four failure policies, Task/Provider policy, no-Skill fallback and plan compliance are verified.
+      5, four failure policies, Task/Provider policy, no-Skill fallback and plan compliance are verified.
 - [x] Move-to and recursive area-patrol verticals cover available/restricted/disabled/unknown,
-  windows, required/preferred Provider, input, cancel, restart, parent/child wait and no replay.
+      windows, required/preferred Provider, input, cancel, restart, parent/child wait and no replay.
 - [x] Append-only Skill execution trees expose exact plan/task/provider/resource/evidence, hard-gate,
-  intervention and degraded-outcome references without replacing authoritative records.
+      intervention and degraded-outcome references without replacing authoritative records.
 - [x] Phase 14 closes every required adversarial finding with a regression test; no required finding is
-  deferred.
+      deferred.
 - [x] Phase 15 explicit command matrix and clean full `pnpm verify` pass on `b3b6e67`.
 - [x] Final human/JSON acceptance evidence is published, the branch is pushed and PR #5 is Ready for
-  Review without automatic merge.
+      Review without automatic merge.
 
 ## v1.2.1 Frozen MCP Tasks addendum
 
 - [x] Frozen source/schema/lock, explicit dual Handler, stateless HTTP, Task lifecycle, Availability,
-  Notification, Evidence A, Management operations and local component conformance are implemented.
+      Notification, Evidence A, Management operations and local component conformance are implemented.
 - [x] `embodied.move_to`, `embodied.area_patrol` and all 16 Legacy MCP Tasks scenarios are locally
-  requalified with real PostgreSQL/Redis and explicitly simulated Providers.
+      requalified with real PostgreSQL/Redis and explicitly simulated Providers.
 - [x] All 26 required Frozen adversarial classes have reproducible owning-layer evidence.
-- [x] The restored dependency tree passes the complete self-managed local command matrix with 648/648
-  unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages.
-- [ ] The external Provider Runtime passes strict real interop for Availability, MRTR/terminal Task
-  creation and byte-equivalent Poll/Notification projections.
-- [x] The complete final command matrix passes on restored dependencies at clean exact commit `f7bdd7b`.
-- [ ] G4 Interop Certified and G5 Release Ready pass with no required deferred items.
+- [x] The restored dependency tree passes the refreshed complete self-managed local command matrix with 650/650
+      unit+contract, 84/84 integration, 60/60 E2E, migrations, build and both smoke stages.
+- [x] The external Provider Runtime passes strict real interop for Availability, MRTR/terminal Task
+      creation and byte-equivalent Poll/Notification projections.
+- [x] The refreshed complete final command matrix passes on restored dependencies at clean exact commit
+      `61142f9` with `dirty=false`.
+- [x] G4 Interop Certified passes against Provider implementation commit `b30d839`; Provider PR #16 final
+      evidence head `4d90b199` passes `runtime-ci` and `runtime-compose` in Actions run `29882714727`.
+- [ ] G5 Release Ready passes with no required deferred items; protected Provider PR #16 review/merge remains.
 
-Therefore v1.2.1 remains unreleased and PR #6 must remain Draft. Component Conformant does not imply
-Interop Certified; see the Phase 11 and Phase 12 reports.
+Therefore v1.2.1 remains unreleased and PR #6 remains Draft until Provider PR #16 is merged. Component
+Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 reports.

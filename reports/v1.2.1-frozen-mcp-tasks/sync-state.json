@@ -5,11 +5,11 @@
   "pr": 6,
   "prState": "draft",
   "completedThrough": "phase_12_clean_exact_commit_gate",
-  "phase11": "passed_local_candidate_publication_pending",
-  "phase12": "passed_clean_exact_commit_publication_pending",
+  "phase11": "passed_published_provider_pr_16_ci_green",
+  "phase12": "passed_clean_exact_commit_provider_merge_pending",
   "releaseReady": false,
   "interopCertified": false,
   "requiredDeferred": [
-    "provider_and_sdar_remote_publication_checks"
+    "provider_pr_16_protected_review_and_merge"
   ]
 }
