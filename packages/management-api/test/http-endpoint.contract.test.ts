@@ -328,6 +328,12 @@ describe('management HTTP API contract', () => {
             received.push({ action: 'listDeadLetters', limit });
             return Promise.resolve([{ deadLetterId: 'dead-1', jobId: 'job-1' }] as never);
           },
+          listObservations: (goalId, limit) => {
+            received.push({ action: 'listObservations', goalId, limit });
+            return Promise.resolve([
+              { observationId: 'observation-1', sourceEpisodeIds: ['goal-episode-1'] },
+            ] as never);
+          },
           replayDeadLetter: (deadLetterId, actorId) => {
             received.push({ action: 'replayDeadLetter', deadLetterId, actorId });
             return Promise.resolve({ jobId: 'job-1', status: 'pending' } as never);
@@ -348,6 +354,13 @@ describe('management HTTP API contract', () => {
     await expect(deadLetters.json()).resolves.toEqual({
       items: [{ deadLetterId: 'dead-1', jobId: 'job-1' }],
     });
+    const observations = await fetch(
+      `${endpoint.baseUrl}/api/v1/experience/observations?goalId=goal-1&limit=30`,
+    );
+    expect(observations.status).toBe(200);
+    await expect(observations.json()).resolves.toEqual({
+      items: [{ observationId: 'observation-1', sourceEpisodeIds: ['goal-episode-1'] }],
+    });
     const replay = await fetch(`${endpoint.baseUrl}/api/v1/experience/dead-letters/dead-1/replay`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -358,6 +371,7 @@ describe('management HTTP API contract', () => {
     expect(received).toEqual([
       { action: 'listEpisodes', goalId: 'goal-1', limit: 20 },
       { action: 'listDeadLetters', limit: 10 },
+      { action: 'listObservations', goalId: 'goal-1', limit: 30 },
       { action: 'replayDeadLetter', deadLetterId: 'dead-1', actorId: 'experience-operator' },
     ]);
   });

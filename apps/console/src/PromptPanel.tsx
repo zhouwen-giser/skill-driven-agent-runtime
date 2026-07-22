@@ -19,6 +19,7 @@ const stages = [
   'task_clarification',
   'goal_contract_generation',
   'interactive_plan_patch',
+  'experience_observation',
 ] as const;
 
 export function PromptPanel() {

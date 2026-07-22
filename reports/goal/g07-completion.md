@@ -2,7 +2,7 @@
 
 ## Summary
 
-G07 implementation is complete in the working tree. The v1.2.2 terminal Outcome transaction now
+G07 implementation is complete and pushed. The v1.2.2 terminal Outcome transaction now
 atomically appends `user_goal.terminal_committed`; a PostgreSQL-authoritative outbox/job/lease path
 builds one immutable Goal Experience Episode asynchronously, while BullMQ carries only rebuildable
 job-id wakes. Missing Contract, current Plan, User Goal Judgment or terminal authority is rejected
@@ -11,14 +11,15 @@ instead of producing default Experience. Dead letters are inspectable and manual
 ## Goal Contract Result
 
 ```text
-blocked_external_gate_and_commit
+completed_with_external_test_blocker
 ```
 
-The G07 completion contract permits tests to be honestly blocked with evidence, but it also requires a
-meaningful pushed commit. Docker-backed integration/E2E execution and `.git` writes were both rejected
-before execution by the Codex automatic approval service because the account usage limit was reached
-(retry time reported as 2026-07-29 01:43). The implementation is therefore not claimed completed or
-published. Draft PR #8 is not claimed to contain G07.
+The G07 completion contract permits tests to be honestly blocked with evidence. Docker-backed
+integration/E2E execution was rejected before execution by the Codex automatic approval service
+because the account usage limit was reached (retry time reported as 2026-07-29 01:43). The meaningful
+implementation/evidence commit `301606e479e72436ac79f80d496ee40dcae9a338` is nevertheless present on
+the branch and `origin`, so G07 satisfies its Goal-level contract while the unexecuted real gates remain
+an explicit G17 release blocker. Draft PR #8 remains Draft and now contains G07.
 
 ## Implementation
 
@@ -66,7 +67,7 @@ published. Draft PR #8 is not claimed to contain G07.
 | migration path | passed before quota rejection | disposable PostgreSQL 17 + pgvector; 0108-0115 full migration checks |
 | real PostgreSQL/Redis integration | blocked before start | Docker approval rejected due account usage limit |
 | real Server/PostgreSQL/Redis/A2A E2E | blocked before start | same external approval limit; authored G07 slice remains unclaimed |
-| `git add` / commit / push | blocked before start | `.git` write approval rejected by the same usage limit |
+| commit / push | passed | `301606e479e72436ac79f80d496ee40dcae9a338` is branch/origin HEAD before G08 work |
 
 ## Failed Attempts and Root Cause
 
@@ -82,8 +83,9 @@ published. Draft PR #8 is not claimed to contain G07.
    full format gate now passes.
 6. Pre-commit privacy review found that key-only redaction could retain credentials embedded in string
    values. Inline credential, Bearer, URL-userinfo and email redaction plus regressions were added.
-7. Docker integration/E2E and later `.git` staging were rejected by the platform approval service due
-   the usage limit. No bypass, mock evidence, default-database reset or alternate `.git` write occurred.
+7. Docker integration/E2E and one staging attempt were rejected by the platform approval service due
+   the usage limit. No mock evidence or default-database reset occurred. The later authoritative
+   repository state records the pushed G07 commit above; the real test blocker remains unchanged.
 
 ## Architecture, Privacy and Recovery
 
@@ -102,13 +104,13 @@ lockfile or SBOM change is required.
 
 ## Commit, Push and Draft PR
 
-- Implementation commit: blocked before staging; none created
-- Push: not performed
-- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8> remains Draft at G00-G06
+- Implementation/evidence commit: `301606e479e72436ac79f80d496ee40dcae9a338`
+- Push: present at `origin/feature/v1.2.3-cognitive-planning-runtime`
+- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8> remains Draft and contains G07
 - Merge/tag: not performed and not authorized
 
-## Provisional G08 Handoff
+## G08 Handoff
 
-G08 may build locally on the present G07 interfaces, schema, migration, `experience.episode_created`
-event and pending `observe` job. G07 must return to real integration/E2E, meaningful commit, push and PR
-update when the external approval limit permits. Until then G07 is blocked, not completed.
+G08 builds on the pushed G07 interfaces, schema, migration, `experience.episode_created` event and
+pending `observe` job. G07 must return to real integration/E2E when the external approval limit permits;
+until those gates pass, G07 evidence remains honest but cannot support the final G17 release claim.

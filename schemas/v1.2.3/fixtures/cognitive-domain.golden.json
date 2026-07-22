@@ -257,6 +257,51 @@
     "redactionCodes": ["credentials_excluded"],
     "createdAt": "2026-07-23T00:00:01.000Z"
   },
+  "experienceObservation": {
+    "schemaVersion": "1.0",
+    "observationId": "observation.v123",
+    "scope": "goal_episode",
+    "sourceEpisodeIds": ["episode.v123"],
+    "revision": 1,
+    "status": "completed",
+    "statements": [
+      {
+        "statementId": "statement.v123",
+        "kind": "fact",
+        "summary": "The verified terminal Outcome reports success.",
+        "confidence": 1,
+        "sourceRefIds": ["source.goal.1"]
+      }
+    ],
+    "extractions": [
+      {
+        "extractionId": "extraction.v123",
+        "observationId": "observation.v123",
+        "extractorKind": "goal_pattern",
+        "status": "completed",
+        "modelTier": "reasoning",
+        "sourceEpisodeIds": ["episode.v123"],
+        "statements": [
+          {
+            "statementId": "statement.v123",
+            "kind": "fact",
+            "summary": "The verified terminal Outcome reports success.",
+            "confidence": 1,
+            "sourceRefIds": ["source.goal.1"]
+          }
+        ],
+        "changeSuggestions": [],
+        "modelInvocationId": "model-invocation.v123",
+        "inputBytes": 1024,
+        "outputBytes": 256,
+        "createdAt": "2026-07-23T00:00:02.000Z"
+      }
+    ],
+    "modelInvocationRefs": ["model-invocation.v123"],
+    "observationHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "summary": { "extractorCount": 12, "completed": 1, "noOp": 11, "failed": 0 },
+    "createdAt": "2026-07-23T00:00:02.000Z"
+  },
   "knowledgeCandidate": {
     "schemaVersion": "1.0",
     "knowledgeId": "knowledge.v123",

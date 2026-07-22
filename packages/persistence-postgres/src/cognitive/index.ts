@@ -6,3 +6,4 @@ export * from './interactive-planning-repository.js';
 export * from './goal-version-lock.js';
 export * from './planning-correction-repository.js';
 export * from './experience-repository.js';
+export * from './observation-repository.js';

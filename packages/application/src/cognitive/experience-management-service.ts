@@ -2,12 +2,14 @@ import type {
   ExperienceJobQueuePort,
   ExperienceJobRepository,
   GoalExperienceEpisodeRepository,
+  ObservationRepository,
 } from './ports.js';
 
 export class ExperienceManagementService {
   readonly #episodes: GoalExperienceEpisodeRepository;
   readonly #jobs: ExperienceJobRepository;
   readonly #queue: ExperienceJobQueuePort;
+  readonly #observations: ObservationRepository | undefined;
   readonly #clock: Readonly<{ now(): string }>;
 
   constructor(
@@ -15,12 +17,14 @@ export class ExperienceManagementService {
       episodes: GoalExperienceEpisodeRepository;
       jobs: ExperienceJobRepository;
       queue: ExperienceJobQueuePort;
+      observations?: ObservationRepository;
       clock: Readonly<{ now(): string }>;
     }>,
   ) {
     this.#episodes = dependencies.episodes;
     this.#jobs = dependencies.jobs;
     this.#queue = dependencies.queue;
+    this.#observations = dependencies.observations;
     this.#clock = dependencies.clock;
   }
 
@@ -30,6 +34,10 @@ export class ExperienceManagementService {
 
   listDeadLetters(limit = 100) {
     return this.#jobs.listDeadLetters(limit);
+  }
+
+  listObservations(goalId?: string, limit = 100) {
+    return this.#observations?.list(limit, goalId) ?? Promise.resolve([]);
   }
 
   async replayDeadLetter(deadLetterId: string, actorId: string) {

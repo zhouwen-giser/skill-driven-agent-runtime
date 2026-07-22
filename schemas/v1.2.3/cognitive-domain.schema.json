@@ -16,6 +16,7 @@
     "planningCorrection",
     "planningInteractionEpisode",
     "experienceEpisode",
+    "experienceObservation",
     "knowledgeCandidate",
     "knowledgeTransition"
   ],
@@ -31,6 +32,7 @@
     "planningCorrection": { "$ref": "#/$defs/planningCorrection" },
     "planningInteractionEpisode": { "$ref": "#/$defs/planningInteractionEpisode" },
     "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
+    "experienceObservation": { "$ref": "#/$defs/experienceObservation" },
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
     "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
   },
@@ -836,6 +838,123 @@
         "snapshot": { "type": "object" },
         "sourceRefs": { "type": "array", "$ref": "#/$defs/sourceRefs", "minItems": 1 },
         "redactionCodes": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "experienceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "observationId",
+        "scope",
+        "sourceEpisodeIds",
+        "revision",
+        "status",
+        "statements",
+        "extractions",
+        "modelInvocationRefs",
+        "observationHash",
+        "summary",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "observationId": { "$ref": "#/$defs/id" },
+        "scope": { "enum": ["goal_episode", "planning_interaction", "cross_episode_batch"] },
+        "sourceEpisodeIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["partial", "completed", "failed"] },
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/experienceObservationStatement" }
+        },
+        "extractions": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/experienceExtraction" }
+        },
+        "modelInvocationRefs": { "$ref": "#/$defs/strings" },
+        "observationHash": { "$ref": "#/$defs/hash" },
+        "summary": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "experienceObservationStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statementId", "kind", "summary", "confidence", "sourceRefIds"],
+      "properties": {
+        "statementId": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": ["fact", "inference", "candidate_lesson", "uncertainty", "contradiction"]
+        },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sourceRefIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "experienceExtraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extractionId",
+        "observationId",
+        "extractorKind",
+        "status",
+        "modelTier",
+        "sourceEpisodeIds",
+        "statements",
+        "changeSuggestions",
+        "inputBytes",
+        "outputBytes",
+        "createdAt"
+      ],
+      "properties": {
+        "extractionId": { "$ref": "#/$defs/id" },
+        "observationId": { "$ref": "#/$defs/id" },
+        "extractorKind": {
+          "enum": [
+            "goal_pattern",
+            "task_type_signal",
+            "decomposition",
+            "dependency",
+            "criterion",
+            "evidence",
+            "artifact",
+            "capability",
+            "failure",
+            "recovery",
+            "no_progress",
+            "human_correction"
+          ]
+        },
+        "status": { "enum": ["completed", "no_op", "failed"] },
+        "modelTier": { "enum": ["fast", "reasoning"] },
+        "sourceEpisodeIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/experienceObservationStatement" }
+        },
+        "changeSuggestions": { "type": "array", "maxItems": 8, "items": { "type": "object" } },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "errorCode": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "inputBytes": { "type": "integer", "minimum": 0, "maximum": 524288 },
+        "outputBytes": { "type": "integer", "minimum": 0, "maximum": 262144 },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },

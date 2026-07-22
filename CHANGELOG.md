@@ -40,7 +40,12 @@ All notable changes to this project are documented here. The format follows Keep
   propagated deletion, task/user/tenant correction queries and management interaction evidence.
 - G07 PostgreSQL-transactional terminal outbox, leased/retryable Experience jobs, immutable redacted
   Goal Episodes, rebuildable BullMQ job-id wakes, dead-letter inspection/replay and operational API
-  evidence. Publication remains blocked pending real integration/E2E and `.git` approval.
+  evidence. The implementation is pushed; real integration/E2E remain an explicit release blocker.
+- G08 source/model-linked Experience Observations, twelve independent Zod/JSON-Schema typed
+  extractors, evidence partitioning, bounded prior-Observation consolidation, fast/reasoning tiers,
+  no-op and failure isolation, PostgreSQL Observation/outbox/reflect-job persistence, rebuildable
+  BullMQ observation wakes, migration 0116 and operational API/Console evidence. Publication and real
+  Docker-backed verification remain blocked by the platform approval limit.
 
 ### Changed
 

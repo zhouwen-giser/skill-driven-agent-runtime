@@ -1,8 +1,14 @@
+import type { ZodType } from 'zod';
+
 import type {
   CognitiveDomainEvent,
   CognitiveModelStage,
+  CognitiveSourceRef,
   CognitiveRuntimeFeatureFlags,
   ExperienceDeadLetter,
+  ExperienceExtraction,
+  ExperienceExtractorKind,
+  ExperienceObservation,
   ExperienceJob,
   GenericTaskUnderstandingRevision,
   GoalExperienceEpisode,
@@ -22,6 +28,25 @@ import type {
   UserGoalPlanCandidateSnapshot,
   UserGoalPlan,
 } from '../../../domain/src/index.js';
+
+export type ExperienceObservationPartition =
+  'contract' | 'plan' | 'attempt' | 'outcome' | 'recovery' | 'correction';
+
+export interface ExperienceExtractorInput {
+  readonly observationId: string;
+  readonly episodes: readonly GoalExperienceEpisode[];
+  readonly partitions: Readonly<Record<ExperienceObservationPartition, unknown>>;
+  readonly sourceRefs: readonly CognitiveSourceRef[];
+  readonly previousObservations: readonly ExperienceObservation[];
+}
+
+export interface ExperienceExtractor<T> {
+  readonly id: ExperienceExtractorKind;
+  readonly schema: ZodType<T>;
+  readonly modelTier: 'fast' | 'reasoning';
+  readonly requiredPartitions: readonly ExperienceObservationPartition[];
+  extract(input: ExperienceExtractorInput): Promise<ExperienceExtraction>;
+}
 
 export interface CognitiveFeatureFlagSource {
   load(): Promise<CognitiveRuntimeFeatureFlags>;
@@ -242,6 +267,42 @@ export interface ExperienceJobRepository {
 
 export interface ExperienceJobQueuePort {
   enqueue(jobId: string): Promise<void>;
+}
+
+export interface ObservationJobRepository {
+  claimObservation(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  completeObservation(
+    jobId: string,
+    workerId: string,
+    now: string,
+    observationId: string,
+  ): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listObservationRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ObservationRepository {
+  findById(observationId: string): Promise<ExperienceObservation | undefined>;
+  findByEpisode(episodeId: string): Promise<readonly ExperienceObservation[]>;
+  list(limit?: number, goalId?: string): Promise<readonly ExperienceObservation[]>;
+  listPrevious(
+    goalId: string,
+    excludeEpisodeId: string,
+    limit: number,
+  ): Promise<readonly ExperienceObservation[]>;
+  save(observation: ExperienceObservation): Promise<boolean>;
 }
 
 export interface KnowledgeRepository {

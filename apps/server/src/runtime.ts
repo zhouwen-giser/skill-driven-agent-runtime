@@ -114,6 +114,10 @@ import {
   ExperienceJobReconciler,
   ExperienceOutboxDispatcher,
   ExperienceManagementService,
+  ExperienceExtractorPipeline,
+  createDefaultExperienceExtractors,
+  ExperienceObserverService,
+  ObservationJobReconciler,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -190,6 +194,7 @@ import {
   PostgresExperienceJobRepository,
   PostgresGoalExperienceEpisodeRepository,
   PostgresCognitiveRuntimeFactReader,
+  PostgresObservationRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -235,6 +240,8 @@ import {
   BullMqRemoteTaskCancellationWorker,
   BullMqExperienceQueue,
   BullMqExperienceWorker,
+  BullMqObservationQueue,
+  BullMqObservationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -411,7 +418,9 @@ export async function startServerRuntime(
   const cognitiveOutbox = new PostgresCognitiveOutboxRepository(pool, clock);
   const experienceJobRepository = new PostgresExperienceJobRepository(pool);
   const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
+  const experienceObservations = new PostgresObservationRepository(pool);
   const experienceQueue = new BullMqExperienceQueue(options.redis);
+  const observationQueue = new BullMqObservationQueue(options.redis);
   const experienceJobs = new ExperienceJobService({
     jobs: experienceJobRepository,
     episodes: goalExperienceEpisodes,
@@ -437,6 +446,7 @@ export async function startServerRuntime(
     episodes: goalExperienceEpisodes,
     jobs: experienceJobRepository,
     queue: experienceQueue,
+    observations: experienceObservations,
     clock,
   });
   const experienceWorker = new BullMqExperienceWorker(
@@ -620,7 +630,8 @@ export async function startServerRuntime(
         input.stage !== 'task_understanding' &&
         input.stage !== 'task_clarification' &&
         input.stage !== 'goal_contract_generation' &&
-        input.stage !== 'interactive_plan_patch'
+        input.stage !== 'interactive_plan_patch' &&
+        input.stage !== 'experience_observation'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -635,6 +646,37 @@ export async function startServerRuntime(
       });
     },
   };
+  const observationPipeline = new ExperienceExtractorPipeline({
+    extractors: createDefaultExperienceExtractors({
+      model: cognitiveModel,
+      clock,
+      nextExtractionId: (kind) => `experience-extraction-${kind}-${randomUUID()}`,
+    }),
+    policy: {
+      maxEpisodes: 8,
+      maxInputBytes: 512 * 1024,
+      maxApproxTokens: 128 * 1024,
+      maxPreviousObservations: 3,
+    },
+  });
+  const experienceObserver = new ExperienceObserverService({
+    jobs: experienceJobRepository,
+    episodes: goalExperienceEpisodes,
+    observations: experienceObservations,
+    pipeline: observationPipeline,
+    clock,
+    nextObservationId: (episodeId) => `experience-observation-${episodeId}`,
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+  });
+  const observationReconciler = new ObservationJobReconciler({
+    jobs: experienceJobRepository,
+    queue: observationQueue,
+  });
+  const observationWorker = new BullMqObservationWorker(
+    options.redis,
+    experienceObserver,
+    `observation-worker-${randomUUID()}`,
+  );
   const taskUnderstanding =
     options.taskUnderstanding === undefined
       ? undefined
@@ -3191,6 +3233,7 @@ export async function startServerRuntime(
     void experienceOutboxDispatcher
       .dispatch()
       .then(() => experienceReconciler.requeue(clock.now()))
+      .then(() => observationReconciler.requeue(clock.now()))
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3304,6 +3347,7 @@ export async function startServerRuntime(
   try {
     await experienceOutboxDispatcher.dispatch();
     await experienceReconciler.requeue(clock.now());
+    await observationReconciler.requeue(clock.now());
   } catch (error: unknown) {
     process.stderr.write(
       `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3311,6 +3355,7 @@ export async function startServerRuntime(
   }
   worker.start();
   experienceWorker.start();
+  observationWorker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3629,11 +3674,13 @@ export async function startServerRuntime(
         await remoteTaskContinuationWorker?.close();
         await remoteTaskCancellationWorker?.close();
         await experienceWorker.close();
+        await observationWorker.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
         await remoteTaskCancellationQueue?.close();
         await experienceQueue.close();
+        await observationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -3661,10 +3708,12 @@ export async function startServerRuntime(
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();
     await experienceWorker.close();
+    await observationWorker.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
     await experienceQueue.close();
+    await observationQueue.close();
     await queue.close();
     await pool.end();
     throw error;

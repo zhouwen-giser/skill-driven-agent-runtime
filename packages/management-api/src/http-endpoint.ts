@@ -356,6 +356,7 @@ const ModelStageSchema = z.enum([
   'task_clarification',
   'goal_contract_generation',
   'interactive_plan_patch',
+  'experience_observation',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -518,7 +519,7 @@ export interface ManagementOperations {
   >;
   readonly experience?: Pick<
     ExperienceManagementService,
-    'listEpisodes' | 'listDeadLetters' | 'replayDeadLetter'
+    'listEpisodes' | 'listObservations' | 'listDeadLetters' | 'replayDeadLetter'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -1812,6 +1813,18 @@ export async function startManagementHttpEndpoint(
       }
       const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
       response.json({ items: await options.operations.experience.listDeadLetters(query.limit) });
+    }),
+  );
+  app.get(
+    '/api/v1/experience/observations',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const query = ExperienceListQuerySchema.parse(request.query);
+      response.json({
+        items: await options.operations.experience.listObservations(query.goalId, query.limit),
+      });
     }),
   );
   app.post(

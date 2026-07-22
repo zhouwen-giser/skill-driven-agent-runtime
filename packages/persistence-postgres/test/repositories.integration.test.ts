@@ -64,6 +64,7 @@ import {
   PostgresExperienceJobRepository,
   PostgresGoalExperienceEpisodeRepository,
   PostgresCognitiveRuntimeFactReader,
+  PostgresObservationRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -96,6 +97,9 @@ import {
   createMemoryItem,
   createPlanningCorrectionFact,
   createPlanningInteractionEpisode,
+  createExperienceObservation,
+  createExperienceExtraction,
+  createExperienceObservationStatement,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -3925,6 +3929,156 @@ describe('PostgreSQL protocol-domain repositories', () => {
       [fixture.goalId, 'goal-experience-episode.db'],
     );
     expect(persistence.rows[0]).toEqual({ episodes: 1, episode_events: 1, observe_jobs: 1 });
+  });
+
+  it('persists a source/model-linked Observation and atomically schedules reflection', async () => {
+    const fixture = await createTerminalOutcomeFixture('observation');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const clock = { now: () => '2026-07-16T00:00:06.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => 'goal-experience-episode.observation.db',
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [episodeJob] = await episodeService.claim('episode-worker.observation.db', 1);
+    if (episodeJob === undefined) throw new Error('OBSERVATION_EPISODE_JOB_MISSING');
+    await episodeService.process(episodeJob, 'episode-worker.observation.db');
+    const [episode] = await episodes.findByGoal(fixture.goalId);
+    if (episode === undefined) throw new Error('OBSERVATION_SOURCE_EPISODE_MISSING');
+
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.observation.db',
+      name: 'Observation Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'observation-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: '2026-07-16T00:00:06.000Z',
+      updatedAt: '2026-07-16T00:00:06.000Z',
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.observation.db',
+      taskId: fixture.taskId,
+      stage: 'experience_observation',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { extractorKind: 'goal_pattern' },
+      context: { sourceEpisodeId: episode.episodeId },
+      structuredResult: { statements: 1 },
+      inputTokens: 128,
+      outputTokens: 32,
+      durationMs: 25,
+      status: 'succeeded',
+      createdAt: '2026-07-16T00:00:07.000Z',
+    });
+
+    const statement = createExperienceObservationStatement({
+      statementId: 'observation-statement.db',
+      kind: 'fact',
+      summary: 'The cited terminal Outcome is achieved.',
+      confidence: 1,
+      sourceRefIds: [episode.sourceRefs[0]?.sourceRefId ?? 'source-missing'],
+    });
+    const observation = createExperienceObservation({
+      schemaVersion: '1.0',
+      observationId: 'experience-observation.db',
+      scope: 'goal_episode',
+      sourceEpisodeIds: [episode.episodeId],
+      revision: 1,
+      status: 'completed',
+      statements: [statement],
+      extractions: [
+        createExperienceExtraction({
+          extractionId: 'experience-extraction.db',
+          observationId: 'experience-observation.db',
+          extractorKind: 'goal_pattern',
+          status: 'completed',
+          modelTier: 'reasoning',
+          sourceEpisodeIds: [episode.episodeId],
+          statements: [statement],
+          changeSuggestions: [
+            {
+              action: 'create_candidate',
+              summary: 'Candidate only; promotion remains separate.',
+              sourceRefIds: statement.sourceRefIds,
+            },
+          ],
+          modelInvocationId: 'model-invocation.observation.db',
+          inputBytes: 1024,
+          outputBytes: 256,
+          createdAt: '2026-07-16T00:00:07.000Z',
+        }),
+      ],
+      modelInvocationRefs: ['model-invocation.observation.db'],
+      observationHash: `sha256:${'7'.repeat(64)}`,
+      summary: { extractorCount: 12, completed: 1, noOp: 11, failed: 0 },
+      createdAt: '2026-07-16T00:00:07.000Z',
+    });
+    const observations = new PostgresObservationRepository(pool);
+    await expect(observations.save(observation)).resolves.toBe(true);
+    await expect(observations.save(observation)).resolves.toBe(false);
+    await expect(observations.findByEpisode(episode.episodeId)).resolves.toEqual([observation]);
+    await expect(observations.list(10, fixture.goalId)).resolves.toEqual([observation]);
+
+    const [observeJob] = await jobs.claimObservation(
+      'observation-worker.db',
+      '2026-07-16T00:00:08.000Z',
+      60_000,
+      1,
+    );
+    if (observeJob === undefined) throw new Error('OBSERVATION_JOB_MISSING');
+    await jobs.completeObservation(
+      observeJob.jobId,
+      'observation-worker.db',
+      '2026-07-16T00:00:09.000Z',
+      observation.observationId,
+    );
+    const counts = await pool.query<{
+      observations: number;
+      statements: number;
+      extractions: number;
+      observation_events: number;
+      reflect_jobs: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_observation WHERE observation_id=$1) AS observations,
+         (SELECT count(*)::integer FROM experience_observation_fact WHERE observation_id=$1) AS statements,
+         (SELECT count(*)::integer FROM experience_extraction WHERE observation_id=$1) AS extractions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.observation_completed' AND aggregate_id=$1) AS observation_events,
+         (SELECT count(*)::integer FROM experience_job
+          WHERE job_type='reflect' AND subject_id=$1) AS reflect_jobs`,
+      [observation.observationId],
+    );
+    expect(counts.rows[0]).toEqual({
+      observations: 1,
+      statements: 1,
+      extractions: 1,
+      observation_events: 1,
+      reflect_jobs: 1,
+    });
   });
 
   it('reclaims expired PostgreSQL leases and supports explicit dead-letter replay', async () => {

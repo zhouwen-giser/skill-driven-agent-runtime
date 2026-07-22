@@ -302,6 +302,7 @@ beforeAll(async () => {
     'task_clarification',
     'goal_contract_generation',
     'interactive_plan_patch',
+    'experience_observation',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -6370,7 +6371,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { component: 'tool_call', evidenceRefs: ['tool_call:evidence'] },
       ],
     });
-    await expect(waitForGoalExperienceEpisode(internalTask.goalId)).resolves.toMatchObject({
+    const experienceEpisode = await waitForGoalExperienceEpisode(internalTask.goalId);
+    expect(experienceEpisode).toMatchObject({
       goalId: internalTask.goalId,
       taskId: submitted.id,
       episodeType: 'terminal',
@@ -6379,6 +6381,17 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       snapshot: expect.objectContaining({
         terminalOutcome: expect.objectContaining({ kind: 'achieved' }),
       }),
+    });
+    await expect(waitForGoalExperienceObservation(internalTask.goalId)).resolves.toMatchObject({
+      scope: 'goal_episode',
+      sourceEpisodeIds: [experienceEpisode.episodeId],
+      status: expect.stringMatching(/^(?:partial|completed)$/u),
+      extractions: expect.arrayContaining([
+        expect.objectContaining({ extractorKind: 'goal_pattern', status: 'completed' }),
+        expect.objectContaining({ extractorKind: 'recovery' }),
+        expect.objectContaining({ extractorKind: 'human_correction' }),
+      ]),
+      modelInvocationRefs: expect.arrayContaining([expect.any(String)]),
     });
   });
 
@@ -6991,6 +7004,9 @@ async function startModelLoopback(): Promise<Server> {
         const interactivePlanPatchRequest = body.messages?.some(
           (message) => message.content?.includes('untrustedUserInstruction') === true,
         );
+        const experienceObservationRequest = body.messages?.some(
+          (message) => message.content?.includes('untrusted_episode_data') === true,
+        );
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
@@ -7165,6 +7181,55 @@ async function startModelLoopback(): Promise<Server> {
                 },
               },
               { op: 'set_priority', skillGoalId, priority: 10 },
+            ],
+          });
+          return;
+        }
+        if (experienceObservationRequest === true) {
+          const content = body.messages?.map((message) => message.content ?? '').join('\n') ?? '';
+          const extractorKind = /"extractor":\{"kind":"([a-z_]+)"/u.exec(content)?.[1];
+          const sourceRefId = /"sourceRefIds":\["([^"]+)"/u.exec(content)?.[1];
+          if (extractorKind === undefined || sourceRefId === undefined) {
+            throw new Error('EXPERIENCE_OBSERVATION_FIXTURE_INVALID');
+          }
+          const statementKinds = [
+            'fact',
+            'inference',
+            'candidate_lesson',
+            'uncertainty',
+            'contradiction',
+          ] as const;
+          const extractorOrdinal = [
+            'goal_pattern',
+            'task_type_signal',
+            'decomposition',
+            'dependency',
+            'criterion',
+            'evidence',
+            'artifact',
+            'capability',
+            'failure',
+            'recovery',
+            'no_progress',
+            'human_correction',
+          ].indexOf(extractorKind);
+          respondStructured(response, {
+            extractorKind,
+            statements: [
+              {
+                kind:
+                  statementKinds[Math.max(0, extractorOrdinal) % statementKinds.length] ?? 'fact',
+                summary: `${extractorKind} source-linked observation`,
+                confidence: 0.8,
+                sourceRefIds: [sourceRefId],
+              },
+            ],
+            changeSuggestions: [
+              {
+                action: 'create_candidate',
+                summary: `${extractorKind} remains candidate-only`,
+                sourceRefIds: [sourceRefId],
+              },
             ],
           });
           return;
@@ -8734,11 +8799,12 @@ async function waitForManagementJson(path: string): Promise<unknown> {
   throw new Error(`MANAGEMENT_RESOURCE_NOT_READY:${path}:${lastBody}`);
 }
 
-async function waitForGoalExperienceEpisode(goalId: string): Promise<unknown> {
+async function waitForGoalExperienceEpisode(goalId: string) {
   const schema = z.object({
     items: z.array(
       z
         .object({
+          episodeId: z.string(),
           goalId: z.string(),
           episodeType: z.literal('terminal'),
           terminalOutcomeRef: z.string(),
@@ -8759,6 +8825,36 @@ async function waitForGoalExperienceEpisode(goalId: string): Promise<unknown> {
     await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`GOAL_EXPERIENCE_EPISODE_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForGoalExperienceObservation(goalId: string): Promise<unknown> {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          observationId: z.string(),
+          scope: z.enum(['goal_episode', 'planning_interaction', 'cross_episode_batch']),
+          sourceEpisodeIds: z.array(z.string()).min(1),
+          status: z.enum(['partial', 'completed', 'failed']),
+          statements: z.array(z.object({ sourceRefIds: z.array(z.string()).min(1) }).loose()),
+          extractions: z.array(z.object({ extractorKind: z.string(), status: z.string() }).loose()),
+          modelInvocationRefs: z.array(z.string()),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/experience/observations?goalId=${encodeURIComponent(goalId)}&limit=10`,
+      ).then((response) => response.json()),
+    );
+    const observation = latest.items[0];
+    if (observation !== undefined) return observation;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`GOAL_EXPERIENCE_OBSERVATION_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
 }
 
 async function waitForRuntimeTerminalOutcomeWarning(

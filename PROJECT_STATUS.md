@@ -1,14 +1,22 @@
 # Project Status
 
-SDAR v1.2.3 G07 implementation is present but not committed or published (2026-07-23). The v1.2.2
-terminal transaction atomically emits a PostgreSQL outbox Fact; PostgreSQL leases and idempotent jobs
-asynchronously build redacted immutable Goal Experience Episodes, while Redis carries rebuildable
-job-id wakes only. Dead letters are inspectable and manually replayable. Non-Docker gates pass 533
-unit, 151 serial contract, 139 OpenAPI operations, 354-source architecture and production build; the
-isolated 0108-0115 migration path passed before the platform quota was reached. Real integration/E2E
-and `.git` staging were then rejected before execution by the Codex automatic approval usage limit.
-G07 is honestly blocked, Draft PR #8 is still G00-G06, and G08 proceeds only as a provisional local
-handoff. See `reports/goal/g07-completion.md`.
+SDAR v1.2.3 G08 implementation is complete locally but not committed or published (2026-07-23).
+Exactly twelve independent typed extractors produce source/model-linked structured Observations from
+redacted immutable Goal Episodes. PostgreSQL owns Observation/idempotency/outbox/next-job state;
+BullMQ carries rebuildable job-id wakes only. Evidence absence no-ops, one extractor failure is
+isolated, and total Observer failure cannot affect the original Goal. Non-Docker gates pass 539 unit,
+151 serial contract, 140 OpenAPI operations, 362-source architecture, A2A MUST 74/74 and production
+build. Migration 0116, real integration and real A2A E2E are authored but unexecuted; the G08 staging
+attempt was rejected before execution by the Codex approval usage limit. G09 proceeds provisionally
+from local contracts. See `reports/goal/g08-completion.md`.
+
+SDAR v1.2.3 G07 is complete and pushed as `301606e` (2026-07-23). The v1.2.2 terminal transaction
+atomically emits a PostgreSQL outbox Fact; PostgreSQL leases and idempotent jobs asynchronously build
+redacted immutable Goal Experience Episodes, while Redis carries rebuildable job-id wakes only. Dead
+letters are inspectable and manually replayable. Non-Docker gates pass 533 unit, 151 serial contract,
+139 OpenAPI operations, 354-source architecture and production build; isolated migrations 0108-0115
+passed. Real integration/E2E remain honestly blocked by the platform quota and are carried to G17.
+Draft PR #8 remains Draft and contains G00-G07. See `reports/goal/g07-completion.md`.
 
 SDAR v1.2.3 G06 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Understanding, Goal Contract and Plan corrections now

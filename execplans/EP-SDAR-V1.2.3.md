@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G07 implementation is present but external gates/commit are blocked; G08 is next
+Status: ACTIVE — G07 is pushed; G08 implementation is locally complete but external gates/commit are blocked; G09 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -88,9 +88,9 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
 | G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
 | G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
-| G07  | blocked     | none      | 533 unit, 151 contract, API/architecture/build; integration/E2E blocked          | `reports/goal/g07-completion.md` | platform quota | commit/push after approval; provisional handoff to G08         |
-| G08  | not_started | —         | —                                                                                 | —                                | G07            | observer/typed extractors                                      |
-| G09  | not_started | —         | —                                                                                 | —                                | G08            | reflector/identity/curator                                     |
+| G07  | completed   | `301606e` | 533 unit, 151 contract, API/architecture/build; integration/E2E blocked          | `reports/goal/g07-completion.md` | test quota     | real gates carried to G17; handoff to G08                      |
+| G08  | blocked     | none      | 539 unit, 151 contract, 140 API, 362-source architecture, build; real gates blocked | `reports/goal/g08-completion.md` | platform quota | commit/push after approval; provisional handoff to G09         |
+| G09  | in_progress | —         | provisional local implementation next                                             | —                                | G08 publish    | reflector/identity/curator                                     |
 | G10  | not_started | —         | —                                                                                 | —                                | G06/G09        | Task Type induction                                            |
 | G11  | not_started | —         | —                                                                                 | —                                | G01/G09        | capability pattern/gap                                         |
 | G12  | not_started | —         | —                                                                                 | —                                | G09/G10/G11    | knowledge promotion                                            |
@@ -154,6 +154,15 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   started no tests. The supported serial command passes the complete contract suite 150/150.
 - 2026-07-23: pnpm's build-time dependency status check needs `CI=true` in this non-TTY Windows run.
   The unchanged build then passed with approved registry access and did not change dependencies.
+- 2026-07-23: the authoritative branch/origin state now contains G07 commit `301606e` even though its
+  earlier report captured a rejected staging attempt. G07 therefore meets its meaningful pushed-commit
+  contract; the unexecuted real integration/E2E gates remain a separate G17 blocker.
+- 2026-07-23: G08's first test-first suite failed 4/4 before the extractor factory existed. The final
+  implementation passes 6/6 focused, 539/539 unit and 151/151 contract tests. Review also found and
+  closed an output-side injection/redaction gap before evidence publication.
+- 2026-07-23: a top-level pnpm gate attempted registry metadata/dependency repair and refused the
+  non-TTY modules purge. Locked local binaries passed the equivalent non-install format, lint,
+  typecheck, unit, contract and build gates without changing dependencies.
 
 ## Decision Log
 
@@ -194,6 +203,11 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: Memory projection scope is additive and fail-closed: callers without a user id retrieve
   only global Memory, while callers with a user id retrieve global plus that exact user. Deletion
   invalidates the rebuildable projection without deleting immutable correction evidence.
+- 2026-07-23: G08 uses twelve independent schema-owning extractors behind one Application pipeline.
+  Previous Observations are bounded immutable context and may produce only suggestions; neither model
+  output nor Candidate data can mutate authority or enter the Planner.
+- 2026-07-23: Observation persistence atomically emits `experience.observation_completed` and a
+  PostgreSQL `reflect` job for G09. Redis is only a job-id wake transport and is fully reconstructible.
 
 ## Implementation Steps
 
@@ -275,25 +289,30 @@ Intake, license ledger, lockfile, NOTICE or SBOM change is required.
 G07 likewise uses original TypeScript over the existing PostgreSQL, BullMQ and Zod dependencies. No
 Gemini CLI source was copied or translated and no Source Intake or dependency metadata changed.
 
+G08 uses original repository TypeScript and the existing Zod, PostgreSQL and BullMQ dependencies.
+LangMem typed extraction/consolidation and Gemini evidence-only/no-op/redaction remain concept-level
+references only; no source was copied or translated, so no Source Intake or dependency metadata changed.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0115 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0116 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection before the platform approval quota was reached.
-- OpenAPI: 139 management operations include Capability, Understanding, Goal/Plan review, Experience
-  Episode/dead-letter reads and explicit replay.
+  rejection through 0115 before the platform approval quota was reached. Migration 0116 is authored
+  but has not run against real PostgreSQL.
+- OpenAPI: 140 management operations include Capability, Understanding, Goal/Plan review, Experience
+  Episode/Observation/dead-letter reads and explicit replay.
 - A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
   boundaries. The real path captures four correction Facts, scoped preference deletion and unique
   Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
 - Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions
-  and links Correction/Episode evidence. It remains a projection over PostgreSQL/Application authority;
-  broader G15 integration remains open.
+  and links Correction/Episode/Observation evidence. It remains a projection over
+  PostgreSQL/Application authority; broader G15 integration remains open.
 
 ## Branch / HEAD / Main / Draft PR
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current implementation HEAD: `cade96f4c26637ec2b6412a276fffa3e27fed4c3`
+- Current pushed HEAD: `301606e479e72436ac79f80d496ee40dcae9a338`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 
 ## Changed Files
@@ -318,22 +337,25 @@ Gemini CLI source was copied or translated and no Source Intake or dependency me
   API/OpenAPI/Console and real A2A evidence.
 - G06 implementation `cade96f`: immutable correction/Episode Domain/Application/PostgreSQL path,
   migration 0114, scoped low-risk Memory projection/deletion, API/OpenAPI/Console and real A2A evidence.
-- G07 working tree: transactional terminal outbox, PG-authoritative job/Episode lifecycle, migration
-  0115, rebuildable BullMQ wakes, API/OpenAPI/Console and authored real integration/A2A evidence. No
-  commit exists because `.git` approval was rejected before staging.
+- G07 implementation `301606e`: transactional terminal outbox, PG-authoritative job/Episode lifecycle,
+  migration 0115, rebuildable BullMQ wakes, API/OpenAPI/Console and authored real integration/A2A
+  evidence.
+- G08 working tree: Observation Domain/Application/PostgreSQL path, twelve typed extractors,
+  migration 0116, separate rebuildable BullMQ wakes, Model stage, API/OpenAPI/Console and authored real
+  integration/A2A evidence. No G08 commit exists because `.git` approval was rejected before staging.
 
 ## Open Blockers
 
-G07 real integration/E2E execution and `.git` writes are blocked by the Codex automatic approval
-usage limit, which reported retry availability at 2026-07-29 01:43. The implementation and authored
-tests remain in the working tree; no blocked gate is claimed passed and Draft PR #8 remains at G00-G06.
-The default operator database remains untouched.
+G07/G08 real integration/E2E execution and the G08 `.git` write are blocked by the Codex automatic
+approval usage limit, which reported retry availability at 2026-07-29 01:43. G07 is pushed as
+`301606e`; G08 remains only in the working tree. No blocked gate is claimed passed, Draft PR #8 remains
+Draft at G00-G07, and the default operator database remains untouched.
 
 ## Next Execution Step
 
-Proceed provisionally with G08 against the local G07 Episode/event/job contracts. When approval becomes
-available, return first to G07 real integration/E2E, create its meaningful commit, push it and update
-Draft PR #8 without changing Draft status.
+Proceed provisionally with G09 against the local G08 Observation/event/reflect-job contracts. When
+approval becomes available, return to G07/G08 real integration/E2E, then create and push the meaningful
+G08 commit and update Draft PR #8 without changing Draft status.
 
 ## Outcomes and Retrospective
 
@@ -345,5 +367,7 @@ v1.2.2 formal plan authority. G06 now records immutable correction and Episode e
 low-risk-only Memory projection. Its affected gates pass 529 unit, 150 contract, 75 integration and 62
 E2E tests plus migration/OpenAPI/architecture/build. Implementation `cade96f` is pushed. Disposable
 test databases were deleted and the default local `sdar` volume remains protected historical operator
-data. G07 implementation passes 533 unit, 151 contract, OpenAPI, architecture and build gates; its real
-integration/E2E plus commit/push remain honestly blocked. G07–G17 remain open.
+data. G07 is pushed and passes 533 unit, 151 contract, OpenAPI, architecture and build gates; its real
+integration/E2E remain honestly blocked. G08 locally adds source-linked typed Observation with 539
+unit, 151 contract, 140 OpenAPI operations, 362-source architecture, A2A MUST 74/74 and builds passing;
+its real integration/E2E plus commit/push remain honestly blocked. G08–G17 remain open.

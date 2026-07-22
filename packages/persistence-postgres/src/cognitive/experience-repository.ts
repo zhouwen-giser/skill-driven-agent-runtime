@@ -244,10 +244,24 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
   }
 
   async claim(workerId: string, now: string, leaseMs: number, limit: number) {
+    return this.#claimType('episode', workerId, now, leaseMs, limit);
+  }
+
+  async claimObservation(workerId: string, now: string, leaseMs: number, limit: number) {
+    return this.#claimType('observe', workerId, now, leaseMs, limit);
+  }
+
+  async #claimType(
+    jobType: ExperienceJob['jobType'],
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ) {
     const result = await this.#pool.query<ExperienceJobRow>(
       `WITH claimable AS (
          SELECT job_id FROM experience_job
-         WHERE job_type='episode' AND (
+         WHERE job_type=$5 AND (
            (status IN ('pending','retry_wait') AND available_at <= $2)
            OR (status='leased' AND lease_expires_at <= $2)
          )
@@ -260,17 +274,40 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
          updated_at=$2
        FROM claimable c WHERE j.job_id=c.job_id
        RETURNING j.*`,
-      [workerId, now, limit, leaseMs],
+      [workerId, now, limit, leaseMs, jobType],
     );
     return result.rows.map(mapJob);
   }
 
   async complete(jobId: string, workerId: string, now: string, episodeId: string): Promise<void> {
+    return this.#completeWithResult(jobId, workerId, now, `goal-experience-episode:${episodeId}`);
+  }
+
+  async completeObservation(
+    jobId: string,
+    workerId: string,
+    now: string,
+    observationId: string,
+  ): Promise<void> {
+    return this.#completeWithResult(
+      jobId,
+      workerId,
+      now,
+      `experience-observation:${observationId}`,
+    );
+  }
+
+  async #completeWithResult(
+    jobId: string,
+    workerId: string,
+    now: string,
+    resultRef: string,
+  ): Promise<void> {
     const result = await this.#pool.query(
       `UPDATE experience_job SET status='completed',lease_owner=NULL,lease_expires_at=NULL,
          result_ref=$4,last_error_code=NULL,updated_at=$3
        WHERE job_id=$1 AND status='leased' AND lease_owner=$2`,
-      [jobId, workerId, now, `goal-experience-episode:${episodeId}`],
+      [jobId, workerId, now, resultRef],
     );
     if (result.rowCount === 0) {
       const existing = await this.#pool.query<ExperienceJobRow>(
@@ -278,10 +315,7 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
         [jobId],
       );
       const row = existing.rows[0];
-      if (
-        row?.status !== 'completed' ||
-        row.result_ref !== `goal-experience-episode:${episodeId}`
-      ) {
+      if (row?.status !== 'completed' || row.result_ref !== resultRef) {
         throw new Error('EXPERIENCE_JOB_LEASE_CONFLICT');
       }
     }
@@ -332,13 +366,25 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
   }
 
   async listRequeueable(now: string, limit = 100): Promise<readonly ExperienceJob[]> {
+    return this.#listRequeueableType('episode', now, limit);
+  }
+
+  async listObservationRequeueable(now: string, limit = 100): Promise<readonly ExperienceJob[]> {
+    return this.#listRequeueableType('observe', now, limit);
+  }
+
+  async #listRequeueableType(
+    jobType: ExperienceJob['jobType'],
+    now: string,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]> {
     const result = await this.#pool.query<ExperienceJobRow>(
       `SELECT * FROM experience_job
        WHERE ((status IN ('pending','retry_wait') AND available_at <= $1)
          OR (status='leased' AND lease_expires_at <= $1))
-         AND job_type='episode'
+         AND job_type=$3
        ORDER BY available_at,job_id LIMIT $2`,
-      [now, limit],
+      [now, limit, jobType],
     );
     return result.rows.map(mapJob);
   }

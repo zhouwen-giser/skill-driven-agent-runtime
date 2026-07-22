@@ -346,5 +346,23 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G07-06 credential/reasoning/PII exclusion | verified | recursive key and inline string redaction with immutable snapshot | focused redaction regression passes |
 | AC-G07-07 dead-letter replay | contract verified, real test blocked | inspect and actor-attributed one-shot replay API | 52 focused contracts pass; replay integration authored |
 
-G07 is not release-complete: real integration/E2E plus meaningful commit/push are externally blocked.
-Exact evidence and failed attempts are retained in `reports/goal/g07-completion.md`.
+G07 is pushed as `301606e479e72436ac79f80d496ee40dcae9a338`; its Goal contract permits the
+real integration/E2E gates to remain honestly blocked, but those gates still block the final release
+claim. Exact evidence and failed attempts are retained in `reports/goal/g07-completion.md`.
+
+## SDAR v1.2.3 G08 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G08-01 source-linked Observation | implemented, real test blocked | Observer consumes immutable Goal Episodes; PG save verifies all sources and model invocation FKs | focused service unit passes; PostgreSQL round-trip and real A2A slice authored |
+| AC-G08-02 typed independent extractors | verified at unit | twelve `ExperienceExtractor<T>` instances each own literal Zod/JSON Schema and failure state | schema golden plus invalid-dependency isolation passes |
+| AC-G08-03 distinct statement classes | verified | Domain/JSON schema distinguish fact/inference/candidate_lesson/uncertainty/contradiction | all five classes asserted across 12 results |
+| AC-G08-04 evidence no-op | verified | required-partition check returns `no_op` before model invocation | missing recovery and correction regressions pass |
+| AC-G08-05 untrusted text inert | verified | explicit inert envelope plus input/output directive, role, credential and PII sanitation | transcript/model-output injection regression passes |
+| AC-G08-06 failure cannot affect Goal | unit verified, real test blocked | async Observer retries/dead-letters after terminal commit; no Goal/Episode mutation dependency | total failure unit passes; terminal-to-Observation E2E authored |
+| AC-G08-07 bounded execution | verified | max 8 Episodes, 512 KiB, approximate 128 Ki tokens and 3 prior Observations | batch/600 KiB rejection before model calls passes |
+
+G08 passes 539 unit, 151 contract, 140-operation OpenAPI, 362-source architecture, A2A MUST 74/74
+and production builds. Migration 0116, real integration/E2E and meaningful commit/push remain blocked
+before execution by the platform approval usage limit; exact evidence is in
+`reports/goal/g08-completion.md`.

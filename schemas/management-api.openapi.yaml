@@ -225,6 +225,25 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ExperienceDeadLetterList' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/observations:
+    get:
+      operationId: listExperienceObservations
+      description: Lists immutable source-linked structured Observations. Facts, inferences and candidate lessons remain advisory.
+      parameters:
+        - { name: goalId, in: query, required: false, schema: { type: string } }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Experience Observations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceObservationList' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/experience/dead-letters/{deadLetterId}/replay:
     parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
     post:
@@ -1531,6 +1550,118 @@ components:
               failedAt: { type: string, format: date-time }
               replayedAt: { type: string, format: date-time }
               replayedBy: { type: string }
+    ExperienceObservationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservation' }
+    ExperienceObservation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          observationId,
+          scope,
+          sourceEpisodeIds,
+          revision,
+          status,
+          statements,
+          extractions,
+          modelInvocationRefs,
+          observationHash,
+          summary,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        observationId: { type: string }
+        scope: { enum: [goal_episode, planning_interaction, cross_episode_batch] }
+        sourceEpisodeIds: { type: array, minItems: 1, maxItems: 8, items: { type: string } }
+        revision: { type: integer, minimum: 1 }
+        status: { enum: [partial, completed, failed] }
+        statements:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservationStatement' }
+        extractions:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceExtraction' }
+        modelInvocationRefs: { type: array, items: { type: string } }
+        observationHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        summary: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    ExperienceObservationStatement:
+      type: object
+      additionalProperties: false
+      required: [statementId, kind, summary, confidence, sourceRefIds]
+      properties:
+        statementId: { type: string }
+        kind: { enum: [fact, inference, candidate_lesson, uncertainty, contradiction] }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+    ExperienceExtraction:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          extractionId,
+          observationId,
+          extractorKind,
+          status,
+          modelTier,
+          sourceEpisodeIds,
+          statements,
+          changeSuggestions,
+          inputBytes,
+          outputBytes,
+          createdAt,
+        ]
+      properties:
+        extractionId: { type: string }
+        observationId: { type: string }
+        extractorKind:
+          enum:
+            [
+              goal_pattern,
+              task_type_signal,
+              decomposition,
+              dependency,
+              criterion,
+              evidence,
+              artifact,
+              capability,
+              failure,
+              recovery,
+              no_progress,
+              human_correction,
+            ]
+        status: { enum: [completed, no_op, failed] }
+        modelTier: { enum: [fast, reasoning] }
+        sourceEpisodeIds: { type: array, minItems: 1, maxItems: 8, items: { type: string } }
+        statements:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservationStatement' }
+        changeSuggestions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [action, summary, sourceRefIds]
+            properties:
+              action:
+                enum:
+                  [create_candidate, create_revision, suggest_supersede, suggest_reject, no_change]
+              summary: { type: string, minLength: 1, maxLength: 4096 }
+              sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+        modelInvocationId: { type: string }
+        errorCode: { type: string }
+        inputBytes: { type: integer, minimum: 0, maximum: 524288 }
+        outputBytes: { type: integer, minimum: 0, maximum: 262144 }
+        createdAt: { type: string, format: date-time }
     ExperienceJob:
       type: object
       additionalProperties: false

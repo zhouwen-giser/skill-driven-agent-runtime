@@ -22,3 +22,7 @@ export * from './experience-job-reconciler.js';
 export * from './cognitive-outbox-publisher.js';
 export * from './experience-outbox-dispatcher.js';
 export * from './experience-management-service.js';
+export * from './experience-extractor-pipeline.js';
+export * from './extractors/typed-experience-extractors.js';
+export * from './experience-observer-service.js';
+export * from './observation-job-reconciler.js';
