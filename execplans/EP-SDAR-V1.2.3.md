@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G04 is complete and pushed; G05 is next
+Status: ACTIVE — G05 is complete and pushed; G06 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -86,8 +86,8 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G02  | completed   | `2ec8987` | full `pnpm verify`: 656 unit/contract, 71 integration, 61 E2E, build/smoke        | `reports/goal/g02-completion.md` | none           | hand off declared Summary to G03; preserve public Card for G15 |
 | G03  | completed   | `05b4df4` | 663 unit/contract, 72 integration, 62 real E2E, migration/API/build gates          | `reports/goal/g03-completion.md` | none           | hand off immutable Understanding revisions to G04              |
 | G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates          | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
-| G05  | not_started | —         | —                                                                                 | —                                | G01/G04        | interactive planning/patch                                     |
-| G06  | not_started | —         | —                                                                                 | —                                | G04/G05        | correction facts/interaction episode                           |
+| G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates     | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
+| G06  | not_started | —         | —                                                                                 | —                                | none           | correction facts/interaction episode                           |
 | G07  | not_started | —         | —                                                                                 | —                                | G00            | outbox/job/Goal episode                                        |
 | G08  | not_started | —         | —                                                                                 | —                                | G07            | observer/typed extractors                                      |
 | G09  | not_started | —         | —                                                                                 | —                                | G08            | reflector/identity/curator                                     |
@@ -141,6 +141,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   `awaiting_user_input` and property absence. The full rerun passes 62/62.
 - 2026-07-23: G03 can return the existing persisted Model Runtime invocation identity without adding a
   second model audit service. Understanding stores that foreign key after strict structured validation.
+- 2026-07-23: G05's first architecture run correctly rejected a cognitive Domain import of the
+  v1.2.2 User Goal domain. The candidate snapshot is now generic cognitive data and Application alone
+  binds it to `UserGoalPlan`, preserving the no-reverse-dependency invariant.
+- 2026-07-23: the default-parallel combined test command exposed the pre-existing 5 ms frozen MCP
+  notification timing test once; its isolated run and the complete serial contract suite pass without
+  weakening assertions. Final unit, integration and E2E suites also pass independently.
 
 ## Decision Log
 
@@ -170,6 +176,11 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   the revision and maps to `rejected`, rather than creating another terminal state.
 - 2026-07-23: Task Understanding is enabled only when deployment-owned Task Type fixtures are supplied.
   This keeps the additive runtime compatible while G10 later provides governed active Task Types.
+- 2026-07-23: G05 splits existing planning into candidate generation and formal commit. Only
+  `ConfirmedPlanHandoff`, protected by a dedicated `goalId + goalVersion` advisory lock, may call the
+  formal commit boundary; legacy `plan()` continues to compose both for unchanged v1.2.2 callers.
+- 2026-07-23: candidate revisions are session-local immutable review data. They retain formal plan
+  revision 1 and never pretend an unpersisted candidate is a persisted `sourcePlanId`.
 
 ## Implementation Steps
 
@@ -246,19 +257,21 @@ dependency was added.
 
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0110 ledger is implemented; Card activation columns/key, fresh apply,
-  idempotency, rollback/reapply, guarded reset and rogue-ledger rejection pass on real PostgreSQL.
-- OpenAPI: 128 management operations include Summary and Public Card read/rebuild boundaries.
-- A2A: the Agent Card reads the activated Public Card and exposes `io.sdar/capabilityProfile`; locked
-  HTTP-JSON applicable MUST remains 74/74.
-- Console: the Capabilities panel reads/rebuilds the real active Card. It is an operational projection,
-  not a separate authority; broader G15 integration remains open.
+- Migration: additive 0108–0113 ledger is implemented; Interactive Planning session/turn/candidate,
+  model audit and event changes pass fresh apply, idempotency, rollback/reapply, guarded reset and
+  rogue-ledger rejection on real PostgreSQL 17 + pgvector.
+- OpenAPI: 134 management operations include Capability, Understanding, Goal Session and Planning
+  Session read/action boundaries.
+- A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects both Goal and Plan
+  review boundaries. The G05 real A2A path remains `INPUT_REQUIRED` until explicit confirmation.
+- Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions.
+  It remains a projection over PostgreSQL/Application authority; broader G15 integration remains open.
 
 ## Branch / HEAD / Main / Draft PR
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current implementation HEAD: `d226bfb2e87da622f9711199ea93c1dcba38a3a0`
+- Current implementation HEAD: `02a367d85903f29a1147116c4af2952ab32716db`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 
 ## Changed Files
@@ -278,26 +291,29 @@ dependency was added.
 - G04 implementation `d226bfb`: Interactive Goal Domain/Application/PostgreSQL state machine,
   migration 0112, immutable clarification revisions, candidate review/diff, Goal handoff,
   API/OpenAPI/Console and A2A interaction metadata.
+- G05 implementation `02a367d`: Interactive Planning Domain/Application/PostgreSQL state machine,
+  migration 0113, strict audited patch compiler, seven-check validator, confirmed-only plan handoff,
+  API/OpenAPI/Console and real A2A evidence.
 
 ## Open Blockers
 
 None. The package self-check is platform-safe and passing. The default operator database's historical
 ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names. G04 implementation `d226bfb` is pushed and Draft PR #8 remains Draft.
+database names. G05 implementation `02a367d` is pushed and Draft PR #8 remains Draft.
 
 ## Next Execution Step
 
-Start G05 interactive planning from the confirmed G04 Goal Contract candidate. Reuse the existing
-Planner/Workflow authority, compile user patches into fresh immutable plan candidates and update Draft
-PR #8 without changing Draft status.
+Start G06 from G03-G05 immutable Goal/Plan interaction lineage. Persist correction facts and
+interaction episodes with actor/source provenance without changing v1.2.2 Goal/Plan authority, then
+update Draft PR #8 without changing Draft status.
 
 ## Outcomes and Retrospective
 
 G00 completed without activating cognitive behavior. G01 provides the deterministic declared Summary.
 G02 adds an allowlisted, hash-bound Public Card without Provider/readiness/model authority. G03 routes
-ambiguous requests through bounded structured Understanding. G04 now persists interactive
-clarification/review/confirmation and hands only a confirmed contract to the existing Goal/Planner
-authority. Its affected gates pass 667 unit/contract, 73 integration and 62 E2E tests plus
-migration/OpenAPI/architecture/build. Implementation `d226bfb` is pushed. Disposable test databases
-were deleted and the default local `sdar` volume remains protected historical operator data. G05–G17
-remain open.
+ambiguous requests through bounded structured Understanding. G04 persists interactive Goal review;
+G05 now adds immutable Plan review/patch validation and hands only a confirmed candidate to the
+existing v1.2.2 formal plan authority. Its affected gates pass 526 unit, 149 contract, 74 integration
+and 62 E2E tests plus migration/OpenAPI/architecture/build. Implementation `02a367d` is pushed.
+Disposable test databases were deleted and the default local `sdar` volume remains protected
+historical operator data. G06–G17 remain open.

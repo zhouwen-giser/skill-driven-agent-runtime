@@ -1,5 +1,16 @@
 # Project Status
 
+SDAR v1.2.3 G05 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. A confirmed G04 Goal Contract now enters a
+PostgreSQL-authoritative PLAN_REVIEW session whose immutable candidates can be inspected, patched,
+rejected, cancelled or explicitly confirmed. The audited strict patch compiler, seven-check validator,
+manual high-risk policy, CAS/idempotency/outbox recovery and dedicated `goalId + goalVersion` handoff
+lock preserve the existing v1.2.2 formal Planner/Workflow authority. API/OpenAPI, operational Console
+and A2A `io.sdar/interaction` are wired. Affected gates pass 526 unit, 149 serial contract, 74 real
+integration, 62 real E2E, 134 OpenAPI operations, 338-source architecture, 0108-0113 migration
+rollback/reapply and production build. Implementation `02a367d` is pushed and Draft PR #8 remains
+Draft; G06 correction facts and interaction episodes are next.
+
 SDAR v1.2.3 G04 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Ambiguous tasks now use a PostgreSQL-authoritative
 Interactive Goal Session with non-repeating clarification, immutable Understanding revisions,

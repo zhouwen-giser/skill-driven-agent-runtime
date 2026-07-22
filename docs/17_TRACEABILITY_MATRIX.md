@@ -310,3 +310,15 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G04-04 candidate generation, diff and user patch precedence | verified | strict bounded `goal_contract_generation`; `GoalContractCandidateFactory` | invalid/valid model boundary and deterministic patch-diff unit |
 | AC-G04-05 session CAS, idempotency and recovery | verified | migration 0112; `PostgresInteractiveGoalRepository`; transaction locks/outbox | concurrent real PostgreSQL apply/conflict, duplicate replay, migration rollback/reapply |
 | AC-G04-06 API, Console and A2A interaction boundary | verified | Goal Session GET/actions, 132-operation OpenAPI, operational Console, `io.sdar/interaction` | API contract and 62/62 real E2E; `reports/goal/g04-completion.md` |
+
+## SDAR v1.2.3 G05 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G05-01 PLAN_REVIEW and base Planner candidate | verified | `InteractivePlanningSessionService`; split `generateCandidate`/`commitCandidate` boundary | focused state-machine/unit and real ambiguous-task A2A E2E |
+| AC-G05-02 structured Plan Patch compiler | verified | strict audited `interactive_plan_patch`; add/remove/update Goal/dependency/priority/parallel/policy | patch-schema, operation and two-attempt/3000 ms unit; three real audited E2E patches |
+| AC-G05-03 full candidate validation | verified | `UserGoalPlanCandidateValidator`; DAG/bounds/coverage/capability/policy/side-effect/no-replay checks | cyclic, orphan, cross-group, coverage and risk-policy regressions |
+| AC-G05-04 immutable review evidence | verified | candidate revisions, diff, hints, metadata and model invocation FK; migration 0113 | unit plus real PostgreSQL restart/collision/outbox integration |
+| AC-G05-05 confirmed-only v1.2.2 handoff | verified | `ConfirmedPlanHandoff`; dedicated `goalId + goalVersion` lock | no formal plan/Skill Attempt/MCP before accept; lock and idempotent crash-replay tests |
+| AC-G05-06 CAS/idempotency/recovery/events | verified | `PostgresInteractivePlanningRepository`; atomic candidate/session/turn/outbox transaction | concurrent real PostgreSQL integration; `plan.candidate_created/revised/confirmed` assertions |
+| AC-G05-07 API/Console/A2A/performance regression | verified | Planning Session GET/actions, 134-operation OpenAPI, Task Console and `io.sdar/interaction` | 526 unit, 149 contract, 74 integration, 62 real E2E, build; `reports/goal/g05-completion.md` |

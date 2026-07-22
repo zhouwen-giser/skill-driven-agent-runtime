@@ -30,6 +30,10 @@ All notable changes to this project are documented here. The format follows Keep
   PostgreSQL CAS/idempotency/outbox evidence.
 - Management Goal Session read/action operations, operational Task Console review controls and A2A
   `io.sdar/interaction` metadata at the existing `INPUT_REQUIRED` boundary.
+- G05 restart-safe Interactive Planning Sessions, immutable User Goal Plan candidates, strict audited
+  natural-language patch compilation, full candidate validation and confirmed-only v1.2.2 handoff.
+- Management Planning Session read/action operations, operational DAG/diff/validation Console controls
+  and A2A plan-review metadata at the existing `INPUT_REQUIRED` boundary.
 
 ### Changed
 
@@ -43,6 +47,8 @@ All notable changes to this project are documented here. The format follows Keep
   never call a model and fail closed rather than serving a hash-mismatched Card.
 - Ambiguous Task preparation now persists a validated Understanding before requesting input; explicit
   requests preserve the v1.2.2 Goal path and unconfirmed candidates never become authority.
+- Confirmed G04 Goal Contracts now generate non-authoritative plan candidates first. Only an explicit
+  G05 accept under the `goalId + goalVersion` lock may create the existing formal plan and schedule it.
 
 ### Verification
 
@@ -63,6 +69,13 @@ All notable changes to this project are documented here. The format follows Keep
   323-source architecture, migration 0108-0111 rollback/reapply and production build. The retained first
   E2E failure was an absent-property assertion defect; the product path already reached
   `INPUT_REQUIRED`. Implementation `05b4df4` is pushed and Draft PR #8 remains Draft.
+- G04 affected gates pass 667 unit/contract, 73 real integration, 62 real E2E, 132 OpenAPI operations,
+  329-source architecture, migration 0108-0112 rollback/reapply and production build. Implementation
+  `d226bfb` is pushed and Draft PR #8 remains Draft.
+- G05 affected gates pass 526 unit, 149 serial contract, 74 real integration, 62 real E2E, 134 OpenAPI
+  operations, 338-source architecture, migration 0108-0113 rollback/reapply and production build.
+  The retained parallel-contract timing flake passes in isolation and the full serial contract gate;
+  implementation `02a367d` is pushed and Draft PR #8 remains Draft.
 
 ## [1.2.2] - Unreleased
 
