@@ -149,6 +149,45 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/InteractivePlanningSessionView' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/planning-interactions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getPlanningInteractions
+      description: Returns immutable Planning Correction Facts and Interaction Episode revisions for one Task. Memory projections are not authority.
+      responses:
+        '200':
+          description: Planning corrections and immutable episode revisions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningInteractionsResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/users/{userId}/planning-preferences:
+    parameters: [{ name: userId, in: path, required: true, schema: { type: string } }]
+    delete:
+      operationId: deleteUserPlanningPreferences
+      description: Invalidates rebuildable user-scoped low-risk planning-preference Memory projections. Authoritative correction history remains immutable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actorId]
+              properties:
+                actorId: { type: string, minLength: 1, maxLength: 256 }
+      responses:
+        '200':
+          description: Number of scoped projections invalidated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [deleted]
+                properties:
+                  deleted: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/memories:
     post:
       operationId: createMemory
@@ -1365,6 +1404,56 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    PlanningInteractionsResponse:
+      type: object
+      additionalProperties: false
+      required: [corrections, episodes]
+      properties:
+        corrections:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required:
+              [schemaVersion, correctionId, taskId, target, correctionType, scope, beforeSnapshot, userInstruction, structuredPatch, afterSnapshot, validation, accepted, correctionHash, sourceRefs, createdAt]
+            properties:
+              schemaVersion: { const: '1.0' }
+              correctionId: { type: string }
+              taskId: { type: string }
+              target: { enum: [task_understanding, goal_contract, skill_goal_plan] }
+              correctionType:
+                enum:
+                  [missing_target, missing_scope, missing_criterion, missing_artifact, missing_evidence, missing_capability, wrong_decomposition, wrong_dependency, wrong_priority, unsafe_side_effect, unnecessary_goal, parallelism_correction, degradation_correction]
+              scope: { enum: [task, user, tenant, global_candidate] }
+              beforeSnapshot: { type: object }
+              userInstruction: { type: string }
+              structuredPatch: { type: object }
+              afterSnapshot: { type: object }
+              validation: { type: object }
+              accepted: { type: boolean }
+              correctionHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              sourceRefs: { type: array, items: { type: object } }
+              createdAt: { type: string, format: date-time }
+        episodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required:
+              [schemaVersion, episodeId, taskId, revision, originalRequest, turns, correctionIds, completeness, inductionFingerprint, episodeHash, sourceRefs, createdAt]
+            properties:
+              schemaVersion: { const: '1.0' }
+              episodeId: { type: string }
+              taskId: { type: string }
+              revision: { type: integer, minimum: 1 }
+              originalRequest: { type: string }
+              turns: { type: array, items: { type: object } }
+              correctionIds: { type: array, items: { type: string } }
+              completeness: { type: number, minimum: 0, maximum: 1 }
+              inductionFingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              episodeHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              sourceRefs: { type: array, items: { type: object } }
+              createdAt: { type: string, format: date-time }
     InteractivePlanningAction:
       type: object
       additionalProperties: false

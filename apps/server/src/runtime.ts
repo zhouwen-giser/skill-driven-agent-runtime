@@ -105,6 +105,9 @@ import {
   InteractivePlanPatchService,
   UserGoalPlanCandidateValidator,
   ConfirmedPlanHandoff,
+  PlanningCorrectionService,
+  PlanningInteractionEpisodeBuilder,
+  PlanningPreferenceProjector,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -118,6 +121,7 @@ import {
   type SkillUsageSlotChoice,
   type CognitiveStructuredModelStageInvoker,
   type TaskTypeDefinition,
+  type PlanningCorrectionObserver,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -175,6 +179,7 @@ import {
   PostgresInteractiveGoalRepository,
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
+  PostgresPlanningCorrectionRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -527,6 +532,40 @@ export async function startServerRuntime(
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
   const taskUnderstandings = new PostgresTaskUnderstandingRepository(pool);
+  const interactiveGoalRepository = new PostgresInteractiveGoalRepository(pool);
+  const interactivePlanningRepository = new PostgresInteractivePlanningRepository(pool);
+  const planningCorrectionRepository = new PostgresPlanningCorrectionRepository(pool);
+  const planningCorrectionRef: { current?: PlanningCorrectionService } = {};
+  const planningCorrectionObserver: PlanningCorrectionObserver = {
+    async record(input) {
+      try {
+        await planningCorrectionRef.current?.record(input);
+      } catch (error: unknown) {
+        process.stderr.write(
+          `${JSON.stringify({
+            level: 'warn',
+            event: 'planning_correction_capture_failed',
+            taskId: input.taskId,
+            errorCode: runtimeErrorCode(error),
+          })}\n`,
+        );
+      }
+    },
+    async recordInteraction(taskId) {
+      try {
+        await planningCorrectionRef.current?.recordInteraction(taskId);
+      } catch (error: unknown) {
+        process.stderr.write(
+          `${JSON.stringify({
+            level: 'warn',
+            event: 'planning_interaction_capture_failed',
+            taskId,
+            errorCode: runtimeErrorCode(error),
+          })}\n`,
+        );
+      }
+    },
+  };
   const cognitiveModel: CognitiveStructuredModelStageInvoker = {
     generate(input) {
       if (
@@ -564,7 +603,7 @@ export async function startServerRuntime(
     taskUnderstanding === undefined
       ? undefined
       : new InteractiveGoalSessionService({
-          repository: new PostgresInteractiveGoalRepository(pool),
+          repository: interactiveGoalRepository,
           understandings: taskUnderstandings,
           async reviseUnderstanding(input) {
             const schema = z
@@ -634,6 +673,7 @@ export async function startServerRuntime(
             maxContractRevisions: 4,
             maxElapsedMs: 900_000,
           },
+          interactions: planningCorrectionObserver,
         });
   let interactivePlanningSessions: InteractivePlanningSessionService | undefined;
   const interactiveGoalMetadata = async (
@@ -699,6 +739,21 @@ export async function startServerRuntime(
     nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
   });
+  const planningCorrections = new PlanningCorrectionService({
+    repository: planningCorrectionRepository,
+    builder: new PlanningInteractionEpisodeBuilder({
+      tasks,
+      understandings: taskUnderstandings,
+      goalSessions: interactiveGoalRepository,
+      planningSessions: interactivePlanningRepository,
+      corrections: planningCorrectionRepository,
+      clock,
+    }),
+    preferences: new PlanningPreferenceProjector({ memories }),
+    clock,
+    nextCorrectionId: () => `planning-correction-${randomUUID()}`,
+  });
+  planningCorrectionRef.current = planningCorrections;
   const memoryRetention = new MemoryRetentionPolicyService({
     repository: new PostgresMemoryRetentionPolicyRepository(pool),
     clock,
@@ -1649,7 +1704,7 @@ export async function startServerRuntime(
   if (interactiveGoalSessions !== undefined) {
     const planCandidateValidator = new UserGoalPlanCandidateValidator();
     interactivePlanningSessions = new InteractivePlanningSessionService({
-      repository: new PostgresInteractivePlanningRepository(pool),
+      repository: interactivePlanningRepository,
       planner: userGoalPlanning,
       patches: new InteractivePlanPatchService({
         model: cognitiveModel,
@@ -1673,6 +1728,7 @@ export async function startServerRuntime(
       maxRevisions: 4,
       maxElapsedMs: 900_000,
       defaultConfirmationPolicy: 'manual_all',
+      interactions: planningCorrectionObserver,
     });
   }
   const userGoalRecovery = new UserGoalRecoveryService({
@@ -2180,6 +2236,27 @@ export async function startServerRuntime(
             outcomeId: outcome.outcomeId,
           })}\n`,
         );
+      }
+      if (control.taskId !== undefined) {
+        try {
+          await planningCorrections.recordOutcome({
+            taskId: control.taskId,
+            outcomeRef: `runtime-outcome:${outcome.outcomeId}`,
+            ...(outcome.controlStatus === 'achieved'
+              ? {}
+              : { counterexampleRefs: [`runtime-outcome:${outcome.outcomeId}`] }),
+          });
+        } catch (error: unknown) {
+          process.stderr.write(
+            `${JSON.stringify({
+              level: 'warn',
+              event: 'planning_interaction_outcome_capture_failed',
+              taskId: control.taskId,
+              outcomeId: outcome.outcomeId,
+              errorCode: runtimeErrorCode(error),
+            })}\n`,
+          );
+        }
       }
     },
     reportWarning: (warning) => {
@@ -3205,6 +3282,7 @@ export async function startServerRuntime(
                 },
               },
             }),
+        planningInteractions: planningCorrections,
         goals: goalService,
         goalPatches,
         goalCancellations,

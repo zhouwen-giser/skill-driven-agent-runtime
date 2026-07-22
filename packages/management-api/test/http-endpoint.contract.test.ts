@@ -274,6 +274,46 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('reads immutable planning interactions and propagates user-scoped preference deletion', async () => {
+    let deletion: unknown;
+    const interactions = {
+      corrections: [
+        {
+          correctionId: 'correction-1',
+          taskId: 'task-1',
+          scope: 'user',
+          userId: 'user-1',
+          correctionType: 'wrong_priority',
+        },
+      ],
+      episodes: [{ episodeId: 'interaction-1', taskId: 'task-1', revision: 1 }],
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        planningInteractions: {
+          listTaskInteractions: () => Promise.resolve(interactions as never),
+          deleteUserScopedProjection: (userId, actorId) => {
+            deletion = { userId, actorId };
+            return Promise.resolve(1);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/planning-interactions`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(interactions);
+    const deleted = await fetch(`${endpoint.baseUrl}/api/v1/users/user-1/planning-preferences`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ actorId: 'privacy-operator' }),
+    });
+    expect(deleted.status).toBe(200);
+    await expect(deleted.json()).resolves.toEqual({ deleted: 1 });
+    expect(deletion).toEqual({ userId: 'user-1', actorId: 'privacy-operator' });
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {

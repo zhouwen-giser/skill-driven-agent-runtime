@@ -12,6 +12,8 @@ import {
   type GoalContractCandidateSnapshot,
   type InteractiveGoalAction,
   type InteractiveGoalSessionSnapshot,
+  type PlanningCorrectionType,
+  type PlanningPreferenceCategory,
 } from '../../../domain/src/index.js';
 import { GoalContractCandidateFactory } from './goal-contract-candidate-factory.js';
 import {
@@ -24,6 +26,10 @@ import type {
   InteractiveGoalRepository,
   TaskUnderstandingRepository,
 } from './ports.js';
+import type {
+  PlanningCorrectionObserver,
+  PlanningCorrectionRecordInput,
+} from './planning-correction-service.js';
 
 const ContractOutputSchema = z
   .object({
@@ -79,6 +85,7 @@ export class InteractiveGoalSessionService {
     maxContractRevisions: number;
     maxElapsedMs: number;
   }>;
+  readonly #interactions: PlanningCorrectionObserver | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -105,6 +112,7 @@ export class InteractiveGoalSessionService {
         maxContractRevisions: number;
         maxElapsedMs: number;
       }>;
+      interactions?: PlanningCorrectionObserver;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -116,6 +124,7 @@ export class InteractiveGoalSessionService {
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
     this.#budgets = dependencies.budgets;
+    this.#interactions = dependencies.interactions;
   }
 
   async start(input: Readonly<{ taskId: string }>): Promise<InteractiveGoalSessionView> {
@@ -181,6 +190,7 @@ export class InteractiveGoalSessionService {
     );
     if (duplicate !== undefined) {
       const session = await this.#requiredSession(input.sessionId);
+      await this.#interactions?.recordInteraction(session.taskId);
       return this.#view('duplicate', session, await this.#currentCandidate(session));
     }
     const session = await this.#requiredSession(input.sessionId);
@@ -305,6 +315,20 @@ export class InteractiveGoalSessionService {
       nextSession,
       ...(candidate === undefined ? {} : { candidate }),
     });
+    if (result.outcome === 'applied' && this.#interactions !== undefined) {
+      const correction = goalCorrectionInput({
+        input,
+        session,
+        turn,
+        understanding,
+        nextUnderstanding,
+        ...(currentCandidate === undefined ? {} : { currentCandidate }),
+        ...(candidate === undefined ? {} : { candidate }),
+        ...(question === undefined ? {} : { question }),
+      });
+      if (correction === undefined) await this.#interactions.recordInteraction(session.taskId);
+      else await this.#interactions.record(correction);
+    }
     return this.#view(
       result.outcome,
       result.session,
@@ -414,6 +438,145 @@ export class InteractiveGoalSessionService {
       ...(candidate === undefined ? {} : { candidate }),
     };
   }
+}
+
+function goalCorrectionInput(
+  input: Readonly<{
+    input: InteractiveGoalActionInput;
+    session: InteractiveGoalSessionSnapshot;
+    turn: ReturnType<typeof createInteractiveGoalTurn>;
+    understanding: GenericTaskUnderstandingRevision;
+    nextUnderstanding: GenericTaskUnderstandingRevision;
+    currentCandidate?: GoalContractCandidateSnapshot;
+    candidate?: GoalContractCandidateSnapshot;
+    question?: MissingDimensionQuestion;
+  }>,
+): PlanningCorrectionRecordInput | undefined {
+  if (input.input.action === 'answer' || input.input.action === 'restart_understanding') {
+    return {
+      taskId: input.session.taskId,
+      sessionId: input.session.sessionId,
+      turnId: input.turn.turnId,
+      idempotencyKey: `goal:${input.session.sessionId}:${input.input.idempotencyKey}`,
+      actorId: input.input.actorId,
+      target: 'task_understanding',
+      correctionType: correctionTypeForDimension(input.question?.kind),
+      ...correctionScope(input.input),
+      beforeSnapshot: jsonObject(input.understanding),
+      userInstruction: instructionText(
+        input.input.payload[input.input.action === 'answer' ? 'answer' : 'requestText'],
+      ),
+      structuredPatch: {
+        action: input.input.action,
+        ...(input.question === undefined ? {} : { binding: input.question }),
+      },
+      afterSnapshot: jsonObject(input.nextUnderstanding),
+      validation: {
+        disposition: input.nextUnderstanding.disposition,
+        stateHash: input.nextUnderstanding.stateHash,
+      },
+      accepted: true,
+      ...preferenceCategory(input.input.payload),
+      sourceRefs: input.nextUnderstanding.sourceRefs,
+    };
+  }
+  if (
+    input.input.action !== 'patch' ||
+    input.currentCandidate === undefined ||
+    input.candidate === undefined
+  ) {
+    return undefined;
+  }
+  const patch = jsonObject(input.input.payload['patch']);
+  return {
+    taskId: input.session.taskId,
+    sessionId: input.session.sessionId,
+    turnId: input.turn.turnId,
+    idempotencyKey: `goal:${input.session.sessionId}:${input.input.idempotencyKey}`,
+    actorId: input.input.actorId,
+    target: 'goal_contract',
+    correctionType: correctionTypeForGoalPatch(patch),
+    ...correctionScope(input.input),
+    beforeSnapshot: jsonObject(input.currentCandidate.contract),
+    userInstruction: instructionText(input.input.payload['patch']),
+    structuredPatch: patch,
+    afterSnapshot: jsonObject(input.candidate.contract),
+    validation: { valid: true, changedFields: input.candidate.diff.changedFields },
+    accepted: true,
+    ...preferenceCategory(input.input.payload),
+    sourceRefs: input.candidate.sourceRefs,
+  };
+}
+
+function correctionScope(input: InteractiveGoalActionInput) {
+  const value = input.payload['correctionScope'];
+  const scope =
+    value === 'user' || value === 'tenant' || value === 'global_candidate' ? value : 'task';
+  if (scope === 'user') {
+    const userId = input.payload['userId'];
+    return {
+      scope,
+      userId: typeof userId === 'string' && userId.trim() !== '' ? userId : input.actorId,
+    } as const;
+  }
+  if (scope === 'tenant') {
+    const tenantId = input.payload['tenantId'];
+    if (typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('PLANNING_CORRECTION_TENANT_ID_REQUIRED');
+    }
+    return { scope, tenantId: tenantId.trim() } as const;
+  }
+  return { scope } as const;
+}
+
+function preferenceCategory(payload: Readonly<Record<string, unknown>>): Readonly<{
+  preferenceCategory?: PlanningPreferenceCategory;
+}> {
+  const value = payload['preferenceCategory'];
+  return value === 'display' ||
+    value === 'interaction' ||
+    value === 'report_format' ||
+    value === 'detailed_plan' ||
+    value === 'parallel_explanation' ||
+    value === 'time_expression' ||
+    value === 'language'
+    ? { preferenceCategory: value }
+    : {};
+}
+
+function correctionTypeForDimension(
+  kind: MissingDimensionQuestion['kind'] | undefined,
+): PlanningCorrectionType {
+  if (kind === 'target') return 'missing_target';
+  if (kind === 'criteria') return 'missing_criterion';
+  if (kind === 'artifact') return 'missing_artifact';
+  if (kind === 'evidence') return 'missing_evidence';
+  if (kind === 'priority') return 'wrong_priority';
+  if (kind === 'side_effect_authorization') return 'unsafe_side_effect';
+  if (kind === 'degradation_policy') return 'degradation_correction';
+  return 'missing_scope';
+}
+
+function correctionTypeForGoalPatch(
+  patch: Readonly<Record<string, unknown>>,
+): PlanningCorrectionType {
+  if ('successCriteria' in patch) return 'missing_criterion';
+  if ('constraints' in patch) return 'missing_scope';
+  return 'missing_target';
+}
+
+function instructionText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  const serialized = JSON.stringify(value);
+  return serialized.length > 8192 ? serialized.slice(0, 8192) : serialized;
+}
+
+function jsonObject(value: unknown): Readonly<Record<string, unknown>> {
+  const parsed: unknown = JSON.parse(JSON.stringify(value));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('PLANNING_CORRECTION_SNAPSHOT_INVALID');
+  }
+  return parsed as Readonly<Record<string, unknown>>;
 }
 
 function requiredPayload(payload: Readonly<Record<string, unknown>>, key: string): unknown {

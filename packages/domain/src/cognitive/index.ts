@@ -7,4 +7,5 @@ export * from './interaction.js';
 export * from './interactive-goal.js';
 export * from './interactive-planning.js';
 export * from './knowledge.js';
+export * from './planning-correction.js';
 export * from './task-understanding.js';

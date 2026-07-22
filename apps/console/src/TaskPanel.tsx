@@ -1069,6 +1069,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       label: 'Interactive Planning Session',
       endpoint: `/api/v1/tasks/${id}/planning-session`,
     },
+    {
+      key: 'planning-interactions',
+      label: 'Planning Corrections and Interaction Episodes',
+      endpoint: `/api/v1/tasks/${id}/planning-interactions`,
+    },
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
     {
       key: 'remote-task-lifecycle',

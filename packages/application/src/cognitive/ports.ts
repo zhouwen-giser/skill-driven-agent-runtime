@@ -12,6 +12,8 @@ import type {
   InteractivePlanningTurn,
   KnowledgeCandidateSnapshot,
   KnowledgeStatusTransition,
+  PlanningCorrectionFact,
+  PlanningInteractionEpisode,
   PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
@@ -148,6 +150,54 @@ export interface InteractivePlanningRepository {
 
 export interface GoalVersionLock {
   withLock<T>(goalId: string, goalVersion: number, operation: () => Promise<T>): Promise<T>;
+}
+
+export interface PlanningCorrectionRepository {
+  findByIdempotencyKey(
+    taskId: string,
+    idempotencyKey: string,
+  ): Promise<PlanningCorrectionFact | undefined>;
+  saveIfAbsent(
+    fact: PlanningCorrectionFact,
+  ): Promise<Readonly<{ fact: PlanningCorrectionFact; inserted: boolean }>>;
+  listByTask(taskId: string): Promise<readonly PlanningCorrectionFact[]>;
+  listUserScoped(userId: string): Promise<readonly PlanningCorrectionFact[]>;
+  listTenantScoped(tenantId: string): Promise<readonly PlanningCorrectionFact[]>;
+  saveEpisode(episode: PlanningInteractionEpisode): Promise<boolean>;
+  listEpisodes(taskId: string): Promise<readonly PlanningInteractionEpisode[]>;
+}
+
+export interface PlanningInteractionEpisodeBuilderPort {
+  build(
+    input: Readonly<{
+      taskId: string;
+      outcomeRef?: string;
+      counterexampleRefs?: readonly string[];
+    }>,
+  ): Promise<PlanningInteractionEpisode>;
+}
+
+export interface PlanningPreferenceProjectionPort {
+  projectLowRisk(fact: PlanningCorrectionFact): Promise<unknown>;
+  deleteUserScope(
+    userId: string,
+    facts: readonly PlanningCorrectionFact[],
+    actorId: string,
+  ): Promise<number>;
+}
+
+export interface PlanningInteractionTaskSource {
+  findById(taskId: string): Promise<
+    | Readonly<{
+        taskId: string;
+        userId: string;
+        requestText: string;
+        requestMetadata: Readonly<Record<string, unknown>>;
+        goalId?: string;
+        goalVersion?: number;
+      }>
+    | undefined
+  >;
 }
 
 export interface GoalExperienceEpisodeRepository {

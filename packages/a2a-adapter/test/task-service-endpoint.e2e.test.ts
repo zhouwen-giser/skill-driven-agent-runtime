@@ -557,19 +557,37 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         patchModelInvocationId: expect.any(String),
       },
     });
-    for (const instruction of [
-      'Keep the inspection read-only and retain the same evidence priority.',
+    const scopedPreference = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session/actions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedVersion: 2,
+          idempotencyKey: 'e2e-user-preference-patch',
+          actorId: 'user.e2e.planning',
+          action: 'patch',
+          payload: {
+            instruction: 'Keep the inspection read-only and retain the same evidence priority.',
+            correctionScope: 'user',
+            userId: 'user.e2e.planning',
+            preferenceCategory: 'interaction',
+          },
+        }),
+      },
+    );
+    expect(scopedPreference.status).toBe(200);
+    await expect(scopedPreference.json()).resolves.toMatchObject({
+      session: { state: 'plan_review', version: 3, currentCandidateRevision: 3 },
+    });
+    const finalRevision = await sendFollowUp(
+      submitted.id,
+      submitted.contextId,
+      'provide_input',
       'Make the verified inspection result concise without changing coverage.',
-    ]) {
-      const revision = await sendFollowUp(
-        submitted.id,
-        submitted.contextId,
-        'provide_input',
-        instruction,
-      );
-      if (!('id' in revision)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-      await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
-    }
+    );
+    if (!('id' in finalRevision)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
     await expect(
       fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-session`).then(
         (response) => response.json(),
@@ -598,6 +616,67 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     ).then((response) => response.json());
     expect(stillUnconfirmed).not.toHaveProperty('userGoalPlanId');
     expect(stillUnconfirmed).not.toHaveProperty('skillAttemptId');
+    const interactionEvidence = z
+      .object({
+        corrections: z.array(
+          z.object({
+            correctionId: z.string(),
+            target: z.enum(['task_understanding', 'goal_contract', 'skill_goal_plan']),
+            correctionType: z.string(),
+            scope: z.enum(['task', 'user', 'tenant', 'global_candidate']),
+            userId: z.string().optional(),
+            beforeSnapshot: z.record(z.string(), z.unknown()),
+            structuredPatch: z.record(z.string(), z.unknown()),
+            afterSnapshot: z.record(z.string(), z.unknown()),
+            validation: z.record(z.string(), z.unknown()),
+          }),
+        ),
+        episodes: z.array(
+          z
+            .object({
+              revision: z.number(),
+              correctionIds: z.array(z.string()),
+              completeness: z.number(),
+              inductionFingerprint: z.string(),
+              episodeHash: z.string(),
+              outcomeRef: z.string().optional(),
+            })
+            .loose(),
+        ),
+      })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-interactions`,
+        ).then((response) => response.json()),
+      );
+    expect(interactionEvidence.corrections).toHaveLength(4);
+    expect(interactionEvidence.corrections.map((fact) => fact.target)).toEqual(
+      expect.arrayContaining(['task_understanding', 'skill_goal_plan']),
+    );
+    const userPreferenceFact = interactionEvidence.corrections.find(
+      (fact) => fact.scope === 'user',
+    );
+    expect(userPreferenceFact).toMatchObject({
+      userId: 'user.e2e.planning',
+      target: 'skill_goal_plan',
+    });
+    expect(new Set(interactionEvidence.episodes.map((episode) => episode.episodeHash)).size).toBe(
+      interactionEvidence.episodes.length,
+    );
+    expect(interactionEvidence.episodes.at(-1)).not.toHaveProperty('outcomeRef');
+    if (userPreferenceFact === undefined) throw new Error('USER_PREFERENCE_FACT_MISSING');
+    const preferenceMemoryId = `planning-preference-${userPreferenceFact.correctionId}`;
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(preferenceMemoryId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({
+      memoryId: preferenceMemoryId,
+      status: 'active',
+      authority: 'user_instruction',
+      scope: 'user',
+      userId: 'user.e2e.planning',
+    });
 
     const planAccepted = await sendFollowUp(
       submitted.id,
@@ -627,6 +706,32 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       skillAttemptId: expect.any(String),
       planId: expect.any(String),
     });
+    const confirmedInteractions = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/planning-interactions`,
+    ).then((response) => response.json());
+    expect(confirmedInteractions).toMatchObject({
+      corrections: expect.arrayContaining([
+        expect.objectContaining({ correctionId: userPreferenceFact.correctionId }),
+      ]),
+      episodes: expect.arrayContaining([
+        expect.objectContaining({ acceptedPlan: expect.any(Object) }),
+      ]),
+    });
+    const deletedPreference = await fetch(
+      `${runtime.management.baseUrl}/api/v1/users/user.e2e.planning/planning-preferences`,
+      {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ actorId: 'privacy.e2e' }),
+      },
+    );
+    expect(deletedPreference.status).toBe(200);
+    await expect(deletedPreference.json()).resolves.toEqual({ deleted: 1 });
+    await expect(
+      fetch(
+        `${runtime.management.baseUrl}/api/v1/memories/${encodeURIComponent(preferenceMemoryId)}`,
+      ).then((response) => response.json()),
+    ).resolves.toMatchObject({ memoryId: preferenceMemoryId, status: 'invalid' });
   });
 
   it('registers, persists, discovers, and calls a remote MCP Tool without restart', async () => {

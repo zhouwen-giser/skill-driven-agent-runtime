@@ -54,6 +54,7 @@ import {
   PostgresInteractiveGoalRepository,
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
+  PostgresPlanningCorrectionRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -82,6 +83,10 @@ import {
   createInteractivePlanningTurn,
   createUserGoalPlan,
   createUserGoalPlanCandidateSnapshot,
+  createCognitiveSourceRef,
+  createMemoryItem,
+  createPlanningCorrectionFact,
+  createPlanningInteractionEpisode,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -208,7 +213,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
+    'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
   );
   await pool.query(
     `UPDATE memory_retention_policy SET review_after_days=90,archive_after_days=365,
@@ -4708,6 +4713,174 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ),
     );
     expect(maxActive).toBe(1);
+  });
+
+  it('persists idempotent scoped correction facts, immutable episode revisions and isolated Memory projections', async () => {
+    const repository = new PostgresPlanningCorrectionRepository(pool);
+    const source = createCognitiveSourceRef({
+      schemaVersion: '1.0',
+      sourceRefId: 'source.correction.pg.1',
+      sourceKind: 'planning_correction',
+      sourceId: 'correction.pg.1',
+      sourceRevision: 1,
+      authority: 'user_instruction',
+      dataClassification: 'user_scoped',
+      capturedAt: '2026-07-23T05:10:00.000Z',
+      contentHash: `sha256:${'a'.repeat(64)}`,
+    });
+    const fact = createPlanningCorrectionFact({
+      schemaVersion: '1.0',
+      correctionId: 'correction.pg.1',
+      taskId: 'task.correction.pg.1',
+      goalId: 'goal.correction.pg.1',
+      goalVersion: 1,
+      sessionId: 'planning-session.correction.pg.1',
+      turnId: 'planning-turn.correction.pg.1',
+      idempotencyKey: 'plan:planning-session.correction.pg.1:patch-1',
+      actorId: 'user.pg.1',
+      target: 'skill_goal_plan',
+      correctionType: 'wrong_dependency',
+      scope: 'user',
+      userId: 'user.pg.1',
+      beforeSnapshot: { dependencies: [] },
+      userInstruction: 'Inspect before reporting and remember this ordering preference.',
+      structuredPatch: { dependencies: ['inspect->report'] },
+      afterSnapshot: { dependencies: ['inspect->report'] },
+      validation: { valid: true },
+      accepted: true,
+      preferenceCategory: 'interaction',
+      counterexampleRefs: [],
+      correctionHash: `sha256:${'a'.repeat(64)}`,
+      sourceRefs: [source],
+      createdAt: '2026-07-23T05:10:00.000Z',
+    });
+    const results = await Promise.all([
+      repository.saveIfAbsent(fact),
+      repository.saveIfAbsent(fact),
+    ]);
+    expect(results.map((result) => result.inserted).sort()).toEqual([false, true]);
+    await expect(repository.listByTask(fact.taskId)).resolves.toHaveLength(1);
+    await expect(repository.listUserScoped(fact.userId ?? '')).resolves.toMatchObject([
+      { correctionId: fact.correctionId, scope: 'user', userId: 'user.pg.1' },
+    ]);
+    const correctionEvents = await pool.query<{ event_type: string }>(
+      'SELECT event_type FROM cognitive_runtime_outbox WHERE aggregate_id=$1',
+      [fact.correctionId],
+    );
+    expect(correctionEvents.rows.map((row) => row.event_type)).toEqual([
+      'planning.correction_recorded',
+    ]);
+    await repository.saveIfAbsent(
+      createPlanningCorrectionFact({
+        ...fact,
+        correctionId: 'correction.pg.tenant.1',
+        idempotencyKey: 'plan:planning-session.correction.pg.1:tenant-patch-1',
+        scope: 'tenant',
+        tenantId: 'tenant.pg.1',
+        correctionHash: `sha256:${'e'.repeat(64)}`,
+      }),
+    );
+    await expect(repository.listTenantScoped('tenant.pg.1')).resolves.toMatchObject([
+      { correctionId: 'correction.pg.tenant.1', tenantId: 'tenant.pg.1' },
+    ]);
+    await expect(repository.listTenantScoped('tenant.pg.2')).resolves.toEqual([]);
+
+    const baseEpisode = createPlanningInteractionEpisode({
+      schemaVersion: '1.0',
+      episodeId: 'interaction.pg.1',
+      taskId: fact.taskId,
+      goalId: 'goal.correction.pg.1',
+      goalVersion: 1,
+      userId: 'user.pg.1',
+      revision: 1,
+      originalRequest: 'Inspect and report.',
+      turns: [{ action: 'patch' }],
+      correctionIds: [fact.correctionId],
+      counterexampleRefs: [],
+      completeness: 0.875,
+      inductionFingerprint: `sha256:${'b'.repeat(64)}`,
+      episodeHash: `sha256:${'c'.repeat(64)}`,
+      sourceRefs: [source],
+      createdAt: '2026-07-23T05:10:01.000Z',
+    });
+    await expect(repository.saveEpisode(baseEpisode)).resolves.toBe(true);
+    await expect(repository.saveEpisode(baseEpisode)).resolves.toBe(false);
+    await expect(
+      repository.saveEpisode(
+        createPlanningInteractionEpisode({
+          ...baseEpisode,
+          episodeId: 'interaction.pg.2',
+          revision: 2,
+          outcomeRef: 'runtime-outcome:outcome.pg.1',
+          counterexampleRefs: ['runtime-outcome:outcome.pg.1'],
+          completeness: 1,
+          episodeHash: `sha256:${'d'.repeat(64)}`,
+          createdAt: '2026-07-23T05:10:02.000Z',
+        }),
+      ),
+    ).resolves.toBe(true);
+    const restartedEpisodes = await new PostgresPlanningCorrectionRepository(pool).listEpisodes(
+      fact.taskId,
+    );
+    expect(restartedEpisodes).toHaveLength(2);
+    expect(restartedEpisodes[0]).toMatchObject({ revision: 1 });
+    expect(restartedEpisodes[0]).not.toHaveProperty('outcomeRef');
+    expect(restartedEpisodes[1]).toMatchObject({
+      revision: 2,
+      outcomeRef: 'runtime-outcome:outcome.pg.1',
+      counterexampleRefs: ['runtime-outcome:outcome.pg.1'],
+    });
+
+    const memories = new PostgresMemoryRepository(pool);
+    const embedding = { providerId: 'provider.scope.pg', vector: [1, 0, 0] };
+    await memories.save(
+      createMemoryItem({
+        memoryId: 'memory.global.pg',
+        type: 'fact',
+        content: { statement: 'global' },
+        summary: 'Global memory.',
+        status: 'active',
+        sourceRefs: ['test:global'],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Test global memory.',
+        scope: 'global',
+        createdAt: '2026-07-23T05:10:00.000Z',
+      }),
+      embedding,
+    );
+    await memories.save(
+      createMemoryItem({
+        memoryId: 'memory.user.pg',
+        type: 'fact',
+        content: { statement: 'user' },
+        summary: 'User memory.',
+        status: 'active',
+        sourceRefs: ['test:user'],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'user_instruction',
+        durabilityReason: 'Explicit low-risk user preference.',
+        scope: 'user',
+        userId: 'user.pg.1',
+        createdAt: '2026-07-23T05:10:00.000Z',
+      }),
+      embedding,
+    );
+    await expect(memories.search({ ...embedding, limit: 10 })).resolves.toMatchObject([
+      { item: { memoryId: 'memory.global.pg', scope: 'global' } },
+    ]);
+    const scoped = await memories.search({ ...embedding, limit: 10, userId: 'user.pg.1' });
+    expect(scoped.map((hit) => hit.item.memoryId).sort()).toEqual([
+      'memory.global.pg',
+      'memory.user.pg',
+    ]);
+    await expect(
+      memories.search({ ...embedding, limit: 10, userId: 'user.pg.2' }),
+    ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.pg' } }]);
   });
 });
 

@@ -13,6 +13,8 @@
     "taskUnderstanding",
     "interactiveSession",
     "goalContractCandidate",
+    "planningCorrection",
+    "planningInteractionEpisode",
     "experienceEpisode",
     "knowledgeCandidate",
     "knowledgeTransition"
@@ -26,6 +28,8 @@
     "taskUnderstanding": { "$ref": "#/$defs/taskUnderstanding" },
     "interactiveSession": { "$ref": "#/$defs/interactiveSession" },
     "goalContractCandidate": { "$ref": "#/$defs/goalContractCandidate" },
+    "planningCorrection": { "$ref": "#/$defs/planningCorrection" },
+    "planningInteractionEpisode": { "$ref": "#/$defs/planningInteractionEpisode" },
     "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
     "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
@@ -665,6 +669,130 @@
             }
           }
         },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "planningCorrection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "correctionId",
+        "taskId",
+        "sessionId",
+        "turnId",
+        "idempotencyKey",
+        "actorId",
+        "target",
+        "correctionType",
+        "scope",
+        "beforeSnapshot",
+        "userInstruction",
+        "structuredPatch",
+        "afterSnapshot",
+        "validation",
+        "accepted",
+        "counterexampleRefs",
+        "correctionHash",
+        "sourceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "correctionId": { "$ref": "#/$defs/id" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "goalId": { "$ref": "#/$defs/id" },
+        "goalVersion": { "type": "integer", "minimum": 1 },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "turnId": { "$ref": "#/$defs/id" },
+        "idempotencyKey": { "$ref": "#/$defs/id" },
+        "actorId": { "$ref": "#/$defs/id" },
+        "target": { "enum": ["task_understanding", "goal_contract", "skill_goal_plan"] },
+        "correctionType": {
+          "enum": [
+            "missing_target",
+            "missing_scope",
+            "missing_criterion",
+            "missing_artifact",
+            "missing_evidence",
+            "missing_capability",
+            "wrong_decomposition",
+            "wrong_dependency",
+            "wrong_priority",
+            "unsafe_side_effect",
+            "unnecessary_goal",
+            "parallelism_correction",
+            "degradation_correction"
+          ]
+        },
+        "scope": { "enum": ["task", "user", "tenant", "global_candidate"] },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "userId": { "$ref": "#/$defs/id" },
+        "beforeSnapshot": { "type": "object" },
+        "userInstruction": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "structuredPatch": { "type": "object" },
+        "afterSnapshot": { "type": "object" },
+        "validation": { "type": "object" },
+        "accepted": { "type": "boolean" },
+        "preferenceCategory": {
+          "enum": [
+            "display",
+            "interaction",
+            "report_format",
+            "detailed_plan",
+            "parallel_explanation",
+            "time_expression",
+            "language"
+          ]
+        },
+        "finalOutcomeRef": { "type": "string", "minLength": 1 },
+        "counterexampleRefs": { "$ref": "#/$defs/strings" },
+        "correctionHash": { "$ref": "#/$defs/hash" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "planningInteractionEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "episodeId",
+        "taskId",
+        "revision",
+        "originalRequest",
+        "turns",
+        "correctionIds",
+        "counterexampleRefs",
+        "completeness",
+        "inductionFingerprint",
+        "episodeHash",
+        "sourceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "episodeId": { "$ref": "#/$defs/id" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "goalId": { "$ref": "#/$defs/id" },
+        "goalVersion": { "type": "integer", "minimum": 1 },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "userId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "originalRequest": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "initialUnderstanding": { "type": "object" },
+        "initialGoalContract": { "type": "object" },
+        "initialPlan": { "type": "object" },
+        "acceptedGoalContract": { "type": "object" },
+        "acceptedPlan": { "type": "object" },
+        "turns": { "type": "array", "maxItems": 256, "items": { "type": "object" } },
+        "correctionIds": { "$ref": "#/$defs/strings" },
+        "outcomeRef": { "type": "string", "minLength": 1 },
+        "counterexampleRefs": { "$ref": "#/$defs/strings" },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "inductionFingerprint": { "$ref": "#/$defs/hash" },
+        "episodeHash": { "$ref": "#/$defs/hash" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },

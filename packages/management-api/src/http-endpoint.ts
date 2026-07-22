@@ -54,6 +54,7 @@ import type {
   TaskUnderstandingRepository,
   InteractiveGoalSessionService,
   InteractivePlanningSessionService,
+  PlanningCorrectionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -431,6 +432,9 @@ const AdminWorkflowRevisionSchema = z.object({
   format: z.enum(['dsl', 'dag']),
   definition: z.unknown(),
 });
+const PlanningPreferenceDeletionSchema = z
+  .object({ actorId: z.string().trim().min(1).max(256) })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -498,6 +502,10 @@ export interface ManagementOperations {
   readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
   readonly goalSessions?: Pick<InteractiveGoalSessionService, 'getByTask' | 'applyAction'>;
   readonly planningSessions?: Pick<InteractivePlanningSessionService, 'getByTask' | 'applyAction'>;
+  readonly planningInteractions?: Pick<
+    PlanningCorrectionService,
+    'listTaskInteractions' | 'deleteUserScopedProjection'
+  >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1933,6 +1941,40 @@ export async function startManagementHttpEndpoint(
           ...input,
         }),
       );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/planning-interactions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningInteractions === undefined) {
+        throw new HttpInputError(
+          'PLANNING_INTERACTIONS_UNAVAILABLE',
+          'Planning interaction evidence is not configured.',
+        );
+      }
+      response.json(
+        await options.operations.planningInteractions.listTaskInteractions(
+          pathValue(request, 'taskId'),
+        ),
+      );
+    }),
+  );
+  app.delete(
+    '/api/v1/users/:userId/planning-preferences',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningInteractions === undefined) {
+        throw new HttpInputError(
+          'PLANNING_INTERACTIONS_UNAVAILABLE',
+          'Planning interaction evidence is not configured.',
+        );
+      }
+      const input = PlanningPreferenceDeletionSchema.parse(request.body);
+      response.json({
+        deleted: await options.operations.planningInteractions.deleteUserScopedProjection(
+          pathValue(request, 'userId'),
+          input.actorId,
+        ),
+      });
     }),
   );
   app.get(

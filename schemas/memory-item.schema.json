@@ -60,7 +60,13 @@
       "enum": ["durable", "volatile", "unknown"]
     },
     "authority": {
-      "enum": ["mcp", "skill_experience", "admin", "model_inferred"]
+      "enum": ["mcp", "skill_experience", "admin", "model_inferred", "user_instruction"]
+    },
+    "scope": {
+      "enum": ["global", "user"]
+    },
+    "user_id": {
+      "type": "string"
     },
     "durability_reason": {
       "type": "string",

@@ -31,7 +31,7 @@ const RefinedMemorySchema = z
     summary: z.string().min(1),
     confidence: z.number().min(0).max(1),
     durability: z.enum(['durable', 'volatile', 'unknown']),
-    authority: z.enum(['mcp', 'skill_experience', 'admin', 'model_inferred']),
+    authority: z.enum(['mcp', 'skill_experience', 'admin', 'model_inferred', 'user_instruction']),
     durabilityReason: z.string().min(1),
   })
   .strict();
@@ -63,7 +63,9 @@ const refinedMemoryResponseSchema = {
     summary: { type: 'string', minLength: 1 },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     durability: { enum: ['durable', 'volatile', 'unknown'] },
-    authority: { enum: ['mcp', 'skill_experience', 'admin', 'model_inferred'] },
+    authority: {
+      enum: ['mcp', 'skill_experience', 'admin', 'model_inferred', 'user_instruction'],
+    },
     durabilityReason: { type: 'string', minLength: 1 },
   },
 } as const;
@@ -111,6 +113,8 @@ export class MemoryService {
       durability: input.durability,
       authority: input.authority,
       durabilityReason: input.durabilityReason,
+      ...(input.scope === undefined ? {} : { scope: input.scope }),
+      ...(input.userId === undefined ? {} : { userId: input.userId }),
       createdAt: this.#clock.now(),
     });
     assertDurableAdmission(enforceRefinementPolicy(item, item.authority));
@@ -126,16 +130,20 @@ export class MemoryService {
     return item;
   }
 
-  async search(query: string, limit = 10) {
+  async search(query: string, limit = 10, userId?: string) {
     if (query.trim() === '')
       throw new MemoryApplicationError('MEMORY_QUERY_REQUIRED', 'Query is required.');
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new MemoryApplicationError('MEMORY_LIMIT_INVALID', 'Limit must be between 1 and 100.');
     const embedding = snapshotEmbedding(await this.#embeddings.embed(query));
-    return this.#repository.search({ ...embedding, limit });
+    return this.#repository.search({
+      ...embedding,
+      limit,
+      ...(userId === undefined ? {} : { userId }),
+    });
   }
 
-  async searchForStage(stage: MemoryRetrievalStage, subject: string, limit = 5) {
+  async searchForStage(stage: MemoryRetrievalStage, subject: string, limit = 5, userId?: string) {
     if (subject.trim() === '')
       throw new MemoryApplicationError('MEMORY_QUERY_REQUIRED', 'Stage subject is required.');
     if (!Number.isInteger(limit) || limit < 1 || limit > 20)
@@ -147,7 +155,13 @@ export class MemoryService {
     const embedding = snapshotEmbedding(
       await this.#embeddings.embed(policy.queryTemplate(subject.trim())),
     );
-    return (await this.#repository.search({ ...embedding, limit: 100 }))
+    return (
+      await this.#repository.search({
+        ...embedding,
+        limit: 100,
+        ...(userId === undefined ? {} : { userId }),
+      })
+    )
       .filter((hit) => policy.types.includes(hit.item.type))
       .slice(0, limit);
   }
@@ -249,6 +263,8 @@ export class MemoryService {
       status: 'active',
       sourceRefs: input.sourceRefs,
       supersedes: [memoryId],
+      scope: current.scope ?? 'global',
+      ...(current.userId === undefined ? {} : { userId: current.userId }),
       createdAt: this.#clock.now(),
     });
     const embedding = snapshotEmbedding(await this.#embeddings.embed(searchableText(replacement)));

@@ -8,6 +8,8 @@ import {
   type InteractivePlanningAction,
   type InteractivePlanningSessionSnapshot,
   type PlanConfirmationPolicy,
+  type PlanningCorrectionType,
+  type PlanningPreferenceCategory,
   type UserGoalPlan,
   type UserGoalPlanCandidateSnapshot,
 } from '../../../domain/src/index.js';
@@ -19,6 +21,10 @@ import type { ConfirmedPlanHandoff } from './confirmed-plan-handoff.js';
 import type { InteractivePlanPatchService } from './interactive-plan-patch-service.js';
 import type { InteractivePlanningMutationResult, InteractivePlanningRepository } from './ports.js';
 import type { UserGoalPlanCandidateValidator } from './user-goal-plan-candidate-validator.js';
+import type {
+  PlanningCorrectionObserver,
+  PlanningCorrectionRecordInput,
+} from './planning-correction-service.js';
 
 export interface InteractivePlanningActionInput {
   readonly sessionId: string;
@@ -51,6 +57,7 @@ export class InteractivePlanningSessionService {
   readonly #maxRevisions: number;
   readonly #maxElapsedMs: number;
   readonly #defaultConfirmationPolicy: PlanConfirmationPolicy;
+  readonly #interactions: PlanningCorrectionObserver | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -69,6 +76,7 @@ export class InteractivePlanningSessionService {
       maxRevisions: number;
       maxElapsedMs: number;
       defaultConfirmationPolicy?: PlanConfirmationPolicy;
+      interactions?: PlanningCorrectionObserver;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -82,6 +90,7 @@ export class InteractivePlanningSessionService {
     this.#maxRevisions = dependencies.maxRevisions;
     this.#maxElapsedMs = dependencies.maxElapsedMs;
     this.#defaultConfirmationPolicy = dependencies.defaultConfirmationPolicy ?? 'manual_all';
+    this.#interactions = dependencies.interactions;
   }
 
   async start(
@@ -169,8 +178,11 @@ export class InteractivePlanningSessionService {
       input.sessionId,
       input.idempotencyKey,
     );
-    if (duplicate !== undefined)
-      return this.#viewAndEnsureHandoff('duplicate', await this.#requiredSession(input.sessionId));
+    if (duplicate !== undefined) {
+      const session = await this.#requiredSession(input.sessionId);
+      await this.#interactions?.recordInteraction(session.taskId);
+      return this.#viewAndEnsureHandoff('duplicate', session);
+    }
     const session = await this.#requiredSession(input.sessionId);
     if (session.version !== input.expectedVersion)
       return this.#view('conflict', session, await this.#currentCandidate(session));
@@ -243,6 +255,15 @@ export class InteractivePlanningSessionService {
     });
     if (result.outcome === 'conflict')
       return this.#view('conflict', result.session, await this.#currentCandidate(result.session));
+    if (this.#interactions !== undefined) {
+      if (input.action === 'patch' && candidate !== undefined) {
+        await this.#interactions.record(
+          planCorrectionInput({ input, session, turn, current, candidate }),
+        );
+      } else {
+        await this.#interactions.recordInteraction(session.taskId);
+      }
+    }
     return this.#viewAndEnsureHandoff(result.outcome, result.session);
   }
 
@@ -281,6 +302,131 @@ export class InteractivePlanningSessionService {
   ): InteractivePlanningSessionView {
     return { outcome, session, candidate };
   }
+}
+
+function planCorrectionInput(
+  input: Readonly<{
+    input: InteractivePlanningActionInput;
+    session: InteractivePlanningSessionSnapshot;
+    turn: ReturnType<typeof createInteractivePlanningTurn>;
+    current: UserGoalPlanCandidateSnapshot<UserGoalPlan>;
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>;
+  }>,
+): PlanningCorrectionRecordInput {
+  const patch = derivePlanPatch(input.current, input.candidate);
+  return {
+    taskId: input.session.taskId,
+    goalId: input.session.goalId,
+    goalVersion: input.session.goalVersion,
+    sessionId: input.session.sessionId,
+    turnId: input.turn.turnId,
+    idempotencyKey: `plan:${input.session.sessionId}:${input.input.idempotencyKey}`,
+    actorId: input.input.actorId,
+    target: 'skill_goal_plan',
+    correctionType: planCorrectionType(patch),
+    ...correctionScope(input.input),
+    beforeSnapshot: jsonObject(input.current.plan),
+    userInstruction: requiredInstruction(input.input.payload),
+    structuredPatch: patch,
+    afterSnapshot: jsonObject(input.candidate.plan),
+    validation: jsonObject(input.candidate.validation),
+    accepted: true,
+    ...preferenceCategory(input.input.payload),
+    sourceRefs: input.candidate.sourceRefs,
+  };
+}
+
+function derivePlanPatch(
+  before: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+  after: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+): Readonly<Record<string, unknown>> {
+  const beforeGoals = new Map(before.plan.skillGoals.map((goal) => [goal.skillGoalId, goal]));
+  const afterGoals = new Map(after.plan.skillGoals.map((goal) => [goal.skillGoalId, goal]));
+  const addedSkillGoals = after.plan.skillGoals.filter(
+    (goal) => !beforeGoals.has(goal.skillGoalId),
+  );
+  const removedSkillGoalIds = before.plan.skillGoals
+    .filter((goal) => !afterGoals.has(goal.skillGoalId))
+    .map((goal) => goal.skillGoalId);
+  const updatedSkillGoals = after.plan.skillGoals.filter((goal) => {
+    const prior = beforeGoals.get(goal.skillGoalId);
+    return prior !== undefined && JSON.stringify(prior) !== JSON.stringify(goal);
+  });
+  return {
+    addedSkillGoals,
+    removedSkillGoalIds,
+    updatedSkillGoals,
+    dependencies: after.plan.dependencies,
+    priorities: after.planningMetadata.priorities,
+    parallelGroups: after.planningMetadata.parallelGroups,
+    confirmationPolicy: after.confirmationPolicy,
+    changedFields: after.diff.changedFields,
+  };
+}
+
+function planCorrectionType(patch: Readonly<Record<string, unknown>>): PlanningCorrectionType {
+  if (Array.isArray(patch['removedSkillGoalIds']) && patch['removedSkillGoalIds'].length > 0) {
+    return 'unnecessary_goal';
+  }
+  if (
+    (Array.isArray(patch['addedSkillGoals']) && patch['addedSkillGoals'].length > 0) ||
+    (Array.isArray(patch['updatedSkillGoals']) && patch['updatedSkillGoals'].length > 0)
+  ) {
+    return 'wrong_decomposition';
+  }
+  const changed = Array.isArray(patch['changedFields']) ? patch['changedFields'] : [];
+  if (changed.includes('dependencies')) return 'wrong_dependency';
+  if (changed.includes('planningMetadata')) {
+    const groups = patch['parallelGroups'];
+    return typeof groups === 'object' && groups !== null && Object.keys(groups).length > 0
+      ? 'parallelism_correction'
+      : 'wrong_priority';
+  }
+  return 'wrong_priority';
+}
+
+function correctionScope(input: InteractivePlanningActionInput) {
+  const value = input.payload['correctionScope'];
+  const scope =
+    value === 'user' || value === 'tenant' || value === 'global_candidate' ? value : 'task';
+  if (scope === 'user') {
+    const userId = input.payload['userId'];
+    return {
+      scope,
+      userId: typeof userId === 'string' && userId.trim() !== '' ? userId : input.actorId,
+    } as const;
+  }
+  if (scope === 'tenant') {
+    const tenantId = input.payload['tenantId'];
+    if (typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('PLANNING_CORRECTION_TENANT_ID_REQUIRED');
+    }
+    return { scope, tenantId: tenantId.trim() } as const;
+  }
+  return { scope } as const;
+}
+
+function preferenceCategory(payload: Readonly<Record<string, unknown>>): Readonly<{
+  preferenceCategory?: PlanningPreferenceCategory;
+}> {
+  const value = payload['preferenceCategory'];
+  return value === 'display' ||
+    value === 'interaction' ||
+    value === 'report_format' ||
+    value === 'detailed_plan' ||
+    value === 'parallel_explanation' ||
+    value === 'time_expression' ||
+    value === 'language'
+    ? { preferenceCategory: value }
+    : {};
+}
+
+function jsonObject(value: unknown): Readonly<Record<string, unknown>> {
+  const parsed: unknown = JSON.parse(JSON.stringify(value));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('PLANNING_CORRECTION_SNAPSHOT_INVALID');
+  }
+  return parsed as Readonly<Record<string, unknown>>;
 }
 
 function requiredInstruction(payload: Readonly<Record<string, unknown>>): string {
