@@ -2,6 +2,8 @@ import type {
   CognitiveDomainEvent,
   CognitiveModelStage,
   CognitiveRuntimeFeatureFlags,
+  ExperienceDeadLetter,
+  ExperienceJob,
   GenericTaskUnderstandingRevision,
   GoalExperienceEpisode,
   InteractiveSessionSnapshot,
@@ -203,7 +205,43 @@ export interface PlanningInteractionTaskSource {
 export interface GoalExperienceEpisodeRepository {
   findById(episodeId: string): Promise<GoalExperienceEpisode | undefined>;
   findByGoal(goalId: string): Promise<readonly GoalExperienceEpisode[]>;
+  list(limit?: number, goalId?: string): Promise<readonly GoalExperienceEpisode[]>;
   saveIfAbsent(episode: GoalExperienceEpisode): Promise<boolean>;
+}
+
+export interface GoalExperienceEpisodeBuilderPort {
+  build(input: Readonly<{ goalId: string; goalVersion: number }>): Promise<GoalExperienceEpisode>;
+}
+
+export interface CognitiveOutboxRepository {
+  append(event: CognitiveDomainEvent): Promise<void>;
+  dispatchTerminalEvents(limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ExperienceJobRepository {
+  createEpisodeJob(event: CognitiveDomainEvent, now: string): Promise<ExperienceJob>;
+  claim(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  complete(jobId: string, workerId: string, now: string, episodeId: string): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+  replayDeadLetter(deadLetterId: string, actorId: string, now: string): Promise<ExperienceJob>;
+  listDeadLetters(limit?: number): Promise<readonly ExperienceDeadLetter[]>;
+}
+
+export interface ExperienceJobQueuePort {
+  enqueue(jobId: string): Promise<void>;
 }
 
 export interface KnowledgeRepository {

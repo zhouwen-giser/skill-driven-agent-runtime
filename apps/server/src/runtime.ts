@@ -108,6 +108,12 @@ import {
   PlanningCorrectionService,
   PlanningInteractionEpisodeBuilder,
   PlanningPreferenceProjector,
+  ExperienceEligibilityPolicy,
+  GoalExperienceEpisodeBuilder,
+  ExperienceJobService,
+  ExperienceJobReconciler,
+  ExperienceOutboxDispatcher,
+  ExperienceManagementService,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -180,6 +186,10 @@ import {
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
   PostgresPlanningCorrectionRepository,
+  PostgresCognitiveOutboxRepository,
+  PostgresExperienceJobRepository,
+  PostgresGoalExperienceEpisodeRepository,
+  PostgresCognitiveRuntimeFactReader,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -223,6 +233,8 @@ import {
   BullMqRemoteTaskContinuationWorker,
   BullMqRemoteTaskCancellationQueue,
   BullMqRemoteTaskCancellationWorker,
+  BullMqExperienceQueue,
+  BullMqExperienceWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -396,6 +408,42 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const cognitiveOutbox = new PostgresCognitiveOutboxRepository(pool, clock);
+  const experienceJobRepository = new PostgresExperienceJobRepository(pool);
+  const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
+  const experienceQueue = new BullMqExperienceQueue(options.redis);
+  const experienceJobs = new ExperienceJobService({
+    jobs: experienceJobRepository,
+    episodes: goalExperienceEpisodes,
+    builder: new GoalExperienceEpisodeBuilder({
+      facts: new PostgresCognitiveRuntimeFactReader(pool),
+      episodes: goalExperienceEpisodes,
+      eligibility: new ExperienceEligibilityPolicy(),
+      clock,
+      nextEpisodeId: () => `goal-experience-episode-${randomUUID()}`,
+    }),
+    clock,
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+  });
+  const experienceReconciler = new ExperienceJobReconciler({
+    jobs: experienceJobRepository,
+    queue: experienceQueue,
+  });
+  const experienceOutboxDispatcher = new ExperienceOutboxDispatcher({
+    outbox: cognitiveOutbox,
+    queue: experienceQueue,
+  });
+  const experienceManagement = new ExperienceManagementService({
+    episodes: goalExperienceEpisodes,
+    jobs: experienceJobRepository,
+    queue: experienceQueue,
+    clock,
+  });
+  const experienceWorker = new BullMqExperienceWorker(
+    options.redis,
+    experienceJobs,
+    `experience-worker-${randomUUID()}`,
+  );
   const capabilitySummaries = new CapabilitySummaryService({
     catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
     repository: new PostgresCapabilitySummaryRepository(pool),
@@ -3136,6 +3184,23 @@ export async function startServerRuntime(
       });
   }, 250);
   capabilityCatalogRefreshTimer.unref();
+  let experienceDispatchRunning = false;
+  const experienceDispatchTimer = setInterval(() => {
+    if (experienceDispatchRunning) return;
+    experienceDispatchRunning = true;
+    void experienceOutboxDispatcher
+      .dispatch()
+      .then(() => experienceReconciler.requeue(clock.now()))
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        experienceDispatchRunning = false;
+      });
+  }, 500);
+  experienceDispatchTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -3236,7 +3301,16 @@ export async function startServerRuntime(
     await remoteTaskContinuationReconciler.reconcile();
   if (remoteTaskCancellationReconciler !== undefined)
     await remoteTaskCancellationReconciler.reconcile();
+  try {
+    await experienceOutboxDispatcher.dispatch();
+    await experienceReconciler.requeue(clock.now());
+  } catch (error: unknown) {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
+    );
+  }
   worker.start();
+  experienceWorker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3283,6 +3357,7 @@ export async function startServerRuntime(
               },
             }),
         planningInteractions: planningCorrections,
+        experience: experienceManagement,
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3538,6 +3613,7 @@ export async function startServerRuntime(
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
+        clearInterval(experienceDispatchTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -3552,10 +3628,12 @@ export async function startServerRuntime(
         await remoteTaskWorker?.close();
         await remoteTaskContinuationWorker?.close();
         await remoteTaskCancellationWorker?.close();
+        await experienceWorker.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
         await remoteTaskCancellationQueue?.close();
+        await experienceQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -3571,6 +3649,7 @@ export async function startServerRuntime(
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
+    clearInterval(experienceDispatchTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
@@ -3581,9 +3660,11 @@ export async function startServerRuntime(
     await management?.close();
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();
+    await experienceWorker.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
+    await experienceQueue.close();
     await queue.close();
     await pool.end();
     throw error;

@@ -314,6 +314,54 @@ describe('management HTTP API contract', () => {
     expect(deletion).toEqual({ userId: 'user-1', actorId: 'privacy-operator' });
   });
 
+  it('lists immutable Goal Episodes and manually replays inspectable Experience dead letters', async () => {
+    const received: unknown[] = [];
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        experience: {
+          listEpisodes: (goalId, limit) => {
+            received.push({ action: 'listEpisodes', goalId, limit });
+            return Promise.resolve([{ episodeId: 'goal-episode-1', goalId: 'goal-1' }] as never);
+          },
+          listDeadLetters: (limit) => {
+            received.push({ action: 'listDeadLetters', limit });
+            return Promise.resolve([{ deadLetterId: 'dead-1', jobId: 'job-1' }] as never);
+          },
+          replayDeadLetter: (deadLetterId, actorId) => {
+            received.push({ action: 'replayDeadLetter', deadLetterId, actorId });
+            return Promise.resolve({ jobId: 'job-1', status: 'pending' } as never);
+          },
+        },
+      },
+    });
+
+    const episodes = await fetch(
+      `${endpoint.baseUrl}/api/v1/experience/episodes?goalId=goal-1&limit=20`,
+    );
+    expect(episodes.status).toBe(200);
+    await expect(episodes.json()).resolves.toEqual({
+      items: [{ episodeId: 'goal-episode-1', goalId: 'goal-1' }],
+    });
+    const deadLetters = await fetch(`${endpoint.baseUrl}/api/v1/experience/dead-letters?limit=10`);
+    expect(deadLetters.status).toBe(200);
+    await expect(deadLetters.json()).resolves.toEqual({
+      items: [{ deadLetterId: 'dead-1', jobId: 'job-1' }],
+    });
+    const replay = await fetch(`${endpoint.baseUrl}/api/v1/experience/dead-letters/dead-1/replay`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ actorId: 'experience-operator' }),
+    });
+    expect(replay.status).toBe(200);
+    await expect(replay.json()).resolves.toEqual({ jobId: 'job-1', status: 'pending' });
+    expect(received).toEqual([
+      { action: 'listEpisodes', goalId: 'goal-1', limit: 20 },
+      { action: 'listDeadLetters', limit: 10 },
+      { action: 'replayDeadLetter', deadLetterId: 'dead-1', actorId: 'experience-operator' },
+    ]);
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {

@@ -188,6 +188,65 @@ paths:
                 properties:
                   deleted: { type: integer, minimum: 0 }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/episodes:
+    get:
+      operationId: listGoalExperienceEpisodes
+      description: Lists immutable Goal Experience Episodes built asynchronously from persisted Runtime facts. Experience is advisory.
+      parameters:
+        - { name: goalId, in: query, required: false, schema: { type: string } }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Goal Experience Episodes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoalExperienceEpisodeList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/dead-letters:
+    get:
+      operationId: listExperienceDeadLetters
+      description: Lists inspectable exhausted PostgreSQL Experience jobs without exposing credentials or private reasoning.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Experience dead letters
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceDeadLetterList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/dead-letters/{deadLetterId}/replay:
+    parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: replayExperienceDeadLetter
+      description: Manually resets an exhausted PostgreSQL Experience job and emits a rebuildable Redis wake reference.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actorId]
+              properties:
+                actorId: { type: string, minLength: 1, maxLength: 256 }
+      responses:
+        '200':
+          description: Replayed PostgreSQL Experience job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceJob' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/memories:
     post:
       operationId: createMemory
@@ -1404,6 +1463,107 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    GoalExperienceEpisodeList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                schemaVersion,
+                episodeId,
+                goalId,
+                goalVersion,
+                contextId,
+                episodeType,
+                revision,
+                terminalOutcomeRef,
+                sourceHash,
+                episodeHash,
+                completeness,
+                status,
+                dataClassification,
+                snapshot,
+                sourceRefs,
+                redactionCodes,
+                createdAt,
+              ]
+            properties:
+              schemaVersion: { const: '1.0' }
+              episodeId: { type: string }
+              goalId: { type: string }
+              goalVersion: { type: integer, minimum: 1 }
+              taskId: { type: string }
+              contextId: { type: string }
+              episodeType: { enum: [terminal, revision, interaction, recovery] }
+              revision: { type: integer, minimum: 1 }
+              terminalOutcomeRef: { type: string }
+              sourceHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              episodeHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              completeness: { type: number, minimum: 0, maximum: 1 }
+              status: { enum: [partial, complete] }
+              dataClassification: { enum: [public, internal, user_scoped, restricted] }
+              snapshot: { type: object, additionalProperties: true }
+              sourceRefs: { type: array, minItems: 1, items: { type: object } }
+              redactionCodes: { type: array, items: { type: string } }
+              createdAt: { type: string, format: date-time }
+    ExperienceDeadLetterList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [deadLetterId, jobId, errorCode, errorSummary, failedAt]
+            properties:
+              deadLetterId: { type: string }
+              jobId: { type: string }
+              errorCode: { type: string }
+              errorSummary: { type: string, maxLength: 2048 }
+              failedAt: { type: string, format: date-time }
+              replayedAt: { type: string, format: date-time }
+              replayedBy: { type: string }
+    ExperienceJob:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          jobId,
+          jobType,
+          subjectId,
+          status,
+          attempt,
+          maxAttempts,
+          availableAt,
+          idempotencyKey,
+          payload,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        jobId: { type: string }
+        jobType: { enum: [episode, observe, reflect, induce, revalidate] }
+        subjectId: { type: string }
+        status: { enum: [pending, leased, retry_wait, completed, dead_letter] }
+        attempt: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        availableAt: { type: string, format: date-time }
+        leaseOwner: { type: string }
+        leaseExpiresAt: { type: string, format: date-time }
+        idempotencyKey: { type: string }
+        payload: { type: object, additionalProperties: true }
+        resultRef: { type: string }
+        lastErrorCode: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     PlanningInteractionsResponse:
       type: object
       additionalProperties: false
@@ -1415,7 +1575,23 @@ components:
             type: object
             additionalProperties: true
             required:
-              [schemaVersion, correctionId, taskId, target, correctionType, scope, beforeSnapshot, userInstruction, structuredPatch, afterSnapshot, validation, accepted, correctionHash, sourceRefs, createdAt]
+              [
+                schemaVersion,
+                correctionId,
+                taskId,
+                target,
+                correctionType,
+                scope,
+                beforeSnapshot,
+                userInstruction,
+                structuredPatch,
+                afterSnapshot,
+                validation,
+                accepted,
+                correctionHash,
+                sourceRefs,
+                createdAt,
+              ]
             properties:
               schemaVersion: { const: '1.0' }
               correctionId: { type: string }
@@ -1423,7 +1599,21 @@ components:
               target: { enum: [task_understanding, goal_contract, skill_goal_plan] }
               correctionType:
                 enum:
-                  [missing_target, missing_scope, missing_criterion, missing_artifact, missing_evidence, missing_capability, wrong_decomposition, wrong_dependency, wrong_priority, unsafe_side_effect, unnecessary_goal, parallelism_correction, degradation_correction]
+                  [
+                    missing_target,
+                    missing_scope,
+                    missing_criterion,
+                    missing_artifact,
+                    missing_evidence,
+                    missing_capability,
+                    wrong_decomposition,
+                    wrong_dependency,
+                    wrong_priority,
+                    unsafe_side_effect,
+                    unnecessary_goal,
+                    parallelism_correction,
+                    degradation_correction,
+                  ]
               scope: { enum: [task, user, tenant, global_candidate] }
               beforeSnapshot: { type: object }
               userInstruction: { type: string }
@@ -1440,7 +1630,20 @@ components:
             type: object
             additionalProperties: true
             required:
-              [schemaVersion, episodeId, taskId, revision, originalRequest, turns, correctionIds, completeness, inductionFingerprint, episodeHash, sourceRefs, createdAt]
+              [
+                schemaVersion,
+                episodeId,
+                taskId,
+                revision,
+                originalRequest,
+                turns,
+                correctionIds,
+                completeness,
+                inductionFingerprint,
+                episodeHash,
+                sourceRefs,
+                createdAt,
+              ]
             properties:
               schemaVersion: { const: '1.0' }
               episodeId: { type: string }

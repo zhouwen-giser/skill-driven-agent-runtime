@@ -231,10 +231,17 @@
     "episodeId": "episode.v123",
     "goalId": "goal.v123",
     "goalVersion": 1,
+    "taskId": "task.v123",
+    "contextId": "context.v123",
+    "episodeType": "terminal",
     "revision": 1,
+    "terminalOutcomeRef": "runtime-terminal-outcome:outcome.v123",
+    "sourceHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "episodeHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "completeness": 1,
+    "status": "complete",
     "dataClassification": "internal",
+    "snapshot": { "terminalOutcome": { "outcomeId": "outcome.v123" } },
     "sourceRefs": [
       {
         "schemaVersion": "1.0",

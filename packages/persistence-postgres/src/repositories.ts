@@ -2154,6 +2154,34 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           ],
         );
       }
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at,published_at)
+         VALUES(
+           'outbox-terminal-' || md5($1),
+           'user_goal.terminal_committed','user_goal',$2,$3,
+           jsonb_strip_nulls(jsonb_build_object(
+             'correlationId',$1,'goalId',$2,'taskId',$4
+           )),
+           jsonb_strip_nulls(jsonb_build_object(
+             'outcomeId',$1,'controlId',$5,'taskId',$4,'outcomeKind',$6,
+             'authority',$7
+           )),
+           $8,NULL
+         )
+         ON CONFLICT(aggregate_type,aggregate_id,aggregate_version,event_type) DO NOTHING`,
+        [
+          input.outcomeId,
+          input.goalId,
+          input.goalVersion,
+          input.taskId ?? null,
+          input.controlId,
+          kind,
+          authority,
+          input.committedAt,
+        ],
+      );
       await client.query('COMMIT');
       if (committedTask !== undefined) this.#onTaskStateCommitted?.(committedTask);
       return {

@@ -38,6 +38,9 @@ All notable changes to this project are documented here. The format follows Keep
   Understanding, Goal Contract, Plan review, final Outcome and later counterexamples.
 - Scoped low-risk user-preference projection into the existing Memory service, exact-user retrieval,
   propagated deletion, task/user/tenant correction queries and management interaction evidence.
+- G07 PostgreSQL-transactional terminal outbox, leased/retryable Experience jobs, immutable redacted
+  Goal Episodes, rebuildable BullMQ job-id wakes, dead-letter inspection/replay and operational API
+  evidence. Publication remains blocked pending real integration/E2E and `.git` approval.
 
 ### Changed
 
@@ -55,6 +58,8 @@ All notable changes to this project are documented here. The format follows Keep
   G05 accept under the `goalId + goalVersion` lock may create the existing formal plan and schedule it.
 - G04/G05 interaction actions and terminal Outcomes now append non-authoritative correction/Episode
   evidence; task, tenant, global-candidate and safety/authorization corrections never auto-promote.
+- Terminal Outcome commits now atomically append `user_goal.terminal_committed`; asynchronous
+  Experience capture cannot become Goal/Plan/Outcome authority or delay the terminal transaction.
 
 ### Verification
 

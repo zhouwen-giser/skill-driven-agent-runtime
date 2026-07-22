@@ -1112,6 +1112,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
     const goalId = encodeURIComponent(task.goalId);
     links.push({ key: 'goal', label: 'Goal', endpoint: `/api/v1/goals/${goalId}` });
     links.push({
+      key: 'goal-experience-episodes',
+      label: 'Goal Experience Episodes',
+      endpoint: `/api/v1/experience/episodes?goalId=${goalId}`,
+    });
+    links.push({
       key: 'goal-patches',
       label: 'Goal Patches',
       endpoint: `/api/v1/goals/${goalId}/patches`,

@@ -6291,6 +6291,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     );
     if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
     await attachPlannedTask(submitted.id);
+    const internalTask = z
+      .object({ goalId: z.string() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+        ).then((response) => response.json()),
+      );
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
     const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
     expect(completed.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
@@ -6362,6 +6369,16 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { component: 'result_quality', evidenceRefs: ['result_quality:evidence'] },
         { component: 'tool_call', evidenceRefs: ['tool_call:evidence'] },
       ],
+    });
+    await expect(waitForGoalExperienceEpisode(internalTask.goalId)).resolves.toMatchObject({
+      goalId: internalTask.goalId,
+      taskId: submitted.id,
+      episodeType: 'terminal',
+      terminalOutcomeRef: `runtime-terminal-outcome:terminal-outcome-task-${submitted.id}`,
+      status: expect.stringMatching(/^(?:partial|complete)$/u),
+      snapshot: expect.objectContaining({
+        terminalOutcome: expect.objectContaining({ kind: 'achieved' }),
+      }),
     });
   });
 
@@ -8715,6 +8732,33 @@ async function waitForManagementJson(path: string): Promise<unknown> {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`MANAGEMENT_RESOURCE_NOT_READY:${path}:${lastBody}`);
+}
+
+async function waitForGoalExperienceEpisode(goalId: string): Promise<unknown> {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          goalId: z.string(),
+          episodeType: z.literal('terminal'),
+          terminalOutcomeRef: z.string(),
+          snapshot: z.record(z.string(), z.unknown()),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/experience/episodes?goalId=${encodeURIComponent(goalId)}&limit=10`,
+      ).then((response) => response.json()),
+    );
+    const episode = latest.items.find((item) => item.goalId === goalId);
+    if (episode !== undefined) return episode;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`GOAL_EXPERIENCE_EPISODE_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
 }
 
 async function waitForRuntimeTerminalOutcomeWarning(

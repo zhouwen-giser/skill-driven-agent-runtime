@@ -4,7 +4,12 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
-import { TaskService } from '../../application/src/index.js';
+import {
+  ExperienceEligibilityPolicy,
+  ExperienceJobService,
+  GoalExperienceEpisodeBuilder,
+  TaskService,
+} from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
 import {
   PostgresAgentTaskRepository,
@@ -55,6 +60,10 @@ import {
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
   PostgresPlanningCorrectionRepository,
+  PostgresCognitiveOutboxRepository,
+  PostgresExperienceJobRepository,
+  PostgresGoalExperienceEpisodeRepository,
+  PostgresCognitiveRuntimeFactReader,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -3848,6 +3857,197 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(fixture.outcomes.find(first.outcomeId)).resolves.toMatchObject({
       enhancementWarnings: [warning],
     });
+  });
+
+  it('atomically dispatches a terminal Fact into one leased job and immutable Goal Episode', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-terminal');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+
+    const atomic = await pool.query<{ outcomes: number; events: number }>(
+      `SELECT
+         (SELECT count(*)::integer FROM runtime_terminal_outcome WHERE outcome_id=$1) AS outcomes,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='user_goal.terminal_committed' AND aggregate_id=$2) AS events`,
+      [fixture.achievedInput.outcomeId, fixture.goalId],
+    );
+    expect(atomic.rows[0]).toEqual({ outcomes: 1, events: 1 });
+
+    const clock = { now: () => '2026-07-16T00:00:06.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    const dispatched = await outbox.dispatchTerminalEvents();
+    const repeated = await outbox.dispatchTerminalEvents();
+    expect(dispatched).toHaveLength(1);
+    expect(repeated).toHaveLength(0);
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const service = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => 'goal-experience-episode.db',
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [claimed] = await service.claim('experience-worker.db', 1);
+    if (claimed === undefined) throw new Error('EXPERIENCE_JOB_NOT_CLAIMED');
+    await service.process(claimed, 'experience-worker.db');
+    await service.process(claimed, 'experience-worker.db');
+
+    const stored = await episodes.findByGoal(fixture.goalId);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({
+      goalId: fixture.goalId,
+      goalVersion: 1,
+      episodeType: 'terminal',
+      terminalOutcomeRef: `runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`,
+      status: 'complete',
+    });
+    expect(JSON.stringify(stored[0]?.snapshot)).not.toMatch(
+      /password|secret|credential|privateReasoning/iu,
+    );
+    const persistence = await pool.query<{
+      episodes: number;
+      episode_events: number;
+      observe_jobs: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM goal_experience_episode WHERE goal_id=$1) AS episodes,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.episode_created' AND aggregate_id=$2) AS episode_events,
+         (SELECT count(*)::integer FROM experience_job
+          WHERE job_type='observe' AND subject_id=$2) AS observe_jobs`,
+      [fixture.goalId, 'goal-experience-episode.db'],
+    );
+    expect(persistence.rows[0]).toEqual({ episodes: 1, episode_events: 1, observe_jobs: 1 });
+  });
+
+  it('reclaims expired PostgreSQL leases and supports explicit dead-letter replay', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-replay');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const outbox = new PostgresCognitiveOutboxRepository(pool, {
+      now: () => '2026-07-16T00:00:06.000Z',
+    });
+    await outbox.dispatchTerminalEvents();
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const [firstLease] = await jobs.claim(
+      'experience-worker.first',
+      '2026-07-16T00:00:06.000Z',
+      60_000,
+      1,
+    );
+    if (firstLease === undefined) throw new Error('EXPERIENCE_FIRST_LEASE_MISSING');
+    await expect(jobs.listRequeueable('2026-07-16T00:01:05.999Z')).resolves.toHaveLength(0);
+    await expect(jobs.listRequeueable('2026-07-16T00:01:06.000Z')).resolves.toEqual([
+      expect.objectContaining({ jobId: firstLease.jobId, status: 'leased' }),
+    ]);
+
+    const [reclaimed] = await jobs.claim(
+      'experience-worker.restarted',
+      '2026-07-16T00:01:06.000Z',
+      60_000,
+      1,
+    );
+    if (reclaimed === undefined) throw new Error('EXPERIENCE_RECLAIMED_LEASE_MISSING');
+    expect(reclaimed).toMatchObject({
+      jobId: firstLease.jobId,
+      status: 'leased',
+      attempt: 2,
+      leaseOwner: 'experience-worker.restarted',
+    });
+
+    const service = new ExperienceJobService({
+      jobs,
+      episodes: new PostgresGoalExperienceEpisodeRepository(pool),
+      builder: {
+        build: () => Promise.reject(new Error('credential=local-only password=do-not-store')),
+      },
+      clock: { now: () => '2026-07-16T00:01:07.000Z' },
+      retryPolicy: { maxAttempts: 1, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    await service.process(reclaimed, 'experience-worker.restarted');
+    const [deadLetter] = await jobs.listDeadLetters();
+    if (deadLetter === undefined) throw new Error('EXPERIENCE_DEAD_LETTER_MISSING');
+    expect(deadLetter).toMatchObject({
+      jobId: firstLease.jobId,
+      errorCode: 'EXPERIENCE_JOB_FAILED',
+      errorSummary: 'credential=[REDACTED] password=[REDACTED]',
+    });
+
+    await expect(
+      jobs.replayDeadLetter(
+        deadLetter.deadLetterId,
+        'operator.experience-replay',
+        '2026-07-16T00:01:08.000Z',
+      ),
+    ).resolves.toMatchObject({
+      jobId: firstLease.jobId,
+      status: 'pending',
+      attempt: 0,
+      availableAt: '2026-07-16T00:01:08.000Z',
+    });
+    await expect(jobs.listDeadLetters()).resolves.toEqual([
+      expect.objectContaining({
+        deadLetterId: deadLetter.deadLetterId,
+        replayedBy: 'operator.experience-replay',
+        replayedAt: '2026-07-16T00:01:08.000Z',
+      }),
+    ]);
+    await expect(
+      jobs.replayDeadLetter(
+        deadLetter.deadLetterId,
+        'operator.experience-replay',
+        '2026-07-16T00:01:09.000Z',
+      ),
+    ).rejects.toThrow('EXPERIENCE_DEAD_LETTER_ALREADY_REPLAYED');
+  });
+
+  it('dead-letters a terminal job instead of fabricating Experience when Judgment is missing', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-missing-judgment');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    await pool.query(
+      `DELETE FROM outcome_decision
+       WHERE plan_id=$1 AND level='user_goal' AND subject_id=$2`,
+      [fixture.planId, fixture.goalId],
+    );
+    const outbox = new PostgresCognitiveOutboxRepository(pool, {
+      now: () => '2026-07-16T00:00:06.000Z',
+    });
+    await outbox.dispatchTerminalEvents();
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const service = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock: { now: () => '2026-07-16T00:00:07.000Z' },
+        nextEpisodeId: () => 'goal-experience-episode.must-not-exist',
+      }),
+      clock: { now: () => '2026-07-16T00:00:07.000Z' },
+      retryPolicy: { maxAttempts: 1, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [job] = await service.claim('experience-worker.missing-judgment', 1);
+    if (job === undefined) throw new Error('EXPERIENCE_MISSING_JUDGMENT_JOB_MISSING');
+    await service.process(job, 'experience-worker.missing-judgment');
+
+    await expect(episodes.findByGoal(fixture.goalId)).resolves.toEqual([]);
+    await expect(jobs.listDeadLetters()).resolves.toEqual([
+      expect.objectContaining({
+        jobId: job.jobId,
+        errorCode: 'EXPERIENCE_EPISODE_INELIGIBLE',
+        errorSummary: 'Goal Experience Episode is not eligible: missing_user_goal_judgment',
+      }),
+    ]);
   });
 
   it('atomically commits unachievable and canceled terminal projections', async () => {

@@ -333,3 +333,18 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G06-04 immutable final Outcome revision  | verified | deterministic Episode builder/hash; append-only revision and outcome/counterexample refs                      | focused unit plus real PostgreSQL prior/new revision assertions                                   |
 | AC-G06-05 low-risk user projection only     | verified | accepted explicit preference allowlist; safety/degradation denial; existing Memory projection                 | projector unit and real A2A scoped preference lifecycle                                           |
 | AC-G06-06 deletion and tenant isolation     | verified | exact-user Memory search; projection invalidation; exact-tenant correction query                              | user A/user B and tenant A/tenant B integration plus DELETE E2E; `reports/goal/g06-completion.md` |
+
+## SDAR v1.2.3 G07 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G07-01 terminal Fact/outbox atomicity | implemented, real test blocked | terminal repository writes `user_goal.terminal_committed` in the v1.2.2 Outcome transaction | authored PostgreSQL atomic-count integration; execution blocked by platform quota |
+| AC-G07-02 asynchronous terminal path | implemented, real test blocked | dispatcher/worker run after terminal commit; A2A does not call Experience synchronously | authored real A2A terminal-then-Episode polling slice; execution blocked |
+| AC-G07-03 duplicate/restart idempotency | unit verified, real test blocked | outbox/job keys, Episode hash/terminal uniqueness and handler replay safety | duplicate unit passes; PostgreSQL integration authored |
+| AC-G07-04 no default Experience | unit verified, real test blocked | exact Eligibility requires Contract/current Plan/Judgment/terminal authority | missing-fact unit passes; no-Episode/dead-letter integration authored |
+| AC-G07-05 PostgreSQL job authority | unit verified, real test blocked | PG lease/attempt/backoff/reconciler; Redis `{jobId}` wake only | reconciler unit passes; expired-lease integration authored |
+| AC-G07-06 credential/reasoning/PII exclusion | verified | recursive key and inline string redaction with immutable snapshot | focused redaction regression passes |
+| AC-G07-07 dead-letter replay | contract verified, real test blocked | inspect and actor-attributed one-shot replay API | 52 focused contracts pass; replay integration authored |
+
+G07 is not release-complete: real integration/E2E plus meaningful commit/push are externally blocked.
+Exact evidence and failed attempts are retained in `reports/goal/g07-completion.md`.

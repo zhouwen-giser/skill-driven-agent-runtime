@@ -55,6 +55,7 @@ import type {
   InteractiveGoalSessionService,
   InteractivePlanningSessionService,
   PlanningCorrectionService,
+  ExperienceManagementService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -435,6 +436,15 @@ const AdminWorkflowRevisionSchema = z.object({
 const PlanningPreferenceDeletionSchema = z
   .object({ actorId: z.string().trim().min(1).max(256) })
   .strict();
+const ExperienceListQuerySchema = z
+  .object({
+    goalId: z.string().trim().min(1).max(128).optional(),
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+  })
+  .strict();
+const ExperienceDeadLetterReplaySchema = z
+  .object({ actorId: z.string().trim().min(1).max(256) })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -505,6 +515,10 @@ export interface ManagementOperations {
   readonly planningInteractions?: Pick<
     PlanningCorrectionService,
     'listTaskInteractions' | 'deleteUserScopedProjection'
+  >;
+  readonly experience?: Pick<
+    ExperienceManagementService,
+    'listEpisodes' | 'listDeadLetters' | 'replayDeadLetter'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -1776,6 +1790,43 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       await options.operations.mcp.delete(pathValue(request, 'serverId'));
       response.status(204).end();
+    }),
+  );
+  app.get(
+    '/api/v1/experience/episodes',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const query = ExperienceListQuerySchema.parse(request.query);
+      response.json({
+        items: await options.operations.experience.listEpisodes(query.goalId, query.limit),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/experience/dead-letters',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      response.json({ items: await options.operations.experience.listDeadLetters(query.limit) });
+    }),
+  );
+  app.post(
+    '/api/v1/experience/dead-letters/:deadLetterId/replay',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const input = ExperienceDeadLetterReplaySchema.parse(request.body);
+      response.json(
+        await options.operations.experience.replayDeadLetter(
+          pathValue(request, 'deadLetterId'),
+          input.actorId,
+        ),
+      );
     }),
   );
   app.get('/api/v1/skills', async (_request, response) => {

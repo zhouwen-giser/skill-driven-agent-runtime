@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G06 is complete and pushed; G07 is next
+Status: ACTIVE — G07 implementation is present but external gates/commit are blocked; G08 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -88,7 +88,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
 | G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
 | G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
-| G07  | not_started | —         | —                                                                                 | —                                | none           | outbox/job/Goal episode                                        |
+| G07  | blocked     | none      | 533 unit, 151 contract, API/architecture/build; integration/E2E blocked          | `reports/goal/g07-completion.md` | platform quota | commit/push after approval; provisional handoff to G08         |
 | G08  | not_started | —         | —                                                                                 | —                                | G07            | observer/typed extractors                                      |
 | G09  | not_started | —         | —                                                                                 | —                                | G08            | reflector/identity/curator                                     |
 | G10  | not_started | —         | —                                                                                 | —                                | G06/G09        | Task Type induction                                            |
@@ -272,13 +272,16 @@ G06 uses original repository code and existing approved dependencies. Gemini Aut
 Auto Memory remain concept-only references; no source was copied or translated, so no new Source
 Intake, license ledger, lockfile, NOTICE or SBOM change is required.
 
+G07 likewise uses original TypeScript over the existing PostgreSQL, BullMQ and Zod dependencies. No
+Gemini CLI source was copied or translated and no Source Intake or dependency metadata changed.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0114 ledger is implemented; Planning Correction Facts, Interaction Episode
-  revisions, scoped Memory projection and events pass fresh apply, idempotency, rollback/reapply,
-  guarded reset and rogue-ledger rejection on real PostgreSQL 17 + pgvector.
-- OpenAPI: 136 management operations include Capability, Understanding, Goal/Plan review, task
-  planning-interaction reads and user preference deletion boundaries.
+- Migration: additive 0108–0115 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+  migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
+  rejection before the platform approval quota was reached.
+- OpenAPI: 139 management operations include Capability, Understanding, Goal/Plan review, Experience
+  Episode/dead-letter reads and explicit replay.
 - A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
   boundaries. The real path captures four correction Facts, scoped preference deletion and unique
   Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
@@ -315,18 +318,22 @@ Intake, license ledger, lockfile, NOTICE or SBOM change is required.
   API/OpenAPI/Console and real A2A evidence.
 - G06 implementation `cade96f`: immutable correction/Episode Domain/Application/PostgreSQL path,
   migration 0114, scoped low-risk Memory projection/deletion, API/OpenAPI/Console and real A2A evidence.
+- G07 working tree: transactional terminal outbox, PG-authoritative job/Episode lifecycle, migration
+  0115, rebuildable BullMQ wakes, API/OpenAPI/Console and authored real integration/A2A evidence. No
+  commit exists because `.git` approval was rejected before staging.
 
 ## Open Blockers
 
-None. The package self-check is platform-safe and passing. The default operator database's historical
-ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names. G06 implementation `cade96f` is pushed and Draft PR #8 remains Draft.
+G07 real integration/E2E execution and `.git` writes are blocked by the Codex automatic approval
+usage limit, which reported retry availability at 2026-07-29 01:43. The implementation and authored
+tests remain in the working tree; no blocked gate is claimed passed and Draft PR #8 remains at G00-G06.
+The default operator database remains untouched.
 
 ## Next Execution Step
 
-Start G07 from G00/G06 immutable correction and interaction lineage. Implement the PostgreSQL
-Experience outbox, job lifecycle and Goal Episode builder without blocking online execution, then
-update Draft PR #8 without changing Draft status.
+Proceed provisionally with G08 against the local G07 Episode/event/job contracts. When approval becomes
+available, return first to G07 real integration/E2E, create its meaningful commit, push it and update
+Draft PR #8 without changing Draft status.
 
 ## Outcomes and Retrospective
 
@@ -338,4 +345,5 @@ v1.2.2 formal plan authority. G06 now records immutable correction and Episode e
 low-risk-only Memory projection. Its affected gates pass 529 unit, 150 contract, 75 integration and 62
 E2E tests plus migration/OpenAPI/architecture/build. Implementation `cade96f` is pushed. Disposable
 test databases were deleted and the default local `sdar` volume remains protected historical operator
-data. G07–G17 remain open.
+data. G07 implementation passes 533 unit, 151 contract, OpenAPI, architecture and build gates; its real
+integration/E2E plus commit/push remain honestly blocked. G07–G17 remain open.
