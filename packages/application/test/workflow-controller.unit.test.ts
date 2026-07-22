@@ -26,6 +26,7 @@ import type {
   WorkflowPlanRepository,
 } from '../src/ports.js';
 import { WorkflowControllerService } from '../src/workflow-controller.js';
+import { UserGoalPlanController } from '../src/user-goal-plan-controller.js';
 
 describe('Workflow outer controller', () => {
   it('rejects same-version Goal content drift before workflow execution', async () => {
@@ -504,8 +505,16 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
         decisionSummary: 'Use the enabled alternative.',
       }),
     ),
+    prepareCompositionRefresh: vi.fn(() =>
+      Promise.resolve({
+        skillId: 'skill-control',
+        skillVersion: 1,
+        decisionSummary: 'Refresh the immutable composition.',
+      }),
+    ),
     reportReplacementPlan: vi.fn(() => Promise.resolve()),
     reportInputContinuationPlan: vi.fn(() => Promise.resolve()),
+    continueUserGoalPlan: vi.fn(() => Promise.resolve()),
   };
   const terminalOutcomes = new MemoryTerminalOutcomes(controls, goals);
   const experiences = { record: vi.fn(() => Promise.resolve(undefined as never)) };
@@ -562,7 +571,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     experiences,
     memories,
     taskOutcomes,
-    terminalOutcomes,
+    terminalAuthority: new UserGoalPlanController({ terminal: terminalOutcomes }),
     reportWarning,
     clock: { now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z` },
     ids: {

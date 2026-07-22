@@ -57,7 +57,11 @@ describe('GoalCancellationService', () => {
         },
       },
       repository: {
-        cancel: (input) => {
+        find: () => Promise.resolve(persisted),
+        listByGoal: () => Promise.resolve(persisted === undefined ? [] : [persisted]),
+      },
+      terminalAuthority: {
+        cancelGoal: (input) => {
           persisted = {
             ...input,
             canceledTaskIds: ['task-1', 'task-2'],
@@ -66,8 +70,6 @@ describe('GoalCancellationService', () => {
           };
           return Promise.resolve(persisted);
         },
-        find: () => Promise.resolve(persisted),
-        listByGoal: () => Promise.resolve(persisted === undefined ? [] : [persisted]),
       },
       clock: { now: () => '2026-07-12T00:01:00.000Z' },
       nextId: () => 'goal-cancellation-1',
