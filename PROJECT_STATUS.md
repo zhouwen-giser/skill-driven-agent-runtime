@@ -1,13 +1,12 @@
 # Project Status
 
-SDAR v1.2.3 G00 is in progress (2026-07-23) on
-`feature/v1.2.3-cognitive-planning-runtime` from exact `origin/main@35cb927`. The 50-file Goal-package
-hash set and 18-Goal graph pass after a recorded Windows `fileURLToPath` fix to the package self-check.
-EP-SDAR-V1.2.3, sync-state, ADR-111–114, the cognitive Domain/Port/JSON-Schema skeleton, additive 0108
-DDL, architecture reverse-dependency guard and six exact-commit OSS design-reference intakes are being
-verified. The pre-change `pnpm verify` reached ESLint and failed only because the untracked package
-self-check used browser globals; this failure is retained and the product baseline has not yet been
-declared green. No cognitive product behavior, PR, merge or tag exists yet.
+SDAR v1.2.3 G00 is complete (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime` from exact `origin/main@35cb927`. Implementation commit
+`ffd9791` is pushed and Draft PR #8 is open. ADR-111–114, Domain/Port/schema/DDL, exact source intake,
+architecture guards and rollback/reapply migration evidence freeze the cognitive foundation without
+activating product behavior or changing v1.2.2 authority. A final isolated-database `pnpm verify`
+passes 635 unit/contract, 68 real integration, 59 E2E, A2A MUST 74/74, 124 OpenAPI operations,
+production build and both smoke gates in 168,876 ms. G01 deterministic capability summary is next.
 
 SDAR v1.2.2 G00–G10 implementation and local acceptance complete (2026-07-22): the clean-slate User
 Goal contract/planning → Skill Goal DAG/scheduler/attempt → layered outcome → sole

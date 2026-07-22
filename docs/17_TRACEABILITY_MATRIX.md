@@ -261,8 +261,8 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 
 | Acceptance | Status | Implementation | Tests / evidence |
 | --- | --- | --- | --- |
-| AC-G00-01 latest main/ancestor and baseline recorded | in progress | EP-SDAR-V1.2.3 and sync-state at exact `35cb927` | `reports/goal/g00-completion.md` pending final gates |
-| AC-G00-02 Domain, states, errors, sources and authority frozen | implemented | ADR-111–114; `docs/27_V1_2_3_COGNITIVE_RUNTIME_DESIGN.md`; `packages/domain/src/cognitive/`; JSON Schema | cognitive Domain unit and Schema contract |
-| AC-G00-03 no v1.2.2 reverse dependency | implemented | `scripts/check-cognitive-architecture.mjs` integrated into architecture gate | `pnpm verify:architecture` pending focused run |
-| AC-G00-04 every used source pinned/licensed | implemented | six intake reports; `third_party/sources.lock.yaml`; license ledger; generated NOTICE/SBOM inputs | sources/license/SBOM gates pending regeneration |
-| AC-G00-05 skeleton activates no behavior | implemented | Domain/Ports/schema and additive DDL only; no composition-root service/route/queue seed | architecture, migration and E2E regression pending |
+| AC-G00-01 latest main/ancestor and baseline recorded | verified | EP-SDAR-V1.2.3 and sync-state at exact `35cb927`; implementation `ffd9791`; Draft PR #8 | `reports/goal/baseline-report.md`; `reports/goal/g00-completion.md` |
+| AC-G00-02 Domain, states, errors, sources and authority frozen | verified | ADR-111–114; `docs/27_V1_2_3_COGNITIVE_RUNTIME_DESIGN.md`; `packages/domain/src/cognitive/`; JSON Schema | 5 focused Domain unit + 1 Schema contract; 635 full unit/contract |
+| AC-G00-03 no v1.2.2 reverse dependency | verified | `scripts/check-cognitive-architecture.mjs` integrated into architecture gate | 307-source architecture gate passes |
+| AC-G00-04 every used source pinned/licensed | verified | six intake reports; `third_party/sources.lock.yaml`; license ledger; generated NOTICE/SBOM | 27 pinned/no unpinned; license/SBOM gate passes |
+| AC-G00-05 skeleton activates no behavior | verified | Domain/Ports/schema and additive DDL only; no composition-root service/route/queue seed | migration rollback/reapply; 68 integration; 59 E2E; build and smoke pass |

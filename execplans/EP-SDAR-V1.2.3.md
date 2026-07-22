@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — repository/task-package audit and G00 are in progress
+Status: ACTIVE — G00 is complete; G01 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -81,7 +81,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 
 | Goal | Status | Commit | Tests | Evidence | Blocker | Next |
 | --- | --- | --- | --- | --- | --- | --- |
-| G00 | in_progress | — | baseline pending | `reports/goal/g00-completion.md` pending | none | freeze ADR/domain/schema/source/migration contracts |
+| G00 | completed | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none | hand off frozen contracts to G01 |
 | G01 | not_started | — | — | — | G00 | deterministic capability summary |
 | G02 | not_started | — | — | — | G01 | public snapshot/A2A projection |
 | G03 | not_started | — | — | — | G00/G01 | generic task understanding |
@@ -115,6 +115,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: the task package's `Best_Implementation_Design` contains an earlier ten-KD numbering,
   while `Overall_Design`, Frozen Decisions and G00 define the final KD-01–KD-20 list. Frozen Decisions
   and the Overall Design list govern; the discrepancy will be recorded in the G00 ADR register.
+- 2026-07-23: the supplied Windows self-check defect was fixed with `fileURLToPath`; the new script
+  digest is recorded in the package manifest and the complete 50-file/18-Goal check passes.
+- 2026-07-23: the first complete G00 gate observed a non-reproducing existing remote-lifecycle read
+  timing failure; the unchanged E2E suite then passed 59/59. A later smoke failure revealed that the
+  default operator `sdar` volume retains the historical 0001-0107 ledger. It was not reset; final
+  evidence used and removed an isolated `sdar_test_v123_full_gate` database.
 
 ## Decision Log
 
@@ -196,13 +202,15 @@ must remain separately labelled.
 
 ## Source Intake
 
-Pending G00 exact-commit LICENSE/NOTICE validation for Gemini CLI, AutoSkill, LangMem, ReMe, Agent
-Workflow Memory and ACE. Initial classification is `design_reference`/`algorithm_reference`; AutoSkill
-source copying remains prohibited. No new product runtime dependency is approved by this plan.
+G00 exact-commit LICENSE/NOTICE validation is complete for Gemini CLI, AutoSkill, LangMem, ReMe, Agent
+Workflow Memory and ACE. All are `design_reference`/`algorithm_reference`; AutoSkill has no root license
+artifact at its pin, remains `UNCONFIRMED`, and is prohibited for source copying. No new product runtime
+dependency was added.
 
 ## Migration / API / Console Status
 
-- Migration: v1.2.2 clean baseline identified; additive v1.2.3 ledger design pending G00.
+- Migration: additive 0108 skeleton and exact-prefix ledger are implemented; fresh apply, idempotency,
+  rollback/reapply, guarded reset and rogue-ledger rejection pass on real PostgreSQL.
 - OpenAPI: existing management schema has 124 operations in the v1.2.2 acceptance record; no v1.2.3
   operation has been added yet.
 - A2A: existing applicable MUST result is 74/74 in v1.2.2 acceptance; no v1.2.3 projection change yet.
@@ -212,26 +220,32 @@ source copying remains prohibited. No new product runtime dependency is approved
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current HEAD: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Draft PR: not created; must be created immediately after the pushed G00 commit.
+- Current implementation HEAD: `ffd979152ae45468f00e2cf673e97ed5fe32616c`
+- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 
 ## Changed Files
 
-- `execplans/EP-SDAR-V1.2.3.md`
-- `reports/goal/sync-state.json`
-- user-supplied untracked task package under `docs/SDAR_v1.2.3_Codex_Goal_Package_V1.0/`
+- G00 implementation commit `ffd9791`: task package, ADR-111–114, cognitive Domain/Application
+  contracts, JSON Schema/fixture, migration 0108, source intake/locks, architecture gate and generated
+  license/SBOM evidence.
+- G00 evidence commit: this living plan, sync-state, baseline/completion reports, status/traceability and
+  changelog synchronization.
 
 ## Open Blockers
 
-None. The task-package Windows self-check defect has a safe independent hash-verification path and does
-not block G00.
+None. The package self-check is platform-safe and passing. The default operator database's historical
+ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
+database names.
 
 ## Next Execution Step
 
-Finish the platform-safe task-package integrity check and current `pnpm verify` baseline, then implement
-the G00 ADR/domain/schema/migration/source/architecture slice and its reproducible evidence.
+Start G01 from the frozen contracts: implement deterministic catalog snapshot ingestion, canonical
+summary hashing, PostgreSQL activation and declared/observed/validated capability evidence without live
+Provider-readiness or request-time model authority.
 
 ## Outcomes and Retrospective
 
-Not yet complete. Update this section at every Goal boundary with delivered behavior, evidence,
-remaining gaps and effects on later Goals.
+G00 completed without activating cognitive behavior. Implementation `ffd9791` is pushed, Draft PR #8 is
+open, and the isolated-database full gate passed in 168,876 ms. The major operational discovery is that
+the default local `sdar` volume is historical operator data and must never be used as the disposable
+v1.2.3 gate database. G01–G17 remain open.

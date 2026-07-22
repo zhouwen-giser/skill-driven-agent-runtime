@@ -23,8 +23,9 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Verification
 
-- In progress. Focused cognitive Domain tests, Schema contract and strict typecheck pass; G00 full gates
-  and the Draft PR are not yet complete.
+- G00 verified. The isolated-database full gate passes 635 unit/contract, 68 integration, 59 E2E,
+  A2A MUST 74/74, 124 OpenAPI operations, migration rollback/reapply, build and both smoke stages in
+  168,876 ms; implementation commit `ffd9791` is pushed and Draft PR #8 remains Draft.
 
 ## [1.2.2] - Unreleased
 
