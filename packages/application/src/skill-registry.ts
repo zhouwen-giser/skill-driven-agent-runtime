@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   createSkillCatalogVersionSnapshot,
   createSkillPackageImportAudit,
@@ -52,9 +54,16 @@ export class SkillRegistryService {
     this.#assertSchema(input.inputSchema, 'input');
     this.#assertSchema(input.outputSchema, 'output');
     const current = await this.#skills.findCurrentVersion(input.skillId);
+    const versionNumber = (current?.version ?? 0) + 1;
+    const { outcomeSpecification, ...definition } = input;
     const version = createSkillVersion({
-      ...input,
-      version: (current?.version ?? 0) + 1,
+      ...definition,
+      version: versionNumber,
+      ...(outcomeSpecification === undefined
+        ? {}
+        : {
+            outcomeSpecification: rebindOutcome(input.skillId, outcomeSpecification, versionNumber),
+          }),
       ...(current === undefined ? {} : { previousVersion: current.version }),
       createdAt: this.#clock.now(),
     });
@@ -229,6 +238,28 @@ export class SkillRegistryService {
       );
     }
   }
+}
+
+function rebindOutcome(
+  skillId: string,
+  declared: NonNullable<RegisterSkillVersionInput['outcomeSpecification']>,
+  skillVersion: number,
+) {
+  const content = {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion,
+    effects: declared.effects,
+    evidence: declared.evidence,
+    artifacts: declared.artifacts,
+    taskGoalPolicy: declared.taskGoalPolicy,
+    confidencePolicy: declared.confidencePolicy,
+    sideEffectPolicy: declared.sideEffectPolicy,
+  };
+  return {
+    ...content,
+    specificationHash: `sha256:${createHash('sha256').update(JSON.stringify(content)).digest('hex')}`,
+  };
 }
 
 export type SkillRegistryErrorCode =

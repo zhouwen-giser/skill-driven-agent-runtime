@@ -273,6 +273,41 @@ function decision() {
       },
       outputSchema: { type: 'object' },
       tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+      usageSpecification: {
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: [],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Call the required Tool.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Call the Tool.', instructions: ['Return its result.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      },
+      outcomeSpecification: {
+        schemaVersion: '1.0',
+        skillId: 'skill.evolved.device',
+        skillVersion: 1,
+        effects: ['effect.device_status_returned'],
+        evidence: ['evidence.provider_result'],
+        artifacts: [],
+        taskGoalPolicy: {},
+        confidencePolicy: {},
+        sideEffectPolicy: {},
+        specificationHash: `sha256:${'a'.repeat(64)}`,
+      },
     },
     supplementalCases: [
       {

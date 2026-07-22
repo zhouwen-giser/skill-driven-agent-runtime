@@ -1,6 +1,8 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import type { ToolReference } from './skill.js';
+import type { SkillUsageSpecification } from './skill-usage.js';
+import type { SkillOutcomeSpecification } from './user-goal-runtime.js';
 
 export interface TemporarySkill {
   readonly temporarySkillId: string;
@@ -67,6 +69,8 @@ export interface ProposedEvolutionSkill {
   readonly inputSchema: unknown;
   readonly outputSchema: unknown;
   readonly tools: readonly ToolReference[];
+  readonly usageSpecification?: SkillUsageSpecification | undefined;
+  readonly outcomeSpecification?: SkillOutcomeSpecification | undefined;
 }
 
 export type SkillSimulationCaseKind =

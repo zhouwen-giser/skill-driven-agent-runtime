@@ -295,6 +295,18 @@ const skill = createSkillVersion({
   outputSchema: { type: 'object' },
   toolPolicy: { required: [], optional: [], forbidden: [] },
   runtimePolicy: { autoConfirmPlan: false },
+  outcomeSpecification: {
+    schemaVersion: '1.0',
+    skillId: 'skill.root',
+    skillVersion: 1,
+    specificationHash: `sha256:${'f'.repeat(64)}`,
+    effects: ['effect.test'],
+    evidence: ['evidence.test'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
+  },
   status: 'enabled',
   sourceKind: 'admin',
   validationPassed: true,
@@ -401,9 +413,11 @@ function interpretation(mode: 'guidance' | 'template' | 'procedure'): SkillModeI
 }
 
 function validator() {
+  if (skill.outcomeSpecification === undefined) throw new Error('missing outcome specification');
   const child = createSkillVersion({
     ...skill,
     skillId: 'skill.move',
+    outcomeSpecification: { ...skill.outcomeSpecification, skillId: 'skill.move' },
     name: 'Move',
     capabilities: ['move'],
     usageSpecification: usage,

@@ -196,6 +196,18 @@ function skillInput(skillId: string): RegisterSkillVersionInput {
     },
     toolPolicy: { required: [], optional: [], forbidden: [] },
     runtimePolicy: { autoConfirmPlan: false },
+    outcomeSpecification: {
+      schemaVersion: '1.0',
+      skillId,
+      skillVersion: 1,
+      specificationHash: `sha256:${'1'.repeat(64)}`,
+      effects: ['effect.inspected'],
+      evidence: ['evidence.status'],
+      artifacts: [],
+      taskGoalPolicy: {},
+      confidencePolicy: {},
+      sideEffectPolicy: {},
+    },
     usageSpecification: {
       ...usageSpecification(),
       modes: {

@@ -97,6 +97,15 @@ describe('SkillSelectionService', () => {
     });
   });
 
+  it('does not expose candidates rejected by the owning scheduler policy to the decider', async () => {
+    const records = new MemorySelectionRepository();
+    const service = createService(records, [], 'skill.b');
+    await expect(
+      service.selectFromCandidates(goalContract, [skillVersion('skill.a')]),
+    ).rejects.toMatchObject({ code: 'SKILL_SELECTION_INVALID_DECISION' });
+    expect(records.selection).toBeUndefined();
+  });
+
   it('rejects replacement after the Goal contract changes', async () => {
     const records = new MemorySelectionRepository();
     const relations: readonly SkillRelation[] = [

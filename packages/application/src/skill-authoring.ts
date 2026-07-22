@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type {
   SkillDraft,
   SkillRuntimePolicy,
+  SkillOutcomeSpecification,
+  SkillUsageSpecification,
   SkillToolPolicy,
   SkillVersion,
 } from '../../domain/src/index.js';
@@ -34,6 +36,8 @@ export interface AuthorSkillInput {
   readonly runtimePolicy: SkillRuntimePolicy;
   readonly status: 'draft' | 'enabled' | 'disabled';
   readonly sourceKind: 'admin' | 'a2a_draft';
+  readonly outcomeSpecification?: SkillOutcomeSpecification;
+  readonly usageSpecification?: SkillUsageSpecification;
 }
 
 export class SkillAuthoringService {
@@ -85,6 +89,8 @@ export class SkillAuthoringService {
       toolPolicy: SkillToolPolicy;
       runtimePolicy: SkillRuntimePolicy;
       status: 'enabled' | 'disabled';
+      outcomeSpecification?: SkillOutcomeSpecification;
+      usageSpecification?: SkillUsageSpecification;
     }>,
   ): Promise<Readonly<{ draft: SkillDraft; skill: SkillVersion }>> {
     const draft = await this.#drafts.findById(draftId);
@@ -102,6 +108,12 @@ export class SkillAuthoringService {
       runtimePolicy: input.runtimePolicy,
       status: input.status,
       sourceKind: 'a2a_draft',
+      ...(input.outcomeSpecification === undefined
+        ? {}
+        : { outcomeSpecification: input.outcomeSpecification }),
+      ...(input.usageSpecification === undefined
+        ? {}
+        : { usageSpecification: input.usageSpecification }),
     });
     const publishedDraft = await this.#drafts.markPublished(draftId, {
       skillId: skill.skillId,
@@ -145,6 +157,12 @@ export class SkillAuthoringService {
           status: input.status,
           sourceKind: input.sourceKind,
           validationPassed: true,
+          ...(input.outcomeSpecification === undefined
+            ? {}
+            : { outcomeSpecification: input.outcomeSpecification }),
+          ...(input.usageSpecification === undefined
+            ? {}
+            : { usageSpecification: input.usageSpecification }),
         });
       }
     }

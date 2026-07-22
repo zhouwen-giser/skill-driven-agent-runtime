@@ -81,6 +81,18 @@
       "cancelStrategy": "try_interrupt",
       "compensationGuidance": "Stop new subregions, preserve partial evidence, and report Provider uncertainty."
     },
+    "outcomeSpecification": {
+      "schemaVersion": "1.0",
+      "skillId": "embodied.area_patrol",
+      "skillVersion": 1,
+      "specificationHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "effects": ["effect.area_patrolled"],
+      "evidence": ["evidence.patrol_coverage"],
+      "artifacts": [],
+      "taskGoalPolicy": {},
+      "confidencePolicy": {},
+      "sideEffectPolicy": {}
+    },
     "status": "enabled",
     "sourceKind": "admin",
     "validationPassed": true,

@@ -1,7 +1,7 @@
 {
   "skillId": "embodied.area_patrol",
   "version": 1,
-  "packageChecksum": "755f46b21cf0a8f1c2e92dd373d79cccb624e9e20d39e84b39f4cc13a44b65ed",
+  "packageChecksum": "742b72b84d6c499b8b04034fc945d5eb997b42e3a7c3e2129638e316f18bdd23",
   "capabilities": ["embodied.area_patrol", "embodied.coverage", "embodied.anomaly_reporting"],
   "visibility": { "userSelectable": true, "composable": true, "internalOnly": false },
   "supportedModes": ["guidance", "template", "procedure"],

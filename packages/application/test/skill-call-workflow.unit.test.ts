@@ -710,11 +710,27 @@ function childSkill(autoConfirmPlan = true) {
       forbidden: [],
     },
     runtimePolicy: { autoConfirmPlan },
+    outcomeSpecification: testOutcome('skill.child', 3),
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,
     createdAt: '2026-07-12T00:00:00.000Z',
   });
+}
+
+function testOutcome(skillId: string, skillVersion: number) {
+  return {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion,
+    specificationHash: `sha256:${'a'.repeat(64)}`,
+    effects: ['effect.test'],
+    evidence: ['evidence.test'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
+  };
 }
 
 function skillSnapshot(skillId: string, version: number) {

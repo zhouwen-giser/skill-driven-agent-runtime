@@ -115,6 +115,12 @@ export function prepareSkillUsagePlan(
   });
   const planningInstruction = JSON.stringify({
     operation: 'plan_with_skill_usage_policy',
+    workflowIdentity: {
+      workflowDefinitionId: input.workflowDefinitionId,
+      version: input.workflowVersion,
+      goalId: input.goalContract.goalId,
+      goalVersion: input.goalContract.version,
+    },
     goalContract: input.goalContract,
     skillUsagePolicy: policy,
     instruction:

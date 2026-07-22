@@ -52,6 +52,10 @@ export interface AgentTask {
   readonly selectedSkillId?: string;
   readonly selectedSkillVersion?: number;
   readonly skillSelectionId?: string;
+  readonly userGoalPlanId?: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
+  readonly skillExecutionContractId?: string;
   readonly skillInputResolutionId?: string;
   readonly temporarySkillId?: string;
   readonly output?: TaskOutput;
@@ -116,6 +120,9 @@ export function bindTaskSkill(
     skillId: string;
     skillVersion: number;
     selectionId: string;
+    userGoalPlanId?: string;
+    skillGoalId?: string;
+    skillAttemptId?: string;
     timestamp: string;
   }>,
 ): AgentTask {
@@ -126,11 +133,43 @@ export function bindTaskSkill(
     );
   if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
     throw new DomainError('SKILL_VERSION_INVALID', 'Selected Skill version must be positive.');
+  const executionBinding = [input.userGoalPlanId, input.skillGoalId, input.skillAttemptId];
+  if (
+    executionBinding.some((value) => value !== undefined) &&
+    executionBinding.some((value) => value === undefined)
+  )
+    throw new DomainError(
+      'SKILL_ATTEMPT_INVALID',
+      'User Goal Plan, Skill Goal and Skill Attempt bindings must be attached together.',
+    );
   return {
     ...withoutSkillInputResolution(task),
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
     skillSelectionId: requireIdentifier(input.selectionId, 'SKILL_SELECTION_ID_REQUIRED'),
+    ...(input.userGoalPlanId === undefined
+      ? {}
+      : {
+          userGoalPlanId: requireIdentifier(input.userGoalPlanId, 'USER_GOAL_PLAN_INVALID'),
+          skillGoalId: requireIdentifier(input.skillGoalId ?? '', 'SKILL_ATTEMPT_INVALID'),
+          skillAttemptId: requireIdentifier(input.skillAttemptId ?? '', 'SKILL_ATTEMPT_INVALID'),
+        }),
+    updatedAt: input.timestamp,
+  };
+}
+
+export function bindTaskSkillExecutionContract(
+  task: AgentTask,
+  input: Readonly<{ executionContractId: string; timestamp: string }>,
+): AgentTask {
+  if (task.skillAttemptId === undefined || task.selectedSkillId === undefined)
+    throw new DomainError(
+      'SKILL_ATTEMPT_INVALID',
+      'A Skill execution contract requires an existing Skill Attempt binding.',
+    );
+  return {
+    ...task,
+    skillExecutionContractId: requireIdentifier(input.executionContractId, 'SKILL_ATTEMPT_INVALID'),
     updatedAt: input.timestamp,
   };
 }
@@ -162,16 +201,46 @@ export function bindTaskReplacement(
 
 export function bindTaskTemporarySkill(
   task: AgentTask,
-  input: Readonly<{ temporarySkillId: string; timestamp: string }>,
+  input: Readonly<{
+    temporarySkillId: string;
+    userGoalPlanId?: string;
+    skillGoalId?: string;
+    skillAttemptId?: string;
+    timestamp: string;
+  }>,
 ): AgentTask {
   if (task.phase !== 'skill_resolution')
     throw new DomainError(
       'TASK_PHASE_TRANSITION_INVALID',
       'A Temporary Skill can be bound only during Skill resolution.',
     );
+  const hasRuntimeBinding =
+    input.userGoalPlanId !== undefined ||
+    input.skillGoalId !== undefined ||
+    input.skillAttemptId !== undefined;
+  if (
+    hasRuntimeBinding &&
+    (input.userGoalPlanId === undefined ||
+      input.skillGoalId === undefined ||
+      input.skillAttemptId === undefined)
+  )
+    throw new DomainError(
+      'TASK_USER_GOAL_RUNTIME_BINDING_INCOMPLETE',
+      'Temporary Skill runtime binding requires plan, Skill Goal and Attempt identity together.',
+    );
   return {
     ...withoutSkillInputResolution(task),
     temporarySkillId: requireIdentifier(input.temporarySkillId, 'TEMPORARY_SKILL_ID_REQUIRED'),
+    ...(input.userGoalPlanId === undefined
+      ? {}
+      : {
+          userGoalPlanId: requireIdentifier(input.userGoalPlanId, 'USER_GOAL_PLAN_ID_REQUIRED'),
+          skillGoalId: requireIdentifier(input.skillGoalId ?? '', 'SKILL_GOAL_ID_REQUIRED'),
+          skillAttemptId: requireIdentifier(
+            input.skillAttemptId ?? '',
+            'SKILL_ATTEMPT_ID_REQUIRED',
+          ),
+        }),
     updatedAt: input.timestamp,
   };
 }
@@ -179,6 +248,7 @@ export function bindTaskTemporarySkill(
 function withoutSkillInputResolution(task: AgentTask): AgentTask {
   const unboundTask = { ...task };
   delete unboundTask.skillInputResolutionId;
+  delete unboundTask.skillExecutionContractId;
   return unboundTask;
 }
 
@@ -215,8 +285,10 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
     'capability_gap',
     'canceled',
     'failed',
+    'skill_resolution',
   ],
   evaluating: [
+    'skill_resolution',
     'planning',
     'completed',
     'awaiting_user_input',
