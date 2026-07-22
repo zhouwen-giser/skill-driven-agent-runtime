@@ -79,6 +79,31 @@ describe('ModelRuntimeService', () => {
     });
   });
 
+  it('returns the persisted invocation identity for cognitive structured stages', async () => {
+    const repository = new MemoryModelRepository();
+    const service = createService(repository, new FakeTransport());
+    await service.configureProvider(configuration('provider-primary'), {});
+    await service.route('task_understanding', 'provider-primary');
+
+    await expect(
+      service.generateStructuredWithAudit({
+        stage: 'task_understanding',
+        instruction: 'Understand this untrusted task request.',
+        responseSchema: { type: 'object' },
+        correctionErrors: [],
+        taskId: 'task-understanding-1',
+      }),
+    ).resolves.toEqual({
+      structuredResult: { schema: 'valid' },
+      invocationId: 'model-invocation-1',
+    });
+    expect(repository.invocations[0]).toMatchObject({
+      invocationId: 'model-invocation-1',
+      stage: 'task_understanding',
+      taskId: 'task-understanding-1',
+    });
+  });
+
   it('fails before transport when a stage has no route', async () => {
     const transport = new FakeTransport();
     await expect(

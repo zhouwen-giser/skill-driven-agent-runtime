@@ -833,6 +833,16 @@ function firstEvidenceIdentity(
 function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value'>[] {
   const id = encodeURIComponent(task.taskId);
   const links: Omit<EvidenceItem, 'value'>[] = [
+    {
+      key: 'understanding',
+      label: 'Task Understanding',
+      endpoint: `/api/v1/tasks/${id}/understanding`,
+    },
+    {
+      key: 'understanding-revisions',
+      label: 'Task Understanding Revisions',
+      endpoint: `/api/v1/tasks/${id}/understanding/revisions`,
+    },
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
     {
       key: 'remote-task-lifecycle',

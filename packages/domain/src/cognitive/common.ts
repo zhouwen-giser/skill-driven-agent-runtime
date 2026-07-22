@@ -63,6 +63,10 @@ export type CognitiveSourceAuthority =
   | 'promoted_knowledge'
   | 'skill_declaration';
 export type CognitiveSourceKind =
+  | 'task_request'
+  | 'capability_summary'
+  | 'task_type_definition'
+  | 'user_preference'
   | 'goal_contract'
   | 'plan_revision'
   | 'skill_attempt'

@@ -15,6 +15,7 @@ const stages = [
   'goal_evaluation',
   'evaluation',
   'result_processing',
+  'task_understanding',
 ] as const;
 
 export function PromptPanel() {

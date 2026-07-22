@@ -241,6 +241,34 @@ async function verifyBaseline(pool) {
   ) {
     throw new Error('V123_PUBLIC_CAPABILITY_CARD_SCHEMA_INVALID');
   }
+
+  const understandingSchema = await pool.query(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='generic_task_understanding'
+           AND column_name='model_invocation_id'
+           AND is_nullable='NO'
+       ) AS invocation_column,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='generic_task_understanding_dimension_kind_check'
+           AND pg_get_constraintdef(oid) LIKE '%human_confirmation_policy%'
+       ) AS complete_dimension_check,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='stage_model_route_stage_check'
+           AND pg_get_constraintdef(oid) LIKE '%task_understanding%'
+       ) AS model_stage_check`,
+  );
+  if (
+    understandingSchema.rows[0]?.invocation_column !== true ||
+    understandingSchema.rows[0]?.complete_dimension_check !== true ||
+    understandingSchema.rows[0]?.model_stage_check !== true
+  ) {
+    throw new Error('V123_TASK_UNDERSTANDING_SCHEMA_INVALID');
+  }
 }
 
 async function rollbackPostBaselineMigrations(pool) {
@@ -282,6 +310,17 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
   );
   if (capabilityColumn.rows[0]?.present === true)
     throw new Error('V123_CAPABILITY_SUMMARY_ROLLBACK_INCOMPLETE');
+
+  const understandingColumn = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='generic_task_understanding'
+         AND column_name='model_invocation_id'
+     ) AS present`,
+  );
+  if (understandingColumn.rows[0]?.present === true)
+    throw new Error('V123_TASK_UNDERSTANDING_ROLLBACK_INCOMPLETE');
 }
 
 async function expectLedgerRejection(applyRuntimeMigrations, pool) {

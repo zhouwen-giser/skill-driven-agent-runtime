@@ -107,8 +107,12 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
       taskId: 'task.v123',
       revision: 1,
       disposition: 'clarification_required',
+      originalRequest: 'Inspect a device.',
       objective: 'Inspect a device.',
+      taskTypeCandidates: [],
+      capabilityRequirements: [],
       knownConstraints: ['Read only.'],
+      knownDimensions: [],
       assumptions: [],
       missingDimensions: [
         {
@@ -121,6 +125,8 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
         },
       ],
       sourceRefs: [sourceRef()],
+      modelInvocationId: 'model-invocation.v123',
+      confidence: 0.7,
       policyVersion: 'policy.v123.1',
       stateHash: hash('c'),
       createdAt: timestamp,

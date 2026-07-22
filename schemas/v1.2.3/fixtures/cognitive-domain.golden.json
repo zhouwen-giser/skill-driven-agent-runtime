@@ -130,8 +130,12 @@
     "taskId": "task.v123",
     "revision": 1,
     "disposition": "clarification_required",
+    "originalRequest": "Inspect a device.",
     "objective": "Inspect a device.",
+    "taskTypeCandidates": [],
+    "capabilityRequirements": [],
     "knownConstraints": ["No side effects."],
+    "knownDimensions": [],
     "assumptions": [],
     "missingDimensions": [
       {
@@ -143,7 +147,9 @@
         "authorizationSensitive": false
       }
     ],
+    "confidence": 0.7,
     "sourceRefs": [],
+    "modelInvocationId": "model-invocation.v123",
     "policyVersion": "policy.v123.1",
     "stateHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "createdAt": "2026-07-23T00:00:00.000Z"

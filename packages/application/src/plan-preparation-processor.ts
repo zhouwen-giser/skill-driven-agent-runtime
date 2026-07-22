@@ -28,6 +28,11 @@ import type { GoalInputInferenceService } from './goal-input-inference.js';
 import { TaskApplicationError } from './task-service.js';
 import type { SkillInputResolutionService } from './skill-input-resolution.js';
 import { skillInputResolutionQuestion } from './skill-input-resolution.js';
+import type {
+  CognitiveEntryRoute,
+  GenericTaskUnderstandingService,
+  UnderstandGenericTaskInput,
+} from './cognitive/index.js';
 
 export interface PlanPreparationProcessorDependencies {
   readonly tasks: AgentTaskRepository;
@@ -143,6 +148,12 @@ export interface PlanPreparationProcessorDependencies {
       input: Readonly<{ taskId: string; planId: string; executionInput: unknown }>,
     ): Promise<void>;
   }>;
+  readonly taskUnderstanding?: Readonly<{
+    route(input: Readonly<{ requestText: string }>): CognitiveEntryRoute;
+    understand(
+      input: Pick<UnderstandGenericTaskInput, 'taskId' | 'contextId' | 'requestText'>,
+    ): ReturnType<GenericTaskUnderstandingService['understand']>;
+  }>;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -223,15 +234,48 @@ export class PlanPreparationProcessor {
   async #prepare(initialTask: AgentTask): Promise<void> {
     let task = initialTask;
     task = await this.#transition(task, 'context_loading', 'Context loaded.');
+    let requestText = task.requestText;
+    if (this.#dependencies.taskUnderstanding?.route({ requestText }).kind === 'generic_task') {
+      const understanding = await this.#dependencies.taskUnderstanding.understand({
+        taskId: task.taskId,
+        contextId: task.contextId,
+        requestText,
+      });
+      task = await this.#transition(
+        task,
+        'goal_deliberation',
+        `Task Understanding ${understanding.disposition}: ${understanding.objective}`,
+      );
+      if (
+        understanding.disposition === 'clarification_required' ||
+        understanding.disposition === 'confirmation_required'
+      ) {
+        const question = understanding.missingDimensions.find(
+          (dimension) => dimension.severity === 'blocking',
+        )?.question;
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          question ?? 'Additional Task Understanding input is required.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (understanding.disposition === 'rejected') {
+        throw new Error('TASK_UNDERSTANDING_REJECTED');
+      }
+      requestText = understanding.objective;
+    }
     const intent = await this.#dependencies.decisions.decideIntent({
-      requestText: task.requestText,
+      requestText,
     });
-    task = await this.#transition(
-      task,
-      'goal_deliberation',
-      `LLM intent ${intent.intent}: ${intent.summary}`,
-    );
-    await this.#deliberateAndPlan(task, task.requestText);
+    if (task.phase !== 'goal_deliberation') {
+      task = await this.#transition(
+        task,
+        'goal_deliberation',
+        `LLM intent ${intent.intent}: ${intent.summary}`,
+      );
+    }
+    await this.#deliberateAndPlan(task, requestText);
   }
 
   async #continueAfterInput(task: AgentTask, attemptId: string): Promise<void> {

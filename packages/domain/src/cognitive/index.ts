@@ -5,3 +5,4 @@ export * from './errors.js';
 export * from './experience.js';
 export * from './interaction.js';
 export * from './knowledge.js';
+export * from './task-understanding.js';

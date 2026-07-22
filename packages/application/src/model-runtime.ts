@@ -66,7 +66,7 @@ export class ModelRuntimeService {
     return this.#repository.listStageRoutes();
   }
 
-  generateStructured(
+  async generateStructured(
     input: Readonly<{
       stage: ModelStage;
       instruction: string;
@@ -76,6 +76,19 @@ export class ModelRuntimeService {
       taskId?: string;
     }>,
   ): Promise<unknown> {
+    return (await this.#invokeStructured(input)).structuredResult;
+  }
+
+  generateStructuredWithAudit(
+    input: Readonly<{
+      stage: ModelStage;
+      instruction: string;
+      responseSchema: unknown;
+      correctionErrors: readonly string[];
+      context?: unknown;
+      taskId?: string;
+    }>,
+  ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
     return this.#invokeStructured(input);
   }
 
@@ -104,7 +117,7 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
     }>,
-  ): Promise<unknown> {
+  ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
     const provider = await this.#requiredProvider(input.stage);
     const prompt = await this.#repository.findActivePromptForStage(input.stage);
     if (prompt?.status !== 'enabled') {
@@ -129,7 +142,7 @@ export class ModelRuntimeService {
         correctionErrors: input.correctionErrors,
         signal: AbortSignal.timeout(provider.configuration.timeoutMs),
       });
-      await this.#audit(
+      const invocationId = await this.#audit(
         provider.configuration,
         input.stage,
         'structured_generation',
@@ -141,7 +154,7 @@ export class ModelRuntimeService {
         prompt,
         input.taskId,
       );
-      return result.structuredResult;
+      return { structuredResult: result.structuredResult, invocationId };
     } catch (error: unknown) {
       await this.#auditFailure(
         provider.configuration,
@@ -230,9 +243,10 @@ export class ModelRuntimeService {
     }>,
     prompt?: PromptVersion,
     taskId?: string,
-  ): Promise<void> {
+  ): Promise<string> {
+    const invocationId = this.#ids.nextInvocationId();
     await this.#repository.saveInvocation({
-      invocationId: this.#ids.nextInvocationId(),
+      invocationId,
       ...(taskId === undefined ? {} : { taskId }),
       stage,
       providerId: configuration.providerId,
@@ -249,6 +263,7 @@ export class ModelRuntimeService {
       status,
       createdAt: this.#clock.now(),
     });
+    return invocationId;
   }
 
   async #auditFailure(

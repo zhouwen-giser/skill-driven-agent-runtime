@@ -62,6 +62,35 @@ paths:
             schema: { type: integer, minimum: 1, maximum: 200, default: 50 },
           }
       responses: { '200': { description: Most recently updated PostgreSQL Task records } }
+  /api/v1/tasks/{taskId}/understanding:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTaskUnderstanding
+      description: Returns the current source-traceable Generic Task Understanding revision.
+      responses:
+        '200':
+          description: Current Task Understanding revision
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenericTaskUnderstanding' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/understanding/revisions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: listTaskUnderstandingRevisions
+      description: Returns immutable Task Understanding revisions in ascending revision order.
+      responses:
+        '200':
+          description: Task Understanding revision history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/GenericTaskUnderstanding' }
   /api/v1/memories:
     post:
       operationId: createMemory
@@ -1278,6 +1307,63 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    GenericTaskUnderstanding:
+      type: object
+      required:
+        - schemaVersion
+        - understandingId
+        - taskId
+        - revision
+        - originalRequest
+        - objective
+        - taskTypeCandidates
+        - capabilityRequirements
+        - knownConstraints
+        - knownDimensions
+        - assumptions
+        - missingDimensions
+        - confidence
+        - disposition
+        - sourceRefs
+        - modelInvocationId
+        - policyVersion
+        - stateHash
+        - createdAt
+      properties:
+        schemaVersion: { type: string, const: '1.0' }
+        understandingId: { type: string }
+        taskId: { type: string }
+        revision: { type: integer, minimum: 1 }
+        originalRequest: { type: string }
+        objective: { type: string }
+        taskTypeCandidates: { type: array, items: { type: object } }
+        capabilityRequirements: { type: array, items: { type: object } }
+        knownConstraints: { type: array, items: { type: string } }
+        knownDimensions: { type: array, items: { type: object } }
+        assumptions: { type: array, items: { type: object } }
+        missingDimensions:
+          type: array
+          items:
+            type: object
+            required: [dimensionId, kind, severity, question, answered, authorizationSensitive]
+            properties:
+              dimensionId: { type: string }
+              kind: { type: string }
+              severity: { type: string, enum: [blocking, conditional, non_blocking] }
+              question: { type: string }
+              answered: { type: boolean }
+              authorizationSensitive: { type: boolean }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        disposition:
+          {
+            type: string,
+            enum: [clarification_required, confirmation_required, contract_candidate, rejected],
+          }
+        sourceRefs: { type: array, items: { type: object } }
+        modelInvocationId: { type: string }
+        policyVersion: { type: string }
+        stateHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        createdAt: { type: string, format: date-time }
     CapabilityLimitation:
       type: object
       additionalProperties: false

@@ -51,6 +51,7 @@ import type {
   SkillExecutionRepository,
   CapabilitySummaryService,
   CapabilityCardPublisher,
+  TaskUnderstandingRepository,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -329,6 +330,7 @@ const ModelStageSchema = z.enum([
   'goal_evaluation',
   'evaluation',
   'result_processing',
+  'task_understanding',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -470,6 +472,7 @@ export interface ManagementOperations {
   >;
   readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
   readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
+  readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1789,6 +1792,30 @@ export async function startManagementHttpEndpoint(
     '/api/v1/capabilities/card/rebuild',
     asyncRoute(async (_request, response) => {
       response.json(await options.operations.capabilityCards.publish());
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/understanding',
+    asyncRoute(async (request, response) => {
+      const taskId = pathValue(request, 'taskId');
+      const understanding = await options.operations.taskUnderstandings.findCurrent(taskId);
+      if (understanding === undefined) {
+        throw new HttpInputError(
+          'TASK_UNDERSTANDING_NOT_FOUND',
+          `No Task Understanding exists for Task ${taskId}.`,
+        );
+      }
+      response.json(understanding);
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/understanding/revisions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.taskUnderstandings.listRevisions(
+          pathValue(request, 'taskId'),
+        ),
+      });
     }),
   );
   app.get(

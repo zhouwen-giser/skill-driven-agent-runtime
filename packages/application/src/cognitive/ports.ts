@@ -99,6 +99,7 @@ export interface CognitiveStructuredModelStageInvoker {
       sourceRefs: readonly string[];
       maxAttempts: number;
       timeoutMs: number;
+      taskId?: string;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>>;
 }

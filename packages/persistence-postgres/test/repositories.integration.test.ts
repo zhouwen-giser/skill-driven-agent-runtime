@@ -50,6 +50,7 @@ import {
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
   PostgresCapabilityCardRepository,
+  PostgresTaskUnderstandingRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -70,6 +71,7 @@ import {
   transitionTask,
   createRuntimeCapabilitySummarySnapshot,
   createPublicCapabilityCardSnapshot,
+  createGenericTaskUnderstandingRevision,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -201,7 +203,7 @@ beforeEach(async () => {
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE runtime_capability_limitation, runtime_capability_summary_item, runtime_capability_summary, cognitive_runtime_outbox, skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE generic_task_understanding_dimension, generic_task_understanding, runtime_capability_limitation, runtime_capability_summary_item, runtime_capability_summary, cognitive_runtime_outbox, skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -4323,6 +4325,86 @@ describe('PostgreSQL protocol-domain repositories', () => {
         }),
       ),
     ).rejects.toThrow('CAPABILITY_CARD_SUMMARY_BINDING_MISMATCH');
+  });
+
+  it('persists Task Understanding revisions with CAS, source lineage, dimensions and outbox', async () => {
+    const repository = new PostgresTaskUnderstandingRepository(pool);
+    await pool.query(
+      `INSERT INTO model_invocation(
+         invocation_id,stage,provider_id,model,operation,request_json,context_json,
+         raw_response_json,structured_result_json,duration_ms,status,created_at
+       ) VALUES ($1,'task_understanding','provider.test','model.test','structured_generation',
+                 '{}','{}','{}','{}',7,'succeeded',$2)`,
+      ['model-invocation.understanding.pg.1', '2026-07-23T03:10:00.000Z'],
+    );
+    const revision = createGenericTaskUnderstandingRevision({
+      schemaVersion: '1.0',
+      understandingId: 'understanding.pg.1',
+      taskId: 'task.understanding.pg',
+      revision: 1,
+      originalRequest: 'Move pump-17 after authorization.',
+      objective: 'Move pump-17.',
+      taskTypeCandidates: [],
+      capabilityRequirements: [],
+      knownConstraints: [],
+      knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+      assumptions: [],
+      missingDimensions: [
+        {
+          dimensionId: 'dimension.side-effect-authorization',
+          kind: 'side_effect_authorization',
+          severity: 'blocking',
+          question: 'Do you authorize the move?',
+          answered: false,
+          authorizationSensitive: true,
+        },
+      ],
+      confidence: 0.8,
+      disposition: 'confirmation_required',
+      sourceRefs: [
+        {
+          schemaVersion: '1.0',
+          sourceRefId: 'source.task-request.pg',
+          sourceKind: 'task_request',
+          sourceId: 'task.understanding.pg',
+          sourceRevision: 1,
+          authority: 'user_instruction',
+          dataClassification: 'user_scoped',
+          capturedAt: '2026-07-23T03:10:00.000Z',
+          contentHash: `sha256:${'a'.repeat(64)}`,
+        },
+      ],
+      modelInvocationId: 'model-invocation.understanding.pg.1',
+      policyVersion: 'task-understanding-v1',
+      stateHash: `sha256:${'b'.repeat(64)}`,
+      createdAt: '2026-07-23T03:10:00.000Z',
+    });
+
+    await repository.saveRevision(revision);
+    await repository.saveRevision(revision);
+    await expect(repository.findCurrent(revision.taskId)).resolves.toEqual(revision);
+    await expect(repository.listRevisions(revision.taskId)).resolves.toEqual([revision]);
+    const evidence = await pool.query<{
+      dimensions: number;
+      events: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM generic_task_understanding_dimension) AS dimensions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='task.understanding_created') AS events`,
+    );
+    expect(evidence.rows[0]).toEqual({ dimensions: 1, events: 1 });
+    await expect(
+      repository.saveRevision(
+        {
+          ...revision,
+          understandingId: 'understanding.pg.conflict',
+          revision: 2,
+          stateHash: `sha256:${'c'.repeat(64)}`,
+        },
+        7,
+      ),
+    ).rejects.toThrow('TASK_UNDERSTANDING_REVISION_CONFLICT');
   });
 });
 

@@ -96,6 +96,9 @@ import {
   CapabilitySummaryService,
   CapabilityCatalogChangeProjector,
   CapabilityCardPublisher,
+  CognitiveEntryRouter,
+  GenericTaskUnderstandingService,
+  StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
@@ -107,6 +110,7 @@ import {
   type RemoteTaskPollingOptions,
   type SkillUsageSlotChoice,
   type CognitiveStructuredModelStageInvoker,
+  type TaskTypeDefinition,
 } from '../../../packages/application/src/index.js';
 import {
   createGoalExecutionContract,
@@ -158,6 +162,7 @@ import {
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
   PostgresCapabilityCardRepository,
+  PostgresTaskUnderstandingRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -241,6 +246,10 @@ export interface ServerRuntimeOptions {
     ): readonly SkillUsageSlotChoice[] | Promise<readonly SkillUsageSlotChoice[]>;
   }>;
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
+  readonly taskUnderstanding?: Readonly<{
+    readonly taskTypes: readonly TaskTypeDefinition[];
+    readonly lowRiskUserPreferences?: readonly string[];
+  }>;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -500,6 +509,33 @@ export async function startServerRuntime(
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
   });
+  const taskUnderstandings = new PostgresTaskUnderstandingRepository(pool);
+  const taskUnderstanding =
+    options.taskUnderstanding === undefined
+      ? undefined
+      : new GenericTaskUnderstandingService({
+          repository: taskUnderstandings,
+          capabilities: capabilitySummaries,
+          taskTypes: new StaticTaskTypeIndexSource(options.taskUnderstanding.taskTypes),
+          model: {
+            generate(input) {
+              if (input.stage !== 'task_understanding') {
+                throw new Error('TASK_UNDERSTANDING_MODEL_STAGE_INVALID');
+              }
+              return modelRuntime.generateStructuredWithAudit({
+                stage: input.stage,
+                instruction: input.instruction,
+                responseSchema: input.responseSchema,
+                correctionErrors: [],
+                context: { sourceRefs: input.sourceRefs },
+                ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+              });
+            },
+          },
+          policyVersion: 'task-understanding-v1',
+          clock,
+          nextUnderstandingId: () => `understanding-${randomUUID()}`,
+        });
   const schemaValidator = new AjvJsonSchemaValidator();
   const skillPackageSchema = JSON.parse(
     await readFile(resolve(process.cwd(), 'schemas', 'skill-package.schema.json'), 'utf8'),
@@ -2360,6 +2396,20 @@ export async function startServerRuntime(
     nextGoalTransitionId: () => `goal-transition-${randomUUID()}`,
     inputInference: goalInputInference,
     taskInputs,
+    ...(taskUnderstanding === undefined
+      ? {}
+      : {
+          taskUnderstanding: {
+            route: (input) => new CognitiveEntryRouter().route(input),
+            understand: (input) =>
+              taskUnderstanding.understand({
+                ...input,
+                conversationContext: {},
+                worldStateSummary: {},
+                lowRiskUserPreferences: options.taskUnderstanding?.lowRiskUserPreferences ?? [],
+              }),
+          },
+        }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -2953,6 +3003,7 @@ export async function startServerRuntime(
         graph: skillGraph,
         capabilities: capabilitySummaries,
         capabilityCards,
+        taskUnderstandings,
         goals: goalService,
         goalPatches,
         goalCancellations,

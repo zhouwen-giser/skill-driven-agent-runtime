@@ -167,6 +167,28 @@ describe('management HTTP API contract', () => {
     await expect(rebuild.json()).resolves.toEqual(card);
   });
 
+  it('reads the current Task Understanding and its immutable revision history', async () => {
+    const understanding = taskUnderstandingSnapshot();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskUnderstandings: {
+          findCurrent: () => Promise.resolve(understanding),
+          listRevisions: () => Promise.resolve([understanding]),
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/understanding`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(understanding);
+    const revisions = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/understanding/revisions`,
+    );
+    expect(revisions.status).toBe(200);
+    await expect(revisions.json()).resolves.toEqual({ items: [understanding] });
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2603,6 +2625,32 @@ function jsonPost(body: unknown): RequestInit {
   };
 }
 
+function taskUnderstandingSnapshot() {
+  return {
+    schemaVersion: '1.0' as const,
+    understandingId: 'understanding-1',
+    taskId: 'task-1',
+    revision: 1,
+    originalRequest: 'Inspect pump-17.',
+    objective: 'Inspect pump-17.',
+    taskTypeCandidates: [],
+    capabilityRequirements: [],
+    knownConstraints: ['Read only.'],
+    knownDimensions: [
+      { kind: 'target' as const, value: 'pump-17', source: 'user_request' as const },
+    ],
+    assumptions: [],
+    missingDimensions: [],
+    confidence: 0.9,
+    disposition: 'contract_candidate' as const,
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation-1',
+    policyVersion: 'task-understanding-v1',
+    stateHash: `sha256:${'a'.repeat(64)}`,
+    createdAt: '2026-07-23T03:20:00.000Z',
+  };
+}
+
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
@@ -2695,6 +2743,7 @@ function operations(failServerList = false): ManagementOperations {
     },
     capabilities: { getSummary: unused, rebuild: unused },
     capabilityCards: { findActive: unused, publish: unused },
+    taskUnderstandings: { findCurrent: unused, listRevisions: () => Promise.resolve([]) },
     temporarySkills: {
       complete: unused,
       create: unused,

@@ -16,6 +16,7 @@ const stages = [
   'goal_evaluation',
   'evaluation',
   'result_processing',
+  'task_understanding',
 ] as const;
 interface Inventory<T> {
   readonly items: readonly T[];
