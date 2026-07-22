@@ -15,15 +15,19 @@ export class A2AProjectionTaskStore implements TaskStore {
   readonly #projections: ExternalTaskProjectionRepository;
   readonly #tasks: AgentTaskRepository | undefined;
   readonly #onCanceled: ((taskId: string) => Promise<void>) | undefined;
+  readonly #interaction:
+    ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
 
   constructor(
     projections: ExternalTaskProjectionRepository,
     tasks?: AgentTaskRepository,
     onCanceled?: (taskId: string) => Promise<void>,
+    interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>,
   ) {
     this.#projections = projections;
     this.#tasks = tasks;
     this.#onCanceled = onCanceled;
+    this.#interaction = interaction;
   }
 
   async save(task: Task, _context: ServerCallContext): Promise<void> {
@@ -53,7 +57,7 @@ export class A2AProjectionTaskStore implements TaskStore {
         : Task.fromJSON(StoredDocumentSchema.parse(projection.document));
     const authoritative = await this.#tasks?.findById(taskId);
     if (authoritative === undefined) return stored;
-    const current = toA2ATask(authoritative);
+    const current = toA2ATask(authoritative, await this.#interaction?.(taskId));
     return Task.fromJSON({
       ...StoredDocumentSchema.parse(Task.toJSON(current)),
       history: (stored?.history ?? []).map((message) => Message.toJSON(message)),

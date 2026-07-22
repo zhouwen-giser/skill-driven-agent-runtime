@@ -121,6 +121,199 @@ describe('management HTTP API contract', () => {
     await expect(plan.text()).resolves.toContain('judgment-1');
   });
 
+  it('reads and rebuilds the hash-matched Capability Summary with a bounded Level-0 index', async () => {
+    const view = capabilitySummaryView();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        capabilities: {
+          getSummary: () => Promise.resolve(view),
+          rebuild: () => Promise.resolve(view),
+        },
+      },
+    });
+
+    const read = await fetch(
+      `${endpoint.baseUrl}/api/v1/capabilities/summary?maxEntries=8&maxCharacters=4096`,
+    );
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toEqual(view);
+    const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuild.status).toBe(200);
+    await expect(rebuild.json()).resolves.toEqual(view);
+  });
+
+  it('reads and rebuilds the activated Public Capability Card snapshot', async () => {
+    const card = capabilityCardSnapshot();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        capabilityCards: {
+          findActive: () => Promise.resolve(card),
+          publish: () => Promise.resolve(card),
+        },
+      },
+    });
+
+    const read = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card`);
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toEqual(card);
+    const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuild.status).toBe(200);
+    await expect(rebuild.json()).resolves.toEqual(card);
+  });
+
+  it('reads the current Task Understanding and its immutable revision history', async () => {
+    const understanding = taskUnderstandingSnapshot();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskUnderstandings: {
+          findCurrent: () => Promise.resolve(understanding),
+          listRevisions: () => Promise.resolve([understanding]),
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/understanding`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(understanding);
+    const revisions = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/understanding/revisions`,
+    );
+    expect(revisions.status).toBe(200);
+    await expect(revisions.json()).resolves.toEqual({ items: [understanding] });
+  });
+
+  it('reads an interactive Goal session and applies a CAS/idempotent action', async () => {
+    const view = interactiveGoalSessionView();
+    let received: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        goalSessions: {
+          getByTask: () => Promise.resolve(view),
+          applyAction: (input) => {
+            received = input;
+            return Promise.resolve(view);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(view);
+    const applied = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session/actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion: 1,
+        idempotencyKey: 'input-1',
+        actorId: 'operator-1',
+        action: 'accept',
+        payload: {},
+      }),
+    });
+    expect(applied.status).toBe(200);
+    expect(received).toEqual({
+      sessionId: 'goal-session-1',
+      expectedVersion: 1,
+      idempotencyKey: 'input-1',
+      actorId: 'operator-1',
+      action: 'accept',
+      payload: {},
+    });
+  });
+
+  it('reads an interactive planning session and applies a CAS/idempotent plan patch', async () => {
+    const view = interactivePlanningSessionView();
+    let received: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        planningSessions: {
+          getByTask: () => Promise.resolve(view),
+          applyAction: (input) => {
+            received = input;
+            return Promise.resolve(view);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/planning-session`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(view);
+    const applied = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/planning-session/actions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedVersion: 1,
+          idempotencyKey: 'planning-input-1',
+          actorId: 'operator-1',
+          action: 'patch',
+          payload: { instruction: 'Prioritize inspection evidence.' },
+        }),
+      },
+    );
+    expect(applied.status).toBe(200);
+    expect(received).toEqual({
+      sessionId: 'planning-session-1',
+      expectedVersion: 1,
+      idempotencyKey: 'planning-input-1',
+      actorId: 'operator-1',
+      action: 'patch',
+      payload: { instruction: 'Prioritize inspection evidence.' },
+    });
+  });
+
+  it('reads immutable planning interactions and propagates user-scoped preference deletion', async () => {
+    let deletion: unknown;
+    const interactions = {
+      corrections: [
+        {
+          correctionId: 'correction-1',
+          taskId: 'task-1',
+          scope: 'user',
+          userId: 'user-1',
+          correctionType: 'wrong_priority',
+        },
+      ],
+      episodes: [{ episodeId: 'interaction-1', taskId: 'task-1', revision: 1 }],
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        planningInteractions: {
+          listTaskInteractions: () => Promise.resolve(interactions as never),
+          deleteUserScopedProjection: (userId, actorId) => {
+            deletion = { userId, actorId };
+            return Promise.resolve(1);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/planning-interactions`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(interactions);
+    const deleted = await fetch(`${endpoint.baseUrl}/api/v1/users/user-1/planning-preferences`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ actorId: 'privacy-operator' }),
+    });
+    expect(deleted.status).toBe(200);
+    await expect(deleted.json()).resolves.toEqual({ deleted: 1 });
+    expect(deletion).toEqual({ userId: 'user-1', actorId: 'privacy-operator' });
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2557,6 +2750,129 @@ function jsonPost(body: unknown): RequestInit {
   };
 }
 
+function taskUnderstandingSnapshot() {
+  return {
+    schemaVersion: '1.0' as const,
+    understandingId: 'understanding-1',
+    taskId: 'task-1',
+    revision: 1,
+    originalRequest: 'Inspect pump-17.',
+    objective: 'Inspect pump-17.',
+    taskTypeCandidates: [],
+    capabilityRequirements: [],
+    knownConstraints: ['Read only.'],
+    knownDimensions: [
+      { kind: 'target' as const, value: 'pump-17', source: 'user_request' as const },
+    ],
+    assumptions: [],
+    missingDimensions: [],
+    confidence: 0.9,
+    disposition: 'contract_candidate' as const,
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation-1',
+    policyVersion: 'task-understanding-v1',
+    stateHash: `sha256:${'a'.repeat(64)}`,
+    createdAt: '2026-07-23T03:20:00.000Z',
+  };
+}
+
+function interactiveGoalSessionView() {
+  return {
+    outcome: 'duplicate' as const,
+    session: {
+      schemaVersion: '1.0' as const,
+      sessionId: 'goal-session-1',
+      taskId: 'task-1',
+      state: 'goal_review' as const,
+      version: 1,
+      currentUnderstandingId: 'understanding-1',
+      currentCandidateId: 'candidate-1',
+      currentCandidateRevision: 1,
+      clarificationRounds: 0,
+      revisionCount: 1,
+      maxClarificationRounds: 4,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T03:30:00.000Z',
+      updatedAt: '2026-07-23T03:30:00.000Z',
+    },
+    candidate: {
+      schemaVersion: '1.0' as const,
+      candidateId: 'candidate-1',
+      sessionId: 'goal-session-1',
+      revision: 1,
+      status: 'candidate' as const,
+      contract: {
+        title: 'Inspect device',
+        description: 'Inspect the selected device.',
+        constraints: [],
+        successCriteria: ['Inspection evidence exists.'],
+      },
+      contractHash: `sha256:${'b'.repeat(64)}`,
+      sourceRefs: [],
+      modelInvocationId: 'model-invocation-1',
+      diff: { changedFields: ['title' as const] },
+      createdAt: '2026-07-23T03:30:00.000Z',
+    },
+  };
+}
+
+function interactivePlanningSessionView() {
+  return {
+    outcome: 'duplicate' as const,
+    session: {
+      schemaVersion: '1.0' as const,
+      sessionId: 'planning-session-1',
+      taskId: 'task-1',
+      goalSessionId: 'goal-session-1',
+      confirmedContractCandidateId: 'candidate-1',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      state: 'plan_review' as const,
+      version: 1,
+      currentCandidateId: 'plan-candidate-1',
+      currentCandidateRevision: 1,
+      revisionCount: 1,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T04:00:00.000Z',
+      updatedAt: '2026-07-23T04:00:00.000Z',
+    },
+    candidate: {
+      schemaVersion: '1.0' as const,
+      candidateId: 'plan-candidate-1',
+      sessionId: 'planning-session-1',
+      revision: 1,
+      status: 'candidate' as const,
+      plan: {
+        schemaVersion: '1.0' as const,
+        planId: 'user-goal-plan-1',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        revision: 1,
+        revisionKind: 'initial' as const,
+        status: 'validated' as const,
+        contractHash: `sha256:${'a'.repeat(64)}`,
+        contentHash: `sha256:${'b'.repeat(64)}`,
+        skillGoals: [],
+        dependencies: [],
+        inheritedCompletedEffectIds: [],
+        forbiddenReplayFingerprints: [],
+        createdAt: '2026-07-23T04:00:00.000Z',
+      },
+      planHash: `sha256:${'b'.repeat(64)}`,
+      validation: { valid: true, errorCodes: [], checks: [] },
+      diff: { changedFields: [], addedSkillGoalIds: [], removedSkillGoalIds: [] },
+      experienceHints: [],
+      confirmationPolicy: 'manual_all' as const,
+      riskLevel: 'low' as const,
+      planningMetadata: { priorities: {}, parallelGroups: {} },
+      sourceRefs: [],
+      createdAt: '2026-07-23T04:00:00.000Z',
+    },
+  };
+}
+
 function operations(failServerList = false): ManagementOperations {
   const unused = () => Promise.reject(new Error('UNEXPECTED_OPERATION'));
   return {
@@ -2647,6 +2963,9 @@ function operations(failServerList = false): ManagementOperations {
       setEnabled: unused,
       validatePackage: unused,
     },
+    capabilities: { getSummary: unused, rebuild: unused },
+    capabilityCards: { findActive: unused, publish: unused },
+    taskUnderstandings: { findCurrent: unused, listRevisions: () => Promise.resolve([]) },
     temporarySkills: {
       complete: unused,
       create: unused,
@@ -2687,6 +3006,61 @@ function operations(failServerList = false): ManagementOperations {
       start: unused,
     },
     workflowRevisions: { get: unused, reviseAdmin: unused },
+  };
+}
+
+function capabilitySummaryView() {
+  const catalogHash = `sha256:${'a'.repeat(64)}`;
+  return {
+    summary: {
+      schemaVersion: '1.0' as const,
+      summaryId: 'summary.api.1',
+      revision: 1,
+      catalogHash,
+      generationPolicyVersion: 'capability-policy-v1',
+      status: 'active' as const,
+      items: [],
+      sourceRefs: [],
+      builtAt: '2026-07-23T01:20:00.000Z',
+    },
+    index: {
+      schemaVersion: '1.0' as const,
+      summaryId: 'summary.api.1',
+      catalogHash,
+      entries: [],
+      characterCount: 2,
+      truncated: false,
+    },
+  };
+}
+
+function capabilityCardSnapshot() {
+  const catalogHash = `sha256:${'b'.repeat(64)}`;
+  const generatedAt = '2026-07-23T02:00:00.000Z';
+  return {
+    schemaVersion: '1.0' as const,
+    cardId: 'card.api.1',
+    revision: 1,
+    summaryId: 'summary.api.1',
+    catalogHash,
+    generationPolicyVersion: 'capability-policy-v1',
+    profileVersion: '1.0' as const,
+    status: 'active' as const,
+    agentName: 'Skill-Driven Agent Runtime',
+    description: 'Public deterministic capability profile.',
+    profile: {
+      profileVersion: '1.0' as const,
+      catalogHash,
+      domains: ['inspection'],
+      capabilities: [],
+      limitations: [],
+      generatedAt,
+    },
+    publicSkills: [],
+    sourceSkillRefs: ['skill.public:1'],
+    generationMode: 'deterministic' as const,
+    cardContentHash: `sha256:${'c'.repeat(64)}`,
+    generatedAt,
   };
 }
 

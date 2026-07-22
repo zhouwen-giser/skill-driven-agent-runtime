@@ -256,6 +256,12 @@ h2 {
   align-items: start;
   margin-bottom: 24px;
 }
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
 .warning-panel {
   border-left: 4px solid #d19d42;
 }

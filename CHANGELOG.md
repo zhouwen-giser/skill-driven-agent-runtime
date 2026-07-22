@@ -2,6 +2,92 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## [1.2.3] - Unreleased
+
+### Added
+
+- The complete SDAR v1.2.3 Goal package, Master ExecPlan and machine-readable Goal sync state.
+- ADR-111–114 for cognitive planning authority, Experience/knowledge governance, deterministic
+  snapshots/CAS and post-v1.2.2 migrations.
+- G00 cognitive Domain factories, stable errors/states/events/feature flags, Application Ports, JSON
+  Schema Golden fixture and additive 0108 DDL skeleton.
+- A cognitive reverse-dependency/Python-runtime architecture guard and six exact-commit OSS
+  design-reference intakes with license/NOTICE verification.
+- G01 deterministic exact-Skill Capability Catalog hashing, declared Capability Summary aggregation,
+  bounded Level-0 Index/Level-1 Detail, PostgreSQL active snapshots and catalog-change projection.
+- Management `GET /api/v1/capabilities/summary` and `POST /api/v1/capabilities/rebuild` contracts with
+  OpenAPI schemas; summaries intentionally exclude live Provider readiness.
+- G02 allowlisted Public Capability Profile/Card snapshots, transactional PostgreSQL activation,
+  deterministic narrative fallback, A2A snapshot projection and the optional
+  `io.sdar/capabilityProfile` extension.
+- Management `GET /api/v1/capabilities/card` and `POST /api/v1/capabilities/card/rebuild`, plus a real
+  Capabilities Console view over the activated snapshot.
+- G03 bounded Generic Task Understanding with deployment-owned Task Type fixtures, Capability Summary
+  checks, three-severity missing dimensions, immutable PostgreSQL revisions and audited model lineage.
+- Management current/revision Task Understanding reads and Task Console evidence links.
+- G04 restart-safe Interactive Goal Sessions with information-gain clarification, immutable
+  Understanding revisions, reviewable Goal Contract candidates/diffs, bounded rounds and
+  PostgreSQL CAS/idempotency/outbox evidence.
+- Management Goal Session read/action operations, operational Task Console review controls and A2A
+  `io.sdar/interaction` metadata at the existing `INPUT_REQUIRED` boundary.
+- G05 restart-safe Interactive Planning Sessions, immutable User Goal Plan candidates, strict audited
+  natural-language patch compilation, full candidate validation and confirmed-only v1.2.2 handoff.
+- Management Planning Session read/action operations, operational DAG/diff/validation Console controls
+  and A2A plan-review metadata at the existing `INPUT_REQUIRED` boundary.
+- G06 immutable Planning Correction Facts and deterministic Interaction Episode revisions spanning
+  Understanding, Goal Contract, Plan review, final Outcome and later counterexamples.
+- Scoped low-risk user-preference projection into the existing Memory service, exact-user retrieval,
+  propagated deletion, task/user/tenant correction queries and management interaction evidence.
+
+### Changed
+
+- The task-package self-check now uses `fileURLToPath` on Windows and remains protected by its updated
+  package hash manifest.
+- Runtime migration startup accepts only the ordered v1.2.2 baseline plus known `01xx_v123_*` prefix;
+  the v1.2.2 baseline SQL remains unchanged.
+- Skill version writes append `skill.catalog_changed`; the single Server process retries deterministic
+  Summary projection while PostgreSQL remains the only durable authority.
+- Successful Skill catalog mutations now await the serialized Summary-to-Card projection. A2A requests
+  never call a model and fail closed rather than serving a hash-mismatched Card.
+- Ambiguous Task preparation now persists a validated Understanding before requesting input; explicit
+  requests preserve the v1.2.2 Goal path and unconfirmed candidates never become authority.
+- Confirmed G04 Goal Contracts now generate non-authoritative plan candidates first. Only an explicit
+  G05 accept under the `goalId + goalVersion` lock may create the existing formal plan and schedule it.
+- G04/G05 interaction actions and terminal Outcomes now append non-authoritative correction/Episode
+  evidence; task, tenant, global-candidate and safety/authorization corrections never auto-promote.
+
+### Verification
+
+- G00 verified. The isolated-database full gate passes 635 unit/contract, 68 integration, 59 E2E,
+  A2A MUST 74/74, 124 OpenAPI operations, migration rollback/reapply, build and both smoke stages in
+  168,876 ms; implementation commit `ffd9791` is pushed and Draft PR #8 remains Draft.
+- G01 affected gates pass 501 unit, 144 contract, 70 real integration and 60 real E2E tests, migration
+  0108/0109 rollback/reapply, 126 OpenAPI operations and production build. The first E2E run retained an
+  unrelated remote-lifecycle timing failure; recurrence exposed an empty-array polling defect, whose
+  stronger wait condition is covered by the final 166,839 ms full `pnpm verify` including both smokes.
+  Implementation `820d78d` is pushed and Draft PR #8 remains Draft.
+- G02 passes the isolated 159,967 ms unified gate on implementation `2ec8987`: 656 unit/contract, 71
+  real integration, 61 real E2E, A2A HTTP-JSON MUST 74/74, 128 OpenAPI operations, 318-source
+  architecture, migration 0108–0110 rollback/reapply, production build and both smokes. The retained
+  first E2E failure (54/61) identified and fixed the Skill-to-Card projection gap; Draft PR #8 remains
+  Draft.
+- G03 affected gates pass 663 unit/contract, 72 real integration, 62 real E2E, 130 OpenAPI operations,
+  323-source architecture, migration 0108-0111 rollback/reapply and production build. The retained first
+  E2E failure was an absent-property assertion defect; the product path already reached
+  `INPUT_REQUIRED`. Implementation `05b4df4` is pushed and Draft PR #8 remains Draft.
+- G04 affected gates pass 667 unit/contract, 73 real integration, 62 real E2E, 132 OpenAPI operations,
+  329-source architecture, migration 0108-0112 rollback/reapply and production build. Implementation
+  `d226bfb` is pushed and Draft PR #8 remains Draft.
+- G05 affected gates pass 526 unit, 149 serial contract, 74 real integration, 62 real E2E, 134 OpenAPI
+  operations, 338-source architecture, migration 0108-0113 rollback/reapply and production build.
+  The retained parallel-contract timing flake passes in isolation and the full serial contract gate;
+  implementation `02a367d` is pushed and Draft PR #8 remains Draft.
+- G06 affected gates pass 529 unit, 150 serial contract, 75 real integration, 62 real E2E, 136 OpenAPI
+  operations, 344-source architecture, migration 0108-0114 rollback/reapply and production build.
+  Failed test-first, assertion-shape, formatting, lint, CLI-option and non-TTY build attempts are
+  retained in `reports/goal/g06-completion.md`; implementation `cade96f` is pushed and Draft PR #8
+  remains Draft.
+
 ## [1.2.2] - Unreleased
 
 ### Added

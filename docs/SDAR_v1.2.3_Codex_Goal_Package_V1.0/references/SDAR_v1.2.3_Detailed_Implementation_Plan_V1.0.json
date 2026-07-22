@@ -1,0 +1,680 @@
+{
+  "title": "SDAR v1.2.3 详细实施方案 V1.0",
+  "version": "1.0",
+  "status": "Detailed Implementation Plan Candidate",
+  "target_repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "target_version": "1.2.3",
+  "estimate_person_days": {
+    "low": 161,
+    "high": 218,
+    "recommended_planning": 188
+  },
+  "without_open_source_reuse": {
+    "low": 183,
+    "high": 252
+  },
+  "recommended_calendar_weeks": {
+    "low": 16,
+    "high": 18,
+    "team": "4 cross-functional FTE + shared architect/security"
+  },
+  "goals": [
+    {
+      "id": "G00",
+      "phase": "P0",
+      "name": "需求冻结、ADR 与 Domain Skeleton",
+      "deps": "v1.2.2 关键 Domain/Port 已稳定；无 v1.2.3 Goal 依赖",
+      "estimate": "7～10",
+      "reuse": "Gemini CLI 源码接收流程；六仓库来源锁与许可证台账",
+      "packages": "`docs/`、`schemas/`、`packages/domain`、`packages/application`、`packages/persistence-postgres`、`scripts/`",
+      "tables": "仅建立 DDL Skeleton、Enum/状态字典和迁移占位；不激活产品行为",
+      "tasks": [
+        "批准 KD-01～KD-20，并建立 ADR 编号、责任人和替代关系。",
+        "冻结 Experience、Capability、Task Understanding、Interactive Session、Knowledge Promotion 的 Domain Schema。",
+        "定义 Candidate/Active、Declared/Observed/Validated、task/user/tenant/global_candidate 等术语。",
+        "建立所有状态机、错误码、Reason Code、Source Authority 和数据分类。",
+        "定义 Cognitive Runtime Ports，确保 `domain` 不依赖 `application/persistence/a2a`。",
+        "建立 Feature Flag、Model Stage、Outbox Event、Queue Name 和 Correlation ID 常量。",
+        "建立第三方来源锁：仓库、commit、审计路径、reuseType、许可证和 NOTICE 义务。",
+        "新增架构检查，禁止 v1.2.2 Runtime 反向依赖 Experience/Task Type/Capability Pattern。",
+        "制定开发态数据库重置规则：不迁移未发布实验数据，但保留 v1.2.3 内部不可变版本语义。"
+      ],
+      "tests": [
+        "Domain factory/validator 单元测试。",
+        "状态机允许/禁止迁移 Contract Test。",
+        "架构依赖扫描。",
+        "Schema Golden Fixture。",
+        "许可证和 sources lock 检查。"
+      ],
+      "accept": [
+        "全部 Domain/Schema/状态机通过评审。",
+        "不存在产品行为和外部副作用。",
+        "所有后续 Goal 的输入输出都能引用已冻结类型。"
+      ]
+    },
+    {
+      "id": "G01",
+      "phase": "P1",
+      "name": "Runtime Capability Summary Builder",
+      "deps": "G00；v1.2.2 `SkillVersion`、`SkillUsageSpecification`、`SkillOutcomeSpecification` 可读取",
+      "estimate": "6～8",
+      "reuse": "Codex/Agent Skills 的 Progressive Disclosure 思想；不引入外部 Runtime",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`apps/server`",
+      "tables": "`runtime_capability_summary`、`runtime_capability_summary_item`、`runtime_capability_limitation`",
+      "tasks": [
+        "实现 `CapabilityCatalogSnapshotBuilder`，按精确 Skill Version 收集权威声明。",
+        "定义 Canonical JSON 和排序规则，生成稳定 `catalogHash`。",
+        "实现 Capability、Domain、Effect、Evidence、Artifact、Context、Mode、Task Type 和 Composition 聚合。",
+        "实现 Capability Limitation：缺 Outcome、仅内部、需确认、不可组合、无 Enabled Skill 等。",
+        "实现 Active Summary Pointer 和按 Hash 幂等重建。",
+        "订阅 Skill Enable/Disable、Version、Outcome Specification、Visibility 和 Composition 变化。",
+        "构建 Level-0 Capability Index 与 Level-1 Detail，Level-2 Exact Skill 延迟到 Skill Selection。",
+        "实现 Cache 和 Hash-matched Snapshot 读取；禁止写入动态 Readiness。"
+      ],
+      "tests": [
+        "同一 Skill 集合生成相同 Hash 的 Property Test。",
+        "输入顺序变化不影响 Hash。",
+        "Skill 版本/可见性变化必然改变 Hash。",
+        "Summary 不包含 Provider 当前状态。",
+        "并发重建只激活一个匹配 Snapshot。"
+      ],
+      "accept": [
+        "Capability Summary 完全确定性，不依赖 LLM。",
+        "P95 Cache Hit 目标≤50ms。",
+        "可由 Planner 通过 Index→Detail 渐进加载。"
+      ]
+    },
+    {
+      "id": "G02",
+      "phase": "P1",
+      "name": "Public Capability Card 与 A2A Projection",
+      "deps": "G01",
+      "estimate": "5～7",
+      "reuse": "A2A Agent Card 现有实现；Gemini/Agent Skills 的可审查能力描述思想",
+      "packages": "`packages/a2a-adapter`、`packages/application`、`packages/persistence-postgres`、`packages/management-api`、`apps/console`",
+      "tables": "`public_capability_card_snapshot`",
+      "tasks": [
+        "实现 Public Visibility Allowlist，不使用 Denylist。",
+        "由 Runtime Capability Summary 生成 Public Capability Profile。",
+        "生成稳定顶层 Description；LLM Narrative 仅作为可选展示产物。",
+        "Narrative 失败时使用确定性模板。",
+        "实现 `catalogHash + generationPolicyVersion` 绑定和 Active Card Pointer。",
+        "将当前 `skills[]` 投影保留为 Enabled Public Skill 明细。",
+        "增加可选 `io.sdar/capabilityProfile` Extension。",
+        "A2A 请求只读取已激活 Snapshot，不在请求时调用 Model。"
+      ],
+      "tests": [
+        "Card 不含 Tool、Provider、Credential、Workflow、内部 Skill、用户经验和实时资源。",
+        "Hash 不匹配时拒绝激活。",
+        "Narrative 失败仍可服务 Agent Card。",
+        "A2A Baseline/TCK 不回归。"
+      ],
+      "accept": [
+        "Agent Card 动态反映当前公开能力。",
+        "Public Card 与 Summary 事务一致。",
+        "隐私审计通过。"
+      ]
+    },
+    {
+      "id": "G03",
+      "phase": "P2",
+      "name": "Generic Task Understanding",
+      "deps": "G00、G01；初始 Task Type 使用人工 Fixture",
+      "estimate": "9～12",
+      "reuse": "Claude Code Plan Mode 的只读理解；LangMem Typed Extraction",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/model-provider-adapter`",
+      "tables": "`generic_task_understanding`、`generic_task_understanding_dimension`",
+      "tasks": [
+        "实现 `CognitiveEntryRouter`，区分明确任务和泛型任务。",
+        "实现 `GenericTaskUnderstandingService` 和 `task_understanding` Model Stage。",
+        "定义 Task Type Candidate、Capability Requirement、Known Constraint、Missing Dimension、Assumption。",
+        "实现 Blocking/Conditional/Non-blocking Dimension 分类。",
+        "实现 target、scope、time_range、criteria、artifact、evidence、side_effect_authorization 等首批维度。",
+        "加载 Capability Index、人工 Task Type Index 和低风险 User Preference。",
+        "实现高风险授权不明时的 `confirmation_required`。",
+        "将外部文本包裹为数据，防止 Prompt Injection。",
+        "保存 Understanding Revision、Source Refs、Policy Version、Model Invocation 和 State Hash。"
+      ],
+      "tests": [
+        "模糊任务进入 Understanding。",
+        "明确任务可直接形成 Contract Candidate。",
+        "缺目标、范围和标准时召回正确维度。",
+        "安全授权缺失不会被经验静默填充。",
+        "结构化输出非法时有界重试。"
+      ],
+      "accept": [
+        "能够输出四种 disposition。",
+        "Task Type 只辅助理解，不覆盖用户表达。",
+        "P95 目标≤3s（不含用户等待）。"
+      ]
+    },
+    {
+      "id": "G04",
+      "phase": "P2",
+      "name": "Interactive Goal Session",
+      "deps": "G03",
+      "estimate": "8～11",
+      "reuse": "Claude Code Plan Mode、多轮反馈和 Permission Mode 交互范式",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/a2a-adapter`",
+      "tables": "`interactive_goal_session`、`interactive_goal_turn`、`goal_contract_candidate`",
+      "tasks": [
+        "实现 UNDERSTAND→GOAL_REVIEW 状态机。",
+        "实现 `MissingDimensionQuestionService`，按信息增益选择问题。",
+        "每轮绑定 Dimension、Criterion、阻断原因、Understanding Version。",
+        "支持 answer、accept、patch、reject、restart_understanding、cancel。",
+        "用户回答后创建新的 Understanding Revision，不修改旧版本。",
+        "实现 Candidate User Goal Completion Contract 生成和 Diff。",
+        "实现 `sessionId + expectedVersion + idempotencyKey` CAS。",
+        "映射 A2A `input-required` 和 `io.sdar/interaction` Metadata。",
+        "设置 maxClarificationRounds、maxContractRevisions 和 elapsed budget。"
+      ],
+      "tests": [
+        "并发回答只有一个成功，冲突返回最新 Snapshot。",
+        "重复 idempotencyKey 不重复写入。",
+        "已回答维度不重复询问。",
+        "达到预算后停止。",
+        "未确认 Contract 不进入 Planning。"
+      ],
+      "accept": [
+        "能够有界形成并确认 Goal Contract。",
+        "用户 Patch 优先于 Task Type、经验和默认策略。",
+        "Session 可在重启后恢复。"
+      ]
+    },
+    {
+      "id": "G05",
+      "phase": "P2",
+      "name": "Interactive Planning Session 与 Plan Patch Compiler",
+      "deps": "G01、G04；v1.2.2 User Goal Planner/Validator Port 已稳定",
+      "estimate": "10～14",
+      "reuse": "Claude Code Plan 编辑；Codex Goal Steering；现有 v1.2.2 Plan Validator",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/a2a-adapter`、`packages/langgraph-runtime`（只复用，不建第二 Runtime）",
+      "tables": "`interactive_planning_session`、`interactive_planning_turn`、`user_goal_plan_candidate`",
+      "tasks": [
+        "实现 PLAN_REVIEW 状态机。",
+        "调用基础 User Goal Planner 生成 Candidate Skill Goal DAG。",
+        "实现自然语言→Structured Patch Model Stage。",
+        "支持增删 Skill Goal、修改 Goal、依赖、优先级、并行、Coverage 和确认策略。",
+        "Patch 先经 Patch Schema/权限校验，再生成新不可变 Candidate Version。",
+        "每个 Candidate 重新执行 DAG、Bounds、Coverage、Capability Shape、Policy、Side Effect、No Replay 校验。",
+        "实现 Plan Diff 和 Experience Hint 展示字段。",
+        "仅 Confirmed Candidate 可交接给 v1.2.2；交接使用 `goalId+goalVersion` 锁。",
+        "实现 manual_all、manual_risky、auto_validated、never_auto 策略，但高风险始终人工。"
+      ],
+      "tests": [
+        "环依赖、孤立依赖和超限 DAG 被拒绝。",
+        "Criterion Coverage 缺失被拒绝。",
+        "未确认不创建 SkillAttempt、不调用 MCP。",
+        "Plan Patch P95 目标≤5s。",
+        "重启恢复当前 Candidate。"
+      ],
+      "accept": [
+        "用户可查看、修改、拒绝和确认计划。",
+        "每次修改均版本化、可解释、可验证。",
+        "v1.2.2 只收到 Confirmed Contract/Plan。"
+      ]
+    },
+    {
+      "id": "G06",
+      "phase": "P2",
+      "name": "Planning Correction Facts 与 Interaction Episode",
+      "deps": "G04、G05",
+      "estimate": "6～8",
+      "reuse": "Gemini Auto Memory 的 User Correction 高权重；Claude Auto Memory 的作用域思想",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`",
+      "tables": "`planning_correction_fact`、`planning_interaction_episode`",
+      "tasks": [
+        "记录 Understanding、Contract、Plan 的 Before/User Instruction/Patch/After/Validation。",
+        "实现 correctionType 首批分类。",
+        "关联 accepted/rejected、最终 Outcome 和后续反例。",
+        "区分 task_scoped、user_scoped、tenant_scoped、global_candidate。",
+        "低风险 User Preference 可进入现有 Memory Projection；安全/授权类禁止。",
+        "生成 Interaction Episode Hash 和完整度。",
+        "为 Task Type/Heuristic Induction 提供确定性 Fingerprint 输入。"
+      ],
+      "tests": [
+        "一次用户修订不会自动全局化。",
+        "同一修订重复提交幂等。",
+        "最终 Outcome 补齐后生成新 Revision。",
+        "用户删除请求可传播到 scoped projection。"
+      ],
+      "accept": [
+        "所有用户修订可追踪到前后版本和最终结果。",
+        "学习流程不依赖私有思维链。"
+      ]
+    },
+    {
+      "id": "G07",
+      "phase": "P3",
+      "name": "Experience Outbox、Job 与 Goal Episode",
+      "deps": "G00；v1.2.2 Runtime Fact 和 Terminal Event 已冻结",
+      "estimate": "9～12",
+      "reuse": "Gemini CLI 后台抽取、Eligibility、Run State、失败隔离；选择性 TypeScript Port",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/runtime-redis`、`apps/server`",
+      "tables": "`cognitive_runtime_outbox`、`cognitive_runtime_consumer_cursor`、`experience_job`、`goal_experience_episode`、`goal_experience_episode_source`、`experience_dead_letter`",
+      "tasks": [
+        "在 v1.2.2 事实提交事务中写 Outbox，不在主链同步调用 Observer。",
+        "实现 Episode Eligibility：Contract、Current Plan、User Goal Judgment 和 Authority 完整。",
+        "实现 PostgreSQL Lease、attempt、backoff、dead letter 和 reconciler。",
+        "实现 Episode Builder，组装 Plan Revision、Attempt、Outcome、Progress、Recovery、Event Impact 和 Interaction。",
+        "实现 Redaction、Source Kind、Completeness、Episode Hash 和不可变 Revision。",
+        "实现 at-least-once Worker + Handler Idempotency。",
+        "Redis 丢失后从 PostgreSQL Job/Outbox 重建。",
+        "引入 Gemini CLI 小型安全/调度算法时登记源 commit、修改说明和 Apache NOTICE。"
+      ],
+      "tests": [
+        "Goal Terminal 后异步创建 Episode。",
+        "同一事实重复投递不重复 Episode。",
+        "缺关键事实进入拒绝/等待，不生成默认经验。",
+        "Worker 崩溃、Redis 清空、PostgreSQL 重启后恢复。",
+        "Episode 不包含凭据和私有思维链。"
+      ],
+      "accept": [
+        "Experience Capture 不影响 A2A Terminal 延迟和成功率。",
+        "Episode Event 不丢失。",
+        "Dead Letter 可人工重放。"
+      ]
+    },
+    {
+      "id": "G08",
+      "phase": "P3",
+      "name": "Experience Observer 与 Typed Extractors",
+      "deps": "G07",
+      "estimate": "9～12",
+      "reuse": "LangMem Typed Extractor/Consolidation；Gemini Evidence-only/No-op/Redaction",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/model-provider-adapter`、`packages/runtime-redis`",
+      "tables": "`experience_observation`、`experience_observation_fact`、`experience_extraction`",
+      "tasks": [
+        "定义通用 `ExperienceExtractor<T>` Port 和独立失败语义。",
+        "实现 GoalPattern、TaskTypeSignal、Decomposition、Dependency、Criterion、Evidence、Artifact、Capability、Failure、Recovery、NoProgress、HumanCorrection Extractor。",
+        "Observer 输入按 Contract/Plan/Attempt/Outcome/Recovery/Correction 分区。",
+        "输出区分 fact、inference、candidate_lesson、uncertainty、contradiction。",
+        "实现 bounded multi-step Consolidation，已有 Observation 只能生成变更建议。",
+        "实现 Batch、Token/Byte Budget、Fast/Reasoning Model 分级。",
+        "模型输出经 Zod/AJV、引用存在性、长度、枚举和注入清洗。",
+        "Extractor 单项失败不使整个 Observation 失败。"
+      ],
+      "tests": [
+        "12 个 Extractor 的 Schema Golden Test。",
+        "单个 Extractor 失败其余仍保存。",
+        "Transcript 指令不会被当作系统指令。",
+        "无足够证据时输出 no-op。",
+        "Observer 重试和 Dead Letter。"
+      ],
+      "accept": [
+        "Observation 可追踪到 Episode 和 Model Invocation。",
+        "不生成无来源 Candidate。",
+        "后台失败不影响在线任务。"
+      ]
+    },
+    {
+      "id": "G09",
+      "phase": "P4",
+      "name": "Experience Reflector、Identity 与 Knowledge Curator",
+      "deps": "G08",
+      "estimate": "8～11",
+      "reuse": "ACE Reflector/Curator/Delta；AutoSkill Identity/Merge；LangMem Change Set",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/model-provider-adapter`",
+      "tables": "`experience_reflection`、通用 Candidate/Delta 记录（或各知识表的 candidate revision）",
+      "tasks": [
+        "实现 Generator/Reflector/Curator 分工，不保存原始 reasoning trace。",
+        "Reflector 评价知识对 Outcome、用户接受和 Validator 的 helpful/harmful/neutral 影响。",
+        "实现语义相似度、名称/标签/目标重叠、Recent Intent Boundary 和去实例化 Identity。",
+        "Curator 只输出 CREATE_REVISION、SUGGEST_MERGE、SUGGEST_SUPERSEDE、ADD_EVIDENCE、ADD_CONTRADICTION、NO_CHANGE。",
+        "所有 Delta 经确定性校验，模型不得直接应用 Active Knowledge。",
+        "实现 Candidate Fingerprint、Duplicate Search、Merge/Supersede Lineage。",
+        "无效 JSON、空结果和操作错误均 no-op 并继续。",
+        "Reflection 按 tenant、goalPattern、capabilityFingerprint、时间窗口分批。"
+      ],
+      "tests": [
+        "同一 Job-to-be-done 合并，不同交付物/标准拆分。",
+        "具体设备、地点、日期去除后仍能判断复用边界。",
+        "低置信度 Identity 默认不合并。",
+        "Curator 非法 Delta 不改变数据。",
+        "正反证据均保留。"
+      ],
+      "accept": [
+        "Reflector 只能创建 Candidate/Revision。",
+        "Candidate Lineage 可追踪。",
+        "反例不会被压缩丢失。"
+      ]
+    },
+    {
+      "id": "G10",
+      "phase": "P4",
+      "name": "Task Type Induction",
+      "deps": "G06、G09",
+      "estimate": "8～11",
+      "reuse": "AWM Workflow Induction；AutoSkill Job-to-be-done Identity 和 Recent Intent Boundary",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`",
+      "tables": "`task_type_definition`、`task_type_evidence`",
+      "tasks": [
+        "构建多维 Fingerprint：语义目标、Criteria、Artifact、Capability、DAG Shape、Correction、Outcome。",
+        "先确定性聚类，再由 Model 命名、归纳和生成 Negative Examples。",
+        "输出 Recognition、Required/Optional Dimensions、Criteria Template、Capability Requirement、Goal Pattern、Dependency Pattern。",
+        "支持 Offline Batch 和 Online Candidate 两种模式。",
+        "保存抽象 Task Type + 1～3 个具体 Episode Exemplars。",
+        "一次 Episode 不创建 Active Task Type。",
+        "Task Type 与当前用户约束冲突时由 Applicability Guard 剔除。"
+      ],
+      "tests": [
+        "相似目标但不同完成标准不会错误合并。",
+        "不同表述可识别同一 Task Type Candidate。",
+        "Negative Example 能阻止误匹配。",
+        "人工 Fixture 与归纳 Candidate 可并存。"
+      ],
+      "accept": [
+        "生成版本化 Candidate Task Type。",
+        "未晋升 Candidate 不影响正式 Understanding。"
+      ]
+    },
+    {
+      "id": "G11",
+      "phase": "P4",
+      "name": "Capability Pattern Induction 与 Gap Candidate",
+      "deps": "G01、G09",
+      "estimate": "8～11",
+      "reuse": "AutoSkill 能力身份；Voyager/Agent Skills 仅作概念参考",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`",
+      "tables": "`capability_pattern_definition`、`capability_pattern_evidence`、`capability_experience_evidence`",
+      "tasks": [
+        "从 Skill Outcome、Attempt、Evidence、Artifact、Correction、Recovery 和 Event Impact 归纳能力模式。",
+        "区分 Declared、Observed、Validated Capability。",
+        "保存 Applicable Conditions、Effect、Evidence、Artifact、Prerequisite、Dependency、Failure 和 Limitation。",
+        "映射精确 Skill Version；映射为空时创建 Capability Gap Candidate。",
+        "Skill Catalog Hash、Skill Version 或 Policy 变化触发重新验证。",
+        "Gap 可产生 Skill Authoring Proposal，但不得自动发布 Skill。"
+      ],
+      "tests": [
+        "Observed Capability 不修改 Skill 声明。",
+        "过去成功不绕过当前 Readiness。",
+        "Skill Version 变化使相关 Active Pattern 进入 validating。",
+        "无 Skill 映射正确形成 Gap。"
+      ],
+      "accept": [
+        "Capability Pattern 与 Skill/Readiness 权威分离。",
+        "Gap 可审计、可聚合、不可自动执行。"
+      ]
+    },
+    {
+      "id": "G12",
+      "phase": "P5",
+      "name": "Knowledge Promotion Framework",
+      "deps": "G09、G10、G11；复用现有 Skill Evolution 的通用验证组件",
+      "estimate": "12～16",
+      "reuse": "AutoSkill SkillEvo Lineage/Champion/Replay；ACE 正反计数；Gemini Candidate Inbox",
+      "packages": "`packages/domain`、`packages/application`、`packages/persistence-postgres`、`packages/runtime-redis`",
+      "tables": "`planning_heuristic`、`planning_heuristic_evidence`、`knowledge_promotion_evaluation`、`knowledge_status_transition`",
+      "tasks": [
+        "从现有 Skill Evolution 抽取 Threshold、Duplicate、Replay、Case Runner、Correction Diff 通用组件。",
+        "为 Heuristic、Task Type、Capability Pattern 实现独立 Promotion Target Adapter。",
+        "实现 candidate→validating→active→deprecated/rejected 状态机和 CAS。",
+        "聚合 uniqueGoal、uniqueUser、success/failure、accepted/rejected、replay、shadow、support/contradiction。",
+        "实现初始阈值策略和 policyVersion。",
+        "高风险候选必须 Replay+Shadow+人工审核+Policy Allow。",
+        "新反例、Catalog Hash、Policy、Skill Version 和拒绝率变化触发 active→validating。",
+        "Active Knowledge 投影到现有 MemoryService，只保存检索摘要与权威引用。",
+        "Promotion 与 Skill Publication 严格分离。"
+      ],
+      "tests": [
+        "单 Episode 无法晋升。",
+        "阈值、反例比例和风险门禁。",
+        "一个 Candidate Version 只有一个终态 Evaluation。",
+        "人工拒绝/修订可追踪。",
+        "Memory Projection 删除后可由权威表重建。"
+      ],
+      "accept": [
+        "只有 Active Knowledge 可被正式 Retriever 读取。",
+        "高风险不可自动晋升。",
+        "不存在 Memory/结构化知识双权威。"
+      ]
+    },
+    {
+      "id": "G13",
+      "phase": "P5",
+      "name": "Planning Knowledge Retrieval 与 Progressive Disclosure",
+      "deps": "G01、G12",
+      "estimate": "8～11",
+      "reuse": "ReMe Vector+Text RRF、Relation Expansion、Context Dedup；Codex Progressive Disclosure",
+      "packages": "`packages/application`、`packages/persistence-postgres`、现有 `MemoryService`/Embedding Repository",
+      "tables": "`experience_usage_record`；复用 Active Knowledge 和 Memory Projection 表",
+      "tasks": [
+        "构建 Query Fingerprint 和结构化 Scope/Status/Applicability/Catalog/Policy Filter。",
+        "并行 Vector Recall 与 Text/FTS Recall，使用 RRF 融合。",
+        "实现关系一跳扩展：requires、contradicts、supersedes、supported_by、related。",
+        "按 Planning Session 记录已使用 Knowledge ID，避免重复注入。",
+        "Level-0 Index→Top-K Full Definition→Exact Skill 的渐进加载。",
+        "实现默认预算：Task Type 3、Capability 8、Heuristic 8、总字符20K。",
+        "冲突知识不合并；低置信度和版本不匹配剔除。",
+        "P95 目标≤500ms。"
+      ],
+      "tests": [
+        "RRF 排名和结构化过滤。",
+        "非 Active 知识不可返回。",
+        "用户/租户作用域隔离。",
+        "同一 Session 不重复注入。",
+        "关系扩展受深度和数量限制。"
+      ],
+      "accept": [
+        "只返回适用 Active Knowledge。",
+        "检索结果可解释、可重放。",
+        "上下文预算可控。"
+      ]
+    },
+    {
+      "id": "G14",
+      "phase": "P5",
+      "name": "Experience-enriched Planning 与 Fallback",
+      "deps": "G05、G13",
+      "estimate": "9～12",
+      "reuse": "Mastra Context Projection 思想；Codex/Claude 交互规划；不引入外部 Runtime",
+      "packages": "`packages/application`、`packages/persistence-postgres`、`apps/server`",
+      "tables": "扩展 `experience_usage_record`，关联 Plan Candidate、用户动作和最终 Outcome",
+      "tasks": [
+        "以 Decorator 包装基础 `UserGoalPlanningService`，不改写基础 Planner 权威。",
+        "构建 Task Type、Capability Experience 和 Planning Heuristic Context。",
+        "支持 off、shadow、advisory、active 四种 Injection Mode。",
+        "经验增强 Plan 先经完整 Validator。",
+        "被拒绝时最多一次无经验有界重规划。",
+        "Experience Repository/Timeout/冲突/低置信度时 fail-open 到基础 Planner。",
+        "保存使用了什么、影响哪些 Skill Goal、用户是否接受、Validator/Outcome 结果。",
+        "不允许经验修改用户 Contract、安全策略、Readiness 或 Terminal。"
+      ],
+      "tests": [
+        "无经验和 Experience DB 故障时基础 Planner 正常。",
+        "经验 Plan 无效时回退成功。",
+        "Shadow 不影响正式 Task。",
+        "Advisory 必须人工确认。",
+        "Usage Record 可关联最终 Outcome 和反例。"
+      ],
+      "accept": [
+        "经验反哺可关闭、可灰度、可解释。",
+        "基础 Planner 仍可独立运行。"
+      ]
+    },
+    {
+      "id": "G15",
+      "phase": "P6",
+      "name": "Management API、Console 与 A2A 全面集成",
+      "deps": "G02、G04、G05、G06、G07、G12、G14",
+      "estimate": "12～16",
+      "reuse": "Gemini Candidate Inbox UI 语义；Claude Plan Review 体验；现有 Management OpenAPI",
+      "packages": "`packages/management-api`、`packages/a2a-adapter`、`apps/console`、`apps/server`",
+      "tables": "不新增核心权威表；使用审计和现有会话/知识表",
+      "tasks": [
+        "实现 Capability、Understanding、Goal Session、Planning Session、Experience、Knowledge API。",
+        "所有写 API 要求 auth、actor、reason、expectedVersion、idempotencyKey。",
+        "实现 Task Understanding、Goal Contract Review、Plan DAG Review 页面。",
+        "实现 Experience Governance、Capability Cognition、Task Type Governance 页面。",
+        "实现 Candidate Promote/Reject/Revalidate/Deprecate 和 Dead Letter Replay。",
+        "实现 A2A input-required 的回答/确认路由。",
+        "更新 OpenAPI、Console Route、错误展示和审计详情。",
+        "Console 不允许直接修改 Provider/Outcome/Active Plan。"
+      ],
+      "tests": [
+        "OpenAPI Contract。",
+        "权限、CAS、幂等和审计。",
+        "A2A input-required→回答→恢复。",
+        "Console Diff 与后端版本一致。",
+        "Public/Internal 数据隔离。"
+      ],
+      "accept": [
+        "关键业务可通过 API 和 Console 完成。",
+        "A2A 标准状态无私有扩展枚举。",
+        "管理操作不产生未授权副作用。"
+      ]
+    },
+    {
+      "id": "G16",
+      "phase": "P6",
+      "name": "Evaluation、Replay 与 Shadow Harness",
+      "deps": "G03、G05、G08、G12、G14",
+      "estimate": "12～16",
+      "reuse": "AutoSkill SkillEvo mutate_dev/promotion_test；ACE pre/post；AWM 轨迹数据结构",
+      "packages": "`evals/` 或 `tests/replay/`、`packages/application`、`scripts/`",
+      "tables": "Replay Dataset/Run/Result 可使用专用测试表或版本化 Artifact；不得写生产 Active Knowledge",
+      "tasks": [
+        "建立 Planning Replay Dataset：request、world summary、accepted contract/plan、patch、outcome、catalogHash、knowledge。",
+        "实现 Understanding、Contract、Plan、Injection、Task Type Recognition 和 Gap Replay。",
+        "数据分为 mutate_dev 和 promotion_test，防止同数据优化和晋升。",
+        "Baseline/Champion/Candidate 比较，Hard Failure 不允许退化。",
+        "实现 Shadow Planning，输出 improved/neutral/regressed/invalid/unsafe。",
+        "构建 Evaluation Metrics：Missing Dimension、Coverage、Patch Count、Attempt、Recovery、Risk、Token/Latency。",
+        "Replay 使用 No Physical Provider；禁止真实 MCP 副作用。",
+        "生成 Promotion Provenance Report。"
+      ],
+      "tests": [
+        "Replay 确定性和数据隔离。",
+        "Candidate 无样本进入 incubating。",
+        "Hard Failure 退化时拒绝晋升。",
+        "Replay 不修改生产 Skill/Knowledge。"
+      ],
+      "accept": [
+        "每次 Promotion 都有可复验报告。",
+        "Shadow 结果不影响正式任务。",
+        "可量化开源算法复用收益。"
+      ]
+    },
+    {
+      "id": "G17",
+      "phase": "P7",
+      "name": "Hardening、灰度与 Release",
+      "deps": "G00～G16",
+      "estimate": "15～20",
+      "reuse": "现有 `verify`、A2A TCK、SBOM、sources lock 和架构检查流水线",
+      "packages": "全仓库、`scripts/`、`infra/`、CI、发布文档",
+      "tables": "全量索引、Retention、清理、重建和容量验证",
+      "tasks": [
+        "完成并发、CAS、幂等、Lease、Outbox、Redis 清空和重启恢复。",
+        "完成租户/用户作用域、PII 删除传播、Prompt Injection 和 Public Card 隐私审计。",
+        "完成容量、Backpressure、Queue Lag、Model Budget 和 Retention 测试。",
+        "实现 Capture→Observe→Candidate→Shadow→Advisory→Active Low-risk 灰度。",
+        "默认：Summary/Card on、Understanding ambiguous、Interactive manual、Capture/Observer on、Induction shadow、Promotion manual、Injection shadow。",
+        "更新 Architecture、OpenAPI、Acceptance Map、Migration、Source Lock、SBOM 和 THIRD_PARTY_NOTICES。",
+        "运行 unit/contract/integration/e2e/A2A TCK/chaos/replay/security。",
+        "生成 Release Report，明确 Experience=Advisory、无 Python Sidecar、无自动 Skill 发布。"
+      ],
+      "tests": [
+        "40 项总体架构场景和上位需求 50 项核心场景。",
+        "P95 性能目标。",
+        "跨租户和删除传播。",
+        "Worker/DB/Redis/Model 故障降级。",
+        "全量 `pnpm verify`。"
+      ],
+      "accept": [
+        "全部发布门禁通过。",
+        "v1.2.2 原执行链无回归。",
+        "默认配置不自动启用高风险知识。"
+      ]
+    }
+  ],
+  "phase_dependencies": {
+    "G00": [],
+    "G01": [
+      "G00"
+    ],
+    "G02": [
+      "G01"
+    ],
+    "G03": [
+      "G00",
+      "G01"
+    ],
+    "G04": [
+      "G03"
+    ],
+    "G05": [
+      "G01",
+      "G04"
+    ],
+    "G06": [
+      "G04",
+      "G05"
+    ],
+    "G07": [
+      "G00"
+    ],
+    "G08": [
+      "G07"
+    ],
+    "G09": [
+      "G08"
+    ],
+    "G10": [
+      "G06",
+      "G09"
+    ],
+    "G11": [
+      "G01",
+      "G09"
+    ],
+    "G12": [
+      "G09",
+      "G10",
+      "G11"
+    ],
+    "G13": [
+      "G01",
+      "G12"
+    ],
+    "G14": [
+      "G05",
+      "G13"
+    ],
+    "G15": [
+      "G02",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G12",
+      "G14"
+    ],
+    "G16": [
+      "G03",
+      "G05",
+      "G08",
+      "G12",
+      "G14"
+    ],
+    "G17": [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08",
+      "G09",
+      "G10",
+      "G11",
+      "G12",
+      "G13",
+      "G14",
+      "G15",
+      "G16"
+    ]
+  }
+}

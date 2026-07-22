@@ -1,4 +1,5 @@
 export * from './ports.js';
+export * from './cognitive/index.js';
 export * from './result-processor.js';
 export * from './result-processing-service.js';
 export * from './runtime-recovery.js';

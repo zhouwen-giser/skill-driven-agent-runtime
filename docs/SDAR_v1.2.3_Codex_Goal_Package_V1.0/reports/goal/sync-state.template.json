@@ -1,0 +1,165 @@
+{
+  "masterGoal": "SDAR-V1.2.3-MASTER",
+  "status": "not_started",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "branch": "feature/v1.2.3-cognitive-planning-runtime",
+  "baseMainSha": "",
+  "headSha": "",
+  "draftPr": "",
+  "goals": {
+    "G00": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G01": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G02": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G03": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G04": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G05": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G06": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G07": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G08": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G09": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G10": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G11": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G12": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G13": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G14": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G15": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G16": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    },
+    "G17": {
+      "status": "not_started",
+      "commit": "",
+      "pushed": false,
+      "evidence": "",
+      "blocker": "",
+      "next": ""
+    }
+  },
+  "lastUpdatedAt": "",
+  "nextGoal": "G00",
+  "openBlockers": [],
+  "validation": {
+    "pnpmVerify": "not_run",
+    "a2aTck": "not_run",
+    "replay": "not_run",
+    "security": "not_run",
+    "licenses": "not_run"
+  }
+}

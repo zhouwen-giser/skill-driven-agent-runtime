@@ -1,5 +1,76 @@
 # Project Status
 
+SDAR v1.2.3 G06 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Understanding, Goal Contract and Plan corrections now
+persist immutable actor/source-attributed before/instruction/patch/after/validation Facts and
+deterministic Interaction Episode revisions. Terminal Outcome/counterexamples append rather than
+mutate history. Only explicit accepted low-risk user preferences enter the existing scoped Memory
+projection; task, tenant, global-candidate, safety and authorization evidence cannot auto-promote, and
+user deletion propagates without cross-user leakage. API/OpenAPI, Console evidence links and the real
+A2A flow are wired. Affected gates pass 529 unit, 150 serial contract, 75 real integration, 62 real
+E2E, 136 OpenAPI operations, 344-source architecture, 0108-0114 migration rollback/reapply and
+production build. Implementation `cade96f` is pushed and Draft PR #8 remains Draft; G07 durable
+Experience outbox/jobs and Goal Episodes are next.
+
+SDAR v1.2.3 G05 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. A confirmed G04 Goal Contract now enters a
+PostgreSQL-authoritative PLAN_REVIEW session whose immutable candidates can be inspected, patched,
+rejected, cancelled or explicitly confirmed. The audited strict patch compiler, seven-check validator,
+manual high-risk policy, CAS/idempotency/outbox recovery and dedicated `goalId + goalVersion` handoff
+lock preserve the existing v1.2.2 formal Planner/Workflow authority. API/OpenAPI, operational Console
+and A2A `io.sdar/interaction` are wired. Affected gates pass 526 unit, 149 serial contract, 74 real
+integration, 62 real E2E, 134 OpenAPI operations, 338-source architecture, 0108-0113 migration
+rollback/reapply and production build. Implementation `02a367d` is pushed and Draft PR #8 remains
+Draft; G06 correction facts and interaction episodes are next.
+
+SDAR v1.2.3 G04 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Ambiguous tasks now use a PostgreSQL-authoritative
+Interactive Goal Session with non-repeating clarification, immutable Understanding revisions,
+reviewable/diffable Goal Contract candidates, explicit actor confirmation, bounded budgets and
+transactional CAS/idempotency/outbox evidence. Only a confirmed contract creates the existing v1.2.2
+Goal and enters its existing Planner. API/OpenAPI, operational Console and A2A
+`io.sdar/interaction` are wired. Affected gates pass 667 unit/contract, 73 integration, 62 real E2E,
+132 OpenAPI operations, 329-source architecture, 0108-0112 rollback/reapply and production build.
+Implementation `d226bfb` is pushed and Draft PR #8 remains Draft; G05 interactive planning is next.
+
+SDAR v1.2.3 G03 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Ambiguous requests now pass through strict bounded Task
+Understanding, persist immutable PostgreSQL revisions/dimensions/source lineage and a real audited model
+invocation, then stop at `INPUT_REQUIRED` when a blocking clarification or authorization is missing.
+Explicit requests retain the v1.2.2 Goal path; no candidate or model result becomes Goal authority.
+Affected gates pass 663 unit/contract, 72 integration, 62 real E2E, 130 OpenAPI operations, 323-source
+architecture, 0108-0111 rollback/reapply and production build. Implementation `05b4df4` is pushed and
+Draft PR #8 remains Draft; G04 interactive Goal clarification/confirmation is next.
+
+SDAR v1.2.3 G02 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. The active G01 Summary now produces a strict allowlisted,
+hash/policy-bound Public Capability Card with deterministic narrative fallback, enabled public A2A
+Skills, transactional PostgreSQL activation/outbox, snapshot-only Agent Card reads and real API/Console
+projections. Tool/Provider/credential/Workflow/internal Skill/private Experience/user/readiness/live
+resource data is excluded. The isolated full gate on implementation `2ec8987` passes 656 unit/contract,
+71 integration, 61 E2E, A2A MUST 74/74, 128 OpenAPI operations, 318-source architecture, 0108–0110
+migrations, production build and both smokes in 159,967 ms. Draft PR #8 remains Draft; G03 Generic Task
+Understanding is next.
+
+SDAR v1.2.3 G01 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Exact Enabled Skill declarations now produce a canonical,
+order-independent Catalog Hash and a PostgreSQL-authoritative active Capability Summary with bounded
+Index/Detail loading. Skill enable/disable/version/Usage/Outcome changes emit transactional
+`skill.catalog_changed` events and the one-process Server deterministically rebuilds; no Provider
+readiness or request-time model becomes summary authority. Affected gates pass 501 unit, 144 contract,
+70 real integration, 60 real E2E, migration 0108/0109 rollback/reapply, 126 OpenAPI operations and
+production build. A final isolated-database `pnpm verify` passes all six stages and both smokes in
+166,839 ms. Implementation `820d78d` is pushed and Draft PR #8 remains Draft; G02 Public Card/A2A
+projection is next.
+
+SDAR v1.2.3 G00 is complete (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime` from exact `origin/main@35cb927`. Implementation commit
+`ffd9791` is pushed and Draft PR #8 is open. ADR-111–114, Domain/Port/schema/DDL, exact source intake,
+architecture guards and rollback/reapply migration evidence freeze the cognitive foundation without
+activating product behavior or changing v1.2.2 authority. A final isolated-database `pnpm verify`
+passes 635 unit/contract, 68 real integration, 59 E2E, A2A MUST 74/74, 124 OpenAPI operations,
+production build and both smoke gates in 168,876 ms. G01 deterministic capability summary is next.
+
 SDAR v1.2.2 G00–G10 implementation and local acceptance complete (2026-07-22): the clean-slate User
 Goal contract/planning → Skill Goal DAG/scheduler/attempt → layered outcome → sole
 `UserGoalPlanController` terminal authority → bounded recovery/no-replay chain is implemented through

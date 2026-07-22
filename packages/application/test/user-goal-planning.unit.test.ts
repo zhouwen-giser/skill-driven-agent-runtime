@@ -184,6 +184,10 @@ class MemoryPlanningRepository {
   casInput: Record<string, unknown> | undefined;
   casResult: number | undefined;
 
+  findPlan(planId: string): Promise<UserGoalPlan | undefined> {
+    return Promise.resolve(this.plan?.planId === planId ? this.plan : undefined);
+  }
+
   saveContract(contract: UserGoalCompletionContract): Promise<void> {
     this.contract = contract;
     return Promise.resolve();

@@ -221,3 +221,16 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   full gate with `dirty=false` in 184,634 ms.
 - The only required deferred item is protected review and merge of Provider PR #16. Automatic merge is not
   authorized; G5 and PR #6 Ready status remain pending for that reason.
+
+## v1.2.3 G00 normalization (2026-07-23)
+
+- The task-package self-check used URL pathname handling that treated a Windows drive path as a URL
+  pathname and reported all files missing; `eslint .` also rejected its browser globals. G00 changed the
+  package support script to `fileURLToPath`/`process.stdout`, updated only its declared package hash and
+  retained both failed attempts. All 50 declared hashes and 18 Goal records now verify.
+- `Best_Implementation_Design` contains an earlier ten-item KD numbering, while `Overall_Design`, Frozen
+  Decisions, G00 and the acceptance package define final KD-01–KD-20. ADR-111–113 and
+  `docs/27_V1_2_3_COGNITIVE_RUNTIME_DESIGN.md` explicitly use the final twenty-item register.
+- The AutoSkill locked commit has no LICENSE/NOTICE despite its README MIT badge. It remains behavior
+  reference only, with source and long-prompt copying prohibited. The other five source licenses and
+  absence of root NOTICE were checked at their exact commits; G00 copies no upstream code.

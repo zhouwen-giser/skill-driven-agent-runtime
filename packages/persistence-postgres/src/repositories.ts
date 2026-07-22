@@ -2756,6 +2756,8 @@ interface MemoryItemRow extends QueryResultRow {
   durability: MemoryItem['durability'];
   authority: MemoryItem['authority'];
   durability_reason: string;
+  scope_type: 'global' | 'user';
+  scope_user_id: string | null;
   created_at: Date | string;
   score?: number;
 }
@@ -2786,9 +2788,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
     await this.#pool.query(
       `INSERT INTO memory_item(
          memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
-         durability,authority,durability_reason,
+         durability,authority,durability_reason,scope_type,scope_user_id,
          embedding_provider_id,embedding_dimensions,embedding,created_at)
-       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
+       VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16::vector,$17)`,
       [
         item.memoryId,
         item.type,
@@ -2801,6 +2803,8 @@ export class PostgresMemoryRepository implements MemoryRepository {
         item.durability,
         item.authority,
         item.durabilityReason,
+        item.scope ?? 'global',
+        item.userId ?? null,
         embedding.providerId,
         embedding.vector.length,
         vectorLiteral(embedding.vector),
@@ -2818,15 +2822,27 @@ export class PostgresMemoryRepository implements MemoryRepository {
   }
 
   async search(
-    query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
+    query: Readonly<{
+      providerId: string;
+      vector: readonly number[];
+      limit: number;
+      userId?: string;
+    }>,
   ): Promise<readonly MemorySearchHit[]> {
     const result = await this.#pool.query<MemoryItemRow>(
       `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
        FROM memory_item
        WHERE status='active' AND durability='durable'
          AND embedding_provider_id=$2 AND embedding_dimensions=$3
-       ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $4`,
-      [vectorLiteral(query.vector), query.providerId, query.vector.length, query.limit],
+         AND (scope_type='global' OR (scope_type='user' AND scope_user_id=$4))
+       ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $5`,
+      [
+        vectorLiteral(query.vector),
+        query.providerId,
+        query.vector.length,
+        query.userId ?? null,
+        query.limit,
+      ],
     );
     return result.rows.map((row) => ({ item: mapMemoryItemRow(row), score: row.score ?? 0 }));
   }
@@ -2842,9 +2858,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
       await client.query(
         `INSERT INTO memory_item(
            memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
-           durability,authority,durability_reason,
+           durability,authority,durability_reason,scope_type,scope_user_id,
            embedding_provider_id,embedding_dimensions,embedding,created_at)
-         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::vector,$15)`,
+         VALUES($1,$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16::vector,$17)`,
         [
           replacement.memoryId,
           replacement.type,
@@ -2857,6 +2873,8 @@ export class PostgresMemoryRepository implements MemoryRepository {
           replacement.durability,
           replacement.authority,
           replacement.durabilityReason,
+          replacement.scope ?? 'global',
+          replacement.userId ?? null,
           embedding.providerId,
           embedding.vector.length,
           vectorLiteral(embedding.vector),
@@ -3103,6 +3121,8 @@ function mapMemoryItemRow(row: MemoryItemRow): MemoryItem {
     durability: row.durability,
     authority: row.authority,
     durabilityReason: row.durability_reason,
+    scope: row.scope_type,
+    ...(row.scope_user_id === null ? {} : { userId: row.scope_user_id }),
     createdAt: toIsoString(row.created_at),
   });
 }
@@ -4084,6 +4104,27 @@ export class PostgresSkillRepository implements SkillRepository {
       await client.query(
         `UPDATE skill SET current_version = $2, updated_at = $3 WHERE skill_id = $1`,
         [version.skillId, version.version, timestamp],
+      );
+      const catalogEventId = `skill.catalog_changed:${version.skillId}:${String(version.version)}`;
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at
+         ) VALUES ($1,'skill.catalog_changed','skill',$2,$3,$4,$5,$6)`,
+        [
+          catalogEventId,
+          version.skillId,
+          version.version,
+          JSON.stringify({ correlationId: catalogEventId }),
+          JSON.stringify({
+            skillId: version.skillId,
+            skillVersion: version.version,
+            status: version.status,
+            visibility: version.usageSpecification?.visibility ?? null,
+            outcomeSpecificationHash: version.outcomeSpecification?.specificationHash ?? null,
+          }),
+          timestamp,
+        ],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {

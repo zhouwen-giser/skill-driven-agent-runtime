@@ -15,6 +15,10 @@ const stages = [
   'goal_evaluation',
   'evaluation',
   'result_processing',
+  'task_understanding',
+  'task_clarification',
+  'goal_contract_generation',
+  'interactive_plan_patch',
 ] as const;
 
 export function PromptPanel() {

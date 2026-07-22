@@ -13,6 +13,24 @@ import { SkillRegistryService, type RegisterSkillVersionInput } from '../src/ind
 import type { SkillRepository } from '../src/ports.js';
 
 describe('SkillRegistryService', () => {
+  it('waits for the injected catalog projection after committed mutations', async () => {
+    const projected: string[] = [];
+    const registry = new SkillRegistryService({
+      skills: new MemorySkillRepository(),
+      validator: new AjvJsonSchemaValidator(),
+      clock: { now: () => '2026-07-23T10:00:00.000Z' },
+      afterCatalogChanged: () => {
+        projected.push('projected');
+        return Promise.resolve();
+      },
+    });
+
+    await registry.register(skillInput('skill.projected'));
+    await registry.setEnabled('skill.projected', false);
+
+    expect(projected).toEqual(['projected', 'projected']);
+  });
+
   it('creates immutable versions for enable changes and rollback', async () => {
     const repository = new MemorySkillRepository();
     const registry = createRegistry(repository);

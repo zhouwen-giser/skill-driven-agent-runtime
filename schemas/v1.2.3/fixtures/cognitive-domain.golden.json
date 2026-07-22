@@ -1,0 +1,280 @@
+{
+  "featureFlags": {
+    "schemaVersion": "1.0",
+    "capabilitySummaryEnabled": true,
+    "publicCapabilityCardEnabled": true,
+    "understandingMode": "ambiguous_only",
+    "interactiveMode": "manual",
+    "experienceCaptureEnabled": true,
+    "experienceObserverEnabled": true,
+    "inductionMode": "shadow",
+    "promotionMode": "manual",
+    "injectionMode": "shadow"
+  },
+  "sourceRef": {
+    "schemaVersion": "1.0",
+    "sourceRefId": "source.goal.1",
+    "sourceKind": "goal_contract",
+    "sourceId": "goal.v123",
+    "sourceRevision": 1,
+    "authority": "runtime_fact",
+    "dataClassification": "internal",
+    "capturedAt": "2026-07-23T00:00:00.000Z",
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "domainEvent": {
+    "schemaVersion": "1.0",
+    "eventId": "event.cognitive.1",
+    "eventType": "user_goal.terminal_committed",
+    "aggregateType": "user_goal",
+    "aggregateId": "goal.v123",
+    "aggregateVersion": 1,
+    "occurredAt": "2026-07-23T00:00:00.000Z",
+    "correlation": { "correlationId": "correlation.v123", "goalId": "goal.v123" },
+    "payload": { "terminalOutcomeId": "outcome.v123" }
+  },
+  "capabilitySummary": {
+    "schemaVersion": "1.0",
+    "summaryId": "summary.v123",
+    "revision": 1,
+    "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "generationPolicyVersion": "policy.v123.1",
+    "status": "building",
+    "items": [
+      {
+        "capabilityId": "capability.inspect",
+        "domain": "capability",
+        "title": "Inspect a device",
+        "shortDescription": "Inspect a device deterministically.",
+        "public": true,
+        "effects": ["device state observed"],
+        "evidence": ["structured inspection evidence"],
+        "artifacts": [],
+        "contexts": ["trusted intranet"],
+        "modes": ["read_only"],
+        "taskTypes": [],
+        "composition": [],
+        "limitations": [
+          {
+            "limitationId": "limitation.readiness",
+            "reasonCode": "confirmation_required",
+            "detail": "Current Provider readiness is not asserted."
+          }
+        ],
+        "exactSkillVersionRefs": ["embodied.inspect@1"]
+      }
+    ],
+    "sourceRefs": [],
+    "builtAt": "2026-07-23T00:00:00.000Z"
+  },
+  "capabilityCard": {
+    "schemaVersion": "1.0",
+    "cardId": "card.v123",
+    "revision": 1,
+    "summaryId": "summary.v123",
+    "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "generationPolicyVersion": "policy.v123.1",
+    "profileVersion": "1.0",
+    "status": "active",
+    "agentName": "Skill-Driven Agent Runtime",
+    "description": "Provides one public capability across one domain.",
+    "profile": {
+      "profileVersion": "1.0",
+      "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "domains": ["capability"],
+      "capabilities": [
+        {
+          "capabilityId": "capability.inspect",
+          "domain": "capability",
+          "title": "Inspect a device",
+          "description": "Inspect a device deterministically.",
+          "effects": ["device state observed"],
+          "evidence": ["structured inspection evidence"],
+          "artifacts": [],
+          "modes": ["read_only"],
+          "taskTypes": [],
+          "limitations": [
+            {
+              "code": "confirmation_required",
+              "message": "Some uses require explicit confirmation."
+            }
+          ]
+        }
+      ],
+      "limitations": [
+        {
+          "code": "confirmation_required",
+          "message": "Some uses require explicit confirmation."
+        }
+      ],
+      "generatedAt": "2026-07-23T00:01:00.000Z"
+    },
+    "publicSkills": [
+      {
+        "id": "embodied.inspect",
+        "name": "Inspect device",
+        "description": "Inspect a declared device.",
+        "tags": ["capability.inspect"],
+        "inputModes": ["text/plain"],
+        "outputModes": ["application/json"]
+      }
+    ],
+    "sourceSkillRefs": ["embodied.inspect:1"],
+    "generationMode": "deterministic",
+    "cardContentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "generatedAt": "2026-07-23T00:01:00.000Z"
+  },
+  "taskUnderstanding": {
+    "schemaVersion": "1.0",
+    "understandingId": "understanding.v123",
+    "taskId": "task.v123",
+    "revision": 1,
+    "disposition": "clarification_required",
+    "originalRequest": "Inspect a device.",
+    "objective": "Inspect a device.",
+    "taskTypeCandidates": [],
+    "capabilityRequirements": [],
+    "knownConstraints": ["No side effects."],
+    "knownDimensions": [],
+    "assumptions": [],
+    "missingDimensions": [
+      {
+        "dimensionId": "dimension.target",
+        "kind": "target",
+        "severity": "blocking",
+        "question": "Which device should be inspected?",
+        "answered": false,
+        "authorizationSensitive": false
+      }
+    ],
+    "confidence": 0.7,
+    "sourceRefs": [],
+    "modelInvocationId": "model-invocation.v123",
+    "policyVersion": "policy.v123.1",
+    "stateHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "createdAt": "2026-07-23T00:00:00.000Z"
+  },
+  "interactiveSession": {
+    "schemaVersion": "1.0",
+    "sessionId": "session.v123",
+    "taskId": "task.v123",
+    "kind": "goal",
+    "state": "understand",
+    "version": 1,
+    "clarificationRounds": 0,
+    "revisionCount": 0,
+    "maxClarificationRounds": 4,
+    "maxRevisions": 4,
+    "idempotencyKeys": [],
+    "createdAt": "2026-07-23T00:00:00.000Z",
+    "updatedAt": "2026-07-23T00:00:00.000Z"
+  },
+  "goalContractCandidate": {
+    "schemaVersion": "1.0",
+    "candidateId": "candidate.v123",
+    "sessionId": "session.v123",
+    "revision": 1,
+    "status": "candidate",
+    "contract": {
+      "title": "Inspect device",
+      "description": "Inspect the selected device and preserve evidence.",
+      "constraints": ["No side effects."],
+      "successCriteria": ["Inspection evidence is recorded."]
+    },
+    "contractHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "sourceRefs": [],
+    "modelInvocationId": "model-invocation.v123",
+    "diff": {
+      "changedFields": ["title", "description", "constraints", "successCriteria"]
+    },
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "planningCorrection": {
+    "schemaVersion": "1.0",
+    "correctionId": "correction.v123",
+    "taskId": "task.v123",
+    "sessionId": "session.v123",
+    "turnId": "turn.v123",
+    "idempotencyKey": "correction.key.v123",
+    "actorId": "user.v123",
+    "target": "goal_contract",
+    "correctionType": "missing_criterion",
+    "scope": "task",
+    "beforeSnapshot": { "successCriteria": ["Initial criterion"] },
+    "userInstruction": "Add structured inspection evidence.",
+    "structuredPatch": { "successCriteria": ["Structured inspection evidence exists."] },
+    "afterSnapshot": { "successCriteria": ["Structured inspection evidence exists."] },
+    "validation": { "valid": true },
+    "accepted": true,
+    "counterexampleRefs": [],
+    "correctionHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceRefs": [],
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "planningInteractionEpisode": {
+    "schemaVersion": "1.0",
+    "episodeId": "interaction.v123",
+    "taskId": "task.v123",
+    "revision": 1,
+    "originalRequest": "Inspect a device.",
+    "turns": [{ "action": "patch" }],
+    "correctionIds": ["correction.v123"],
+    "counterexampleRefs": [],
+    "completeness": 0.875,
+    "inductionFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "episodeHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "sourceRefs": [],
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "experienceEpisode": {
+    "schemaVersion": "1.0",
+    "episodeId": "episode.v123",
+    "goalId": "goal.v123",
+    "goalVersion": 1,
+    "revision": 1,
+    "episodeHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "completeness": 1,
+    "dataClassification": "internal",
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.goal.1",
+        "sourceKind": "goal_contract",
+        "sourceId": "goal.v123",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-23T00:00:00.000Z"
+      }
+    ],
+    "redactionCodes": ["credentials_excluded"],
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "knowledgeCandidate": {
+    "schemaVersion": "1.0",
+    "knowledgeId": "knowledge.v123",
+    "kind": "planning_heuristic",
+    "revision": 1,
+    "status": "candidate",
+    "scope": "global_candidate",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "risk": "low",
+    "supportSourceRefs": [],
+    "contradictionSourceRefs": [],
+    "createdAt": "2026-07-23T00:00:02.000Z"
+  },
+  "knowledgeTransition": {
+    "schemaVersion": "1.0",
+    "transitionId": "transition.v123",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "expectedVersion": 1,
+    "fromStatus": "candidate",
+    "toStatus": "validating",
+    "reason": "evaluation_started",
+    "actorId": "operator.v123",
+    "humanApproved": false,
+    "occurredAt": "2026-07-23T00:00:03.000Z"
+  }
+}

@@ -177,7 +177,12 @@ export interface MemoryRepository {
   ): Promise<void>;
   find(memoryId: string): Promise<MemoryItem | undefined>;
   search(
-    query: Readonly<{ providerId: string; vector: readonly number[]; limit: number }>,
+    query: Readonly<{
+      providerId: string;
+      vector: readonly number[];
+      limit: number;
+      userId?: string;
+    }>,
   ): Promise<readonly MemorySearchHit[]>;
   saveAndSupersede(
     replacement: MemoryItem,

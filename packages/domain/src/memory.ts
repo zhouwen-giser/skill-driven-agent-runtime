@@ -10,7 +10,9 @@ export type MemoryType =
   | 'prompt_learning';
 export type MemoryStatus = 'active' | 'superseded' | 'invalid';
 export type MemoryDurability = 'durable' | 'volatile' | 'unknown';
-export type MemoryAuthority = 'mcp' | 'skill_experience' | 'admin' | 'model_inferred';
+export type MemoryAuthority =
+  'mcp' | 'skill_experience' | 'admin' | 'model_inferred' | 'user_instruction';
+export type MemoryScope = 'global' | 'user';
 export const MAX_MEMORY_CONTENT_JSON_DEPTH = 64;
 export type MemoryRetrievalStage =
   | 'intent'
@@ -36,6 +38,8 @@ export interface MemoryItem extends MemoryRefinement {
   readonly status: MemoryStatus;
   readonly sourceRefs: readonly string[];
   readonly supersedes: readonly string[];
+  readonly scope?: MemoryScope;
+  readonly userId?: string;
   readonly createdAt: string;
 }
 
@@ -64,12 +68,22 @@ export function createMemoryItem(input: MemoryItem): MemoryItem {
       'MEMORY_SOURCE_REQUIRED',
       'Memory requires at least one source reference.',
     );
+  const scope = input.scope ?? 'global';
+  if (scope === 'user' && input.userId === undefined)
+    throw new DomainError('MEMORY_SCOPE_INVALID', 'User-scoped Memory requires userId.');
+  if (
+    input.userId !== undefined &&
+    (input.userId.trim() === '' || input.userId.trim().length > 256)
+  )
+    throw new DomainError('MEMORY_USER_ID_INVALID', 'Memory userId is invalid.');
   return Object.freeze({
     ...input,
     ...refinement,
     memoryId,
     sourceRefs: Object.freeze(sourceRefs),
     supersedes: Object.freeze([...new Set(input.supersedes)]),
+    scope,
+    ...(input.userId === undefined ? {} : { userId: input.userId }),
   });
 }
 
@@ -85,7 +99,11 @@ export function createMemoryRefinement(input: MemoryRefinement): MemoryRefinemen
     );
   if (!(['durable', 'volatile', 'unknown'] as const).includes(input.durability))
     throw new DomainError('MEMORY_DURABILITY_INVALID', 'Memory durability is invalid.');
-  if (!(['mcp', 'skill_experience', 'admin', 'model_inferred'] as const).includes(input.authority))
+  if (
+    !(['mcp', 'skill_experience', 'admin', 'model_inferred', 'user_instruction'] as const).includes(
+      input.authority,
+    )
+  )
     throw new DomainError('MEMORY_AUTHORITY_INVALID', 'Memory authority is invalid.');
   if (durabilityReason === '')
     throw new DomainError(

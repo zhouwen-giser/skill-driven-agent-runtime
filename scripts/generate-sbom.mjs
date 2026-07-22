@@ -104,6 +104,56 @@ const packageList = [...packages.values()].sort((left, right) =>
   `${left.name}@${left.version}`.localeCompare(`${right.name}@${right.version}`),
 );
 const unknown = packageList.filter((item) => item.license === 'UNKNOWN');
+const v123DesignReferences = [
+  {
+    name: 'google-gemini/gemini-cli',
+    commit: 'c776c665b00a39d55c470beb788a2b9a77a2feb7',
+    license: 'Apache-2.0',
+    licenseFile: 'LICENSE',
+    licenseBlob: '7a4a3ea2424c09fbe48d455aed1eaa94d9124835',
+    notice: 'absent',
+  },
+  {
+    name: 'ECNU-ICALK/AutoSkill',
+    commit: '94c47ca488d4ba4117d20272e66d49b9877e68cf',
+    license: 'UNCONFIRMED',
+    licenseFile: 'absent',
+    licenseBlob: 'absent',
+    notice: 'absent',
+  },
+  {
+    name: 'langchain-ai/langmem',
+    commit: 'a2d580946465137c89162e67dc0b18108bd4850c',
+    license: 'MIT',
+    licenseFile: 'LICENSE',
+    licenseBlob: 'c38f6f284dc464af69e9f618bc0304d299d0bdf0',
+    notice: 'absent',
+  },
+  {
+    name: 'agentscope-ai/ReMe',
+    commit: '46adb5ae1e94715ecdffe201a46933fbd419a5e1',
+    license: 'Apache-2.0',
+    licenseFile: 'LICENSE',
+    licenseBlob: '65c2c5cf06d722c79d8105cfce97016491a7a7f4',
+    notice: 'absent',
+  },
+  {
+    name: 'zorazrw/agent-workflow-memory',
+    commit: '8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1',
+    license: 'Apache-2.0',
+    licenseFile: 'LICENSE',
+    licenseBlob: '261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64',
+    notice: 'absent',
+  },
+  {
+    name: 'ace-agent/ace',
+    commit: 'bcb7cea0504afad6f55fec4845dd4864c9f9eee7',
+    license: 'Apache-2.0',
+    licenseFile: 'LICENSE.txt',
+    licenseBlob: '261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64',
+    notice: 'absent',
+  },
+];
 
 const components = packageList.map((item) => ({
   type: 'library',
@@ -183,6 +233,24 @@ components.push(
     licenses: [{ license: { id: 'AGPL-3.0-only' } }],
   },
 );
+components.push(
+  ...v123DesignReferences.map((source) => ({
+    type: 'library',
+    'bom-ref': `pkg:github/${source.name}@${source.commit}`,
+    name: source.name,
+    version: source.commit,
+    scope: 'excluded',
+    licenses: [{ license: { name: source.license } }],
+    externalReferences: [{ type: 'vcs', url: `https://github.com/${source.name}` }],
+    properties: [
+      { name: 'sdar:use', value: 'design_reference' },
+      { name: 'sdar:licenseFile', value: source.licenseFile },
+      { name: 'sdar:licenseBlob', value: source.licenseBlob },
+      { name: 'sdar:notice', value: source.notice },
+    ],
+    purl: `pkg:github/${source.name}@${source.commit}`,
+  })),
+);
 
 const sbom = `${JSON.stringify(
   {
@@ -234,6 +302,16 @@ const licenseJson = `${JSON.stringify(
         modified_by: 'zhouwen',
         local_file: 'packages/mcp-adapter/src/mcp-tasks-contract.ts',
       },
+      ...v123DesignReferences.map((source) => ({
+        name: source.name,
+        commit: source.commit,
+        license: source.license,
+        license_file: source.licenseFile,
+        license_blob: source.licenseBlob,
+        notice: source.notice,
+        use: 'design_reference',
+        copied_code: false,
+      })),
     ],
   },
   null,
@@ -248,6 +326,17 @@ Generated from the exact pnpm lockfile installation and pinned adapted sources. 
 
 - modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 - modelcontextprotocol/modelcontextprotocol commit 26897cc322f356487da89113451bd16b520b9288, \`schema/draft/schema.json\` blob cc44564e33305dbc07e820cdd0a97648f3852019 — exact LICENSE records an Apache-2.0 transition, retained MIT contributions and CC-BY-4.0 non-specification documentation; no root NOTICE is present. The source Schema is vendored unmodified under \`protocol/source\`; SDAR-derived schemas are separate modified works under \`protocol/schemas\`.
+
+## SDAR v1.2.3 design references
+
+These exact commits are excluded design/algorithm references, not packaged runtime components. G00 copies no source code. A new intake is required before any later direct port.
+
+${v123DesignReferences
+  .map(
+    (source) =>
+      `- ${source.name} commit ${source.commit} — ${source.license}; ${source.licenseFile} blob ${source.licenseBlob}; root NOTICE ${source.notice}.`,
+  )
+  .join('\n')}
 
 ## External services
 

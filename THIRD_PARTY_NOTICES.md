@@ -7,6 +7,17 @@ Generated from the exact pnpm lockfile installation and pinned adapted sources. 
 - modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 - modelcontextprotocol/modelcontextprotocol commit 26897cc322f356487da89113451bd16b520b9288, `schema/draft/schema.json` blob cc44564e33305dbc07e820cdd0a97648f3852019 — exact LICENSE records an Apache-2.0 transition, retained MIT contributions and CC-BY-4.0 non-specification documentation; no root NOTICE is present. The source Schema is vendored unmodified under `protocol/source`; SDAR-derived schemas are separate modified works under `protocol/schemas`.
 
+## SDAR v1.2.3 design references
+
+These exact commits are excluded design/algorithm references, not packaged runtime components. G00 copies no source code. A new intake is required before any later direct port.
+
+- google-gemini/gemini-cli commit c776c665b00a39d55c470beb788a2b9a77a2feb7 — Apache-2.0; LICENSE blob 7a4a3ea2424c09fbe48d455aed1eaa94d9124835; root NOTICE absent.
+- ECNU-ICALK/AutoSkill commit 94c47ca488d4ba4117d20272e66d49b9877e68cf — UNCONFIRMED; absent blob absent; root NOTICE absent.
+- langchain-ai/langmem commit a2d580946465137c89162e67dc0b18108bd4850c — MIT; LICENSE blob c38f6f284dc464af69e9f618bc0304d299d0bdf0; root NOTICE absent.
+- agentscope-ai/ReMe commit 46adb5ae1e94715ecdffe201a46933fbd419a5e1 — Apache-2.0; LICENSE blob 65c2c5cf06d722c79d8105cfce97016491a7a7f4; root NOTICE absent.
+- zorazrw/agent-workflow-memory commit 8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1 — Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; root NOTICE absent.
+- ace-agent/ace commit bcb7cea0504afad6f55fec4845dd4864c9f9eee7 — Apache-2.0; LICENSE.txt blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; root NOTICE absent.
+
 ## External services
 
 - pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.

@@ -47,6 +47,14 @@ import {
   PostgresTaskInputRepository,
   PostgresRemoteTaskRepository,
   PostgresWorkflowContinuationRepository,
+  PostgresCapabilitySummaryRepository,
+  PostgresCapabilityCatalogChangeSource,
+  PostgresCapabilityCardRepository,
+  PostgresTaskUnderstandingRepository,
+  PostgresInteractiveGoalRepository,
+  PostgresInteractivePlanningRepository,
+  PostgresGoalVersionLock,
+  PostgresPlanningCorrectionRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -65,6 +73,20 @@ import {
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   recordTaskCapabilityGap,
   transitionTask,
+  createRuntimeCapabilitySummarySnapshot,
+  createPublicCapabilityCardSnapshot,
+  createGenericTaskUnderstandingRevision,
+  createGoalContractCandidateSnapshot,
+  createInteractiveGoalSessionSnapshot,
+  createInteractiveGoalTurn,
+  createInteractivePlanningSessionSnapshot,
+  createInteractivePlanningTurn,
+  createUserGoalPlan,
+  createUserGoalPlanCandidateSnapshot,
+  createCognitiveSourceRef,
+  createMemoryItem,
+  createPlanningCorrectionFact,
+  createPlanningInteractionEpisode,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -191,12 +213,15 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await pool.query(
+    'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
+  );
+  await pool.query(
     `UPDATE memory_retention_policy SET review_after_days=90,archive_after_days=365,
        delete_after_days=730,automatic_archive_enabled=false,automatic_delete_enabled=false,
        updated_at=CURRENT_TIMESTAMP WHERE singleton=true`,
   );
   await pool.query(
-    'TRUNCATE skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
+    'TRUNCATE generic_task_understanding_dimension, generic_task_understanding, runtime_capability_limitation, runtime_capability_summary_item, runtime_capability_summary, cognitive_runtime_outbox, skill_execution_reference, skill_execution_event, skill_execution_record, skill_package_import_audit, skill_input_resolution, runtime_terminal_outcome, mcp_management_operation, task_quality_report, memory_status_transition, workflow_template_use, workflow_template, workflow_template_occurrence, skill_quality_warning, skill_quality_observation, evolution_trigger, evolution_experience, goal_input_inference, memory_item, skill_call_workflow, workflow_control_round, workflow_control, workflow_node_event, workflow_instance, workflow_plan_attempt, workflow_plan, model_invocation, stage_model_route, model_provider, prompt_version, prompt, skill_embedding, skill_formalization_candidate, temporary_skill_experience, temporary_skill, skill_replacement_plan, skill_selection_record, skill_performance_metrics, skill_relation, mcp_invocation, mcp_dependency_warning, mcp_tool, mcp_server, skill_version, skill, external_task_projection, runtime_event, agent_task, goal, conversation_context CASCADE',
   );
   await pool.query(
     'UPDATE evolution_policy SET success_threshold=2,updated_at=$1 WHERE singleton=true',
@@ -4227,7 +4252,777 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ),
     ).rejects.toMatchObject({ code: 'SKILL_EXECUTION_RECORD_INVALID' });
   });
+
+  it('atomically activates one idempotent hash-matched Capability Summary under concurrency', async () => {
+    const repository = new PostgresCapabilitySummaryRepository(pool);
+    const first = capabilitySummary('summary.concurrent.a', 1, 'a');
+    const second = capabilitySummary('summary.concurrent.b', 1, 'a');
+
+    const [left, right] = await Promise.all([
+      repository.saveAndActivate(first),
+      repository.saveAndActivate(second),
+    ]);
+
+    expect(left.summaryId).toBe(right.summaryId);
+    expect(left.status).toBe('active');
+    await expect(repository.findActive()).resolves.toEqual(left);
+    const rows = await pool.query<{ active_count: number; total_count: number }>(
+      `SELECT count(*) FILTER (WHERE status='active')::integer AS active_count,
+              count(*)::integer AS total_count
+       FROM runtime_capability_summary`,
+    );
+    expect(rows.rows[0]).toEqual({ active_count: 1, total_count: 1 });
+    const events = await pool.query<{ event_type: string }>(
+      "SELECT event_type FROM cognitive_runtime_outbox WHERE event_type='capability.summary_built'",
+    );
+    expect(events.rows).toEqual([{ event_type: 'capability.summary_built' }]);
+  });
+
+  it('records exact Skill catalog changes and marks only the consumed outbox batch', async () => {
+    const timestamp = '2026-07-23T01:20:00.000Z';
+    await new PostgresSkillRepository(pool).saveVersionAndSetCurrent(
+      createSkillVersion({
+        skillId: 'skill.catalog.change',
+        version: 1,
+        name: 'Catalog change',
+        summary: 'Changes the deterministic capability catalog.',
+        description: 'An enabled exact Skill declaration.',
+        capabilities: ['catalog.change'],
+        workflowGuidance: 'Use declarations.',
+        outputInstruction: 'Return evidence.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        toolPolicy: { required: [], optional: [], forbidden: [] },
+        runtimePolicy: { autoConfirmPlan: false },
+        outcomeSpecification: testOutcome('skill.catalog.change', 1),
+        status: 'enabled',
+        sourceKind: 'admin',
+        validationPassed: true,
+        createdAt: timestamp,
+      }),
+      timestamp,
+    );
+    const changes = new PostgresCapabilityCatalogChangeSource(pool);
+    const eventIds = await changes.listPendingCatalogChangeEventIds(10);
+    expect(eventIds).toEqual(['skill.catalog_changed:skill.catalog.change:1']);
+
+    await changes.markCatalogChangeEventsPublished(eventIds, '2026-07-23T01:20:01.000Z');
+    await expect(changes.listPendingCatalogChangeEventIds(10)).resolves.toEqual([]);
+  });
+
+  it('activates one Public Capability Card only when its active Summary binding matches', async () => {
+    const summaryRepository = new PostgresCapabilitySummaryRepository(pool);
+    const summary = await summaryRepository.saveAndActivate(
+      capabilitySummary('summary.card.binding', 1, 'd'),
+    );
+    const repository = new PostgresCapabilityCardRepository(pool);
+    const [left, right] = await Promise.all([
+      repository.activate(capabilityCard('card.concurrent.a', summary)),
+      repository.activate(capabilityCard('card.concurrent.b', summary)),
+    ]);
+
+    expect(left.cardId).toBe(right.cardId);
+    expect(left.status).toBe('active');
+    await expect(repository.findActive()).resolves.toEqual(left);
+    const rows = await pool.query<{ active_count: number; total_count: number }>(
+      `SELECT count(*) FILTER (WHERE status='active')::integer AS active_count,
+              count(*)::integer AS total_count
+       FROM public_capability_card_snapshot`,
+    );
+    expect(rows.rows[0]).toEqual({ active_count: 1, total_count: 1 });
+    const events = await pool.query<{ event_type: string }>(
+      "SELECT event_type FROM cognitive_runtime_outbox WHERE event_type='capability.card_published'",
+    );
+    expect(events.rows).toEqual([{ event_type: 'capability.card_published' }]);
+
+    await expect(
+      repository.activate(
+        capabilityCard('card.stale', {
+          ...summary,
+          catalogHash: `sha256:${'e'.repeat(64)}`,
+        }),
+      ),
+    ).rejects.toThrow('CAPABILITY_CARD_SUMMARY_BINDING_MISMATCH');
+  });
+
+  it('persists Task Understanding revisions with CAS, source lineage, dimensions and outbox', async () => {
+    const repository = new PostgresTaskUnderstandingRepository(pool);
+    await pool.query(
+      `INSERT INTO model_invocation(
+         invocation_id,stage,provider_id,model,operation,request_json,context_json,
+         raw_response_json,structured_result_json,duration_ms,status,created_at
+       ) VALUES ($1,'task_understanding','provider.test','model.test','structured_generation',
+                 '{}','{}','{}','{}',7,'succeeded',$2)`,
+      ['model-invocation.understanding.pg.1', '2026-07-23T03:10:00.000Z'],
+    );
+    const revision = createGenericTaskUnderstandingRevision({
+      schemaVersion: '1.0',
+      understandingId: 'understanding.pg.1',
+      taskId: 'task.understanding.pg',
+      revision: 1,
+      originalRequest: 'Move pump-17 after authorization.',
+      objective: 'Move pump-17.',
+      taskTypeCandidates: [],
+      capabilityRequirements: [],
+      knownConstraints: [],
+      knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+      assumptions: [],
+      missingDimensions: [
+        {
+          dimensionId: 'dimension.side-effect-authorization',
+          kind: 'side_effect_authorization',
+          severity: 'blocking',
+          question: 'Do you authorize the move?',
+          answered: false,
+          authorizationSensitive: true,
+        },
+      ],
+      confidence: 0.8,
+      disposition: 'confirmation_required',
+      sourceRefs: [
+        {
+          schemaVersion: '1.0',
+          sourceRefId: 'source.task-request.pg',
+          sourceKind: 'task_request',
+          sourceId: 'task.understanding.pg',
+          sourceRevision: 1,
+          authority: 'user_instruction',
+          dataClassification: 'user_scoped',
+          capturedAt: '2026-07-23T03:10:00.000Z',
+          contentHash: `sha256:${'a'.repeat(64)}`,
+        },
+      ],
+      modelInvocationId: 'model-invocation.understanding.pg.1',
+      policyVersion: 'task-understanding-v1',
+      stateHash: `sha256:${'b'.repeat(64)}`,
+      createdAt: '2026-07-23T03:10:00.000Z',
+    });
+
+    await repository.saveRevision(revision);
+    await repository.saveRevision(revision);
+    await expect(repository.findCurrent(revision.taskId)).resolves.toEqual(revision);
+    await expect(repository.listRevisions(revision.taskId)).resolves.toEqual([revision]);
+    const evidence = await pool.query<{
+      dimensions: number;
+      events: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM generic_task_understanding_dimension) AS dimensions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='task.understanding_created') AS events`,
+    );
+    expect(evidence.rows[0]).toEqual({ dimensions: 1, events: 1 });
+    await expect(
+      repository.saveRevision(
+        {
+          ...revision,
+          understandingId: 'understanding.pg.conflict',
+          revision: 2,
+          stateHash: `sha256:${'c'.repeat(64)}`,
+        },
+        7,
+      ),
+    ).rejects.toThrow('TASK_UNDERSTANDING_REVISION_CONFLICT');
+  });
+
+  it('serializes interactive Goal actions with CAS, idempotency and audited outbox evidence', async () => {
+    const understandings = new PostgresTaskUnderstandingRepository(pool);
+    const repository = new PostgresInteractiveGoalRepository(pool);
+    await pool.query(
+      `INSERT INTO model_invocation(
+         invocation_id,stage,provider_id,model,operation,request_json,context_json,
+         raw_response_json,structured_result_json,duration_ms,status,created_at
+       ) VALUES
+         ('model-invocation.goal-session.understanding','task_understanding','provider.test',
+          'model.test','structured_generation','{}','{}','{}','{}',7,'succeeded',$1),
+         ('model-invocation.goal-session.contract','goal_contract_generation','provider.test',
+          'model.test','structured_generation','{}','{}','{}','{}',8,'succeeded',$1)`,
+      ['2026-07-23T03:30:00.000Z'],
+    );
+    const understanding = createGenericTaskUnderstandingRevision({
+      schemaVersion: '1.0',
+      understandingId: 'understanding.goal-session.pg.1',
+      taskId: 'task.goal-session.pg',
+      revision: 1,
+      originalRequest: 'Inspect pump-17 and preserve evidence.',
+      objective: 'Inspect pump-17.',
+      taskTypeCandidates: [],
+      capabilityRequirements: [],
+      knownConstraints: ['Do not mutate the device.'],
+      knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+      assumptions: [],
+      missingDimensions: [],
+      confidence: 0.95,
+      disposition: 'contract_candidate',
+      sourceRefs: [
+        {
+          schemaVersion: '1.0',
+          sourceRefId: 'source.goal-session.request',
+          sourceKind: 'task_request',
+          sourceId: 'task.goal-session.pg',
+          sourceRevision: 1,
+          authority: 'user_instruction',
+          dataClassification: 'user_scoped',
+          capturedAt: '2026-07-23T03:30:00.000Z',
+          contentHash: `sha256:${'d'.repeat(64)}`,
+        },
+      ],
+      modelInvocationId: 'model-invocation.goal-session.understanding',
+      policyVersion: 'task-understanding-v1',
+      stateHash: `sha256:${'e'.repeat(64)}`,
+      createdAt: '2026-07-23T03:30:00.000Z',
+    });
+    await understandings.saveRevision(understanding);
+    const candidate = createGoalContractCandidateSnapshot({
+      schemaVersion: '1.0',
+      candidateId: 'goal-contract-candidate.pg.1',
+      sessionId: 'goal-session.pg.1',
+      revision: 1,
+      status: 'candidate',
+      contract: {
+        title: 'Inspect pump-17',
+        description: 'Inspect pump-17 and preserve verifiable evidence.',
+        constraints: ['Do not mutate the device.'],
+        successCriteria: ['Inspection evidence is recorded.'],
+      },
+      contractHash: `sha256:${'f'.repeat(64)}`,
+      sourceRefs: understanding.sourceRefs,
+      modelInvocationId: 'model-invocation.goal-session.contract',
+      diff: { changedFields: ['title', 'description', 'constraints', 'successCriteria'] },
+      createdAt: '2026-07-23T03:30:01.000Z',
+    });
+    const session = createInteractiveGoalSessionSnapshot({
+      schemaVersion: '1.0',
+      sessionId: candidate.sessionId,
+      taskId: understanding.taskId,
+      state: 'goal_review',
+      version: 1,
+      currentUnderstandingId: understanding.understandingId,
+      currentCandidateId: candidate.candidateId,
+      currentCandidateRevision: candidate.revision,
+      clarificationRounds: 0,
+      revisionCount: 1,
+      maxClarificationRounds: 4,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T03:30:01.000Z',
+      updatedAt: '2026-07-23T03:30:01.000Z',
+    });
+    await repository.start(session, candidate);
+
+    const mutations = ['accept.concurrent.a', 'accept.concurrent.b'].map((key, index) => ({
+      expectedVersion: 1,
+      idempotencyKey: key,
+      turn: createInteractiveGoalTurn({
+        turnId: `goal-turn.pg.${String(index + 1)}`,
+        sessionId: session.sessionId,
+        ordinal: 1,
+        expectedSessionVersion: 1,
+        idempotencyKey: key,
+        action: 'accept',
+        actorId: 'operator.pg',
+        payload: {},
+        binding: { understandingRevision: 1 },
+        createdAt: `2026-07-23T03:30:0${String(index + 2)}.000Z`,
+      }),
+      nextSession: createInteractiveGoalSessionSnapshot({
+        ...session,
+        state: 'confirmed',
+        version: 2,
+        updatedAt: `2026-07-23T03:30:0${String(index + 2)}.000Z`,
+      }),
+      candidate: createGoalContractCandidateSnapshot({ ...candidate, status: 'confirmed' }),
+    }));
+    const results = await Promise.all(mutations.map((mutation) => repository.apply(mutation)));
+    expect(results.map((result) => result.outcome).sort()).toEqual(['applied', 'conflict']);
+    const appliedIndex = results.findIndex((result) => result.outcome === 'applied');
+    expect(appliedIndex).toBeGreaterThanOrEqual(0);
+    const appliedMutation = mutations[appliedIndex];
+    if (appliedMutation === undefined) throw new Error('INTERACTIVE_GOAL_APPLIED_MUTATION_MISSING');
+    await expect(repository.apply(appliedMutation)).resolves.toMatchObject({
+      outcome: 'duplicate',
+      session: { state: 'confirmed', version: 2 },
+    });
+    await expect(repository.listTurns(session.sessionId)).resolves.toHaveLength(1);
+    await expect(repository.listCandidates(session.sessionId)).resolves.toMatchObject([
+      { candidateId: candidate.candidateId, status: 'confirmed' },
+    ]);
+    const events = await pool.query<{ event_type: string }>(
+      `SELECT event_type FROM cognitive_runtime_outbox
+       WHERE aggregate_id=$1 ORDER BY event_type`,
+      [session.sessionId],
+    );
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'goal.contract_candidate_created',
+      'goal.contract_confirmed',
+    ]);
+  });
+
+  it('persists interactive planning across restart with CAS, idempotency, events and Goal-version locking', async () => {
+    const goalSession = await seedConfirmedGoalSessionForPlanning();
+    const repository = new PostgresInteractivePlanningRepository(pool);
+    const candidate = createUserGoalPlanCandidateSnapshot({
+      schemaVersion: '1.0',
+      candidateId: 'plan-candidate.pg.1',
+      sessionId: 'planning-session.pg.1',
+      revision: 1,
+      status: 'candidate',
+      plan: createUserGoalPlan({
+        schemaVersion: '1.0',
+        planId: 'user-goal-plan.pg.1',
+        goalId: 'goal.interactive-planning.pg',
+        goalVersion: 1,
+        revision: 1,
+        revisionKind: 'initial',
+        status: 'validated',
+        contractHash: `sha256:${'1'.repeat(64)}`,
+        contentHash: `sha256:${'2'.repeat(64)}`,
+        skillGoals: [
+          {
+            skillGoalId: 'skill-goal.inspect.pg',
+            requiredResult: 'Inspection evidence exists.',
+            capabilityNeeds: ['inspection'],
+            coveredCriterionIds: ['criterion-1'],
+            requiredEffectRefs: ['effect-1'],
+            evidenceRequirements: ['evidence-1'],
+            artifactRequirements: [],
+            assumptions: [],
+            constraints: ['Read only.'],
+            status: 'pending',
+          },
+        ],
+        dependencies: [],
+        inheritedCompletedEffectIds: [],
+        forbiddenReplayFingerprints: [],
+        createdAt: '2026-07-23T04:00:00.000Z',
+      }),
+      planHash: `sha256:${'2'.repeat(64)}`,
+      validation: {
+        valid: true,
+        errorCodes: [],
+        checks: [
+          'dag',
+          'bounds',
+          'coverage',
+          'capability_shape',
+          'policy',
+          'side_effect',
+          'no_replay',
+        ].map((check) => ({
+          check: check as
+            | 'dag'
+            | 'bounds'
+            | 'coverage'
+            | 'capability_shape'
+            | 'policy'
+            | 'side_effect'
+            | 'no_replay',
+          passed: true,
+        })),
+      },
+      diff: {
+        changedFields: ['skillGoals'],
+        addedSkillGoalIds: ['skill-goal.inspect.pg'],
+        removedSkillGoalIds: [],
+      },
+      experienceHints: ['Display only: inspect similar pumps read-only.'],
+      confirmationPolicy: 'manual_all',
+      riskLevel: 'low',
+      planningMetadata: { priorities: { 'skill-goal.inspect.pg': 10 }, parallelGroups: {} },
+      sourceRefs: goalSession.sourceRefs,
+      createdAt: '2026-07-23T04:00:00.000Z',
+    });
+    const session = createInteractivePlanningSessionSnapshot({
+      schemaVersion: '1.0',
+      sessionId: candidate.sessionId,
+      taskId: 'task.interactive-planning.pg',
+      goalSessionId: goalSession.sessionId,
+      confirmedContractCandidateId: goalSession.candidateId,
+      goalId: candidate.plan.goalId,
+      goalVersion: candidate.plan.goalVersion,
+      state: 'plan_review',
+      version: 1,
+      currentCandidateId: candidate.candidateId,
+      currentCandidateRevision: candidate.revision,
+      revisionCount: 1,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: candidate.createdAt,
+      updatedAt: candidate.createdAt,
+    });
+    await repository.start(session, candidate);
+    const mutations = ['planning.accept.a', 'planning.accept.b'].map((key, index) => ({
+      expectedVersion: 1,
+      idempotencyKey: key,
+      turn: createInteractivePlanningTurn({
+        turnId: `planning-turn.pg.${String(index + 1)}`,
+        sessionId: session.sessionId,
+        ordinal: 1,
+        expectedSessionVersion: 1,
+        idempotencyKey: key,
+        action: 'accept',
+        actorId: 'operator.pg',
+        payload: {},
+        createdAt: `2026-07-23T04:00:0${String(index + 1)}.000Z`,
+      }),
+      nextSession: createInteractivePlanningSessionSnapshot({
+        ...session,
+        state: 'confirmed',
+        version: 2,
+        updatedAt: `2026-07-23T04:00:0${String(index + 1)}.000Z`,
+      }),
+      candidate: createUserGoalPlanCandidateSnapshot({ ...candidate, status: 'confirmed' }),
+    }));
+    const results = await Promise.all(mutations.map((mutation) => repository.apply(mutation)));
+    expect(results.map((result) => result.outcome).sort()).toEqual(['applied', 'conflict']);
+    const applied = mutations[results.findIndex((result) => result.outcome === 'applied')];
+    if (applied === undefined) throw new Error('INTERACTIVE_PLANNING_APPLIED_MUTATION_MISSING');
+    await expect(repository.apply(applied)).resolves.toMatchObject({
+      outcome: 'duplicate',
+      session: { state: 'confirmed', version: 2 },
+      candidate: { status: 'confirmed' },
+    });
+    const restarted = new PostgresInteractivePlanningRepository(pool);
+    await expect(restarted.findByTask(session.taskId)).resolves.toMatchObject({
+      sessionId: session.sessionId,
+      state: 'confirmed',
+    });
+    await expect(restarted.listCandidates(session.sessionId)).resolves.toMatchObject([
+      { candidateId: candidate.candidateId, status: 'confirmed' },
+    ]);
+    const events = await pool.query<{ event_type: string }>(
+      `SELECT event_type FROM cognitive_runtime_outbox WHERE aggregate_id=$1 ORDER BY event_type`,
+      [session.sessionId],
+    );
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'plan.candidate_created',
+      'plan.confirmed',
+    ]);
+
+    const lock = new PostgresGoalVersionLock(pool);
+    let active = 0;
+    let maxActive = 0;
+    await Promise.all(
+      [1, 2].map(() =>
+        lock.withLock(session.goalId, session.goalVersion, async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          active -= 1;
+        }),
+      ),
+    );
+    expect(maxActive).toBe(1);
+  });
+
+  it('persists idempotent scoped correction facts, immutable episode revisions and isolated Memory projections', async () => {
+    const repository = new PostgresPlanningCorrectionRepository(pool);
+    const source = createCognitiveSourceRef({
+      schemaVersion: '1.0',
+      sourceRefId: 'source.correction.pg.1',
+      sourceKind: 'planning_correction',
+      sourceId: 'correction.pg.1',
+      sourceRevision: 1,
+      authority: 'user_instruction',
+      dataClassification: 'user_scoped',
+      capturedAt: '2026-07-23T05:10:00.000Z',
+      contentHash: `sha256:${'a'.repeat(64)}`,
+    });
+    const fact = createPlanningCorrectionFact({
+      schemaVersion: '1.0',
+      correctionId: 'correction.pg.1',
+      taskId: 'task.correction.pg.1',
+      goalId: 'goal.correction.pg.1',
+      goalVersion: 1,
+      sessionId: 'planning-session.correction.pg.1',
+      turnId: 'planning-turn.correction.pg.1',
+      idempotencyKey: 'plan:planning-session.correction.pg.1:patch-1',
+      actorId: 'user.pg.1',
+      target: 'skill_goal_plan',
+      correctionType: 'wrong_dependency',
+      scope: 'user',
+      userId: 'user.pg.1',
+      beforeSnapshot: { dependencies: [] },
+      userInstruction: 'Inspect before reporting and remember this ordering preference.',
+      structuredPatch: { dependencies: ['inspect->report'] },
+      afterSnapshot: { dependencies: ['inspect->report'] },
+      validation: { valid: true },
+      accepted: true,
+      preferenceCategory: 'interaction',
+      counterexampleRefs: [],
+      correctionHash: `sha256:${'a'.repeat(64)}`,
+      sourceRefs: [source],
+      createdAt: '2026-07-23T05:10:00.000Z',
+    });
+    const results = await Promise.all([
+      repository.saveIfAbsent(fact),
+      repository.saveIfAbsent(fact),
+    ]);
+    expect(results.map((result) => result.inserted).sort()).toEqual([false, true]);
+    await expect(repository.listByTask(fact.taskId)).resolves.toHaveLength(1);
+    await expect(repository.listUserScoped(fact.userId ?? '')).resolves.toMatchObject([
+      { correctionId: fact.correctionId, scope: 'user', userId: 'user.pg.1' },
+    ]);
+    const correctionEvents = await pool.query<{ event_type: string }>(
+      'SELECT event_type FROM cognitive_runtime_outbox WHERE aggregate_id=$1',
+      [fact.correctionId],
+    );
+    expect(correctionEvents.rows.map((row) => row.event_type)).toEqual([
+      'planning.correction_recorded',
+    ]);
+    await repository.saveIfAbsent(
+      createPlanningCorrectionFact({
+        ...fact,
+        correctionId: 'correction.pg.tenant.1',
+        idempotencyKey: 'plan:planning-session.correction.pg.1:tenant-patch-1',
+        scope: 'tenant',
+        tenantId: 'tenant.pg.1',
+        correctionHash: `sha256:${'e'.repeat(64)}`,
+      }),
+    );
+    await expect(repository.listTenantScoped('tenant.pg.1')).resolves.toMatchObject([
+      { correctionId: 'correction.pg.tenant.1', tenantId: 'tenant.pg.1' },
+    ]);
+    await expect(repository.listTenantScoped('tenant.pg.2')).resolves.toEqual([]);
+
+    const baseEpisode = createPlanningInteractionEpisode({
+      schemaVersion: '1.0',
+      episodeId: 'interaction.pg.1',
+      taskId: fact.taskId,
+      goalId: 'goal.correction.pg.1',
+      goalVersion: 1,
+      userId: 'user.pg.1',
+      revision: 1,
+      originalRequest: 'Inspect and report.',
+      turns: [{ action: 'patch' }],
+      correctionIds: [fact.correctionId],
+      counterexampleRefs: [],
+      completeness: 0.875,
+      inductionFingerprint: `sha256:${'b'.repeat(64)}`,
+      episodeHash: `sha256:${'c'.repeat(64)}`,
+      sourceRefs: [source],
+      createdAt: '2026-07-23T05:10:01.000Z',
+    });
+    await expect(repository.saveEpisode(baseEpisode)).resolves.toBe(true);
+    await expect(repository.saveEpisode(baseEpisode)).resolves.toBe(false);
+    await expect(
+      repository.saveEpisode(
+        createPlanningInteractionEpisode({
+          ...baseEpisode,
+          episodeId: 'interaction.pg.2',
+          revision: 2,
+          outcomeRef: 'runtime-outcome:outcome.pg.1',
+          counterexampleRefs: ['runtime-outcome:outcome.pg.1'],
+          completeness: 1,
+          episodeHash: `sha256:${'d'.repeat(64)}`,
+          createdAt: '2026-07-23T05:10:02.000Z',
+        }),
+      ),
+    ).resolves.toBe(true);
+    const restartedEpisodes = await new PostgresPlanningCorrectionRepository(pool).listEpisodes(
+      fact.taskId,
+    );
+    expect(restartedEpisodes).toHaveLength(2);
+    expect(restartedEpisodes[0]).toMatchObject({ revision: 1 });
+    expect(restartedEpisodes[0]).not.toHaveProperty('outcomeRef');
+    expect(restartedEpisodes[1]).toMatchObject({
+      revision: 2,
+      outcomeRef: 'runtime-outcome:outcome.pg.1',
+      counterexampleRefs: ['runtime-outcome:outcome.pg.1'],
+    });
+
+    const memories = new PostgresMemoryRepository(pool);
+    const embedding = { providerId: 'provider.scope.pg', vector: [1, 0, 0] };
+    await memories.save(
+      createMemoryItem({
+        memoryId: 'memory.global.pg',
+        type: 'fact',
+        content: { statement: 'global' },
+        summary: 'Global memory.',
+        status: 'active',
+        sourceRefs: ['test:global'],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'Test global memory.',
+        scope: 'global',
+        createdAt: '2026-07-23T05:10:00.000Z',
+      }),
+      embedding,
+    );
+    await memories.save(
+      createMemoryItem({
+        memoryId: 'memory.user.pg',
+        type: 'fact',
+        content: { statement: 'user' },
+        summary: 'User memory.',
+        status: 'active',
+        sourceRefs: ['test:user'],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'user_instruction',
+        durabilityReason: 'Explicit low-risk user preference.',
+        scope: 'user',
+        userId: 'user.pg.1',
+        createdAt: '2026-07-23T05:10:00.000Z',
+      }),
+      embedding,
+    );
+    await expect(memories.search({ ...embedding, limit: 10 })).resolves.toMatchObject([
+      { item: { memoryId: 'memory.global.pg', scope: 'global' } },
+    ]);
+    const scoped = await memories.search({ ...embedding, limit: 10, userId: 'user.pg.1' });
+    expect(scoped.map((hit) => hit.item.memoryId).sort()).toEqual([
+      'memory.global.pg',
+      'memory.user.pg',
+    ]);
+    await expect(
+      memories.search({ ...embedding, limit: 10, userId: 'user.pg.2' }),
+    ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.pg' } }]);
+  });
 });
+
+async function seedConfirmedGoalSessionForPlanning() {
+  await pool.query(
+    `INSERT INTO model_invocation(
+       invocation_id,stage,provider_id,model,operation,request_json,context_json,
+       raw_response_json,structured_result_json,duration_ms,status,created_at
+     ) VALUES ('model-invocation.planning.goal-contract','goal_contract_generation','provider.test',
+       'model.test','structured_generation','{}','{}','{}','{}',5,'succeeded',$1)`,
+    ['2026-07-23T03:59:00.000Z'],
+  );
+  const understanding = createGenericTaskUnderstandingRevision({
+    schemaVersion: '1.0',
+    understandingId: 'understanding.planning.pg.1',
+    taskId: 'task.interactive-planning.pg',
+    revision: 1,
+    originalRequest: 'Inspect pump-17.',
+    objective: 'Inspect pump-17.',
+    taskTypeCandidates: [],
+    capabilityRequirements: [
+      {
+        capabilityId: 'inspection',
+        description: 'Inspect a device read-only.',
+        required: true,
+        available: true,
+      },
+    ],
+    knownConstraints: ['Read only.'],
+    knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+    assumptions: [],
+    missingDimensions: [],
+    confidence: 0.99,
+    disposition: 'contract_candidate',
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation.planning.goal-contract',
+    policyVersion: 'task-understanding-v1',
+    stateHash: `sha256:${'3'.repeat(64)}`,
+    createdAt: '2026-07-23T03:59:00.000Z',
+  });
+  await new PostgresTaskUnderstandingRepository(pool).saveRevision(understanding);
+  const candidate = createGoalContractCandidateSnapshot({
+    schemaVersion: '1.0',
+    candidateId: 'goal-contract-candidate.planning.pg',
+    sessionId: 'goal-session.planning.pg',
+    revision: 1,
+    status: 'confirmed',
+    contract: {
+      title: 'Inspect pump-17',
+      description: 'Inspect pump-17 read-only.',
+      constraints: ['Read only.'],
+      successCriteria: ['Inspection evidence exists.'],
+    },
+    contractHash: `sha256:${'4'.repeat(64)}`,
+    sourceRefs: [],
+    modelInvocationId: 'model-invocation.planning.goal-contract',
+    diff: { changedFields: ['title', 'description', 'constraints', 'successCriteria'] },
+    createdAt: '2026-07-23T03:59:01.000Z',
+  });
+  const session = createInteractiveGoalSessionSnapshot({
+    schemaVersion: '1.0',
+    sessionId: candidate.sessionId,
+    taskId: understanding.taskId,
+    state: 'confirmed',
+    version: 1,
+    currentUnderstandingId: understanding.understandingId,
+    currentCandidateId: candidate.candidateId,
+    currentCandidateRevision: candidate.revision,
+    clarificationRounds: 0,
+    revisionCount: 1,
+    maxClarificationRounds: 4,
+    maxRevisions: 4,
+    maxElapsedMs: 900_000,
+    createdAt: candidate.createdAt,
+    updatedAt: candidate.createdAt,
+  });
+  await new PostgresInteractiveGoalRepository(pool).start(session, candidate);
+  return { sessionId: session.sessionId, candidateId: candidate.candidateId, sourceRefs: [] };
+}
+
+function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {
+  return createRuntimeCapabilitySummarySnapshot({
+    schemaVersion: '1.0',
+    summaryId,
+    revision,
+    catalogHash: `sha256:${hashCharacter.repeat(64)}`,
+    generationPolicyVersion: 'capability-policy-v1',
+    status: 'building',
+    items: [
+      {
+        capabilityId: 'inspection.device',
+        domain: 'inspection',
+        title: 'Device inspection',
+        shortDescription: 'Inspect a device from declared Skill evidence.',
+        public: true,
+        effects: ['effect.inspected'],
+        evidence: ['evidence.observation'],
+        artifacts: [],
+        contexts: ['device-id'],
+        modes: ['guidance'],
+        taskTypes: ['device.inspect'],
+        composition: [],
+        limitations: [],
+        exactSkillVersionRefs: ['skill.inspect:1'],
+      },
+    ],
+    sourceRefs: [],
+    builtAt: '2026-07-23T01:20:00.000Z',
+  });
+}
+
+function capabilityCard(
+  cardId: string,
+  summary: ReturnType<typeof createRuntimeCapabilitySummarySnapshot>,
+) {
+  const generatedAt = '2026-07-23T02:00:00.000Z';
+  return createPublicCapabilityCardSnapshot({
+    schemaVersion: '1.0',
+    cardId,
+    revision: 1,
+    summaryId: summary.summaryId,
+    catalogHash: summary.catalogHash,
+    generationPolicyVersion: summary.generationPolicyVersion,
+    profileVersion: '1.0',
+    status: 'candidate',
+    agentName: 'Skill-Driven Agent Runtime',
+    description: 'Provides one public inspection capability.',
+    profile: {
+      profileVersion: '1.0',
+      catalogHash: summary.catalogHash,
+      domains: ['inspection'],
+      capabilities: [],
+      limitations: [],
+      generatedAt,
+    },
+    publicSkills: [],
+    sourceSkillRefs: ['skill.inspect:1'],
+    generationMode: 'deterministic',
+    cardContentHash: `sha256:${'f'.repeat(64)}`,
+    generatedAt,
+  });
+}
 
 async function createTerminalOutcomeFixture(suffix: string) {
   const contextId = `context.terminal.${suffix}`;

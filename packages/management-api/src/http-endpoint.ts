@@ -49,6 +49,12 @@ import type {
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
   SkillExecutionRepository,
+  CapabilitySummaryService,
+  CapabilityCardPublisher,
+  TaskUnderstandingRepository,
+  InteractiveGoalSessionService,
+  InteractivePlanningSessionService,
+  PlanningCorrectionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -94,6 +100,24 @@ const TaskActionSchema = z
     messageText: z.string().min(1),
     inputRequestId: z.string().min(1).optional(),
     inputContent: z.unknown().optional(),
+  })
+  .strict();
+const InteractiveGoalActionSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().min(1).max(256),
+    actorId: z.string().min(1).max(128),
+    action: z.enum(['answer', 'accept', 'patch', 'reject', 'restart_understanding', 'cancel']),
+    payload: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict();
+const InteractivePlanningActionSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().min(1).max(256),
+    actorId: z.string().min(1).max(128),
+    action: z.enum(['accept', 'patch', 'reject', 'cancel']),
+    payload: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 const EvaluationAnalyticsFilterSchema = z
@@ -238,6 +262,12 @@ const SkillCatalogQuerySchema = z
     internalOnly: z.enum(['true', 'false']).optional(),
   })
   .strict();
+const CapabilitySummaryQuerySchema = z
+  .object({
+    maxEntries: z.coerce.number().int().min(1).max(256).optional(),
+    maxCharacters: z.coerce.number().int().min(256).max(65_536).optional(),
+  })
+  .strict();
 const CreateTemporarySkillSchema = z.object({
   contextId: z.string().min(1),
   name: z.string().min(1),
@@ -321,6 +351,10 @@ const ModelStageSchema = z.enum([
   'goal_evaluation',
   'evaluation',
   'result_processing',
+  'task_understanding',
+  'task_clarification',
+  'goal_contract_generation',
+  'interactive_plan_patch',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -398,6 +432,9 @@ const AdminWorkflowRevisionSchema = z.object({
   format: z.enum(['dsl', 'dag']),
   definition: z.unknown(),
 });
+const PlanningPreferenceDeletionSchema = z
+  .object({ actorId: z.string().trim().min(1).max(256) })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -459,6 +496,15 @@ export interface ManagementOperations {
     | 'rollback'
     | 'setEnabled'
     | 'validatePackage'
+  >;
+  readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
+  readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
+  readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
+  readonly goalSessions?: Pick<InteractiveGoalSessionService, 'getByTask' | 'applyAction'>;
+  readonly planningSessions?: Pick<InteractivePlanningSessionService, 'getByTask' | 'applyAction'>;
+  readonly planningInteractions?: Pick<
+    PlanningCorrectionService,
+    'listTaskInteractions' | 'deleteUserScopedProjection'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -1735,6 +1781,202 @@ export async function startManagementHttpEndpoint(
   app.get('/api/v1/skills', async (_request, response) => {
     response.json({ items: await options.operations.skills.listCurrentVersions() });
   });
+  app.get(
+    '/api/v1/capabilities/summary',
+    asyncRoute(async (request, response) => {
+      const query = CapabilitySummaryQuerySchema.parse(request.query);
+      const budget =
+        query.maxEntries === undefined && query.maxCharacters === undefined
+          ? undefined
+          : {
+              maxEntries: query.maxEntries ?? 32,
+              maxCharacters: query.maxCharacters ?? 12_000,
+            };
+      const view = await options.operations.capabilities.getSummary(budget);
+      if (view === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_SUMMARY_NOT_AVAILABLE',
+          'No active Capability Summary matches the current Skill catalog.',
+        );
+      }
+      response.json(view);
+    }),
+  );
+  app.post(
+    '/api/v1/capabilities/rebuild',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.capabilities.rebuild());
+    }),
+  );
+  app.get(
+    '/api/v1/capabilities/card',
+    asyncRoute(async (_request, response) => {
+      const card = await options.operations.capabilityCards.findActive();
+      if (card === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_CARD_NOT_AVAILABLE',
+          'No active Public Capability Card is available.',
+        );
+      }
+      response.json(card);
+    }),
+  );
+  app.post(
+    '/api/v1/capabilities/card/rebuild',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.capabilityCards.publish());
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/understanding',
+    asyncRoute(async (request, response) => {
+      const taskId = pathValue(request, 'taskId');
+      const understanding = await options.operations.taskUnderstandings.findCurrent(taskId);
+      if (understanding === undefined) {
+        throw new HttpInputError(
+          'TASK_UNDERSTANDING_NOT_FOUND',
+          `No Task Understanding exists for Task ${taskId}.`,
+        );
+      }
+      response.json(understanding);
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/understanding/revisions',
+    asyncRoute(async (request, response) => {
+      response.json({
+        items: await options.operations.taskUnderstandings.listRevisions(
+          pathValue(request, 'taskId'),
+        ),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/goal-session',
+    asyncRoute(async (request, response) => {
+      if (options.operations.goalSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_UNAVAILABLE',
+          'Interactive Goal sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.goalSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_NOT_FOUND',
+          `No interactive Goal session exists for Task ${taskId}.`,
+        );
+      }
+      response.json(session);
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/goal-session/actions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.goalSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_UNAVAILABLE',
+          'Interactive Goal sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.goalSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_NOT_FOUND',
+          `No interactive Goal session exists for Task ${taskId}.`,
+        );
+      }
+      const input = InteractiveGoalActionSchema.parse(request.body);
+      response.json(
+        await options.operations.goalSessions.applyAction({
+          sessionId: session.session.sessionId,
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/planning-session',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_UNAVAILABLE',
+          'Interactive planning sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.planningSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_NOT_FOUND',
+          `No interactive planning session exists for Task ${taskId}.`,
+        );
+      }
+      response.json(session);
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/planning-session/actions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_UNAVAILABLE',
+          'Interactive planning sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.planningSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_PLANNING_SESSION_NOT_FOUND',
+          `No interactive planning session exists for Task ${taskId}.`,
+        );
+      }
+      const input = InteractivePlanningActionSchema.parse(request.body);
+      response.json(
+        await options.operations.planningSessions.applyAction({
+          sessionId: session.session.sessionId,
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/planning-interactions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningInteractions === undefined) {
+        throw new HttpInputError(
+          'PLANNING_INTERACTIONS_UNAVAILABLE',
+          'Planning interaction evidence is not configured.',
+        );
+      }
+      response.json(
+        await options.operations.planningInteractions.listTaskInteractions(
+          pathValue(request, 'taskId'),
+        ),
+      );
+    }),
+  );
+  app.delete(
+    '/api/v1/users/:userId/planning-preferences',
+    asyncRoute(async (request, response) => {
+      if (options.operations.planningInteractions === undefined) {
+        throw new HttpInputError(
+          'PLANNING_INTERACTIONS_UNAVAILABLE',
+          'Planning interaction evidence is not configured.',
+        );
+      }
+      const input = PlanningPreferenceDeletionSchema.parse(request.body);
+      response.json({
+        deleted: await options.operations.planningInteractions.deleteUserScopedProjection(
+          pathValue(request, 'userId'),
+          input.actorId,
+        ),
+      });
+    }),
+  );
   app.get(
     '/api/v1/skills/catalog',
     asyncRoute(async (request, response) => {

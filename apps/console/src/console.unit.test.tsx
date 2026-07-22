@@ -32,8 +32,64 @@ import {
   SkillToolPolicySemantics,
 } from './SkillsPanel.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
+import { CapabilityCardDetails } from './CapabilitiesPanel.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders the activated Public Capability Card without private runtime details', () => {
+    const markup = renderToStaticMarkup(
+      <CapabilityCardDetails
+        card={{
+          cardId: 'card.public.1',
+          revision: 2,
+          catalogHash: 'sha256:catalog',
+          generationPolicyVersion: 'capability-summary-v1',
+          profileVersion: '1.0',
+          status: 'active',
+          description: 'Public inspection capabilities.',
+          generationMode: 'deterministic',
+          generatedAt: '2026-07-23T00:00:00.000Z',
+          profile: {
+            profileVersion: '1.0',
+            catalogHash: 'sha256:catalog',
+            capabilities: [
+              {
+                capabilityId: 'capability.inspection',
+                title: 'Inspection',
+                description: 'Inspect an approved target.',
+                domain: 'inspection',
+                effects: ['read_only'],
+                modes: ['template'],
+                taskTypes: ['inspection'],
+                limitations: [
+                  {
+                    code: 'confirmation_required',
+                    message: 'Confirmation may be required before execution.',
+                  },
+                ],
+              },
+            ],
+          },
+          publicSkills: [
+            {
+              id: 'skill.inspect',
+              name: 'Inspect',
+              description: 'Inspect an approved target.',
+              tags: ['inspection'],
+              inputModes: ['text/plain'],
+              outputModes: ['application/json'],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(markup).toContain('card.public.1 / 2');
+    expect(markup).toContain('sha256:catalog');
+    expect(markup).toContain('skill.inspect');
+    expect(markup).toContain('confirmation_required');
+    expect(markup).not.toContain('credential');
+    expect(markup).not.toContain('Provider');
+  });
+
   it('renders v1.2.2 User Goal judgment and Business Event operational views', () => {
     const goalMarkup = renderToStaticMarkup(
       <UserGoalPlanPanel

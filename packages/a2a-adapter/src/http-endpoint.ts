@@ -8,6 +8,8 @@ import { UserBuilder, agentCardHandler, restHandler } from '@a2a-js/sdk/server/e
 import express from 'express';
 
 import type { EnabledSkillCapabilityProvider } from '../../application/src/index.js';
+import type { PublicCapabilityCardSnapshot } from '../../domain/src/index.js';
+import { A2AAgentCardBuilder } from './capability-card-projection.js';
 import { buildAgentCard } from './compatibility.js';
 
 export interface A2AHttpEndpointOptions {
@@ -15,6 +17,9 @@ export interface A2AHttpEndpointOptions {
   readonly taskStore: TaskStore;
   readonly skills?: readonly Readonly<Pick<AgentSkill, 'id' | 'name' | 'description' | 'tags'>>[];
   readonly skillProvider?: EnabledSkillCapabilityProvider;
+  readonly capabilityCardProvider?: Readonly<{
+    findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
+  }>;
   readonly host?: string;
   readonly port?: number;
 }
@@ -41,12 +46,21 @@ export async function startA2AHttpEndpoint(
   }
   const baseUrl = `http://${host}:${String(address.port)}`;
   const loadSkills = async () => options.skillProvider?.listEnabled() ?? options.skills ?? [];
-  const card = buildAgentCard(await loadSkills(), `${baseUrl}/a2a`);
+  const cardBuilder = new A2AAgentCardBuilder();
+  const loadCard = async () => {
+    if (options.capabilityCardProvider === undefined) {
+      return buildAgentCard(await loadSkills(), `${baseUrl}/a2a`);
+    }
+    const snapshot = await options.capabilityCardProvider.findActive();
+    if (snapshot === undefined) throw new Error('A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE');
+    return cardBuilder.buildFromSnapshot(snapshot, `${baseUrl}/a2a`);
+  };
+  const card = await loadCard();
   const handler = new DefaultRequestHandler(card, options.taskStore, options.executor);
   app.use(
     '/.well-known/agent-card.json',
     agentCardHandler({
-      agentCardProvider: async () => buildAgentCard(await loadSkills(), `${baseUrl}/a2a`),
+      agentCardProvider: loadCard,
       cache: { maxAge: 0 },
     }),
   );

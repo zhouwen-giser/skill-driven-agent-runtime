@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { createAgentTask, transitionTask, type AgentTask } from '../../domain/src/index.js';
-import { PlanPreparationProcessor } from '../src/index.js';
+import {
+  PlanPreparationProcessor,
+  type PlanPreparationProcessorDependencies,
+} from '../src/index.js';
 
 const timestamp = '2026-07-12T00:00:00.000Z';
 const initialJob = {
@@ -26,6 +29,52 @@ function skillAttempt() {
 }
 
 describe('PlanPreparationProcessor LLM decisions', () => {
+  it('routes an ambiguous task through Understanding and stops at its blocking question', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = { ...task(), requestText: 'Help me with this.' };
+    await processorWith(tasks, false, 'none', undefined, {
+      route: () => ({ kind: 'generic_task', reason: 'underspecified_request' }),
+      understand: () =>
+        Promise.resolve({
+          schemaVersion: '1.0',
+          understandingId: 'understanding-1',
+          taskId: 'task-1',
+          revision: 1,
+          originalRequest: 'Help me with this.',
+          objective: 'Help with an unspecified task.',
+          taskTypeCandidates: [],
+          capabilityRequirements: [],
+          knownConstraints: [],
+          knownDimensions: [],
+          assumptions: [],
+          missingDimensions: [
+            {
+              dimensionId: 'dimension-target',
+              kind: 'target',
+              severity: 'blocking',
+              question: 'What should be handled?',
+              answered: false,
+              authorizationSensitive: false,
+            },
+          ],
+          confidence: 0.3,
+          disposition: 'clarification_required',
+          sourceRefs: [],
+          modelInvocationId: 'model-invocation-1',
+          policyVersion: 'task-understanding-v1',
+          stateHash: `sha256:${'a'.repeat(64)}`,
+          createdAt: timestamp,
+        }),
+    }).process(initialJob);
+
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_user_input',
+      phaseMessage: 'What should be handled?',
+    });
+    expect(tasks.goalFormulations).toBe(0);
+    expect(tasks.planningInput).toBeUndefined();
+  });
+
   it('binds the User Goal Plan scheduled Skill before Workflow planning', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
@@ -231,6 +280,7 @@ function processorWith(
   fail = false,
   prior: 'none' | 'active' | 'terminal' = 'none',
   submitRemoteInput?: (inputRequestId: string, inputResponses: unknown) => Promise<void>,
+  taskUnderstanding?: PlanPreparationProcessorDependencies['taskUnderstanding'],
 ) {
   let event = 0;
   let attemptStatus: 'queued' | 'running' | 'completed' | 'failed' = 'queued';
@@ -501,6 +551,7 @@ function processorWith(
     ...(submitRemoteInput === undefined
       ? {}
       : { remoteTaskInput: { submitAnswer: submitRemoteInput } }),
+    ...(taskUnderstanding === undefined ? {} : { taskUnderstanding }),
     taskPlanning: {
       prepare: (input) => {
         tasks.planningInput = input;

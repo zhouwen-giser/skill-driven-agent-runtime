@@ -1,4 +1,5 @@
 export * from './conversation-context.js';
+export * from './cognitive/index.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-cancellation.js';

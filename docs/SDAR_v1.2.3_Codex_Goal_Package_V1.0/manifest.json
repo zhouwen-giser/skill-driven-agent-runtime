@@ -1,0 +1,251 @@
+{
+  "package": "SDAR v1.2.3 Codex Goal Package",
+  "version": "1.0",
+  "mode": "goal",
+  "generatedDate": "2026-07-22",
+  "writableRepository": {
+    "name": "zhouwen-giser/skill-driven-agent-runtime",
+    "defaultBranch": "main",
+    "minimumAncestor": "35cb9277396e0316b1c6b8aac57e6fa69a8a29df"
+  },
+  "suggestedBranch": "feature/v1.2.3-cognitive-planning-runtime",
+  "goals": [
+    {
+      "id": "G00",
+      "name": "需求冻结、ADR 与 Domain Skeleton",
+      "phase": "P0",
+      "dependsOn": [],
+      "estimatePersonDays": "7～10"
+    },
+    {
+      "id": "G01",
+      "name": "Runtime Capability Summary Builder",
+      "phase": "P1",
+      "dependsOn": [
+        "G00"
+      ],
+      "estimatePersonDays": "6～8"
+    },
+    {
+      "id": "G02",
+      "name": "Public Capability Card 与 A2A Projection",
+      "phase": "P1",
+      "dependsOn": [
+        "G01"
+      ],
+      "estimatePersonDays": "5～7"
+    },
+    {
+      "id": "G03",
+      "name": "Generic Task Understanding",
+      "phase": "P2",
+      "dependsOn": [
+        "G00",
+        "G01"
+      ],
+      "estimatePersonDays": "9～12"
+    },
+    {
+      "id": "G04",
+      "name": "Interactive Goal Session",
+      "phase": "P2",
+      "dependsOn": [
+        "G03"
+      ],
+      "estimatePersonDays": "8～11"
+    },
+    {
+      "id": "G05",
+      "name": "Interactive Planning Session 与 Plan Patch Compiler",
+      "phase": "P2",
+      "dependsOn": [
+        "G01",
+        "G04"
+      ],
+      "estimatePersonDays": "10～14"
+    },
+    {
+      "id": "G06",
+      "name": "Planning Correction Facts 与 Interaction Episode",
+      "phase": "P2",
+      "dependsOn": [
+        "G04",
+        "G05"
+      ],
+      "estimatePersonDays": "6～8"
+    },
+    {
+      "id": "G07",
+      "name": "Experience Outbox、Job 与 Goal Episode",
+      "phase": "P3",
+      "dependsOn": [
+        "G00"
+      ],
+      "estimatePersonDays": "9～12"
+    },
+    {
+      "id": "G08",
+      "name": "Experience Observer 与 Typed Extractors",
+      "phase": "P3",
+      "dependsOn": [
+        "G07"
+      ],
+      "estimatePersonDays": "9～12"
+    },
+    {
+      "id": "G09",
+      "name": "Experience Reflector、Identity 与 Knowledge Curator",
+      "phase": "P4",
+      "dependsOn": [
+        "G08"
+      ],
+      "estimatePersonDays": "8～11"
+    },
+    {
+      "id": "G10",
+      "name": "Task Type Induction",
+      "phase": "P4",
+      "dependsOn": [
+        "G06",
+        "G09"
+      ],
+      "estimatePersonDays": "8～11"
+    },
+    {
+      "id": "G11",
+      "name": "Capability Pattern Induction 与 Gap Candidate",
+      "phase": "P4",
+      "dependsOn": [
+        "G01",
+        "G09"
+      ],
+      "estimatePersonDays": "8～11"
+    },
+    {
+      "id": "G12",
+      "name": "Knowledge Promotion Framework",
+      "phase": "P5",
+      "dependsOn": [
+        "G09",
+        "G10",
+        "G11"
+      ],
+      "estimatePersonDays": "12～16"
+    },
+    {
+      "id": "G13",
+      "name": "Planning Knowledge Retrieval 与 Progressive Disclosure",
+      "phase": "P5",
+      "dependsOn": [
+        "G01",
+        "G12"
+      ],
+      "estimatePersonDays": "8～11"
+    },
+    {
+      "id": "G14",
+      "name": "Experience-enriched Planning 与 Fallback",
+      "phase": "P5",
+      "dependsOn": [
+        "G05",
+        "G13"
+      ],
+      "estimatePersonDays": "9～12"
+    },
+    {
+      "id": "G15",
+      "name": "Management API、Console 与 A2A 全面集成",
+      "phase": "P6",
+      "dependsOn": [
+        "G02",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G12",
+        "G14"
+      ],
+      "estimatePersonDays": "12～16"
+    },
+    {
+      "id": "G16",
+      "name": "Evaluation、Replay 与 Shadow Harness",
+      "phase": "P6",
+      "dependsOn": [
+        "G03",
+        "G05",
+        "G08",
+        "G12",
+        "G14"
+      ],
+      "estimatePersonDays": "12～16"
+    },
+    {
+      "id": "G17",
+      "name": "Hardening、灰度与 Release",
+      "phase": "P7",
+      "dependsOn": [
+        "G00",
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08",
+        "G09",
+        "G10",
+        "G11",
+        "G12",
+        "G13",
+        "G14",
+        "G15",
+        "G16"
+      ],
+      "estimatePersonDays": "15～20"
+    }
+  ],
+  "finalGoal": "G17",
+  "goalCount": 18,
+  "autoMerge": false,
+  "createTag": false,
+  "forcePush": false,
+  "runtimeAuthorities": {
+    "workflow": "LangGraph.js",
+    "persistence": "PostgreSQL",
+    "async": "Redis/BullMQ rebuildable",
+    "model": "SDAR Model Runtime",
+    "terminal": "UserGoalPlanController",
+    "experience": "Advisory"
+  },
+  "externalSources": "sources/OPEN-SOURCE-SOURCES.lock.json",
+  "referenceDocuments": [
+    "references/SDAR_v1.2.3_Upgrade_Requirements_V0.1.md",
+    "references/SDAR_v1.2.3_Best_Implementation_Design_V1.0.md",
+    "references/SDAR_v1.2.3_Overall_Design_V1.0.md",
+    "references/SDAR_v1.2.3_Detailed_Implementation_Plan_V1.0.md",
+    "references/SDAR_v1.2.3_Detailed_Implementation_Plan_V1.0.json",
+    "references/SDAR_v1.2.3_Implementation_Goal_Matrix_V1.0.csv",
+    "references/SDAR_v1.2.3_OpenSource_Reuse_Assessment_V1.0.md",
+    "references/SDAR_v1.2.3_OpenSource_Reuse_Assessment_V1.0.json",
+    "references/SDAR_v1.2.3_OpenSource_Reuse_Matrix_V1.0.csv"
+  ],
+  "estimatedPersonDays": {
+    "low": 161,
+    "high": 218,
+    "recommended_planning": 188
+  },
+  "requiredFinalGates": [
+    "pnpm verify",
+    "A2A MUST TCK",
+    "OpenAPI",
+    "Architecture",
+    "Migrations",
+    "Sources",
+    "Licenses",
+    "SBOM",
+    "Replay/Shadow",
+    "Security/Capacity"
+  ]
+}

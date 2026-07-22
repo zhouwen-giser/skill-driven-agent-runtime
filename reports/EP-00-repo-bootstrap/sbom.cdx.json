@@ -5822,6 +5822,240 @@
           }
         }
       ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/google-gemini/gemini-cli@c776c665b00a39d55c470beb788a2b9a77a2feb7",
+      "name": "google-gemini/gemini-cli",
+      "version": "c776c665b00a39d55c470beb788a2b9a77a2feb7",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/google-gemini/gemini-cli"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "LICENSE"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "7a4a3ea2424c09fbe48d455aed1eaa94d9124835"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/google-gemini/gemini-cli@c776c665b00a39d55c470beb788a2b9a77a2feb7"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/ECNU-ICALK/AutoSkill@94c47ca488d4ba4117d20272e66d49b9877e68cf",
+      "name": "ECNU-ICALK/AutoSkill",
+      "version": "94c47ca488d4ba4117d20272e66d49b9877e68cf",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "UNCONFIRMED"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/ECNU-ICALK/AutoSkill"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "absent"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "absent"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/ECNU-ICALK/AutoSkill@94c47ca488d4ba4117d20272e66d49b9877e68cf"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/langchain-ai/langmem@a2d580946465137c89162e67dc0b18108bd4850c",
+      "name": "langchain-ai/langmem",
+      "version": "a2d580946465137c89162e67dc0b18108bd4850c",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/langchain-ai/langmem"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "LICENSE"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "c38f6f284dc464af69e9f618bc0304d299d0bdf0"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/langchain-ai/langmem@a2d580946465137c89162e67dc0b18108bd4850c"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/agentscope-ai/ReMe@46adb5ae1e94715ecdffe201a46933fbd419a5e1",
+      "name": "agentscope-ai/ReMe",
+      "version": "46adb5ae1e94715ecdffe201a46933fbd419a5e1",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/agentscope-ai/ReMe"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "LICENSE"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "65c2c5cf06d722c79d8105cfce97016491a7a7f4"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/agentscope-ai/ReMe@46adb5ae1e94715ecdffe201a46933fbd419a5e1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/zorazrw/agent-workflow-memory@8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1",
+      "name": "zorazrw/agent-workflow-memory",
+      "version": "8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/zorazrw/agent-workflow-memory"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "LICENSE"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/zorazrw/agent-workflow-memory@8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:github/ace-agent/ace@bcb7cea0504afad6f55fec4845dd4864c9f9eee7",
+      "name": "ace-agent/ace",
+      "version": "bcb7cea0504afad6f55fec4845dd4864c9f9eee7",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/ace-agent/ace"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "design_reference"
+        },
+        {
+          "name": "sdar:licenseFile",
+          "value": "LICENSE.txt"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+        },
+        {
+          "name": "sdar:notice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:github/ace-agent/ace@bcb7cea0504afad6f55fec4845dd4864c9f9eee7"
     }
   ]
 }

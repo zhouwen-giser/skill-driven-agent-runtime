@@ -37,6 +37,21 @@ SDAR 派生 Schema 单独标识为修改产物。精确 commit LICENSE 是 Apach
 重授权贡献的 MIT 权利，非规范文档为 CC-BY-4.0；该 commit 没有根 NOTICE。Frozen Handler
 不新增 SDK 依赖且不得使用 Legacy Bridge。详见 ADR-108 和 Phase 0 OSS Intake。
 
+## v1.2.3 Cognitive Planning 设计来源
+
+以下来源仅以精确 commit 作为设计/算法行为参考；G00 未复制、翻译或引入其运行时代码。
+LICENSE/NOTICE 通过 GitHub Contents API 在锁定 commit 上逐项核验。若后续直接移植 Gemini
+TypeScript 小模块，必须另建 Source Intake、保留 Apache-2.0 归属并更新本台账、NOTICE 和 SBOM。
+
+| 来源 | 精确 commit | 核验许可证 | G00 分类与限制 |
+| --- | --- | --- | --- |
+| google-gemini/gemini-cli | `c776c665b00a39d55c470beb788a2b9a77a2feb7` | Apache-2.0；LICENSE blob `7a4a3ea...`; 无根 NOTICE | design reference；无源码复制 |
+| ECNU-ICALK/AutoSkill | `94c47ca488d4ba4117d20272e66d49b9877e68cf` | 未确认；只有 README MIT badge，无 LICENSE/NOTICE | 只允许 clean-room 行为参考；禁止源码/长 Prompt 复制 |
+| langchain-ai/langmem | `a2d580946465137c89162e67dc0b18108bd4850c` | MIT；LICENSE blob `c38f6f2...`; 无根 NOTICE | clean-room TypeScript 行为参考 |
+| agentscope-ai/ReMe | `46adb5ae1e94715ecdffe201a46933fbd419a5e1` | Apache-2.0；LICENSE blob `65c2c5c...`; 无根 NOTICE | RRF/关系扩展行为参考；无 Python 服务 |
+| zorazrw/agent-workflow-memory | `8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1` | Apache-2.0；LICENSE blob `261eeb9...`; 无根 NOTICE | 研究/数据形状参考；无 Python 运行时 |
+| ace-agent/ace | `bcb7cea0504afad6f55fec4845dd4864c9f9eee7` | Apache-2.0；`LICENSE.txt` blob `261eeb9...`; 无根 NOTICE | Reflector/Curator 行为参考；不保存 reasoning trace |
+
 ## 发布前要求
 
 - 生成 SBOM；

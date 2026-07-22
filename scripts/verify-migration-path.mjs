@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { URL } from 'node:url';
@@ -9,10 +10,21 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 
 const { Pool } = pg;
 const root = process.cwd();
-const databases = ['sdar_v122_verify_empty', 'sdar_v122_verify_existing'];
+const databases = [
+  'sdar_v122_verify_empty',
+  'sdar_v122_verify_existing',
+  'sdar_v122_verify_rogue_ledger',
+];
+const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
+const postBaselineMigrationFiles = (await readdir(migrationDirectory))
+  .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+  .sort();
+const expectedVersions = [
+  'v1.2.2_clean_slate_baseline',
+  ...postBaselineMigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
+];
 const adminUrl =
-  process.env.SDAR_POSTGRES_ADMIN_URL ??
-  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+  process.env.SDAR_POSTGRES_ADMIN_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure(root);
@@ -25,6 +37,10 @@ try {
   try {
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
+    await applyRuntimeMigrations(emptyPool);
+    await verifyBaseline(emptyPool);
+    await rollbackPostBaselineMigrations(emptyPool);
+    await verifyPostBaselineMigrationsRolledBack(emptyPool);
     await applyRuntimeMigrations(emptyPool);
     await verifyBaseline(emptyPool);
   } finally {
@@ -40,17 +56,24 @@ try {
     );
     if (preserved.rows[0]?.preserved !== true)
       throw new Error('CLEAN_DATABASE_REJECTION_DESTROYED_EXISTING_DATA');
-    verifyResetRejected({
-      SDAR_ENV: 'production',
-      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
-      SDAR_POSTGRES_URL: databaseUrl(databases[1]),
-    }, 'V122_RESET_ENVIRONMENT_REJECTED');
-    verifyResetRejected({
-      SDAR_ENV: 'test',
-      SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
-      SDAR_POSTGRES_URL: databaseUrl('sdar'),
-    }, 'V122_RESET_DATABASE_NAME_REJECTED');
+    verifyResetRejected(
+      {
+        SDAR_ENV: 'production',
+        SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+        SDAR_POSTGRES_URL: databaseUrl(databases[1]),
+      },
+      'V122_RESET_ENVIRONMENT_REJECTED',
+    );
+    verifyResetRejected(
+      {
+        SDAR_ENV: 'test',
+        SDAR_ALLOW_DESTRUCTIVE_RESET: 'v1.2.2',
+        SDAR_POSTGRES_URL: databaseUrl('sdar'),
+      },
+      'V122_RESET_DATABASE_NAME_REJECTED',
+    );
     runReset(databaseUrl(databases[1]));
+    await applyRuntimeMigrations(existingPool);
     await verifyBaseline(existingPool);
     const seed = await existingPool.query(
       `SELECT
@@ -63,8 +86,17 @@ try {
     await existingPool.end();
   }
 
+  const roguePool = databasePool(databases[2]);
+  try {
+    await applyRuntimeMigrations(roguePool);
+    await roguePool.query("INSERT INTO schema_migration(version) VALUES ('9999_unknown')");
+    await expectLedgerRejection(applyRuntimeMigrations, roguePool);
+  } finally {
+    await roguePool.end();
+  }
+
   process.stdout.write(
-    'SDAR v1.2.2 clean baseline verified: empty apply, idempotency, schema contract, and existing-database rejection.\n',
+    `SDAR v1.2.3 migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
   );
 } finally {
   await dropDatabases().catch(() => undefined);
@@ -121,10 +153,13 @@ async function verifyBaseline(pool) {
       `V122_BASELINE_TABLE_MISSING:${String(identity.rows[0]?.database_name)}:${String(identity.rows[0]?.marker_table)}`,
     );
   const marker = await pool.query(
-    'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
+    `SELECT array_agg(
+       version ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version
+     ) AS versions
+     FROM public.schema_migration`,
   );
-  if (JSON.stringify(marker.rows[0]?.versions) !== '["v1.2.2_clean_slate_baseline"]')
-    throw new Error('V122_BASELINE_MARKER_INVALID');
+  if (JSON.stringify(marker.rows[0]?.versions) !== JSON.stringify(expectedVersions))
+    throw new Error('V123_MIGRATION_MARKERS_INVALID');
 
   const requiredTables = [
     'goal',
@@ -135,6 +170,11 @@ async function verifyBaseline(pool) {
     'skill_goal',
     'skill_attempt',
     'business_event_inbox',
+    'runtime_capability_summary',
+    'generic_task_understanding',
+    'interactive_goal_session',
+    'goal_experience_episode',
+    'knowledge_status_transition',
   ];
   const tables = await pool.query(
     `SELECT table_name
@@ -154,6 +194,184 @@ async function verifyBaseline(pool) {
   const definition = modes.rows[0]?.definition;
   if (typeof definition !== 'string' || !definition.includes('frozen_v1'))
     throw new Error('V122_FROZEN_PROTOCOL_CONSTRAINT_MISSING');
+
+  const capabilitySchema = await pool.query(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='runtime_capability_summary'
+           AND column_name='generation_policy_version'
+           AND is_nullable='NO'
+       ) AS policy_column,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='runtime_capability_summary_catalog_policy_unique'
+       ) AS catalog_policy_unique,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='runtime_capability_limitation_reason_check'
+           AND pg_get_constraintdef(oid) LIKE '%no_enabled_skill%'
+       ) AS limitation_reason_check`,
+  );
+  if (
+    capabilitySchema.rows[0]?.policy_column !== true ||
+    capabilitySchema.rows[0]?.catalog_policy_unique !== true ||
+    capabilitySchema.rows[0]?.limitation_reason_check !== true
+  ) {
+    throw new Error('V123_CAPABILITY_SUMMARY_SCHEMA_INVALID');
+  }
+
+  const capabilityCardSchema = await pool.query(
+    `SELECT
+       count(*) FILTER (
+         WHERE column_name=ANY(ARRAY['card_content_hash','source_skill_refs','generation_mode'])
+           AND is_nullable='NO'
+       )::integer AS required_columns,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='public_capability_card_catalog_policy_unique'
+       ) AS catalog_policy_unique
+     FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='public_capability_card_snapshot'`,
+  );
+  if (
+    capabilityCardSchema.rows[0]?.required_columns !== 3 ||
+    capabilityCardSchema.rows[0]?.catalog_policy_unique !== true
+  ) {
+    throw new Error('V123_PUBLIC_CAPABILITY_CARD_SCHEMA_INVALID');
+  }
+
+  const understandingSchema = await pool.query(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='generic_task_understanding'
+           AND column_name='model_invocation_id'
+           AND is_nullable='NO'
+       ) AS invocation_column,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='generic_task_understanding_dimension_kind_check'
+           AND pg_get_constraintdef(oid) LIKE '%human_confirmation_policy%'
+       ) AS complete_dimension_check,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='stage_model_route_stage_check'
+           AND pg_get_constraintdef(oid) LIKE '%task_understanding%'
+       ) AS model_stage_check`,
+  );
+  if (
+    understandingSchema.rows[0]?.invocation_column !== true ||
+    understandingSchema.rows[0]?.complete_dimension_check !== true ||
+    understandingSchema.rows[0]?.model_stage_check !== true
+  ) {
+    throw new Error('V123_TASK_UNDERSTANDING_SCHEMA_INVALID');
+  }
+
+  const interactiveGoalSchema = await pool.query(
+    `SELECT
+       count(*) FILTER (
+         WHERE (table_name='interactive_goal_session' AND column_name='max_elapsed_ms')
+            OR (table_name='interactive_goal_turn' AND column_name='binding')
+            OR (table_name='goal_contract_candidate'
+                AND column_name=ANY(ARRAY['diff','model_invocation_id']))
+       )::integer AS required_columns,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='stage_model_route_stage_check'
+           AND pg_get_constraintdef(oid) LIKE '%task_clarification%'
+           AND pg_get_constraintdef(oid) LIKE '%goal_contract_generation%'
+       ) AS model_stage_check
+     FROM information_schema.columns
+     WHERE table_schema='public'
+       AND table_name=ANY(ARRAY[
+         'interactive_goal_session','interactive_goal_turn','goal_contract_candidate'
+       ])`,
+  );
+  if (
+    interactiveGoalSchema.rows[0]?.required_columns !== 4 ||
+    interactiveGoalSchema.rows[0]?.model_stage_check !== true
+  ) {
+    throw new Error('V123_INTERACTIVE_GOAL_SCHEMA_INVALID');
+  }
+}
+
+async function rollbackPostBaselineMigrations(pool) {
+  for (const upFile of [...postBaselineMigrationFiles].reverse()) {
+    const downFile = upFile.replace(/\.up\.sql$/u, '.down.sql');
+    await pool.query(await readFile(resolve(migrationDirectory, downFile), 'utf8'));
+  }
+}
+
+async function verifyPostBaselineMigrationsRolledBack(pool) {
+  const marker = await pool.query(
+    'SELECT array_agg(version ORDER BY version) AS versions FROM public.schema_migration',
+  );
+  if (
+    JSON.stringify(marker.rows[0]?.versions) !== JSON.stringify(['v1.2.2_clean_slate_baseline'])
+  ) {
+    throw new Error('V123_ROLLBACK_MARKER_INVALID');
+  }
+  const tables = await pool.query(
+    `SELECT to_regclass('public.runtime_capability_summary') IS NULL AS capability_absent,
+            to_regclass('public.goal_experience_episode') IS NULL AS experience_absent,
+            to_regclass('public.knowledge_status_transition') IS NULL AS knowledge_absent`,
+  );
+  if (
+    tables.rows[0]?.capability_absent !== true ||
+    tables.rows[0]?.experience_absent !== true ||
+    tables.rows[0]?.knowledge_absent !== true
+  ) {
+    throw new Error('V123_ROLLBACK_TABLES_REMAIN');
+  }
+
+  const capabilityColumn = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='runtime_capability_summary'
+         AND column_name='generation_policy_version'
+     ) AS present`,
+  );
+  if (capabilityColumn.rows[0]?.present === true)
+    throw new Error('V123_CAPABILITY_SUMMARY_ROLLBACK_INCOMPLETE');
+
+  const understandingColumn = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='generic_task_understanding'
+         AND column_name='model_invocation_id'
+     ) AS present`,
+  );
+  if (understandingColumn.rows[0]?.present === true)
+    throw new Error('V123_TASK_UNDERSTANDING_ROLLBACK_INCOMPLETE');
+
+  const interactiveGoalColumns = await pool.query(
+    `SELECT count(*)::integer AS present
+     FROM information_schema.columns
+     WHERE table_schema='public'
+       AND (
+         (table_name='interactive_goal_session' AND column_name='max_elapsed_ms')
+         OR (table_name='interactive_goal_turn' AND column_name='binding')
+         OR (table_name='goal_contract_candidate'
+             AND column_name=ANY(ARRAY['diff','model_invocation_id']))
+       )`,
+  );
+  if (interactiveGoalColumns.rows[0]?.present !== 0)
+    throw new Error('V123_INTERACTIVE_GOAL_ROLLBACK_INCOMPLETE');
+}
+
+async function expectLedgerRejection(applyRuntimeMigrations, pool) {
+  try {
+    await applyRuntimeMigrations(pool);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SDAR_V123_MIGRATION_LEDGER_INVALID') return;
+    throw error;
+  }
+  throw new Error('V123_ROGUE_MIGRATION_LEDGER_ACCEPTED');
 }
 
 async function expectCleanDatabaseRejection(applyRuntimeMigrations, pool, label) {
@@ -187,6 +405,5 @@ function runReset(connectionString) {
       SDAR_POSTGRES_URL: connectionString,
     },
   });
-  if (result.status !== 0)
-    throw new Error(`V122_RESET_FAILED:${result.stdout}${result.stderr}`);
+  if (result.status !== 0) throw new Error(`V122_RESET_FAILED:${result.stdout}${result.stderr}`);
 }

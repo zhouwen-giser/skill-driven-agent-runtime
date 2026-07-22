@@ -1,0 +1,41 @@
+BEGIN;
+
+DROP TABLE IF EXISTS experience_usage_record;
+DROP TABLE IF EXISTS knowledge_status_transition;
+DROP TABLE IF EXISTS knowledge_promotion_evaluation;
+DROP TABLE IF EXISTS capability_experience_evidence;
+DROP TABLE IF EXISTS capability_pattern_evidence;
+DROP TABLE IF EXISTS capability_pattern_definition;
+DROP TABLE IF EXISTS task_type_evidence;
+DROP TABLE IF EXISTS task_type_definition;
+DROP TABLE IF EXISTS planning_heuristic_evidence;
+DROP TABLE IF EXISTS planning_heuristic;
+DROP TABLE IF EXISTS experience_reflection;
+DROP TABLE IF EXISTS experience_extraction;
+DROP TABLE IF EXISTS experience_observation_fact;
+DROP TABLE IF EXISTS experience_observation;
+DROP TABLE IF EXISTS goal_experience_episode_source;
+DROP TABLE IF EXISTS goal_experience_episode;
+DROP TABLE IF EXISTS experience_dead_letter;
+DROP TABLE IF EXISTS experience_job;
+DROP TABLE IF EXISTS cognitive_runtime_consumer_cursor;
+DROP TABLE IF EXISTS cognitive_runtime_outbox;
+DROP TABLE IF EXISTS planning_interaction_episode;
+DROP TABLE IF EXISTS planning_correction_fact;
+DROP TABLE IF EXISTS user_goal_plan_candidate;
+DROP TABLE IF EXISTS interactive_planning_turn;
+DROP TABLE IF EXISTS interactive_planning_session;
+DROP TABLE IF EXISTS goal_contract_candidate;
+DROP TABLE IF EXISTS interactive_goal_turn;
+DROP TABLE IF EXISTS interactive_goal_session;
+DROP TABLE IF EXISTS generic_task_understanding_dimension;
+DROP TABLE IF EXISTS generic_task_understanding;
+DROP TABLE IF EXISTS public_capability_card_snapshot;
+DROP TABLE IF EXISTS runtime_capability_limitation;
+DROP TABLE IF EXISTS runtime_capability_summary_item;
+DROP TABLE IF EXISTS runtime_capability_summary;
+DROP TABLE IF EXISTS cognitive_runtime_configuration;
+
+DELETE FROM schema_migration WHERE version = '0108_v123_cognitive_skeleton';
+
+COMMIT;
