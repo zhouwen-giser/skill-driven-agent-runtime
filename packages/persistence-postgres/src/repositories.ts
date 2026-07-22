@@ -57,9 +57,11 @@ import {
   snapshotSkillCompositionContext,
   snapshotSkillUsagePlanPolicy,
   snapshotWorkflowToolExecutionSemantics,
+  USER_GOAL_PLAN_TERMINAL_AUTHORITY,
   type TaskExecutionAttempt,
   type TaskInputRequest,
   type TaskInputResponse,
+  type SkillOutcomeSpecification,
 } from '../../domain/src/index.js';
 import type {
   AgentTask,
@@ -100,10 +102,12 @@ import type {
   RuntimeAchievedOutcomeInput,
   RuntimeCanceledOutcomeInput,
   RuntimeEnhancementWarning,
+  RuntimeLayeredOutcomeCommit,
   RuntimeTerminalControlStatus,
   RuntimeTerminalOutcomeKind,
   RuntimeTerminalOutcomeRecord,
   RuntimeUnachievableOutcomeInput,
+  UserGoalPlanStatus,
   TaskQualityReport,
   EvaluationInfluenceRecord,
   EvaluationAnalyticsFilter,
@@ -129,7 +133,6 @@ import type {
   SkillEvolutionCorrectionExperience,
   SkillInductionReport,
   SkillSimulationReport,
-  ProposedEvolutionSkill,
   TemporarySkill,
   TemporarySkillExperience,
   ToolReference,
@@ -164,7 +167,7 @@ const SkillInductionReportSchema = z.object({
   boundaryDecisionSummary: z.string(),
   decisionSummary: z.string(),
 });
-const ProposedEvolutionSkillSchema: z.ZodType<ProposedEvolutionSkill> = z.object({
+const ProposedEvolutionSkillSchema = z.object({
   skillId: z.string(),
   name: z.string(),
   summary: z.string(),
@@ -175,6 +178,14 @@ const ProposedEvolutionSkillSchema: z.ZodType<ProposedEvolutionSkill> = z.object
   inputSchema: z.unknown(),
   outputSchema: z.unknown(),
   tools: ToolReferencesSchema,
+  usageSpecification: z
+    .unknown()
+    .transform((value): SkillUsageSpecification => value as SkillUsageSpecification)
+    .optional(),
+  outcomeSpecification: z
+    .unknown()
+    .transform((value): SkillOutcomeSpecification => value as SkillOutcomeSpecification)
+    .optional(),
 });
 const SkillSimulationReportSchema: z.ZodType<SkillSimulationReport> = z.object({
   allPassed: z.boolean(),
@@ -540,6 +551,10 @@ interface TaskRow extends QueryResultRow {
   selected_skill_id: string | null;
   selected_skill_version: number | null;
   skill_selection_id: string | null;
+  user_goal_plan_id: string | null;
+  skill_goal_id: string | null;
+  skill_attempt_id: string | null;
+  skill_execution_contract_id: string | null;
   skill_input_resolution_id: string | null;
   temporary_skill_id: string | null;
   output_text: string | null;
@@ -631,6 +646,7 @@ interface SkillVersionRow extends QueryResultRow {
   tool_policy_json: unknown;
   runtime_policy_json: unknown;
   usage_specification_json: unknown;
+  outcome_specification_json: unknown;
   status: SkillVersion['status'];
   source_kind: SkillVersion['sourceKind'];
   validation_passed: boolean;
@@ -1374,8 +1390,10 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
         await client.query(
           `INSERT INTO runtime_terminal_outcome(
              outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
-             round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
-           VALUES($1,'canceled',$2,$3,$4,$5,'canceled',NULL,$6,NULL,$7,'[]'::jsonb,$8)`,
+             round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at,
+             authority)
+           VALUES($1,'canceled',$2,$3,$4,$5,'canceled',NULL,$6,NULL,$7,'[]'::jsonb,$8,
+             'user_goal_plan_controller')`,
           [
             outcomeId,
             control.task_id,
@@ -1735,6 +1753,7 @@ interface RuntimeTerminalOutcomeRow extends QueryResultRow {
   final_instance_id: string | null;
   result_id: string | null;
   summary: string;
+  authority: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   enhancement_warnings_json: unknown;
   committed_at: Date | string;
 }
@@ -1822,6 +1841,40 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const taskIdentity =
+        input.taskId === undefined
+          ? undefined
+          : (
+              await client.query<{ user_goal_plan_id: string | null }>(
+                'SELECT user_goal_plan_id FROM agent_task WHERE task_id=$1',
+                [input.taskId],
+              )
+            ).rows[0];
+      const userGoalPlan =
+        taskIdentity?.user_goal_plan_id === null || taskIdentity?.user_goal_plan_id === undefined
+          ? undefined
+          : (
+              await client.query<{
+                plan_id: string;
+                goal_id: string;
+                goal_version: number;
+                status: UserGoalPlanStatus;
+              }>(
+                `SELECT plan_id,goal_id,goal_version,status FROM user_goal_plan
+                 WHERE plan_id=$1 FOR UPDATE`,
+                [taskIdentity.user_goal_plan_id],
+              )
+            ).rows[0];
+      const goal = (
+        await client.query<{
+          goal_id: string;
+          context_id: string;
+          version: number;
+          status: Goal['status'];
+        }>('SELECT goal_id,context_id,version,status FROM goal WHERE goal_id=$1 FOR UPDATE', [
+          input.goalId,
+        ])
+      ).rows[0];
       const task =
         input.taskId === undefined
           ? undefined
@@ -1840,16 +1893,6 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
             ).rows[0];
       if (input.taskId !== undefined && task === undefined)
         throw new Error('RUNTIME_TERMINAL_TASK_NOT_FOUND');
-      const goal = (
-        await client.query<{
-          goal_id: string;
-          context_id: string;
-          version: number;
-          status: Goal['status'];
-        }>('SELECT goal_id,context_id,version,status FROM goal WHERE goal_id=$1 FOR UPDATE', [
-          input.goalId,
-        ])
-      ).rows[0];
       const control = (
         await client.query<{
           control_id: string;
@@ -1870,7 +1913,6 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       ).rows[0];
       if (goal === undefined) throw new Error('RUNTIME_TERMINAL_GOAL_NOT_FOUND');
       if (control === undefined) throw new Error('RUNTIME_TERMINAL_CONTROL_NOT_FOUND');
-
       const existing = (
         await client.query<RuntimeTerminalOutcomeRow>(
           'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1 OR control_id=$2 FOR UPDATE',
@@ -1885,6 +1927,13 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         }
         throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
       }
+      if (
+        userGoalPlan !== undefined &&
+        (userGoalPlan.goal_id !== input.goalId ||
+          userGoalPlan.goal_version !== input.goalVersion ||
+          userGoalPlan.status !== 'active')
+      )
+        throw new Error('RUNTIME_TERMINAL_USER_GOAL_PLAN_CONFLICT');
 
       const round = input.round;
       const roundIndex = round?.roundIndex;
@@ -1949,12 +1998,29 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       )
         throw new Error('RUNTIME_TERMINAL_DECISION_MISMATCH');
 
+      const authority = input.authority ?? USER_GOAL_PLAN_TERMINAL_AUTHORITY;
+      const layeredOutcome = 'layeredOutcome' in input ? input.layeredOutcome : undefined;
+      if (userGoalPlan !== undefined && kind !== 'canceled') {
+        if (input.taskId === undefined) throw new Error('RUNTIME_TERMINAL_TASK_ID_REQUIRED');
+        if (layeredOutcome === undefined)
+          throw new Error('RUNTIME_TERMINAL_LAYERED_OUTCOME_REQUIRED');
+        await insertLayeredOutcome(client, {
+          taskId: input.taskId,
+          planId: userGoalPlan.plan_id,
+          kind,
+          committedAt: input.committedAt,
+          layeredOutcome,
+        });
+      } else if (layeredOutcome !== undefined)
+        throw new Error('RUNTIME_TERMINAL_LAYERED_OUTCOME_UNEXPECTED');
+
       if (processed !== undefined) await insertProcessedResult(client, processed);
       await client.query(
         `INSERT INTO runtime_terminal_outcome(
            outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
-           round_index,final_instance_id,result_id,summary,enhancement_warnings_json,committed_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'[]'::jsonb,$12)`,
+           round_index,final_instance_id,result_id,summary,authority,
+           enhancement_warnings_json,committed_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'[]'::jsonb,$13)`,
         [
           input.outcomeId,
           kind,
@@ -1967,6 +2033,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           finalInstanceId ?? null,
           processed?.resultId ?? null,
           input.summary,
+          authority,
           input.committedAt,
         ],
       );
@@ -2001,6 +2068,18 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       }
       const goalStatus =
         kind === 'achieved' ? 'achieved' : kind === 'canceled' ? 'canceled' : 'unachievable';
+      if (userGoalPlan !== undefined) {
+        const planStatus =
+          kind === 'achieved' ? 'completed' : kind === 'canceled' ? 'canceled' : 'failed';
+        const updatedPlan = await client.query(
+          `UPDATE user_goal_plan SET status=$2,updated_at=$3,lock_version=lock_version+1,
+             plan_json=jsonb_set(plan_json,'{status}',to_jsonb($2::text),false)
+           WHERE plan_id=$1 AND status='active'`,
+          [userGoalPlan.plan_id, planStatus, input.committedAt],
+        );
+        if (updatedPlan.rowCount !== 1)
+          throw new Error('RUNTIME_TERMINAL_USER_GOAL_PLAN_UPDATE_CONFLICT');
+      }
       const updatedGoal = await client.query(
         `UPDATE goal SET status=$3,updated_at=$4
          WHERE goal_id=$1 AND version=$2 AND status='active'`,
@@ -2089,6 +2168,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         ...(finalInstanceId === undefined ? {} : { finalInstanceId }),
         ...(processed === undefined ? {} : { resultId: processed.resultId }),
         summary: input.summary,
+        authority,
         enhancementWarnings: [],
         committedAt: input.committedAt,
       };
@@ -2099,6 +2179,137 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       client.release();
     }
   }
+}
+
+async function insertLayeredOutcome(
+  client: PoolClient,
+  input: Readonly<{
+    taskId: string;
+    planId: string;
+    kind: Exclude<RuntimeTerminalOutcomeKind, 'canceled'>;
+    committedAt: string;
+    layeredOutcome: RuntimeLayeredOutcomeCommit;
+  }>,
+): Promise<void> {
+  const layered = input.layeredOutcome;
+  if (
+    layered.userGoalPlanId !== input.planId ||
+    layered.taskGoalContract.planId !== input.planId ||
+    layered.taskGoalContract.agentTaskId !== input.taskId ||
+    layered.taskGoalContract.attemptId !== layered.skillAttemptId ||
+    layered.taskGoalContract.skillGoalId !== layered.skillGoalId ||
+    layered.taskDecision.level !== 'task_goal' ||
+    layered.taskDecision.subjectId !== layered.taskGoalContract.taskGoalContractId ||
+    layered.skillDecision.level !== 'skill_goal' ||
+    layered.skillDecision.subjectId !== layered.skillGoalId ||
+    layered.userDecision.level !== 'user_goal' ||
+    layered.completedEffects.some(
+      (effect) =>
+        effect.planId !== input.planId ||
+        effect.skillGoalId !== layered.skillGoalId ||
+        effect.status !== 'verified',
+    ) ||
+    (input.kind === 'achieved' && layered.userDecision.status !== 'achieved') ||
+    (input.kind === 'unachievable' && layered.userDecision.status === 'achieved')
+  )
+    throw new Error('RUNTIME_TERMINAL_LAYERED_OUTCOME_INVALID');
+
+  const contractResult = await client.query(
+    `INSERT INTO task_goal_contract(task_goal_contract_id,attempt_id,agent_task_id,
+       contract_hash,contract_json,created_at)
+     VALUES($1,$2,$3,$4,$5::jsonb,$6)
+     ON CONFLICT(attempt_id,agent_task_id) DO UPDATE
+     SET task_goal_contract_id=task_goal_contract.task_goal_contract_id
+     WHERE task_goal_contract.contract_hash=EXCLUDED.contract_hash`,
+    [
+      layered.taskGoalContract.taskGoalContractId,
+      layered.skillAttemptId,
+      input.taskId,
+      layered.taskGoalContractHash,
+      JSON.stringify(layered.taskGoalContract),
+      input.committedAt,
+    ],
+  );
+  if (contractResult.rowCount !== 1) throw new Error('TASK_GOAL_CONTRACT_IDEMPOTENCY_CONFLICT');
+
+  for (const decision of [layered.taskDecision, layered.skillDecision, layered.userDecision]) {
+    const decisionResult = await client.query(
+      `INSERT INTO outcome_decision(outcome_decision_id,level,subject_id,plan_id,status,
+         confidence,decision_json,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+       ON CONFLICT(outcome_decision_id) DO UPDATE
+       SET outcome_decision_id=outcome_decision.outcome_decision_id
+       WHERE outcome_decision.decision_json=EXCLUDED.decision_json`,
+      [
+        decision.outcomeDecisionId,
+        decision.level,
+        decision.subjectId,
+        input.planId,
+        decision.status,
+        decision.confidence,
+        JSON.stringify(decision),
+        decision.createdAt,
+      ],
+    );
+    if (decisionResult.rowCount !== 1) throw new Error('OUTCOME_DECISION_IDEMPOTENCY_CONFLICT');
+  }
+
+  for (const effect of layered.completedEffects) {
+    const replay = await client.query(
+      `SELECT completed_effect_id FROM completed_effect
+       WHERE goal_id=$1 AND effect_fingerprint=$2 AND completed_effect_id<>$3
+         AND status IN ('observed','verified')
+         AND NOT EXISTS (
+           SELECT 1 FROM completed_effect invalidation
+           WHERE invalidation.predecessor_effect_id=completed_effect.completed_effect_id
+             AND invalidation.status='invalidated')`,
+      [effect.goalId, effect.effectFingerprint, effect.completedEffectId],
+    );
+    if ((replay.rowCount ?? 0) > 0) throw new Error('COMPLETED_EFFECT_REPLAY_FORBIDDEN');
+    const effectResult = await client.query(
+      `INSERT INTO completed_effect(completed_effect_id,goal_id,plan_id,skill_goal_id,status,
+         effect_fingerprint,effect_json,predecessor_effect_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)
+       ON CONFLICT(completed_effect_id) DO UPDATE
+       SET completed_effect_id=completed_effect.completed_effect_id
+       WHERE completed_effect.effect_json=EXCLUDED.effect_json`,
+      [
+        effect.completedEffectId,
+        effect.goalId,
+        effect.planId,
+        effect.skillGoalId ?? null,
+        effect.status,
+        effect.effectFingerprint,
+        JSON.stringify(effect),
+        effect.predecessorEffectId ?? null,
+        effect.createdAt,
+      ],
+    );
+    if (effectResult.rowCount !== 1) throw new Error('COMPLETED_EFFECT_IDEMPOTENCY_CONFLICT');
+  }
+
+  const achieved = layered.skillDecision.status === 'achieved';
+  const attempt = await client.query(
+    `UPDATE skill_attempt SET status=$2,updated_at=$3,lock_version=lock_version+1,
+       attempt_json=jsonb_set(attempt_json,'{status}',to_jsonb($2::text),false)
+     WHERE attempt_id=$1 AND plan_id=$4 AND skill_goal_id=$5 AND status IN
+       ('selecting','planning_workflow','awaiting_confirmation','running','waiting_external','judging')`,
+    [
+      layered.skillAttemptId,
+      achieved ? 'achieved' : 'failed',
+      input.committedAt,
+      input.planId,
+      layered.skillGoalId,
+    ],
+  );
+  const skillGoal = await client.query(
+    `UPDATE skill_goal SET status=$2,updated_at=$3,lock_version=lock_version+1,
+       contract_json=jsonb_set(contract_json,'{status}',to_jsonb($2::text),false)
+     WHERE skill_goal_id=$1 AND plan_id=$4 AND status IN ('selecting','executing','judging')`,
+    [layered.skillGoalId, achieved ? 'achieved' : 'failed', input.committedAt, input.planId],
+  );
+  if (attempt.rowCount !== 1 || skillGoal.rowCount !== 1)
+    throw new Error('RUNTIME_TERMINAL_SKILL_OUTCOME_UPDATE_CONFLICT');
 }
 
 async function insertProcessedResult(
@@ -2240,6 +2451,7 @@ function mapRuntimeTerminalOutcome(row: RuntimeTerminalOutcomeRow): RuntimeTermi
     ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
     ...(row.result_id === null ? {} : { resultId: row.result_id }),
     summary: row.summary,
+    authority: row.authority,
     enhancementWarnings: RuntimeEnhancementWarningsSchema.parse(row.enhancement_warnings_json),
     committedAt: toIsoString(row.committed_at),
   };
@@ -3020,7 +3232,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findById(taskId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE task_id = $1`,
@@ -3033,7 +3245,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findByPlanId(planId: string): Promise<AgentTask | undefined> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task WHERE plan_id=$1 ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
       [planId],
@@ -3054,7 +3266,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   ): Promise<readonly AgentTask[]> {
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
-              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
+              phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
               output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
        FROM agent_task
        WHERE ($1::text IS NULL OR context_id=$1)
@@ -3080,9 +3292,9 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     const result = await this.#pool.query(
       `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
-         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,
+         phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
        ON CONFLICT (task_id) DO UPDATE SET
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
@@ -3096,6 +3308,10 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          skill_selection_id = EXCLUDED.skill_selection_id,
          skill_input_resolution_id = EXCLUDED.skill_input_resolution_id,
          temporary_skill_id = EXCLUDED.temporary_skill_id,
+         user_goal_plan_id = EXCLUDED.user_goal_plan_id,
+         skill_goal_id = EXCLUDED.skill_goal_id,
+         skill_attempt_id = EXCLUDED.skill_attempt_id,
+         skill_execution_contract_id = EXCLUDED.skill_execution_contract_id,
          output_text = EXCLUDED.output_text,
          output_structured = EXCLUDED.output_structured,
          capability_gap_json = EXCLUDED.capability_gap_json,
@@ -3118,6 +3334,10 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         task.skillSelectionId ?? null,
         task.skillInputResolutionId ?? null,
         task.temporarySkillId ?? null,
+        task.userGoalPlanId ?? null,
+        task.skillGoalId ?? null,
+        task.skillAttemptId ?? null,
+        task.skillExecutionContractId ?? null,
         task.output?.text ?? null,
         task.output?.structured ?? null,
         task.capabilityGap ?? null,
@@ -3830,6 +4050,20 @@ export class PostgresSkillRepository implements SkillRepository {
           version.createdAt,
         ],
       );
+      if (version.outcomeSpecification !== undefined)
+        await client.query(
+          `INSERT INTO skill_outcome_specification(
+             skill_id,skill_version,schema_version,specification_hash,specification_json,created_at)
+           VALUES($1,$2,$3,$4,$5::jsonb,$6)`,
+          [
+            version.skillId,
+            version.version,
+            version.outcomeSpecification.schemaVersion,
+            version.outcomeSpecification.specificationHash,
+            JSON.stringify(version.outcomeSpecification),
+            version.createdAt,
+          ],
+        );
       if (packageImport !== undefined) {
         await client.query(
           `INSERT INTO skill_package_import_audit (
@@ -4431,6 +4665,8 @@ interface WorkflowTemplateUseRow extends QueryResultRow {
 
 interface WorkflowPlanRow extends QueryResultRow {
   plan_id: string;
+  skill_goal_id: string | null;
+  skill_attempt_id: string | null;
   goal_id: string;
   goal_version: number;
   goal_contract_json: unknown;
@@ -4633,6 +4869,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     if (row === undefined) return undefined;
     return {
       planId: row.plan_id,
+      ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
+      ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
       goalId: row.goal_id,
       goalVersion: row.goal_version,
       goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
@@ -4686,12 +4924,14 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_plan_attempt
-         (plan_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
+         (plan_id,skill_goal_id,skill_attempt_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
           tool_execution_semantics_json,mcp_protocol_contract_json,attempt,candidate_json,
           validation_errors_json,valid,created_at)
-       VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7,$8::jsonb,$9::jsonb,$10,$11)`,
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12,$13)`,
       [
         attempt.planId,
+        attempt.skillGoalId ?? null,
+        attempt.skillAttemptId ?? null,
         JSON.stringify(attempt.goalContract),
         attempt.compositionContext === undefined
           ? null
@@ -4710,12 +4950,14 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_plan
-         (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+         (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
           capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
           mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12,$13,$14,$15)`,
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17)`,
       [
         plan.planId,
+        plan.skillGoalId ?? null,
+        plan.skillAttemptId ?? null,
         plan.goalId,
         plan.goalVersion,
         JSON.stringify(plan.goalContract),
@@ -4745,12 +4987,14 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
       await client.query(
         `INSERT INTO workflow_plan
-           (plan_id,goal_id,goal_version,goal_contract_json,composition_context_json,
+           (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
             capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
             mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12,$13,$14,$15)`,
+         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17)`,
         [
           plan.planId,
+          plan.skillGoalId ?? null,
+          plan.skillAttemptId ?? null,
           plan.goalId,
           plan.goalVersion,
           JSON.stringify(plan.goalContract),
@@ -4780,6 +5024,8 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
 interface WorkflowInstanceRow extends QueryResultRow {
   instance_id: string;
   plan_id: string;
+  skill_goal_id: string | null;
+  skill_attempt_id: string | null;
   workflow_definition_id: string;
   workflow_version: number;
   goal_id: string;
@@ -4987,6 +5233,8 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
     return {
       instanceId: row.instance_id,
       planId: row.plan_id,
+      ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
+      ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
       workflowDefinitionId: row.workflow_definition_id,
       workflowVersion: row.workflow_version,
       goalId: row.goal_id,
@@ -5041,10 +5289,10 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   async saveInstance(instance: WorkflowInstance): Promise<void> {
     await this.#pool.query(
       `INSERT INTO workflow_instance(
-         instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
+         instance_id,plan_id,skill_goal_id,skill_attempt_id,workflow_definition_id,workflow_version,goal_id,goal_version,
          status,input_json,result_json,errors_json,started_at,completed_at,
          skill_versions_json,budget_limits_json,budget_usage_json,termination_reason,pending_confirmation_json)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17::jsonb)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14,$15::jsonb,$16::jsonb,$17::jsonb,$18,$19::jsonb)
        ON CONFLICT(instance_id) DO UPDATE SET
          status=EXCLUDED.status,
          result_json=EXCLUDED.result_json,
@@ -5056,6 +5304,8 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
       [
         instance.instanceId,
         instance.planId,
+        instance.skillGoalId ?? null,
+        instance.skillAttemptId ?? null,
         instance.workflowDefinitionId,
         instance.workflowVersion,
         instance.goalId,
@@ -5433,6 +5683,8 @@ function mapEvolutionExperienceRow(row: EvolutionExperienceRow): EvolutionExperi
 function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
   return {
     planId: row.plan_id,
+    ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
+    ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
     goalId: row.goal_id,
     goalVersion: row.goal_version,
     goalContract: GoalExecutionContractSchema.parse(row.goal_contract_json),
@@ -6301,9 +6553,12 @@ export class PostgresMcpRegistryRepository
 const skillVersionSelect = `SELECT
   v.skill_id, v.version, v.name, v.summary, v.description, v.capabilities_json,
   v.workflow_guidance, v.output_instruction, v.input_schema_json, v.output_schema_json,
-  v.tool_policy_json, v.runtime_policy_json, v.usage_specification_json, v.status, v.source_kind,
+  v.tool_policy_json, v.runtime_policy_json, v.usage_specification_json,
+  o.specification_json AS outcome_specification_json, v.status, v.source_kind,
   v.validation_passed, v.previous_version, v.created_at
-  FROM skill_version v`;
+  FROM skill_version v
+  LEFT JOIN skill_outcome_specification o
+    ON o.skill_id=v.skill_id AND o.skill_version=v.version`;
 
 export class PostgresSkillDraftRepository implements SkillDraftRepository {
   readonly #pool: Pool;
@@ -6524,6 +6779,11 @@ function mapSkillVersionRow(row: SkillVersionRow): SkillVersion {
     ...(row.usage_specification_json === null
       ? {}
       : { usageSpecification: row.usage_specification_json as SkillUsageSpecification }),
+    ...(row.outcome_specification_json === null
+      ? {}
+      : {
+          outcomeSpecification: row.outcome_specification_json as SkillOutcomeSpecification,
+        }),
     status: row.status,
     sourceKind: row.source_kind,
     validationPassed: row.validation_passed,
@@ -6882,6 +7142,12 @@ function mapTaskRow(row: TaskRow): AgentTask {
       ? {}
       : { selectedSkillVersion: row.selected_skill_version }),
     ...(row.skill_selection_id === null ? {} : { skillSelectionId: row.skill_selection_id }),
+    ...(row.user_goal_plan_id === null ? {} : { userGoalPlanId: row.user_goal_plan_id }),
+    ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
+    ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
+    ...(row.skill_execution_contract_id === null
+      ? {}
+      : { skillExecutionContractId: row.skill_execution_contract_id }),
     ...(row.skill_input_resolution_id === null
       ? {}
       : { skillInputResolutionId: row.skill_input_resolution_id }),
