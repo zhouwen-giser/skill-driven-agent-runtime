@@ -12,6 +12,7 @@
     "capabilityCard",
     "taskUnderstanding",
     "interactiveSession",
+    "goalContractCandidate",
     "experienceEpisode",
     "knowledgeCandidate",
     "knowledgeTransition"
@@ -24,6 +25,7 @@
     "capabilityCard": { "$ref": "#/$defs/capabilityCard" },
     "taskUnderstanding": { "$ref": "#/$defs/taskUnderstanding" },
     "interactiveSession": { "$ref": "#/$defs/interactiveSession" },
+    "goalContractCandidate": { "$ref": "#/$defs/goalContractCandidate" },
     "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
     "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
@@ -56,6 +58,7 @@
         "sourceKind": {
           "enum": [
             "task_request",
+            "task_understanding",
             "capability_summary",
             "task_type_definition",
             "user_preference",
@@ -611,6 +614,58 @@
       "dependentRequired": {
         "currentCandidateId": ["currentCandidateRevision"],
         "currentCandidateRevision": ["currentCandidateId"]
+      }
+    },
+    "goalContractCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "candidateId",
+        "sessionId",
+        "revision",
+        "status",
+        "contract",
+        "contractHash",
+        "sourceRefs",
+        "modelInvocationId",
+        "diff",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "candidateId": { "$ref": "#/$defs/id" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["candidate", "confirmed", "rejected", "superseded"] },
+        "contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "description", "constraints", "successCriteria"],
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "description": { "type": "string", "minLength": 1, "maxLength": 8192 },
+            "constraints": { "$ref": "#/$defs/strings" },
+            "successCriteria": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        },
+        "contractHash": { "$ref": "#/$defs/hash" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "diff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["changedFields"],
+          "properties": {
+            "baseRevision": { "type": "integer", "minimum": 1 },
+            "changedFields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "enum": ["title", "description", "constraints", "successCriteria"] }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     },
     "experienceEpisode": {

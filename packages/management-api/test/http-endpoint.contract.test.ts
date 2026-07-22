@@ -189,6 +189,47 @@ describe('management HTTP API contract', () => {
     await expect(revisions.json()).resolves.toEqual({ items: [understanding] });
   });
 
+  it('reads an interactive Goal session and applies a CAS/idempotent action', async () => {
+    const view = interactiveGoalSessionView();
+    let received: unknown;
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        goalSessions: {
+          getByTask: () => Promise.resolve(view),
+          applyAction: (input) => {
+            received = input;
+            return Promise.resolve(view);
+          },
+        },
+      },
+    });
+
+    const current = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session`);
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual(view);
+    const applied = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session/actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion: 1,
+        idempotencyKey: 'input-1',
+        actorId: 'operator-1',
+        action: 'accept',
+        payload: {},
+      }),
+    });
+    expect(applied.status).toBe(200);
+    expect(received).toEqual({
+      sessionId: 'goal-session-1',
+      expectedVersion: 1,
+      idempotencyKey: 'input-1',
+      actorId: 'operator-1',
+      action: 'accept',
+      payload: {},
+    });
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2648,6 +2689,47 @@ function taskUnderstandingSnapshot() {
     policyVersion: 'task-understanding-v1',
     stateHash: `sha256:${'a'.repeat(64)}`,
     createdAt: '2026-07-23T03:20:00.000Z',
+  };
+}
+
+function interactiveGoalSessionView() {
+  return {
+    outcome: 'duplicate' as const,
+    session: {
+      schemaVersion: '1.0' as const,
+      sessionId: 'goal-session-1',
+      taskId: 'task-1',
+      state: 'goal_review' as const,
+      version: 1,
+      currentUnderstandingId: 'understanding-1',
+      currentCandidateId: 'candidate-1',
+      currentCandidateRevision: 1,
+      clarificationRounds: 0,
+      revisionCount: 1,
+      maxClarificationRounds: 4,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T03:30:00.000Z',
+      updatedAt: '2026-07-23T03:30:00.000Z',
+    },
+    candidate: {
+      schemaVersion: '1.0' as const,
+      candidateId: 'candidate-1',
+      sessionId: 'goal-session-1',
+      revision: 1,
+      status: 'candidate' as const,
+      contract: {
+        title: 'Inspect device',
+        description: 'Inspect the selected device.',
+        constraints: [],
+        successCriteria: ['Inspection evidence exists.'],
+      },
+      contractHash: `sha256:${'b'.repeat(64)}`,
+      sourceRefs: [],
+      modelInvocationId: 'model-invocation-1',
+      diff: { changedFields: ['title' as const] },
+      createdAt: '2026-07-23T03:30:00.000Z',
+    },
   };
 }
 

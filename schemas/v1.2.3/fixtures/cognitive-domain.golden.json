@@ -169,6 +169,26 @@
     "createdAt": "2026-07-23T00:00:00.000Z",
     "updatedAt": "2026-07-23T00:00:00.000Z"
   },
+  "goalContractCandidate": {
+    "schemaVersion": "1.0",
+    "candidateId": "candidate.v123",
+    "sessionId": "session.v123",
+    "revision": 1,
+    "status": "candidate",
+    "contract": {
+      "title": "Inspect device",
+      "description": "Inspect the selected device and preserve evidence.",
+      "constraints": ["No side effects."],
+      "successCriteria": ["Inspection evidence is recorded."]
+    },
+    "contractHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "sourceRefs": [],
+    "modelInvocationId": "model-invocation.v123",
+    "diff": {
+      "changedFields": ["title", "description", "constraints", "successCriteria"]
+    },
+    "createdAt": "2026-07-23T00:00:01.000Z"
+  },
   "experienceEpisode": {
     "schemaVersion": "1.0",
     "episodeId": "episode.v123",

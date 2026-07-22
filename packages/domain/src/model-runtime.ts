@@ -11,7 +11,9 @@ export type ModelStage =
   | 'goal_evaluation'
   | 'evaluation'
   | 'result_processing'
-  | 'task_understanding';
+  | 'task_understanding'
+  | 'task_clarification'
+  | 'goal_contract_generation';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;

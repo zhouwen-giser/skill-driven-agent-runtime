@@ -5,6 +5,9 @@ import type {
   GenericTaskUnderstandingRevision,
   GoalExperienceEpisode,
   InteractiveSessionSnapshot,
+  GoalContractCandidateSnapshot,
+  InteractiveGoalSessionSnapshot,
+  InteractiveGoalTurn,
   KnowledgeCandidateSnapshot,
   KnowledgeStatusTransition,
   PublicCapabilityCardSnapshot,
@@ -65,6 +68,41 @@ export interface InteractiveSessionRepository {
     expectedVersion: number,
     idempotencyKey: string,
   ): Promise<InteractiveSessionSnapshot>;
+}
+
+export interface InteractiveGoalMutation {
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+  readonly turn: InteractiveGoalTurn;
+  readonly nextSession: InteractiveGoalSessionSnapshot;
+  readonly candidate?: GoalContractCandidateSnapshot;
+}
+
+export type InteractiveGoalMutationResult =
+  | Readonly<{
+      outcome: 'applied' | 'duplicate';
+      session: InteractiveGoalSessionSnapshot;
+      candidate?: GoalContractCandidateSnapshot;
+    }>
+  | Readonly<{
+      outcome: 'conflict';
+      session: InteractiveGoalSessionSnapshot;
+    }>;
+
+export interface InteractiveGoalRepository {
+  findByTask(taskId: string): Promise<InteractiveGoalSessionSnapshot | undefined>;
+  find(sessionId: string): Promise<InteractiveGoalSessionSnapshot | undefined>;
+  listTurns(sessionId: string): Promise<readonly InteractiveGoalTurn[]>;
+  listCandidates(sessionId: string): Promise<readonly GoalContractCandidateSnapshot[]>;
+  findTurnByIdempotencyKey(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<InteractiveGoalTurn | undefined>;
+  start(
+    session: InteractiveGoalSessionSnapshot,
+    candidate?: GoalContractCandidateSnapshot,
+  ): Promise<InteractiveGoalSessionSnapshot>;
+  apply(mutation: InteractiveGoalMutation): Promise<InteractiveGoalMutationResult>;
 }
 
 export interface GoalExperienceEpisodeRepository {

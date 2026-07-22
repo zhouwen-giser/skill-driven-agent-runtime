@@ -34,6 +34,7 @@ const SourceRefSchema = z
     sourceRefId: z.string(),
     sourceKind: z.enum([
       'task_request',
+      'task_understanding',
       'capability_summary',
       'task_type_definition',
       'user_preference',

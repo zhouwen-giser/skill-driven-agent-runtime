@@ -91,6 +91,35 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/GenericTaskUnderstanding' }
+  /api/v1/tasks/{taskId}/goal-session:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getInteractiveGoalSession
+      description: Returns the PostgreSQL-authoritative interactive Goal session, current question, and candidate contract.
+      responses:
+        '200':
+          description: Current interactive Goal session view
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InteractiveGoalSessionView' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/goal-session/actions:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: applyInteractiveGoalAction
+      description: Applies one actor-attributed, CAS-protected and idempotent interaction action.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InteractiveGoalAction' }
+      responses:
+        '200':
+          description: Updated interactive Goal session view
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InteractiveGoalSessionView' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/memories:
     post:
       operationId: createMemory
@@ -1307,6 +1336,60 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    InteractiveGoalAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, action, payload]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 128 }
+        action: { enum: [answer, accept, patch, reject, restart_understanding, cancel] }
+        payload: { type: object, additionalProperties: true }
+    InteractiveGoalSessionView:
+      type: object
+      additionalProperties: false
+      required: [outcome, session]
+      properties:
+        outcome: { enum: [started, applied, duplicate, conflict] }
+        session:
+          type: object
+          additionalProperties: true
+          required:
+            [
+              schemaVersion,
+              sessionId,
+              taskId,
+              state,
+              version,
+              currentUnderstandingId,
+              clarificationRounds,
+              revisionCount,
+              maxClarificationRounds,
+              maxRevisions,
+              maxElapsedMs,
+              createdAt,
+              updatedAt,
+            ]
+          properties:
+            schemaVersion: { const: '1.0' }
+            sessionId: { type: string }
+            taskId: { type: string }
+            state:
+              { enum: [understand, goal_review, confirmed, rejected, canceled, budget_exhausted] }
+            version: { type: integer, minimum: 1 }
+            currentUnderstandingId: { type: string }
+            currentCandidateId: { type: string }
+            currentCandidateRevision: { type: integer, minimum: 1 }
+            clarificationRounds: { type: integer, minimum: 0 }
+            revisionCount: { type: integer, minimum: 0 }
+            maxClarificationRounds: { type: integer, minimum: 0 }
+            maxRevisions: { type: integer, minimum: 0 }
+            maxElapsedMs: { type: integer, minimum: 1 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+        question: { type: object, additionalProperties: true }
+        candidate: { type: object, additionalProperties: true }
     GenericTaskUnderstanding:
       type: object
       required:

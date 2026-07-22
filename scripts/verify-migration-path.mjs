@@ -269,6 +269,33 @@ async function verifyBaseline(pool) {
   ) {
     throw new Error('V123_TASK_UNDERSTANDING_SCHEMA_INVALID');
   }
+
+  const interactiveGoalSchema = await pool.query(
+    `SELECT
+       count(*) FILTER (
+         WHERE (table_name='interactive_goal_session' AND column_name='max_elapsed_ms')
+            OR (table_name='interactive_goal_turn' AND column_name='binding')
+            OR (table_name='goal_contract_candidate'
+                AND column_name=ANY(ARRAY['diff','model_invocation_id']))
+       )::integer AS required_columns,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='stage_model_route_stage_check'
+           AND pg_get_constraintdef(oid) LIKE '%task_clarification%'
+           AND pg_get_constraintdef(oid) LIKE '%goal_contract_generation%'
+       ) AS model_stage_check
+     FROM information_schema.columns
+     WHERE table_schema='public'
+       AND table_name=ANY(ARRAY[
+         'interactive_goal_session','interactive_goal_turn','goal_contract_candidate'
+       ])`,
+  );
+  if (
+    interactiveGoalSchema.rows[0]?.required_columns !== 4 ||
+    interactiveGoalSchema.rows[0]?.model_stage_check !== true
+  ) {
+    throw new Error('V123_INTERACTIVE_GOAL_SCHEMA_INVALID');
+  }
 }
 
 async function rollbackPostBaselineMigrations(pool) {
@@ -321,6 +348,20 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
   );
   if (understandingColumn.rows[0]?.present === true)
     throw new Error('V123_TASK_UNDERSTANDING_ROLLBACK_INCOMPLETE');
+
+  const interactiveGoalColumns = await pool.query(
+    `SELECT count(*)::integer AS present
+     FROM information_schema.columns
+     WHERE table_schema='public'
+       AND (
+         (table_name='interactive_goal_session' AND column_name='max_elapsed_ms')
+         OR (table_name='interactive_goal_turn' AND column_name='binding')
+         OR (table_name='goal_contract_candidate'
+             AND column_name=ANY(ARRAY['diff','model_invocation_id']))
+       )`,
+  );
+  if (interactiveGoalColumns.rows[0]?.present !== 0)
+    throw new Error('V123_INTERACTIVE_GOAL_ROLLBACK_INCOMPLETE');
 }
 
 async function expectLedgerRejection(applyRuntimeMigrations, pool) {

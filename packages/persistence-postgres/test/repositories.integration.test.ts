@@ -51,6 +51,7 @@ import {
   PostgresCapabilityCatalogChangeSource,
   PostgresCapabilityCardRepository,
   PostgresTaskUnderstandingRepository,
+  PostgresInteractiveGoalRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -72,6 +73,9 @@ import {
   createRuntimeCapabilitySummarySnapshot,
   createPublicCapabilityCardSnapshot,
   createGenericTaskUnderstandingRevision,
+  createGoalContractCandidateSnapshot,
+  createInteractiveGoalSessionSnapshot,
+  createInteractiveGoalTurn,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -197,6 +201,9 @@ beforeAll(async () => {
   await applyRuntimeMigrations(pool);
 });
 beforeEach(async () => {
+  await pool.query(
+    'TRUNCATE interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
+  );
   await pool.query(
     `UPDATE memory_retention_policy SET review_after_days=90,archive_after_days=365,
        delete_after_days=730,automatic_archive_enabled=false,automatic_delete_enabled=false,
@@ -4405,6 +4412,139 @@ describe('PostgreSQL protocol-domain repositories', () => {
         7,
       ),
     ).rejects.toThrow('TASK_UNDERSTANDING_REVISION_CONFLICT');
+  });
+
+  it('serializes interactive Goal actions with CAS, idempotency and audited outbox evidence', async () => {
+    const understandings = new PostgresTaskUnderstandingRepository(pool);
+    const repository = new PostgresInteractiveGoalRepository(pool);
+    await pool.query(
+      `INSERT INTO model_invocation(
+         invocation_id,stage,provider_id,model,operation,request_json,context_json,
+         raw_response_json,structured_result_json,duration_ms,status,created_at
+       ) VALUES
+         ('model-invocation.goal-session.understanding','task_understanding','provider.test',
+          'model.test','structured_generation','{}','{}','{}','{}',7,'succeeded',$1),
+         ('model-invocation.goal-session.contract','goal_contract_generation','provider.test',
+          'model.test','structured_generation','{}','{}','{}','{}',8,'succeeded',$1)`,
+      ['2026-07-23T03:30:00.000Z'],
+    );
+    const understanding = createGenericTaskUnderstandingRevision({
+      schemaVersion: '1.0',
+      understandingId: 'understanding.goal-session.pg.1',
+      taskId: 'task.goal-session.pg',
+      revision: 1,
+      originalRequest: 'Inspect pump-17 and preserve evidence.',
+      objective: 'Inspect pump-17.',
+      taskTypeCandidates: [],
+      capabilityRequirements: [],
+      knownConstraints: ['Do not mutate the device.'],
+      knownDimensions: [{ kind: 'target', value: 'pump-17', source: 'user_request' }],
+      assumptions: [],
+      missingDimensions: [],
+      confidence: 0.95,
+      disposition: 'contract_candidate',
+      sourceRefs: [
+        {
+          schemaVersion: '1.0',
+          sourceRefId: 'source.goal-session.request',
+          sourceKind: 'task_request',
+          sourceId: 'task.goal-session.pg',
+          sourceRevision: 1,
+          authority: 'user_instruction',
+          dataClassification: 'user_scoped',
+          capturedAt: '2026-07-23T03:30:00.000Z',
+          contentHash: `sha256:${'d'.repeat(64)}`,
+        },
+      ],
+      modelInvocationId: 'model-invocation.goal-session.understanding',
+      policyVersion: 'task-understanding-v1',
+      stateHash: `sha256:${'e'.repeat(64)}`,
+      createdAt: '2026-07-23T03:30:00.000Z',
+    });
+    await understandings.saveRevision(understanding);
+    const candidate = createGoalContractCandidateSnapshot({
+      schemaVersion: '1.0',
+      candidateId: 'goal-contract-candidate.pg.1',
+      sessionId: 'goal-session.pg.1',
+      revision: 1,
+      status: 'candidate',
+      contract: {
+        title: 'Inspect pump-17',
+        description: 'Inspect pump-17 and preserve verifiable evidence.',
+        constraints: ['Do not mutate the device.'],
+        successCriteria: ['Inspection evidence is recorded.'],
+      },
+      contractHash: `sha256:${'f'.repeat(64)}`,
+      sourceRefs: understanding.sourceRefs,
+      modelInvocationId: 'model-invocation.goal-session.contract',
+      diff: { changedFields: ['title', 'description', 'constraints', 'successCriteria'] },
+      createdAt: '2026-07-23T03:30:01.000Z',
+    });
+    const session = createInteractiveGoalSessionSnapshot({
+      schemaVersion: '1.0',
+      sessionId: candidate.sessionId,
+      taskId: understanding.taskId,
+      state: 'goal_review',
+      version: 1,
+      currentUnderstandingId: understanding.understandingId,
+      currentCandidateId: candidate.candidateId,
+      currentCandidateRevision: candidate.revision,
+      clarificationRounds: 0,
+      revisionCount: 1,
+      maxClarificationRounds: 4,
+      maxRevisions: 4,
+      maxElapsedMs: 900_000,
+      createdAt: '2026-07-23T03:30:01.000Z',
+      updatedAt: '2026-07-23T03:30:01.000Z',
+    });
+    await repository.start(session, candidate);
+
+    const mutations = ['accept.concurrent.a', 'accept.concurrent.b'].map((key, index) => ({
+      expectedVersion: 1,
+      idempotencyKey: key,
+      turn: createInteractiveGoalTurn({
+        turnId: `goal-turn.pg.${String(index + 1)}`,
+        sessionId: session.sessionId,
+        ordinal: 1,
+        expectedSessionVersion: 1,
+        idempotencyKey: key,
+        action: 'accept',
+        actorId: 'operator.pg',
+        payload: {},
+        binding: { understandingRevision: 1 },
+        createdAt: `2026-07-23T03:30:0${String(index + 2)}.000Z`,
+      }),
+      nextSession: createInteractiveGoalSessionSnapshot({
+        ...session,
+        state: 'confirmed',
+        version: 2,
+        updatedAt: `2026-07-23T03:30:0${String(index + 2)}.000Z`,
+      }),
+      candidate: createGoalContractCandidateSnapshot({ ...candidate, status: 'confirmed' }),
+    }));
+    const results = await Promise.all(mutations.map((mutation) => repository.apply(mutation)));
+    expect(results.map((result) => result.outcome).sort()).toEqual(['applied', 'conflict']);
+    const appliedIndex = results.findIndex((result) => result.outcome === 'applied');
+    expect(appliedIndex).toBeGreaterThanOrEqual(0);
+    const appliedMutation = mutations[appliedIndex];
+    if (appliedMutation === undefined) throw new Error('INTERACTIVE_GOAL_APPLIED_MUTATION_MISSING');
+    await expect(repository.apply(appliedMutation)).resolves.toMatchObject({
+      outcome: 'duplicate',
+      session: { state: 'confirmed', version: 2 },
+    });
+    await expect(repository.listTurns(session.sessionId)).resolves.toHaveLength(1);
+    await expect(repository.listCandidates(session.sessionId)).resolves.toMatchObject([
+      { candidateId: candidate.candidateId, status: 'confirmed' },
+    ]);
+    const events = await pool.query<{ event_type: string }>(
+      `SELECT event_type FROM cognitive_runtime_outbox
+       WHERE aggregate_id=$1 ORDER BY event_type`,
+      [session.sessionId],
+    );
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'goal.contract_candidate_created',
+      'goal.contract_confirmed',
+    ]);
   });
 });
 

@@ -155,7 +155,7 @@ function messageMetadata(message: Message): Readonly<Record<string, unknown>> {
   return metadataResult.data;
 }
 
-export function toA2ATask(task: AgentTask): Task {
+export function toA2ATask(task: AgentTask, interaction?: Readonly<Record<string, unknown>>): Task {
   if (
     task.phase === 'capability_gap' &&
     (task.errorCode !== 'CAPABILITY_GAP' || task.capabilityGap === undefined)
@@ -190,6 +190,7 @@ export function toA2ATask(task: AgentTask): Task {
       ...(task.phase === 'capability_gap'
         ? { nextAction: 'register-capability-and-submit-new-task' }
         : {}),
+      ...(interaction === undefined ? {} : { 'io.sdar/interaction': interaction }),
     },
   });
 }

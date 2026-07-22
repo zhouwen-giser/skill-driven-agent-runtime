@@ -22,6 +22,7 @@ export interface TaskServiceAgentExecutorOptions {
   readonly notifier: TaskStateNotifier;
   readonly safetyPollIntervalMs?: number;
   readonly waitTimeoutMs?: number;
+  readonly interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>;
 }
 
 export const MIN_A2A_SAFETY_POLL_INTERVAL_MS = 100;
@@ -31,6 +32,8 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
   readonly #notifier: TaskStateNotifier;
   readonly #safetyPollIntervalMs: number;
   readonly #waitTimeoutMs: number;
+  readonly #interaction:
+    ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
   #closed = false;
 
   constructor(options: TaskServiceAgentExecutorOptions) {
@@ -38,6 +41,7 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     this.#notifier = options.notifier;
     this.#safetyPollIntervalMs = options.safetyPollIntervalMs ?? 1_000;
     this.#waitTimeoutMs = options.waitTimeoutMs ?? 30_000;
+    this.#interaction = options.interaction;
     if (
       !Number.isFinite(this.#safetyPollIntervalMs) ||
       this.#safetyPollIntervalMs < MIN_A2A_SAFETY_POLL_INTERVAL_MS ||
@@ -60,7 +64,9 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
       const followUp = toTaskFollowUp(request.userMessage);
       const updated = await this.#tasks.followUp({ taskId: request.taskId, ...followUp });
       eventBus.publish(
-        AgentEvent.task(withUserHistory(toA2ATask(updated), request.userMessage, request.task)),
+        AgentEvent.task(
+          withUserHistory(await this.#project(updated), request.userMessage, request.task),
+        ),
       );
       eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(updated)));
       eventBus.finished();
@@ -68,7 +74,7 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     }
     const command = toSubmitTaskCommand(request.userMessage, request.taskId, request.contextId);
     const submitted = await this.#tasks.submit(command);
-    const initial = withUserHistory(toA2ATask(submitted.task), request.userMessage);
+    const initial = withUserHistory(await this.#project(submitted.task), request.userMessage);
     eventBus.publish(AgentEvent.task(initial));
 
     let current = submitted.task;
@@ -124,6 +130,10 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     if (this.#closed) return;
     this.#closed = true;
     this.#notifier.close();
+  }
+
+  async #project(task: AgentTask): Promise<Task> {
+    return toA2ATask(task, await this.#interaction?.(task.taskId));
   }
 
   #isClosed(): boolean {

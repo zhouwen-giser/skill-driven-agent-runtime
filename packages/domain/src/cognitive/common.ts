@@ -64,6 +64,7 @@ export type CognitiveSourceAuthority =
   | 'skill_declaration';
 export type CognitiveSourceKind =
   | 'task_request'
+  | 'task_understanding'
   | 'capability_summary'
   | 'task_type_definition'
   | 'user_preference'

@@ -371,6 +371,11 @@ export function TaskPanel({
           <UserGoalPlanPanel
             value={evidence.find((item) => item.key === 'user-goal-plan')?.value}
           />
+          <InteractiveGoalPanel
+            taskId={task.taskId}
+            value={evidence.find((item) => item.key === 'goal-session')?.value}
+            onApplied={() => loadTask(task.taskId)}
+          />
           <RemoteTaskLifecyclePanel
             value={evidence.find((item) => item.key === 'remote-task-lifecycle')?.value}
             onRefresh={() => void loadTask(task.taskId)}
@@ -539,6 +544,94 @@ export function UserGoalPlanPanel({ value }: { readonly value: unknown }) {
               )
               .join(' · ')}
       </div>
+    </section>
+  );
+}
+
+export function InteractiveGoalPanel({
+  taskId,
+  value,
+  onApplied,
+}: {
+  readonly taskId: string;
+  readonly value: unknown;
+  readonly onApplied: () => Promise<void>;
+}) {
+  const [action, setAction] = useState<
+    'answer' | 'accept' | 'patch' | 'reject' | 'restart_understanding' | 'cancel'
+  >('answer');
+  const [payload, setPayload] = useState('{"answer":""}');
+  const [message, setMessage] = useState<string>();
+  if (!isRecord(value) || !isRecord(value.session)) return null;
+  const session = value.session;
+  const sessionId = typeof session.sessionId === 'string' ? session.sessionId : 'unknown';
+  const version = typeof session.version === 'number' ? session.version : 0;
+  const state = typeof session.state === 'string' ? session.state : 'unknown';
+
+  async function apply(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await managementRequest(`/api/v1/tasks/${encodeURIComponent(taskId)}/goal-session/actions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: version,
+          idempotencyKey: `console:${sessionId}:${String(version)}:${action}`,
+          actorId: 'console.operator',
+          action,
+          payload: JSON.parse(payload) as unknown,
+        }),
+      });
+      setMessage(`${action} applied at session version ${String(version)}.`);
+      await onApplied();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Interactive Goal action failed.');
+    }
+  }
+
+  return (
+    <section className="panel" aria-label="Interactive Goal session">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">INTERACTIVE GOAL AUTHORITY</span>
+          <h2>Goal Contract Review</h2>
+        </div>
+        <span className="status">
+          {state} · v{String(version)}
+        </span>
+      </div>
+      <pre>{JSON.stringify(value, null, 2)}</pre>
+      {['confirmed', 'rejected', 'canceled', 'budget_exhausted'].includes(state) ? null : (
+        <form className="task-action" onSubmit={(event) => void apply(event)}>
+          <label>
+            Interaction action
+            <select
+              value={action}
+              onChange={(event) => {
+                setAction(event.target.value as typeof action);
+              }}
+            >
+              <option value="answer">Answer clarification</option>
+              <option value="accept">Accept Goal Contract</option>
+              <option value="patch">Patch Goal Contract</option>
+              <option value="reject">Reject candidate</option>
+              <option value="restart_understanding">Restart understanding</option>
+              <option value="cancel">Cancel session</option>
+            </select>
+          </label>
+          <label>
+            Action payload (JSON)
+            <textarea
+              required
+              value={payload}
+              onChange={(event) => {
+                setPayload(event.target.value);
+              }}
+            />
+          </label>
+          <button type="submit">Apply CAS-protected action</button>
+        </form>
+      )}
+      {message === undefined ? null : <p className="action-message">{message}</p>}
     </section>
   );
 }
@@ -842,6 +935,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       key: 'understanding-revisions',
       label: 'Task Understanding Revisions',
       endpoint: `/api/v1/tasks/${id}/understanding/revisions`,
+    },
+    {
+      key: 'goal-session',
+      label: 'Interactive Goal Session',
+      endpoint: `/api/v1/tasks/${id}/goal-session`,
     },
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
     {

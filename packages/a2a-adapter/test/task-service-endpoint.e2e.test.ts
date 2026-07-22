@@ -299,6 +299,8 @@ beforeAll(async () => {
     'result_processing',
     'evaluation',
     'task_understanding',
+    'task_clarification',
+    'goal_contract_generation',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -398,6 +400,91 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     ).then((response) => response.json());
     expect(taskRecord).toMatchObject({ phase: 'awaiting_user_input' });
     expect(taskRecord).not.toHaveProperty('goalId');
+
+    const initialSessionResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/goal-session`,
+    );
+    expect(initialSessionResponse.status).toBe(200);
+    await expect(initialSessionResponse.json()).resolves.toMatchObject({
+      session: { state: 'understand', version: 1, currentUnderstandingId: expect.any(String) },
+      question: { dimensionId: 'dimension.target' },
+    });
+    await expect(
+      runtime.a2a.client.getTask({ tenant: '', id: submitted.id }),
+    ).resolves.toMatchObject({
+      metadata: {
+        'io.sdar/interaction': {
+          state: 'understand',
+          version: 1,
+          allowedActions: ['answer', 'restart_understanding', 'cancel'],
+        },
+      },
+    });
+
+    const answered = await sendFollowUp(
+      submitted.id,
+      submitted.contextId,
+      'provide_input',
+      'Inspect pump-17; completion requires recorded inspection evidence.',
+    );
+    if (!('id' in answered)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    const answeredBoundary = await waitForTaskState(
+      submitted.id,
+      TaskState.TASK_STATE_INPUT_REQUIRED,
+    );
+    expect(answeredBoundary.metadata).toMatchObject({
+      'io.sdar/interaction': {
+        state: 'goal_review',
+        version: 2,
+        currentCandidateId: expect.any(String),
+      },
+    });
+    const revised = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/understanding/revisions`,
+    );
+    const revisedUnderstandings = z
+      .object({
+        items: z.array(
+          z.object({
+            revision: z.number(),
+            disposition: z.string(),
+            sourceRefs: z.array(z.object({ sourceKind: z.string() }).loose()),
+          }),
+        ),
+      })
+      .parse(await revised.json());
+    expect(revisedUnderstandings.items.map((item) => item.revision)).toEqual([1, 2]);
+    expect(revisedUnderstandings.items[1]).toMatchObject({
+      disposition: 'contract_candidate',
+    });
+    expect(revisedUnderstandings.items[1]?.sourceRefs).toContainEqual(
+      expect.objectContaining({ sourceKind: 'task_understanding' }),
+    );
+
+    const accepted = await sendFollowUp(
+      submitted.id,
+      submitted.contextId,
+      'provide_input',
+      'accept',
+    );
+    if (!('id' in accepted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
+    await waitForTaskState(submitted.id, TaskState.TASK_STATE_INPUT_REQUIRED);
+    const confirmedSession = await fetch(
+      `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/goal-session`,
+    );
+    await expect(confirmedSession.json()).resolves.toMatchObject({
+      session: { state: 'confirmed', version: 3 },
+      candidate: { status: 'confirmed' },
+    });
+    await expect(
+      fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+        response.json(),
+      ),
+    ).resolves.toMatchObject({
+      goalId: expect.any(String),
+      goalVersion: 1,
+      phase: 'awaiting_plan_confirmation',
+    });
   });
 
   it('registers, persists, discovers, and calls a remote MCP Tool without restart', async () => {
@@ -6629,6 +6716,14 @@ async function startModelLoopback(): Promise<Server> {
         const taskUnderstandingRequest = body.messages?.some(
           (message) => message.content?.includes('untrustedUserRequest') === true,
         );
+        const taskClarificationRequest = body.messages?.some(
+          (message) => message.content?.includes('untrustedAnswer') === true,
+        );
+        const goalContractGenerationRequest = body.messages?.some(
+          (message) =>
+            message.content?.includes('Produce a candidate only') === true &&
+            message.content.includes('taskUnderstanding'),
+        );
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
@@ -6763,6 +6858,22 @@ async function startModelLoopback(): Promise<Server> {
         if (primarySkillFailureRequest === true) {
           response.statusCode = 500;
           response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
+          return;
+        }
+        if (taskClarificationRequest === true) {
+          respondStructured(response, {
+            revisedRequestText:
+              'Inspect pump-17 without side effects; completion requires recorded inspection evidence.',
+          });
+          return;
+        }
+        if (goalContractGenerationRequest === true) {
+          respondStructured(response, {
+            title: 'Inspect pump-17',
+            description: 'Inspect pump-17 without side effects and preserve evidence.',
+            constraints: ['Do not mutate pump-17.'],
+            successCriteria: ['Inspection evidence is recorded.'],
+          });
           return;
         }
         if (taskUnderstandingRequest === true) {

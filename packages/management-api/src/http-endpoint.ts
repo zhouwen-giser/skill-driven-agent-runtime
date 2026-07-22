@@ -52,6 +52,7 @@ import type {
   CapabilitySummaryService,
   CapabilityCardPublisher,
   TaskUnderstandingRepository,
+  InteractiveGoalSessionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -97,6 +98,15 @@ const TaskActionSchema = z
     messageText: z.string().min(1),
     inputRequestId: z.string().min(1).optional(),
     inputContent: z.unknown().optional(),
+  })
+  .strict();
+const InteractiveGoalActionSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().min(1).max(256),
+    actorId: z.string().min(1).max(128),
+    action: z.enum(['answer', 'accept', 'patch', 'reject', 'restart_understanding', 'cancel']),
+    payload: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 const EvaluationAnalyticsFilterSchema = z
@@ -331,6 +341,8 @@ const ModelStageSchema = z.enum([
   'evaluation',
   'result_processing',
   'task_understanding',
+  'task_clarification',
+  'goal_contract_generation',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -473,6 +485,7 @@ export interface ManagementOperations {
   readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
   readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
   readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
+  readonly goalSessions?: Pick<InteractiveGoalSessionService, 'getByTask' | 'applyAction'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1816,6 +1829,52 @@ export async function startManagementHttpEndpoint(
           pathValue(request, 'taskId'),
         ),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/goal-session',
+    asyncRoute(async (request, response) => {
+      if (options.operations.goalSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_UNAVAILABLE',
+          'Interactive Goal sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.goalSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_NOT_FOUND',
+          `No interactive Goal session exists for Task ${taskId}.`,
+        );
+      }
+      response.json(session);
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/goal-session/actions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.goalSessions === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_UNAVAILABLE',
+          'Interactive Goal sessions are not configured.',
+        );
+      }
+      const taskId = pathValue(request, 'taskId');
+      const session = await options.operations.goalSessions.getByTask(taskId);
+      if (session === undefined) {
+        throw new HttpInputError(
+          'INTERACTIVE_GOAL_SESSION_NOT_FOUND',
+          `No interactive Goal session exists for Task ${taskId}.`,
+        );
+      }
+      const input = InteractiveGoalActionSchema.parse(request.body);
+      response.json(
+        await options.operations.goalSessions.applyAction({
+          sessionId: session.session.sessionId,
+          ...input,
+        }),
+      );
     }),
   );
   app.get(

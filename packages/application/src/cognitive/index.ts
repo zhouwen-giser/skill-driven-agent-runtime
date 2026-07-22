@@ -5,3 +5,6 @@ export * from './capability-summary-service.js';
 export * from './capability-card-publisher.js';
 export * from './cognitive-entry-router.js';
 export * from './generic-task-understanding-service.js';
+export * from './missing-dimension-question-service.js';
+export * from './goal-contract-candidate-factory.js';
+export * from './interactive-goal-session-service.js';

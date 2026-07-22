@@ -31,6 +31,7 @@ import { skillInputResolutionQuestion } from './skill-input-resolution.js';
 import type {
   CognitiveEntryRoute,
   GenericTaskUnderstandingService,
+  InteractiveGoalSessionService,
   UnderstandGenericTaskInput,
 } from './cognitive/index.js';
 
@@ -105,6 +106,7 @@ export interface PlanPreparationProcessorDependencies {
     TaskInputRepository,
     'findAttempt' | 'findResponseForAttempt' | 'listResponses' | 'updateAttempt'
   >;
+  readonly closePendingGoalInput?: Readonly<{ close(taskId: string): Promise<void> }>;
   readonly requestTaskInput: (
     taskId: string,
     question: string,
@@ -154,6 +156,10 @@ export interface PlanPreparationProcessorDependencies {
       input: Pick<UnderstandGenericTaskInput, 'taskId' | 'contextId' | 'requestText'>,
     ): ReturnType<GenericTaskUnderstandingService['understand']>;
   }>;
+  readonly goalSessions?: Pick<
+    InteractiveGoalSessionService,
+    'start' | 'getByTask' | 'applyAction'
+  >;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -231,6 +237,23 @@ export class PlanPreparationProcessor {
     await this.#scheduleUserGoalPlan(task, goal, userGoalPlanId);
   }
 
+  async continueConfirmedGoalSession(
+    taskId: string,
+    contract: Readonly<{
+      title: string;
+      description: string;
+      constraints: readonly string[];
+      successCriteria: readonly string[];
+    }>,
+  ): Promise<void> {
+    const task = await this.#dependencies.tasks.findById(taskId);
+    if (task === undefined)
+      throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
+    if (task.goalId !== undefined) return;
+    await this.#dependencies.closePendingGoalInput?.close(taskId);
+    await this.#createConfirmedGoalAndPlan(task, contract);
+  }
+
   async #prepare(initialTask: AgentTask): Promise<void> {
     let task = initialTask;
     task = await this.#transition(task, 'context_loading', 'Context loaded.');
@@ -250,9 +273,11 @@ export class PlanPreparationProcessor {
         understanding.disposition === 'clarification_required' ||
         understanding.disposition === 'confirmation_required'
       ) {
-        const question = understanding.missingDimensions.find(
-          (dimension) => dimension.severity === 'blocking',
-        )?.question;
+        const session = await this.#dependencies.goalSessions?.start({ taskId: task.taskId });
+        const question =
+          session?.question?.question ??
+          understanding.missingDimensions.find((dimension) => dimension.severity === 'blocking')
+            ?.question;
         await this.#dependencies.requestTaskInput(
           task.taskId,
           question ?? 'Additional Task Understanding input is required.',
@@ -262,6 +287,17 @@ export class PlanPreparationProcessor {
       }
       if (understanding.disposition === 'rejected') {
         throw new Error('TASK_UNDERSTANDING_REJECTED');
+      }
+      if (this.#dependencies.goalSessions !== undefined) {
+        const session = await this.#dependencies.goalSessions.start({ taskId: task.taskId });
+        if (session.session.state !== 'goal_review')
+          throw new Error('INTERACTIVE_GOAL_SESSION_REVIEW_REQUIRED');
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          'Review the candidate Goal Contract and submit accept, patch, reject, or cancel.',
+          { source: 'goal_deliberation' },
+        );
+        return;
       }
       requestText = understanding.objective;
     }
@@ -310,8 +346,115 @@ export class PlanPreparationProcessor {
       });
       return;
     }
+    const goalSession = await this.#dependencies.goalSessions?.getByTask(task.taskId);
+    if (goalSession !== undefined) {
+      const action = interactiveActionFor(goalSession.session.state, continuation.response.content);
+      const view = await this.#dependencies.goalSessions?.applyAction({
+        sessionId: goalSession.session.sessionId,
+        expectedVersion: goalSession.session.version,
+        idempotencyKey: continuation.request.inputRequestId,
+        actorId: 'a2a:user',
+        action: action.action,
+        payload: action.payload,
+      });
+      if (view === undefined) throw new Error('INTERACTIVE_GOAL_SESSION_UNAVAILABLE');
+      if (view.session.state === 'understand') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          view.question?.question ?? 'Additional Task Understanding input is required.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'goal_review') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          'Review the candidate Goal Contract and submit accept, patch, reject, or cancel.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'confirmed' && view.candidate !== undefined) {
+        await this.#createConfirmedGoalAndPlan(task, view.candidate.contract);
+        return;
+      }
+      if (view.session.state === 'canceled') {
+        await this.#transition(task, 'canceled', 'Interactive Goal session canceled by the user.');
+        return;
+      }
+      throw new Error(`INTERACTIVE_GOAL_SESSION_${view.session.state.toUpperCase()}`);
+    }
     const responses = await this.#dependencies.taskInputs.listResponses(task.taskId);
     await this.#deliberateAndPlan(task, effectiveRequestText(task.requestText, responses));
+  }
+
+  async #createConfirmedGoalAndPlan(
+    task: AgentTask,
+    contract: Readonly<{
+      title: string;
+      description: string;
+      constraints: readonly string[];
+      successCriteria: readonly string[];
+    }>,
+  ): Promise<void> {
+    const previousGoal = await this.#dependencies.goals.findLatestByContextId(task.contextId);
+    const continuity =
+      previousGoal === undefined
+        ? undefined
+        : await this.#dependencies.decisions.decideGoalContinuity({
+            requestText: task.requestText,
+            previousGoal: {
+              goalId: previousGoal.goalId,
+              title: previousGoal.title,
+              description: previousGoal.description,
+              constraints: previousGoal.constraints,
+              successCriteria: previousGoal.successCriteria,
+              status: previousGoal.status,
+            },
+          });
+    const nextGoalId = this.#dependencies.nextGoalId();
+    const goal = await this.#dependencies.goals.create({
+      goalId: nextGoalId,
+      contextId: task.contextId,
+      title: contract.title,
+      description: contract.description,
+      constraints: contract.constraints,
+      successCriteria: contract.successCriteria,
+      ...(continuity?.relationship === 'related_successor' && previousGoal !== undefined
+        ? { previousGoalId: previousGoal.goalId }
+        : {}),
+      ...(continuity === undefined || previousGoal === undefined
+        ? {}
+        : {
+            transition: {
+              transitionId: this.#dependencies.nextGoalTransitionId(),
+              contextId: task.contextId,
+              fromGoalId: previousGoal.goalId,
+              toGoalId: nextGoalId,
+              relationship: continuity.relationship,
+              decisionSummary: continuity.decisionSummary,
+              requestText: task.requestText,
+              createdAt: this.#dependencies.clock.now(),
+            },
+          }),
+    });
+    const bound = bindTaskGoal(task, {
+      goalId: goal.goalId,
+      goalVersion: goal.version,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(bound);
+    await this.#dependencies.events.publish({
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: bound.taskId,
+      contextId: bound.contextId,
+      eventType: 'task.phase_changed',
+      timestamp: this.#dependencies.clock.now(),
+      summary:
+        continuity?.decisionSummary ?? 'Created a Goal from the user-confirmed Goal Contract.',
+    });
+    const userGoalPlan = await this.#dependencies.userGoalPlanning.plan({ goal });
+    await this.#scheduleUserGoalPlan(bound, goal, userGoalPlan.plan.planId);
   }
 
   async #continueSkillInputResolution(task: AgentTask): Promise<void> {
@@ -655,6 +798,43 @@ function effectiveRequestText(
         `- ${response.inputRequestId}: ${typeof response.content === 'string' ? response.content : JSON.stringify(response.content)}`,
     )
     .join('\n')}`;
+}
+
+function interactiveActionFor(
+  state: string,
+  content: unknown,
+): Readonly<{
+  action: 'answer' | 'accept' | 'patch' | 'reject' | 'restart_understanding' | 'cancel';
+  payload: Readonly<Record<string, unknown>>;
+}> {
+  if (typeof content === 'object' && content !== null && !Array.isArray(content)) {
+    const record = content as Readonly<Record<string, unknown>>;
+    const action = record['action'];
+    if (
+      action === 'answer' ||
+      action === 'accept' ||
+      action === 'patch' ||
+      action === 'reject' ||
+      action === 'restart_understanding' ||
+      action === 'cancel'
+    ) {
+      const payload = record['payload'];
+      return {
+        action,
+        payload:
+          typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+            ? (payload as Readonly<Record<string, unknown>>)
+            : action === 'answer'
+              ? { answer: record['answer'] }
+              : {},
+      };
+    }
+  }
+  if (state === 'understand') return { action: 'answer', payload: { answer: content } };
+  if (typeof content === 'string' && content.trim().toLocaleLowerCase() === 'accept') {
+    return { action: 'accept', payload: {} };
+  }
+  throw new Error('INTERACTIVE_GOAL_ACTION_REQUIRED');
 }
 
 function errorCode(error: unknown): string {

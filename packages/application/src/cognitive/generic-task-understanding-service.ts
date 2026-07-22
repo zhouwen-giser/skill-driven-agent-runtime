@@ -7,6 +7,7 @@ import {
   createCognitiveSourceRef,
   createGenericTaskUnderstandingRevision,
   type CapabilityRequirement,
+  type CognitiveSourceRef,
   type GenericTaskUnderstandingRevision,
   type MissingDimension,
   type MissingDimensionKind,
@@ -154,6 +155,7 @@ export interface UnderstandGenericTaskInput {
   readonly conversationContext: unknown;
   readonly worldStateSummary: unknown;
   readonly lowRiskUserPreferences: readonly string[];
+  readonly priorSourceRefs?: readonly CognitiveSourceRef[];
 }
 
 export class GenericTaskUnderstandingService {
@@ -259,6 +261,7 @@ export class GenericTaskUnderstandingService {
       capabilityView?.summary,
       matchingTaskTypes,
       createdAt,
+      input.priorSourceRefs ?? [],
     );
     const stateHash = hashCanonical({
       taskId: input.taskId,
@@ -449,6 +452,7 @@ function buildSourceRefs(
   capabilitySummary: RuntimeCapabilitySummarySnapshot | undefined,
   taskTypes: readonly TaskTypeCandidate[],
   capturedAt: string,
+  priorSourceRefs: readonly CognitiveSourceRef[],
 ) {
   return [
     createCognitiveSourceRef({
@@ -472,6 +476,7 @@ function buildSourceRefs(
       dataClassification: 'internal',
       capturedAt,
     }),
+    ...priorSourceRefs,
     ...(capabilitySummary === undefined
       ? []
       : [
