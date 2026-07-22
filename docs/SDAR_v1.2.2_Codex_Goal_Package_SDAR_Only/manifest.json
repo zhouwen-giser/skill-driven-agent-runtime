@@ -1,0 +1,100 @@
+{
+  "package": "SDAR v1.2.2 Codex Goal Package - skill-driven-agent-runtime only",
+  "version": "1.1",
+  "mode": "goal",
+  "writableRepository": {
+    "name": "zhouwen-giser/skill-driven-agent-runtime",
+    "minimumAncestor": "0f52a6dd277f8ca850b47467814680c8fee09901"
+  },
+  "readOnlyExternalDependency": {
+    "name": "zhouwen-giser/sdar-mcp-tasks-provider-runtime",
+    "requirements": "V0.5.2",
+    "minimumKnownBaseline": "ee14d2fa2b5130d3c7c016c71737175a124d5134",
+    "writeAllowed": false
+  },
+  "externalGates": [
+    "EXT-BE-SKELETON",
+    "EXT-BE-RUNTIME-CANDIDATE"
+  ],
+  "goals": [
+    {
+      "id": "G00",
+      "dependsOn": []
+    },
+    {
+      "id": "G01",
+      "dependsOn": [
+        "G00"
+      ]
+    },
+    {
+      "id": "G02",
+      "dependsOn": [
+        "G01"
+      ]
+    },
+    {
+      "id": "G03",
+      "dependsOn": [
+        "G02"
+      ]
+    },
+    {
+      "id": "G04",
+      "dependsOn": [
+        "G03"
+      ]
+    },
+    {
+      "id": "G05",
+      "dependsOn": [
+        "G04"
+      ]
+    },
+    {
+      "id": "G06",
+      "dependsOn": [
+        "G05"
+      ]
+    },
+    {
+      "id": "G07",
+      "dependsOn": [
+        "G02",
+        "EXT-BE-SKELETON"
+      ]
+    },
+    {
+      "id": "G08",
+      "dependsOn": [
+        "G07"
+      ]
+    },
+    {
+      "id": "G09",
+      "dependsOn": [
+        "G06",
+        "G08"
+      ]
+    },
+    {
+      "id": "G10",
+      "dependsOn": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08",
+        "G09",
+        "EXT-BE-RUNTIME-CANDIDATE"
+      ]
+    }
+  ],
+  "finalGoal": "G10",
+  "providerTasksIncluded": false,
+  "autoMerge": false,
+  "createTag": false
+}

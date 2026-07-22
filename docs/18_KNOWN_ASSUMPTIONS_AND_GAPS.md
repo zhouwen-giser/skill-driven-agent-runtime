@@ -1,5 +1,27 @@
 # 已知假设、冲突与待验证项
 
+## v1.2.2 G00 decisions and external gates (2026-07-22)
+
+- The frozen clean-slate decision conflicts intentionally with ADR-108's retained `legacy_v11` product
+  path and ADR-097's `legacy_guidance` compatibility projection. ADR-109 supersedes those product
+  behaviors for v1.2.2; historical ADR/report/migration evidence remains readable but is not a runtime
+  compatibility promise.
+- A Skill Goal DAG is planning/scheduling data, not an executable Workflow. LangGraph.js remains the
+  only executor; every attempt uses the existing immutable Workflow path.
+- The existing atomic Runtime Terminal Outcome mechanism may be reused only behind the new
+  UserGoalPlanController port. Existing public terminal writers do not retain independent authority.
+- The local operator `sdar` database has the already-recorded 0100–0104 ledger gap and was not repaired.
+  G00 verification used explicit disposable database `sdar_v122_baseline_20260722`; G02 will provide a
+  guarded clean v1.2.2 baseline/reset rather than migrate operator data.
+- The read-only Provider worktree at source `196620a` contains clean Business Events schemas/fixtures and
+  runtime source but modified generated reports. EXT-BE-SKELETON remains pending exact file/review lock;
+  modified reports cannot prove conformance.
+- The Provider's own interop-blocker report states `interopCertified=false` and lists all 13 SDAR interop
+  scenarios unexecuted. EXT-BE-RUNTIME-CANDIDATE is present but G10 remains externally gated until a
+  reproducible exact candidate and real public-interface run pass.
+- No Provider defect is inferred from dirty reports or missing SDAR interop command. A Provider defect is
+  filed only after an exact request/response contradicts V0.5.2.
+
 ## v1.1 MCP Tasks Phase 2 决策解释
 
 - 2026-07-16：历史 released migration 并非每个文件都写入 `schema_migration`；0100 隔离升级以 released chain 的终点标记 `0056_mcp_execution_mode` 为前置条件，并通过空库、0056 升级、rollback/reapply 和非隔离库 fail-closed 测试证明路径，未伪造缺失 ledger 行。

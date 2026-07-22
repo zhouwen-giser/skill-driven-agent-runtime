@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## [1.2.2] - Unreleased
+
+### Added
+
+- The complete SDAR-only v1.2.2 Goal package with verified SHA-256 manifest.
+- EP-12, ADR-109 and a frozen User Goal Plan/Skill Goal DAG, Skill outcome, layered judgment, progress,
+  recovery/no-replay and Business Events client/impact implementation contract.
+- AC-001–AC-078 traceability, G00 baseline, repository/symbol map, Legacy removal inventory, external
+  dependency status and evidence index.
+
+### Changed
+
+- v1.2.2 is a clean-slate development upgrade: Legacy MCP, Legacy Skill projection and competing terminal
+  authorities are scheduled for removal; Frozen MCP Tasks and the sole LangGraph runtime remain.
+- User Goal planning must precede Skill selection, and only UserGoalPlanController may commit the User
+  Goal/A2A terminal state.
+
+### Verification
+
+- Pre-upgrade `pnpm verify` passes 650 unit/contract, 84 integration, 60 E2E, all migration/build and
+  smoke gates on an explicitly bootstrapped disposable database.
+
 ## [1.2.1] - Unreleased
 
 ### Added

@@ -1,5 +1,13 @@
 # 需求追踪矩阵
 
+## SDAR v1.2.2 upgrade mapping (2026-07-22)
+
+The Master Goal, G00–G10 and every acceptance item AC-001–AC-078 are mapped to an owning code target,
+test target and evidence state in `docs/26_V1_2_2_TRACEABILITY.md`. ADR-109 and
+`docs/25_V1_2_2_USER_GOAL_RUNTIME_DESIGN.md` freeze the new authority/state contract. Rows remain
+`planned` until implementation, test and reproducible report all exist; AC-071 is explicitly
+`blocked_external_dependency` until real external Provider Business Events interop runs.
+
 ## EP-06 developing evidence supplements (2026-07-13)
 
 - Current acceptance repetition: PostgreSQL/Redis integration (2 files/36), full E2E (1 file/40), infrastructure smoke, Server/Console-bundle smoke, and unified `pnpm verify` (54 files/242) pass.
