@@ -96,3 +96,5 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       and claim boundaries remain explicit.
 - [x] Failed gate/interop attempts are retained. The release action is a Draft PR only; no merge or tag
       is authorized.
+- [x] Evidence commit `3ba0d59` is pushed and Draft PR #7 is open, Draft and `MERGEABLE/CLEAN`; no
+      configured checks, merge or tag exist.

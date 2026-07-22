@@ -30,6 +30,7 @@ All notable changes to this project are documented here. The format follows Keep
   build and both smoke stages.
 - Real Streamable HTTP interop passes against exact Provider `8a81b1b` with 260 Tasks, Task/Resource
   Events, 128/128/4 Relation pages, drain, Reset, continuity, unavailability, restart and reconnect.
+- Evidence commit `3ba0d59` is pushed and Draft PR #7 is open/mergeable/clean; no merge or tag was made.
 
 ## [1.2.1] - Unreleased
 

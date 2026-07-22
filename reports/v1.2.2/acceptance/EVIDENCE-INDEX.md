@@ -14,5 +14,6 @@
 | G10 | `../G10-HARDENING-INTEROP-RELEASE.md` | release hardening |
 | Traceability | `../../../docs/26_V1_2_2_TRACEABILITY.md` | AC-001–AC-078 |
 
-The final Draft PR URL and evidence-head commit are recorded in these reports after publication. No Mock
-report substitutes for the real Provider interop row.
+Draft PR #7 is <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/7>; evidence head
+`3ba0d59` is published and this closure commit follows it. No Mock report substitutes for real Provider
+interop.

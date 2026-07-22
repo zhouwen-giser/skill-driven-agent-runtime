@@ -1,6 +1,6 @@
 # G10 Hardening, Real Provider Interop and Release
 
-Status: implementation and verification **completed**; Draft PR publication pending.
+Status: **completed**. Draft PR #7 is published and intentionally unmerged.
 
 ## Passing gates
 
@@ -27,5 +27,6 @@ Status: implementation and verification **completed**; Draft PR publication pend
 ## Release policy
 
 Failed attempts are preserved in the interop and unified-gate ledgers. Provider source was not modified.
-G10 will close only after the final evidence commit is clean, pushed and represented by an SDAR Draft
-PR. Merge and tag are prohibited.
+Evidence commit `3ba0d59` was pushed and Draft PR #7 targets `main` at
+<https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/7>. GitHub reports
+`MERGEABLE/CLEAN`, Draft, open, unmerged and no configured checks. Merge and tag are prohibited.

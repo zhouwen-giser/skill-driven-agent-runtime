@@ -18,7 +18,7 @@
     "G07": "pass",
     "G08": "pass",
     "G09": "pass",
-    "G10": "pass_pending_draft_pr_record"
+    "G10": "pass"
   },
   "acceptance": {
     "verified": 49,
@@ -89,9 +89,17 @@
     "arbitraryFutureProfileRuntimeFrozen": false
   },
   "release": {
-    "draftPr": "pending_record",
+    "draftPr": {
+      "number": 7,
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/7",
+      "state": "open",
+      "draft": true,
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "configuredChecks": 0,
+      "publishedHead": "3ba0d59a76f6291de31c5a4aa63dee3171ae6733"
+    },
     "merged": false,
     "tagCreated": false
   }
 }
-

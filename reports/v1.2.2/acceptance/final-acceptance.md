@@ -1,6 +1,6 @@
 # SDAR v1.2.2 Final Acceptance
 
-Status: **passed**, with Draft PR identifier to be recorded after publication.
+Status: **passed**. Draft PR #7 is published and intentionally unmerged.
 
 ## Result
 
@@ -41,5 +41,5 @@ no-replay and single-terminal races are covered by the real integration and owni
 - Profile 1.0 Frozen for arbitrary future Provider runtimes: no.
 
 All failed attempts remain in the attempt ledgers. The Provider repository was not modified. Release is
-Draft PR only; no merge or tag is authorized.
-
+Draft PR #7 at <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/7>; GitHub reports
+`MERGEABLE/CLEAN`, Draft, open and no configured checks. No merge or tag is authorized.
