@@ -1,5 +1,15 @@
 # Project Status
 
+SDAR v1.2.3 G02 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. The active G01 Summary now produces a strict allowlisted,
+hash/policy-bound Public Capability Card with deterministic narrative fallback, enabled public A2A
+Skills, transactional PostgreSQL activation/outbox, snapshot-only Agent Card reads and real API/Console
+projections. Tool/Provider/credential/Workflow/internal Skill/private Experience/user/readiness/live
+resource data is excluded. The isolated full gate on implementation `2ec8987` passes 656 unit/contract,
+71 integration, 61 E2E, A2A MUST 74/74, 128 OpenAPI operations, 318-source architecture, 0108–0110
+migrations, production build and both smokes in 159,967 ms. Draft PR #8 remains Draft; G03 Generic Task
+Understanding is next.
+
 SDAR v1.2.3 G01 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Exact Enabled Skill declarations now produce a canonical,
 order-independent Catalog Hash and a PostgreSQL-authoritative active Capability Summary with bounded

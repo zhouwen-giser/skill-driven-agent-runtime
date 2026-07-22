@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G01 is complete and pushed; G02 is next
+Status: ACTIVE — G02 is complete and pushed; G03 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -47,17 +47,17 @@ clean-checkout release gates pass. This plan authorizes neither merge nor tag cr
 
 ## Architecture and Authority Map
 
-| Concern | Authoritative owner | Explicitly not authoritative |
-| --- | --- | --- |
-| Cognitive schemas, state transitions, source/data classification | Domain | model output, UI, SDK types |
-| Understanding/session/promotion orchestration | Application | PostgreSQL implementation, LangGraph internals |
-| Goal/plan execution and terminal state | v1.2.2 Application + `UserGoalPlanController` | Experience, Candidate knowledge, Workflow completion |
-| Workflow execution | LangGraph.js adapter/runtime | Skill Goal DAG, replay harness, queue worker |
-| Cognitive facts and knowledge lifecycle | PostgreSQL | Redis, MemoryService, Console, files |
-| Active search projection | existing MemoryService | Candidate or complete knowledge authority |
-| Model invocation | existing SDAR Model Runtime | domain factories, repositories |
-| Public capability representation | activated hash-matched snapshot | request-time LLM, live readiness, private experience |
-| Current Provider/device readiness | existing v1.2.2 readiness authority | capability summary, historical success |
+| Concern                                                          | Authoritative owner                           | Explicitly not authoritative                         |
+| ---------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
+| Cognitive schemas, state transitions, source/data classification | Domain                                        | model output, UI, SDK types                          |
+| Understanding/session/promotion orchestration                    | Application                                   | PostgreSQL implementation, LangGraph internals       |
+| Goal/plan execution and terminal state                           | v1.2.2 Application + `UserGoalPlanController` | Experience, Candidate knowledge, Workflow completion |
+| Workflow execution                                               | LangGraph.js adapter/runtime                  | Skill Goal DAG, replay harness, queue worker         |
+| Cognitive facts and knowledge lifecycle                          | PostgreSQL                                    | Redis, MemoryService, Console, files                 |
+| Active search projection                                         | existing MemoryService                        | Candidate or complete knowledge authority            |
+| Model invocation                                                 | existing SDAR Model Runtime                   | domain factories, repositories                       |
+| Public capability representation                                 | activated hash-matched snapshot               | request-time LLM, live readiness, private experience |
+| Current Provider/device readiness                                | existing v1.2.2 readiness authority           | capability summary, historical success               |
 
 Every new type/state must have one owner in this table or in a later accepted ADR before implementation.
 
@@ -79,26 +79,26 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 
 ## Progress
 
-| Goal | Status | Commit | Tests | Evidence | Blocker | Next |
-| --- | --- | --- | --- | --- | --- | --- |
-| G00 | completed | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none | hand off frozen contracts to G01 |
-| G01 | completed | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke | `reports/goal/g01-completion.md` | none | hand off activated Summary to G02 |
-| G02 | not_started | — | — | — | G01 | public snapshot/A2A projection |
-| G03 | not_started | — | — | — | G00/G01 | generic task understanding |
-| G04 | not_started | — | — | — | G03 | interactive Goal session |
-| G05 | not_started | — | — | — | G01/G04 | interactive planning/patch |
-| G06 | not_started | — | — | — | G04/G05 | correction facts/interaction episode |
-| G07 | not_started | — | — | — | G00 | outbox/job/Goal episode |
-| G08 | not_started | — | — | — | G07 | observer/typed extractors |
-| G09 | not_started | — | — | — | G08 | reflector/identity/curator |
-| G10 | not_started | — | — | — | G06/G09 | Task Type induction |
-| G11 | not_started | — | — | — | G01/G09 | capability pattern/gap |
-| G12 | not_started | — | — | — | G09/G10/G11 | knowledge promotion |
-| G13 | not_started | — | — | — | G01/G12 | retrieval/progressive disclosure |
-| G14 | not_started | — | — | — | G05/G13 | experience-enriched planner/fallback |
-| G15 | not_started | — | — | — | dependency set | API/Console/A2A integration |
-| G16 | not_started | — | — | — | dependency set | replay/shadow/evaluation |
-| G17 | not_started | — | — | — | G00–G16 | hardening/release gates |
+| Goal | Status      | Commit    | Tests                                                                             | Evidence                         | Blocker        | Next                                                           |
+| ---- | ----------- | --------- | --------------------------------------------------------------------------------- | -------------------------------- | -------------- | -------------------------------------------------------------- |
+| G00  | completed   | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none           | hand off frozen contracts to G01                               |
+| G01  | completed   | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke        | `reports/goal/g01-completion.md` | none           | hand off activated Summary to G02                              |
+| G02  | completed   | `2ec8987` | full `pnpm verify`: 656 unit/contract, 71 integration, 61 E2E, build/smoke        | `reports/goal/g02-completion.md` | none           | hand off declared Summary to G03; preserve public Card for G15 |
+| G03  | not_started | —         | —                                                                                 | —                                | G00/G01        | generic task understanding                                     |
+| G04  | not_started | —         | —                                                                                 | —                                | G03            | interactive Goal session                                       |
+| G05  | not_started | —         | —                                                                                 | —                                | G01/G04        | interactive planning/patch                                     |
+| G06  | not_started | —         | —                                                                                 | —                                | G04/G05        | correction facts/interaction episode                           |
+| G07  | not_started | —         | —                                                                                 | —                                | G00            | outbox/job/Goal episode                                        |
+| G08  | not_started | —         | —                                                                                 | —                                | G07            | observer/typed extractors                                      |
+| G09  | not_started | —         | —                                                                                 | —                                | G08            | reflector/identity/curator                                     |
+| G10  | not_started | —         | —                                                                                 | —                                | G06/G09        | Task Type induction                                            |
+| G11  | not_started | —         | —                                                                                 | —                                | G01/G09        | capability pattern/gap                                         |
+| G12  | not_started | —         | —                                                                                 | —                                | G09/G10/G11    | knowledge promotion                                            |
+| G13  | not_started | —         | —                                                                                 | —                                | G01/G12        | retrieval/progressive disclosure                               |
+| G14  | not_started | —         | —                                                                                 | —                                | G05/G13        | experience-enriched planner/fallback                           |
+| G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
+| G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
+| G17  | not_started | —         | —                                                                                 | —                                | G00–G16        | hardening/release gates                                        |
 
 ## Discoveries and Surprises
 
@@ -130,6 +130,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: the first complete G01 gate reproduced that race and exposed its exact test defect: the
   polling Schema accepted an empty lifecycle collection and stopped before the subsequent length check.
   Requiring one item strengthens the original contract; independent E2E and the complete gate pass.
+- 2026-07-23: G02's first E2E run exposed a real projection gap: Skill mutation returned before the
+  periodic projector, while the new fail-closed Card reader rejected the stale hash. The mutation path
+  now waits for one serialized durable projection attempt; transient catalog races retry and failed
+  publication leaves the source event pending.
+- 2026-07-23: the reusable A2A TCK temporary Python and Git caches were independently corrupt. Both
+  were replaced from the official frozen source; commit `5996b79...` then passed HTTP-JSON MUST 74/74.
 
 ## Decision Log
 
@@ -148,6 +154,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: one transaction-scoped PostgreSQL advisory lock plus the unique
   `(catalog_hash,generation_policy_version)` key owns Summary activation. The catalog event is marked
   consumed only after rebuild succeeds; retry remains safe after restart.
+- 2026-07-23: G02 uses a strict positive public allowlist over the active Summary. Optional model output
+  may replace only the display description after strict schema/prohibited-content checks; profile facts,
+  A2A Skills, binding hashes and activation remain deterministic Application/PostgreSQL authority.
+- 2026-07-23: Public Card activation reuses the Summary generation-policy key, validates the exact
+  active Summary inside the Card transaction and emits `capability.card_published`. A2A requests read
+  only this active snapshot and never invoke the narrative model.
 
 ## Implementation Steps
 
@@ -224,18 +236,19 @@ dependency was added.
 
 ## Migration / API / Console Status
 
-- Migration: additive 0108 skeleton and exact-prefix ledger are implemented; fresh apply, idempotency,
-  rollback/reapply, guarded reset and rogue-ledger rejection pass on real PostgreSQL.
-- OpenAPI: existing management schema has 124 operations in the v1.2.2 acceptance record; no v1.2.3
-  operation has been added yet.
-- A2A: existing applicable MUST result is 74/74 in v1.2.2 acceptance; no v1.2.3 projection change yet.
-- Console: existing React console is authoritative only as an operational projection; no G15 UI yet.
+- Migration: additive 0108–0110 ledger is implemented; Card activation columns/key, fresh apply,
+  idempotency, rollback/reapply, guarded reset and rogue-ledger rejection pass on real PostgreSQL.
+- OpenAPI: 128 management operations include Summary and Public Card read/rebuild boundaries.
+- A2A: the Agent Card reads the activated Public Card and exposes `io.sdar/capabilityProfile`; locked
+  HTTP-JSON applicable MUST remains 74/74.
+- Console: the Capabilities panel reads/rebuilds the real active Card. It is an operational projection,
+  not a separate authority; broader G15 integration remains open.
 
 ## Branch / HEAD / Main / Draft PR
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current implementation HEAD: `ffd979152ae45468f00e2cf673e97ed5fe32616c`
+- Current implementation HEAD: `2ec8987117e112eeb50e0d5fac7ecca612301358`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
 
 ## Changed Files
@@ -248,23 +261,25 @@ dependency was added.
 - G01 implementation/evidence candidate: deterministic builders/service, migration 0109, PostgreSQL
   repository/outbox projection, Server/API/OpenAPI wiring, unit/contract/integration/E2E tests and
   `reports/goal/g01-completion.md`.
+- G02 implementation `2ec8987`: allowlisted Public Card Domain/Application/PostgreSQL/A2A path,
+  migration 0110, API/OpenAPI/Console, serialized catalog projection and focused/full evidence.
 
 ## Open Blockers
 
 None. The package self-check is platform-safe and passing. The default operator database's historical
 ledger is preserved and is not a blocker because all destructive verification uses guarded disposable
-database names. G01 implementation `820d78d` is pushed and Draft PR #8 remains Draft.
+database names. G02 implementation `2ec8987` is pushed and Draft PR #8 remains Draft.
 
 ## Next Execution Step
 
-Start G02 public privacy-filtered/A2A projection from the activated Hash-matched Summary. Update Draft
-PR #8 at each Goal boundary without changing Draft status.
+Start G03 bounded Generic Task Understanding from G00/G01 declarations. The Public Card is not planning
+authority. Update Draft PR #8 at each Goal boundary without changing Draft status.
 
 ## Outcomes and Retrospective
 
-G00 completed without activating cognitive behavior. G01 now provides deterministic Capability Summary
-behavior with real PostgreSQL/API/runtime evidence and no Provider/readiness or model authority. Its
-final full gate passes 645 unit/contract, 70 integration and 60 E2E tests plus migration/OpenAPI/build
-and both smokes in 166,839 ms. Implementation `820d78d` is pushed. The disposable gate database was
-deleted and the default local `sdar` volume remains protected historical operator data. G02–G17 remain
-open.
+G00 completed without activating cognitive behavior. G01 provides the deterministic declared Summary.
+G02 now adds an allowlisted, hash-bound Public Card and snapshot-only A2A/Console/API projection without
+Provider/readiness/model authority. Its final full gate passes 656 unit/contract, 71 integration and 61
+E2E tests plus migration/OpenAPI/A2A/build and both smokes in 159,967 ms. Implementation `2ec8987` is
+pushed. The disposable gate database was deleted and the default local `sdar` volume remains protected
+historical operator data. G03–G17 remain open.

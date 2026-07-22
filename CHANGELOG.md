@@ -44,6 +44,11 @@ All notable changes to this project are documented here. The format follows Keep
   unrelated remote-lifecycle timing failure; recurrence exposed an empty-array polling defect, whose
   stronger wait condition is covered by the final 166,839 ms full `pnpm verify` including both smokes.
   Implementation `820d78d` is pushed and Draft PR #8 remains Draft.
+- G02 passes the isolated 159,967 ms unified gate on implementation `2ec8987`: 656 unit/contract, 71
+  real integration, 61 real E2E, A2A HTTP-JSON MUST 74/74, 128 OpenAPI operations, 318-source
+  architecture, migration 0108–0110 rollback/reapply, production build and both smokes. The retained
+  first E2E failure (54/61) identified and fixed the Skill-to-Card projection gap; Draft PR #8 remains
+  Draft.
 
 ## [1.2.2] - Unreleased
 
