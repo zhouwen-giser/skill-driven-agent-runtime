@@ -17,6 +17,10 @@ const EnvironmentSchema = z
     SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
     SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: z.enum(['true', 'false']).default('false'),
     SDAR_MASTER_KEY_BASE64: z.string().min(1),
+    BUSINESS_EVENTS_ENABLED: z.enum(['true', 'false']).default('false'),
+    BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY: z.enum(['true', 'false']).default('false'),
+    BUSINESS_EVENTS_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(10_000).default(500),
+    BUSINESS_EVENTS_MAX_SUBSCRIPTIONS: z.coerce.number().int().min(1).max(10_000).default(256),
   })
   .superRefine((environment, context) => {
     const exposedHosts = [environment.SDAR_A2A_HOST, environment.SDAR_MANAGEMENT_HOST].filter(

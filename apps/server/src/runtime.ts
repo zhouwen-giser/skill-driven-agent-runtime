@@ -13,6 +13,11 @@ import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgr
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
+  UserGoalPlanningService,
+  UserGoalPlanController,
+  UserGoalRecoveryService,
+  SkillGoalScheduler,
+  isSkillGoalCompatible,
   ResultProcessor,
   ResultProcessingService,
   MemoryService,
@@ -22,6 +27,13 @@ import {
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
   FrozenRemoteTaskNotificationService,
+  BusinessEventSubscriptionService,
+  ProviderSubscriptionCoordinator,
+  BusinessEventIngressWorker,
+  BusinessEventRelationResolver,
+  TaskImpactAssessmentService,
+  EventImpactRecoveryService,
+  ContinuityImpactService,
   RemoteTaskAdmissionService,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
@@ -112,6 +124,7 @@ import {
   FrozenV1RuntimeAvailabilityAdapter,
   FrozenV1RuntimeLifecycleAdapter,
   FrozenV1RuntimeNotificationAdapter,
+  FrozenBusinessEventsRuntimeAdapter,
 } from '../../../packages/mcp-adapter/src/index.js';
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
@@ -170,6 +183,7 @@ import {
   PostgresRemoteTaskLifecycleQuery,
   PostgresWorkflowContinuationRepository,
   PostgresTaskAvailabilityEvidenceRepository,
+  PostgresUserGoalRuntimeRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -230,6 +244,13 @@ export interface ServerRuntimeOptions {
     reconcileIntervalMs?: number;
     polling?: RemoteTaskPollingOptions;
   }>;
+  readonly businessEvents?: Readonly<{
+    readonly enabled: true;
+    readonly requiredForRuntimeReady?: boolean;
+    readonly reconnectDelayMs?: number;
+    readonly processingIntervalMs?: number;
+    readonly maxSubscriptions?: number;
+  }>;
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
 }
@@ -274,12 +295,16 @@ export interface ServerRuntimeHandle {
     toolName: string,
     enhancement: Parameters<McpRegistryService['updateToolEnhancement']>[2],
   ): Promise<void>;
+  startBusinessEvents(serverId: string): Promise<'disabled' | 'started' | 'already_running'>;
+  businessEventsHealth(serverId: string): ReturnType<ProviderSubscriptionCoordinator['health']>;
   close(): Promise<void>;
 }
 
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
+  if (options.businessEvents !== undefined && options.frozenMcpTasks === undefined)
+    throw new Error('BUSINESS_EVENTS_REQUIRES_FROZEN_MCP_TASKS_RUNTIME');
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
   const taskStateNotifier = new InMemoryTaskStateNotifier();
   const publishTaskState = (task: AgentTask) => {
@@ -921,6 +946,10 @@ export async function startServerRuntime(
           goalId: instance.goalId,
           goalVersion: instance.goalVersion,
           workflowPlanId: plan.planId,
+          ...(instance.skillGoalId === undefined ? {} : { skillGoalId: instance.skillGoalId }),
+          ...(instance.skillAttemptId === undefined
+            ? {}
+            : { skillAttemptId: instance.skillAttemptId }),
           workflowDefinitionId: planDefinition.workflowDefinitionId,
           workflowDefinitionVersion: planDefinition.version,
           workflowInstanceId: instance.instanceId,
@@ -1253,13 +1282,13 @@ export async function startServerRuntime(
     loadToolPlanningMetadata: (skill, taskOperations) =>
       buildMcpToolPlanningMetadata(
         {
-          required: [
+          required: uniqueToolReferences([
             ...skill.toolPolicy.required,
             ...taskOperations.map((operation) => ({
               serverId: operation.providerId,
               toolName: operation.operationName,
             })),
-          ],
+          ]),
           optional: skill.toolPolicy.optional,
           forbidden: skill.toolPolicy.forbidden,
         },
@@ -1368,11 +1397,33 @@ export async function startServerRuntime(
     clock,
   });
   const goalService = new GoalService({ goals, contexts, clock });
+  const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool);
+  const goalCancellationRepository = new PostgresGoalCancellationRepository(pool, publishTaskState);
+  const userGoalPlanController = new UserGoalPlanController({
+    terminal: runtimeTerminalOutcomes,
+    outcomes: userGoalRuntimeRepository,
+    goalCancellations: goalCancellationRepository,
+  });
+  const userGoalPlanning = new UserGoalPlanningService({
+    model: modelRuntime,
+    repository: userGoalRuntimeRepository,
+    now: () => clock.now(),
+    nextPlanId: () => `user-goal-plan-${randomUUID()}`,
+  });
+  const userGoalRecovery = new UserGoalRecoveryService({
+    repository: userGoalRuntimeRepository,
+    ids: {
+      nextProgressObservationId: () => `progress-observation-${randomUUID()}`,
+      nextRecoveryDecisionId: () => `recovery-decision-${randomUUID()}`,
+    },
+    now: () => clock.now(),
+  });
   const goalCancellations = new GoalCancellationService({
     goals,
     instances: workflowInstances,
     execution: workflowExecution,
-    repository: new PostgresGoalCancellationRepository(pool, publishTaskState),
+    repository: goalCancellationRepository,
+    terminalAuthority: userGoalPlanController,
     clock,
     nextId: () => `goal-cancellation-${randomUUID()}`,
   });
@@ -1388,6 +1439,8 @@ export async function startServerRuntime(
       nextPatchId: () => `goal-patch-${randomUUID()}`,
       nextPlanId: () => `plan-goal-patch-${randomUUID()}`,
     },
+    userGoalPlanning,
+    userGoalPlans: userGoalRuntimeRepository,
     beforeReplan: {
       async prepare({ goal, taskId }) {
         const task = await service.get(taskId);
@@ -1480,11 +1533,11 @@ export async function startServerRuntime(
             await skillCallWorkflowService.resumeConfirmedForParentPlan(planId, {
               agentTaskId: task.taskId,
               contextId: task.contextId,
-              workflowControlId: `control-task-${task.taskId}`,
+              workflowControlId: await resolveTaskWorkflowControlId(task),
             });
             return;
           }
-          const controlId = `control-task-${task.taskId}`;
+          const controlId = await resolveTaskWorkflowControlId(task);
           await recordSkillProjectionSafely(() =>
             skillExecutionRecording.recordStatus({
               workflowPlanId: planId,
@@ -1525,6 +1578,8 @@ export async function startServerRuntime(
           });
           await projectSkillExecutionControl(planId, started);
         })().catch(async (error: unknown) => {
+          const latestTask = await service.get(task.taskId);
+          if (['completed', 'canceled', 'failed', 'invalidated'].includes(latestTask.phase)) return;
           const code =
             typeof error === 'object' &&
             error !== null &&
@@ -1588,7 +1643,7 @@ export async function startServerRuntime(
           task.planId === undefined
         )
           return false;
-        const controlId = `control-task-${task.taskId}`;
+        const controlId = await resolveTaskWorkflowControlId(task);
         let control;
         try {
           control = await workflowController.get(controlId);
@@ -1610,7 +1665,7 @@ export async function startServerRuntime(
             ? undefined
             : await workflowExecution.cancelForPlan(control.currentPlanId);
         try {
-          await runtimeTerminalOutcomes.commitCanceled({
+          await userGoalPlanController.adjudicateCancellation({
             outcomeId: `terminal-outcome-task-${task.taskId}`,
             taskId: task.taskId,
             goalId: task.goalId,
@@ -1642,7 +1697,7 @@ export async function startServerRuntime(
           await workflowExecution.resumePauseForPlan(task.planId, 300, {
             agentTaskId: task.taskId,
             contextId: task.contextId,
-            workflowControlId: `control-task-${task.taskId}`,
+            workflowControlId: await resolveTaskWorkflowControlId(task),
           })
         ).disposition;
       },
@@ -1652,6 +1707,28 @@ export async function startServerRuntime(
       },
     },
   });
+  async function resolveTaskWorkflowControlId(task: AgentTask): Promise<string> {
+    const baseControlId = `control-task-${task.taskId}`;
+    try {
+      const existing = await workflowController.get(baseControlId);
+      if (!isTerminalWorkflowControlStatus(existing.status)) return baseControlId;
+      return task.skillAttemptId === undefined
+        ? baseControlId
+        : `${baseControlId}-${task.skillAttemptId}`;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'WORKFLOW_CONTROL_NOT_FOUND'
+      )
+        return baseControlId;
+      throw error;
+    }
+  }
+  // Assigned once after WorkflowController construction because each side exposes a callback to the other.
+  // eslint-disable-next-line prefer-const
+  let processor: PlanPreparationProcessor;
   const workflowController = new WorkflowControllerService({
     controls: new PostgresWorkflowControlRepository(pool),
     plans: workflowPlans,
@@ -1660,6 +1737,7 @@ export async function startServerRuntime(
     planner: workflowPlanner,
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
+    recovery: userGoalRecovery,
     experiences: evolutionExperiences,
     memories,
     taskOutcomes: {
@@ -1693,9 +1771,24 @@ export async function startServerRuntime(
           decisionSummary: replacement.decisionSummary,
         };
       },
+      async prepareCompositionRefresh(taskId) {
+        const task = await service.get(taskId);
+        if (task.selectedSkillId === undefined || task.selectedSkillVersion === undefined)
+          throw new Error('TASK_SKILL_SELECTION_NOT_BOUND');
+        const selected = await skills.findVersion(task.selectedSkillId, task.selectedSkillVersion);
+        if (selected?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
+        return {
+          skillId: selected.skillId,
+          skillVersion: selected.version,
+          decisionSummary:
+            'Recomposed the immutable parent Workflow against current child Skill versions.',
+        };
+      },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
       reportInputContinuationPlan: (taskId, input) =>
         service.awaitInputContinuationConfirmation(taskId, input),
+      continueUserGoalPlan: (taskId, userGoalPlanId) =>
+        processor.continueUserGoalPlan(taskId, userGoalPlanId),
       async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
         if (task.temporarySkillId !== undefined) {
@@ -1771,7 +1864,7 @@ export async function startServerRuntime(
         await skillEvolution.evaluateAndPublish(candidateId);
       },
     },
-    terminalOutcomes: runtimeTerminalOutcomes,
+    terminalAuthority: userGoalPlanController,
     onTerminalCommitted: async ({ outcome, control, instance }) => {
       try {
         const degraded = isRecord(instance.result) && instance.result['status'] === 'degraded';
@@ -2138,7 +2231,8 @@ export async function startServerRuntime(
       };
     },
   };
-  const processor = new PlanPreparationProcessor({
+  const skillGoalSelectionRecords = new Map<string, string>();
+  processor = new PlanPreparationProcessor({
     tasks,
     events,
     clock,
@@ -2147,27 +2241,44 @@ export async function startServerRuntime(
     goals: goalService,
     skills,
     skillInputs: skillInputResolution,
-    skillSelection: {
-      async select(goalContract, task) {
-        if (
-          !goalContract.description.includes('TEMPORARY_SKILL_GOAL') &&
-          skillSelection !== undefined
-        ) {
-          try {
-            return await skillSelection.select(
-              goalContract,
-              await resolveSkillUsageContext(goalContract, task),
-            );
-          } catch (error: unknown) {
-            if (!(
-              typeof error === 'object' &&
-              error !== null &&
-              'code' in error &&
-              error.code === 'SKILL_SELECTION_NO_CANDIDATES'
-            ))
-              throw error;
-          }
-        }
+    userGoalPlanning,
+    skillGoalScheduler: new SkillGoalScheduler({
+      repository: userGoalRuntimeRepository,
+      candidates: {
+        async list(skillGoal, planId) {
+          if (skillGoal.requiredResult.includes('TEMPORARY_SKILL_GOAL:')) return [];
+          if (skillSelection === undefined) return skills.listEnabledVersions();
+          const userGoalPlan = await userGoalRuntimeRepository.findPlan(planId);
+          if (userGoalPlan === undefined) throw new Error('USER_GOAL_PLAN_NOT_FOUND');
+          const goal = await goals.findById(userGoalPlan.goalId);
+          if (goal?.version !== userGoalPlan.goalVersion)
+            throw new Error('USER_GOAL_PLAN_GOAL_STALE');
+          const goalContract = createGoalExecutionContract(goal);
+          const compatible = (await skills.listEnabledVersions()).filter((candidate) =>
+            isSkillGoalCompatible(skillGoal, candidate),
+          );
+          const selected = await skillSelection.selectFromCandidates(
+            goalContract,
+            compatible,
+            await resolveSkillUsageContext(goalContract),
+          );
+          skillGoalSelectionRecords.set(skillGoal.skillGoalId, selected.selectionId);
+          const exact = await skills.findVersion(
+            selected.selectedSkillId,
+            selected.selectedSkillVersion,
+          );
+          return exact === undefined ? [] : [exact];
+        },
+        selectionRecordId(skillGoal) {
+          return Promise.resolve(skillGoalSelectionRecords.get(skillGoal.skillGoalId));
+        },
+      },
+      now: () => clock.now(),
+      nextAttemptId: () => `skill-attempt-${randomUUID()}`,
+      nextExecutionContractId: () => `skill-execution-contract-${randomUUID()}`,
+    }),
+    temporarySkillSelection: {
+      async resolve(goalContract, task) {
         const resolved = await temporarySkillResolver.resolve(goalContract, task);
         return {
           temporarySkillId: resolved.skill.temporarySkillId,
@@ -2273,6 +2384,8 @@ export async function startServerRuntime(
           goalId: input.goalId,
           goalVersion: input.goalVersion,
           goalContract: input.goalContract,
+          ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
+          ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
           ...(skill === undefined
             ? {}
@@ -2394,7 +2507,7 @@ export async function startServerRuntime(
         );
         try {
           const control = await workflowController.start({
-            controlId: `control-task-${task.taskId}`,
+            controlId: await resolveTaskWorkflowControlId(task),
             contextId: task.contextId,
             goalId: task.goalId,
             goalVersion: task.goalVersion,
@@ -2423,6 +2536,191 @@ export async function startServerRuntime(
       },
     },
   });
+  const businessEventRepository =
+    options.businessEvents === undefined ? undefined : userGoalRuntimeRepository;
+  const businessEventRuntime =
+    options.businessEvents === undefined ? undefined : new FrozenBusinessEventsRuntimeAdapter();
+  const continuityImpact =
+    businessEventRepository === undefined
+      ? undefined
+      : new ContinuityImpactService({
+          events: businessEventRepository,
+          clock,
+          nextIncidentId: () => `business-event-incident-${randomUUID()}`,
+          hash: businessEventHash,
+        });
+  const businessEventRelations =
+    businessEventRepository === undefined || businessEventRuntime === undefined
+      ? undefined
+      : new BusinessEventRelationResolver({
+          runtime: businessEventRuntime,
+          repository: businessEventRepository,
+          clock,
+          nextProjectionId: () => `business-event-relation-${randomUUID()}`,
+          hash: businessEventHash,
+        });
+  const eventImpactRecovery =
+    businessEventRepository === undefined
+      ? undefined
+      : new EventImpactRecoveryService({
+          plans: businessEventRepository,
+          events: businessEventRepository,
+          controls: {
+            async reconcileRemoteTasks(): Promise<void> {
+              if (remoteTaskReconciler === undefined)
+                throw new Error('BUSINESS_EVENT_REMOTE_TASK_RECONCILER_UNAVAILABLE');
+              await remoteTaskReconciler.reconcile();
+            },
+            async pauseAttempts(bindings): Promise<void> {
+              await Promise.all(
+                [...new Set(bindings.map((binding) => binding.workflowPlanId))].map((planId) =>
+                  workflowExecution.pauseForPlan(planId),
+                ),
+              );
+            },
+            async cancelAttempts(bindings): Promise<void> {
+              await Promise.all(
+                [...new Set(bindings.map((binding) => binding.workflowPlanId))].map((planId) =>
+                  workflowExecution.cancelForPlan(planId),
+                ),
+              );
+            },
+            async createIncidentTask(input): Promise<string> {
+              const taskId = `business-event-incident-task-${input.dedupeKey.slice(7, 39)}`;
+              const existing = await tasks.findById(taskId);
+              if (existing !== undefined) return existing.taskId;
+              const result = await service.submit({
+                taskId,
+                contextId: input.contextId,
+                messageText: input.summary,
+                metadata: {
+                  source: 'business_event_incident',
+                  dedupeKey: input.dedupeKey,
+                  relatedGoalIds: input.relatedGoalIds,
+                  requiresPlanConfirmation: true,
+                },
+              });
+              return result.task.taskId;
+            },
+          },
+          clock,
+          nextPlanId: () => `business-event-plan-${randomUUID()}`,
+          nextSkillGoalId: () => `business-event-skill-goal-${randomUUID()}`,
+          nextDependencyId: () => `business-event-dependency-${randomUUID()}`,
+          nextIncidentId: () => `business-event-incident-${randomUUID()}`,
+          hash: businessEventHash,
+        });
+  const eventImpact =
+    businessEventRepository === undefined ||
+    remoteTaskRepository === undefined ||
+    businessEventRelations === undefined ||
+    eventImpactRecovery === undefined
+      ? undefined
+      : new TaskImpactAssessmentService({
+          events: businessEventRepository,
+          bindings: remoteTaskRepository,
+          plans: businessEventRepository,
+          relations: {
+            async resolve(record, event, subscription) {
+              const provider = await mcpRepository.findServer(subscription.providerId);
+              if (provider === undefined) throw new Error('BUSINESS_EVENT_PROVIDER_NOT_REGISTERED');
+              return businessEventRelations.resolve({
+                endpoint: provider.server.endpoint,
+                headers: secretCipher.decrypt(provider.encryptedCredential),
+                inboxId: record.inboxId,
+                event,
+              });
+            },
+          },
+          recovery: eventImpactRecovery,
+          clock,
+          nextAssessmentId: () => `business-event-impact-${randomUUID()}`,
+        });
+  const businessEventIngress =
+    businessEventRepository === undefined || eventImpact === undefined
+      ? undefined
+      : new BusinessEventIngressWorker({
+          repository: businessEventRepository,
+          processor: eventImpact,
+          clock,
+        });
+  const businessEventSubscriptions =
+    businessEventRepository === undefined || businessEventRuntime === undefined
+      ? undefined
+      : new BusinessEventSubscriptionService({
+          runtime: businessEventRuntime,
+          repository: businessEventRepository,
+          clock,
+          nextSubscriptionId: () => `business-event-subscription-${randomUUID()}`,
+          nextInboxId: () => `business-event-inbox-${randomUUID()}`,
+          nextContinuityId: () => `business-event-continuity-${randomUUID()}`,
+          hash: businessEventHash,
+          ...(continuityImpact === undefined
+            ? {}
+            : {
+                onContinuity: (record, providerId) =>
+                  continuityImpact.handle(record, providerId).then(() => undefined),
+              }),
+        });
+  const businessEventCoordinator =
+    businessEventSubscriptions === undefined
+      ? undefined
+      : new ProviderSubscriptionCoordinator({
+          subscriptions: businessEventSubscriptions,
+          clock,
+          ...(options.businessEvents?.reconnectDelayMs === undefined
+            ? {}
+            : { reconnectDelayMs: options.businessEvents.reconnectDelayMs }),
+        });
+  const businessEventStartedProviders = new Set<string>();
+  const startBusinessEventsProvider = async (
+    serverId: string,
+  ): Promise<'disabled' | 'started' | 'already_running'> => {
+    if (businessEventCoordinator === undefined) return 'disabled';
+    const provider = await mcpRepository.findServer(serverId);
+    if (provider === undefined) throw new Error('BUSINESS_EVENT_PROVIDER_NOT_REGISTERED');
+    if (provider.server.protocolMode !== 'frozen_v1')
+      throw new Error('BUSINESS_EVENT_PROVIDER_FROZEN_MODE_REQUIRED');
+    if (
+      !businessEventStartedProviders.has(serverId) &&
+      businessEventStartedProviders.size >= (options.businessEvents?.maxSubscriptions ?? 256)
+    )
+      throw new Error('BUSINESS_EVENTS_MAX_SUBSCRIPTIONS_EXCEEDED');
+    const disposition = businessEventCoordinator.start({
+      providerId: serverId,
+      endpoint: provider.server.endpoint,
+      headers: secretCipher.decrypt(provider.encryptedCredential),
+    });
+    businessEventStartedProviders.add(serverId);
+    return disposition;
+  };
+  let businessEventIngressRunning = false;
+  const businessEventIngressTimer =
+    businessEventIngress === undefined
+      ? undefined
+      : setInterval(() => {
+          if (businessEventIngressRunning) return;
+          businessEventIngressRunning = true;
+          void businessEventIngress
+            .runOnce()
+            .catch((error: unknown) => {
+              process.stderr.write(
+                `${JSON.stringify({ event: 'business_event_ingress.failed', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
+              );
+            })
+            .finally(() => {
+              businessEventIngressRunning = false;
+            });
+        }, options.businessEvents?.processingIntervalMs ?? 500);
+  businessEventIngressTimer?.unref();
+  if (businessEventCoordinator !== undefined) {
+    const providers = (await mcpRepository.listServers()).filter(
+      (provider) => provider.status === 'enabled' && provider.protocolMode === 'frozen_v1',
+    );
+    if (options.businessEvents?.requiredForRuntimeReady === true && providers.length === 0)
+      throw new Error('BUSINESS_EVENTS_REQUIRED_PROVIDER_UNAVAILABLE');
+    for (const provider of providers) await startBusinessEventsProvider(provider.serverId);
+  }
   const waitSweepTimer = setInterval(() => {
     void (async () => {
       const expired = await taskWaitTimeouts.sweep();
@@ -2588,10 +2886,52 @@ export async function startServerRuntime(
         skillInputResolution,
         mcp: mcpRegistry,
         mcpProtocol: mcpProtocolOperations,
-        frozenMcp: frozenMcpRegistry,
+        frozenMcp: {
+          async register(input) {
+            const registered = await frozenMcpRegistry.register(input);
+            if (businessEventCoordinator !== undefined)
+              await startBusinessEventsProvider(registered.server.serverId);
+            return registered;
+          },
+          async refresh(serverId) {
+            const refreshed = await frozenMcpRegistry.refresh(serverId);
+            if (businessEventCoordinator !== undefined) await startBusinessEventsProvider(serverId);
+            return refreshed;
+          },
+        },
         ...(frozenTaskNotifications === undefined
           ? {}
           : { frozenMcpNotifications: frozenTaskNotifications }),
+        ...(businessEventCoordinator === undefined
+          ? {}
+          : {
+              businessEvents: {
+                start: startBusinessEventsProvider,
+                health: (serverId: string) => businessEventCoordinator.health(serverId),
+                listSubscriptions: (limit: number) =>
+                  userGoalRuntimeRepository.listBusinessEventSubscriptions(limit),
+                listInbox: (limit: number) =>
+                  userGoalRuntimeRepository.listBusinessEventInbox(limit),
+                listAssessments: (limit: number) =>
+                  userGoalRuntimeRepository.listEventImpactAssessments(limit),
+                listIncidents: (limit: number) =>
+                  userGoalRuntimeRepository.listEventIncidents(limit),
+              },
+            }),
+        userGoalRuntime: {
+          async current(goalId: string, goalVersion: number) {
+            const current = await userGoalRuntimeRepository.findCurrentPlan(goalId, goalVersion);
+            if (current === undefined) return null;
+            return {
+              ...current,
+              outcomes: await userGoalRuntimeRepository.listSkillGoalOutcomeDecisions(
+                current.plan.planId,
+              ),
+              completedEffects: await userGoalRuntimeRepository.listValidCompletedEffects(goalId),
+              progress: await userGoalRuntimeRepository.findLatestProgress(current.plan.planId),
+            };
+          },
+        },
         skills: skillRegistry,
         skillAuthoring,
         models: modelRuntime,
@@ -2735,11 +3075,16 @@ export async function startServerRuntime(
           resultProcessor,
         );
       },
-      registerMcpServer(input) {
-        return frozenMcpRegistry.register(input);
+      async registerMcpServer(input) {
+        const registered = await frozenMcpRegistry.register(input);
+        if (businessEventCoordinator !== undefined)
+          await startBusinessEventsProvider(registered.server.serverId);
+        return registered;
       },
-      refreshMcpServer(serverId) {
-        return frozenMcpRegistry.refresh(serverId);
+      async refreshMcpServer(serverId) {
+        const refreshed = await frozenMcpRegistry.refresh(serverId);
+        if (businessEventCoordinator !== undefined) await startBusinessEventsProvider(serverId);
+        return refreshed;
       },
       async callMcpTool(serverId, toolName, arguments_, signal, context) {
         return unwrapMcpInvocationOutcome(
@@ -2764,6 +3109,12 @@ export async function startServerRuntime(
       updateMcpToolEnhancement(serverId, toolName, enhancement) {
         return mcpRegistry.updateToolEnhancement(serverId, toolName, enhancement);
       },
+      startBusinessEvents(serverId) {
+        return startBusinessEventsProvider(serverId);
+      },
+      businessEventsHealth(serverId) {
+        return businessEventCoordinator?.health(serverId);
+      },
       async close(): Promise<void> {
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
@@ -2772,8 +3123,10 @@ export async function startServerRuntime(
           clearInterval(remoteTaskContinuationReconcileTimer);
         if (remoteTaskCancellationReconcileTimer !== undefined)
           clearInterval(remoteTaskCancellationReconcileTimer);
+        if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
         taskExecutor.close();
         frozenTaskNotifications?.close();
+        businessEventCoordinator?.close();
         await a2a.close();
         await startedManagement.close();
         await remoteTaskWorker?.close();
@@ -2800,8 +3153,10 @@ export async function startServerRuntime(
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
+    if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
     taskStateNotifier.close();
     frozenTaskNotifications?.close();
+    businessEventCoordinator?.close();
     await management?.close();
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();
@@ -2831,6 +3186,19 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function uniqueToolReferences<T extends Readonly<{ serverId: string; toolName: string }>>(
+  references: readonly T[],
+): readonly T[] {
+  return [
+    ...new Map(
+      references.map((reference) => [
+        `${reference.serverId}\u0000${reference.toolName}`,
+        reference,
+      ]),
+    ).values(),
+  ];
+}
+
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
@@ -2839,6 +3207,10 @@ function canonicalJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
     .join(',')}}`;
+}
+
+function businessEventHash(value: unknown): string {
+  return `sha256:${createHash('sha256').update(canonicalJson(value)).digest('hex')}`;
 }
 
 function unwrapMcpInvocationOutcome(outcome: McpInvocationOutcome): unknown {

@@ -13,6 +13,18 @@ const runtime = await startServerRuntime({
   a2aPort: environment.SDAR_A2A_PORT,
   managementHost: environment.SDAR_MANAGEMENT_HOST,
   managementPort: environment.SDAR_MANAGEMENT_PORT,
+  ...(environment.BUSINESS_EVENTS_ENABLED === 'true'
+    ? {
+        frozenMcpTasks: { isolationAcknowledged: true as const },
+        businessEvents: {
+          enabled: true as const,
+          requiredForRuntimeReady:
+            environment.BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY === 'true',
+          processingIntervalMs: environment.BUSINESS_EVENTS_POLL_INTERVAL_MS,
+          maxSubscriptions: environment.BUSINESS_EVENTS_MAX_SUBSCRIPTIONS,
+        },
+      }
+    : {}),
 });
 
 process.stdout.write(
