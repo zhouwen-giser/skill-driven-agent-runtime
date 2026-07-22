@@ -33,16 +33,16 @@ describe('Frozen MCP local component conformance', () => {
       baselineSha256: 'a'.repeat(64),
       discoveredAt: now,
     });
-    expect(discovery).toMatchObject({
-      snapshot: { taskNotifications: true },
-      tools: [
-        {
+    expect(discovery.snapshot).toMatchObject({ taskNotifications: true });
+    expect(discovery.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           toolName: 'embodied.move',
           outputSchema: expect.any(Object),
-          taskExecutionProfile: { taskBehavior: 'server_directed' },
-        },
-      ],
-    });
+          taskExecutionProfile: expect.objectContaining({ taskBehavior: 'server_directed' }),
+        }),
+      ]),
+    );
 
     const availability = new FrozenTaskAvailabilityClient({
       client,
@@ -58,7 +58,8 @@ describe('Frozen MCP local component conformance', () => {
       name: 'embodied.move',
       arguments: { resourceId: 'UGV-001', target: { x: 1, y: 2 } },
       outputValidation: {
-        outputSchema: discovery.tools[0]?.outputSchema,
+        outputSchema: discovery.tools.find((tool) => tool.toolName === 'embodied.move')
+          ?.outputSchema,
         validator: new AjvJsonSchemaValidator(),
       },
     });

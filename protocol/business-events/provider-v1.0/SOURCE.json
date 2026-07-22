@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime",
+  "commit": "8a81b1b02971fb124ed96372c440c449f9087c99",
+  "requiredAncestor": "ee14d2fa2b5130d3c7c016c71737175a124d5134",
+  "license": "Apache-2.0",
+  "noticePresent": false,
+  "files": {
+    "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "docs/protocol/SDAR_BUSINESS_EVENTS_PROFILE_V1_0.md": "86bbbd931510d6fb30334723f5da98ce2da5deeb0c45018d8370cd9d063048f9",
+    "fixtures/invalid/invalid-decimal-sequence.json": "ade4ede1589142750113c52487e3364eac93bb94047537ca31349760bee2bb8a",
+    "fixtures/invalid/invalid-headers.json": "0b1782dd39c6e40bbaa2bb0f0598b7a3eec1e0ec6bb63660215182401c6b272f",
+    "fixtures/invalid/invalid-identifier.json": "548248bec6ae7b0cc11a6db2a71c5084d46e944faf0a218374eacba11862c68a",
+    "fixtures/invalid/invalid-scope.json": "a4a2e69add2a999d1ee5c6787be898593ed1fc1ce438317e4c5936fc6b7b06b3",
+    "fixtures/invalid/poison-boundaries.json": "924af1c3c4adad410ae4fa6755d9c994435ff7f127ca8846d84968a51ad0759d",
+    "fixtures/valid/continuity-notification.json": "a81b4c30ca8b8fc1883b0cfb7883acc823b52318a586a099ed0cd30ee0bd6ba0",
+    "fixtures/valid/current-cursor.json": "c2b55dcb1d1871b01085abe26c1e28ac139971b389b4d0f59422ca7adb895099",
+    "fixtures/valid/empty-stream.json": "16cad9c8c0185cd53ad7d6a51a21bdbaa04141865e32ef2fe0eb6c7b0bd34c68",
+    "fixtures/valid/mixed-continuity.json": "961e0a1953a3d8164dace44969657172afade6d539dbc2d881ac19f360a8291f",
+    "fixtures/valid/relation-truncated.json": "da58e9e46695107c686faacdb5b540d427d901ecfa0a42463cb9e4dc06430674",
+    "fixtures/valid/resource-scope.json": "a803abfabc2e76360b3c3f3fa93e78eb8f7bf58f8ccaf02cb06f485a8ce1bb55",
+    "fixtures/valid/rotated-drain.json": "41e6a76d0dc099337cf85443fe03ef988b389b31105b419f578398d219a350b0",
+    "fixtures/valid/task-scope.json": "eef8c26500de23e8b5728e44e66c7d83655051cd64b3a6f0fac964d901b73749",
+    "golden/event-id.json": "7d8cb292a0c1aa552051146e9d4c2a3ec3482fab1ced74799078d4a1bc357542",
+    "golden/source-canonical-hash.json": "005431fb1cda9f96aed7d5198b90460d96f8d9aaf63421c7a6c3c727ca133962",
+    "golden/stored-event-hash.json": "1df268d09282d3c689308c385addca1fa2acac0e6a6d91b621bd7144c2197c40",
+    "golden/timestamp-normalization.json": "67c3c1c265f67933b22f1a8cd9c4e27419240ffa6f7e0f9fc62e42ee655cb21d",
+    "proto/io/sdar/mcp/tasks/adapter/v1/adapter.proto": "d36d49e8f6d85c5cb35e7c92fb6e66d8275c8d7cb4b97343c7f212d5c8ffc603",
+    "schemas/sdar-business-events-continuity-v1.schema.json": "f92d0ad364a2f4ec068f99a0501a74a2d38748244ba6a04a85893527263807f0",
+    "schemas/sdar-business-events-relation-v1.schema.json": "7e3bbe9d9ac96d10b4ab399cf5c90621a070959c3bdfb092327400c96a216dc4",
+    "schemas/sdar-business-events-v1.schema.json": "dceb9ee64e414890813b784880a2d90f710c93faa0c8aaa8b4f2b7d6ba9b7e6f"
+  }
+}

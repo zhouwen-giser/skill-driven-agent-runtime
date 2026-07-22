@@ -9,6 +9,8 @@ const root = process.cwd();
 const protocolRoot = resolve(root, 'protocol');
 const baseline = await json(resolve(protocolRoot, 'protocol-baseline.json'));
 const lock = await json(resolve(protocolRoot, 'protocol-baseline.lock.json'));
+const businessEventsSourceRoot = resolve(protocolRoot, 'business-events', 'provider-v1.0');
+const businessEventsSource = await json(resolve(businessEventsSourceRoot, 'SOURCE.json'));
 const expected = {
   protocolVersion: '2026-07-28',
   sourceCommit: '26897cc322f356487da89113451bd16b520b9288',
@@ -25,6 +27,16 @@ for (const [key, value] of Object.entries(expected)) {
 for (const [path, digest] of Object.entries(lock.files)) {
   const actual = await sha256(readFile(resolve(root, path)));
   if (actual !== digest) throw new Error(`PROTOCOL_LOCK_DRIFT: ${path}`);
+}
+
+if (
+  businessEventsSource.commit !== '8a81b1b02971fb124ed96372c440c449f9087c99' ||
+  businessEventsSource.requiredAncestor !== 'ee14d2fa2b5130d3c7c016c71737175a124d5134'
+)
+  throw new Error('BUSINESS_EVENTS_SOURCE_COMMIT_MISMATCH');
+for (const [path, digest] of Object.entries(businessEventsSource.files)) {
+  const actual = await sha256(readFile(resolve(businessEventsSourceRoot, path)));
+  if (actual !== digest) throw new Error(`BUSINESS_EVENTS_SOURCE_DRIFT: ${path}`);
 }
 
 const frozenDocument = resolve(
@@ -56,7 +68,7 @@ for (const name of await names(schemaDirectory)) {
 const validCount = await verifyFixtures('valid', true);
 const invalidCount = await verifyFixtures('invalid', false);
 process.stdout.write(
-  `Frozen protocol package verified: ${String(Object.keys(lock.files).length)} locked files, ${String(validCount)} valid fixtures, ${String(invalidCount)} invalid fixtures.\n`,
+  `Frozen protocol package verified: ${String(Object.keys(lock.files).length)} MCP files, ${String(Object.keys(businessEventsSource.files).length)} Business Events source files, ${String(validCount)} valid fixtures, ${String(invalidCount)} invalid fixtures.\n`,
 );
 
 async function verifyFixtures(kind, expectedValid) {
