@@ -1,5 +1,14 @@
 # Project Status
 
+SDAR v1.2.3 G03 is complete and pushed (2026-07-23) on
+`feature/v1.2.3-cognitive-planning-runtime`. Ambiguous requests now pass through strict bounded Task
+Understanding, persist immutable PostgreSQL revisions/dimensions/source lineage and a real audited model
+invocation, then stop at `INPUT_REQUIRED` when a blocking clarification or authorization is missing.
+Explicit requests retain the v1.2.2 Goal path; no candidate or model result becomes Goal authority.
+Affected gates pass 663 unit/contract, 72 integration, 62 real E2E, 130 OpenAPI operations, 323-source
+architecture, 0108-0111 rollback/reapply and production build. Implementation `05b4df4` is pushed and
+Draft PR #8 remains Draft; G04 interactive Goal clarification/confirmation is next.
+
 SDAR v1.2.3 G02 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. The active G01 Summary now produces a strict allowlisted,
 hash/policy-bound Public Capability Card with deterministic narrative fallback, enabled public A2A

@@ -288,3 +288,14 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G02-04 enabled public A2A Skill projection            | verified | `A2AAgentCardBuilder`; activated `publicSkills`; optional `io.sdar/capabilityProfile`                          | A2A compatibility contract and real Skill enable/internal-visibility E2E                                      |
 | AC-G02-05 snapshot-only request path and durable refresh | verified | A2A `capabilityCardProvider`; serialized post-commit catalog projector; `capability.card_published`            | failed-event acknowledgement unit, repository outbox integration and 61/61 E2E                                |
 | AC-G02-06 API/Console/schema/protocol regression         | verified | Card GET/rebuild routes, OpenAPI/JSON Schema and operational Capabilities Console                              | 128-operation OpenAPI, Console contract/build, A2A MUST TCK, affected gates; `reports/goal/g02-completion.md` |
+
+## SDAR v1.2.3 G03 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G03-01 ambiguous requests enter Understanding | verified | `CognitiveEntryRouter`; `GenericTaskUnderstandingService`; Task preparation integration | router/service unit and real A2A `INPUT_REQUIRED` E2E |
+| AC-G03-02 explicit requests avoid unnecessary clarification | verified | conservative explicit route preserves the existing v1.2.2 Goal path | explicit concrete router unit plus 62/62 existing/new E2E |
+| AC-G03-03 gaps are typed dimensions | verified | 12 dimension kinds and deterministic blocking/conditional/non-blocking classifier | focused dimension unit, Domain factory and JSON Schema golden contract |
+| AC-G03-04 authorization is never silently filled | verified | safety assumption filter and `confirmation_required` disposition | prompt-injection/high-risk authorization unit |
+| AC-G03-05 structured, versioned, linked and bounded | verified | strict Zod/JSON Schema, two attempts, migration 0111, PostgreSQL revision/CAS/outbox and audited model FK | model/unit, migration rollback/reapply and real repository integration |
+| AC-G03-06 injected text remains data | verified | JSON instruction separates policy from untrusted request/context | unit prompt inspection and real prompt-injection A2A E2E; `reports/goal/g03-completion.md` |

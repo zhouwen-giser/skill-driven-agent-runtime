@@ -22,6 +22,9 @@ All notable changes to this project are documented here. The format follows Keep
   `io.sdar/capabilityProfile` extension.
 - Management `GET /api/v1/capabilities/card` and `POST /api/v1/capabilities/card/rebuild`, plus a real
   Capabilities Console view over the activated snapshot.
+- G03 bounded Generic Task Understanding with deployment-owned Task Type fixtures, Capability Summary
+  checks, three-severity missing dimensions, immutable PostgreSQL revisions and audited model lineage.
+- Management current/revision Task Understanding reads and Task Console evidence links.
 
 ### Changed
 
@@ -33,6 +36,8 @@ All notable changes to this project are documented here. The format follows Keep
   Summary projection while PostgreSQL remains the only durable authority.
 - Successful Skill catalog mutations now await the serialized Summary-to-Card projection. A2A requests
   never call a model and fail closed rather than serving a hash-mismatched Card.
+- Ambiguous Task preparation now persists a validated Understanding before requesting input; explicit
+  requests preserve the v1.2.2 Goal path and unconfirmed candidates never become authority.
 
 ### Verification
 
@@ -49,6 +54,10 @@ All notable changes to this project are documented here. The format follows Keep
   architecture, migration 0108–0110 rollback/reapply, production build and both smokes. The retained
   first E2E failure (54/61) identified and fixed the Skill-to-Card projection gap; Draft PR #8 remains
   Draft.
+- G03 affected gates pass 663 unit/contract, 72 real integration, 62 real E2E, 130 OpenAPI operations,
+  323-source architecture, migration 0108-0111 rollback/reapply and production build. The retained first
+  E2E failure was an absent-property assertion defect; the product path already reached
+  `INPUT_REQUIRED`. Implementation `05b4df4` is pushed and Draft PR #8 remains Draft.
 
 ## [1.2.2] - Unreleased
 
