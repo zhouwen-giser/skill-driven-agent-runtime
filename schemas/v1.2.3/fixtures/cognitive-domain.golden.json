@@ -67,6 +67,63 @@
     "sourceRefs": [],
     "builtAt": "2026-07-23T00:00:00.000Z"
   },
+  "capabilityCard": {
+    "schemaVersion": "1.0",
+    "cardId": "card.v123",
+    "revision": 1,
+    "summaryId": "summary.v123",
+    "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "generationPolicyVersion": "policy.v123.1",
+    "profileVersion": "1.0",
+    "status": "active",
+    "agentName": "Skill-Driven Agent Runtime",
+    "description": "Provides one public capability across one domain.",
+    "profile": {
+      "profileVersion": "1.0",
+      "catalogHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "domains": ["capability"],
+      "capabilities": [
+        {
+          "capabilityId": "capability.inspect",
+          "domain": "capability",
+          "title": "Inspect a device",
+          "description": "Inspect a device deterministically.",
+          "effects": ["device state observed"],
+          "evidence": ["structured inspection evidence"],
+          "artifacts": [],
+          "modes": ["read_only"],
+          "taskTypes": [],
+          "limitations": [
+            {
+              "code": "confirmation_required",
+              "message": "Some uses require explicit confirmation."
+            }
+          ]
+        }
+      ],
+      "limitations": [
+        {
+          "code": "confirmation_required",
+          "message": "Some uses require explicit confirmation."
+        }
+      ],
+      "generatedAt": "2026-07-23T00:01:00.000Z"
+    },
+    "publicSkills": [
+      {
+        "id": "embodied.inspect",
+        "name": "Inspect device",
+        "description": "Inspect a declared device.",
+        "tags": ["capability.inspect"],
+        "inputModes": ["text/plain"],
+        "outputModes": ["application/json"]
+      }
+    ],
+    "sourceSkillRefs": ["embodied.inspect:1"],
+    "generationMode": "deterministic",
+    "cardContentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "generatedAt": "2026-07-23T00:01:00.000Z"
+  },
   "taskUnderstanding": {
     "schemaVersion": "1.0",
     "understandingId": "understanding.v123",

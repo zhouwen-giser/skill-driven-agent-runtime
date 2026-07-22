@@ -2,6 +2,11 @@ import { AgentCard, Message, Task, TaskState, TaskStatusUpdateEvent } from '@a2a
 import { validateVersion } from '@a2a-js/sdk/server';
 import { describe, expect, it } from 'vitest';
 
+import { createPublicCapabilityCardSnapshot } from '../../domain/src/index.js';
+import {
+  A2AAgentCardBuilder,
+  SDAR_CAPABILITY_PROFILE_EXTENSION_URI,
+} from '../src/capability-card-projection.js';
 import {
   buildAgentCard,
   buildStatusUpdate,
@@ -58,6 +63,61 @@ describe('A2A 1.0.1 compatibility baseline', () => {
     expect(() => {
       validateVersion('1.1', card, 'HTTP+JSON');
     }).toThrow();
+  });
+
+  it('projects a validated Public Capability Card snapshot without request-time generation', () => {
+    const catalogHash = `sha256:${'a'.repeat(64)}`;
+    const generatedAt = '2026-07-23T02:00:00.000Z';
+    const snapshot = createPublicCapabilityCardSnapshot({
+      schemaVersion: '1.0',
+      cardId: 'card.a2a.1',
+      revision: 1,
+      summaryId: 'summary.a2a.1',
+      catalogHash,
+      generationPolicyVersion: 'capability-policy-v1',
+      profileVersion: '1.0',
+      status: 'active',
+      agentName: 'Skill-Driven Agent Runtime',
+      description: 'Provides one public inspection capability.',
+      profile: {
+        profileVersion: '1.0',
+        catalogHash,
+        domains: ['inspection'],
+        capabilities: [],
+        limitations: [],
+        generatedAt,
+      },
+      publicSkills: [
+        {
+          id: 'skill.public',
+          name: 'Public inspection',
+          description: 'Inspect a declared device.',
+          tags: ['inspection'],
+          inputModes: ['text/plain'],
+          outputModes: ['application/json'],
+        },
+      ],
+      sourceSkillRefs: ['skill.public:1'],
+      generationMode: 'deterministic',
+      cardContentHash: `sha256:${'b'.repeat(64)}`,
+      generatedAt,
+    });
+
+    const wire = AgentCard.toJSON(new A2AAgentCardBuilder().buildFromSnapshot(snapshot));
+
+    expect(wire).toMatchObject({
+      description: snapshot.description,
+      skills: [expect.objectContaining({ id: 'skill.public', inputModes: ['text/plain'] })],
+      capabilities: {
+        extensions: [
+          expect.objectContaining({
+            uri: SDAR_CAPABILITY_PROFILE_EXTENSION_URI,
+            params: expect.objectContaining({ profileVersion: '1.0', catalogHash }),
+          }),
+        ],
+      },
+    });
+    expect(JSON.stringify(wire)).not.toMatch(/credential|provider|workflow|sourceSkillRefs/iu);
   });
 
   it('serializes standard streaming status updates without a legacy final flag', () => {

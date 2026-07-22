@@ -211,6 +211,28 @@ describe('CapabilitySummaryService', () => {
       'motion',
     ]);
   });
+
+  it('keeps catalog-change events pending when the dependent Card publication fails', async () => {
+    const acknowledged: string[] = [];
+    const projector = new CapabilityCatalogChangeProjector({
+      changes: {
+        listPendingCatalogChangeEventIds: () => Promise.resolve(['event.catalog.retry']),
+        markCatalogChangeEventsPublished(eventIds) {
+          acknowledged.push(...eventIds);
+          return Promise.resolve();
+        },
+      },
+      summaries: capabilityService(
+        [skill('skill.inspect', 1)],
+        new InMemoryCapabilitySummaryRepository(),
+      ),
+      clock: { now: () => '2026-07-23T01:20:00.000Z' },
+      afterRebuild: () => Promise.reject(new Error('CARD_PUBLICATION_FAILED')),
+    });
+
+    await expect(projector.drain()).rejects.toThrow('CARD_PUBLICATION_FAILED');
+    expect(acknowledged).toEqual([]);
+  });
 });
 
 function capabilityService(

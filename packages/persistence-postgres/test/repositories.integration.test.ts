@@ -49,6 +49,7 @@ import {
   PostgresWorkflowContinuationRepository,
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
+  PostgresCapabilityCardRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -68,6 +69,7 @@ import {
   recordTaskCapabilityGap,
   transitionTask,
   createRuntimeCapabilitySummarySnapshot,
+  createPublicCapabilityCardSnapshot,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -4287,6 +4289,41 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await changes.markCatalogChangeEventsPublished(eventIds, '2026-07-23T01:20:01.000Z');
     await expect(changes.listPendingCatalogChangeEventIds(10)).resolves.toEqual([]);
   });
+
+  it('activates one Public Capability Card only when its active Summary binding matches', async () => {
+    const summaryRepository = new PostgresCapabilitySummaryRepository(pool);
+    const summary = await summaryRepository.saveAndActivate(
+      capabilitySummary('summary.card.binding', 1, 'd'),
+    );
+    const repository = new PostgresCapabilityCardRepository(pool);
+    const [left, right] = await Promise.all([
+      repository.activate(capabilityCard('card.concurrent.a', summary)),
+      repository.activate(capabilityCard('card.concurrent.b', summary)),
+    ]);
+
+    expect(left.cardId).toBe(right.cardId);
+    expect(left.status).toBe('active');
+    await expect(repository.findActive()).resolves.toEqual(left);
+    const rows = await pool.query<{ active_count: number; total_count: number }>(
+      `SELECT count(*) FILTER (WHERE status='active')::integer AS active_count,
+              count(*)::integer AS total_count
+       FROM public_capability_card_snapshot`,
+    );
+    expect(rows.rows[0]).toEqual({ active_count: 1, total_count: 1 });
+    const events = await pool.query<{ event_type: string }>(
+      "SELECT event_type FROM cognitive_runtime_outbox WHERE event_type='capability.card_published'",
+    );
+    expect(events.rows).toEqual([{ event_type: 'capability.card_published' }]);
+
+    await expect(
+      repository.activate(
+        capabilityCard('card.stale', {
+          ...summary,
+          catalogHash: `sha256:${'e'.repeat(64)}`,
+        }),
+      ),
+    ).rejects.toThrow('CAPABILITY_CARD_SUMMARY_BINDING_MISMATCH');
+  });
 });
 
 function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {
@@ -4317,6 +4354,38 @@ function capabilitySummary(summaryId: string, revision: number, hashCharacter: s
     ],
     sourceRefs: [],
     builtAt: '2026-07-23T01:20:00.000Z',
+  });
+}
+
+function capabilityCard(
+  cardId: string,
+  summary: ReturnType<typeof createRuntimeCapabilitySummarySnapshot>,
+) {
+  const generatedAt = '2026-07-23T02:00:00.000Z';
+  return createPublicCapabilityCardSnapshot({
+    schemaVersion: '1.0',
+    cardId,
+    revision: 1,
+    summaryId: summary.summaryId,
+    catalogHash: summary.catalogHash,
+    generationPolicyVersion: summary.generationPolicyVersion,
+    profileVersion: '1.0',
+    status: 'candidate',
+    agentName: 'Skill-Driven Agent Runtime',
+    description: 'Provides one public inspection capability.',
+    profile: {
+      profileVersion: '1.0',
+      catalogHash: summary.catalogHash,
+      domains: ['inspection'],
+      capabilities: [],
+      limitations: [],
+      generatedAt,
+    },
+    publicSkills: [],
+    sourceSkillRefs: ['skill.inspect:1'],
+    generationMode: 'deterministic',
+    cardContentHash: `sha256:${'f'.repeat(64)}`,
+    generatedAt,
   });
 }
 

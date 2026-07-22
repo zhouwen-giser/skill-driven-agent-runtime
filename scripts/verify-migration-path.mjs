@@ -221,6 +221,26 @@ async function verifyBaseline(pool) {
   ) {
     throw new Error('V123_CAPABILITY_SUMMARY_SCHEMA_INVALID');
   }
+
+  const capabilityCardSchema = await pool.query(
+    `SELECT
+       count(*) FILTER (
+         WHERE column_name=ANY(ARRAY['card_content_hash','source_skill_refs','generation_mode'])
+           AND is_nullable='NO'
+       )::integer AS required_columns,
+       EXISTS(
+         SELECT 1 FROM pg_constraint
+         WHERE conname='public_capability_card_catalog_policy_unique'
+       ) AS catalog_policy_unique
+     FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='public_capability_card_snapshot'`,
+  );
+  if (
+    capabilityCardSchema.rows[0]?.required_columns !== 3 ||
+    capabilityCardSchema.rows[0]?.catalog_policy_unique !== true
+  ) {
+    throw new Error('V123_PUBLIC_CAPABILITY_CARD_SCHEMA_INVALID');
+  }
 }
 
 async function rollbackPostBaselineMigrations(pool) {

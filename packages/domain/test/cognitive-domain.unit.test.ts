@@ -11,6 +11,7 @@ import {
   createKnowledgeCandidateSnapshot,
   createKnowledgeStatusTransition,
   createRuntimeCapabilitySummarySnapshot,
+  createPublicCapabilityCardSnapshot,
 } from '../src/index.js';
 
 const timestamp = '2026-07-23T00:00:00.000Z';
@@ -161,6 +162,43 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
         createdAt: timestamp,
       }),
     ).toThrow(expect.objectContaining({ code: 'EXPERIENCE_EPISODE_INVALID' }));
+  });
+
+  it('freezes a version-bound Public Capability Card and rejects profile drift', () => {
+    const card = createPublicCapabilityCardSnapshot({
+      schemaVersion: '1.0',
+      cardId: 'card.v123',
+      revision: 1,
+      summaryId: 'summary.v123',
+      catalogHash: hash('b'),
+      generationPolicyVersion: 'policy.v123.1',
+      profileVersion: '1.0',
+      status: 'active',
+      agentName: 'Skill-Driven Agent Runtime',
+      description: 'Provides public capabilities.',
+      profile: {
+        profileVersion: '1.0',
+        catalogHash: hash('b'),
+        domains: [],
+        capabilities: [],
+        limitations: [],
+        generatedAt: timestamp,
+      },
+      publicSkills: [],
+      sourceSkillRefs: ['skill.public:1'],
+      generationMode: 'deterministic',
+      cardContentHash: hash('c'),
+      generatedAt: timestamp,
+    });
+
+    expect(Object.isFrozen(card)).toBe(true);
+    expect(Object.isFrozen(card.profile)).toBe(true);
+    expect(() =>
+      createPublicCapabilityCardSnapshot({
+        ...card,
+        profile: { ...card.profile, catalogHash: hash('d') },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'CAPABILITY_CARD_INVALID' }));
   });
 
   it('keeps candidates out of active knowledge and enforces audited transitions', () => {

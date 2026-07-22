@@ -35,6 +35,7 @@ export class SkillRegistryService {
   readonly #validator: JsonSchemaValidator;
   readonly #clock: Clock;
   readonly #packages: Pick<SkillPackageImporter, 'import'> | undefined;
+  readonly #afterCatalogChanged: (() => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -42,12 +43,14 @@ export class SkillRegistryService {
       validator: JsonSchemaValidator;
       clock: Clock;
       packages?: Pick<SkillPackageImporter, 'import'>;
+      afterCatalogChanged?(): Promise<void>;
     }>,
   ) {
     this.#skills = dependencies.skills;
     this.#validator = dependencies.validator;
     this.#clock = dependencies.clock;
     this.#packages = dependencies.packages;
+    this.#afterCatalogChanged = dependencies.afterCatalogChanged;
   }
 
   async register(input: RegisterSkillVersionInput): Promise<SkillVersion> {
@@ -68,6 +71,7 @@ export class SkillRegistryService {
       createdAt: this.#clock.now(),
     });
     await this.#skills.saveVersionAndSetCurrent(version, this.#clock.now());
+    await this.#afterCatalogChanged?.();
     return version;
   }
 
@@ -110,6 +114,7 @@ export class SkillRegistryService {
       importedAt,
       createSkillPackageImportAudit(candidate, importedAt),
     );
+    await this.#afterCatalogChanged?.();
     return version;
   }
 

@@ -145,6 +145,28 @@ describe('management HTTP API contract', () => {
     await expect(rebuild.json()).resolves.toEqual(view);
   });
 
+  it('reads and rebuilds the activated Public Capability Card snapshot', async () => {
+    const card = capabilityCardSnapshot();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        capabilityCards: {
+          findActive: () => Promise.resolve(card),
+          publish: () => Promise.resolve(card),
+        },
+      },
+    });
+
+    const read = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card`);
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toEqual(card);
+    const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuild.status).toBe(200);
+    await expect(rebuild.json()).resolves.toEqual(card);
+  });
+
   it('projects Task readiness windows without exposing full argument snapshots', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -2672,6 +2694,7 @@ function operations(failServerList = false): ManagementOperations {
       validatePackage: unused,
     },
     capabilities: { getSummary: unused, rebuild: unused },
+    capabilityCards: { findActive: unused, publish: unused },
     temporarySkills: {
       complete: unused,
       create: unused,
@@ -2737,6 +2760,36 @@ function capabilitySummaryView() {
       characterCount: 2,
       truncated: false,
     },
+  };
+}
+
+function capabilityCardSnapshot() {
+  const catalogHash = `sha256:${'b'.repeat(64)}`;
+  const generatedAt = '2026-07-23T02:00:00.000Z';
+  return {
+    schemaVersion: '1.0' as const,
+    cardId: 'card.api.1',
+    revision: 1,
+    summaryId: 'summary.api.1',
+    catalogHash,
+    generationPolicyVersion: 'capability-policy-v1',
+    profileVersion: '1.0' as const,
+    status: 'active' as const,
+    agentName: 'Skill-Driven Agent Runtime',
+    description: 'Public deterministic capability profile.',
+    profile: {
+      profileVersion: '1.0' as const,
+      catalogHash,
+      domains: ['inspection'],
+      capabilities: [],
+      limitations: [],
+      generatedAt,
+    },
+    publicSkills: [],
+    sourceSkillRefs: ['skill.public:1'],
+    generationMode: 'deterministic' as const,
+    cardContentHash: `sha256:${'c'.repeat(64)}`,
+    generatedAt,
   };
 }
 

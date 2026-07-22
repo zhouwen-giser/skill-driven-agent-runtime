@@ -50,6 +50,7 @@ import type {
   RemoteTaskCancellationService,
   SkillExecutionRepository,
   CapabilitySummaryService,
+  CapabilityCardPublisher,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -468,6 +469,7 @@ export interface ManagementOperations {
     | 'validatePackage'
   >;
   readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
+  readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1768,6 +1770,25 @@ export async function startManagementHttpEndpoint(
     '/api/v1/capabilities/rebuild',
     asyncRoute(async (_request, response) => {
       response.json(await options.operations.capabilities.rebuild());
+    }),
+  );
+  app.get(
+    '/api/v1/capabilities/card',
+    asyncRoute(async (_request, response) => {
+      const card = await options.operations.capabilityCards.findActive();
+      if (card === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_CARD_NOT_AVAILABLE',
+          'No active Public Capability Card is available.',
+        );
+      }
+      response.json(card);
+    }),
+  );
+  app.post(
+    '/api/v1/capabilities/card/rebuild',
+    asyncRoute(async (_request, response) => {
+      response.json(await options.operations.capabilityCards.publish());
     }),
   );
   app.get(

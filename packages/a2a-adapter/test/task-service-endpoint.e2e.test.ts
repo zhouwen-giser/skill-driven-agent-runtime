@@ -531,6 +531,45 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     );
   });
 
+  it('publishes an allowlisted Public Capability Card and serves A2A only from its active snapshot', async () => {
+    const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card/rebuild`, {
+      method: 'POST',
+    });
+    expect(rebuilt.status).toBe(200);
+    const baseline = PublicCapabilityCardSchema.parse(await rebuilt.json());
+    expect(JSON.stringify(baseline.profile)).not.toMatch(
+      /provider|credential|tool|workflow|sourceSkillRef|readiness|user data/iu,
+    );
+
+    const publicSkillId = `skill.card.public.${randomUUID()}`;
+    const internalSkillId = `skill.card.internal.${randomUUID()}`;
+    await runtime.registerSkill(skillInput(publicSkillId, 'Public Card Skill'));
+    const internal = skillInput(internalSkillId, 'Internal Card Skill');
+    if (internal.usageSpecification === undefined) {
+      throw new Error('TEST_SKILL_USAGE_SPECIFICATION_REQUIRED');
+    }
+    await runtime.registerSkill({
+      ...internal,
+      usageSpecification: {
+        ...internal.usageSpecification,
+        visibility: { userSelectable: false, composable: false, internalOnly: true },
+      },
+    });
+    const summary = await waitForCapabilityHashChange(baseline.catalogHash);
+    const card = await waitForAgentCardCatalogHash(summary.summary.catalogHash);
+
+    expect(card.skills.map((skill) => skill.id)).toContain(publicSkillId);
+    expect(card.skills.map((skill) => skill.id)).not.toContain(internalSkillId);
+    const active = PublicCapabilityCardSchema.parse(
+      await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card`).then((response) =>
+        response.json(),
+      ),
+    );
+    expect(active.catalogHash).toBe(summary.summary.catalogHash);
+    expect(active.sourceSkillRefs).toContain(`${publicSkillId}:1`);
+    expect(active.sourceSkillRefs).not.toContain(`${internalSkillId}:1`);
+  });
+
   it('validates, imports, reads, filters and lifecycle-versions a formal Skill Package', async () => {
     const packageRoot = 'skills/embodied.move_to';
     const validated = await fetch(`${runtime.management.baseUrl}/api/v1/skill-packages/validate`, {
@@ -6267,6 +6306,13 @@ const CapabilitySummaryResponseSchema = z.object({
   }),
 });
 
+const PublicCapabilityCardSchema = z.object({
+  catalogHash: z.string(),
+  description: z.string(),
+  profile: z.object({ profileVersion: z.literal('1.0'), catalogHash: z.string() }).loose(),
+  sourceSkillRefs: z.array(z.string()),
+});
+
 function capabilitySummaryResponse(
   value: unknown,
 ): z.infer<typeof CapabilitySummaryResponseSchema> {
@@ -6287,6 +6333,22 @@ async function waitForCapabilityHashChange(
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`CAPABILITY_SUMMARY_HASH_NOT_CHANGED:${previousHash}:${lastBody}`);
+}
+
+async function waitForAgentCardCatalogHash(previousHash: string) {
+  let lastCard: Awaited<ReturnType<typeof readAgentCard>> | undefined;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    lastCard = await readAgentCard();
+    const extension = lastCard.capabilities.extensions.find(
+      (candidate) => candidate.uri === 'io.sdar/capabilityProfile',
+    );
+    const profile = z.object({ catalogHash: z.string() }).safeParse(extension?.params);
+    if (profile.success && profile.data.catalogHash === previousHash) return lastCard;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(
+    `A2A_CAPABILITY_CARD_HASH_NOT_REACHED:${previousHash}:${JSON.stringify(lastCard)}`,
+  );
 }
 
 function skillInput(skillId: string, name: string): RegisterSkillVersionInput {
@@ -8203,9 +8265,7 @@ async function waitForTemporarySkillStatus(taskId: string, expected: string) {
   return result;
 }
 
-async function readAgentCard(): Promise<
-  Readonly<{ skills: readonly Readonly<{ id: string; name: string }>[] }>
-> {
+async function readAgentCard() {
   const body = await new Promise<string>((resolvePromise, reject) => {
     const request = get(`${runtime.a2a.baseUrl}/.well-known/agent-card.json`, (response) => {
       response.setEncoding('utf8');
@@ -8221,6 +8281,12 @@ async function readAgentCard(): Promise<
   });
   const parsed: unknown = JSON.parse(body);
   return z
-    .object({ skills: z.array(z.object({ id: z.string(), name: z.string() })) })
+    .object({
+      description: z.string(),
+      capabilities: z.object({
+        extensions: z.array(z.object({ uri: z.string(), params: z.unknown().optional() })),
+      }),
+      skills: z.array(z.object({ id: z.string(), name: z.string() })),
+    })
     .parse(parsed);
 }

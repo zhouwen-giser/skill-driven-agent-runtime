@@ -7,6 +7,7 @@ import type {
   InteractiveSessionSnapshot,
   KnowledgeCandidateSnapshot,
   KnowledgeStatusTransition,
+  PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
 } from '../../../domain/src/index.js';
@@ -34,6 +35,18 @@ export interface CapabilitySummaryRepository {
 export interface CapabilityCatalogChangeSource {
   listPendingCatalogChangeEventIds(limit: number): Promise<readonly string[]>;
   markCatalogChangeEventsPublished(eventIds: readonly string[], publishedAt: string): Promise<void>;
+}
+
+export interface CapabilityCardRepository {
+  findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
+  findByCatalogHash(
+    catalogHash: string,
+    generationPolicyVersion: string,
+  ): Promise<PublicCapabilityCardSnapshot | undefined>;
+  activate(
+    candidate: PublicCapabilityCardSnapshot,
+    expectedActiveRevision?: number,
+  ): Promise<PublicCapabilityCardSnapshot>;
 }
 
 export interface TaskUnderstandingRepository {

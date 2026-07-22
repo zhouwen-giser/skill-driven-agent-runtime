@@ -9,6 +9,7 @@
     "sourceRef",
     "domainEvent",
     "capabilitySummary",
+    "capabilityCard",
     "taskUnderstanding",
     "interactiveSession",
     "experienceEpisode",
@@ -20,6 +21,7 @@
     "sourceRef": { "$ref": "#/$defs/sourceRef" },
     "domainEvent": { "$ref": "#/$defs/domainEvent" },
     "capabilitySummary": { "$ref": "#/$defs/capabilitySummary" },
+    "capabilityCard": { "$ref": "#/$defs/capabilityCard" },
     "taskUnderstanding": { "$ref": "#/$defs/taskUnderstanding" },
     "interactiveSession": { "$ref": "#/$defs/interactiveSession" },
     "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
@@ -264,6 +266,114 @@
         "builtAt": { "type": "string", "format": "date-time" }
       }
     },
+    "capabilityCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "cardId",
+        "revision",
+        "summaryId",
+        "catalogHash",
+        "generationPolicyVersion",
+        "profileVersion",
+        "status",
+        "agentName",
+        "description",
+        "profile",
+        "publicSkills",
+        "sourceSkillRefs",
+        "generationMode",
+        "cardContentHash",
+        "generatedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "cardId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "summaryId": { "$ref": "#/$defs/id" },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "generationPolicyVersion": { "$ref": "#/$defs/id" },
+        "profileVersion": { "const": "1.0" },
+        "status": { "enum": ["candidate", "active", "superseded", "failed"] },
+        "agentName": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profileVersion",
+            "catalogHash",
+            "domains",
+            "capabilities",
+            "limitations",
+            "generatedAt"
+          ],
+          "properties": {
+            "profileVersion": { "const": "1.0" },
+            "catalogHash": { "$ref": "#/$defs/hash" },
+            "domains": { "$ref": "#/$defs/strings" },
+            "capabilities": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "capabilityId",
+                  "domain",
+                  "title",
+                  "description",
+                  "effects",
+                  "evidence",
+                  "artifacts",
+                  "modes",
+                  "taskTypes",
+                  "limitations"
+                ],
+                "properties": {
+                  "capabilityId": { "$ref": "#/$defs/id" },
+                  "domain": { "$ref": "#/$defs/id" },
+                  "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+                  "description": { "type": "string", "minLength": 1, "maxLength": 2048 },
+                  "effects": { "$ref": "#/$defs/strings" },
+                  "evidence": { "$ref": "#/$defs/strings" },
+                  "artifacts": { "$ref": "#/$defs/strings" },
+                  "modes": { "$ref": "#/$defs/strings" },
+                  "taskTypes": { "$ref": "#/$defs/strings" },
+                  "limitations": { "$ref": "#/$defs/publicLimitations" }
+                }
+              }
+            },
+            "limitations": { "$ref": "#/$defs/publicLimitations" },
+            "generatedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "publicSkills": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "description", "tags", "inputModes", "outputModes"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "description": { "type": "string", "minLength": 1, "maxLength": 2048 },
+              "tags": { "$ref": "#/$defs/strings" },
+              "inputModes": { "$ref": "#/$defs/strings" },
+              "outputModes": { "$ref": "#/$defs/strings" }
+            }
+          }
+        },
+        "sourceSkillRefs": { "$ref": "#/$defs/strings" },
+        "generationMode": {
+          "enum": ["deterministic", "model_narrative", "deterministic_fallback"]
+        },
+        "cardContentHash": { "$ref": "#/$defs/hash" },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "taskUnderstanding": {
       "type": "object",
       "additionalProperties": false,
@@ -502,6 +612,19 @@
       "type": "array",
       "maxItems": 256,
       "items": { "$ref": "#/$defs/sourceRef" }
+    },
+    "publicLimitations": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "enum": ["confirmation_required", "not_composable"] },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
     }
   }
 }

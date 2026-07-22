@@ -8,16 +8,16 @@ design in `docs/25_V1_2_2_USER_GOAL_RUNTIME_DESIGN.md`.
 
 ## Authority order
 
-| Concern | Authority | Advisory/projection only |
-| --- | --- | --- |
-| User intent | user-confirmed Goal Contract | Understanding, Task Type, Experience |
-| Plan admitted to execution | user-confirmed validated Plan + v1.2.2 validator | Candidate/Shadow plan |
-| Skill declaration | exact enabled Skill Version and Outcome Specification | Capability Pattern/history |
-| Current readiness | v1.2.2 Provider/Skill readiness | Summary/Card/observed success |
-| Workflow execution | LangGraph.js | Skill Goal DAG/session/replay |
-| User Goal/A2A terminal | `UserGoalPlanController` | Workflow/Provider completion, Experience |
-| Cognitive facts/knowledge | PostgreSQL | Redis, MemoryService, files, Console |
-| Model invocation | existing SDAR Model Runtime | direct provider clients |
+| Concern                    | Authority                                             | Advisory/projection only                 |
+| -------------------------- | ----------------------------------------------------- | ---------------------------------------- |
+| User intent                | user-confirmed Goal Contract                          | Understanding, Task Type, Experience     |
+| Plan admitted to execution | user-confirmed validated Plan + v1.2.2 validator      | Candidate/Shadow plan                    |
+| Skill declaration          | exact enabled Skill Version and Outcome Specification | Capability Pattern/history               |
+| Current readiness          | v1.2.2 Provider/Skill readiness                       | Summary/Card/observed success            |
+| Workflow execution         | LangGraph.js                                          | Skill Goal DAG/session/replay            |
+| User Goal/A2A terminal     | `UserGoalPlanController`                              | Workflow/Provider completion, Experience |
+| Cognitive facts/knowledge  | PostgreSQL                                            | Redis, MemoryService, files, Console     |
+| Model invocation           | existing SDAR Model Runtime                           | direct provider clients                  |
 
 ## KD-01–KD-20 register
 
@@ -25,28 +25,28 @@ The final numbering is the table in `Overall_Design` and Frozen Decisions. The e
 `Best_Implementation_Design` contains a ten-item numbering with different grouping; it is historical
 input and is not used as the final register.
 
-| KD | Frozen decision | Owner / ADR | Replaces or extends |
-| --- | --- | --- | --- |
-| KD-01 | no Mastra/second runtime | Runtime / ADR-111 | reinforces ADR-001, ADR-007 |
-| KD-02 | MemoryService is active projection only | Knowledge / ADR-112 | extends ADR-038, ADR-083 |
-| KD-03 | user correction is a first-class fact | Interaction / ADR-112 | extends ADR-109 |
-| KD-04 | deterministic Capability Summary | Capability / ADR-113 | new additive projection |
-| KD-05 | narrative has no capability authority | Capability / ADR-113 | new additive rule |
-| KD-06 | common promotion framework, separate targets | Knowledge / ADR-112 | reuses but does not merge Skill Evolution |
-| KD-07 | Candidate excluded from formal Planner | Planning / ADR-111 | new mandatory guard |
-| KD-08 | first release promotion is manual | Knowledge / ADR-112 | narrows automatic evolution |
-| KD-09 | replay has no physical side effects | Evaluation / ADR-112 | extends no-replay authority |
-| KD-10 | progressive disclosure | Retrieval / ADR-113 | new context policy |
-| KD-11 | Experience failure falls back to base Planner | Planning / ADR-111 | preserves ADR-109 runtime |
-| KD-12 | Capability Pattern is not a Skill | Knowledge / ADR-111 | preserves Skill authority |
-| KD-13 | no automatic Skill publication | Knowledge / ADR-111 | limits Skill Evolution publication |
-| KD-14 | high-risk knowledge requires human approval | Knowledge / ADR-112 | new promotion gate |
-| KD-15 | active changes use version/status transition | Knowledge / ADR-112 | extends immutable status history |
-| KD-16 | A2A Card reads activated snapshots | Capability/A2A / ADR-113 | extends adapter projection |
-| KD-17 | sessions use CAS/idempotency | Interaction / ADR-113 | extends PostgreSQL CAS patterns |
-| KD-18 | only confirmed Contract/Plan enters v1.2.2 | Planning / ADR-111 | preserves ADR-109 |
-| KD-19 | transactional Outbox is learning entry | Experience / ADR-112 | new additive fact path |
-| KD-20 | user experience never auto-globalizes | Knowledge / ADR-112 | reinforces scope/privacy |
+| KD    | Frozen decision                               | Owner / ADR              | Replaces or extends                       |
+| ----- | --------------------------------------------- | ------------------------ | ----------------------------------------- |
+| KD-01 | no Mastra/second runtime                      | Runtime / ADR-111        | reinforces ADR-001, ADR-007               |
+| KD-02 | MemoryService is active projection only       | Knowledge / ADR-112      | extends ADR-038, ADR-083                  |
+| KD-03 | user correction is a first-class fact         | Interaction / ADR-112    | extends ADR-109                           |
+| KD-04 | deterministic Capability Summary              | Capability / ADR-113     | new additive projection                   |
+| KD-05 | narrative has no capability authority         | Capability / ADR-113     | new additive rule                         |
+| KD-06 | common promotion framework, separate targets  | Knowledge / ADR-112      | reuses but does not merge Skill Evolution |
+| KD-07 | Candidate excluded from formal Planner        | Planning / ADR-111       | new mandatory guard                       |
+| KD-08 | first release promotion is manual             | Knowledge / ADR-112      | narrows automatic evolution               |
+| KD-09 | replay has no physical side effects           | Evaluation / ADR-112     | extends no-replay authority               |
+| KD-10 | progressive disclosure                        | Retrieval / ADR-113      | new context policy                        |
+| KD-11 | Experience failure falls back to base Planner | Planning / ADR-111       | preserves ADR-109 runtime                 |
+| KD-12 | Capability Pattern is not a Skill             | Knowledge / ADR-111      | preserves Skill authority                 |
+| KD-13 | no automatic Skill publication                | Knowledge / ADR-111      | limits Skill Evolution publication        |
+| KD-14 | high-risk knowledge requires human approval   | Knowledge / ADR-112      | new promotion gate                        |
+| KD-15 | active changes use version/status transition  | Knowledge / ADR-112      | extends immutable status history          |
+| KD-16 | A2A Card reads activated snapshots            | Capability/A2A / ADR-113 | extends adapter projection                |
+| KD-17 | sessions use CAS/idempotency                  | Interaction / ADR-113    | extends PostgreSQL CAS patterns           |
+| KD-18 | only confirmed Contract/Plan enters v1.2.2    | Planning / ADR-111       | preserves ADR-109                         |
+| KD-19 | transactional Outbox is learning entry        | Experience / ADR-112     | new additive fact path                    |
+| KD-20 | user experience never auto-globalizes         | Knowledge / ADR-112      | reinforces scope/privacy                  |
 
 ADR-114 separately owns the post-v1.2.2 additive migration ledger.
 
@@ -148,6 +148,31 @@ Catalog Hash，只返回 Hash/Policy 匹配的 Active Snapshot；不匹配时返
 Skill catalog Outbox 事件驱动异步重建，失败会结构化记录并重试，不改变 Skill 或 v1.2.2 执行权威。
 管理 API 提供 `GET /api/v1/capabilities/summary` 和显式
 `POST /api/v1/capabilities/rebuild`；G02 才负责隐私过滤后的 Public Card/A2A 投影。
+
+## G02 Public Capability Card and A2A projection
+
+`PublicCapabilityProjectionPolicy` is an allowlist over the activated, hash-matched Runtime Capability
+Summary. It exposes only public Capability identity, domain, title, short description, declared effects,
+evidence, artifacts, modes, task types and the two public limitation codes. It never copies Context,
+composition, exact internal source references, readiness, Provider/Tool/Workflow configuration,
+credentials, private Experience, user data, failure statistics or live resources.
+
+`CapabilityCardPublisher` recomputes the exact enabled Skill catalog hash before publication and binds
+the immutable Card to `(summaryId, catalogHash, generationPolicyVersion)`. The deterministic top-level
+description is always available. The optional `capability_narrative` stage receives only the public
+profile, returns a strict `{description}` object and has display authority only; failure, malformed data
+or prohibited private/runtime vocabulary falls back to the deterministic description. Enabled public
+Skills are selected by the existing Usage visibility declaration and retain their A2A id, name,
+description, tags and media modes. Internal Skills are excluded.
+
+PostgreSQL owns the one active Card pointer, idempotency key and `capability.card_published` outbox event.
+Activation is transactional, CAS-protected and rejected unless the exact bound Summary is active. A
+successful Skill catalog mutation waits for the serialized Summary-to-Card projection attempt;
+transient catalog-hash races retry, while infrastructure failure is logged and leaves the source event
+pending for the periodic projector. The A2A Agent Card endpoint performs no model call and reads only
+the currently activated snapshot. It exposes the optional
+`io.sdar/capabilityProfile` extension. The Console and Management API are operational projections over
+the same durable record and hold no independent capability authority.
 
 ## Open-source boundary
 

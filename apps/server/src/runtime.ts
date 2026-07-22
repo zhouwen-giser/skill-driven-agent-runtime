@@ -95,6 +95,7 @@ import {
   TaskQualityEvaluationService,
   CapabilitySummaryService,
   CapabilityCatalogChangeProjector,
+  CapabilityCardPublisher,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
@@ -105,6 +106,7 @@ import {
   type TextEmbeddingProvider,
   type RemoteTaskPollingOptions,
   type SkillUsageSlotChoice,
+  type CognitiveStructuredModelStageInvoker,
 } from '../../../packages/application/src/index.js';
 import {
   createGoalExecutionContract,
@@ -155,6 +157,7 @@ import {
   PostgresSkillRepository,
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
+  PostgresCapabilityCardRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -237,6 +240,7 @@ export interface ServerRuntimeOptions {
       }>,
     ): readonly SkillUsageSlotChoice[] | Promise<readonly SkillUsageSlotChoice[]>;
   }>;
+  readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -368,13 +372,59 @@ export async function startServerRuntime(
     clock,
     nextSummaryId: () => `capability-summary-${randomUUID()}`,
   });
+  const capabilityCards = new CapabilityCardPublisher({
+    summaries: capabilitySummaries,
+    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    repository: new PostgresCapabilityCardRepository(pool),
+    ...(options.capabilityNarrative === undefined
+      ? {}
+      : { narrative: options.capabilityNarrative }),
+    clock,
+    nextCardId: () => `capability-card-${randomUUID()}`,
+  });
   const capabilityCatalogChanges = new CapabilityCatalogChangeProjector({
     changes: new PostgresCapabilityCatalogChangeSource(pool),
     summaries: capabilitySummaries,
     clock,
+    afterRebuild: (view) => capabilityCards.publish(view).then(() => undefined),
   });
+  let capabilityCatalogProjection = Promise.resolve();
+  const refreshCapabilityCatalog = (): Promise<void> => {
+    const projection = capabilityCatalogProjection
+      .catch(() => undefined)
+      .then(async () => {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          try {
+            while ((await capabilityCatalogChanges.drain()) > 0) {
+              // Drain again so events committed during a projection are included before returning.
+            }
+            return;
+          } catch (error: unknown) {
+            if (
+              attempt === 4 ||
+              !(error instanceof Error) ||
+              error.message !== 'CAPABILITY_CARD_CATALOG_HASH_MISMATCH'
+            ) {
+              throw error;
+            }
+          }
+        }
+      });
+    capabilityCatalogProjection = projection;
+    return projection;
+  };
+  const refreshCapabilityCatalogAfterMutation = async (): Promise<void> => {
+    try {
+      await refreshCapabilityCatalog();
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'capability_catalog_refresh.deferred', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
+      );
+    }
+  };
   await capabilitySummaries.rebuild();
-  await capabilityCatalogChanges.drain();
+  await capabilityCards.publish();
+  await refreshCapabilityCatalog();
   const skillExecutionRepository = new PostgresSkillExecutionRepository(pool);
   const skillExecutionRecording = new SkillExecutionRecordingService({
     repository: skillExecutionRepository,
@@ -516,6 +566,7 @@ export async function startServerRuntime(
     validator: schemaValidator,
     clock,
     packages: skillPackages,
+    afterCatalogChanged: refreshCapabilityCatalogAfterMutation,
   });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
@@ -2780,8 +2831,7 @@ export async function startServerRuntime(
   const capabilityCatalogRefreshTimer = setInterval(() => {
     if (capabilityCatalogRefreshRunning) return;
     capabilityCatalogRefreshRunning = true;
-    void capabilityCatalogChanges
-      .drain()
+    void refreshCapabilityCatalog()
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'capability_catalog_refresh.failed', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
@@ -2902,6 +2952,7 @@ export async function startServerRuntime(
       operations: {
         graph: skillGraph,
         capabilities: capabilitySummaries,
+        capabilityCards,
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3072,6 +3123,7 @@ export async function startServerRuntime(
           }));
         },
       },
+      capabilityCardProvider: capabilityCards,
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });

@@ -789,6 +789,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CapabilitySummaryView' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/card:
+    get:
+      operationId: getPublicCapabilityCard
+      description: Returns the activated, versioned Public Capability Card snapshot. The public profile is allowlist-only and excludes Provider, Tool, Workflow, credential, private experience and live resource data.
+      responses:
+        '200':
+          description: Activated Public Capability Card snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/card/rebuild:
+    post:
+      operationId: rebuildPublicCapabilityCard
+      description: Builds from the active hash-matched Runtime Capability Summary, validates the public allowlist and idempotently activates the Card. Optional Narrative failure uses the deterministic template.
+      responses:
+        '200':
+          description: Idempotently activated Public Capability Card snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/skills/catalog:
     get:
       operationId: listSkillUsageCatalog
@@ -1373,6 +1395,104 @@ components:
       properties:
         summary: { $ref: '#/components/schemas/RuntimeCapabilitySummary' }
         index: { $ref: '#/components/schemas/CapabilityIndex' }
+    PublicCapabilityLimitation:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: { enum: [confirmation_required, not_composable] }
+        message: { type: string, minLength: 1, maxLength: 1024 }
+    PublicCapabilityItem:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          capabilityId,
+          domain,
+          title,
+          description,
+          effects,
+          evidence,
+          artifacts,
+          modes,
+          taskTypes,
+          limitations,
+        ]
+      properties:
+        capabilityId: { type: string, minLength: 1 }
+        domain: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, maxLength: 512 }
+        description: { type: string, minLength: 1, maxLength: 2048 }
+        effects: { type: array, items: { type: string } }
+        evidence: { type: array, items: { type: string } }
+        artifacts: { type: array, items: { type: string } }
+        modes: { type: array, items: { type: string } }
+        taskTypes: { type: array, items: { type: string } }
+        limitations:
+          { type: array, items: { $ref: '#/components/schemas/PublicCapabilityLimitation' } }
+    PublicCapabilityProfile:
+      type: object
+      additionalProperties: false
+      required: [profileVersion, catalogHash, domains, capabilities, limitations, generatedAt]
+      properties:
+        profileVersion: { const: '1.0' }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        domains: { type: array, items: { type: string } }
+        capabilities: { type: array, items: { $ref: '#/components/schemas/PublicCapabilityItem' } }
+        limitations:
+          { type: array, items: { $ref: '#/components/schemas/PublicCapabilityLimitation' } }
+        generatedAt: { type: string, format: date-time }
+    PublicAgentSkillSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, tags, inputModes, outputModes]
+      properties:
+        id: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        tags: { type: array, items: { type: string } }
+        inputModes: { type: array, items: { type: string } }
+        outputModes: { type: array, items: { type: string } }
+    PublicCapabilityCardSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          cardId,
+          revision,
+          summaryId,
+          catalogHash,
+          generationPolicyVersion,
+          profileVersion,
+          status,
+          agentName,
+          description,
+          profile,
+          publicSkills,
+          sourceSkillRefs,
+          generationMode,
+          cardContentHash,
+          generatedAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        cardId: { type: string, minLength: 1 }
+        revision: { type: integer, minimum: 1 }
+        summaryId: { type: string, minLength: 1 }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        generationPolicyVersion: { type: string, minLength: 1 }
+        profileVersion: { const: '1.0' }
+        status: { enum: [candidate, active, superseded, failed] }
+        agentName: { type: string, minLength: 1, maxLength: 256 }
+        description: { type: string, minLength: 1, maxLength: 2048 }
+        profile: { $ref: '#/components/schemas/PublicCapabilityProfile' }
+        publicSkills:
+          { type: array, items: { $ref: '#/components/schemas/PublicAgentSkillSnapshot' } }
+        sourceSkillRefs: { type: array, items: { type: string } }
+        generationMode: { enum: [deterministic, model_narrative, deterministic_fallback] }
+        cardContentHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        generatedAt: { type: string, format: date-time }
     GoalExecutionContract:
       type: object
       additionalProperties: false

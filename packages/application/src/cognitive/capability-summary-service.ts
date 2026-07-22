@@ -118,17 +118,20 @@ export class CapabilityCatalogChangeProjector {
   readonly #changes: CapabilityCatalogChangeSource;
   readonly #summaries: Pick<CapabilitySummaryService, 'invalidateCache' | 'rebuild'>;
   readonly #clock: Readonly<{ now(): string }>;
+  readonly #afterRebuild: ((view: CapabilitySummaryView) => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
       changes: CapabilityCatalogChangeSource;
       summaries: Pick<CapabilitySummaryService, 'invalidateCache' | 'rebuild'>;
       clock: Readonly<{ now(): string }>;
+      afterRebuild?(view: CapabilitySummaryView): Promise<void>;
     }>,
   ) {
     this.#changes = dependencies.changes;
     this.#summaries = dependencies.summaries;
     this.#clock = dependencies.clock;
+    this.#afterRebuild = dependencies.afterRebuild;
   }
 
   async drain(limit = 100): Promise<number> {
@@ -138,7 +141,8 @@ export class CapabilityCatalogChangeProjector {
     const eventIds = await this.#changes.listPendingCatalogChangeEventIds(limit);
     if (eventIds.length === 0) return 0;
     this.#summaries.invalidateCache();
-    await this.#summaries.rebuild();
+    const view = await this.#summaries.rebuild();
+    await this.#afterRebuild?.(view);
     await this.#changes.markCatalogChangeEventsPublished(eventIds, this.#clock.now());
     return eventIds.length;
   }

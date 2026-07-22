@@ -17,6 +17,11 @@ All notable changes to this project are documented here. The format follows Keep
   bounded Level-0 Index/Level-1 Detail, PostgreSQL active snapshots and catalog-change projection.
 - Management `GET /api/v1/capabilities/summary` and `POST /api/v1/capabilities/rebuild` contracts with
   OpenAPI schemas; summaries intentionally exclude live Provider readiness.
+- G02 allowlisted Public Capability Profile/Card snapshots, transactional PostgreSQL activation,
+  deterministic narrative fallback, A2A snapshot projection and the optional
+  `io.sdar/capabilityProfile` extension.
+- Management `GET /api/v1/capabilities/card` and `POST /api/v1/capabilities/card/rebuild`, plus a real
+  Capabilities Console view over the activated snapshot.
 
 ### Changed
 
@@ -26,6 +31,8 @@ All notable changes to this project are documented here. The format follows Keep
   the v1.2.2 baseline SQL remains unchanged.
 - Skill version writes append `skill.catalog_changed`; the single Server process retries deterministic
   Summary projection while PostgreSQL remains the only durable authority.
+- Successful Skill catalog mutations now await the serialized Summary-to-Card projection. A2A requests
+  never call a model and fail closed rather than serving a hash-mismatched Card.
 
 ### Verification
 

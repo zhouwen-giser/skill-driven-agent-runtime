@@ -100,6 +100,21 @@ PostgreSQL 是上述记录的唯一持久权威；后续 Goal 使用的 BullMQ j
 
 开发期 rollback 仅允许在确认所有 v1.2.3 实验数据可丢弃后执行 `0108_v123_cognitive_skeleton.down.sql`；它删除全部 v1.2.3 cognitive 表和 marker，但不修改 v1.2.2 baseline。进入发布升级承诺后不得用该 rollback 迁移正式数据，必须新增 forward migration 保持既有版本语义。
 
+### v1.2.3 Public Capability Card activation
+
+`0110_v123_capability_card` completes the G00 skeleton table with a content hash, the allowlisted public
+Skill source references and the deterministic/model/fallback generation mode. The unique
+`(catalog_hash, generation_policy_version)` key is the Card publication idempotency boundary. Migration
+application refuses non-empty unreleased Card rows rather than silently rewriting their meaning.
+
+`public_capability_card_snapshot.status='active'` is the only readable pointer. Activation uses a
+transaction-scoped advisory lock, validates that the exact Summary id/hash/policy is active, applies
+expected-revision CAS, supersedes the old Card and writes `capability.card_published` in the same
+transaction. Redis contains no Card authority. A down migration is allowed only while the Card table is
+empty; otherwise `MIGRATION_0110_ROLLBACK_REQUIRES_NO_CAPABILITY_CARDS` fails closed. Disposable database
+verification applies 0108 through 0110, replays idempotently, rolls them back in reverse order and
+reapplies them without modifying the byte-stable v1.2.2 baseline.
+
 ### v1.2.3 Capability Summary activation
 
 `0109_v123_capability_summary` 在 G00 skeleton 上增加 `generation_policy_version`，并以

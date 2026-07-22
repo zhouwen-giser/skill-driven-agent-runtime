@@ -16,10 +16,12 @@ import { PromptPanel } from './PromptPanel.js';
 import { EvaluationPanel } from './EvaluationPanel.js';
 import { SystemPanel } from './SystemPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
+import { CapabilitiesPanel } from './CapabilitiesPanel.js';
 
 type Section =
   | 'overview'
   | 'skills'
+  | 'capabilities'
   | 'mcp'
   | 'workflows'
   | 'tasks'
@@ -37,6 +39,7 @@ const navigation: readonly {
   { id: 'overview', label: '运行概览', note: 'System' },
   { id: 'tasks', label: '任务与 Goal', note: 'Trace' },
   { id: 'skills', label: 'Skills', note: 'Lifecycle' },
+  { id: 'capabilities', label: 'Capabilities', note: 'Public Card' },
   { id: 'workflows', label: 'Workflows', note: 'DAG' },
   { id: 'mcp', label: 'MCP Servers', note: 'Tools' },
   { id: 'business-events', label: 'Business Events', note: 'Inbox' },
@@ -161,6 +164,7 @@ function SectionView({
         }}
       />
     );
+  if (section === 'capabilities') return <CapabilitiesPanel />;
   if (section === 'mcp')
     return (
       <McpPanel
@@ -309,7 +313,14 @@ export function Lookup({
 }: {
   readonly section: Exclude<
     Section,
-    'overview' | 'skills' | 'mcp' | 'evaluation' | 'prompts' | 'system' | 'business-events'
+    | 'overview'
+    | 'skills'
+    | 'capabilities'
+    | 'mcp'
+    | 'evaluation'
+    | 'prompts'
+    | 'system'
+    | 'business-events'
   >;
 }) {
   const config = useMemo(
