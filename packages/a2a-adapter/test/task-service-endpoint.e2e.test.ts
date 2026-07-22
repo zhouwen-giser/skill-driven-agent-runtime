@@ -3033,50 +3033,61 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           expectsRemoteTask,
         );
         if (expectsRemoteTask) {
-          const lifecycle = z
-            .object({
-              items: z.array(
-                z.object({
-                  binding: z.object({
-                    protocolContract: z.object({
-                      mode: z.literal('frozen_v1'),
-                      protocolVersion: z.literal('2026-07-28'),
-                      baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-                      taskExecutionProfileVersion: z.literal('1.0'),
-                      evidenceProfileVersion: z.literal('1.0'),
-                      serverDiscoverySnapshotId: z.string().min(1),
-                    }),
-                    taskBehavior: z.enum(['server_directed', 'task_required']),
-                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                    taskTtlMs: z.number().int().positive(),
-                    taskExpiresAt: z.iso.datetime({ offset: true }),
+          const lifecycleSchema = z.object({
+            items: z.array(
+              z.object({
+                binding: z.object({
+                  protocolContract: z.object({
+                    mode: z.literal('frozen_v1'),
+                    protocolVersion: z.literal('2026-07-28'),
+                    baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
+                    taskExecutionProfileVersion: z.literal('1.0'),
+                    evidenceProfileVersion: z.literal('1.0'),
+                    serverDiscoverySnapshotId: z.string().min(1),
                   }),
-                  observations: z
-                    .array(
-                      z.object({
-                        source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
-                        runtimeRevision: z
-                          .string()
-                          .regex(/^(?:0|[1-9][0-9]*)$/u)
-                          .optional(),
-                      }),
-                    )
-                    .min(2),
-                  protocol: z.object({
-                    ttlMs: z.number().int().positive(),
-                    expiresAt: z.iso.datetime({ offset: true }),
-                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                    latestObservationSource: z.literal(
-                      outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
-                    ),
-                  }),
+                  taskBehavior: z.enum(['server_directed', 'task_required']),
+                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                  taskTtlMs: z.number().int().positive(),
+                  taskExpiresAt: z.iso.datetime({ offset: true }),
                 }),
-              ),
-            })
-            .parse(
-              await fetch(
-                `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/remote-task-lifecycle`,
-              ).then((response) => response.json()),
+                observations: z
+                  .array(
+                    z.object({
+                      source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
+                      runtimeRevision: z
+                        .string()
+                        .regex(/^(?:0|[1-9][0-9]*)$/u)
+                        .optional(),
+                    }),
+                  )
+                  .min(2),
+                protocol: z.object({
+                  ttlMs: z.number().int().positive(),
+                  expiresAt: z.iso.datetime({ offset: true }),
+                  runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
+                  latestObservationSource: z.literal(
+                    outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
+                  ),
+                }),
+              }),
+            ),
+          });
+          let lifecycle: z.infer<typeof lifecycleSchema> | undefined;
+          let lastLifecycle: unknown;
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            lastLifecycle = await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/remote-task-lifecycle`,
+            ).then((response) => response.json());
+            const parsed = lifecycleSchema.safeParse(lastLifecycle);
+            if (parsed.success) {
+              lifecycle = parsed.data;
+              break;
+            }
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+          }
+          if (lifecycle === undefined)
+            throw new Error(
+              `REMOTE_TASK_RECONCILIATION_NOT_OBSERVED:${JSON.stringify(lastLifecycle)}`,
             );
           expect(lifecycle.items).toHaveLength(1);
           expect(lifecycle.items[0]?.observations.map((item) => item.source)).toEqual(
