@@ -528,6 +528,13 @@ function admission(overrides: Partial<Parameters<typeof createRemoteTaskBinding>
     protocolStatus: 'working' as const,
     protocolRevision: '2026-07-28',
     tasksSchemaRevision: 'schema-1',
+    protocolContract: {
+      mode: 'frozen_v1' as const,
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+    },
+    taskBehavior: 'server_directed' as const,
+    runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' as const },
     credentialRevision: 'credential-sha256-1',

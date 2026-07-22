@@ -6,6 +6,7 @@ import {
   type GoalPatchRecord,
   type SkillVersion,
   type WorkflowPlanRecord,
+  type UserGoalPlan,
 } from '../../domain/src/index.js';
 import { GoalPatchService, type PlanWorkflowInput } from '../src/index.js';
 
@@ -74,6 +75,23 @@ describe('GoalPatchService', () => {
     let modelCallCount = 0;
     let inputRequired = false;
     let loadedSourcePlan = sourcePlan;
+    const userGoalPlanningInputs: unknown[] = [];
+    const currentUserGoalPlan: UserGoalPlan = {
+      schemaVersion: '1.0',
+      planId: 'user-goal-plan-1',
+      goalId: goal.goalId,
+      goalVersion: goal.version,
+      revision: 1,
+      revisionKind: 'initial',
+      status: 'active',
+      contractHash: `sha256:${'a'.repeat(64)}`,
+      contentHash: `sha256:${'b'.repeat(64)}`,
+      skillGoals: [],
+      dependencies: [],
+      inheritedCompletedEffectIds: ['effect.already-complete'],
+      forbiddenReplayFingerprints: [`sha256:${'c'.repeat(64)}`],
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
     const service = new GoalPatchService({
       goals: {
         findById: () => Promise.resolve(goal),
@@ -131,6 +149,28 @@ describe('GoalPatchService', () => {
       },
       clock: { now: () => '2026-07-12T00:00:01.000Z' },
       ids: { nextPatchId: () => 'patch-1', nextPlanId: () => 'plan-2' },
+      userGoalPlans: {
+        findCurrentPlan: () => Promise.resolve({ plan: currentUserGoalPlan, lockVersion: 3 }),
+        listValidCompletedEffects: () =>
+          Promise.resolve([
+            {
+              completedEffectId: 'completed-effect.persisted',
+              goalId: 'goal-1',
+              planId: 'user-goal-plan-1',
+              skillGoalId: 'skill-goal-1',
+              status: 'verified' as const,
+              effectFingerprint: `sha256:${'d'.repeat(64)}`,
+              evidenceRefs: ['evidence.persisted'],
+              createdAt: '2026-07-12T00:00:00.000Z',
+            },
+          ]),
+      },
+      userGoalPlanning: {
+        plan: (input) => {
+          userGoalPlanningInputs.push(input);
+          return Promise.resolve({ contract: {} as never, plan: currentUserGoalPlan });
+        },
+      },
       beforeReplan: {
         prepare: ({ goal: patchedGoal }) => {
           reparsedGoalVersions.push(patchedGoal.version);
@@ -174,6 +214,19 @@ describe('GoalPatchService', () => {
     expect(JSON.stringify(planning[0])).toContain('always_require_confirmation');
     expect(JSON.stringify(planning[0])).toContain('skill-input-resolution-patch-1');
     expect(JSON.stringify(planning[0])).toContain('Restore the prior calibration value.');
+    expect(userGoalPlanningInputs).toEqual([
+      expect.objectContaining({
+        goal: expect.objectContaining({ version: 2 }),
+        revision: 2,
+        revisionKind: 'goal_patch',
+        sourcePlan: expect.objectContaining({
+          planId: 'user-goal-plan-1',
+          lockVersion: 3,
+          inheritedCompletedEffectIds: ['effect.already-complete', 'completed-effect.persisted'],
+          forbiddenReplayFingerprints: [`sha256:${'c'.repeat(64)}`, `sha256:${'d'.repeat(64)}`],
+        }),
+      }),
+    ]);
     expect(reparsedGoalVersions).toEqual([2]);
     inputRequired = true;
     await expect(

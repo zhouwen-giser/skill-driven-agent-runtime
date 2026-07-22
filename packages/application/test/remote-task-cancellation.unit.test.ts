@@ -442,6 +442,13 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
       protocolStatus: 'working',
       protocolRevision: 'tasks-protocol-1',
       tasksSchemaRevision: 'tasks-schema-1',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: 'tasks-protocol-1',
+        baselineSha256: 'a'.repeat(64),
+      },
+      taskBehavior: 'server_directed',
+      runtimeRevision: '1',
       executionContext: { mode: 'live' },
       credentialRevision: 'credential-1',
       sessionRevision: 'session-1',

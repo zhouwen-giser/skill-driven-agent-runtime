@@ -7,12 +7,14 @@ import type {
   WorkflowExecutionRepository,
 } from './ports.js';
 import type { WorkflowExecutionService } from './workflow-execution.js';
+import type { UserGoalPlanController } from './user-goal-plan-controller.js';
 
 export class GoalCancellationService {
   readonly #goals: GoalRepository;
   readonly #instances: WorkflowExecutionRepository;
   readonly #execution: Pick<WorkflowExecutionService, 'cancelForPlan'>;
-  readonly #repository: GoalCancellationRepository;
+  readonly #repository: Pick<GoalCancellationRepository, 'find' | 'listByGoal'>;
+  readonly #terminalAuthority: Pick<UserGoalPlanController, 'cancelGoal'>;
   readonly #clock: Clock;
   readonly #nextId: () => string;
 
@@ -21,7 +23,8 @@ export class GoalCancellationService {
       goals: GoalRepository;
       instances: WorkflowExecutionRepository;
       execution: Pick<WorkflowExecutionService, 'cancelForPlan'>;
-      repository: GoalCancellationRepository;
+      repository: Pick<GoalCancellationRepository, 'find' | 'listByGoal'>;
+      terminalAuthority: Pick<UserGoalPlanController, 'cancelGoal'>;
       clock: Clock;
       nextId: () => string;
     }>,
@@ -30,6 +33,7 @@ export class GoalCancellationService {
     this.#instances = dependencies.instances;
     this.#execution = dependencies.execution;
     this.#repository = dependencies.repository;
+    this.#terminalAuthority = dependencies.terminalAuthority;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
   }
@@ -51,7 +55,7 @@ export class GoalCancellationService {
       const policy = canceled.errors['cancellationPolicy'];
       if (policy !== undefined) warnings.push(policy.message);
     }
-    return this.#repository.cancel({
+    return this.#terminalAuthority.cancelGoal({
       cancellationId: this.#nextId(),
       goalId,
       goalVersion: goal.version,

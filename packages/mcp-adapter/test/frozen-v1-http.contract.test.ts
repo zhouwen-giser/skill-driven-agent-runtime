@@ -4,8 +4,6 @@ import {
   FROZEN_MCP_PROTOCOL_VERSION,
   FrozenMcpProtocolError,
   FrozenV1McpClient,
-  McpTransportRouter,
-  StreamableHttpMcpAdapter,
 } from '../src/index.js';
 
 const endpoint = 'https://provider.example.test/mcp';
@@ -148,14 +146,6 @@ describe('Frozen V1 stateless HTTP client', () => {
         code: 'FROZEN_MCP_DISCOVERY_INVALID',
       },
     );
-  });
-
-  it('routes explicitly with no Frozen-to-Legacy fallback', () => {
-    const legacy = new StreamableHttpMcpAdapter();
-    const frozen = new FrozenV1McpClient(() => Promise.reject(new Error('not called')));
-    const router = new McpTransportRouter({ legacy, frozen });
-    expect(router.route('legacy_v11')).toBe(legacy);
-    expect(router.route('frozen_v1')).toBe(frozen);
   });
 });
 

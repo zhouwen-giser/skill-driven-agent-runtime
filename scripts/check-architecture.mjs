@@ -42,6 +42,7 @@ const forbiddenApplicationImports = [
 await assertImports('packages/domain', forbiddenDomainImports);
 await assertImports('packages/application', forbiddenApplicationImports);
 await assertSingleWorkflowRuntime();
+await assertRemovedCompatibilitySymbols();
 
 const sourceFiles = [
   ...(await collectSourceFiles('packages')),
@@ -121,6 +122,48 @@ async function assertSingleWorkflowRuntime() {
       )
     ) {
       throw new Error(`ARCH_SECOND_RUNTIME_FORBIDDEN: ${dependency}`);
+    }
+  }
+}
+
+async function assertRemovedCompatibilitySymbols() {
+  const prefix = ['leg', 'acy'].join('');
+  const forbidden = [
+    `${prefix}_v11`,
+    `${prefix}_guidance`,
+    `${prefix[0].toUpperCase()}${prefix.slice(1)}V11`,
+    'McpTransportRouter',
+  ];
+  const files = [
+    ...(await collectSourceFiles('apps')),
+    ...(await collectSourceFiles('packages')),
+    ...(await collectFiles('schemas', (name) => name.endsWith('.json') || name.endsWith('.yaml'))),
+  ];
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    for (const symbol of forbidden)
+      if (source.includes(symbol))
+        throw new Error(`ARCH_REMOVED_COMPATIBILITY_SYMBOL: ${normalize(file)} -> ${symbol}`);
+  }
+}
+
+async function collectFiles(root, include) {
+  const result = [];
+  await visit(path.resolve(root));
+  return result;
+
+  async function visit(directory) {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) await visit(fullPath);
+      else if (entry.isFile() && include(entry.name))
+        result.push(path.relative(process.cwd(), fullPath));
     }
   }
 }

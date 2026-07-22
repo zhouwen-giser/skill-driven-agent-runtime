@@ -166,7 +166,7 @@ export function SkillsPanel({
               <span className="status ok">{skill.status}</span>
             </div>
             {skill.usageSpecification === undefined ? (
-              <small>Legacy guidance projection · guidance</small>
+              <small className="status">Invalid: native Usage specification required</small>
             ) : (
               <small>
                 Modes {skill.usageSpecification.modes.supported.join(', ')} · default{' '}

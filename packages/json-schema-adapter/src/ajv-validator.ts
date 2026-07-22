@@ -11,16 +11,32 @@ import {
 const JsonSchemaInput = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
 
 export class AjvJsonSchemaValidator implements JsonSchemaValidator {
-  readonly #ajv2020 = new Ajv2020({
-    strict: true,
-    allErrors: true,
-    validateSchema: true,
-  });
-  readonly #ajvDraft7 = new Ajv({
-    strict: true,
-    allErrors: true,
-    validateSchema: true,
-  });
+  readonly #ajv2020: Ajv2020;
+  readonly #ajvDraft7: Ajv;
+
+  constructor(options: Readonly<{ strict?: boolean }> = {}) {
+    const strict = options.strict ?? true;
+    this.#ajv2020 = new Ajv2020({
+      strict,
+      allowUnionTypes: true,
+      allErrors: true,
+      validateSchema: true,
+    });
+    this.#ajvDraft7 = new Ajv({
+      strict,
+      allowUnionTypes: true,
+      allErrors: true,
+      validateSchema: true,
+    });
+    for (const ajv of [this.#ajv2020, this.#ajvDraft7]) {
+      ajv.addFormat('uuid', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
+      ajv.addFormat(
+        'date-time',
+        (value: string) =>
+          /(?:Z|[+-][0-9]{2}:[0-9]{2})$/u.test(value) && Number.isFinite(Date.parse(value)),
+      );
+    }
+  }
 
   checkSchema(schema: unknown): JsonSchemaValidationResult {
     try {

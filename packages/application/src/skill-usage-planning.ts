@@ -1,5 +1,4 @@
 import {
-  createLegacySkillUsageProjection,
   type GoalExecutionContract,
   type SkillModeInterpretation,
   type SkillUsageCandidateSnapshot,
@@ -41,12 +40,12 @@ export function prepareSkillUsagePlan(
       'SKILL_USAGE_PLANNING_IDENTITY_INVALID',
       'Planning requires one selected mode and exact Skill version.',
     );
-  const usage =
-    input.skill.usageSpecification ??
-    createLegacySkillUsageProjection({
-      workflowGuidance: input.skill.workflowGuidance,
-      autoConfirmPlan: input.skill.runtimePolicy.autoConfirmPlan,
-    }).specification;
+  const usage = input.skill.usageSpecification;
+  if (usage === undefined)
+    throw planningError(
+      'SKILL_USAGE_REQUIRED',
+      'Skill planning requires a native usage specification.',
+    );
   const taskOperations = usage.taskBindings.map((binding) => {
     const readiness = input.candidate.applicability.readiness.bindings.find(
       (item) => item.bindingId === binding.bindingId,
@@ -65,7 +64,7 @@ export function prepareSkillUsagePlan(
       taskType: binding.taskType,
       providerId: readiness.selectedProviderId,
       operationName: readiness.selectedOperationName,
-      protocolMode: readiness.selectedProtocolMode ?? 'legacy_v11',
+      protocolMode: readiness.selectedProtocolMode ?? 'frozen_v1',
     });
   });
   const policy: SkillUsagePlanPolicy = Object.freeze({
@@ -116,6 +115,12 @@ export function prepareSkillUsagePlan(
   });
   const planningInstruction = JSON.stringify({
     operation: 'plan_with_skill_usage_policy',
+    workflowIdentity: {
+      workflowDefinitionId: input.workflowDefinitionId,
+      version: input.workflowVersion,
+      goalId: input.goalContract.goalId,
+      goalVersion: input.goalContract.version,
+    },
     goalContract: input.goalContract,
     skillUsagePolicy: policy,
     instruction:
@@ -140,7 +145,6 @@ export function prepareSkillUsagePlan(
 export function checkSkillUsagePlanCompliance(
   definition: WorkflowDefinition,
   policy: SkillUsagePlanPolicy,
-  admittedLegacyChildSkillIds: readonly string[] = [],
 ): SkillUsagePlanComplianceResult {
   const errors: SkillUsagePlanComplianceError[] = [];
   const allowedTools = new Set([
@@ -171,14 +175,7 @@ export function checkSkillUsagePlanCompliance(
       );
 
   const skillNodes = definition.nodes.filter((node) => node.type === 'skill_call');
-  // A legacy projection has no v1.2 composition declaration. Preserve the existing
-  // exact-version Skill Graph authority in that case; native fixed/slot composition
-  // remains closed to its explicit decisions.
-  const legacyGraphChildIds = policy.childPolicies.length === 0 ? admittedLegacyChildSkillIds : [];
-  const allowedChildIds = new Set([
-    ...policy.childPolicies.map((item) => item.child.skillId),
-    ...legacyGraphChildIds,
-  ]);
+  const allowedChildIds = new Set(policy.childPolicies.map((item) => item.child.skillId));
   for (const node of skillNodes)
     if (!allowedChildIds.has(node.skillId))
       error(
@@ -187,10 +184,7 @@ export function checkSkillUsagePlanCompliance(
         `nodes.${node.nodeId}.skillId`,
         'Workflow child is outside the exact composition candidate decision.',
       );
-  const childNodeBudget =
-    policy.childPolicies.length === 0
-      ? new Set(legacyGraphChildIds).size
-      : policy.composition.consumedNodes;
+  const childNodeBudget = policy.composition.consumedNodes;
   if (skillNodes.length > childNodeBudget)
     error(
       errors,
@@ -327,10 +321,7 @@ function compileDeterministicDefinition(
       type: 'mcp_tool',
       tool: { serverId: task.providerId, toolName: task.operationName },
       arguments: { op: 'ref', path: ['input', 'skillInput'] },
-      taskExecution:
-        task.protocolMode === 'frozen_v1'
-          ? { protocolMode: 'frozen_v1', availabilityCheck: 'required' }
-          : { mode: 'require_task', availabilityCheck: 'required' },
+      taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
     }),
   );
   input.policy.evidenceRequirements
@@ -487,7 +478,9 @@ function planningError(code: SkillUsagePlanningErrorCode, message: string) {
 }
 
 export type SkillUsagePlanningErrorCode =
-  'SKILL_USAGE_PLANNING_IDENTITY_INVALID' | 'SKILL_USAGE_PLANNING_TASK_UNRESOLVED';
+  | 'SKILL_USAGE_PLANNING_IDENTITY_INVALID'
+  | 'SKILL_USAGE_PLANNING_TASK_UNRESOLVED'
+  | 'SKILL_USAGE_REQUIRED';
 
 export class SkillUsagePlanningError extends Error {
   readonly code: SkillUsagePlanningErrorCode;

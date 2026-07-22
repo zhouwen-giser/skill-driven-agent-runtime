@@ -92,7 +92,7 @@ const TaskExecutionTimingSchema: z.ZodType<TaskExecutionTiming> = z
   .strict();
 const McpProtocolContractSnapshotSchema: z.ZodType<McpProtocolContractSnapshot> = z
   .object({
-    mode: z.enum(['legacy_v11', 'frozen_v1']),
+    mode: z.literal('frozen_v1'),
     protocolVersion: z.string().min(1),
     baselineSha256: z.string().min(1),
     tasksSchemaSha256: z.string().min(1).optional(),
@@ -112,6 +112,8 @@ interface RemoteTaskBindingRow extends QueryResultRow {
   goal_id: string;
   goal_version: number;
   workflow_plan_id: string;
+  skill_goal_id: string | null;
+  skill_attempt_id: string | null;
   workflow_definition_id: string;
   workflow_definition_version: number;
   workflow_instance_id: string;
@@ -214,7 +216,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       const inserted = await client.query<RemoteTaskBindingRow>(
         `INSERT INTO remote_task_binding (
            binding_id,server_id,operation_name,remote_task_id,agent_task_id,context_id,
-           goal_id,goal_version,workflow_plan_id,workflow_definition_id,
+           goal_id,goal_version,workflow_plan_id,skill_goal_id,skill_attempt_id,
+           workflow_definition_id,
            workflow_definition_version,workflow_instance_id,workflow_node_id,
            workflow_node_run_id,parent_workflow_instance_id,parent_skill_call_id,
            mcp_invocation_id,protocol_status,protocol_revision,tasks_schema_revision,
@@ -226,8 +229,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            provider_failure_count,created_at,updated_at,version)
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-           $21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33,$34,
-           $35,$36,$37,$38,$39,$40,$41,$42)
+           $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33::jsonb,$34,$35,$36,
+           $37,$38,$39,$40,$41,$42,$43,$44)
          ON CONFLICT (server_id,remote_task_id) DO NOTHING
          RETURNING *`,
         bindingInsertParameters(binding),
@@ -563,11 +566,6 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
       if (locked.terminalAt !== undefined || locked.invalidatedAt !== undefined)
         return { applied: false, reason: 'closed' };
-      if (locked.protocolContract.mode !== 'frozen_v1')
-        throw new RemoteTaskPersistenceError(
-          'REMOTE_TASK_EXTERNAL_OBSERVATION_MODE_INVALID',
-          'Notification and reconnect reconciliation observations require Frozen mode.',
-        );
       if (input.snapshot.runtimeRevision === undefined)
         throw new RemoteTaskPersistenceError(
           'REMOTE_TASK_EXTERNAL_REVISION_REQUIRED',
@@ -812,6 +810,8 @@ function bindingInsertParameters(binding: RemoteTaskBinding): unknown[] {
     binding.goalId,
     binding.goalVersion,
     binding.workflowPlanId,
+    binding.skillGoalId ?? null,
+    binding.skillAttemptId ?? null,
     binding.workflowDefinitionId,
     binding.workflowDefinitionVersion,
     binding.workflowInstanceId,
@@ -1091,6 +1091,8 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
     goalId: row.goal_id,
     goalVersion: row.goal_version,
     workflowPlanId: row.workflow_plan_id,
+    ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
+    ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
     workflowDefinitionId: row.workflow_definition_id,
     workflowDefinitionVersion: row.workflow_definition_version,
     workflowInstanceId: row.workflow_instance_id,
@@ -1210,6 +1212,8 @@ function sameAdmissionIdentity(current: RemoteTaskBinding, candidate: RemoteTask
     current.operationName === candidate.operationName &&
     current.agentTaskId === candidate.agentTaskId &&
     current.contextId === candidate.contextId &&
+    current.skillGoalId === candidate.skillGoalId &&
+    current.skillAttemptId === candidate.skillAttemptId &&
     current.workflowInstanceId === candidate.workflowInstanceId &&
     current.workflowNodeRunId === candidate.workflowNodeRunId &&
     current.mcpInvocationId === candidate.mcpInvocationId

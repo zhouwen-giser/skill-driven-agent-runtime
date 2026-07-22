@@ -1,6 +1,7 @@
 import { DomainError } from './errors.js';
 import { requireIdentifier } from './identity.js';
 import { createSkillUsageSpecification, type SkillUsageSpecification } from './skill-usage.js';
+import type { SkillOutcomeSpecification } from './user-goal-runtime.js';
 
 export type SkillStatus =
   'draft' | 'validating' | 'enabled' | 'disabled' | 'deprecated' | 'validation_failed';
@@ -43,6 +44,7 @@ export interface SkillVersion {
   readonly previousVersion?: number;
   readonly createdAt: string;
   readonly usageSpecification?: SkillUsageSpecification;
+  readonly outcomeSpecification?: SkillOutcomeSpecification;
 }
 export interface Skill {
   readonly skillId: string;
@@ -70,6 +72,15 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
       'Enabled Skill versions require validation.',
     );
   }
+  if (input.status === 'enabled' && input.outcomeSpecification === undefined)
+    throw new DomainError(
+      'SKILL_ENABLE_REQUIRES_OUTCOME_SPEC',
+      'Enabled Skill versions require an explicit SkillOutcomeSpecification.',
+    );
+  const outcomeSpecification =
+    input.outcomeSpecification === undefined
+      ? undefined
+      : createSkillOutcomeSpecification(input.outcomeSpecification, input.skillId, input.version);
   return Object.freeze({
     ...input,
     skillId,
@@ -94,6 +105,38 @@ export function createSkillVersion(input: SkillVersion): SkillVersion {
     ...(input.usageSpecification === undefined
       ? {}
       : { usageSpecification: createSkillUsageSpecification(input.usageSpecification) }),
+    ...(outcomeSpecification === undefined ? {} : { outcomeSpecification }),
+  });
+}
+
+export function createSkillOutcomeSpecification(
+  input: SkillOutcomeSpecification,
+  expectedSkillId = input.skillId,
+  expectedSkillVersion = input.skillVersion,
+): SkillOutcomeSpecification {
+  if (
+    input.skillId !== expectedSkillId ||
+    input.skillVersion !== expectedSkillVersion ||
+    input.skillVersion < 1 ||
+    !/^sha256:[0-9a-f]{64}$/u.test(input.specificationHash) ||
+    input.effects.length === 0 ||
+    input.evidence.length === 0 ||
+    new Set(input.effects).size !== input.effects.length ||
+    new Set(input.evidence).size !== input.evidence.length ||
+    new Set(input.artifacts).size !== input.artifacts.length
+  )
+    throw new DomainError(
+      'SKILL_OUTCOME_SPEC_INVALID',
+      'Skill Outcome specification identity, hash, effects and evidence must be explicit and valid.',
+    );
+  return Object.freeze({
+    ...input,
+    effects: Object.freeze([...input.effects]),
+    evidence: Object.freeze([...input.evidence]),
+    artifacts: Object.freeze([...input.artifacts]),
+    taskGoalPolicy: Object.freeze({ ...input.taskGoalPolicy }),
+    confidencePolicy: Object.freeze({ ...input.confidencePolicy }),
+    sideEffectPolicy: Object.freeze({ ...input.sideEffectPolicy }),
   });
 }
 

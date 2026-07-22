@@ -1,5 +1,27 @@
 # 已知假设、冲突与待验证项
 
+## v1.2.2 G00 decisions and external gates (2026-07-22)
+
+- The frozen clean-slate decision conflicts intentionally with ADR-108's retained `legacy_v11` product
+  path and ADR-097's `legacy_guidance` compatibility projection. ADR-109 supersedes those product
+  behaviors for v1.2.2; historical ADR/report/migration evidence remains readable but is not a runtime
+  compatibility promise.
+- A Skill Goal DAG is planning/scheduling data, not an executable Workflow. LangGraph.js remains the
+  only executor; every attempt uses the existing immutable Workflow path.
+- The existing atomic Runtime Terminal Outcome mechanism may be reused only behind the new
+  UserGoalPlanController port. Existing public terminal writers do not retain independent authority.
+- The local operator `sdar` database has the already-recorded 0100–0104 ledger gap and was not repaired.
+  G00 verification used explicit disposable database `sdar_v122_baseline_20260722`; G02 will provide a
+  guarded clean v1.2.2 baseline/reset rather than migrate operator data.
+- The read-only Provider worktree at source `196620a` contains clean Business Events schemas/fixtures and
+  runtime source but modified generated reports. EXT-BE-SKELETON remains pending exact file/review lock;
+  modified reports cannot prove conformance.
+- The Provider's own interop-blocker report states `interopCertified=false` and lists all 13 SDAR interop
+  scenarios unexecuted. EXT-BE-RUNTIME-CANDIDATE is present but G10 remains externally gated until a
+  reproducible exact candidate and real public-interface run pass.
+- No Provider defect is inferred from dirty reports or missing SDAR interop command. A Provider defect is
+  filed only after an exact request/response contradicts V0.5.2.
+
 ## v1.1 MCP Tasks Phase 2 决策解释
 
 - 2026-07-16：历史 released migration 并非每个文件都写入 `schema_migration`；0100 隔离升级以 released chain 的终点标记 `0056_mcp_execution_mode` 为前置条件，并通过空库、0056 升级、rollback/reapply 和非隔离库 fail-closed 测试证明路径，未伪造缺失 ledger 行。
@@ -36,6 +58,23 @@
 - v1.0.13 的 Task 通知只适用于当前 V1 单进程 Runtime，是有界、易失的唤醒优化，不是系统记录、跨进程总线或崩溃恢复。所有通知必须发生在 PostgreSQL Task 写入提交后，A2A 被唤醒后仍必须回读 PostgreSQL；漏通知由默认 1,000ms 的安全轮询恢复，配置不得低于 100ms。当前 waiter 对每次 publish 都唤醒，以容纳同毫秒的有效状态变化；只允许时间戳严格更新的缓存快照直接唤醒后来者，避免陈旧缓存形成新 busy loop。未来多进程扩展需要独立 ADR 选择通知传输，并保留 PostgreSQL 权威回读。
 
 Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
+
+## v1.2.2 final acceptance boundary (2026-07-22)
+
+- The external Provider source worktree advanced independently during the Goal. SDAR used a byte-exact
+  isolated archive of commit `8a81b1b02971fb124ed96372c440c449f9087c99`; it did not edit, branch,
+  commit or submit a PR to the Provider repository. A moving external HEAD is not implicitly qualified.
+- Provider Requirements Contract Frozen, Provider Runtime Candidate, SDAR Client Contract Passed, Real
+  Interop Passed and arbitrary Profile 1.0 freeze are separate claims. Only the first four exact claims
+  in the final reports passed; future Provider commits require requalification.
+- The repository `.env` points at an unavailable historical port 54329. Final acceptance uses explicit
+  disposable database URLs on the operator-managed test service at 55432. No operator ledger was
+  repaired. Failed runs caused by the stale port and a historical smoke fixture are retained.
+- Model decisions and Frozen Mock Provider scenarios are deterministic simulations. PostgreSQL/Redis,
+  HTTP/A2A/LangGraph, Management API, production bundle/smoke, database restart and exact external
+  Provider interop are real local evidence.
+- Original SRS content was audited by complete OOXML extraction. Visual pagination/rendering remains
+  unverified because no DOCX renderer is installed; v1.2.2 does not modify or publish the DOCX.
 
 ## EP-00 执行发现
 

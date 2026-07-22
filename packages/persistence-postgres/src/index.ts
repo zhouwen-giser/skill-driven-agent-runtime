@@ -6,3 +6,4 @@ export * from './remote-task-lifecycle-query.js';
 export * from './task-availability-repository.js';
 export * from './workflow-continuation-repository.js';
 export * from './skill-execution-repository.js';
+export * from './user-goal-runtime-repository.js';

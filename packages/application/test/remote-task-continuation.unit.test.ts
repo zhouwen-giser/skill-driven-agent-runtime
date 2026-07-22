@@ -415,6 +415,13 @@ function remoteTaskBinding(
     protocolStatus: 'working',
     protocolRevision: '2026-07-28',
     tasksSchemaRevision: 'schema-1',
+    protocolContract: {
+      mode: 'frozen_v1',
+      protocolVersion: '2026-07-28',
+      baselineSha256: 'a'.repeat(64),
+    },
+    taskBehavior: 'server_directed',
+    runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' },
     credentialRevision: 'credential-sha256-1',

@@ -6,6 +6,8 @@ import {
   type Goal,
   type GoalPatchChanges,
   type GoalPatchRecord,
+  type CompletedEffect,
+  type UserGoalPlan,
 } from '../../domain/src/index.js';
 import type {
   Clock,
@@ -16,6 +18,7 @@ import type {
   WorkflowPlanRepository,
 } from './ports.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
+import type { UserGoalPlanningService } from './user-goal-planning.js';
 
 const GoalPatchDecisionSchema = z
   .object({
@@ -68,6 +71,16 @@ export class GoalPatchService {
         >;
       }>
     | undefined;
+  readonly #userGoalPlanning: Pick<UserGoalPlanningService, 'plan'> | undefined;
+  readonly #userGoalPlans:
+    | Readonly<{
+        findCurrentPlan(
+          goalId: string,
+          goalVersion: number,
+        ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined>;
+        listValidCompletedEffects(goalId: string): Promise<readonly CompletedEffect[]>;
+      }>
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -87,6 +100,14 @@ export class GoalPatchService {
           | Readonly<{ status: 'input_required' }>
         >;
       }>;
+      userGoalPlanning?: Pick<UserGoalPlanningService, 'plan'>;
+      userGoalPlans?: Readonly<{
+        findCurrentPlan(
+          goalId: string,
+          goalVersion: number,
+        ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined>;
+        listValidCompletedEffects(goalId: string): Promise<readonly CompletedEffect[]>;
+      }>;
     }>,
   ) {
     this.#goals = dependencies.goals;
@@ -98,6 +119,8 @@ export class GoalPatchService {
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
     this.#beforeReplan = dependencies.beforeReplan;
+    this.#userGoalPlanning = dependencies.userGoalPlanning;
+    this.#userGoalPlans = dependencies.userGoalPlans;
   }
 
   async apply(
@@ -107,6 +130,14 @@ export class GoalPatchService {
     if (goal?.status !== 'active')
       throw new GoalPatchError('GOAL_PATCH_GOAL_NOT_ACTIVE', 'Active Goal was not found.');
     const sourcePlan = await this.#plans.findPlan(input.sourcePlanId);
+    const sourceUserGoalPlan = await this.#userGoalPlans?.findCurrentPlan(
+      goal.goalId,
+      goal.version,
+    );
+    const completedEffects =
+      this.#userGoalPlans === undefined
+        ? []
+        : await this.#userGoalPlans.listValidCompletedEffects(goal.goalId);
     if (
       sourcePlan?.definition === undefined ||
       sourcePlan.goalId !== goal.goalId ||
@@ -161,6 +192,36 @@ export class GoalPatchService {
         'Goal Patch was not applied because its formal Skill input is unresolved.',
       );
     const patch = await this.#patches.apply(baseRecord, input.taskId);
+    if (this.#userGoalPlanning !== undefined) {
+      if (sourceUserGoalPlan === undefined)
+        throw new GoalPatchError(
+          'GOAL_PATCH_SOURCE_PLAN_INVALID',
+          'Source User Goal Plan must be active and match the current Goal version.',
+        );
+      await this.#userGoalPlanning.plan({
+        goal: afterGoal,
+        revision: sourceUserGoalPlan.plan.revision + 1,
+        revisionKind: 'goal_patch',
+        sourcePlan: {
+          planId: sourceUserGoalPlan.plan.planId,
+          revision: sourceUserGoalPlan.plan.revision,
+          lockVersion: sourceUserGoalPlan.lockVersion,
+          status: requireReplaceableUserGoalPlanStatus(sourceUserGoalPlan.plan.status),
+          inheritedCompletedEffectIds: [
+            ...new Set([
+              ...sourceUserGoalPlan.plan.inheritedCompletedEffectIds,
+              ...completedEffects.map((effect) => effect.completedEffectId),
+            ]),
+          ],
+          forbiddenReplayFingerprints: [
+            ...new Set([
+              ...sourceUserGoalPlan.plan.forbiddenReplayFingerprints,
+              ...completedEffects.map((effect) => effect.effectFingerprint),
+            ]),
+          ],
+        },
+      });
+    }
     await this.#planner.plan({
       planId: newPlanId,
       workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
@@ -230,6 +291,17 @@ export class GoalPatchService {
     }
     return { guidance, warnings } as const;
   }
+}
+
+function requireReplaceableUserGoalPlanStatus(
+  status: UserGoalPlan['status'],
+): 'validated' | 'active' | 'revision_pending' {
+  if (!['validated', 'active', 'revision_pending'].includes(status))
+    throw new GoalPatchError(
+      'GOAL_PATCH_SOURCE_PLAN_INVALID',
+      'Source User Goal Plan is not replaceable.',
+    );
+  return status as 'validated' | 'active' | 'revision_pending';
 }
 
 function exactChanges(value: z.infer<typeof GoalPatchDecisionSchema>['changes']): GoalPatchChanges {

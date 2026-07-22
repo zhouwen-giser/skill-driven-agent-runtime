@@ -1,5 +1,24 @@
 import type { ProcessedResultRecord } from './processed-result.js';
+import type {
+  CompletedEffect,
+  OutcomeDecision,
+  TaskGoalCompletionContract,
+} from './user-goal-runtime.js';
 import type { WorkflowControlRound, WorkflowControlStatus } from './workflow-control.js';
+
+export const USER_GOAL_PLAN_TERMINAL_AUTHORITY = 'user_goal_plan_controller' as const;
+
+export interface RuntimeLayeredOutcomeCommit {
+  readonly userGoalPlanId: string;
+  readonly taskGoalContract: TaskGoalCompletionContract;
+  readonly taskGoalContractHash: string;
+  readonly taskDecision: OutcomeDecision;
+  readonly skillDecision: OutcomeDecision;
+  readonly userDecision: OutcomeDecision;
+  readonly skillAttemptId: string;
+  readonly skillGoalId: string;
+  readonly completedEffects: readonly CompletedEffect[];
+}
 
 export type RuntimeTerminalOutcomeKind = 'achieved' | 'unachievable' | 'canceled';
 
@@ -33,6 +52,7 @@ export interface RuntimeTerminalOutcomeRecord {
   readonly finalInstanceId?: string;
   readonly resultId?: string;
   readonly summary: string;
+  readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   readonly enhancementWarnings: readonly RuntimeEnhancementWarning[];
   readonly committedAt: string;
 }
@@ -46,6 +66,8 @@ export interface RuntimeAchievedOutcomeInput {
   readonly round: WorkflowControlRound;
   readonly processedResult?: ProcessedResultRecord;
   readonly summary: string;
+  readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
+  readonly layeredOutcome?: RuntimeLayeredOutcomeCommit;
   readonly eventId?: string;
   readonly committedAt: string;
 }
@@ -62,6 +84,8 @@ export interface RuntimeUnachievableOutcomeInput {
   >;
   readonly round: WorkflowControlRound;
   readonly summary: string;
+  readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
+  readonly layeredOutcome?: RuntimeLayeredOutcomeCommit;
   readonly eventId?: string;
   readonly committedAt: string;
 }
@@ -75,6 +99,7 @@ export interface RuntimeCanceledOutcomeInput {
   readonly round?: WorkflowControlRound;
   readonly finalInstanceId?: string;
   readonly summary: string;
+  readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   readonly eventId?: string;
   readonly committedAt: string;
 }

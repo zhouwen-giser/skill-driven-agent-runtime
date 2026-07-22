@@ -189,6 +189,39 @@ h2 {
   margin: 24px 0;
   border: 1px solid #cbd1cc;
 }
+.dag-grid,
+.event-generation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.dag-node {
+  border: 1px solid #c8d0ca;
+  border-top: 3px solid #4ca674;
+  background: #fff;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+.dag-node > span {
+  color: #47725a;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.dag-node p,
+.dag-node small {
+  margin: 0;
+  color: #68736d;
+}
+.dependency-strip {
+  margin-top: 14px;
+  padding: 12px;
+  background: #edf2ee;
+  color: #536059;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
 .metric {
   background: #f8f9f6;
   padding: 24px;

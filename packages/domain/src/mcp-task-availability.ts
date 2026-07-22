@@ -1,18 +1,6 @@
 import type { McpProviderProtocolMode, McpTaskExecutionProfile } from './mcp-frozen-protocol.js';
 
-export type McpTaskExecutionMode = 'allow_task' | 'require_task';
 export type McpTaskAvailabilityCheckMode = 'required' | 'best_effort';
-
-/** Narrow V1.1 projection of `io.sdar/taskExecution` discovery metadata. */
-export interface McpTaskOperationSemantics {
-  readonly execution: 'synchronous' | 'task_capable' | 'task_required' | 'unknown';
-  readonly availability: 'not_supported' | 'dynamic';
-  readonly supportsScheduling: boolean;
-  readonly supportsMaxElapsed: boolean;
-  readonly supportsObservations: boolean;
-  readonly cancellation: 'unsupported' | 'cooperative' | 'task_cancel' | 'unknown';
-  readonly revision: '1.0';
-}
 
 /** Registered operation projection used for Skill Task Type resolution. */
 interface McpTaskOperationCandidateBase {
@@ -21,29 +9,18 @@ interface McpTaskOperationCandidateBase {
   readonly attributes: readonly string[];
 }
 
-export type McpTaskOperationCandidate =
-  | (McpTaskOperationCandidateBase &
-      Readonly<{
-        protocolMode?: 'legacy_v11' | undefined;
-        semantics: McpTaskOperationSemantics;
-      }>)
-  | (McpTaskOperationCandidateBase &
-      Readonly<{
-        protocolMode: 'frozen_v1';
-        taskExecutionProfile: McpTaskExecutionProfile;
-        taskNotifications: boolean;
-      }>);
+export type McpTaskOperationCandidate = McpTaskOperationCandidateBase &
+  Readonly<{
+    protocolMode: 'frozen_v1';
+    taskExecutionProfile: McpTaskExecutionProfile;
+    taskNotifications: boolean;
+  }>;
 
-export type McpTaskOperationDefinition =
-  | Readonly<{
-      protocolMode?: 'legacy_v11' | undefined;
-      semantics: McpTaskOperationSemantics;
-    }>
-  | Readonly<{
-      protocolMode: Extract<McpProviderProtocolMode, 'frozen_v1'>;
-      taskExecutionProfile: McpTaskExecutionProfile;
-      taskNotifications: boolean;
-    }>;
+export type McpTaskOperationDefinition = Readonly<{
+  protocolMode: McpProviderProtocolMode;
+  taskExecutionProfile: McpTaskExecutionProfile;
+  taskNotifications: boolean;
+}>;
 
 export type TaskExecutionStart =
   | Readonly<{ mode: 'immediate'; startToleranceMs: number }>
@@ -60,10 +37,8 @@ interface ResolvedMcpTaskExecutionBase {
   readonly reservationRef?: string | undefined;
 }
 
-export type ResolvedMcpTaskExecution =
-  | (ResolvedMcpTaskExecutionBase &
-      Readonly<{ protocolMode?: 'legacy_v11' | undefined; mode: McpTaskExecutionMode }>)
-  | (ResolvedMcpTaskExecutionBase & Readonly<{ protocolMode: 'frozen_v1'; mode?: undefined }>);
+export type ResolvedMcpTaskExecution = ResolvedMcpTaskExecutionBase &
+  Readonly<{ protocolMode: 'frozen_v1' }>;
 
 export type TaskOperationAvailability = 'available' | 'restricted' | 'disabled' | 'unknown';
 export type TaskAvailabilityRiskLevel = 'low' | 'medium' | 'high' | 'critical';

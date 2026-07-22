@@ -1,8 +1,6 @@
 import {
-  createMcpServer,
   createRuntimeExecutionContext,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
-  createMcpTool,
   createMcpToolExecutionSemantics,
   withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
@@ -14,7 +12,6 @@ import {
   type RemoteTaskSnapshot,
   type McpManagementOperation,
   type McpManagementOperationType,
-  type McpServer,
   type McpTool,
   type McpToolEnhancement,
   type McpToolExecutionSemanticsValues,
@@ -28,27 +25,9 @@ import type {
   Clock,
   JsonSchemaValidator,
   McpRegistryRepository,
-  McpTransportAdapter,
   RemoteTaskReadResult,
   SecretCipher,
 } from './ports.js';
-import type { McpToolEnhancer } from './mcp-tool-enhancer.js';
-
-export interface RegisterMcpServerInput {
-  readonly serverId: string;
-  readonly name: string;
-  readonly endpoint: string;
-  readonly credentialHeaders: Readonly<Record<string, string>>;
-}
-
-export interface McpRefreshResult {
-  readonly server: McpServer;
-  readonly tools: readonly McpTool[];
-  readonly dependencyWarnings: readonly Readonly<{
-    toolName: string;
-    reason: 'removed' | 'schema_changed';
-  }>[];
-}
 
 export interface McpCallContext {
   readonly taskId?: string;
@@ -120,25 +99,12 @@ export interface FrozenTaskLifecycleRuntimePort {
 
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
 export const SDAR_SIMULATION_ID_HEADER = 'X-SDAR-Simulation-Id';
-const RESERVED_RUNTIME_HEADERS = new Set(
-  [SDAR_EXECUTION_MODE_HEADER, SDAR_SIMULATION_ID_HEADER].map((header) => header.toLowerCase()),
-);
-
-export interface McpHealthResult {
-  readonly serverId: string;
-  readonly status: 'enabled' | 'unreachable';
-  readonly checkedAt: string;
-  readonly durationMs: number;
-  readonly errorCode?: 'MCP_HEALTH_CHECK_FAILED';
-}
 
 export class McpRegistryService {
   readonly #repository: McpRegistryRepository;
-  readonly #transport: McpTransportAdapter;
   readonly #cipher: SecretCipher;
   readonly #schemas: JsonSchemaValidator;
   readonly #clock: Clock;
-  readonly #enhancer: McpToolEnhancer;
   readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -146,10 +112,8 @@ export class McpRegistryService {
   constructor(
     dependencies: Readonly<{
       repository: McpRegistryRepository;
-      transport: McpTransportAdapter;
       cipher: SecretCipher;
       schemas: JsonSchemaValidator;
-      enhancer: McpToolEnhancer;
       frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       clock: Clock;
@@ -157,67 +121,12 @@ export class McpRegistryService {
     }>,
   ) {
     this.#repository = dependencies.repository;
-    this.#transport = dependencies.transport;
     this.#cipher = dependencies.cipher;
     this.#schemas = dependencies.schemas;
-    this.#enhancer = dependencies.enhancer;
     this.#frozenAvailability = dependencies.frozenAvailability;
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
-  }
-
-  async register(input: RegisterMcpServerInput): Promise<McpRefreshResult> {
-    if ((await this.#repository.findServer(input.serverId)) !== undefined) {
-      throw new McpRegistryError('MCP_SERVER_ALREADY_EXISTS', 'MCP Server already exists.');
-    }
-    assertNoReservedCredentialHeaders(input.credentialHeaders);
-    const timestamp = this.#clock.now();
-    const server = createMcpServer({
-      serverId: input.serverId,
-      name: input.name,
-      endpoint: input.endpoint,
-      transport: 'streamable_http',
-      status: 'enabled',
-      toolRevision: 1,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
-    const encryptedCredential = this.#cipher.encrypt(input.credentialHeaders);
-    const tools = await this.#discover(server, input.credentialHeaders, timestamp);
-    await this.#repository.saveServerAndReplaceTools({ server, encryptedCredential }, tools);
-    await this.#auditManagementOperation(server.serverId, 'register', {
-      toolRevision: server.toolRevision,
-      discoveredToolCount: tools.length,
-    });
-    return { server, tools, dependencyWarnings: [] };
-  }
-
-  async refresh(serverId: string): Promise<McpRefreshResult> {
-    const record = await this.#requireServer(serverId);
-    const previous = await this.#repository.listTools(serverId);
-    const timestamp = this.#clock.now();
-    const server = createMcpServer({
-      ...record.server,
-      toolRevision: record.server.toolRevision + 1,
-      status: 'enabled',
-      updatedAt: timestamp,
-    });
-    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
-    const discoveredTools = await this.#discover(server, headers, timestamp, previous);
-    const tools = discoveredTools;
-    const dependencyWarnings = compareTools(previous, tools);
-    await this.#repository.saveServerAndReplaceTools(
-      { server, encryptedCredential: record.encryptedCredential },
-      tools,
-      dependencyWarnings,
-    );
-    await this.#auditManagementOperation(serverId, 'refresh', {
-      toolRevision: server.toolRevision,
-      discoveredToolCount: tools.length,
-      dependencyWarningCount: dependencyWarnings.length,
-    });
-    return { server, tools, dependencyWarnings };
   }
 
   async call(
@@ -258,34 +167,18 @@ export class McpRegistryService {
     );
     let outcome: McpInvocationOutcome;
     try {
-      if (record.server.protocolMode === 'frozen_v1') {
-        if (this.#frozenLifecycle === undefined)
-          throw new McpRegistryError(
-            'MCP_FROZEN_RUNTIME_UNAVAILABLE',
-            'Frozen MCP lifecycle runtime is not composed.',
-          );
-        outcome = await this.#frozenLifecycle.call({
-          endpoint: record.server.endpoint,
-          headers: this.#cipher.decrypt(record.encryptedCredential),
-          toolName,
-          arguments: arguments_,
-          outputValidator: this.#schemas,
-          ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
-          ...(signal === undefined ? {} : { signal }),
-        });
-      } else
-        outcome = await this.#transport.call({
-          endpoint: record.server.endpoint,
-          headers: executionHeaders(
-            this.#cipher.decrypt(record.encryptedCredential),
-            executionContext,
-          ),
+      outcome = await this.#requireFrozenLifecycle().call({
+        endpoint: record.server.endpoint,
+        headers: withExecutionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
           executionContext,
-          toolName,
-          arguments: arguments_,
-          ...(context.taskExecution === undefined ? {} : { taskExecution: context.taskExecution }),
-          ...(signal === undefined ? {} : { signal }),
-        });
+        ),
+        toolName,
+        arguments: arguments_,
+        outputValidator: this.#schemas,
+        ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+        ...(signal === undefined ? {} : { signal }),
+      });
     } catch (error: unknown) {
       const completedAt = this.#clock.now();
       const canceled = signal?.aborted === true;
@@ -338,9 +231,7 @@ export class McpRegistryService {
         outcome.kind === 'remote_task'
           ? `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`
           : String(record.server.toolRevision),
-      ...(record.server.protocolMode !== 'frozen_v1'
-        ? {}
-        : await this.#frozenInvocationAuthority(serverId, tool)),
+      ...(await this.#frozenInvocationAuthority(serverId, tool)),
     };
   }
 
@@ -376,67 +267,10 @@ export class McpRegistryService {
 
   async delete(serverId: string): Promise<void> {
     const record = await this.#requireServer(serverId);
-    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
-    if (record.server.protocolMode === 'frozen_v1')
-      this.#frozenLifecycle?.disconnect?.({ endpoint: record.server.endpoint, headers });
-    else await this.#transport.disconnect({ endpoint: record.server.endpoint, headers });
+    const headers = this.#cipher.decrypt(record.encryptedCredential);
+    this.#frozenLifecycle?.disconnect?.({ endpoint: record.server.endpoint, headers });
     await this.#repository.deleteServer(serverId);
     await this.#auditManagementOperation(serverId, 'delete', { disconnected: true });
-  }
-
-  async updateCredentials(
-    serverId: string,
-    credentialHeaders: Readonly<Record<string, string>>,
-  ): Promise<void> {
-    assertNoReservedCredentialHeaders(credentialHeaders);
-    const record = await this.#requireServer(serverId);
-    const previousHeaders = sanitizedCredentialHeaders(
-      this.#cipher.decrypt(record.encryptedCredential),
-    );
-    await this.#transport.ping({ endpoint: record.server.endpoint, headers: credentialHeaders });
-    const tools = await this.#repository.listTools(serverId);
-    await this.#transport.disconnect({
-      endpoint: record.server.endpoint,
-      headers: previousHeaders,
-    });
-    await this.#repository.saveServerAndReplaceTools(
-      { ...record, encryptedCredential: this.#cipher.encrypt(credentialHeaders) },
-      tools,
-    );
-    await this.#auditManagementOperation(serverId, 'credentials_update', {
-      headerNames: Object.keys(credentialHeaders).sort(),
-    });
-  }
-
-  async checkHealth(serverId: string): Promise<McpHealthResult> {
-    const record = await this.#requireServer(serverId);
-    const headers = sanitizedCredentialHeaders(this.#cipher.decrypt(record.encryptedCredential));
-    const startedAt = this.#clock.now();
-    let status: McpHealthResult['status'] = 'enabled';
-    let errorCode: McpHealthResult['errorCode'];
-    try {
-      await this.#transport.ping({ endpoint: record.server.endpoint, headers });
-    } catch {
-      status = 'unreachable';
-      errorCode = 'MCP_HEALTH_CHECK_FAILED';
-    }
-    const checkedAt = this.#clock.now();
-    const server = createMcpServer({ ...record.server, status, updatedAt: checkedAt });
-    await this.#repository.saveServerAndReplaceTools(
-      { server, encryptedCredential: record.encryptedCredential },
-      await this.#repository.listTools(serverId),
-    );
-    await this.#auditManagementOperation(serverId, 'health_check', {
-      status,
-      durationMs: elapsedMilliseconds(startedAt, checkedAt),
-    });
-    return {
-      serverId,
-      status,
-      checkedAt,
-      durationMs: elapsedMilliseconds(startedAt, checkedAt),
-      ...(errorCode === undefined ? {} : { errorCode }),
-    };
   }
 
   listInvocations(serverId: string) {
@@ -463,23 +297,16 @@ export class McpRegistryService {
       );
       if (tool === undefined)
         throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
-      const snapshot =
-        record.server.protocolMode === 'frozen_v1'
-          ? await this.#requireFrozenLifecycle().get({
-              endpoint: record.server.endpoint,
-              headers: this.#cipher.decrypt(record.encryptedCredential),
-              remoteTaskId: input.remoteTaskId,
-              outputValidator: this.#schemas,
-              ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
-            })
-          : await this.#transport.getTask({
-              endpoint: record.server.endpoint,
-              headers: executionHeaders(
-                this.#cipher.decrypt(record.encryptedCredential),
-                executionContext,
-              ),
-              remoteTaskId: input.remoteTaskId,
-            });
+      const snapshot = await this.#requireFrozenLifecycle().get({
+        endpoint: record.server.endpoint,
+        headers: withExecutionHeaders(
+          this.#cipher.decrypt(record.encryptedCredential),
+          executionContext,
+        ),
+        remoteTaskId: input.remoteTaskId,
+        outputValidator: this.#schemas,
+        ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+      });
       return { kind: 'snapshot', snapshot };
     } catch (error: unknown) {
       const code = stableErrorCode(error);
@@ -511,17 +338,13 @@ export class McpRegistryService {
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
     const executionContext = createRuntimeExecutionContext(input.executionContext);
-    if (record.server.protocolMode === 'frozen_v1')
-      return this.#requireFrozenLifecycle().cancel({
-        endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
-        remoteTaskId: input.remoteTaskId,
-      });
-    return this.#transport.cancelTask({
+    return this.#requireFrozenLifecycle().cancel({
       endpoint: record.server.endpoint,
-      headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(record.encryptedCredential),
+        executionContext,
+      ),
       remoteTaskId: input.remoteTaskId,
-      ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
   }
 
@@ -536,19 +359,14 @@ export class McpRegistryService {
   ): Promise<RemoteTaskOperationAck> {
     const record = await this.#requireServer(input.serverId);
     const executionContext = createRuntimeExecutionContext(input.executionContext);
-    if (record.server.protocolMode === 'frozen_v1')
-      return this.#requireFrozenLifecycle().update({
-        endpoint: record.server.endpoint,
-        headers: this.#cipher.decrypt(record.encryptedCredential),
-        remoteTaskId: input.remoteTaskId,
-        inputResponses: input.inputResponses,
-      });
-    return this.#transport.updateTask({
+    return this.#requireFrozenLifecycle().update({
       endpoint: record.server.endpoint,
-      headers: executionHeaders(this.#cipher.decrypt(record.encryptedCredential), executionContext),
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(record.encryptedCredential),
+        executionContext,
+      ),
       remoteTaskId: input.remoteTaskId,
       inputResponses: input.inputResponses,
-      ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
   }
 
@@ -562,35 +380,21 @@ export class McpRegistryService {
   ): Promise<TaskAvailabilityReadResult> {
     try {
       const record = await this.#requireServer(input.serverId);
-      if (record.server.protocolMode === 'frozen_v1') {
-        if (this.#frozenAvailability === undefined)
-          return {
-            kind: 'capability_missing',
-            errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
-          };
-        return await this.#frozenAvailability.check({
-          endpoint: record.server.endpoint,
-          headers: this.#cipher.decrypt(record.encryptedCredential),
-          requests: input.requests,
-          ...(input.signal === undefined ? {} : { signal: input.signal }),
-        });
-      }
-      if (this.#transport.checkTaskAvailability === undefined)
+      if (this.#frozenAvailability === undefined)
         return {
           kind: 'capability_missing',
           errorCode: 'MCP_TASK_AVAILABILITY_CAPABILITY_REQUIRED',
         };
       const executionContext = createRuntimeExecutionContext(input.executionContext);
-      const response = await this.#transport.checkTaskAvailability({
+      return await this.#frozenAvailability.check({
         endpoint: record.server.endpoint,
-        headers: executionHeaders(
+        headers: withExecutionHeaders(
           this.#cipher.decrypt(record.encryptedCredential),
           executionContext,
         ),
         requests: input.requests,
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       });
-      return { kind: 'results', ...response };
     } catch (error: unknown) {
       const code = stableErrorCode(error);
       if (
@@ -708,68 +512,6 @@ export class McpRegistryService {
     };
   }
 
-  async #discover(
-    server: McpServer,
-    headers: Readonly<Record<string, string>>,
-    timestamp: string,
-    previous: readonly McpTool[] = [],
-  ): Promise<readonly McpTool[]> {
-    const discovered = await this.#transport.discover({ endpoint: server.endpoint, headers });
-    const registered = discovered.map((tool) => {
-      const schema = this.#schemas.checkSchema(tool.inputSchema);
-      if (!schema.valid) {
-        throw new McpRegistryError(
-          'MCP_TOOL_SCHEMA_INVALID',
-          `Tool ${tool.name} has an invalid input schema.`,
-          schema.errors,
-        );
-      }
-      return createMcpTool({
-        serverId: server.serverId,
-        toolName: tool.name,
-        ...(tool.title === undefined ? {} : { title: tool.title }),
-        ...(tool.description === undefined ? {} : { description: tool.description }),
-        inputSchema: tool.inputSchema,
-        ...(tool.declaredExecutionSemantics === undefined
-          ? {}
-          : {
-              declaredExecutionSemantics: createMcpToolExecutionSemantics(
-                tool.declaredExecutionSemantics,
-                'mcp_declared',
-              ),
-            }),
-        ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
-        discoveredAt: timestamp,
-      });
-    });
-    const previousByName = new Map(previous.map((tool) => [tool.toolName, tool]));
-    return Promise.all(
-      registered.map(async (tool) => {
-        const previousTool = previousByName.get(tool.toolName);
-        const existing = previousTool?.enhancement;
-        const enhanced = createMcpTool({
-          serverId: tool.serverId,
-          toolName: tool.toolName,
-          ...(tool.title === undefined ? {} : { title: tool.title }),
-          ...(tool.description === undefined ? {} : { description: tool.description }),
-          inputSchema: tool.inputSchema,
-          enhancement: existing ?? (await this.#enhancer.enhance(tool)),
-          ...(tool.declaredExecutionSemantics === undefined
-            ? {}
-            : { declaredExecutionSemantics: tool.declaredExecutionSemantics }),
-          ...(tool.taskExecution === undefined ? {} : { taskExecution: tool.taskExecution }),
-          discoveredAt: tool.discoveredAt,
-        });
-        return previousTool?.adminExecutionSemanticsOverride === undefined
-          ? enhanced
-          : withMcpToolAdminExecutionSemanticsOverride(
-              enhanced,
-              previousTool.adminExecutionSemanticsOverride,
-            );
-      }),
-    );
-  }
-
   async #requireServer(serverId: string) {
     const record = await this.#repository.findServer(serverId);
     if (record === undefined)
@@ -829,59 +571,22 @@ function invocationRecord(
   };
 }
 
-function elapsedMilliseconds(startedAt: string, completedAt: string): number {
-  const duration = Date.parse(completedAt) - Date.parse(startedAt);
-  return Number.isFinite(duration) && duration >= 0 ? duration : 0;
-}
-
-function assertNoReservedCredentialHeaders(headers: Readonly<Record<string, string>>): void {
-  const conflict = Object.keys(headers).find((header) =>
-    RESERVED_RUNTIME_HEADERS.has(header.toLowerCase()),
-  );
-  if (conflict !== undefined)
-    throw new McpRegistryError(
-      'MCP_RESERVED_HEADER_CONFLICT',
-      `Credential Header ${conflict} is reserved for runtime execution isolation.`,
-    );
-}
-
-function sanitizedCredentialHeaders(
-  headers: Readonly<Record<string, string>>,
-): Readonly<Record<string, string>> {
-  return Object.fromEntries(
-    Object.entries(headers).filter(
-      ([header]) => !RESERVED_RUNTIME_HEADERS.has(header.toLowerCase()),
-    ),
-  );
-}
-
-function executionHeaders(
+function withExecutionHeaders(
   credentials: Readonly<Record<string, string>>,
-  context: RuntimeExecutionContext,
+  executionContext: RuntimeExecutionContext,
 ): Readonly<Record<string, string>> {
-  const headers = { ...sanitizedCredentialHeaders(credentials) };
-  if (context.mode === 'live') return headers;
   return {
-    ...headers,
-    [SDAR_EXECUTION_MODE_HEADER]: context.mode,
-    [SDAR_SIMULATION_ID_HEADER]: context.simulationId ?? '',
+    ...credentials,
+    [SDAR_EXECUTION_MODE_HEADER]: executionContext.mode,
+    ...(executionContext.simulationId === undefined
+      ? {}
+      : { [SDAR_SIMULATION_ID_HEADER]: executionContext.simulationId }),
   };
 }
 
-function compareTools(
-  previous: readonly McpTool[],
-  current: readonly McpTool[],
-): McpRefreshResult['dependencyWarnings'] {
-  const currentByName = new Map(current.map((tool) => [tool.toolName, tool]));
-  const warnings: { toolName: string; reason: 'removed' | 'schema_changed' }[] = [];
-  for (const tool of previous) {
-    const next = currentByName.get(tool.toolName);
-    if (next === undefined) warnings.push({ toolName: tool.toolName, reason: 'removed' });
-    else if (JSON.stringify(tool.inputSchema) !== JSON.stringify(next.inputSchema)) {
-      warnings.push({ toolName: tool.toolName, reason: 'schema_changed' });
-    }
-  }
-  return warnings;
+function elapsedMilliseconds(startedAt: string, completedAt: string): number {
+  const duration = Date.parse(completedAt) - Date.parse(startedAt);
+  return Number.isFinite(duration) && duration >= 0 ? duration : 0;
 }
 
 function stableErrorCode(error: unknown): string | undefined {

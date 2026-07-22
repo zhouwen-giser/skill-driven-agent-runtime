@@ -5,6 +5,7 @@ import type {
   WorkflowBudgetLimits,
   WorkflowDefinition,
   WorkflowRuntimeContinuationState,
+  WorkflowConfirmationResume,
 } from '../../domain/src/index.js';
 import {
   compileWorkflow,
@@ -48,7 +49,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
 
   async resumeHumanConfirmation(
     executionId: string,
-    confirmed: boolean,
+    confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
   ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = this.#executions.get(executionId);

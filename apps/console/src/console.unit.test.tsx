@@ -17,7 +17,9 @@ import {
   TaskEvidenceNavigation,
   TaskPanel,
   TaskRelatedNavigation,
+  UserGoalPlanPanel,
 } from './TaskPanel.js';
+import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel, MemorySourceNavigation } from './MemoryPanel.js';
 import { McpPanel } from './McpPanel.js';
@@ -32,6 +34,43 @@ import {
 import { TaskReferenceLinks } from './RelatedLinks.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders v1.2.2 User Goal judgment and Business Event operational views', () => {
+    const goalMarkup = renderToStaticMarkup(
+      <UserGoalPlanPanel
+        value={{
+          plan: {
+            revision: 2,
+            status: 'working',
+            skillGoals: [
+              {
+                skillGoalId: 'skill-goal.inspect',
+                status: 'achieved',
+                coveredCriterionIds: ['criterion.inspected'],
+                dependencyIds: [],
+              },
+            ],
+          },
+          outcomes: [
+            {
+              subjectId: 'skill-goal.inspect',
+              status: 'achieved',
+              confidence: 'high',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(goalMarkup).toContain('User Goal Plan DAG and judgments');
+    expect(goalMarkup).toContain('skill-goal.inspect');
+    expect(goalMarkup).toContain('judgment achieved / high');
+
+    const eventMarkup = renderToStaticMarkup(<BusinessEventsPanel />);
+    expect(eventMarkup).toContain('FROZEN BUSINESS EVENTS PROFILE 1.0');
+    expect(eventMarkup).toContain('Durable Inbox');
+    expect(eventMarkup).toContain('Impact → User Criterion');
+    expect(eventMarkup).toContain('Continuity &amp; Cross-Goal Incidents');
+  });
+
   it('renders execution semantics in plan confirmation and Skill Tool Policy views', () => {
     const tool = {
       serverId: 'mcp.devices',

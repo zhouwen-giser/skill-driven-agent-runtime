@@ -45,7 +45,7 @@ describe('SkillSelectionService', () => {
       workflowGuidanceSummary: 'Inspect.',
       runtimePolicy: { autoConfirmPlan: false },
       usageSummary: {
-        source: 'legacy_projection',
+        source: 'native',
         supportedModes: ['guidance'],
         defaultMode: 'guidance',
       },
@@ -95,6 +95,15 @@ describe('SkillSelectionService', () => {
     await expect(service.select(goalContract)).rejects.toMatchObject({
       code: 'SKILL_SELECTION_INVALID_DECISION',
     });
+  });
+
+  it('does not expose candidates rejected by the owning scheduler policy to the decider', async () => {
+    const records = new MemorySelectionRepository();
+    const service = createService(records, [], 'skill.b');
+    await expect(
+      service.selectFromCandidates(goalContract, [skillVersion('skill.a')]),
+    ).rejects.toMatchObject({ code: 'SKILL_SELECTION_INVALID_DECISION' });
+    expect(records.selection).toBeUndefined();
   });
 
   it('rejects replacement after the Goal contract changes', async () => {
@@ -199,7 +208,6 @@ describe('SkillSelectionService', () => {
     });
     const service = createService(new MemorySelectionRepository(), [], 'skill.b', {
       usage,
-      usageAware: true,
     });
     await expect(service.select(goalContract)).rejects.toMatchObject({
       code: 'SKILL_SELECTION_USAGE_CONTEXT_REQUIRED',
@@ -243,7 +251,6 @@ describe('SkillSelectionService', () => {
 
   it('excludes non-user-selectable Skills from top-level selection', async () => {
     const service = createService(new MemorySelectionRepository(), [], 'skill.b', {
-      usageAware: true,
       visibilityBySkillId: {
         'skill.a': { userSelectable: false, composable: true, internalOnly: true },
       },
@@ -273,18 +280,13 @@ function createService(
     toolPolicy?: SkillVersion['toolPolicy'];
     warnings?: Awaited<ReturnType<McpRegistryRepository['listDependencyWarnings']>>;
     usage?: SkillUsageCandidateAssessor;
-    usageAware?: boolean;
     visibilityBySkillId?: Readonly<
       Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
     >;
   }> = {},
 ): SkillSelectionService {
   return new SkillSelectionService({
-    skills: new SelectionSkillRepository(
-      options.toolPolicy,
-      options.usageAware,
-      options.visibilityBySkillId,
-    ),
+    skills: new SelectionSkillRepository(options.toolPolicy, options.visibilityBySkillId),
     graph: new SelectionGraphRepository(relations),
     records,
     retriever: { score: () => Promise.resolve({ 'skill.a': 0.9, 'skill.b': 0.7 }) },
@@ -378,14 +380,13 @@ class SelectionSkillRepository implements SkillRepository {
   readonly versions: readonly SkillVersion[];
   constructor(
     toolPolicy?: SkillVersion['toolPolicy'],
-    usageAware = false,
     visibilityBySkillId: Readonly<
       Record<string, NonNullable<SkillVersion['usageSpecification']>['visibility']>
     > = {},
   ) {
     this.versions = [
-      skillVersion('skill.a', toolPolicy, usageAware, visibilityBySkillId['skill.a']),
-      skillVersion('skill.b', toolPolicy, usageAware, visibilityBySkillId['skill.b']),
+      skillVersion('skill.a', toolPolicy, visibilityBySkillId['skill.a']),
+      skillVersion('skill.b', toolPolicy, visibilityBySkillId['skill.b']),
     ];
   }
   find(skillId: string): Promise<Skill | undefined> {
@@ -425,7 +426,6 @@ class SelectionSkillRepository implements SkillRepository {
 function skillVersion(
   skillId: string,
   toolPolicy?: SkillVersion['toolPolicy'],
-  usageAware = false,
   visibility: NonNullable<SkillVersion['usageSpecification']>['visibility'] = {
     userSelectable: true,
     composable: false,
@@ -449,42 +449,38 @@ function skillVersion(
     sourceKind: 'admin',
     validationPassed: true,
     createdAt: '2026-07-11T10:00:00.000Z',
-    ...(usageAware
-      ? {
-          usageSpecification: {
-            apiVersion: 'sdar.io/v1alpha1' as const,
-            visibility,
-            normative: {
-              constraints: [],
-              forbiddenActions: [],
-              requiredConfirmations: [],
-              noApplicableSkill: 'reject' as const,
-            },
-            adaptive: {
-              instructions: ['Inspect safely.'],
-              optimizationHints: [],
-              allowPreferredProviderFallback: false,
-            },
-            contextRequirements: [
-              {
-                requirementId: `${skillId}.context`,
-                description: 'Authoritative candidate context.',
-                required: true,
-                sourceOrder: ['authoritative_context' as const],
-              },
-            ],
-            modes: {
-              supported: ['guidance' as const],
-              defaultMode: 'guidance' as const,
-              guidance: { summary: 'Guidance.', instructions: ['Inspect safely.'] },
-            },
-            taskBindings: [],
-            evidencePolicy: {
-              requirements: [],
-              rejectSuccessWithoutRequiredEvidence: false,
-            },
-          },
-        }
-      : {}),
+    usageSpecification: {
+      apiVersion: 'sdar.io/v1alpha1' as const,
+      visibility,
+      normative: {
+        constraints: [],
+        forbiddenActions: [],
+        requiredConfirmations: [],
+        noApplicableSkill: 'reject' as const,
+      },
+      adaptive: {
+        instructions: ['Inspect safely.'],
+        optimizationHints: [],
+        allowPreferredProviderFallback: false,
+      },
+      contextRequirements: [
+        {
+          requirementId: `${skillId}.context`,
+          description: 'Authoritative candidate context.',
+          required: true,
+          sourceOrder: ['authoritative_context' as const],
+        },
+      ],
+      modes: {
+        supported: ['guidance' as const],
+        defaultMode: 'guidance' as const,
+        guidance: { summary: 'Guidance.', instructions: ['Inspect safely.'] },
+      },
+      taskBindings: [],
+      evidencePolicy: {
+        requirements: [],
+        rejectSuccessWithoutRequiredEvidence: false,
+      },
+    },
   };
 }

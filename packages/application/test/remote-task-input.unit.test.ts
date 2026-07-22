@@ -217,6 +217,13 @@ function remoteBinding(): RemoteTaskBinding {
       protocolStatus: 'input_required',
       protocolRevision: '2026-test',
       tasksSchemaRevision: 'schema-test',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-test',
+        baselineSha256: 'a'.repeat(64),
+      },
+      taskBehavior: 'server_directed',
+      runtimeRevision: '1',
       remoteRevision: 'remote-revision-1',
       executionContext: { mode: 'live' },
       credentialRevision: 'credential-1',

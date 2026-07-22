@@ -1,7 +1,7 @@
 import { DomainError } from './errors.js';
 import type { InternalToolResult, McpTaskStatus } from './mcp-task.js';
 
-export type McpProviderProtocolMode = 'legacy_v11' | 'frozen_v1';
+export type McpProviderProtocolMode = 'frozen_v1';
 export type McpTaskBehavior = 'synchronous_only' | 'server_directed' | 'task_required';
 
 export interface McpTaskExecutionProfile {

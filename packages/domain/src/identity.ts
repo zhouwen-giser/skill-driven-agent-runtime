@@ -27,7 +27,12 @@ export function requireIdentifier(
     | 'TASK_INPUT_REQUEST_ID_REQUIRED'
     | 'TASK_ATTEMPT_ID_REQUIRED'
     | 'WORKFLOW_PLAN_ID_REQUIRED'
-    | 'TEMPORARY_SKILL_ID_REQUIRED',
+    | 'TEMPORARY_SKILL_ID_REQUIRED'
+    | 'USER_GOAL_PLAN_INVALID'
+    | 'SKILL_ATTEMPT_INVALID'
+    | 'USER_GOAL_PLAN_ID_REQUIRED'
+    | 'SKILL_GOAL_ID_REQUIRED'
+    | 'SKILL_ATTEMPT_ID_REQUIRED',
 ): string {
   const normalized = value.trim();
   if (normalized === '')

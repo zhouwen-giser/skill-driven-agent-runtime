@@ -25,6 +25,10 @@ describe('SkillAuthoringService', () => {
       skillId: 'skill.device.inspect',
       version: 1,
       status: 'enabled',
+      outcomeSpecification: expect.objectContaining({
+        skillId: 'skill.device.inspect',
+        effects: ['effect.inspected'],
+      }),
     });
     expect(model.calls).toHaveLength(2);
     expect(model.calls[1]?.correctionErrors.join(' ')).toContain('input');
@@ -73,6 +77,7 @@ describe('SkillAuthoringService', () => {
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
       status: 'enabled',
+      outcomeSpecification: outcome('skill.device.inspect'),
     });
     expect(result.skill).toMatchObject({ sourceKind: 'a2a_draft', status: 'enabled', version: 1 });
     expect(result.draft).toMatchObject({
@@ -159,6 +164,22 @@ function input() {
     runtimePolicy: { autoConfirmPlan: false },
     status: 'enabled' as const,
     sourceKind: 'admin' as const,
+    outcomeSpecification: outcome('skill.device.inspect'),
+  };
+}
+
+function outcome(skillId: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion: 1,
+    specificationHash: `sha256:${'2'.repeat(64)}`,
+    effects: ['effect.inspected'],
+    evidence: ['evidence.status'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
   };
 }
 

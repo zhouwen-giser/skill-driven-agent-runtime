@@ -1,6 +1,7 @@
 export type ModelStage =
   | 'intent'
   | 'goal'
+  | 'goal_planning'
   | 'tool_enhancement'
   | 'skill_authoring'
   | 'skill_selection'

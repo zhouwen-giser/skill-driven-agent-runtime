@@ -72,10 +72,24 @@ export class SkillSelectionService {
   ): Promise<SkillSelectionRecord> {
     const goal = requireGoalContract(goalContract);
     const enabled = await this.#skills.listEnabledVersions();
+    return this.selectFromCandidates(goal, enabled, usageContext);
+  }
+
+  /**
+   * Selects only from candidates already admitted by the owning execution policy.
+   * Skill Goal compatibility belongs to the scheduler and must run before semantic/LLM selection.
+   */
+  async selectFromCandidates(
+    goalContract: GoalExecutionContract,
+    admittedSkills: readonly SkillVersion[],
+    usageContext?: SkillUsageSelectionContext,
+  ): Promise<SkillSelectionRecord> {
+    const goal = requireGoalContract(goalContract);
+    const enabled = admittedSkills.filter((skill) => skill.status === 'enabled');
     if (enabled.length === 0) {
       throw new SkillSelectionError(
         'SKILL_SELECTION_NO_CANDIDATES',
-        'No enabled Skill candidates exist.',
+        'No admitted enabled Skill candidates exist.',
       );
     }
     const candidates = await this.#candidateSnapshots(goal, enabled, usageContext);

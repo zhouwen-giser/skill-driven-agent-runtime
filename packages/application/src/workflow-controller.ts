@@ -9,13 +9,14 @@ import {
   type RuntimeTerminalOutcomeRecord,
   type WorkflowControlRecord,
   type WorkflowDefinition,
+  type WorkflowExecutionOutcome,
   type WorkflowInstance,
+  type WorkflowPlanRecord,
 } from '../../domain/src/index.js';
 import type {
   Clock,
   GoalEvaluator,
   GoalRepository,
-  RuntimeTerminalOutcomeRepository,
   WorkflowControlRepository,
   WorkflowPlanRepository,
 } from './ports.js';
@@ -24,6 +25,8 @@ import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { EvolutionExperienceService } from './evolution-experience.js';
 import type { MemoryService } from './memory-service.js';
 import type { TransitiveSkillConfirmationEvaluator } from './skill-confirmation.js';
+import type { UserGoalPlanController } from './user-goal-plan-controller.js';
+import type { UserGoalRecoveryService } from './progress-recovery.js';
 
 export interface StartWorkflowControlInput {
   readonly controlId: string;
@@ -70,6 +73,9 @@ export interface WorkflowControllerTaskOutcomes {
   prepareSkillReplacement(
     taskId: string,
   ): Promise<Readonly<{ skillId: string; skillVersion: number; decisionSummary: string }>>;
+  prepareCompositionRefresh(
+    taskId: string,
+  ): Promise<Readonly<{ skillId: string; skillVersion: number; decisionSummary: string }>>;
   reportReplacementPlan(
     taskId: string,
     input: Readonly<{
@@ -88,6 +94,7 @@ export interface WorkflowControllerTaskOutcomes {
       summary: string;
     }>,
   ): Promise<unknown>;
+  continueUserGoalPlan(taskId: string, userGoalPlanId: string): Promise<void>;
 }
 
 export class WorkflowControllerService {
@@ -104,8 +111,12 @@ export class WorkflowControllerService {
   readonly #experiences: Pick<EvolutionExperienceService, 'record'> | undefined;
   readonly #memories: Pick<MemoryService, 'recordEvolution'> | undefined;
   readonly #taskOutcomes: Readonly<WorkflowControllerTaskOutcomes> | undefined;
-  readonly #terminalOutcomes: RuntimeTerminalOutcomeRepository;
+  readonly #terminalAuthority: Pick<
+    UserGoalPlanController,
+    'adjudicateAchieved' | 'adjudicateUnachievable' | 'appendEnhancementWarning'
+  >;
   readonly #reportWarning: ((warning: RuntimeEnhancementWarning) => void) | undefined;
+  readonly #recovery: Pick<UserGoalRecoveryService, 'recoverWorkflow'> | undefined;
   readonly #onTerminalCommitted:
     | ((
         input: Readonly<{
@@ -136,7 +147,11 @@ export class WorkflowControllerService {
       experiences?: Pick<EvolutionExperienceService, 'record'>;
       memories?: Pick<MemoryService, 'recordEvolution'>;
       taskOutcomes?: Readonly<WorkflowControllerTaskOutcomes>;
-      terminalOutcomes: RuntimeTerminalOutcomeRepository;
+      terminalAuthority: Pick<
+        UserGoalPlanController,
+        'adjudicateAchieved' | 'adjudicateUnachievable' | 'appendEnhancementWarning'
+      >;
+      recovery?: Pick<UserGoalRecoveryService, 'recoverWorkflow'>;
       onTerminalCommitted?: (
         input: Readonly<{
           outcome: RuntimeTerminalOutcomeRecord;
@@ -162,7 +177,8 @@ export class WorkflowControllerService {
     this.#experiences = dependencies.experiences;
     this.#memories = dependencies.memories;
     this.#taskOutcomes = dependencies.taskOutcomes;
-    this.#terminalOutcomes = dependencies.terminalOutcomes;
+    this.#terminalAuthority = dependencies.terminalAuthority;
+    this.#recovery = dependencies.recovery;
     this.#onTerminalCommitted = dependencies.onTerminalCommitted;
     this.#reportWarning = dependencies.reportWarning;
     this.#clock = dependencies.clock;
@@ -303,6 +319,10 @@ export class WorkflowControllerService {
       goalId: control.goalId,
       goalVersion: control.goalVersion,
       goalContract: createGoalExecutionContract(goal),
+      ...(sourcePlan.skillGoalId === undefined ? {} : { skillGoalId: sourcePlan.skillGoalId }),
+      ...(sourcePlan.skillAttemptId === undefined
+        ? {}
+        : { skillAttemptId: sourcePlan.skillAttemptId }),
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
       supersedeSourcePlan: true,
@@ -469,6 +489,8 @@ export class WorkflowControllerService {
         instance = await this.#execution.waitForPauseResolution(instance.instanceId, pending);
       }
       if (instance.status === 'waiting_external') return control;
+      if (hasWorkflowError(instance, 'WORKFLOW_SKILL_VERSION_STALE'))
+        return this.#recoverStaleSkillVersion({ control, plan, goal, instance, instanceId });
       const evaluation = await this.#evaluator.evaluate({ goal, instance });
       const round = {
         controlId: control.controlId,
@@ -480,6 +502,7 @@ export class WorkflowControllerService {
         createdAt: this.#clock.now(),
       } as const;
       const completedRound = control.roundCount + 1;
+      const workflowOutcome = toWorkflowExecutionOutcome(plan.planId, instance, evaluation.summary);
       if (evaluation.decision === 'achieved' || evaluation.decision === 'unachievable') {
         const processed =
           evaluation.decision === 'achieved' && control.taskId !== undefined
@@ -488,13 +511,14 @@ export class WorkflowControllerService {
         const outcomeId = terminalOutcomeId(control);
         const outcome =
           evaluation.decision === 'achieved'
-            ? await this.#terminalOutcomes.commitAchieved({
+            ? await this.#terminalAuthority.adjudicateAchieved({
                 outcomeId,
                 ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
                 goalId: control.goalId,
                 goalVersion: control.goalVersion,
                 controlId: control.controlId,
                 round,
+                workflowOutcome,
                 ...(processed === undefined ? {} : { processedResult: processed }),
                 summary: evaluation.summary,
                 ...(control.taskId === undefined
@@ -502,7 +526,7 @@ export class WorkflowControllerService {
                   : { eventId: `event-terminal-${control.taskId}` }),
                 committedAt: this.#clock.now(),
               })
-            : await this.#terminalOutcomes.commitUnachievable({
+            : await this.#terminalAuthority.adjudicateUnachievable({
                 outcomeId,
                 ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
                 goalId: control.goalId,
@@ -510,12 +534,44 @@ export class WorkflowControllerService {
                 controlId: control.controlId,
                 controlStatus: 'unachievable',
                 round,
+                workflowOutcome,
                 summary: evaluation.summary,
                 ...(control.taskId === undefined
                   ? {}
                   : { eventId: `event-terminal-${control.taskId}` }),
                 committedAt: this.#clock.now(),
               });
+        if ('disposition' in outcome) {
+          await this.#controls.saveRound(round);
+          if (evaluation.decision === 'unachievable' && control.taskId !== undefined)
+            await this.#recovery?.recoverWorkflow({
+              workflowPlanId: plan.planId,
+              agentTaskId: control.taskId,
+              workflowOutcome,
+              workflowRemainingBudget: Math.max(
+                0,
+                instance.budgetLimits.maxReplans - control.replanCount,
+              ),
+              taskAttemptsConsumed: completedRound,
+              recoveryAction: 'unachievable_skill_attempt',
+              changedStrategyAction: 'replacement_attempt',
+            });
+          const settledControl: WorkflowControlRecord = {
+            ...control,
+            status: evaluation.decision === 'achieved' ? 'achieved' : 'failed',
+            roundCount: completedRound,
+            finalInstanceId: instanceId,
+            updatedAt: this.#clock.now(),
+          };
+          await this.#controls.save(settledControl);
+          if (control.taskId === undefined || this.#taskOutcomes === undefined)
+            throw new WorkflowControllerError(
+              'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+              'User Goal continuation requires an attached AgentTask.',
+            );
+          await this.#taskOutcomes.continueUserGoalPlan(control.taskId, outcome.userGoalPlanId);
+          return settledControl;
+        }
         await this.#onTerminalCommitted?.({ outcome, control, instance });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
@@ -529,7 +585,7 @@ export class WorkflowControllerService {
         return this.#requireCommittedControl(control.controlId);
       }
       if (control.replanCount >= instance.budgetLimits.maxReplans) {
-        const outcome = await this.#terminalOutcomes.commitUnachievable({
+        const outcome = await this.#terminalAuthority.adjudicateUnachievable({
           outcomeId: terminalOutcomeId(control),
           ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
           goalId: control.goalId,
@@ -537,10 +593,16 @@ export class WorkflowControllerService {
           controlId: control.controlId,
           controlStatus: 'replan_budget_exhausted',
           round,
+          workflowOutcome,
           summary: 'Goal replan budget exhausted.',
           ...(control.taskId === undefined ? {} : { eventId: `event-terminal-${control.taskId}` }),
           committedAt: this.#clock.now(),
         });
+        if ('disposition' in outcome)
+          throw new WorkflowControllerError(
+            'WORKFLOW_CONTROL_TERMINAL_COMMIT_INCOMPLETE',
+            'Recovery budget exhaustion cannot return a working User Goal outcome.',
+          );
         await this.#onTerminalCommitted?.({ outcome, control, instance });
         await this.#runTerminalEnhancements({
           outcomeId: outcome.outcomeId,
@@ -583,6 +645,20 @@ export class WorkflowControllerService {
         successful: false,
       });
       if (evaluation.decision === 'request_input' || evaluation.decision === 'capability_gap') {
+        if (control.taskId !== undefined)
+          await this.#recovery?.recoverWorkflow({
+            workflowPlanId: plan.planId,
+            agentTaskId: control.taskId,
+            workflowOutcome,
+            workflowRemainingBudget: Math.max(
+              0,
+              instance.budgetLimits.maxReplans - control.replanCount,
+            ),
+            taskAttemptsConsumed: completedRound,
+            inputRequired: evaluation.decision === 'request_input',
+            recoveryAction: evaluation.decision,
+            changedStrategyAction: 'replacement_attempt',
+          });
         if (evaluation.decision === 'request_input' && control.taskId !== undefined) {
           if (this.#taskOutcomes === undefined || evaluation.question === undefined)
             throw new WorkflowControllerError(
@@ -615,6 +691,16 @@ export class WorkflowControllerService {
         return control;
       }
       const nextReplanCount = control.replanCount + 1;
+      if (control.taskId !== undefined)
+        await this.#recovery?.recoverWorkflow({
+          workflowPlanId: plan.planId,
+          agentTaskId: control.taskId,
+          workflowOutcome,
+          workflowRemainingBudget: Math.max(0, instance.budgetLimits.maxReplans - nextReplanCount),
+          taskAttemptsConsumed: completedRound,
+          recoveryAction: evaluation.decision,
+          changedStrategyAction: 'revise_plan',
+        });
       const nextPlanId = this.#ids.nextPlanId(control.controlId, nextReplanCount);
       const replacement =
         evaluation.decision === 'replace_skill' && control.taskId !== undefined
@@ -632,6 +718,8 @@ export class WorkflowControllerService {
         goalId: control.goalId,
         goalVersion: control.goalVersion,
         goalContract: createGoalExecutionContract(goal),
+        ...(plan.skillGoalId === undefined ? {} : { skillGoalId: plan.skillGoalId }),
+        ...(plan.skillAttemptId === undefined ? {} : { skillAttemptId: plan.skillAttemptId }),
         sourcePlanId: plan.planId,
         revisionKind: 'replan',
         supersedeSourcePlan: true,
@@ -700,6 +788,137 @@ export class WorkflowControllerService {
       if (!autoConfirm) return control;
     }
     return control;
+  }
+
+  async #recoverStaleSkillVersion(
+    input: Readonly<{
+      control: WorkflowControlRecord;
+      plan: WorkflowPlanRecord;
+      goal: Goal;
+      instance: WorkflowInstance;
+      instanceId: string;
+    }>,
+  ): Promise<WorkflowControlRecord> {
+    if (input.control.taskId === undefined || this.#taskOutcomes === undefined)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+        'Skill-version recovery requires an attached AgentTask.',
+      );
+    const definition = input.plan.definition;
+    if (definition === undefined)
+      throw new WorkflowControllerError(
+        'WORKFLOW_CONTROL_INITIAL_PLAN_INVALID',
+        'Skill-version recovery requires the immutable Workflow definition.',
+      );
+    const evaluation: GoalEvaluationResult = {
+      decision: 'adjust_plan',
+      summary:
+        'The immutable Workflow referenced a stale child Skill version; a fresh parent plan is required.',
+      actionInstruction: 'Recompose the parent plan from current enabled Skill versions.',
+    };
+    const round = {
+      controlId: input.control.controlId,
+      roundIndex: input.control.roundCount,
+      planId: input.plan.planId,
+      instanceId: input.instanceId,
+      workflowVersion: definition.version,
+      evaluation,
+      createdAt: this.#clock.now(),
+    } as const;
+    const completedRound = input.control.roundCount + 1;
+    const workflowOutcome = toWorkflowExecutionOutcome(
+      input.plan.planId,
+      input.instance,
+      evaluation.summary,
+    );
+    if (input.control.replanCount >= input.instance.budgetLimits.maxReplans) {
+      const outcome = await this.#terminalAuthority.adjudicateUnachievable({
+        outcomeId: terminalOutcomeId(input.control),
+        taskId: input.control.taskId,
+        goalId: input.control.goalId,
+        goalVersion: input.control.goalVersion,
+        controlId: input.control.controlId,
+        controlStatus: 'replan_budget_exhausted',
+        round,
+        workflowOutcome,
+        summary: 'Skill-version recovery exhausted the Workflow replan budget.',
+        eventId: `event-terminal-${input.control.taskId}`,
+        committedAt: this.#clock.now(),
+      });
+      if ('disposition' in outcome)
+        throw new WorkflowControllerError(
+          'WORKFLOW_CONTROL_TERMINAL_COMMIT_INCOMPLETE',
+          'Budget exhaustion cannot continue a stale immutable Workflow.',
+        );
+      await this.#onTerminalCommitted?.({
+        outcome,
+        control: input.control,
+        instance: input.instance,
+      });
+      return this.#requireCommittedControl(input.control.controlId);
+    }
+    await this.#controls.saveRound(round);
+    const nextReplanCount = input.control.replanCount + 1;
+    await this.#recovery?.recoverWorkflow({
+      workflowPlanId: input.plan.planId,
+      agentTaskId: input.control.taskId,
+      workflowOutcome,
+      workflowRemainingBudget: Math.max(
+        0,
+        input.instance.budgetLimits.maxReplans - nextReplanCount,
+      ),
+      taskAttemptsConsumed: completedRound,
+      recoveryAction: 'stale_skill_version',
+      changedStrategyAction: 'revise_plan',
+    });
+    const refresh = await this.#taskOutcomes.prepareCompositionRefresh(input.control.taskId);
+    const nextPlan = await this.#planner.plan({
+      planId: this.#ids.nextPlanId(input.control.controlId, nextReplanCount),
+      workflowDefinitionId: definition.workflowDefinitionId,
+      workflowVersion: definition.version + 1,
+      goalId: input.control.goalId,
+      goalVersion: input.control.goalVersion,
+      goalContract: createGoalExecutionContract(input.goal),
+      ...(input.plan.skillGoalId === undefined ? {} : { skillGoalId: input.plan.skillGoalId }),
+      ...(input.plan.skillAttemptId === undefined
+        ? {}
+        : { skillAttemptId: input.plan.skillAttemptId }),
+      sourcePlanId: input.plan.planId,
+      revisionKind: 'replan',
+      supersedeSourcePlan: true,
+      compositionRoot: { skillId: refresh.skillId, skillVersion: refresh.skillVersion },
+      planningInstruction: JSON.stringify({
+        operation: 'workflow_control_recover_stale_skill_version',
+        workflowIdentity: {
+          workflowDefinitionId: definition.workflowDefinitionId,
+          version: definition.version + 1,
+          goalId: input.control.goalId,
+          goalVersion: input.control.goalVersion,
+        },
+        goalDescription: input.control.planningInstruction,
+        sourcePlanId: input.plan.planId,
+        failedInstanceId: input.instanceId,
+        errorCode: 'WORKFLOW_SKILL_VERSION_STALE',
+        instruction: input.control.planningInstruction,
+      }),
+    });
+    await this.#taskOutcomes.reportReplacementPlan(input.control.taskId, {
+      planId: nextPlan.planId,
+      skillId: refresh.skillId,
+      skillVersion: refresh.skillVersion,
+      summary: refresh.decisionSummary,
+    });
+    const recovered: WorkflowControlRecord = {
+      ...input.control,
+      status: 'awaiting_confirmation',
+      currentPlanId: nextPlan.planId,
+      roundCount: completedRound,
+      replanCount: nextReplanCount,
+      skillIds: [refresh.skillId],
+      updatedAt: this.#clock.now(),
+    };
+    await this.#controls.save(recovered);
+    return recovered;
   }
 
   async #prepareAchieved(
@@ -800,7 +1019,7 @@ export class WorkflowControllerService {
         occurredAt: this.#clock.now(),
       };
       try {
-        await this.#terminalOutcomes.recordEnhancementWarning(outcomeId, warning);
+        await this.#terminalAuthority.appendEnhancementWarning(outcomeId, warning);
       } catch (warningPersistenceError: unknown) {
         this.#reportWarning?.({
           source,
@@ -842,6 +1061,64 @@ export class WorkflowControllerService {
       );
     return control;
   }
+}
+
+function toWorkflowExecutionOutcome(
+  workflowPlanId: string,
+  instance: WorkflowInstance,
+  summary: string,
+): WorkflowExecutionOutcome {
+  const explicit = explicitOutcomeReferences(instance.result);
+  return {
+    schemaVersion: '1.0',
+    workflowPlanId,
+    workflowInstanceId: instance.instanceId,
+    executionStatus:
+      instance.status === 'succeeded'
+        ? 'succeeded'
+        : instance.status === 'canceled'
+          ? 'canceled'
+          : 'failed',
+    effectRefs: explicit.effectRefs,
+    evidenceRefs: explicit.evidenceRefs,
+    artifactRefs: explicit.artifactRefs,
+    confidence: explicit.confidence,
+    summary,
+  };
+}
+
+function explicitOutcomeReferences(result: unknown): Readonly<{
+  effectRefs: readonly string[];
+  evidenceRefs: readonly string[];
+  artifactRefs: readonly string[];
+  confidence: 'low' | 'medium' | 'high';
+}> {
+  if (result === null || typeof result !== 'object' || Array.isArray(result))
+    return { effectRefs: [], evidenceRefs: [], artifactRefs: [], confidence: 'high' };
+  const record = result as Readonly<Record<string, unknown>>;
+  const envelope =
+    record['workflowExecutionOutcome'] !== null &&
+    typeof record['workflowExecutionOutcome'] === 'object' &&
+    !Array.isArray(record['workflowExecutionOutcome'])
+      ? (record['workflowExecutionOutcome'] as Readonly<Record<string, unknown>>)
+      : record;
+  const confidence = envelope['confidence'];
+  return {
+    effectRefs: stringRefs(envelope['effectRefs']),
+    evidenceRefs: stringRefs(envelope['evidenceRefs']),
+    artifactRefs: stringRefs(envelope['artifactRefs']),
+    confidence:
+      confidence === 'low' || confidence === 'medium' || confidence === 'high'
+        ? confidence
+        : 'high',
+  };
+}
+
+function stringRefs(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(value.filter((item): item is string => typeof item === 'string' && item !== '')),
+  ].sort();
 }
 
 function mergeSupplementaryInput(
@@ -893,6 +1170,10 @@ function terminalOutcomeId(control: WorkflowControlRecord): string {
   return control.taskId === undefined
     ? `terminal-outcome-control-${control.controlId}`
     : `terminal-outcome-task-${control.taskId}`;
+}
+
+function hasWorkflowError(instance: WorkflowInstance, code: string): boolean {
+  return Object.values(instance.errors).some((error) => error.code === code);
 }
 
 function enhancementErrorCode(error: unknown): string {

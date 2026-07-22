@@ -12,7 +12,8 @@ services:
       - '127.0.0.1:${SDAR_POSTGRES_PORT:-55432}:5432'
     volumes:
       - sdar-postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/postgres/baseline/0001_sdar_v1_2_2_baseline.sql:/docker-entrypoint-initdb.d/0001_sdar_v1_2_2_baseline.sql:ro
+      - ./infra/postgres/seed/0001_sdar_v1_2_2_minimal_seed.sql:/docker-entrypoint-initdb.d/0002_sdar_v1_2_2_minimal_seed.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 2s

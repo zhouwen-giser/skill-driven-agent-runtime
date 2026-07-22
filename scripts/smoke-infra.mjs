@@ -24,10 +24,10 @@ try {
   }
 
   const migrationResult = await pool.query(
-    "SELECT version FROM schema_migration WHERE version = '0001_sdar_bootstrap'",
+    "SELECT version FROM schema_migration WHERE version = 'v1.2.2_clean_slate_baseline'",
   );
   const migration = migrationResult.rows[0]?.version;
-  if (migration !== '0001_sdar_bootstrap') {
+  if (migration !== 'v1.2.2_clean_slate_baseline') {
     throw new Error(`INFRA_SMOKE_MIGRATION_MISSING: ${String(migration)}`);
   }
 

@@ -10,7 +10,7 @@ interface McpServerRecord extends Record<string, unknown> {
   readonly status: string;
   readonly endpoint: string;
   readonly toolRevision: number;
-  readonly protocolMode?: 'legacy_v11' | 'frozen_v1';
+  readonly protocolMode: 'frozen_v1';
   readonly notificationStatus?: 'streaming_supported' | 'polling_fallback';
 }
 
@@ -29,7 +29,6 @@ export function McpPanel({
   const [detail, setDetail] = useState<unknown>();
   const [selectedServer, setSelectedServer] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState<string>();
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [toolMetadata, setToolMetadata] = useState({
     toolName: '',
     purpose: '',
@@ -52,7 +51,6 @@ export function McpPanel({
     name: '',
     endpoint: '',
     authorization: '',
-    protocolMode: 'legacy_v11' as 'legacy_v11' | 'frozen_v1',
   });
   const reload = useCallback(async () => {
     setLoading(true);
@@ -70,40 +68,30 @@ export function McpPanel({
   async function register(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     await runAction(async () => {
-      await managementRequest(
-        form.protocolMode === 'frozen_v1' ? '/api/v1/mcp/frozen/servers' : '/api/v1/mcp/servers',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            serverId: form.serverId,
-            name: form.name,
-            endpoint: form.endpoint,
-            credentialHeaders:
-              form.authorization === '' ? {} : { Authorization: form.authorization },
-          }),
-        },
-      );
+      await managementRequest('/api/v1/mcp/servers', {
+        method: 'POST',
+        body: JSON.stringify({
+          serverId: form.serverId,
+          name: form.name,
+          endpoint: form.endpoint,
+          credentialHeaders: form.authorization === '' ? {} : { Authorization: form.authorization },
+        }),
+      });
       setForm({
         serverId: '',
         name: '',
         endpoint: '',
         authorization: '',
-        protocolMode: 'legacy_v11',
       });
       await reload();
       return 'MCP Server 已注册并完成 Tool 发现。';
     }, setMessage);
   }
 
-  async function mutate(serverId: string, operation: 'refresh' | 'health' | 'delete') {
+  async function mutate(serverId: string, operation: 'refresh' | 'delete') {
     await runAction(async () => {
       const suffix = operation === 'delete' ? '' : `/${operation}`;
-      const server = servers.find((candidate) => candidate.serverId === serverId);
-      const base =
-        operation === 'refresh' && server?.protocolMode === 'frozen_v1'
-          ? '/api/v1/mcp/frozen/servers'
-          : '/api/v1/mcp/servers';
-      await managementRequest(`${base}/${encodeURIComponent(serverId)}${suffix}`, {
+      await managementRequest(`/api/v1/mcp/servers/${encodeURIComponent(serverId)}${suffix}`, {
         method: operation === 'delete' ? 'DELETE' : 'POST',
       });
       setPendingDelete(undefined);
@@ -119,17 +107,6 @@ export function McpPanel({
         await managementRequest(`/api/v1/mcp/servers/${encodeURIComponent(serverId)}/${view}`),
       );
       return `${serverId}: ${view}`;
-    }, setMessage);
-  }
-
-  async function updateCredentials(serverId: string) {
-    await runAction(async () => {
-      await managementRequest(`/api/v1/mcp/servers/${encodeURIComponent(serverId)}/credentials`, {
-        method: 'PUT',
-        body: JSON.stringify({ credentialHeaders: { Authorization: credentials[serverId] ?? '' } }),
-      });
-      setCredentials({ ...credentials, [serverId]: '' });
-      return `${serverId}: credentials updated`;
     }, setMessage);
   }
 
@@ -188,21 +165,6 @@ export function McpPanel({
           </p>
         )}
         <form className="admin-form" onSubmit={(event) => void register(event)}>
-          <label>
-            Protocol mode
-            <select
-              value={form.protocolMode}
-              onChange={(event) => {
-                setForm({
-                  ...form,
-                  protocolMode: event.target.value as 'legacy_v11' | 'frozen_v1',
-                });
-              }}
-            >
-              <option value="legacy_v11">Legacy v1.1</option>
-              <option value="frozen_v1">Frozen V1</option>
-            </select>
-          </label>
           <label>
             Server ID
             <input
@@ -264,7 +226,7 @@ export function McpPanel({
               <span className="status ok">{server.status}</span>
             </div>
             <div className="action-row" aria-label="MCP protocol status">
-              <span className="status">{server.protocolMode ?? 'legacy_v11'}</span>
+              <span className="status">{server.protocolMode}</span>
               <span
                 className={
                   server.notificationStatus === 'streaming_supported' ? 'status ok' : 'status'
@@ -274,27 +236,8 @@ export function McpPanel({
               </span>
             </div>
             <p className="endpoint">{server.endpoint}</p>
-            <div className="credential-row">
-              <label>
-                New Authorization
-                <input
-                  type="password"
-                  value={credentials[server.serverId] ?? ''}
-                  onChange={(event) => {
-                    setCredentials({ ...credentials, [server.serverId]: event.target.value });
-                  }}
-                />
-              </label>
-              <button
-                disabled={!credentials[server.serverId]}
-                onClick={() => void updateCredentials(server.serverId)}
-              >
-                Validate and rotate
-              </button>
-            </div>
             <div className="action-row">
               <button onClick={() => void mutate(server.serverId, 'refresh')}>刷新 Tools</button>
-              <button onClick={() => void mutate(server.serverId, 'health')}>健康检查</button>
               {(['protocol', 'tools', 'operations', 'invocations', 'warnings'] as const).map(
                 (view) => (
                   <button key={view} onClick={() => void inspect(server.serverId, view)}>

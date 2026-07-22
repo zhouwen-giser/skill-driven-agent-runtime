@@ -99,6 +99,13 @@ sources:
     pin: "commit:26897cc322f356487da89113451bd16b520b9288#schema/draft/schema.json-blob:cc44564e33305dbc07e820cdd0a97648f3852019#sha256:9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
     allowed: 'unmodified pinned source schema under protocol/source; SEP-2663 and SEP-986 specification reference; attributed SDAR-derived schemas'
     forbidden: 'SDK/domain type leakage, unpinned online schema selection, Frozen-to-Legacy fallback, protocol translation, source modification without attribution'
+  - name: SDAR MCP Tasks Provider Runtime Business Events Profile 1.0
+    repository: https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime
+    license: 'Apache-2.0; exact source commit has no NOTICE'
+    use: source_adaptation
+    pin: "commit:8a81b1b02971fb124ed96372c440c449f9087c99#license-sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4#schema-event-sha256:dceb9ee64e414890813b784880a2d90f710c93faa0c8aaa8b4f2b7d6ba9b7e6f#schema-continuity-sha256:f92d0ad364a2f4ec068f99a0501a74a2d38748244ba6a04a85893527263807f0#schema-relation-sha256:7e3bbe9d9ac96d10b4ab399cf5c90621a070959c3bdfb092327400c96a216dc4"
+    allowed: 'unmodified Business Events Profile schemas, fixtures, golden vectors, profile and Adapter proto under protocol/business-events/provider-v1.0'
+    forbidden: 'Provider runtime/source worker/persistence/generator code, unpinned assets, Provider types outside the MCP adapter, Mock-as-interop claims'
   - name: React
     repository: https://github.com/facebook/react
     license: 'MIT'

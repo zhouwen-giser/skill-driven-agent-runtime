@@ -100,6 +100,8 @@ export interface RemoteTaskBinding {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly workflowPlanId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly workflowDefinitionId: string;
   readonly workflowDefinitionVersion: number;
   readonly workflowInstanceId: string;
@@ -157,6 +159,8 @@ export interface RemoteTaskAdmission {
   readonly goalId: string;
   readonly goalVersion: number;
   readonly workflowPlanId: string;
+  readonly skillGoalId?: string;
+  readonly skillAttemptId?: string;
   readonly workflowDefinitionId: string;
   readonly workflowDefinitionVersion: number;
   readonly workflowInstanceId: string;
@@ -168,7 +172,7 @@ export interface RemoteTaskAdmission {
   readonly protocolStatus: McpTaskStatus;
   readonly protocolRevision: string;
   readonly tasksSchemaRevision: string;
-  readonly protocolContract?: McpProtocolContractSnapshot;
+  readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
@@ -271,6 +275,11 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
       'Remote Task Goal and Workflow definition versions must be positive integers.',
     );
   }
+  if ((input.skillGoalId === undefined) !== (input.skillAttemptId === undefined))
+    throw new DomainError(
+      'REMOTE_TASK_BINDING_INVALID',
+      'Remote Task binding must bind Skill Goal and Skill Attempt together.',
+    );
   if (!Number.isInteger(input.pollIntervalMs) || input.pollIntervalMs < 100) {
     throw new DomainError(
       'REMOTE_TASK_POLL_INTERVAL_INVALID',
@@ -281,20 +290,12 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   // Every accepted remote Task therefore enters one initial poll before its
   // observed Provider status is projected into awaiting/terminal local state.
   const localState = 'polling' as const;
-  const protocolContract =
-    input.protocolContract ??
-    Object.freeze({
-      mode: 'legacy_v11' as const,
-      protocolVersion: input.protocolRevision,
-      baselineSha256: 'legacy-v11-historical',
-    });
-  if (protocolContract.mode === 'frozen_v1') {
-    if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
-      throw new DomainError(
-        'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
-        'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
-      );
-  }
+  const protocolContract = input.protocolContract;
+  if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
+    throw new DomainError(
+      'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
+      'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
+    );
   if ((input.taskTtlMs === undefined) !== (input.taskExpiresAt === undefined))
     throw new DomainError(
       'REMOTE_TASK_TTL_EXPIRY_MISMATCH',

@@ -36,21 +36,6 @@ describe('MCP protocol operations', () => {
     expect(evidence.tools[0]?.outputSchemaHash).toMatch(/^[0-9a-f]{64}$/u);
     await expect(service.auditBaseline('provider-1')).resolves.toMatchObject({ passed: true });
   });
-
-  it('fails closed on protocol mode changes and permits only the persisted mode', async () => {
-    const service = createService();
-    await expect(service.guardModeSwitch('provider-1', 'legacy_v11')).resolves.toEqual({
-      serverId: 'provider-1',
-      currentMode: 'frozen_v1',
-      targetMode: 'legacy_v11',
-      allowed: false,
-      reason: 'immutable_provider_mode',
-    });
-    await expect(service.guardModeSwitch('provider-1', 'frozen_v1')).resolves.toMatchObject({
-      allowed: true,
-      reason: 'same_mode',
-    });
-  });
 });
 
 function createService() {

@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import { TaskService } from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
 import {
@@ -186,727 +186,9 @@ function testUsagePlanPolicy() {
   });
 }
 
-async function applyTestMigration(name: string): Promise<void> {
-  await pool.query(
-    await readFile(new URL(`../../../infra/postgres/migrations/${name}`, import.meta.url), 'utf8'),
-  );
-}
-
-const V12_TEST_MIGRATIONS = [
-  '0100_remote_mcp_task_tracking.up.sql',
-  '0101_task_execution_readiness.up.sql',
-  '0102_remote_task_continuation.up.sql',
-  '0103_remote_task_input_and_cancellation.up.sql',
-  '0104_workflow_external_wait_event.up.sql',
-  '0105_skill_usage_specification.up.sql',
-  '0106_skill_execution_record.up.sql',
-  '0107_frozen_mcp_tasks_protocol.up.sql',
-] as const;
-
-async function applyV12TestMigrations(): Promise<void> {
-  const result = await pool.query<{ version: string }>('SELECT version FROM schema_migration');
-  const applied = new Set(result.rows.map((row) => row.version));
-  const versions = V12_TEST_MIGRATIONS.map((name) => name.replace('.up.sql', ''));
-  for (const [index, migration] of V12_TEST_MIGRATIONS.entries()) {
-    const version = versions[index];
-    if (version === undefined || applied.has(version)) continue;
-    if (versions.slice(index + 1).some((later) => applied.has(later)))
-      throw new Error('TEST_DATABASE_MIGRATION_LEDGER_GAP_USE_DISPOSABLE_DATABASE');
-    await applyTestMigration(migration);
-    applied.add(version);
-  }
-}
-
 beforeAll(async () => {
-  const ledger = await pool.query<{ exists: boolean }>(
-    "SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists",
-  );
-  if (ledger.rows[0]?.exists === true) {
-    const memoryHardening = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0064_memory_production_hardening') AS applied",
-    );
-    if (memoryHardening.rows[0]?.applied === true) {
-      await applyV12TestMigrations();
-      return;
-    }
-    const latest = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0063_mcp_tool_execution_semantics') AS applied",
-    );
-    if (latest.rows[0]?.applied === true) {
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const skillCompositionContext = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0062_skill_composition_context') AS applied",
-    );
-    if (skillCompositionContext.rows[0]?.applied === true) {
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const goalExecutionContract = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0061_goal_execution_contract') AS applied",
-    );
-    if (goalExecutionContract.rows[0]?.applied === true) {
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const taskSkillInputBinding = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0060_task_skill_input_resolution_binding') AS applied",
-    );
-    if (taskSkillInputBinding.rows[0]?.applied === true) {
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const skillInputResolution = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0059_skill_input_resolution') AS applied",
-    );
-    if (skillInputResolution.rows[0]?.applied === true) {
-      const forward = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(forward);
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const terminalOutcome = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0058_runtime_terminal_outcome') AS applied",
-    );
-    if (terminalOutcome.rows[0]?.applied === true) {
-      const forward = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(forward);
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const nestedConfirmation = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0057_nested_skill_confirmation') AS applied",
-    );
-    if (nestedConfirmation.rows[0]?.applied === true) {
-      const forward = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(forward);
-      const skillInputResolution = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(skillInputResolution);
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const previous = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0056_mcp_execution_mode') AS applied",
-    );
-    if (previous.rows[0]?.applied === true) {
-      const forward = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(forward);
-      const terminalOutcome = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(terminalOutcome);
-      const skillInputResolution = await readFile(
-        new URL(
-          '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      );
-      await pool.query(skillInputResolution);
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await pool.query(
-        await readFile(
-          new URL(
-            '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-      await applyTestMigration('0064_memory_production_hardening.up.sql');
-      await applyV12TestMigrations();
-      return;
-    }
-    const previousSkillCall = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0054_skill_call_history') AS applied",
-    );
-    if (previousSkillCall.rows[0]?.applied === true) {
-      for (const migrationName of [
-        '0055_task_input_continuation.up.sql',
-        '0056_mcp_execution_mode.up.sql',
-        '0057_nested_skill_confirmation.up.sql',
-        '0058_runtime_terminal_outcome.up.sql',
-        '0059_skill_input_resolution.up.sql',
-        '0060_task_skill_input_resolution_binding.up.sql',
-        '0061_goal_execution_contract.up.sql',
-        '0062_skill_composition_context.up.sql',
-        '0063_mcp_tool_execution_semantics.up.sql',
-        '0064_memory_production_hardening.up.sql',
-      ]) {
-        const forward = await readFile(
-          new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
-          'utf8',
-        );
-        await pool.query(forward);
-      }
-      await applyV12TestMigrations();
-      return;
-    }
-    const previousToolEnhancement = await pool.query<{ applied: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM schema_migration WHERE version='0053_mcp_tool_enhancement_stage') AS applied",
-    );
-    if (previousToolEnhancement.rows[0]?.applied === true) {
-      for (const migrationName of [
-        '0054_skill_call_history.up.sql',
-        '0055_task_input_continuation.up.sql',
-        '0056_mcp_execution_mode.up.sql',
-        '0057_nested_skill_confirmation.up.sql',
-        '0058_runtime_terminal_outcome.up.sql',
-        '0059_skill_input_resolution.up.sql',
-        '0060_task_skill_input_resolution_binding.up.sql',
-        '0061_goal_execution_contract.up.sql',
-        '0062_skill_composition_context.up.sql',
-        '0063_mcp_tool_execution_semantics.up.sql',
-        '0064_memory_production_hardening.up.sql',
-      ]) {
-        const forward = await readFile(
-          new URL(`../../../infra/postgres/migrations/${migrationName}`, import.meta.url),
-          'utf8',
-        );
-        await pool.query(forward);
-      }
-      await applyV12TestMigrations();
-      return;
-    }
-  }
-  const migration = await readFile(
-    new URL('../../../infra/postgres/migrations/0002_protocol_domain.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(migration);
-  const projectionMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0003_external_task_projection.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(projectionMigration);
-  const taskRequestMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0004_task_request.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskRequestMigration);
-  const projectionDecouplingMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0005_projection_decoupling.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(projectionDecouplingMigration);
-  const skillDraftMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0006_skill_draft.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillDraftMigration);
-  const skillRegistryMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0007_skill_registry.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillRegistryMigration);
-  const mcpRegistryMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0008_mcp_registry.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(mcpRegistryMigration);
-  const mcpAuditMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0009_mcp_audit.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(mcpAuditMigration);
-  const skillGraphMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0010_skill_graph.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillGraphMigration);
-  const skillSelectionMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0011_skill_selection.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillSelectionMigration);
-  const temporarySkillMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0012_temporary_skill.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(temporarySkillMigration);
-  const skillEmbeddingMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0013_skill_embedding.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillEmbeddingMigration);
-  const modelRuntimeMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0014_model_runtime.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(modelRuntimeMigration);
-  const promptRuntimeMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0015_prompt_runtime.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(promptRuntimeMigration);
-  const workflowPlanningMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0016_workflow_planning.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowPlanningMigration);
-  const workflowExecutionMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0017_workflow_execution.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowExecutionMigration);
-  const workflowBudgetMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0018_workflow_budget.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowBudgetMigration);
-  const workflowControlMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0019_workflow_control.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowControlMigration);
-  const planRevisionMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0020_plan_revision.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(planRevisionMigration);
-  const workflowInterruptMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0021_workflow_interrupt.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowInterruptMigration);
-  const modelApiStyleMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0022_model_api_style.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(modelApiStyleMigration);
-  const goalPatchMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0023_goal_patch.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(goalPatchMigration);
-  const taskWaitMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0024_task_wait_timeout.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskWaitMigration);
-  const executionControlMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0025_workflow_execution_control.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(executionControlMigration);
-  const goalContinuityMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0026_goal_continuity.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(goalContinuityMigration);
-  const goalCancellationMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0027_goal_cancellation.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(goalCancellationMigration);
-  const resultProcessingMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0028_result_processing.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(resultProcessingMigration);
-  const goalEvaluationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0029_goal_evaluation_decisions.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(goalEvaluationMigration);
-  const taskCapabilityGapMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0030_task_capability_gap.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskCapabilityGapMigration);
-  const globalMemoryMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0031_global_memory.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(globalMemoryMigration);
-  const goalInputInferenceMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0032_goal_input_inference.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(goalInputInferenceMigration);
-  const taskSelectedSkillMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0033_task_selected_skill.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskSelectedSkillMigration);
-  const skillCallWorkflowMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0034_skill_call_workflow.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillCallWorkflowMigration);
-  const taskSkillSelectionMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0035_task_skill_selection.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskSkillSelectionMigration);
-  const taskTemporarySkillMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0036_task_temporary_skill.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskTemporarySkillMigration);
-  const skillEvolutionMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0037_skill_evolution_simulation.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(skillEvolutionMigration);
-  const evolutionExperienceMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0038_evolution_experience.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(evolutionExperienceMigration);
-  const evolutionPolicyMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0039_evolution_policy.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(evolutionPolicyMigration);
-  const evolutionCorrectionMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0040_skill_evolution_correction.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(evolutionCorrectionMigration);
-  const skillDraftPublicationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0041_skill_draft_publication.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(skillDraftPublicationMigration);
-  const skillQualityWarningMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0042_skill_quality_warning.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(skillQualityWarningMigration);
-  const workflowTemplateMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0043_workflow_template.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(workflowTemplateMigration);
-  const memoryStatusMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0044_memory_status_transition.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(memoryStatusMigration);
-  const memoryRetentionMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0045_memory_retention_policy.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(memoryRetentionMigration);
-  const taskQualityMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0046_task_quality_report.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(taskQualityMigration);
-  const implicitFeedbackMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0047_implicit_feedback.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(implicitFeedbackMigration);
-  const evaluationInfluenceMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0048_evaluation_influence.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(evaluationInfluenceMigration);
-  const evaluationAnalyticsMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0049_evaluation_analytics.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(evaluationAnalyticsMigration);
-  const mcpManagementOperationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0050_mcp_management_operation.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(mcpManagementOperationMigration);
-  const workflowNodeDurationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0051_workflow_node_duration.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(workflowNodeDurationMigration);
-  const goalPatchTaskCorrelationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0052_observability_correlation.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(goalPatchTaskCorrelationMigration);
-  const mcpToolEnhancementStageMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(mcpToolEnhancementStageMigration);
-  const skillCallHistoryMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0054_skill_call_history.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(skillCallHistoryMigration);
-  const taskInputContinuationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(taskInputContinuationMigration);
-  const mcpExecutionModeMigration = await readFile(
-    new URL('../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(mcpExecutionModeMigration);
-  const nestedSkillConfirmationMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(nestedSkillConfirmationMigration);
-  const runtimeTerminalOutcomeMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(runtimeTerminalOutcomeMigration);
-  const skillInputResolutionMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(skillInputResolutionMigration);
-  const taskSkillInputBindingMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(taskSkillInputBindingMigration);
-  const goalExecutionContractMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(goalExecutionContractMigration);
-  const skillCompositionContextMigration = await readFile(
-    new URL(
-      '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  await pool.query(skillCompositionContextMigration);
-  await applyTestMigration('0063_mcp_tool_execution_semantics.up.sql');
-  await applyTestMigration('0064_memory_production_hardening.up.sql');
-  await applyV12TestMigrations();
+  await applyRuntimeMigrations(pool);
 });
-
 beforeEach(async () => {
   await pool.query(
     `UPDATE memory_retention_policy SET review_after_days=90,archive_after_days=365,
@@ -1731,6 +1013,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.child.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -2968,6 +2251,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
           outputSchema: { type: 'object' },
           toolPolicy: { required: [], optional: [], forbidden: [] },
           runtimePolicy: { autoConfirmPlan: false },
+          outcomeSpecification: testOutcome(skillId, 1),
           status: 'enabled',
           sourceKind: 'admin',
           validationPassed: true,
@@ -3207,6 +2491,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.selection', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3246,7 +2531,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         workflowGuidanceSummary: version.workflowGuidance,
         runtimePolicy: version.runtimePolicy,
         usageSummary: {
-          source: 'legacy_projection' as const,
+          source: 'native' as const,
           apiVersion: 'sdar.io/v1alpha1' as const,
           visibility: { userSelectable: true, composable: true, internalOnly: false },
           supportedModes: ['guidance' as const],
@@ -3402,6 +2687,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.input.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3544,6 +2830,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         outputSchema: { type: 'object' },
         toolPolicy: { required: [], optional: [], forbidden: [] },
         runtimePolicy: { autoConfirmPlan: false },
+        outcomeSpecification: testOutcome(skillId, 1),
         status: 'enabled',
         sourceKind: 'admin',
         validationPassed: true,
@@ -3605,6 +2892,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         serverId: 'mcp.devices',
         toolName: 'status',
         inputSchema: { type: 'object' },
+        taskExecutionProfile: frozenTaskExecutionProfile(),
         executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
         discoveredAt: '2026-07-11T10:00:00.000Z',
       },
@@ -3627,6 +2915,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         forbidden: [],
       },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.mcp-dependent', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3643,6 +2932,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
           serverId: 'mcp.devices',
           toolName: 'inspect',
           inputSchema: { type: 'object' },
+          taskExecutionProfile: frozenTaskExecutionProfile(),
           declaredExecutionSemantics: declaredSemantics,
           executionSemantics: declaredSemantics,
           discoveredAt: '2026-07-11T10:01:00.000Z',
@@ -3819,7 +3109,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
 
   it('persists Frozen MCP discovery snapshots and Tool profiles without Legacy translation', async () => {
-    const repository = new PostgresMcpRegistryRepository(pool, { v11TaskMetadata: true });
+    const repository = new PostgresMcpRegistryRepository(pool);
     const profile = {
       profileVersion: '1.0' as const,
       taskBehavior: 'task_required' as const,
@@ -3892,54 +3182,6 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskExecutionProfile: profile,
       }),
     ]);
-
-    await repository.saveServerAndReplaceTools(
-      {
-        server: {
-          serverId: 'mcp.legacy.mode-guard',
-          name: 'Legacy Provider',
-          endpoint: 'https://legacy.example.test/mcp',
-          transport: 'streamable_http',
-          status: 'enabled',
-          toolRevision: 1,
-          protocolMode: 'legacy_v11',
-          createdAt: '2026-07-18T00:00:00.000Z',
-          updatedAt: '2026-07-18T00:00:00.000Z',
-        },
-        encryptedCredential: 'encrypted-legacy-credential',
-      },
-      [],
-    );
-    const guardedSnapshot = {
-      ...snapshot,
-      snapshotId: 'snapshot.mode-guard.1',
-      serverId: 'mcp.legacy.mode-guard',
-    };
-    await expect(
-      repository.saveFrozenServerAndReplaceTools(
-        {
-          server: {
-            serverId: 'mcp.legacy.mode-guard',
-            name: 'Frozen overwrite attempt',
-            endpoint: 'https://frozen.example.test/mcp',
-            transport: 'streamable_http',
-            status: 'enabled',
-            toolRevision: 1,
-            protocolMode: 'frozen_v1',
-            currentProtocolSnapshotId: guardedSnapshot.snapshotId,
-            createdAt: '2026-07-18T00:00:00.000Z',
-            updatedAt: '2026-07-18T00:01:00.000Z',
-          },
-          encryptedCredential: 'encrypted-frozen-credential',
-        },
-        [],
-        guardedSnapshot,
-      ),
-    ).rejects.toThrow('FROZEN_MCP_PROVIDER_MODE_IMMUTABLE');
-    await expect(repository.findServer('mcp.legacy.mode-guard')).resolves.toMatchObject({
-      server: { name: 'Legacy Provider', protocolMode: 'legacy_v11' },
-      encryptedCredential: 'encrypted-legacy-credential',
-    });
   });
 
   it('atomically stores immutable Skill versions and publishes only the enabled current version', async () => {
@@ -3957,6 +3199,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.inspect', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -3968,6 +3211,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       version: 2,
       previousVersion: 1,
       status: 'disabled',
+      outcomeSpecification: testOutcome('skill.inspect', 2),
       createdAt: '2026-07-11T10:01:00.000Z',
     });
     await repository.saveVersionAndSetCurrent(second, second.createdAt);
@@ -3992,6 +3236,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('embodied.move-to.db', 1),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -4055,41 +3300,6 @@ describe('PostgreSQL protocol-domain repositories', () => {
         importedAt: version.createdAt,
       }),
     ).rejects.toThrow();
-
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0105_skill_usage_specification.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0105_skill_usage_specification.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const client = await pool.connect();
-    try {
-      await expect(client.query(down)).rejects.toThrow(
-        'MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE',
-      );
-      await client.query('ROLLBACK');
-    } finally {
-      client.release();
-    }
-    await pool.query('TRUNCATE skill_package_import_audit, skill_version, skill CASCADE');
-    await pool.query(down);
-    try {
-      await expect(
-        pool.query<{ present: boolean }>(
-          "SELECT to_regclass('public.skill_package_import_audit') IS NOT NULL AS present",
-        ),
-      ).resolves.toMatchObject({ rows: [{ present: false }] });
-    } finally {
-      await pool.query(up);
-    }
   });
 
   it('persists TaskService context/task/event and reads domain values back', async () => {
@@ -4563,178 +3773,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
   });
 
-  it('applies the migration idempotently', async () => {
-    const migration = await readFile(
-      new URL('../../../infra/postgres/migrations/0002_protocol_domain.up.sql', import.meta.url),
-      'utf8',
-    );
-    await expect(pool.query(migration)).resolves.toBeDefined();
+  it('keeps the v1.2.2 clean baseline idempotent without replaying historical migrations', async () => {
+    await expect(applyRuntimeMigrations(pool)).resolves.toBeUndefined();
     const marker = await pool.query<{ count: string }>(
-      "SELECT count(*)::text AS count FROM schema_migration WHERE version = '0002_protocol_domain'",
+      "SELECT count(*)::text AS count FROM schema_migration WHERE version='v1.2.2_clean_slate_baseline'",
     );
     expect(marker.rows[0]?.count).toBe('1');
   });
-
-  it('rolls back and reapplies the Workflow node-duration migration', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0051_workflow_node_duration.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0051_workflow_node_duration.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.columns
-         WHERE table_name='workflow_node_event' AND column_name='duration_ms'`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='workflow_node_event' AND column_name='duration_ms'`,
-    );
-    expect(restored.rows[0]?.count).toBe('1');
-  });
-
-  it('rolls back and reapplies the observability-correlation migration', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0052_observability_correlation.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0052_observability_correlation.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.columns
-         WHERE table_name='goal_patch' AND column_name='triggering_task_id'`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='goal_patch' AND column_name='triggering_task_id'`,
-    );
-    expect(restored.rows[0]?.count).toBe('1');
-    const confirmationColumns = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='workflow_plan'
-         AND column_name IN ('confirmation_task_id','confirmed_at')`,
-    );
-    expect(confirmationColumns.rows[0]?.count).toBe('2');
-  });
-
-  it('rolls back and reapplies the MCP Tool enhancement model stage', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0053_mcp_tool_enhancement_stage.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      expect(await stageRouteConstraint()).not.toContain('tool_enhancement');
-    } finally {
-      await pool.query(up);
-    }
-    expect(await stageRouteConstraint()).toContain('tool_enhancement');
-  });
-
-  it('rolls back and reapplies append-only Skill call history', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0054_skill_call_history.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL('../../../infra/postgres/migrations/0054_skill_call_history.up.sql', import.meta.url),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.columns
-         WHERE table_name='skill_call_workflow' AND column_name='call_id'`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='skill_call_workflow' AND column_name='call_id'`,
-    );
-    expect(restored.rows[0]?.count).toBe('1');
-  });
-
-  it('rolls back and reapplies durable Task input continuation', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0055_task_input_continuation.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0055_task_input_continuation.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    for (const migration of [...V12_TEST_MIGRATIONS].reverse())
-      await applyTestMigration(migration.replace('.up.sql', '.down.sql'));
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.tables
-         WHERE table_schema='public' AND table_name IN
-           ('task_input_request','task_input_response','task_execution_attempt')`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-    } finally {
-      await pool.query(up);
-      await applyV12TestMigrations();
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.tables
-       WHERE table_schema='public' AND table_name IN
-         ('task_input_request','task_input_response','task_execution_attempt')`,
-    );
-    expect(restored.rows[0]?.count).toBe('3');
-  });
-
   it('atomically commits and idempotently replays an achieved runtime outcome', async () => {
     const fixture = await createTerminalOutcomeFixture('achieved');
 
@@ -4742,6 +3787,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
 
     expect(repeated).toEqual(first);
+    expect(first.authority).toBe('user_goal_plan_controller');
     expect(fixture.outcomeNotifications).toEqual([
       expect.objectContaining({ taskId: fixture.taskId, phase: 'completed' }),
     ]);
@@ -5020,382 +4066,6 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
   });
 
-  it('rolls back and reapplies the runtime terminal outcome schema', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0058_runtime_terminal_outcome.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ exists: boolean }>(
-        "SELECT to_regclass('public.runtime_terminal_outcome') IS NOT NULL AS exists",
-      );
-      expect(removed.rows[0]?.exists).toBe(false);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE (table_name='runtime_terminal_outcome' AND column_name='outcome_id')
-          OR (table_name IN ('workflow_control','workflow_control_round')
-              AND column_name='terminal_outcome_id')`,
-    );
-    expect(restored.rows[0]?.count).toBe('3');
-  });
-
-  it('rolls back and reapplies Skill composition planning authority', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0062_skill_composition_context.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0062_skill_composition_context.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: number }>(
-        `SELECT count(*)::integer count FROM information_schema.columns
-         WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json')
-           AND table_name IN ('workflow_plan','workflow_plan_attempt')`,
-      );
-      expect(removed.rows[0]?.count).toBe(0);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: number }>(
-      `SELECT count(*)::integer count FROM information_schema.columns
-       WHERE column_name IN ('composition_context_json','capability_gap_skill_ids_json')
-         AND table_name IN ('workflow_plan','workflow_plan_attempt')`,
-    );
-    expect(restored.rows[0]?.count).toBe(4);
-  });
-
-  it('rolls back and reapplies MCP Tool execution semantics snapshots', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0063_mcp_tool_execution_semantics.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0063_mcp_tool_execution_semantics.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: number }>(
-        `SELECT count(*)::integer count FROM information_schema.columns
-         WHERE (table_name='mcp_tool' AND column_name IN
-           ('declared_execution_semantics_json','admin_execution_semantics_override_json',
-            'execution_semantics_json'))
-            OR (table_name='mcp_invocation' AND column_name='execution_semantics_json')
-            OR (table_name IN ('workflow_plan','workflow_plan_attempt')
-                AND column_name='tool_execution_semantics_json')`,
-      );
-      expect(removed.rows[0]?.count).toBe(0);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: number }>(
-      `SELECT count(*)::integer count FROM information_schema.columns
-       WHERE (table_name='mcp_tool' AND column_name IN
-         ('declared_execution_semantics_json','admin_execution_semantics_override_json',
-          'execution_semantics_json'))
-          OR (table_name='mcp_invocation' AND column_name='execution_semantics_json')
-          OR (table_name IN ('workflow_plan','workflow_plan_attempt')
-              AND column_name='tool_execution_semantics_json')`,
-    );
-    expect(restored.rows[0]?.count).toBe(6);
-  });
-
-  it('guards and verifies rollback/reapply of generic Memory embeddings', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0064_memory_production_hardening.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0064_memory_production_hardening.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const client = await pool.connect();
-    try {
-      await client.query(
-        `INSERT INTO memory_item(
-           memory_id,type,content_json,summary,status,source_refs_json,supersedes_json,confidence,
-           durability,authority,durability_reason,
-           embedding_provider_id,embedding_dimensions,embedding,created_at)
-         VALUES('memory.rollback.8','fact','{}','Eight dimensions','active','["source"]','[]',1,
-           'durable','admin','Rollback guard','provider.rollback',8,'[1,0,0,0,0,0,0,0]'::vector,now())`,
-      );
-      await expect(client.query(down)).rejects.toThrow(
-        'MIGRATION_0064_ROLLBACK_REQUIRES_THREE_DIMENSIONAL_MEMORY',
-      );
-      await client.query('ROLLBACK');
-      await client.query("DELETE FROM memory_item WHERE memory_id='memory.rollback.8'");
-    } finally {
-      client.release();
-    }
-
-    await pool.query(down);
-    try {
-      const downgraded = await pool.query<{ embedding_type: string; semantic_columns: number }>(
-        `SELECT format_type(a.atttypid,a.atttypmod) embedding_type,
-                count(c.column_name)::integer semantic_columns
-         FROM pg_attribute a CROSS JOIN information_schema.columns c
-         WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding'
-           AND NOT a.attisdropped AND c.table_name='memory_item'
-           AND c.column_name IN ('durability','authority','durability_reason')
-         GROUP BY a.atttypid,a.atttypmod`,
-      );
-      expect(downgraded.rows).toEqual([]);
-      const type = await pool.query<{ embedding_type: string }>(
-        `SELECT format_type(atttypid,atttypmod) embedding_type FROM pg_attribute
-         WHERE attrelid='memory_item'::regclass AND attname='embedding' AND NOT attisdropped`,
-      );
-      expect(type.rows[0]?.embedding_type).toBe('vector(3)');
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ embedding_type: string; semantic_columns: number }>(
-      `SELECT format_type(a.atttypid,a.atttypmod) embedding_type,
-              count(c.column_name)::integer semantic_columns
-       FROM pg_attribute a CROSS JOIN information_schema.columns c
-       WHERE a.attrelid='memory_item'::regclass AND a.attname='embedding'
-         AND NOT a.attisdropped AND c.table_name='memory_item'
-         AND c.column_name IN ('durability','authority','durability_reason')
-       GROUP BY a.atttypid,a.atttypmod`,
-    );
-    expect(restored.rows).toEqual([{ embedding_type: 'vector', semantic_columns: 3 }]);
-  });
-
-  it('rolls back and reapplies the Goal execution contract snapshots', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0061_goal_execution_contract.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0061_goal_execution_contract.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: number }>(
-        `SELECT count(*)::integer count FROM information_schema.columns
-         WHERE column_name='goal_contract_json'
-           AND table_name IN ('workflow_plan','workflow_plan_attempt',
-                              'skill_selection_record','skill_replacement_plan')`,
-      );
-      expect(removed.rows[0]?.count).toBe(0);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: number }>(
-      `SELECT count(*)::integer count FROM information_schema.columns
-       WHERE column_name='goal_contract_json'
-         AND table_name IN ('workflow_plan','workflow_plan_attempt',
-                            'skill_selection_record','skill_replacement_plan')`,
-    );
-    expect(restored.rows[0]?.count).toBe(4);
-  });
-
-  it('rolls back and reapplies the top-level Skill input resolution schema', async () => {
-    const bindingDown = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const bindingUp = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0059_skill_input_resolution.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0059_skill_input_resolution.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(bindingDown);
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ exists: boolean }>(
-        "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
-      );
-      expect(removed.rows[0]?.exists).toBe(false);
-      const stageConstraint = await pool.query<{ definition: string }>(
-        `SELECT pg_get_constraintdef(oid) definition FROM pg_constraint
-         WHERE conrelid='stage_model_route'::regclass
-           AND conname='stage_model_route_stage_check'`,
-      );
-      expect(stageConstraint.rows[0]?.definition).not.toContain('skill_input_resolution');
-    } finally {
-      await pool.query(up);
-      await pool.query(bindingUp);
-    }
-    const restored = await pool.query<{ exists: boolean }>(
-      "SELECT to_regclass('public.skill_input_resolution') IS NOT NULL AS exists",
-    );
-    expect(restored.rows[0]?.exists).toBe(true);
-    const sources = await pool.query<{ definition: string }>(
-      `SELECT pg_get_constraintdef(oid) definition FROM pg_constraint
-       WHERE conrelid='task_input_request'::regclass
-         AND conname='task_input_request_source_check'`,
-    );
-    expect(sources.rows[0]?.definition).toContain('skill_input_resolution');
-  });
-
-  it('rolls back and reapplies the Task Skill input binding schema', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0060_task_skill_input_resolution_binding.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1 FROM information_schema.columns
-           WHERE table_name='agent_task' AND column_name='skill_input_resolution_id'
-         ) AS exists`,
-      );
-      expect(removed.rows[0]?.exists).toBe(false);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ exists: boolean }>(
-      `SELECT EXISTS(
-         SELECT 1 FROM pg_constraint
-         WHERE conname='agent_task_skill_input_resolution_identity_fkey'
-       ) AS exists`,
-    );
-    expect(restored.rows[0]?.exists).toBe(true);
-  });
-
-  it('rolls back and reapplies MCP execution-mode audit columns', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0056_mcp_execution_mode.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL('../../../infra/postgres/migrations/0056_mcp_execution_mode.up.sql', import.meta.url),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.columns
-         WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='mcp_invocation' AND column_name IN ('execution_mode','simulation_id')`,
-    );
-    expect(restored.rows[0]?.count).toBe('2');
-  });
-
-  it('rolls back and reapplies nested Skill confirmation linkage', async () => {
-    const down = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0057_nested_skill_confirmation.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0057_nested_skill_confirmation.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await pool.query(down);
-    try {
-      const removed = await pool.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM information_schema.columns
-         WHERE table_name='skill_call_workflow'
-           AND column_name IN ('parent_plan_id','confirmation_status')`,
-      );
-      expect(removed.rows[0]?.count).toBe('0');
-      const restoredForeignKey = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1 FROM pg_constraint
-           WHERE conrelid='skill_call_workflow'::regclass
-             AND conname='skill_call_workflow_child_instance_id_fkey'
-         ) AS exists`,
-      );
-      expect(restoredForeignKey.rows[0]?.exists).toBe(true);
-    } finally {
-      await pool.query(up);
-    }
-    const restored = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM information_schema.columns
-       WHERE table_name='skill_call_workflow'
-         AND column_name IN ('parent_plan_id','confirmation_status')`,
-    );
-    expect(restored.rows[0]?.count).toBe('2');
-  });
-
   it('persists append-only Skill execution status and thin evidence links', async () => {
     const timestamp = '2026-07-17T12:00:00.000Z';
     await new PostgresConversationContextRepository(pool).save({
@@ -5427,6 +4097,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       outputSchema: { type: 'object' },
       toolPolicy: { required: [], optional: [], forbidden: [] },
       runtimePolicy: { autoConfirmPlan: false },
+      outcomeSpecification: testOutcome('skill.root.db', 2),
       status: 'enabled',
       sourceKind: 'admin',
       validationPassed: true,
@@ -5911,6 +4582,13 @@ async function createGoalContinuationInvalidationFixture(
         protocolStatus: 'working',
         protocolRevision: '2026-07-28',
         tasksSchemaRevision: 'tasks-schema-revision-1',
+        protocolContract: {
+          mode: 'frozen_v1',
+          protocolVersion: '2026-07-28',
+          baselineSha256: 'a'.repeat(64),
+        },
+        taskBehavior: 'server_directed',
+        runtimeRevision: '1',
         executionContext: { mode: 'live' },
         credentialRevision: 'credential-revision-1',
         sessionRevision: 'session-revision-1',
@@ -5976,6 +4654,24 @@ async function createGoalContinuationInvalidationFixture(
   return { prefix, goalId, snapshotId, bindingIds };
 }
 
+function testOutcome(skillId: string, skillVersion: number) {
+  const specificationHash = `sha256:${createHash('sha256')
+    .update(`${skillId}:${String(skillVersion)}`)
+    .digest('hex')}`;
+  return {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion,
+    specificationHash,
+    effects: ['effect.test'],
+    evidence: ['evidence.test'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
+  };
+}
+
 async function expectContinuationInvalidated(
   fixture: GoalContinuationInvalidationFixture,
   invalidatedAt: string,
@@ -6037,13 +4733,17 @@ async function removeTerminalOutcomeFault(
   await pool.query('DROP FUNCTION IF EXISTS sdar_test_terminal_outcome_fault()');
 }
 
-async function stageRouteConstraint(): Promise<string> {
-  const result = await pool.query<{ definition: string }>(
-    `SELECT pg_get_constraintdef(oid) AS definition
-     FROM pg_constraint
-     WHERE conrelid='stage_model_route'::regclass AND contype='c'`,
-  );
-  return result.rows.map((row) => row.definition).join('\n');
+function frozenTaskExecutionProfile() {
+  return {
+    profileVersion: '1.0' as const,
+    taskBehavior: 'synchronous_only' as const,
+    availability: 'not_supported' as const,
+    supportsScheduling: false,
+    supportsMaxElapsed: false,
+    supportsObservations: false,
+    supportsInputRequired: false,
+    idempotency: 'client_request_key' as const,
+  };
 }
 
 function sequenceIds(): Readonly<{

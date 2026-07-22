@@ -55,6 +55,18 @@
       "maxMcpCalls": 8,
       "cancelStrategy": "try_interrupt"
     },
+    "outcomeSpecification": {
+      "schemaVersion": "1.0",
+      "skillId": "embodied.move_to",
+      "skillVersion": 1,
+      "specificationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "effects": ["effect.final_position"],
+      "evidence": ["evidence.final_position"],
+      "artifacts": [],
+      "taskGoalPolicy": {},
+      "confidencePolicy": {},
+      "sideEffectPolicy": {}
+    },
     "status": "enabled",
     "sourceKind": "admin",
     "validationPassed": true,

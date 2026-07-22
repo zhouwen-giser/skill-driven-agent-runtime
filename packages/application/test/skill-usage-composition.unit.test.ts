@@ -435,6 +435,7 @@ function usageSkill(
     outputSchema: objectSchema(outputFields),
     toolPolicy: { required: [], optional: [], forbidden: [] },
     runtimePolicy: { autoConfirmPlan: false },
+    outcomeSpecification: testOutcome(skillId, 1),
     status: 'enabled',
     sourceKind: 'admin',
     validationPassed: true,
@@ -494,6 +495,21 @@ function usageSkill(
       },
     },
   });
+}
+
+function testOutcome(skillId: string, skillVersion: number) {
+  return {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion,
+    specificationHash: `sha256:${'b'.repeat(64)}`,
+    effects: ['effect.test'],
+    evidence: ['evidence.test'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: {},
+  };
 }
 
 function rootComposition(

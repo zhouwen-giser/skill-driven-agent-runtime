@@ -9,6 +9,7 @@ import type {
   SkillSimulationCaseResult,
   SkillVersion,
   RuntimeExecutionContext,
+  SkillUsageSpecification,
 } from '../../domain/src/index.js';
 import { createRuntimeExecutionContext } from '../../domain/src/index.js';
 
@@ -44,6 +45,21 @@ const InductionDecisionSchema = z.object({
     inputSchema: z.unknown(),
     outputSchema: z.unknown(),
     tools: z.array(z.object({ serverId: z.string().min(1), toolName: z.string().min(1) })).min(1),
+    usageSpecification: z
+      .unknown()
+      .transform((value): SkillUsageSpecification => value as SkillUsageSpecification),
+    outcomeSpecification: z.object({
+      schemaVersion: z.literal('1.0'),
+      skillId: z.string().min(1),
+      skillVersion: z.number().int().positive(),
+      effects: z.array(z.string().min(1)).min(1),
+      evidence: z.array(z.string().min(1)).min(1),
+      artifacts: z.array(z.string().min(1)),
+      taskGoalPolicy: z.record(z.string(), z.unknown()),
+      confidencePolicy: z.record(z.string(), z.unknown()),
+      sideEffectPolicy: z.record(z.string(), z.unknown()),
+      specificationHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    }),
   }),
   supplementalCases: z
     .array(
@@ -377,8 +393,15 @@ export class SkillEvolutionService {
       evaluatedAt: this.#clock.now(),
     };
     if (allPassed) {
+      if (
+        proposedSkill.usageSpecification === undefined ||
+        proposedSkill.outcomeSpecification === undefined
+      )
+        throw new Error('SKILL_EVOLUTION_EXPLICIT_CONTRACTS_REQUIRED');
       const published = await this.#skills.register({
         ...proposedSkill,
+        usageSpecification: proposedSkill.usageSpecification,
+        outcomeSpecification: proposedSkill.outcomeSpecification,
         toolPolicy: { required: proposedSkill.tools, optional: [], forbidden: [] },
         runtimePolicy: { autoConfirmPlan: false },
         status: 'enabled',

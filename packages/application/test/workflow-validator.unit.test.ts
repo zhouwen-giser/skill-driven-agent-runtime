@@ -180,7 +180,7 @@ describe('WorkflowValidator', () => {
             ? {
                 ...node,
                 taskExecution: {
-                  mode: 'require_task',
+                  protocolMode: 'frozen_v1',
                   timing: {
                     start: { mode: 'scheduled', scheduledAt, startToleranceMs: 0 },
                     maxElapsedMs: null,
@@ -205,7 +205,7 @@ describe('WorkflowValidator', () => {
             ? {
                 ...node,
                 taskExecution: {
-                  mode: 'require_task',
+                  protocolMode: 'frozen_v1',
                   timing: {
                     start: { mode: 'scheduled', scheduledAt, startToleranceMs: 1 },
                   },
@@ -222,7 +222,7 @@ describe('WorkflowValidator', () => {
     },
   );
 
-  it('accepts Frozen invocation controls without legacy mode and rejects mixed contracts', async () => {
+  it('accepts Frozen invocation controls and rejects mixed contracts', async () => {
     const source = validWorkflow();
     const withTaskExecution = (taskExecution: Readonly<Record<string, unknown>>) => ({
       ...source,
