@@ -26,3 +26,8 @@ export * from './experience-extractor-pipeline.js';
 export * from './extractors/typed-experience-extractors.js';
 export * from './experience-observer-service.js';
 export * from './observation-job-reconciler.js';
+export * from './knowledge-identity-service.js';
+export * from './knowledge-delta-validator.js';
+export * from './knowledge-curator-service.js';
+export * from './experience-reflector-service.js';
+export * from './reflection-job-reconciler.js';

@@ -362,6 +362,18 @@ claim. Exact evidence and failed attempts are retained in `reports/goal/g07-comp
 | AC-G08-06 failure cannot affect Goal | unit verified, real test blocked | async Observer retries/dead-letters after terminal commit; no Goal/Episode mutation dependency | total failure unit passes; terminal-to-Observation E2E authored |
 | AC-G08-07 bounded execution | verified | max 8 Episodes, 512 KiB, approximate 128 Ki tokens and 3 prior Observations | batch/600 KiB rejection before model calls passes |
 
+## SDAR v1.2.3 G09 Addendum
+
+| Acceptance | Status | Implementation | Test / evidence |
+| --- | --- | --- | --- |
+| AC-G09-01 source-linked Reflection | unit verified, real test blocked | `ExperienceReflectorService`; immutable Reflection/Delta factories; PG transaction | focused Reflector unit passes; PG/A2A slice authored |
+| AC-G09-02 reusable identity boundary | verified | de-instantiated canonical fingerprint, lexical/semantic identity, deliverable/intent boundaries | device/location/date match and different-deliverable/intent regressions pass |
+| AC-G09-03 conservative confidence | verified | exact fingerprint short-circuit and semantic thresholds | exact avoids embed; low confidence creates separate Candidate |
+| AC-G09-04 legal Curator operations | verified | strict six-operation Zod output plus deterministic validator | malformed/illegal/unknown-relation results no-op |
+| AC-G09-05 positive and negative lineage | verified | polarity evidence cites Observation statement, Episode and Outcome | Domain/Reflector regressions preserve both polarities |
+| AC-G09-06 duplicate and lineage persistence | implemented, real test blocked | Candidate fingerprint search plus generic Delta and merge/supersede lineage tables | PG round-trip authored; Docker execution blocked |
+| AC-G09-07 fail-open/idempotent processing | unit verified, real worker test blocked | PG job claim/idempotency, retry/dead-letter and rebuildable BullMQ wake | invalid output no-op; operational failure leaves sources unchanged |
+
 G08 passes 539 unit, 151 contract, 140-operation OpenAPI, 362-source architecture, A2A MUST 74/74
 and production builds. Migration 0116, real integration/E2E and meaningful commit/push remain blocked
 before execution by the platform approval usage limit; exact evidence is in

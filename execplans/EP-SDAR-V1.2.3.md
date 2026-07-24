@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G07 is pushed; G08 implementation is locally complete but external gates/commit are blocked; G09 is next
+Status: ACTIVE — G07 is pushed; G08/G09 are locally complete but externally blocked; G10 is next provisionally
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -90,8 +90,8 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
 | G07  | completed   | `301606e` | 533 unit, 151 contract, API/architecture/build; integration/E2E blocked          | `reports/goal/g07-completion.md` | test quota     | real gates carried to G17; handoff to G08                      |
 | G08  | blocked     | none      | 539 unit, 151 contract, 140 API, 362-source architecture, build; real gates blocked | `reports/goal/g08-completion.md` | platform quota | commit/push after approval; provisional handoff to G09         |
-| G09  | in_progress | —         | provisional local implementation next                                             | —                                | G08 publish    | reflector/identity/curator                                     |
-| G10  | not_started | —         | —                                                                                 | —                                | G06/G09        | Task Type induction                                            |
+| G09  | blocked     | none      | 549 unit, 151 contract, 141 API, 372-source architecture, build; real gates blocked | `reports/goal/g09-completion.md` | platform quota | commit/push after approval; provisional handoff to G10/G11     |
+| G10  | in_progress | —         | provisional local implementation next                                             | —                                | G09 publish    | Task Type induction                                            |
 | G11  | not_started | —         | —                                                                                 | —                                | G01/G09        | capability pattern/gap                                         |
 | G12  | not_started | —         | —                                                                                 | —                                | G09/G10/G11    | knowledge promotion                                            |
 | G13  | not_started | —         | —                                                                                 | —                                | G01/G12        | retrieval/progressive disclosure                               |
@@ -163,6 +163,17 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-23: a top-level pnpm gate attempted registry metadata/dependency repair and refused the
   non-TTY modules purge. Locked local binaries passed the equivalent non-install format, lint,
   typecheck, unit, contract and build gates without changing dependencies.
+- 2026-07-23: G09's test-first suite failed 4/4 before Reflector/Identity/Curator constructors existed.
+  Final focused tests pass 16/16. Review then found that raw instance terms were still part of the
+  canonical fingerprint; removing them makes distinct device/location/date instances share the
+  intended reusable-job fingerprint without weakening deliverable or recent-intent boundaries.
+- 2026-07-23: a Console build invoked from the repository root failed before compilation because Vite
+  could not resolve `index.html`. The same locked binary invoked from `apps/console` passes; this is
+  retained as command failure evidence rather than a product failure.
+- 2026-07-23: the direct root build compiler emitted 378 adjacent untracked JavaScript outputs. Every
+  target was verified inside the repository with a matching TypeScript/TSX source, but platform
+  approval rejected exact cleanup before execution. Further Vitest evidence is paused because imports
+  ending in `.js` could select stale generated output instead of the TypeScript working tree.
 
 ## Decision Log
 
@@ -208,6 +219,10 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   output nor Candidate data can mutate authority or enter the Planner.
 - 2026-07-23: Observation persistence atomically emits `experience.observation_completed` and a
   PostgreSQL `reflect` job for G09. Redis is only a job-id wake transport and is fully reconstructible.
+- 2026-07-23: G09 persists only Candidate revisions and generic immutable Deltas. The Curator's six
+  operations are deterministic suggestions; Active state remains impossible until G12 promotion.
+  Identity is de-instantiated before hashing, then bounded by exact deliverable/recent intent plus
+  conservative lexical/semantic thresholds. Unknown relation targets and low confidence never merge.
 
 ## Implementation Steps
 
@@ -293,19 +308,23 @@ G08 uses original repository TypeScript and the existing Zod, PostgreSQL and Bul
 LangMem typed extraction/consolidation and Gemini evidence-only/no-op/redaction remain concept-level
 references only; no source was copied or translated, so no Source Intake or dependency metadata changed.
 
+G09 likewise uses original repository TypeScript and existing dependencies. ACE Reflector/Curator,
+AutoSkill Identity/Merge and LangMem change sets remain exact-commit concept references only; no source
+was copied or translated, so no Source Intake or dependency metadata changed.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0116 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0117 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection through 0115 before the platform approval quota was reached. Migration 0116 is authored
-  but has not run against real PostgreSQL.
-- OpenAPI: 140 management operations include Capability, Understanding, Goal/Plan review, Experience
-  Episode/Observation/dead-letter reads and explicit replay.
+  rejection through 0115 before the platform approval quota was reached. Migrations 0116 and 0117 are
+  authored but have not run against real PostgreSQL.
+- OpenAPI: 141 management operations include Capability, Understanding, Goal/Plan review, Experience
+  Episode/Observation/Reflection/dead-letter reads and explicit replay.
 - A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
   boundaries. The real path captures four correction Facts, scoped preference deletion and unique
   Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
 - Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions
-  and links Correction/Episode/Observation evidence. It remains a projection over
+  and links Correction/Episode/Observation/Reflection evidence. It remains a projection over
   PostgreSQL/Application authority; broader G15 integration remains open.
 
 ## Branch / HEAD / Main / Draft PR
@@ -343,19 +362,27 @@ references only; no source was copied or translated, so no Source Intake or depe
 - G08 working tree: Observation Domain/Application/PostgreSQL path, twelve typed extractors,
   migration 0116, separate rebuildable BullMQ wakes, Model stage, API/OpenAPI/Console and authored real
   integration/A2A evidence. No G08 commit exists because `.git` approval was rejected before staging.
+- G09 working tree: Reflection/Knowledge Delta Domain, Reflector/Identity/Curator Application path,
+  Candidate/evidence/lineage PostgreSQL transaction, migration 0117, rebuildable BullMQ wakes,
+  Reflection Model stage/API/OpenAPI/Console and authored integration/A2A evidence. No G09 commit exists
+  because the same `.git` approval blocker remains active.
 
 ## Open Blockers
 
-G07/G08 real integration/E2E execution and the G08 `.git` write are blocked by the Codex automatic
+G07-G09 real integration/E2E execution and the G08/G09 `.git` writes are blocked by the Codex automatic
 approval usage limit, which reported retry availability at 2026-07-29 01:43. G07 is pushed as
-`301606e`; G08 remains only in the working tree. No blocked gate is claimed passed, Draft PR #8 remains
-Draft at G00-G07, and the default operator database remains untouched.
+`301606e`; G08/G09 remain only in the working tree. No blocked gate is claimed passed, Draft PR #8 remains
+Draft at G00-G07, and the default operator database remains untouched. Worktree hygiene is additionally
+blocked until explicit approval removes 378 verified generated/untracked `.js` compiler outputs.
 
 ## Next Execution Step
 
-Proceed provisionally with G09 against the local G08 Observation/event/reflect-job contracts. When
-approval becomes available, return to G07/G08 real integration/E2E, then create and push the meaningful
-G08 commit and update Draft PR #8 without changing Draft status.
+First remove the 378 verified generated/untracked `.js` compiler outputs so subsequent Vitest imports
+cannot select stale code. Then proceed provisionally with G10 against the local G06 correction and G09
+Candidate/Delta contracts, followed by G11 where dependencies permit. When approval becomes available,
+return to G07-G09 real
+integration/E2E, create and push separate meaningful G08 and G09 commits, and update Draft PR #8
+without changing Draft status.
 
 ## Outcomes and Retrospective
 
@@ -370,4 +397,7 @@ test databases were deleted and the default local `sdar` volume remains protecte
 data. G07 is pushed and passes 533 unit, 151 contract, OpenAPI, architecture and build gates; its real
 integration/E2E remain honestly blocked. G08 locally adds source-linked typed Observation with 539
 unit, 151 contract, 140 OpenAPI operations, 362-source architecture, A2A MUST 74/74 and builds passing;
-its real integration/E2E plus commit/push remain honestly blocked. G08–G17 remain open.
+its real integration/E2E plus commit/push remain honestly blocked. G09 locally adds Candidate-only
+Reflection/Delta with 549 unit, 151 contract, 141 OpenAPI operations, 372-source architecture, A2A MUST
+74/74 and builds passing; its real gates and publication are likewise blocked. G08–G09 are blocked and
+G10–G17 remain open.

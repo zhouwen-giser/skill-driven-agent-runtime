@@ -15,7 +15,8 @@ export type ModelStage =
   | 'task_clarification'
   | 'goal_contract_generation'
   | 'interactive_plan_patch'
-  | 'experience_observation';
+  | 'experience_observation'
+  | 'experience_reflection';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;

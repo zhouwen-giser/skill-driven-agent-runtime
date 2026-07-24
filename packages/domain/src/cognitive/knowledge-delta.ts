@@ -31,6 +31,7 @@ export interface KnowledgeCandidateIdentity {
   readonly capabilityTerms: readonly string[];
   readonly tags: readonly string[];
   readonly deliverable: string;
+  readonly instanceTerms?: readonly string[];
   readonly recentIntentBoundary?: string;
 }
 
@@ -96,6 +97,9 @@ export function createKnowledgeCandidateIdentity(
     capabilityTerms: terms(input.capabilityTerms, 'capabilityTerms'),
     tags: terms(input.tags, 'tags'),
     deliverable,
+    ...(input.instanceTerms === undefined
+      ? {}
+      : { instanceTerms: terms(input.instanceTerms, 'instanceTerms') }),
     ...(recentIntentBoundary === undefined ? {} : { recentIntentBoundary }),
   });
 }
@@ -140,7 +144,8 @@ export function createKnowledgeDelta(input: KnowledgeDelta): KnowledgeDelta {
   }
   if (input.targetKnowledgeId !== undefined)
     assertIdentifier(input.targetKnowledgeId, 'targetKnowledgeId');
-  if (input.targetRevision !== undefined) assertPositiveVersion(input.targetRevision, 'targetRevision');
+  if (input.targetRevision !== undefined)
+    assertPositiveVersion(input.targetRevision, 'targetRevision');
   if ((input.targetKnowledgeId === undefined) !== (input.targetRevision === undefined)) {
     invalid('Target knowledge id and revision must be supplied together.');
   }
@@ -173,7 +178,10 @@ export function createKnowledgeDelta(input: KnowledgeDelta): KnowledgeDelta {
 }
 
 function terms(values: readonly string[], field: string): readonly string[] {
-  return freezeStrings(values.map((value) => value.toLowerCase()), field);
+  return freezeStrings(
+    values.map((value) => value.toLowerCase()),
+    field,
+  );
 }
 
 function unique(values: readonly string[]): readonly string[] {

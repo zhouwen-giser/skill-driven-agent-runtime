@@ -21,6 +21,7 @@ const stages = [
   'goal_contract_generation',
   'interactive_plan_patch',
   'experience_observation',
+  'experience_reflection',
 ] as const;
 interface Inventory<T> {
   readonly items: readonly T[];

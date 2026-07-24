@@ -1,5 +1,17 @@
 # Project Status
 
+SDAR v1.2.3 G09 implementation is complete locally but not committed or published (2026-07-23).
+Reflector/Identity/Curator now convert immutable Observation/Episode/Outcome evidence into validated,
+source-linked Candidate-only Knowledge Deltas, preserving both positive and negative evidence.
+De-instantiated fingerprint plus lexical/semantic comparison respects deliverable and recent-intent
+boundaries; low confidence and illegal Curator output no-op or create separate Candidates, never Active
+Knowledge. Non-Docker gates pass 549 unit, 151 serial contract, 141 OpenAPI operations, 372-source
+architecture, A2A MUST 74/74, licenses/SBOM and production build. Migration 0117, real integration and
+real A2A E2E are authored but unexecuted; Git staging remains blocked by the Codex approval usage limit.
+A root build also emitted 378 verified generated/untracked `.js` files whose exact cleanup was rejected;
+they must be removed before further Vitest evidence can be trusted. G10 remains provisionally next.
+See `reports/goal/g09-completion.md`.
+
 SDAR v1.2.3 G08 implementation is complete locally but not committed or published (2026-07-23).
 Exactly twelve independent typed extractors produce source/model-linked structured Observations from
 redacted immutable Goal Episodes. PostgreSQL owns Observation/idempotency/outbox/next-job state;

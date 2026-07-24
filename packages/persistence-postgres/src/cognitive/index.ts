@@ -7,3 +7,4 @@ export * from './goal-version-lock.js';
 export * from './planning-correction-repository.js';
 export * from './experience-repository.js';
 export * from './observation-repository.js';
+export * from './reflection-repository.js';

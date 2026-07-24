@@ -519,7 +519,7 @@ export interface ManagementOperations {
   >;
   readonly experience?: Pick<
     ExperienceManagementService,
-    'listEpisodes' | 'listObservations' | 'listDeadLetters' | 'replayDeadLetter'
+    'listEpisodes' | 'listObservations' | 'listReflections' | 'listDeadLetters' | 'replayDeadLetter'
   >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
@@ -1824,6 +1824,18 @@ export async function startManagementHttpEndpoint(
       const query = ExperienceListQuerySchema.parse(request.query);
       response.json({
         items: await options.operations.experience.listObservations(query.goalId, query.limit),
+      });
+    }),
+  );
+  app.get(
+    '/api/v1/experience/reflections',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      response.json({
+        items: await options.operations.experience.listReflections(query.limit),
       });
     }),
   );

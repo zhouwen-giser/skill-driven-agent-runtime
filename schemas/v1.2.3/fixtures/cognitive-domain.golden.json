@@ -302,6 +302,99 @@
     "summary": { "extractorCount": 12, "completed": 1, "noOp": 11, "failed": 0 },
     "createdAt": "2026-07-23T00:00:02.000Z"
   },
+  "experienceReflection": {
+    "schemaVersion": "1.0",
+    "reflectionId": "reflection.v123",
+    "seedObservationId": "observation.v123",
+    "observationIds": ["observation.v123"],
+    "revision": 1,
+    "status": "completed",
+    "group": {
+      "goalPatternFingerprint": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "capabilityFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+      "timeWindow": "2026-07-23/P7D"
+    },
+    "impacts": [
+      {
+        "impactId": "impact.v123",
+        "disposition": "helpful",
+        "observationId": "observation.v123",
+        "statementId": "statement.v123",
+        "sourceEpisodeIds": ["episode.v123"],
+        "sourceRefIds": ["source.goal.1"],
+        "outcomeRefs": ["runtime-terminal-outcome:outcome.v123"],
+        "summary": "The cited evidence supported the verified terminal Outcome."
+      }
+    ],
+    "deltas": [
+      {
+        "schemaVersion": "1.0",
+        "deltaId": "delta.v123",
+        "reflectionId": "reflection.v123",
+        "operation": "CREATE_REVISION",
+        "knowledgeKind": "planning_heuristic",
+        "fingerprint": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "identity": {
+          "jobToBeDone": "Inspect equipment and verify pressure evidence",
+          "objectiveTerms": ["inspect", "pressure"],
+          "criterionTerms": ["verified"],
+          "artifactTerms": ["report"],
+          "capabilityTerms": ["sensor.read"],
+          "tags": ["inspection"],
+          "deliverable": "pressure evidence report",
+          "instanceTerms": ["pump-17", "Shanghai", "2026-07-23"],
+          "recentIntentBoundary": "intent.v123"
+        },
+        "relatedKnowledgeIds": [],
+        "candidate": {
+          "schemaVersion": "1.0",
+          "knowledgeId": "knowledge.reflection.v123",
+          "kind": "planning_heuristic",
+          "revision": 1,
+          "status": "candidate",
+          "scope": "global_candidate",
+          "title": "Verify pressure evidence",
+          "summary": "Collect cited pressure evidence before declaring completion.",
+          "risk": "low",
+          "supportSourceRefs": [
+            {
+              "schemaVersion": "1.0",
+              "sourceRefId": "source.goal.1",
+              "sourceKind": "goal_contract",
+              "sourceId": "goal.v123",
+              "sourceRevision": 1,
+              "authority": "runtime_fact",
+              "dataClassification": "internal",
+              "capturedAt": "2026-07-23T00:00:00.000Z"
+            }
+          ],
+          "contradictionSourceRefs": [],
+          "createdAt": "2026-07-23T00:00:03.000Z"
+        },
+        "supportEvidence": [
+          {
+            "evidenceId": "evidence.support.v123",
+            "polarity": "support",
+            "observationId": "observation.v123",
+            "statementIds": ["statement.v123"],
+            "sourceEpisodeIds": ["episode.v123"],
+            "sourceRefIds": ["source.goal.1"],
+            "outcomeRefs": ["runtime-terminal-outcome:outcome.v123"],
+            "summary": "The verified terminal Outcome reports success.",
+            "createdAt": "2026-07-23T00:00:03.000Z"
+          }
+        ],
+        "contradictionEvidence": [],
+        "confidence": 0.9,
+        "reason": "Create a candidate revision for review.",
+        "modelInvocationId": "model-invocation.reflection.v123",
+        "createdAt": "2026-07-23T00:00:03.000Z"
+      }
+    ],
+    "modelInvocationRefs": ["model-invocation.reflection.v123"],
+    "reflectionHash": "sha256:dededededededededededededededededededededededededededededededede",
+    "createdAt": "2026-07-23T00:00:03.000Z"
+  },
   "knowledgeCandidate": {
     "schemaVersion": "1.0",
     "knowledgeId": "knowledge.v123",

@@ -251,6 +251,10 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
     return this.#claimType('observe', workerId, now, leaseMs, limit);
   }
 
+  async claimReflection(workerId: string, now: string, leaseMs: number, limit: number) {
+    return this.#claimType('reflect', workerId, now, leaseMs, limit);
+  }
+
   async #claimType(
     jobType: ExperienceJob['jobType'],
     workerId: string,
@@ -295,6 +299,15 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
       now,
       `experience-observation:${observationId}`,
     );
+  }
+
+  async completeReflection(
+    jobId: string,
+    workerId: string,
+    now: string,
+    reflectionId: string,
+  ): Promise<void> {
+    return this.#completeWithResult(jobId, workerId, now, `experience-reflection:${reflectionId}`);
   }
 
   async #completeWithResult(
@@ -371,6 +384,10 @@ export class PostgresExperienceJobRepository implements ExperienceJobRepository 
 
   async listObservationRequeueable(now: string, limit = 100): Promise<readonly ExperienceJob[]> {
     return this.#listRequeueableType('observe', now, limit);
+  }
+
+  async listReflectionRequeueable(now: string, limit = 100): Promise<readonly ExperienceJob[]> {
+    return this.#listRequeueableType('reflect', now, limit);
   }
 
   async #listRequeueableType(

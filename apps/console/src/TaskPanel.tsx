@@ -1122,6 +1122,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       endpoint: `/api/v1/experience/observations?goalId=${goalId}`,
     });
     links.push({
+      key: 'experience-reflections',
+      label: 'Candidate-only Experience Reflections',
+      endpoint: '/api/v1/experience/reflections',
+    });
+    links.push({
       key: 'goal-patches',
       label: 'Goal Patches',
       endpoint: `/api/v1/goals/${goalId}/patches`,

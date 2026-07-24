@@ -65,6 +65,7 @@ import {
   PostgresGoalExperienceEpisodeRepository,
   PostgresCognitiveRuntimeFactReader,
   PostgresObservationRepository,
+  PostgresReflectionRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -100,6 +101,11 @@ import {
   createExperienceObservation,
   createExperienceExtraction,
   createExperienceObservationStatement,
+  createExperienceReflection,
+  createKnowledgeCandidateIdentity,
+  createKnowledgeCandidateSnapshot,
+  createKnowledgeDelta,
+  createKnowledgeEvidence,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -4078,6 +4084,177 @@ describe('PostgreSQL protocol-domain repositories', () => {
       extractions: 1,
       observation_events: 1,
       reflect_jobs: 1,
+    });
+
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.reflection.db',
+      taskId: fixture.taskId,
+      stage: 'experience_reflection',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { observationId: observation.observationId },
+      context: { sourceEpisodeId: episode.episodeId },
+      structuredResult: { operation: 'CREATE_REVISION' },
+      inputTokens: 96,
+      outputTokens: 24,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const sourceRef = episode.sourceRefs[0];
+    if (sourceRef === undefined) throw new Error('REFLECTION_SOURCE_REF_MISSING');
+    const support = createKnowledgeEvidence({
+      evidenceId: 'knowledge-evidence.support.db',
+      polarity: 'support',
+      observationId: observation.observationId,
+      statementIds: [statement.statementId],
+      sourceEpisodeIds: [episode.episodeId],
+      sourceRefIds: [sourceRef.sourceRefId],
+      sourceRefs: [sourceRef],
+      outcomeRefs: [`runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`],
+      summary: statement.summary,
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const contradiction = createKnowledgeEvidence({
+      ...support,
+      evidenceId: 'knowledge-evidence.contradiction.db',
+      polarity: 'contradiction',
+      summary: 'A retained counterexample contradicts unconditional reuse.',
+    });
+    const identity = createKnowledgeCandidateIdentity({
+      jobToBeDone: 'Complete a verified goal with cited terminal evidence',
+      objectiveTerms: ['complete', 'verified', 'goal'],
+      criterionTerms: ['terminal', 'verified'],
+      artifactTerms: ['evidence'],
+      capabilityTerms: ['runtime'],
+      tags: ['terminal'],
+      deliverable: 'verified terminal evidence',
+      recentIntentBoundary: 'intent.reflection.db',
+    });
+    const candidate = createKnowledgeCandidateSnapshot({
+      schemaVersion: '1.0',
+      knowledgeId: 'knowledge.reflection.db',
+      kind: 'planning_heuristic',
+      revision: 1,
+      status: 'candidate',
+      scope: 'global_candidate',
+      title: 'Require cited terminal evidence',
+      summary: 'Preserve both supporting evidence and counterexamples before promotion.',
+      risk: 'low',
+      supportSourceRefs: [sourceRef],
+      contradictionSourceRefs: [sourceRef],
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const delta = createKnowledgeDelta({
+      schemaVersion: '1.0',
+      deltaId: 'knowledge-delta.reflection.db',
+      reflectionId: 'experience-reflection.db',
+      operation: 'CREATE_REVISION',
+      knowledgeKind: 'planning_heuristic',
+      fingerprint: `sha256:${'8'.repeat(64)}`,
+      identity,
+      relatedKnowledgeIds: [],
+      candidate,
+      supportEvidence: [support],
+      contradictionEvidence: [contradiction],
+      confidence: 0.9,
+      reason: 'Candidate-only reflection revision.',
+      modelInvocationId: 'model-invocation.reflection.db',
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const reflection = createExperienceReflection({
+      schemaVersion: '1.0',
+      reflectionId: 'experience-reflection.db',
+      seedObservationId: observation.observationId,
+      observationIds: [observation.observationId],
+      revision: 1,
+      status: 'completed',
+      group: {
+        goalPatternFingerprint: `sha256:${'9'.repeat(64)}`,
+        capabilityFingerprint: `sha256:${'a'.repeat(64)}`,
+        timeWindow: '2026-07-16/P7D',
+      },
+      impacts: [
+        {
+          impactId: 'reflection-impact.db',
+          disposition: 'helpful',
+          observationId: observation.observationId,
+          statementId: statement.statementId,
+          sourceEpisodeIds: [episode.episodeId],
+          sourceRefIds: [sourceRef.sourceRefId],
+          outcomeRefs: [`runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`],
+          summary: 'The cited statement helped the verified Outcome.',
+        },
+      ],
+      deltas: [delta],
+      modelInvocationRefs: ['model-invocation.reflection.db'],
+      reflectionHash: `sha256:${'b'.repeat(64)}`,
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const reflections = new PostgresReflectionRepository(pool);
+    await expect(reflections.save(reflection)).resolves.toBe(true);
+    await expect(reflections.save(reflection)).resolves.toBe(false);
+    await expect(reflections.findByObservation(observation.observationId)).resolves.toEqual(
+      reflection,
+    );
+    await expect(reflections.listCandidateIdentities('planning_heuristic', 10)).resolves.toEqual([
+      {
+        knowledgeId: candidate.knowledgeId,
+        revision: 1,
+        fingerprint: delta.fingerprint,
+        identity,
+      },
+    ]);
+    await expect(
+      reflections.findCandidate('planning_heuristic', candidate.knowledgeId),
+    ).resolves.toEqual(candidate);
+    const [reflectJob] = await jobs.claimReflection(
+      'reflection-worker.db',
+      '2026-07-16T00:00:11.000Z',
+      60_000,
+      1,
+    );
+    if (reflectJob === undefined) throw new Error('REFLECTION_JOB_MISSING');
+    await jobs.completeReflection(
+      reflectJob.jobId,
+      'reflection-worker.db',
+      '2026-07-16T00:00:12.000Z',
+      reflection.reflectionId,
+    );
+    const reflectionCounts = await pool.query<{
+      reflections: number;
+      deltas: number;
+      candidates: number;
+      evidence: number;
+      lineage: number;
+      reflection_events: number;
+      candidate_events: number;
+      contradiction_events: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_reflection WHERE reflection_id=$1) AS reflections,
+         (SELECT count(*)::integer FROM knowledge_delta_record WHERE reflection_id=$1) AS deltas,
+         (SELECT count(*)::integer FROM planning_heuristic WHERE knowledge_id=$2) AS candidates,
+         (SELECT count(*)::integer FROM planning_heuristic_evidence WHERE knowledge_id=$2) AS evidence,
+         (SELECT count(*)::integer FROM knowledge_candidate_lineage WHERE knowledge_id=$2) AS lineage,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.reflection_completed' AND aggregate_id=$1) AS reflection_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created' AND aggregate_id=$2) AS candidate_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.contradiction_recorded' AND aggregate_id=$2) AS contradiction_events`,
+      [reflection.reflectionId, candidate.knowledgeId],
+    );
+    expect(reflectionCounts.rows[0]).toEqual({
+      reflections: 1,
+      deltas: 1,
+      candidates: 1,
+      evidence: 2,
+      lineage: 1,
+      reflection_events: 1,
+      candidate_events: 1,
+      contradiction_events: 1,
     });
   });
 

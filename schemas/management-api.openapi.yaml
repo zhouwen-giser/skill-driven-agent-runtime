@@ -244,6 +244,24 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ExperienceObservationList' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/reflections:
+    get:
+      operationId: listExperienceReflections
+      description: Lists immutable candidate-only Reflection, identity, Delta and positive/negative evidence lineage. No item is active knowledge.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Experience Reflections
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceReflectionList' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/experience/dead-letters/{deadLetterId}/replay:
     parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
     post:
@@ -1661,6 +1679,184 @@ components:
         errorCode: { type: string }
         inputBytes: { type: integer, minimum: 0, maximum: 524288 }
         outputBytes: { type: integer, minimum: 0, maximum: 262144 }
+        createdAt: { type: string, format: date-time }
+    ExperienceReflectionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceReflection' }
+    ExperienceReflection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          reflectionId,
+          seedObservationId,
+          observationIds,
+          revision,
+          status,
+          group,
+          impacts,
+          deltas,
+          modelInvocationRefs,
+          reflectionHash,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        reflectionId: { type: string }
+        seedObservationId: { type: string }
+        observationIds: { type: array, minItems: 1, maxItems: 100, items: { type: string } }
+        revision: { type: integer, minimum: 1 }
+        status: { enum: [completed, no_op, failed] }
+        group:
+          type: object
+          additionalProperties: false
+          required: [goalPatternFingerprint, capabilityFingerprint, timeWindow]
+          properties:
+            tenantId: { type: string }
+            goalPatternFingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            taskTypeCandidateId: { type: string }
+            capabilityFingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            timeWindow: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}/P7D$' }
+        impacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                impactId,
+                disposition,
+                observationId,
+                statementId,
+                sourceEpisodeIds,
+                sourceRefIds,
+                outcomeRefs,
+                summary,
+              ]
+            properties:
+              impactId: { type: string }
+              disposition: { enum: [helpful, harmful, neutral] }
+              observationId: { type: string }
+              statementId: { type: string }
+              sourceEpisodeIds: { type: array, minItems: 1, items: { type: string } }
+              sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+              outcomeRefs: { type: array, items: { type: string } }
+              summary: { type: string, minLength: 1, maxLength: 4096 }
+        deltas:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeDelta' }
+        modelInvocationRefs: { type: array, items: { type: string } }
+        reflectionHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        createdAt: { type: string, format: date-time }
+    KnowledgeDelta:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          deltaId,
+          reflectionId,
+          operation,
+          knowledgeKind,
+          fingerprint,
+          identity,
+          relatedKnowledgeIds,
+          supportEvidence,
+          contradictionEvidence,
+          confidence,
+          reason,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        deltaId: { type: string }
+        reflectionId: { type: string }
+        operation:
+          enum:
+            [
+              CREATE_REVISION,
+              SUGGEST_MERGE,
+              SUGGEST_SUPERSEDE,
+              ADD_EVIDENCE,
+              ADD_CONTRADICTION,
+              NO_CHANGE,
+            ]
+        knowledgeKind: { enum: [planning_heuristic, task_type, capability_pattern] }
+        fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        identity: { $ref: '#/components/schemas/KnowledgeCandidateIdentity' }
+        targetKnowledgeId: { type: string }
+        targetRevision: { type: integer, minimum: 1 }
+        relatedKnowledgeIds: { type: array, items: { type: string } }
+        candidate:
+          type: object
+          additionalProperties: true
+          description: Candidate-only immutable revision; active status is forbidden at this boundary.
+        supportEvidence:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeEvidence' }
+        contradictionEvidence:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeEvidence' }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 4096 }
+        modelInvocationId: { type: string }
+        createdAt: { type: string, format: date-time }
+    KnowledgeCandidateIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          jobToBeDone,
+          objectiveTerms,
+          criterionTerms,
+          artifactTerms,
+          capabilityTerms,
+          tags,
+          deliverable,
+        ]
+      properties:
+        jobToBeDone: { type: string, minLength: 1, maxLength: 4096 }
+        objectiveTerms: { type: array, items: { type: string } }
+        criterionTerms: { type: array, items: { type: string } }
+        artifactTerms: { type: array, items: { type: string } }
+        capabilityTerms: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string } }
+        deliverable: { type: string, minLength: 1, maxLength: 4096 }
+        instanceTerms: { type: array, items: { type: string } }
+        recentIntentBoundary: { type: string }
+    KnowledgeEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          evidenceId,
+          polarity,
+          observationId,
+          statementIds,
+          sourceEpisodeIds,
+          sourceRefIds,
+          outcomeRefs,
+          summary,
+          createdAt,
+        ]
+      properties:
+        evidenceId: { type: string }
+        polarity: { enum: [support, contradiction] }
+        observationId: { type: string }
+        statementIds: { type: array, minItems: 1, items: { type: string } }
+        sourceEpisodeIds: { type: array, minItems: 1, items: { type: string } }
+        sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+        sourceRefs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        outcomeRefs: { type: array, items: { type: string } }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
         createdAt: { type: string, format: date-time }
     ExperienceJob:
       type: object

@@ -118,6 +118,11 @@ import {
   createDefaultExperienceExtractors,
   ExperienceObserverService,
   ObservationJobReconciler,
+  ExperienceReflectorService,
+  KnowledgeIdentityService,
+  KnowledgeDeltaValidator,
+  KnowledgeCuratorService,
+  ReflectionJobReconciler,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -195,6 +200,7 @@ import {
   PostgresGoalExperienceEpisodeRepository,
   PostgresCognitiveRuntimeFactReader,
   PostgresObservationRepository,
+  PostgresReflectionRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -242,6 +248,8 @@ import {
   BullMqExperienceWorker,
   BullMqObservationQueue,
   BullMqObservationWorker,
+  BullMqReflectionQueue,
+  BullMqReflectionWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -419,8 +427,10 @@ export async function startServerRuntime(
   const experienceJobRepository = new PostgresExperienceJobRepository(pool);
   const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
   const experienceObservations = new PostgresObservationRepository(pool);
+  const experienceReflections = new PostgresReflectionRepository(pool);
   const experienceQueue = new BullMqExperienceQueue(options.redis);
   const observationQueue = new BullMqObservationQueue(options.redis);
+  const reflectionQueue = new BullMqReflectionQueue(options.redis);
   const experienceJobs = new ExperienceJobService({
     jobs: experienceJobRepository,
     episodes: goalExperienceEpisodes,
@@ -447,6 +457,7 @@ export async function startServerRuntime(
     jobs: experienceJobRepository,
     queue: experienceQueue,
     observations: experienceObservations,
+    reflections: experienceReflections,
     clock,
   });
   const experienceWorker = new BullMqExperienceWorker(
@@ -631,7 +642,8 @@ export async function startServerRuntime(
         input.stage !== 'task_clarification' &&
         input.stage !== 'goal_contract_generation' &&
         input.stage !== 'interactive_plan_patch' &&
-        input.stage !== 'experience_observation'
+        input.stage !== 'experience_observation' &&
+        input.stage !== 'experience_reflection'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -676,6 +688,61 @@ export async function startServerRuntime(
     options.redis,
     experienceObserver,
     `observation-worker-${randomUUID()}`,
+  );
+  const reflectionEmbeddings = new Map<
+    string,
+    Promise<Readonly<{ providerId: string; vector: readonly number[] }>>
+  >();
+  const embedForReflection = (text: string) => {
+    const existing = reflectionEmbeddings.get(text);
+    if (existing !== undefined) return existing;
+    const pending = modelRuntime.embed('experience_reflection', text);
+    reflectionEmbeddings.set(text, pending);
+    if (reflectionEmbeddings.size > 256) {
+      const oldest = reflectionEmbeddings.keys().next().value;
+      if (typeof oldest === 'string') reflectionEmbeddings.delete(oldest);
+    }
+    return pending;
+  };
+  const knowledgeIdentity = new KnowledgeIdentityService({
+    similarity: {
+      compare: async (left, right) => {
+        const [leftEmbedding, rightEmbedding] = await Promise.all([
+          embedForReflection(left),
+          embedForReflection(right),
+        ]);
+        if (leftEmbedding.providerId !== rightEmbedding.providerId) return 0;
+        return cosineSimilarity(leftEmbedding.vector, rightEmbedding.vector);
+      },
+    },
+    policy: { semanticThreshold: 0.82, lexicalThreshold: 0.55, combinedThreshold: 0.72 },
+  });
+  const knowledgeCurator = new KnowledgeCuratorService({
+    model: cognitiveModel,
+    validator: new KnowledgeDeltaValidator(),
+    clock,
+    nextDeltaId: () => `knowledge-delta-${randomUUID()}`,
+  });
+  const experienceReflector = new ExperienceReflectorService({
+    jobs: experienceJobRepository,
+    observations: experienceObservations,
+    episodes: goalExperienceEpisodes,
+    reflections: experienceReflections,
+    identity: knowledgeIdentity,
+    curator: knowledgeCurator,
+    model: cognitiveModel,
+    clock,
+    nextReflectionId: (observationId) => `experience-reflection-${observationId}`,
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+  });
+  const reflectionReconciler = new ReflectionJobReconciler({
+    jobs: experienceJobRepository,
+    queue: reflectionQueue,
+  });
+  const reflectionWorker = new BullMqReflectionWorker(
+    options.redis,
+    experienceReflector,
+    `reflection-worker-${randomUUID()}`,
   );
   const taskUnderstanding =
     options.taskUnderstanding === undefined
@@ -3234,6 +3301,7 @@ export async function startServerRuntime(
       .dispatch()
       .then(() => experienceReconciler.requeue(clock.now()))
       .then(() => observationReconciler.requeue(clock.now()))
+      .then(() => reflectionReconciler.requeue(clock.now()))
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3348,6 +3416,7 @@ export async function startServerRuntime(
     await experienceOutboxDispatcher.dispatch();
     await experienceReconciler.requeue(clock.now());
     await observationReconciler.requeue(clock.now());
+    await reflectionReconciler.requeue(clock.now());
   } catch (error: unknown) {
     process.stderr.write(
       `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3356,6 +3425,7 @@ export async function startServerRuntime(
   worker.start();
   experienceWorker.start();
   observationWorker.start();
+  reflectionWorker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3675,12 +3745,14 @@ export async function startServerRuntime(
         await remoteTaskCancellationWorker?.close();
         await experienceWorker.close();
         await observationWorker.close();
+        await reflectionWorker.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
         await remoteTaskCancellationQueue?.close();
         await experienceQueue.close();
         await observationQueue.close();
+        await reflectionQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -3709,11 +3781,13 @@ export async function startServerRuntime(
     await remoteTaskContinuationWorker?.close();
     await experienceWorker.close();
     await observationWorker.close();
+    await reflectionWorker.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
     await experienceQueue.close();
     await observationQueue.close();
+    await reflectionQueue.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -3871,4 +3945,21 @@ function runtimeErrorCode(error: unknown): string {
     typeof error.code === 'string'
     ? error.code
     : 'TASK_EXECUTION_FAILED';
+}
+
+function cosineSimilarity(left: readonly number[], right: readonly number[]): number {
+  if (left.length === 0 || left.length !== right.length) return 0;
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    const leftValue = left[index] ?? 0;
+    const rightValue = right[index] ?? 0;
+    if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) return 0;
+    dot += leftValue * rightValue;
+    leftMagnitude += leftValue * leftValue;
+    rightMagnitude += rightValue * rightValue;
+  }
+  if (leftMagnitude === 0 || rightMagnitude === 0) return 0;
+  return Math.max(-1, Math.min(1, dot / Math.sqrt(leftMagnitude * rightMagnitude)));
 }

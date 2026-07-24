@@ -46,6 +46,11 @@ All notable changes to this project are documented here. The format follows Keep
   no-op and failure isolation, PostgreSQL Observation/outbox/reflect-job persistence, rebuildable
   BullMQ observation wakes, migration 0116 and operational API/Console evidence. Publication and real
   Docker-backed verification remain blocked by the platform approval limit.
+- G09 Candidate-only Experience Reflection with helpful/harmful/neutral impact, de-instantiated
+  fingerprint plus lexical/semantic identity, strict six-operation Curator Deltas, deterministic
+  no-op validation, positive/negative evidence and merge/supersede lineage. Migration 0117,
+  PostgreSQL/BullMQ persistence, Reflection API/Console and A2A evidence are authored; publication and
+  real Docker-backed verification remain blocked by the platform approval limit.
 
 ### Changed
 

@@ -9,5 +9,6 @@ export * from './interactive-planning.js';
 export * from './knowledge.js';
 export * from './knowledge-delta.js';
 export * from './observation.js';
+export * from './reflection.js';
 export * from './planning-correction.js';
 export * from './task-understanding.js';

@@ -303,6 +303,7 @@ beforeAll(async () => {
     'goal_contract_generation',
     'interactive_plan_patch',
     'experience_observation',
+    'experience_reflection',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -6382,7 +6383,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         terminalOutcome: expect.objectContaining({ kind: 'achieved' }),
       }),
     });
-    await expect(waitForGoalExperienceObservation(internalTask.goalId)).resolves.toMatchObject({
+    const experienceObservation = await waitForGoalExperienceObservation(internalTask.goalId);
+    expect(experienceObservation).toMatchObject({
       scope: 'goal_episode',
       sourceEpisodeIds: [experienceEpisode.episodeId],
       status: expect.stringMatching(/^(?:partial|completed)$/u),
@@ -6392,6 +6394,31 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         expect.objectContaining({ extractorKind: 'human_correction' }),
       ]),
       modelInvocationRefs: expect.arrayContaining([expect.any(String)]),
+    });
+    await expect(
+      waitForExperienceReflection(experienceObservation.observationId),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      observationIds: [experienceObservation.observationId],
+      impacts: expect.arrayContaining([
+        expect.objectContaining({ disposition: 'helpful' }),
+        expect.objectContaining({ disposition: 'harmful' }),
+      ]),
+      deltas: expect.arrayContaining([
+        expect.objectContaining({
+          operation: 'CREATE_REVISION',
+          candidate: expect.objectContaining({ status: 'candidate' }),
+          supportEvidence: expect.arrayContaining([
+            expect.objectContaining({
+              sourceEpisodeIds: [experienceEpisode.episodeId],
+              outcomeRefs: [`runtime-terminal-outcome:terminal-outcome-task-${submitted.id}`],
+            }),
+          ]),
+          contradictionEvidence: expect.arrayContaining([
+            expect.objectContaining({ polarity: 'contradiction' }),
+          ]),
+        }),
+      ]),
     });
   });
 
@@ -7007,6 +7034,12 @@ async function startModelLoopback(): Promise<Server> {
         const experienceObservationRequest = body.messages?.some(
           (message) => message.content?.includes('untrusted_episode_data') === true,
         );
+        const experienceReflectionRequest = body.messages?.some(
+          (message) => message.content?.includes('maxDrafts') === true,
+        );
+        const knowledgeCuratorRequest = body.messages?.some(
+          (message) => message.content?.includes('identityDecision') === true,
+        );
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
@@ -7231,6 +7264,60 @@ async function startModelLoopback(): Promise<Server> {
                 sourceRefIds: [sourceRefId],
               },
             ],
+          });
+          return;
+        }
+        if (experienceReflectionRequest === true) {
+          const content = body.messages?.map((message) => message.content ?? '').join('\n') ?? '';
+          const statementIds = [...content.matchAll(/"statementId":"([^"]+)"/gu)]
+            .map((match) => match[1])
+            .filter((value): value is string => value !== undefined);
+          const supportStatementId = statementIds[0];
+          const contradictionStatementId = statementIds.at(-1);
+          if (supportStatementId === undefined || contradictionStatementId === undefined) {
+            throw new Error('EXPERIENCE_REFLECTION_FIXTURE_INVALID');
+          }
+          respondStructured(response, {
+            impacts: [
+              {
+                statementId: supportStatementId,
+                disposition: 'helpful',
+                summary: 'The cited evidence helped the verified terminal Outcome.',
+              },
+              {
+                statementId: contradictionStatementId,
+                disposition: 'harmful',
+                summary: 'The retained contradiction prevents unconditional reuse.',
+              },
+            ],
+            drafts: [
+              {
+                knowledgeKind: 'planning_heuristic',
+                title: 'Preserve evidence and counterexamples',
+                summary: 'Require cited evidence and retain contradictions before promotion.',
+                risk: 'low',
+                identity: {
+                  jobToBeDone: 'Inspect a device and preserve verified evidence',
+                  objectiveTerms: ['inspect', 'device'],
+                  criterionTerms: ['verified'],
+                  artifactTerms: ['evidence'],
+                  capabilityTerms: ['inspection'],
+                  tags: ['inspection'],
+                  deliverable: 'verified inspection evidence',
+                  recentIntentBoundary: 'terminal-inspection',
+                },
+                supportStatementIds: [supportStatementId],
+                contradictionStatementIds: [contradictionStatementId],
+              },
+            ],
+          });
+          return;
+        }
+        if (knowledgeCuratorRequest === true) {
+          respondStructured(response, {
+            operation: 'CREATE_REVISION',
+            relatedKnowledgeIds: [],
+            reason: 'Create a candidate-only revision for later promotion review.',
           });
           return;
         }
@@ -8827,7 +8914,7 @@ async function waitForGoalExperienceEpisode(goalId: string) {
   throw new Error(`GOAL_EXPERIENCE_EPISODE_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
 }
 
-async function waitForGoalExperienceObservation(goalId: string): Promise<unknown> {
+async function waitForGoalExperienceObservation(goalId: string) {
   const schema = z.object({
     items: z.array(
       z
@@ -8855,6 +8942,43 @@ async function waitForGoalExperienceObservation(goalId: string): Promise<unknown
     await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`GOAL_EXPERIENCE_OBSERVATION_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForExperienceReflection(observationId: string) {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          reflectionId: z.string(),
+          observationIds: z.array(z.string()).min(1),
+          status: z.enum(['completed', 'no_op', 'failed']),
+          impacts: z.array(z.object({ disposition: z.string() }).loose()),
+          deltas: z.array(
+            z
+              .object({
+                operation: z.string(),
+                candidate: z.object({ status: z.string() }).loose().optional(),
+                supportEvidence: z.array(z.unknown()),
+                contradictionEvidence: z.array(z.unknown()),
+              })
+              .loose(),
+          ),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    latest = schema.parse(
+      await fetch(`${runtime.management.baseUrl}/api/v1/experience/reflections?limit=20`).then(
+        (response) => response.json(),
+      ),
+    );
+    const reflection = latest.items.find((item) => item.observationIds.includes(observationId));
+    if (reflection !== undefined) return reflection;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`EXPERIENCE_REFLECTION_NOT_READY:${observationId}:${JSON.stringify(latest)}`);
 }
 
 async function waitForRuntimeTerminalOutcomeWarning(

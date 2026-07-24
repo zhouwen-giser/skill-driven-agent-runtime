@@ -9,6 +9,10 @@ import {
   createGoalExperienceEpisode,
   createInteractiveSessionSnapshot,
   createKnowledgeCandidateSnapshot,
+  createKnowledgeCandidateIdentity,
+  createKnowledgeEvidence,
+  createKnowledgeDelta,
+  createExperienceReflection,
   createKnowledgeStatusTransition,
   createRuntimeCapabilitySummarySnapshot,
   createPublicCapabilityCardSnapshot,
@@ -272,5 +276,101 @@ describe('SDAR v1.2.3 cognitive Domain skeleton', () => {
         humanApproved: false,
       }),
     ).toThrow(expect.objectContaining({ code: 'KNOWLEDGE_PROMOTION_FORBIDDEN' }));
+  });
+
+  it('freezes candidate-only Reflection Delta with positive and negative lineage', () => {
+    const candidate = createKnowledgeCandidateSnapshot({
+      schemaVersion: '1.0',
+      knowledgeId: 'knowledge.reflection.v123',
+      kind: 'planning_heuristic',
+      revision: 1,
+      status: 'candidate',
+      scope: 'global_candidate',
+      title: 'Retain counterexamples',
+      summary: 'Keep supporting and contradictory evidence separate.',
+      risk: 'low',
+      supportSourceRefs: [sourceRef()],
+      contradictionSourceRefs: [sourceRef()],
+      createdAt: timestamp,
+    });
+    const evidence = (polarity: 'support' | 'contradiction') =>
+      createKnowledgeEvidence({
+        evidenceId: `evidence.${polarity}.v123`,
+        polarity,
+        observationId: 'observation.v123',
+        statementIds: [`statement.${polarity}.v123`],
+        sourceEpisodeIds: ['episode.v123'],
+        sourceRefIds: ['source.goal.1'],
+        sourceRefs: [sourceRef()],
+        outcomeRefs: ['runtime-terminal-outcome:outcome.v123'],
+        summary: `${polarity} evidence`,
+        createdAt: timestamp,
+      });
+    const delta = createKnowledgeDelta({
+      schemaVersion: '1.0',
+      deltaId: 'delta.v123',
+      reflectionId: 'reflection.v123',
+      operation: 'CREATE_REVISION',
+      knowledgeKind: 'planning_heuristic',
+      fingerprint: hash('d'),
+      identity: createKnowledgeCandidateIdentity({
+        jobToBeDone: 'Retain evidence before reuse',
+        objectiveTerms: ['retain', 'evidence'],
+        criterionTerms: ['verified'],
+        artifactTerms: ['report'],
+        capabilityTerms: ['inspection'],
+        tags: ['evidence'],
+        deliverable: 'verified report',
+      }),
+      relatedKnowledgeIds: [],
+      candidate,
+      supportEvidence: [evidence('support')],
+      contradictionEvidence: [evidence('contradiction')],
+      confidence: 0.9,
+      reason: 'Candidate-only revision.',
+      createdAt: timestamp,
+    });
+    const reflection = createExperienceReflection({
+      schemaVersion: '1.0',
+      reflectionId: 'reflection.v123',
+      seedObservationId: 'observation.v123',
+      observationIds: ['observation.v123'],
+      revision: 1,
+      status: 'completed',
+      group: {
+        goalPatternFingerprint: hash('e'),
+        capabilityFingerprint: hash('f'),
+        timeWindow: '2026-07-23/P7D',
+      },
+      impacts: [
+        {
+          impactId: 'impact.v123',
+          disposition: 'harmful',
+          observationId: 'observation.v123',
+          statementId: 'statement.contradiction.v123',
+          sourceEpisodeIds: ['episode.v123'],
+          sourceRefIds: ['source.goal.1'],
+          outcomeRefs: ['runtime-terminal-outcome:outcome.v123'],
+          summary: 'The contradiction prevents unconditional reuse.',
+        },
+      ],
+      deltas: [delta],
+      modelInvocationRefs: [],
+      reflectionHash: hash('1'),
+      createdAt: timestamp,
+    });
+    expect(Object.isFrozen(reflection)).toBe(true);
+    expect(reflection.deltas[0]).toMatchObject({
+      operation: 'CREATE_REVISION',
+      candidate: { status: 'candidate' },
+      supportEvidence: [expect.objectContaining({ polarity: 'support' })],
+      contradictionEvidence: [expect.objectContaining({ polarity: 'contradiction' })],
+    });
+    expect(() =>
+      createKnowledgeDelta({
+        ...delta,
+        candidate: { ...candidate, status: 'active' },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'KNOWLEDGE_DELTA_INVALID' }));
   });
 });

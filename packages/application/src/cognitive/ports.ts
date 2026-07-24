@@ -9,6 +9,7 @@ import type {
   ExperienceExtraction,
   ExperienceExtractorKind,
   ExperienceObservation,
+  ExperienceReflection,
   ExperienceJob,
   GenericTaskUnderstandingRevision,
   GoalExperienceEpisode,
@@ -19,6 +20,8 @@ import type {
   InteractivePlanningSessionSnapshot,
   InteractivePlanningTurn,
   KnowledgeCandidateSnapshot,
+  KnowledgeCandidateIdentity,
+  KnowledgeKind,
   KnowledgeStatusTransition,
   PlanningCorrectionFact,
   PlanningInteractionEpisode,
@@ -31,6 +34,10 @@ import type {
 
 export type ExperienceObservationPartition =
   'contract' | 'plan' | 'attempt' | 'outcome' | 'recovery' | 'correction';
+
+export interface KnowledgeSemanticSimilarityPort {
+  compare(left: string, right: string): Promise<number>;
+}
 
 export interface ExperienceExtractorInput {
   readonly observationId: string;
@@ -303,6 +310,52 @@ export interface ObservationRepository {
     limit: number,
   ): Promise<readonly ExperienceObservation[]>;
   save(observation: ExperienceObservation): Promise<boolean>;
+}
+
+export interface ReflectionJobRepository {
+  claimReflection(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  completeReflection(
+    jobId: string,
+    workerId: string,
+    now: string,
+    reflectionId: string,
+  ): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listReflectionRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ReflectionRepository {
+  findById(reflectionId: string): Promise<ExperienceReflection | undefined>;
+  findByObservation(observationId: string): Promise<ExperienceReflection | undefined>;
+  list(limit?: number): Promise<readonly ExperienceReflection[]>;
+  listCandidateIdentities(
+    kind: KnowledgeKind,
+    limit?: number,
+  ): Promise<
+    readonly Readonly<{
+      knowledgeId: string;
+      revision: number;
+      fingerprint: string;
+      identity: KnowledgeCandidateIdentity;
+    }>[]
+  >;
+  findCandidate(
+    kind: KnowledgeKind,
+    knowledgeId: string,
+  ): Promise<KnowledgeCandidateSnapshot | undefined>;
+  save(reflection: ExperienceReflection): Promise<boolean>;
 }
 
 export interface KnowledgeRepository {
