@@ -1,13 +1,22 @@
 # Project Status
 
-SDAR v1.2.3 G00–G10 are complete (2026-07-26); G11 Capability Pattern Induction is next. G10 adds
+SDAR v1.2.3 G00–G11 are complete (2026-07-26); G12 Knowledge Promotion is next. G11 adds grounded
+Candidate Capability Pattern induction with separate Declared/Observed/Validated evidence, exact
+current Skill Version mappings that always require fresh Readiness/compatibility checks, and explicit
+non-executable Capability Gap Candidates. Catalog/policy changes CAS-transition affected Active
+Patterns to validating; Candidates remain excluded from Understanding and Planner. Affected gates pass
+560 unit, 154 contract, 81 real integration, 62 real E2E, 143 OpenAPI operations, 385-source
+architecture, A2A MUST 74/74, production build and all 12 migrations through 0119. Implementation
+`16441f3` is ready for evidence publication to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G10 closure (2026-07-26): G10 adds
 seven-dimensional deterministic Task Type fingerprints/clusters before strictly validated model naming,
 bounded Offline/Online Candidate revisions with 1–3 real Episode Exemplars, Negative Examples and a
 current-context Applicability Guard. PostgreSQL owns revision/evidence/Outbox authority through
 migration 0118; Candidate status remains excluded from the unchanged G03 formal Understanding source.
 Affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI operations,
 378-source architecture, A2A MUST 74/74, production build and all 11 migrations. Implementation
-`c36e83d` is ready to push to Draft PR #9; no merge or tag is authorized.
+`c36e83d` is pushed to Draft PR #9; no merge or tag is authorized.
 
 SDAR v1.2.3 G00–G09 closure (2026-07-26):
 The former G07–G09 platform blocker is closed with real PostgreSQL/Redis/A2A evidence: 549/549 unit,

@@ -61,6 +61,12 @@ All notable changes to this project are documented here. The format follows Keep
 - PostgreSQL Task Type origin/model lineage, fingerprint index, compatible support evidence and
   `knowledge.candidate_created` transaction through migration 0118, plus
   `GET /api/v1/task-types`, 142-operation OpenAPI and Cognitive JSON Schema/Golden coverage.
+- G11 grounded Candidate Capability Pattern induction with complete applicability/effect/evidence/
+  artifact/prerequisite/dependency/failure/limitation signals and separate
+  Declared/Observed/Validated evidence.
+- Exact current Skill Version mapping with mandatory current Readiness/compatibility checks,
+  catalog/policy invalidation, separate non-executable Capability Gap Candidates, migration 0119,
+  `GET /api/v1/capability-patterns` and 143-operation OpenAPI/JSON Schema coverage.
 
 ### Changed
 
@@ -84,6 +90,9 @@ All notable changes to this project are documented here. The format follows Keep
   completes against the already persisted immutable Episode after a crash/retry boundary.
 - G03 continues to read deployment-owned static Task Types only. G10 induced Candidates remain
   operational evidence and cannot affect formal Understanding before G12 promotion.
+- G11 Candidate Patterns likewise remain outside Understanding and Planner. Observed success cannot
+  assert Skill or Provider Readiness, and unmapped Gap proposals are manual-only with
+  `publishAllowed=false`.
 
 ### Verification
 
@@ -125,6 +134,10 @@ All notable changes to this project are documented here. The format follows Keep
   operations, 378-source architecture, A2A MUST 74/74, production build and the eleven additive
   migrations through 0118. The test-first, optional-constraint, PostgreSQL inference and lint failures
   remain recorded in `reports/goal/g10-completion.md`; implementation is `c36e83d`.
+- G11 passes 560 unit, 154 contract, 81 real PostgreSQL/Redis integration, 62 real E2E, 143 OpenAPI
+  operations, 385-source architecture, A2A MUST 74/74, production build and the twelve additive
+  migrations through 0119. Test-first, sandbox/port, command-name, lint/type and restart-idempotency
+  failures remain recorded in `reports/goal/g11-completion.md`; implementation is `16441f3`.
 
 ## [1.2.2] - Unreleased
 

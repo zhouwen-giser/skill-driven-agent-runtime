@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G10 are complete; G11 is next
+Status: ACTIVE — G00–G11 are complete; G12 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -88,12 +88,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
 | G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
 | G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
-| G07  | completed   | `301606e` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g07-completion.md` | none           | verified handoff to G08                                        |
-| G08  | completed   | `2d600fc` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g08-completion.md` | none           | verified handoff to G09                                        |
-| G09  | completed   | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g09-completion.md` | none           | verified Candidate/Delta handoff to G10/G11                    |
-| G10  | completed   | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates | `reports/goal/g10-completion.md` | none           | Candidate Task Types handed to G11/G12                         |
-| G11  | in_progress | —         | implementation next                                                             | —                                | none           | capability pattern/gap                                         |
-| G12  | not_started | —         | —                                                                                 | —                                | G09/G10/G11    | knowledge promotion                                            |
+| G07  | completed   | `301606e` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g07-completion.md` | none           | verified handoff to G08                                        |
+| G08  | completed   | `2d600fc` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g08-completion.md` | none           | verified handoff to G09                                        |
+| G09  | completed   | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g09-completion.md` | none           | verified Candidate/Delta handoff to G10/G11                    |
+| G10  | completed   | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates   | `reports/goal/g10-completion.md` | none           | Candidate Task Types handed to G11/G12                         |
+| G11  | completed   | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none           | Candidate Patterns handed to G12; Gaps remain operational      |
+| G12  | in_progress | —         | implementation next                                                               | —                                | none           | governed knowledge promotion                                   |
 | G13  | not_started | —         | —                                                                                 | —                                | G01/G12        | retrieval/progressive disclosure                               |
 | G14  | not_started | —         | —                                                                                 | —                                | G05/G13        | experience-enriched planner/fallback                           |
 | G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
@@ -193,6 +193,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: G10's first real integration run exposed that empty current-user constraint sets are
   legitimate; only those optional arrays were relaxed. The second run exposed PostgreSQL JSONB integer
   inference in the new Outbox statement; explicit casts closed it. The final real suite passes 80/80.
+- 2026-07-26: G11's first real integration attempts reached a stale 54329 port after sandbox loopback
+  denial. Read-only Compose inspection located the healthy repository PostgreSQL/Redis ports; the
+  standard isolated-database runner then passed 81/81.
+- 2026-07-26: G11 review found restart idempotency could conflict when a repeated Capability Gap used a
+  later clock value. Fingerprint lookup now returns the existing immutable Gap before constructing a
+  new snapshot; focused unit and real PostgreSQL reruns pass.
 
 ## Decision Log
 
@@ -246,6 +252,13 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   are Candidate-only PostgreSQL knowledge, listed operationally but excluded from formal
   Understanding until G12 promotion. Deterministic seven-dimensional clustering owns membership;
   the model may only name and describe an already formed cluster.
+- 2026-07-26: G11 Capability Patterns remain distinct from Skill declarations and Provider Readiness.
+  Exact current Skill Version mappings always require a fresh compatibility/readiness check. The model
+  may summarize only deterministically grounded evidence and cannot choose identity, status, version,
+  mapping or authority.
+- 2026-07-26: an unmapped G11 capability creates a separate non-executable operational Gap and
+  manual-only authoring proposal with `publishAllowed=false`; it is neither promotable knowledge nor
+  the v1.2.2 terminal `capability_gap` Task authority.
 
 ## Implementation Steps
 
@@ -337,11 +350,12 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0118 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0119 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection through all eleven migrations.
-- OpenAPI: 142 management operations include Capability, Understanding, Goal/Plan review, Experience
-  Episode/Observation/Reflection/dead-letter reads, explicit replay and Candidate Task Type reads.
+  rejection through all twelve migrations.
+- OpenAPI: 143 management operations include Capability, Understanding, Goal/Plan review, Experience
+  Episode/Observation/Reflection/dead-letter reads, explicit replay, Candidate Task Type and Capability
+  Pattern/Gap reads.
 - A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
   boundaries. The real path captures four correction Facts, scoped preference deletion and unique
   Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
@@ -353,7 +367,7 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `10d9cb385a7d4ef87b69f2856d315573faafca9c`
-- G10 implementation HEAD pending evidence publication: `c36e83dc265592d0385bcaf4d0941158c01f2df2`
+- G11 implementation HEAD: `16441f37446bae3bead5d4a3b0d92ced8392042b`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -390,17 +404,21 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 - G10 implementation `c36e83d`: seven-dimensional fingerprint/cluster, strict Candidate abstraction,
   Applicability Guard, PostgreSQL Task Type revisions/evidence/Outbox, migration 0118, JSON/OpenAPI
   schemas and real integration/API/runtime composition.
+- G11 implementation `16441f3`: grounded Capability Pattern induction, separate evidence levels, exact
+  Skill mapping with mandatory current checks, restart-safe non-executable Gap Candidates,
+  catalog/policy invalidation, migration 0119, JSON/OpenAPI schemas and real integration/runtime
+  composition.
 
 ## Open Blockers
 
-None for G00–G10. The former platform approval and worktree-hygiene blockers are retained in the Goal
-reports and were resolved before the real 79-integration/62-E2E verification. G11–G17 remain ordinary
+None for G00–G11. The former platform approval and worktree-hygiene blockers are retained in the Goal
+reports and were resolved before the real 79-integration/62-E2E verification. G12–G17 remain ordinary
 unfinished work, not blockers.
 
 ## Next Execution Step
 
-Publish the G10 evidence head and update Draft PR #9 without changing Draft status, then implement G11
-Capability Pattern induction and gap Candidates against G01/G09 contracts.
+Publish the G11 evidence head and update Draft PR #9 without changing Draft status, then implement G12
+governed promotion across G09 Candidate deltas, G10 Task Types and G11 Capability Patterns.
 
 ## Outcomes and Retrospective
 
@@ -417,4 +435,6 @@ data. G07–G09 are pushed and their combined closure passes 549 unit, 152 contr
 ten migrations through 0117. Real verification found and closed SQL parameter, Episode idempotency,
 terminal-fixture and Management API enum defects without weakening assertions. G10 adds conservative
 Candidate Task Type induction and passes 554 unit, 153 contract, 80 integration, 62 E2E, 142 OpenAPI,
-378-source architecture, build and migrations through 0118. G11–G17 remain open.
+378-source architecture, build and migrations through 0118. G11 adds conservative Capability Pattern
+induction and explicit non-executable Gaps, passing 560 unit, 154 contract, 81 integration, 62 E2E,
+143 OpenAPI, 385-source architecture, build and migrations through 0119. G12–G17 remain open.

@@ -16,12 +16,12 @@ Active Patterns to `validating` through a CAS/audit/Outbox transaction.
 ## Goal Contract Result
 
 ```text
-completed_pending_commit_publication
+completed
 ```
 
-All affected implementation and verification gates are green. This report is included in the
-meaningful G11 implementation commit; the exact SHA and push state will be recorded in the follow-up
-evidence commit. Draft PR #9 remains Draft.
+All affected implementation and verification gates are green. This report is included in meaningful
+G11 implementation commit `16441f37446bae3bead5d4a3b0d92ced8392042b`; publication state is
+recorded by the follow-up evidence commit. Draft PR #9 remains Draft.
 
 ## Implementation
 
@@ -131,8 +131,8 @@ was added, and no Source Intake, license, NOTICE, lockfile or SBOM change is req
 
 ## Commit, Push and Draft PR
 
-- Meaningful G11 implementation commit: pending publication
-- Push: pending publication
+- Meaningful G11 implementation commit: `16441f37446bae3bead5d4a3b0d92ced8392042b`
+- Push: published with this follow-up evidence commit
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9> remains Draft
 - Merge/tag: not performed and not authorized
 
