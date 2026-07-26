@@ -21,6 +21,7 @@ import type {
   StructuredModelProvider,
   TemporarySkillRepository,
 } from './ports.js';
+import { CorrectionDiffRecorder } from './correction-diff-recorder.js';
 import type { SkillRegistryService } from './skill-registry.js';
 import type { MemoryService } from './memory-service.js';
 
@@ -244,7 +245,8 @@ export class SkillEvolutionService {
     if (summary.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_SUMMARY_REQUIRED');
     if (input.proposedSkill.skillId !== existing.inductionReport.targetSkillId)
       throw new Error('SKILL_EVOLUTION_CORRECTION_TARGET_IMMUTABLE');
-    const diff = diffValues(existing.proposedSkill, input.proposedSkill);
+    const diff = new CorrectionDiffRecorder().diff(existing.proposedSkill, input.proposedSkill);
+    if (diff.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_HAS_NO_CHANGES');
     const supplementalCases = existing.validationReport.cases
       .filter(
         (item) => item.kind === 'normal' || item.kind === 'boundary' || item.kind === 'exception',
@@ -439,35 +441,6 @@ export class SkillEvolutionService {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function diffValues(
-  before: ProposedEvolutionSkill,
-  after: ProposedEvolutionSkill,
-): SkillEvolutionCorrectionExperience['diff'] {
-  const changes: { path: string; before: unknown; after: unknown }[] = [];
-  visitDiff(before, after, '', changes);
-  if (changes.length === 0) throw new Error('SKILL_EVOLUTION_CORRECTION_HAS_NO_CHANGES');
-  return changes;
-}
-
-function visitDiff(
-  before: unknown,
-  after: unknown,
-  path: string,
-  changes: { path: string; before: unknown; after: unknown }[],
-): void {
-  if (JSON.stringify(before) === JSON.stringify(after)) return;
-  if (isRecord(before) && isRecord(after)) {
-    for (const key of [...new Set([...Object.keys(before), ...Object.keys(after)])].sort())
-      visitDiff(before[key], after[key], `${path}/${escapePointer(key)}`, changes);
-    return;
-  }
-  changes.push({ path: path || '/', before: before ?? null, after: after ?? null });
-}
-
-function escapePointer(value: string): string {
-  return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
 function skillSummary(skill: SkillVersion) {

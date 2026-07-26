@@ -18,7 +18,8 @@ export type ModelStage =
   | 'experience_observation'
   | 'experience_reflection'
   | 'task_type_induction'
-  | 'capability_pattern_induction';
+  | 'capability_pattern_induction'
+  | 'knowledge_promotion_assessment';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;

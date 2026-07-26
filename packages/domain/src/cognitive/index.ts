@@ -12,5 +12,6 @@ export * from './knowledge-delta.js';
 export * from './observation.js';
 export * from './reflection.js';
 export * from './planning-correction.js';
+export * from './promotion.js';
 export * from './task-understanding.js';
 export * from './task-type.js';

@@ -298,6 +298,86 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CapabilityPatternList' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/promote:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: promoteKnowledge
+      description: Deterministically evaluates one exact Candidate revision under CAS. First-release activation always requires explicit human approval; high-risk activation also requires persisted replay, shadow and policy allow gates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgePromoteAction' }
+      responses:
+        '200':
+          description: Promotion Evaluation and resulting Knowledge status
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/reject:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: rejectKnowledge
+      description: Records an actor-attributed terminal rejection for one Candidate revision without invoking Skill publication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeRejectAction' }
+      responses:
+        '200':
+          description: Rejected Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/revalidate:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: revalidateKnowledge
+      description: CAS-transitions Active Knowledge back to validating after contradiction, catalog, policy or exact Skill-version change and removes its rebuildable Memory projection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeRevalidateAction' }
+      responses:
+        '200':
+          description: Validating Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/deprecate:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: deprecateKnowledge
+      description: Manually deprecates Active Knowledge under CAS and invalidates its rebuildable Memory search projection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeDeprecateAction' }
+      responses:
+        '200':
+          description: Deprecated Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /api/v1/experience/dead-letters/{deadLetterId}/replay:
     parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
     post:
@@ -1536,6 +1616,42 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    KnowledgeKind:
+      type: string
+      enum: [planning_heuristic, task_type, capability_pattern]
+    KnowledgePromoteAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, actorId, humanApproved, policyAllowed]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        humanApproved: { type: boolean }
+        policyAllowed: { type: boolean }
+    KnowledgeRejectAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, actorId, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    KnowledgeRevalidateAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, actorId, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason:
+          enum: [contradiction_detected, catalog_changed, policy_changed, skill_version_changed]
+    KnowledgeDeprecateAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, actorId]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
     GoalExperienceEpisodeList:
       type: object
       additionalProperties: false
@@ -1828,7 +1944,7 @@ components:
         schemaVersion: { const: '1.0' }
         taskTypeId: { type: string }
         revision: { type: integer, minimum: 1 }
-        status: { const: candidate }
+        status: { enum: [candidate, validating, active, deprecated, rejected] }
         origin: { enum: [fixture, induced] }
         inductionMode: { enum: [offline_batch, online_candidate] }
         fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }

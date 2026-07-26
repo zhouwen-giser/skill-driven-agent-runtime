@@ -58,6 +58,7 @@ import type {
   ExperienceManagementService,
   TaskTypeInductionService,
   CapabilityPatternInductionService,
+  KnowledgePromotionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -362,6 +363,7 @@ const ModelStageSchema = z.enum([
   'experience_reflection',
   'task_type_induction',
   'capability_pattern_induction',
+  'knowledge_promotion_assessment',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -451,6 +453,40 @@ const ExperienceListQuerySchema = z
 const ExperienceDeadLetterReplaySchema = z
   .object({ actorId: z.string().trim().min(1).max(256) })
   .strict();
+const KnowledgeKindSchema = z.enum(['planning_heuristic', 'task_type', 'capability_pattern']);
+const KnowledgePromoteSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    actorId: z.string().trim().min(1).max(256),
+    humanApproved: z.boolean(),
+    policyAllowed: z.boolean(),
+  })
+  .strict();
+const KnowledgeRejectSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    actorId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2048),
+  })
+  .strict();
+const KnowledgeRevalidateSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    actorId: z.string().trim().min(1).max(256),
+    reason: z.enum([
+      'contradiction_detected',
+      'catalog_changed',
+      'policy_changed',
+      'skill_version_changed',
+    ]),
+  })
+  .strict();
+const KnowledgeDeprecateSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    actorId: z.string().trim().min(1).max(256),
+  })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -528,6 +564,10 @@ export interface ManagementOperations {
   >;
   readonly taskTypes?: Pick<TaskTypeInductionService, 'list'>;
   readonly capabilityPatterns?: Pick<CapabilityPatternInductionService, 'list' | 'listGaps'>;
+  readonly knowledgePromotion?: Pick<
+    KnowledgePromotionService,
+    'evaluate' | 'reject' | 'revalidate' | 'deprecate' | 'rebuildActiveProjections'
+  >;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1877,6 +1917,62 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.post(
+    '/api/v1/knowledge/:kind/:knowledgeId/promote',
+    asyncRoute(async (request, response) => {
+      const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
+      const input = KnowledgePromoteSchema.parse(request.body);
+      response.json(
+        await service.evaluate({
+          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
+          knowledgeId: pathValue(request, 'knowledgeId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/knowledge/:kind/:knowledgeId/reject',
+    asyncRoute(async (request, response) => {
+      const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
+      const input = KnowledgeRejectSchema.parse(request.body);
+      response.json(
+        await service.reject({
+          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
+          knowledgeId: pathValue(request, 'knowledgeId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/knowledge/:kind/:knowledgeId/revalidate',
+    asyncRoute(async (request, response) => {
+      const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
+      const input = KnowledgeRevalidateSchema.parse(request.body);
+      response.json(
+        await service.revalidate({
+          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
+          knowledgeId: pathValue(request, 'knowledgeId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/knowledge/:kind/:knowledgeId/deprecate',
+    asyncRoute(async (request, response) => {
+      const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
+      const input = KnowledgeDeprecateSchema.parse(request.body);
+      response.json(
+        await service.deprecate({
+          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
+          knowledgeId: pathValue(request, 'knowledgeId'),
+          ...input,
+        }),
+      );
+    }),
+  );
+  app.post(
     '/api/v1/experience/dead-letters/:deadLetterId/replay',
     asyncRoute(async (request, response) => {
       if (options.operations.experience === undefined) {
@@ -2467,6 +2563,18 @@ export async function startManagementHttpEndpoint(
   };
 }
 
+function requiredKnowledgePromotion(
+  service: ManagementOperations['knowledgePromotion'],
+): NonNullable<ManagementOperations['knowledgePromotion']> {
+  if (service === undefined) {
+    throw new HttpInputError(
+      'KNOWLEDGE_PROMOTION_UNAVAILABLE',
+      'Knowledge promotion is not configured.',
+    );
+  }
+  return service;
+}
+
 type TaskAvailabilityEvidence = Awaited<
   ReturnType<TaskAvailabilityEvidenceRepository['listByPlan']>
 >[number];
@@ -2773,7 +2881,13 @@ function normalizeHttpError(error: unknown): Readonly<{
   }
   const message = error instanceof Error ? error.message : 'Unexpected management API error.';
   if (code.endsWith('_NOT_FOUND')) return { status: 404, body: { code, message } };
-  if (code.endsWith('_ALREADY_EXISTS')) return { status: 409, body: { code, message } };
+  if (
+    code.endsWith('_ALREADY_EXISTS') ||
+    code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||
+    code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'
+  ) {
+    return { status: 409, body: { code, message } };
+  }
   return { status: 400, body: { code, message } };
 }
 

@@ -69,7 +69,7 @@ const TaskTypeSnapshotSchema = z
     schemaVersion: z.literal('1.0'),
     taskTypeId: z.string(),
     revision: z.number().int(),
-    status: z.literal('candidate'),
+    status: z.enum(['candidate', 'validating', 'active', 'deprecated', 'rejected']),
     origin: z.enum(['fixture', 'induced']),
     inductionMode: z.enum(['offline_batch', 'online_candidate']),
     fingerprint: z.string(),

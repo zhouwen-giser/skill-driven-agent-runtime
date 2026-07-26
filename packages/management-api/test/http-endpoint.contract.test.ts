@@ -1008,6 +1008,7 @@ describe('management HTTP API contract', () => {
       'experience_reflection',
       'task_type_induction',
       'capability_pattern_induction',
+      'knowledge_promotion_assessment',
     ]) {
       const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/${stage}`, {
         method: 'PUT',
@@ -1020,6 +1021,7 @@ describe('management HTTP API contract', () => {
       'experience_reflection',
       'task_type_induction',
       'capability_pattern_induction',
+      'knowledge_promotion_assessment',
     ]);
   });
 
@@ -1127,6 +1129,114 @@ describe('management HTTP API contract', () => {
         },
       ],
     });
+  });
+
+  it('exposes CAS-guarded Knowledge promotion lifecycle actions', async () => {
+    const calls: Readonly<Record<string, unknown>>[] = [];
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        knowledgePromotion: {
+          evaluate: (input) => {
+            calls.push({ action: 'promote', ...input });
+            return Promise.resolve({
+              knowledge: {
+                knowledgeId: input.knowledgeId,
+                kind: input.kind,
+                status: 'active',
+                version: input.expectedVersion + 2,
+              },
+              evaluation: { status: 'passed', humanApproved: input.humanApproved },
+            } as never);
+          },
+          reject: (input) => {
+            calls.push({ action: 'reject', ...input });
+            return Promise.resolve({
+              knowledgeId: input.knowledgeId,
+              kind: input.kind,
+              status: 'rejected',
+              version: input.expectedVersion + 1,
+            } as never);
+          },
+          revalidate: (input) => {
+            calls.push({ action: 'revalidate', ...input });
+            return Promise.resolve({
+              knowledgeId: input.knowledgeId,
+              kind: input.kind,
+              status: 'validating',
+              version: input.expectedVersion + 1,
+            } as never);
+          },
+          deprecate: (input) => {
+            calls.push({ action: 'deprecate', ...input });
+            return Promise.resolve({
+              knowledgeId: input.knowledgeId,
+              kind: input.kind,
+              status: 'deprecated',
+              version: input.expectedVersion + 1,
+            } as never);
+          },
+          rebuildActiveProjections: () => Promise.resolve(0),
+        },
+      },
+    });
+
+    const requests = [
+      {
+        action: 'promote',
+        body: {
+          expectedVersion: 1,
+          actorId: 'operator.test',
+          humanApproved: true,
+          policyAllowed: true,
+        },
+      },
+      {
+        action: 'reject',
+        body: {
+          expectedVersion: 1,
+          actorId: 'operator.test',
+          reason: 'Unsafe generalization.',
+        },
+      },
+      {
+        action: 'revalidate',
+        body: {
+          expectedVersion: 3,
+          actorId: 'system.policy',
+          reason: 'policy_changed',
+        },
+      },
+      {
+        action: 'deprecate',
+        body: {
+          expectedVersion: 3,
+          actorId: 'operator.test',
+        },
+      },
+    ] as const;
+    for (const request of requests) {
+      const response = await fetch(
+        `${endpoint.baseUrl}/api/v1/knowledge/planning_heuristic/knowledge.test/${request.action}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request.body),
+        },
+      );
+      expect(response.status).toBe(200);
+    }
+    expect(calls).toEqual([
+      expect.objectContaining({
+        action: 'promote',
+        kind: 'planning_heuristic',
+        knowledgeId: 'knowledge.test',
+        humanApproved: true,
+      }),
+      expect.objectContaining({ action: 'reject', reason: 'Unsafe generalization.' }),
+      expect.objectContaining({ action: 'revalidate', reason: 'policy_changed' }),
+      expect.objectContaining({ action: 'deprecate', expectedVersion: 3 }),
+    ]);
   });
 
   it('reads and updates disabled-by-default Memory retention controls', async () => {
@@ -1713,13 +1823,23 @@ describe('management HTTP API contract', () => {
       skillMarkdown: '# Move To',
       validatedAt: '2026-07-17T10:59:00.000Z',
     };
+    let importAttempts = 0;
     endpoint = await startManagementHttpEndpoint({
       operations: {
         ...operations(),
         skills: {
           ...operations().skills,
           validatePackage: () => Promise.resolve(candidate),
-          importPackageRoot: () => Promise.resolve(skillVersion),
+          importPackageRoot: () => {
+            importAttempts += 1;
+            return importAttempts === 1
+              ? Promise.resolve(skillVersion)
+              : Promise.reject(
+                  Object.assign(new Error('SKILL_IMPORT_VERSION_CONFLICT'), {
+                    code: 'SKILL_IMPORT_VERSION_CONFLICT',
+                  }),
+                );
+          },
           readExactVersion: () => Promise.resolve(skillVersion),
           listCatalog: () => Promise.resolve([]),
         },
@@ -1742,6 +1862,14 @@ describe('management HTTP API contract', () => {
         )
       ).status,
     ).toBe(201);
+    const staleImport = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-packages/import`,
+      jsonPost({ packageRoot: candidate.packageRoot }),
+    );
+    expect(staleImport.status).toBe(400);
+    await expect(staleImport.json()).resolves.toMatchObject({
+      error: { code: 'SKILL_IMPORT_VERSION_CONFLICT' },
+    });
     expect(
       (
         await fetch(

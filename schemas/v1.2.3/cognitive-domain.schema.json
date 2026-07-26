@@ -22,7 +22,9 @@
     "capabilityPattern",
     "capabilityGap",
     "knowledgeCandidate",
-    "knowledgeTransition"
+    "knowledgeTransition",
+    "knowledgePromotionEvaluation",
+    "activeKnowledgeProjection"
   ],
   "properties": {
     "featureFlags": { "$ref": "#/$defs/featureFlags" },
@@ -42,7 +44,9 @@
     "capabilityPattern": { "$ref": "#/$defs/capabilityPattern" },
     "capabilityGap": { "$ref": "#/$defs/capabilityGap" },
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
-    "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
+    "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" },
+    "knowledgePromotionEvaluation": { "$ref": "#/$defs/knowledgePromotionEvaluation" },
+    "activeKnowledgeProjection": { "$ref": "#/$defs/activeKnowledgeProjection" }
   },
   "$defs": {
     "id": {
@@ -1175,7 +1179,7 @@
         "schemaVersion": { "const": "1.0" },
         "taskTypeId": { "$ref": "#/$defs/id" },
         "revision": { "type": "integer", "minimum": 1 },
-        "status": { "const": "candidate" },
+        "status": { "enum": ["candidate", "validating", "active", "deprecated", "rejected"] },
         "origin": { "enum": ["fixture", "induced"] },
         "inductionMode": { "enum": ["offline_batch", "online_candidate"] },
         "fingerprint": { "$ref": "#/$defs/hash" },
@@ -1519,12 +1523,125 @@
             "catalog_changed",
             "policy_changed",
             "skill_version_changed",
+            "revision_superseded",
             "manual_deprecation"
           ]
         },
         "actorId": { "$ref": "#/$defs/id" },
         "humanApproved": { "type": "boolean" },
         "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "promotionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uniqueGoalCount",
+        "uniqueUserCount",
+        "successfulOutcomeCount",
+        "failedOutcomeCount",
+        "userAcceptedPlanningCount",
+        "userRejectedPlanningCount",
+        "replayPassedCount",
+        "replayFailedCount",
+        "shadowImprovedCount",
+        "shadowRegressedCount",
+        "supportingRefs",
+        "contradictingRefs"
+      ],
+      "properties": {
+        "uniqueGoalCount": { "type": "integer", "minimum": 0 },
+        "uniqueUserCount": { "type": "integer", "minimum": 0 },
+        "successfulOutcomeCount": { "type": "integer", "minimum": 0 },
+        "failedOutcomeCount": { "type": "integer", "minimum": 0 },
+        "userAcceptedPlanningCount": { "type": "integer", "minimum": 0 },
+        "userRejectedPlanningCount": { "type": "integer", "minimum": 0 },
+        "replayPassedCount": { "type": "integer", "minimum": 0 },
+        "replayFailedCount": { "type": "integer", "minimum": 0 },
+        "shadowImprovedCount": { "type": "integer", "minimum": 0 },
+        "shadowRegressedCount": { "type": "integer", "minimum": 0 },
+        "supportingRefs": { "$ref": "#/$defs/strings" },
+        "contradictingRefs": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "promotionGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "passed", "actual", "required"],
+      "properties": {
+        "code": { "$ref": "#/$defs/id" },
+        "passed": { "type": "boolean" },
+        "actual": { "type": ["number", "boolean", "string"] },
+        "required": { "type": ["number", "boolean", "string"] }
+      }
+    },
+    "knowledgePromotionEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "evaluationId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "policyVersion",
+        "status",
+        "evidence",
+        "gates",
+        "humanApproved",
+        "policyAllowed",
+        "decisionSummary",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "evaluationId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "policyVersion": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["pending", "passed", "failed", "rejected", "incubating"] },
+        "evidence": { "$ref": "#/$defs/promotionEvidence" },
+        "gates": { "type": "array", "items": { "$ref": "#/$defs/promotionGate" } },
+        "replayReportRef": { "type": "string", "minLength": 1 },
+        "shadowReportRef": { "type": "string", "minLength": 1 },
+        "humanApproved": { "type": "boolean" },
+        "policyAllowed": { "type": "boolean" },
+        "duplicateKnowledgeId": { "$ref": "#/$defs/id" },
+        "decidedBy": { "$ref": "#/$defs/id" },
+        "decisionSummary": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "decidedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "activeKnowledgeProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "projectionId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "authoritativeRef",
+        "title",
+        "summary",
+        "risk",
+        "status",
+        "projectedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "projectionId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "status": { "const": "active" },
+        "projectedAt": { "type": "string", "format": "date-time" }
       }
     },
     "strings": {

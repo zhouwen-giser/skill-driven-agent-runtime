@@ -130,6 +130,14 @@ import {
   CapabilityPatternInductionService,
   CapabilityPatternInvalidator,
   CapabilitySkillMapper,
+  ActiveKnowledgeProjector,
+  CapabilityPatternPromotionTarget,
+  DuplicateCandidateDetector,
+  EvidenceThresholdEvaluator,
+  KnowledgePromotionService,
+  MemoryActiveKnowledgeProjectionRepository,
+  PlanningHeuristicPromotionTarget,
+  TaskTypePromotionTarget,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -210,6 +218,9 @@ import {
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
   PostgresCapabilityPatternRepository,
+  PostgresKnowledgePromotionRepository,
+  PostgresPromotionReplayEvaluationRunner,
+  PostgresActiveKnowledgeProjectionInventory,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -444,6 +455,12 @@ export async function startServerRuntime(
     repository: capabilityPatternRepository,
     clock,
   });
+  const knowledgePromotionRef: {
+    current?: Pick<
+      KnowledgePromotionService,
+      'rebuildActiveProjections' | 'revalidateChangedActive'
+    >;
+  } = {};
   const experienceQueue = new BullMqExperienceQueue(options.redis);
   const observationQueue = new BullMqObservationQueue(options.redis);
   const reflectionQueue = new BullMqReflectionQueue(options.redis);
@@ -507,6 +524,7 @@ export async function startServerRuntime(
         catalogHash: view.summary.catalogHash,
         policyVersion: capabilityPatternPolicyVersion,
       });
+      await knowledgePromotionRef.current?.rebuildActiveProjections();
       await capabilityCards.publish(view);
     },
   });
@@ -671,7 +689,8 @@ export async function startServerRuntime(
         input.stage !== 'experience_observation' &&
         input.stage !== 'experience_reflection' &&
         input.stage !== 'task_type_induction' &&
-        input.stage !== 'capability_pattern_induction'
+        input.stage !== 'capability_pattern_induction' &&
+        input.stage !== 'knowledge_promotion_assessment'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -797,6 +816,8 @@ export async function startServerRuntime(
     model: cognitiveModel,
     clock,
     nextReflectionId: (observationId) => `experience-reflection-${observationId}`,
+    afterReflection: () =>
+      knowledgePromotionRef.current?.revalidateChangedActive() ?? Promise.resolve(0),
     retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
   });
   const reflectionReconciler = new ReflectionJobReconciler({
@@ -960,6 +981,44 @@ export async function startServerRuntime(
     nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
   });
+  const knowledgePromotionRepository = new PostgresKnowledgePromotionRepository(pool);
+  const knowledgePromotion = new KnowledgePromotionService({
+    repository: knowledgePromotionRepository,
+    evaluator: new EvidenceThresholdEvaluator(),
+    replay: new PostgresPromotionReplayEvaluationRunner(knowledgePromotionRepository),
+    duplicates: new DuplicateCandidateDetector(knowledgePromotionRepository),
+    shadow: {
+      find: () => Promise.resolve(undefined),
+    },
+    projector: new ActiveKnowledgeProjector({
+      repository: new MemoryActiveKnowledgeProjectionRepository(
+        memories,
+        new PostgresActiveKnowledgeProjectionInventory(pool),
+      ),
+      clock,
+    }),
+    targets: [
+      new PlanningHeuristicPromotionTarget(),
+      new TaskTypePromotionTarget(),
+      new CapabilityPatternPromotionTarget(),
+    ],
+    policyVersion: 'knowledge-promotion-v1',
+    clock,
+    nextEvaluationId: () => `knowledge-promotion-evaluation-${randomUUID()}`,
+    nextTransitionId: () => `knowledge-promotion-transition-${randomUUID()}`,
+  });
+  knowledgePromotionRef.current = knowledgePromotion;
+  try {
+    await knowledgePromotion.revalidateChangedActive();
+  } catch (error: unknown) {
+    process.stderr.write(
+      `${JSON.stringify({
+        event: 'knowledge_projection_rebuild.deferred',
+        errorCode: runtimeErrorCode(error),
+        summary: error instanceof Error ? error.message : String(error),
+      })}\n`,
+    );
+  }
   const planningCorrections = new PlanningCorrectionService({
     repository: planningCorrectionRepository,
     builder: new PlanningInteractionEpisodeBuilder({
@@ -3539,6 +3598,7 @@ export async function startServerRuntime(
         experience: experienceManagement,
         taskTypes: taskTypeInduction,
         capabilityPatterns: capabilityPatternInduction,
+        knowledgePromotion,
         goals: goalService,
         goalPatches,
         goalCancellations,

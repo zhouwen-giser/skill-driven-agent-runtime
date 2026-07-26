@@ -77,6 +77,7 @@ export class ExperienceReflectorService {
   readonly #model: CognitiveStructuredModelStageInvoker;
   readonly #clock: Readonly<{ now(): string }>;
   readonly #nextReflectionId: (observationId: string) => string;
+  readonly #afterReflection: (() => Promise<unknown>) | undefined;
   readonly #retryPolicy: Readonly<{
     maxAttempts: number;
     baseBackoffMs: number;
@@ -94,6 +95,7 @@ export class ExperienceReflectorService {
       model: CognitiveStructuredModelStageInvoker;
       clock: Readonly<{ now(): string }>;
       nextReflectionId(observationId: string): string;
+      afterReflection?: () => Promise<unknown>;
       retryPolicy: Readonly<{
         maxAttempts: number;
         baseBackoffMs: number;
@@ -110,6 +112,7 @@ export class ExperienceReflectorService {
     this.#model = dependencies.model;
     this.#clock = dependencies.clock;
     this.#nextReflectionId = dependencies.nextReflectionId;
+    this.#afterReflection = dependencies.afterReflection;
     this.#retryPolicy = dependencies.retryPolicy;
   }
 
@@ -122,6 +125,7 @@ export class ExperienceReflectorService {
     try {
       const existing = await this.#reflections.findByObservation(job.subjectId);
       if (existing !== undefined) {
+        await this.#afterReflection?.();
         await this.#jobs.completeReflection(
           job.jobId,
           workerId,
@@ -182,6 +186,7 @@ export class ExperienceReflectorService {
             createdAt: this.#clock.now(),
           });
       await this.#reflections.save(reflection);
+      await this.#afterReflection?.();
       await this.#jobs.completeReflection(
         job.jobId,
         workerId,

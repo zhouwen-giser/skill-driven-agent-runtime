@@ -572,5 +572,52 @@
     "actorId": "operator.v123",
     "humanApproved": false,
     "occurredAt": "2026-07-23T00:00:03.000Z"
+  },
+  "knowledgePromotionEvaluation": {
+    "schemaVersion": "1.0",
+    "evaluationId": "evaluation.promotion.v123",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "policyVersion": "knowledge-promotion-v1",
+    "status": "passed",
+    "evidence": {
+      "uniqueGoalCount": 3,
+      "uniqueUserCount": 2,
+      "successfulOutcomeCount": 2,
+      "failedOutcomeCount": 0,
+      "userAcceptedPlanningCount": 2,
+      "userRejectedPlanningCount": 0,
+      "replayPassedCount": 3,
+      "replayFailedCount": 0,
+      "shadowImprovedCount": 0,
+      "shadowRegressedCount": 0,
+      "supportingRefs": ["episode.promotion.1", "episode.promotion.2", "episode.promotion.3"],
+      "contradictingRefs": []
+    },
+    "gates": [
+      { "code": "unique_goals", "passed": true, "actual": 3, "required": 3 },
+      { "code": "human_approval", "passed": true, "actual": true, "required": true }
+    ],
+    "replayReportRef": "promotion-replay:planning_heuristic:knowledge.v123:1",
+    "humanApproved": true,
+    "policyAllowed": true,
+    "decidedBy": "operator.v123",
+    "decisionSummary": "All deterministic Promotion gates passed.",
+    "createdAt": "2026-07-26T06:00:00.000Z",
+    "decidedAt": "2026-07-26T06:00:00.000Z"
+  },
+  "activeKnowledgeProjection": {
+    "schemaVersion": "1.0",
+    "projectionId": "knowledge-projection-planning_heuristic-knowledge.v123-1",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "risk": "low",
+    "status": "active",
+    "projectedAt": "2026-07-26T06:00:00.000Z"
   }
 }

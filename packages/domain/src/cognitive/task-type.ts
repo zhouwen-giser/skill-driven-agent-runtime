@@ -10,6 +10,7 @@ import {
 } from './common.js';
 import { CognitiveDomainError } from './errors.js';
 import type { MissingDimensionKind } from './task-understanding.js';
+import type { KnowledgeStatus } from './knowledge.js';
 
 export type TaskTypeInductionMode = 'offline_batch' | 'online_candidate';
 export type TaskTypeDefinitionOrigin = 'fixture' | 'induced';
@@ -52,7 +53,7 @@ export interface TaskTypeDefinitionSnapshot {
   readonly schemaVersion: typeof COGNITIVE_SCHEMA_VERSION;
   readonly taskTypeId: string;
   readonly revision: number;
-  readonly status: 'candidate';
+  readonly status: KnowledgeStatus;
   readonly origin: TaskTypeDefinitionOrigin;
   readonly inductionMode: TaskTypeInductionMode;
   readonly fingerprint: string;
@@ -100,6 +101,9 @@ export function createTaskTypeDefinitionSnapshot(
   assertPositiveVersion(input.revision, 'revision');
   assertSha256(input.fingerprint, 'fingerprint');
   assertTimestamp(input.createdAt, 'createdAt');
+  if (!['candidate', 'validating', 'active', 'deprecated', 'rejected'].includes(input.status)) {
+    throw new CognitiveDomainError('TASK_TYPE_INVALID', 'Task Type status is invalid.');
+  }
   if (!['fixture', 'induced'].includes(input.origin)) {
     throw new CognitiveDomainError('TASK_TYPE_INVALID', 'Task Type origin is invalid.');
   }

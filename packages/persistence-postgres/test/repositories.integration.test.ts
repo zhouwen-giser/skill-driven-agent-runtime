@@ -15,6 +15,15 @@ import {
   CapabilityPatternInductionService,
   CapabilityPatternInvalidator,
   CapabilitySkillMapper,
+  ActiveKnowledgeProjector,
+  CapabilityPatternPromotionTarget,
+  DuplicateCandidateDetector,
+  EvidenceThresholdEvaluator,
+  KnowledgePromotionService,
+  MemoryActiveKnowledgeProjectionRepository,
+  MemoryService,
+  PlanningHeuristicPromotionTarget,
+  TaskTypePromotionTarget,
   TaskService,
 } from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
@@ -75,6 +84,9 @@ import {
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
   PostgresCapabilityPatternRepository,
+  PostgresKnowledgePromotionRepository,
+  PostgresPromotionReplayEvaluationRunner,
+  PostgresActiveKnowledgeProjectionInventory,
   PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
@@ -246,6 +258,9 @@ beforeAll(async () => {
   await applyRuntimeMigrations(pool);
 });
 beforeEach(async () => {
+  await pool.query(
+    'TRUNCATE knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
+  );
   await pool.query(
     'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
   );
@@ -5766,6 +5781,261 @@ describe('PostgreSQL protocol-domain repositories', () => {
       version: 2,
       transitions: 1,
       validating_events: 1,
+    });
+  });
+
+  it('CAS-promotes real multi-Goal evidence, projects Active Memory and rebuilds deletion', async () => {
+    const fixtures = await Promise.all([
+      createTerminalOutcomeFixture('promotion-first'),
+      createTerminalOutcomeFixture('promotion-second'),
+      createTerminalOutcomeFixture('promotion-third'),
+    ]);
+    for (const fixture of fixtures) await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const clock = { now: () => '2026-07-26T06:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.promotion.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('promotion-episode-worker', 3)) {
+      await episodeService.process(job, 'promotion-episode-worker');
+    }
+    const storedEpisodes = (
+      await Promise.all(fixtures.map((fixture) => episodes.findByGoal(fixture.goalId)))
+    ).flat();
+    expect(storedEpisodes).toHaveLength(3);
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,1,'candidate','global_candidate',NULL,NULL,'low',$2::jsonb,1,$3)`,
+      [
+        'knowledge.promotion.db',
+        JSON.stringify({
+          title: 'Inspect before changing state',
+          summary: 'Collect durable evidence before proposing a state-changing plan.',
+          fingerprint: `sha256:${'7'.repeat(64)}`,
+          identity: {},
+        }),
+        clock.now(),
+      ],
+    );
+    for (const episode of storedEpisodes) {
+      const sourceRef = createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.promotion.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      });
+      const evidence = createKnowledgeEvidence({
+        evidenceId: `evidence.promotion.${episode.episodeId}`,
+        polarity: 'support',
+        observationId: `observation.promotion.${episode.episodeId}`,
+        statementIds: [`statement.promotion.${episode.episodeId}`],
+        sourceEpisodeIds: [episode.episodeId],
+        sourceRefIds: [sourceRef.sourceRefId],
+        sourceRefs: [sourceRef],
+        outcomeRefs: [episode.terminalOutcomeRef],
+        summary: 'The achieved Goal supports this planning heuristic.',
+        createdAt: clock.now(),
+      });
+      await pool.query(
+        `INSERT INTO planning_heuristic_evidence(
+           knowledge_id,knowledge_revision,evidence_id,polarity,source_ref,created_at)
+         VALUES($1,1,$2,'support',$3::jsonb,$4)`,
+        ['knowledge.promotion.db', evidence.evidenceId, JSON.stringify(evidence), clock.now()],
+      );
+    }
+    const promotionRepository = new PostgresKnowledgePromotionRepository(pool);
+    const memories = new MemoryService({
+      repository: new PostgresMemoryRepository(pool),
+      embeddings: {
+        embed: () =>
+          Promise.resolve({ providerId: 'promotion-test-embedding', vector: [0.25, 0.5, 0.75] }),
+      },
+      clock,
+      nextId: () => 'unused-memory-id',
+      nextTransitionId: () => 'memory-transition.promotion.db',
+    });
+    const projectionRepository = new MemoryActiveKnowledgeProjectionRepository(
+      memories,
+      new PostgresActiveKnowledgeProjectionInventory(pool),
+    );
+    let transitionSequence = 0;
+    const service = new KnowledgePromotionService({
+      repository: promotionRepository,
+      evaluator: new EvidenceThresholdEvaluator(),
+      replay: new PostgresPromotionReplayEvaluationRunner(promotionRepository),
+      duplicates: new DuplicateCandidateDetector(promotionRepository),
+      shadow: { find: () => Promise.resolve(undefined) },
+      projector: new ActiveKnowledgeProjector({ repository: projectionRepository, clock }),
+      targets: [
+        new PlanningHeuristicPromotionTarget(),
+        new TaskTypePromotionTarget(),
+        new CapabilityPatternPromotionTarget(),
+      ],
+      policyVersion: 'knowledge-promotion-v1',
+      clock,
+      nextEvaluationId: () => 'promotion-evaluation.db',
+      nextTransitionId: () => `promotion-transition.db.${String(++transitionSequence)}`,
+    });
+    const promoted = await service.evaluate({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.promotion.db',
+      expectedVersion: 1,
+      actorId: 'operator.promotion.db',
+      humanApproved: true,
+      policyAllowed: true,
+    });
+    expect(promoted.evaluation.status).toBe('passed');
+    expect(promoted.knowledge).toMatchObject({ status: 'active', version: 3 });
+    const persisted = await pool.query<{
+      status: string;
+      version: number;
+      evaluations: number;
+      transitions: number;
+      promoted_events: number;
+      memory_status: string;
+      memory_content: unknown;
+      skill_versions: number;
+    }>(
+      `SELECT h.status,h.version,
+         (SELECT count(*)::integer FROM knowledge_promotion_evaluation
+          WHERE knowledge_id=h.knowledge_id) AS evaluations,
+         (SELECT count(*)::integer FROM knowledge_status_transition
+          WHERE knowledge_id=h.knowledge_id) AS transitions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE aggregate_id=h.knowledge_id AND event_type='knowledge.promoted') AS promoted_events,
+         (SELECT status FROM memory_item
+          WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1')
+           AS memory_status,
+         (SELECT content_json FROM memory_item
+          WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1')
+           AS memory_content,
+         (SELECT count(*)::integer FROM skill_version) AS skill_versions
+       FROM planning_heuristic h WHERE h.knowledge_id=$1`,
+      ['knowledge.promotion.db'],
+    );
+    expect(persisted.rows[0]).toEqual(
+      expect.objectContaining({
+        status: 'active',
+        version: 3,
+        evaluations: 1,
+        transitions: 2,
+        promoted_events: 1,
+        memory_status: 'active',
+        skill_versions: 0,
+        memory_content: expect.objectContaining({
+          projectionType: 'active_knowledge',
+          authoritativeRef: 'planning_heuristic:knowledge.promotion.db:1',
+        }),
+      }),
+    );
+    await expect(
+      service.evaluate({
+        kind: 'planning_heuristic',
+        knowledgeId: 'knowledge.promotion.db',
+        expectedVersion: 1,
+        actorId: 'operator.promotion.db',
+        humanApproved: true,
+        policyAllowed: true,
+      }),
+    ).rejects.toThrow('KNOWLEDGE_PROMOTION_VERSION_CONFLICT');
+    await expect(
+      promotionRepository.listRevalidationCandidates('knowledge-promotion-v2'),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        reason: 'policy_changed',
+        record: expect.objectContaining({
+          knowledgeId: 'knowledge.promotion.db',
+          status: 'active',
+        }),
+      }),
+    ]);
+    await pool.query(
+      "DELETE FROM memory_item WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'",
+    );
+    await expect(service.rebuildActiveProjections()).resolves.toBe(1);
+    await expect(
+      pool.query(
+        "SELECT 1 FROM memory_item WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'",
+      ),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    const contradictionCreatedAt = '2026-07-26T06:01:00.000Z';
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,2,'candidate','global_candidate',NULL,NULL,'low',$2::jsonb,2,$3)`,
+      [
+        'knowledge.promotion.db',
+        JSON.stringify({
+          title: 'Inspect before changing state',
+          summary:
+            'A newer candidate revision retains the heuristic while recording a counterexample.',
+          fingerprint: `sha256:${'7'.repeat(64)}`,
+          identity: {},
+        }),
+        contradictionCreatedAt,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO planning_heuristic_evidence(
+         knowledge_id,knowledge_revision,evidence_id,polarity,source_ref,created_at)
+       VALUES($1,2,$2,'contradiction',$3::jsonb,$4)`,
+      [
+        'knowledge.promotion.db',
+        'evidence.promotion.new-contradiction',
+        JSON.stringify({
+          evidenceId: 'evidence.promotion.new-contradiction',
+          polarity: 'contradiction',
+          sourceEpisodeIds: [],
+          sourceRefIds: [],
+          sourceRefs: [],
+          outcomeRefs: [],
+          summary: 'A newer counterexample contradicts the active heuristic.',
+          createdAt: contradictionCreatedAt,
+        }),
+        contradictionCreatedAt,
+      ],
+    );
+    await expect(service.revalidateChangedActive()).resolves.toBe(1);
+    await expect(
+      pool.query(
+        `SELECT h.status,h.version,m.status AS memory_status,
+           (SELECT count(*)::integer FROM knowledge_status_transition
+            WHERE knowledge_id=h.knowledge_id AND reason='contradiction_detected')
+             AS contradiction_transitions
+         FROM planning_heuristic h
+         LEFT JOIN memory_item m
+           ON m.memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'
+         WHERE h.knowledge_id='knowledge.promotion.db' AND h.revision=1`,
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'validating',
+          version: 4,
+          memory_status: 'invalid',
+          contradiction_transitions: 1,
+        },
+      ],
     });
   });
 });
