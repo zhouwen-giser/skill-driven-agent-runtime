@@ -140,6 +140,46 @@ describe('G12 governed knowledge promotion', () => {
     expect(repository.evaluations).toHaveLength(1);
   });
 
+  it('keeps a threshold-qualified Candidate inactive while Replay evidence is incubating', async () => {
+    const repository = new InMemoryPromotionRepository(
+      candidate({ kind: 'planning_heuristic' }),
+      evidence({
+        uniqueGoalCount: 3,
+        uniqueUserCount: 2,
+        successfulOutcomeCount: 2,
+        supportingRefs: ['episode.1', 'episode.2', 'episode.3'],
+      }),
+    );
+    const service = serviceFixture(repository, new InMemoryProjectionRepository(), {
+      replay: {
+        run: () =>
+          Promise.resolve({
+            reportRef: 'replay.incubating',
+            reportHash: `sha256:${'a'.repeat(64)}`,
+            passedCount: 1,
+            failedCount: 0,
+            status: 'incubating',
+          }),
+      },
+    });
+
+    const result = await service.evaluate({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.test',
+      expectedVersion: 1,
+      actorId: 'operator.test',
+      humanApproved: true,
+      policyAllowed: true,
+    });
+
+    expect(result.evaluation).toMatchObject({
+      status: 'incubating',
+      decisionSummary:
+        'The Candidate remains incubating because the separated replay holdout is insufficient.',
+    });
+    expect(result.knowledge).toMatchObject({ status: 'candidate', version: 3 });
+  });
+
   it('retains manual rejection and active revalidation/deprecation transitions', async () => {
     const repository = new InMemoryPromotionRepository(
       candidate({ kind: 'planning_heuristic' }),
@@ -264,6 +304,10 @@ describe('G12 governed knowledge promotion', () => {
 function serviceFixture(
   repository: InMemoryPromotionRepository,
   projections: InMemoryProjectionRepository,
+  overrides: Readonly<{
+    replay?: PromotionReplayEvaluationRunner;
+    shadow?: PromotionShadowReportSource;
+  }> = {},
 ) {
   const replay: PromotionReplayEvaluationRunner = {
     run: () => Promise.resolve({ reportRef: 'replay.persisted', passedCount: 3, failedCount: 0 }),
@@ -274,9 +318,9 @@ function serviceFixture(
   return new KnowledgePromotionService({
     repository,
     evaluator: new EvidenceThresholdEvaluator(),
-    replay,
+    replay: overrides.replay ?? replay,
     duplicates: new DuplicateCandidateDetector(repository),
-    shadow,
+    shadow: overrides.shadow ?? shadow,
     projector: new ActiveKnowledgeProjector({
       repository: projections,
       clock: { now: () => timestamp },

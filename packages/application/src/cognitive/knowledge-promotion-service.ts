@@ -131,7 +131,7 @@ export class KnowledgePromotionService {
             },
           ]),
     ];
-    const passed = decision.passed && extraGates.length === 0;
+    const passed = decision.passed && extraGates.length === 0 && replay.status !== 'incubating';
     const now = this.#clock.now();
     const evaluation = createKnowledgePromotionEvaluation({
       schemaVersion: '1.0',
@@ -140,7 +140,7 @@ export class KnowledgePromotionService {
       knowledgeId: input.knowledgeId,
       knowledgeRevision: loaded.record.revision,
       policyVersion: this.#policyVersion,
-      status: passed ? 'passed' : 'failed',
+      status: passed ? 'passed' : replay.status === 'incubating' ? 'incubating' : 'failed',
       evidence: decision.evidence,
       gates: [...decision.gates, ...extraGates],
       replayReportRef: replay.reportRef,
@@ -151,7 +151,9 @@ export class KnowledgePromotionService {
       decidedBy: input.actorId,
       decisionSummary: passed
         ? 'All deterministic Promotion gates passed.'
-        : 'The Candidate remains inactive because one or more Promotion gates failed.',
+        : replay.status === 'incubating'
+          ? 'The Candidate remains incubating because the separated replay holdout is insufficient.'
+          : 'The Candidate remains inactive because one or more Promotion gates failed.',
       createdAt: now,
       decidedAt: now,
     });

@@ -14,3 +14,4 @@ export * from './promotion-repository.js';
 export * from './knowledge-search-repository.js';
 export * from './active-knowledge-projection-inventory.js';
 export * from './cognitive-management-action-repository.js';
+export * from './planning-replay-repository.js';

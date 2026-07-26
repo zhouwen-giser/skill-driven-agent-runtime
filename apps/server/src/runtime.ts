@@ -147,6 +147,12 @@ import {
   PlanningExperienceContextBuilder,
   BasePlannerFallbackPolicy,
   ExperienceEnrichedUserGoalPlanningService,
+  PlanningReplayDatasetBuilder,
+  ShadowPlanningService,
+  PromotionReportGenerator,
+  ReplayPromotionEvidenceService,
+  ConservativeReplayPlanningEvaluator,
+  NoPhysicalProvider,
   ReciprocalRankFusion,
   TaskTypePromotionTarget,
   CurrentExactSkillKnowledgeSource,
@@ -236,7 +242,8 @@ import {
   PostgresKnowledgePromotionRepository,
   PostgresCognitiveManagementActionRepository,
   PostgresKnowledgeSearchRepository,
-  PostgresPromotionReplayEvaluationRunner,
+  PostgresPlanningReplayDatasetSource,
+  PostgresPromotionProvenanceReportRepository,
   PostgresActiveKnowledgeProjectionInventory,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
@@ -990,14 +997,22 @@ export async function startServerRuntime(
     model: modelRuntime,
   });
   const knowledgePromotionRepository = new PostgresKnowledgePromotionRepository(pool);
+  const promotionReplayEvidence = new ReplayPromotionEvidenceService({
+    generator: new PromotionReportGenerator({
+      datasets: new PlanningReplayDatasetBuilder(new PostgresPlanningReplayDatasetSource(pool)),
+      shadow: new ShadowPlanningService({
+        evaluator: new ConservativeReplayPlanningEvaluator(),
+        physicalProvider: new NoPhysicalProvider(),
+      }),
+    }),
+    repository: new PostgresPromotionProvenanceReportRepository(pool),
+  });
   const knowledgePromotion = new KnowledgePromotionService({
     repository: knowledgePromotionRepository,
     evaluator: new EvidenceThresholdEvaluator(),
-    replay: new PostgresPromotionReplayEvaluationRunner(knowledgePromotionRepository),
+    replay: promotionReplayEvidence,
     duplicates: new DuplicateCandidateDetector(knowledgePromotionRepository),
-    shadow: {
-      find: () => Promise.resolve(undefined),
-    },
+    shadow: promotionReplayEvidence,
     projector: new ActiveKnowledgeProjector({
       repository: new MemoryActiveKnowledgeProjectionRepository(
         memories,

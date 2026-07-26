@@ -21,6 +21,7 @@
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:acceptance": "node scripts/verify-acceptance-map.mjs",
+    "verify:cognitive-replay": "node scripts/run-cognitive-replay.mjs --check",
     "verify:protocol": "node protocol/scripts/verify-protocol-package.mjs",
     "verify:migrations": "node scripts/verify-migration-path.mjs",
     "db:reset:v1.2.2": "node scripts/reset-v122-database.mjs",

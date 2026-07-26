@@ -57,3 +57,4 @@ export * from './knowledge-applicability-evaluator.js';
 export * from './planning-knowledge-retriever.js';
 export * from './planning-experience-context-builder.js';
 export * from './experience-enriched-planner.js';
+export * from './planning-replay.js';

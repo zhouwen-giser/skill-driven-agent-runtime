@@ -28,6 +28,12 @@ import {
   PlanningContextBudget,
   PlanningHeuristicPromotionTarget,
   PlanningKnowledgeRetriever,
+  PlanningReplayDatasetBuilder,
+  PromotionReportGenerator,
+  ReplayPromotionEvidenceService,
+  ShadowPlanningService,
+  ConservativeReplayPlanningEvaluator,
+  NoPhysicalProvider,
   ReciprocalRankFusion,
   TaskTypePromotionTarget,
   TaskService,
@@ -92,7 +98,8 @@ import {
   PostgresCapabilityPatternRepository,
   PostgresKnowledgePromotionRepository,
   PostgresKnowledgeSearchRepository,
-  PostgresPromotionReplayEvaluationRunner,
+  PostgresPlanningReplayDatasetSource,
+  PostgresPromotionProvenanceReportRepository,
   PostgresActiveKnowledgeProjectionInventory,
   PostgresCognitiveManagementActionRepository,
   PostgresUserGoalRuntimeRepository,
@@ -5984,6 +5991,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
       );
     }
     const promotionRepository = new PostgresKnowledgePromotionRepository(pool);
+    await pool.query(
+      `INSERT INTO runtime_capability_summary(
+         summary_id,revision,catalog_hash,generation_policy_version,status,
+         schema_version,source_refs,built_at)
+       VALUES('summary.promotion.replay',1,$1,'capability-policy-v1','active','1.0','[]'::jsonb,$2)`,
+      [`sha256:${'a'.repeat(64)}`, clock.now()],
+    );
     const memories = new MemoryService({
       repository: new PostgresMemoryRepository(pool),
       embeddings: {
@@ -5999,12 +6013,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
       new PostgresActiveKnowledgeProjectionInventory(pool),
     );
     let transitionSequence = 0;
+    const promotionReports = new PostgresPromotionProvenanceReportRepository(pool);
+    const replayEvidence = new ReplayPromotionEvidenceService({
+      generator: new PromotionReportGenerator({
+        datasets: new PlanningReplayDatasetBuilder(new PostgresPlanningReplayDatasetSource(pool)),
+        shadow: new ShadowPlanningService({
+          evaluator: new ConservativeReplayPlanningEvaluator(),
+          physicalProvider: new NoPhysicalProvider(),
+        }),
+      }),
+      repository: promotionReports,
+    });
     const service = new KnowledgePromotionService({
       repository: promotionRepository,
       evaluator: new EvidenceThresholdEvaluator(),
-      replay: new PostgresPromotionReplayEvaluationRunner(promotionRepository),
+      replay: replayEvidence,
       duplicates: new DuplicateCandidateDetector(promotionRepository),
-      shadow: { find: () => Promise.resolve(undefined) },
+      shadow: replayEvidence,
       projector: new ActiveKnowledgeProjector({ repository: projectionRepository, clock }),
       targets: [
         new PlanningHeuristicPromotionTarget(),
@@ -6026,6 +6051,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     expect(promoted.evaluation.status).toBe('passed');
     expect(promoted.knowledge).toMatchObject({ status: 'active', version: 3 });
+    await expect(promotionReports.find(promoted.knowledge)).resolves.toMatchObject({
+      status: 'passed',
+      mutateDevCaseIds: [expect.any(String), expect.any(String)],
+      promotionTestCaseIds: [expect.any(String)],
+      replayFailedCount: 0,
+      shadow: { neutralCount: 1, regressedCount: 0, unsafeCount: 0 },
+    });
     const persisted = await pool.query<{
       status: string;
       version: number;

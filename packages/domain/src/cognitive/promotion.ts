@@ -29,6 +29,8 @@ export interface PromotionReplayReport {
   readonly reportRef: string;
   readonly passedCount: number;
   readonly failedCount: number;
+  readonly status?: 'incubating' | 'passed' | 'failed';
+  readonly reportHash?: string;
 }
 
 export interface PromotionShadowReport {
