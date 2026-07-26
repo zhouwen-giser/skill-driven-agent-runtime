@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: COMPLETE — G00–G17 release gates passed; publication/Ready transition pending
+Status: BLOCKED — release gates passed; PR #9 externally merged under owner identity after Ready
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -79,26 +79,26 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 
 ## Progress
 
-| Goal | Status    | Commit    | Tests                                                                             | Evidence                         | Blocker | Next                                                           |
-| ---- | --------- | --------- | --------------------------------------------------------------------------------- | -------------------------------- | ------- | -------------------------------------------------------------- |
-| G00  | completed | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none    | hand off frozen contracts to G01                               |
-| G01  | completed | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke        | `reports/goal/g01-completion.md` | none    | hand off activated Summary to G02                              |
-| G02  | completed | `2ec8987` | full `pnpm verify`: 656 unit/contract, 71 integration, 61 E2E, build/smoke        | `reports/goal/g02-completion.md` | none    | hand off declared Summary to G03; preserve public Card for G15 |
-| G03  | completed | `05b4df4` | 663 unit/contract, 72 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g03-completion.md` | none    | hand off immutable Understanding revisions to G04              |
-| G04  | completed | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none    | hand confirmed Goal Contract authority to G05                  |
-| G05  | completed | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none    | hand correction/interaction lineage to G06                     |
-| G06  | completed | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none    | hand correction/Episode lineage to G07/G10                     |
-| G07  | completed | `301606e` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g07-completion.md` | none    | verified handoff to G08                                        |
-| G08  | completed | `2d600fc` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g08-completion.md` | none    | verified handoff to G09                                        |
-| G09  | completed | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g09-completion.md` | none    | verified Candidate/Delta handoff to G10/G11                    |
-| G10  | completed | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates   | `reports/goal/g10-completion.md` | none    | Candidate Task Types handed to G11/G12                         |
-| G11  | completed | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none    | Candidate Patterns handed to G12; Gaps remain operational      |
-| G12  | completed | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none    | Active-only governed knowledge handed to G13                   |
-| G13  | completed | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none    | bounded Active-only retrieval handed to G14                    |
-| G14  | completed | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none    | governed usage and rollout evidence handed to G15/G16          |
-| G15  | completed | `d77794a` | 597 unit, 157 contract, 84 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g15-completion.md` | none    | audited integration handed to G16                              |
-| G16  | completed | `265f865` | 604 unit, 157 contract, 84 real integration, 62 real E2E, replay/migration/build  | `reports/goal/g16-completion.md` | none    | reproducible side-effect-free evidence handed to G17           |
-| G17  | completed | `8d65d3f` | clean verify: 765 unit/contract, 84 integration, 62 E2E, replay/build/smoke       | `reports/goal/g17-completion.md` | none    | publish evidence and mark PR Ready; no merge/tag               |
+| Goal | Status           | Commit    | Tests                                                                             | Evidence                         | Blocker                                  | Next                                                           |
+| ---- | ---------------- | --------- | --------------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| G00  | completed        | `ffd9791` | full `pnpm verify` passed: 635 unit/contract, 68 integration, 59 E2E, build/smoke | `reports/goal/g00-completion.md` | none                                     | hand off frozen contracts to G01                               |
+| G01  | completed        | `820d78d` | full `pnpm verify`: 645 unit/contract, 70 integration, 60 E2E, build/smoke        | `reports/goal/g01-completion.md` | none                                     | hand off activated Summary to G02                              |
+| G02  | completed        | `2ec8987` | full `pnpm verify`: 656 unit/contract, 71 integration, 61 E2E, build/smoke        | `reports/goal/g02-completion.md` | none                                     | hand off declared Summary to G03; preserve public Card for G15 |
+| G03  | completed        | `05b4df4` | 663 unit/contract, 72 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g03-completion.md` | none                                     | hand off immutable Understanding revisions to G04              |
+| G04  | completed        | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none                                     | hand confirmed Goal Contract authority to G05                  |
+| G05  | completed        | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none                                     | hand correction/interaction lineage to G06                     |
+| G06  | completed        | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none                                     | hand correction/Episode lineage to G07/G10                     |
+| G07  | completed        | `301606e` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g07-completion.md` | none                                     | verified handoff to G08                                        |
+| G08  | completed        | `2d600fc` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g08-completion.md` | none                                     | verified handoff to G09                                        |
+| G09  | completed        | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g09-completion.md` | none                                     | verified Candidate/Delta handoff to G10/G11                    |
+| G10  | completed        | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates   | `reports/goal/g10-completion.md` | none                                     | Candidate Task Types handed to G11/G12                         |
+| G11  | completed        | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none                                     | Candidate Patterns handed to G12; Gaps remain operational      |
+| G12  | completed        | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none                                     | Active-only governed knowledge handed to G13                   |
+| G13  | completed        | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none                                     | bounded Active-only retrieval handed to G14                    |
+| G14  | completed        | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none                                     | governed usage and rollout evidence handed to G15/G16          |
+| G15  | completed        | `d77794a` | 597 unit, 157 contract, 84 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g15-completion.md` | none                                     | audited integration handed to G16                              |
+| G16  | completed        | `265f865` | 604 unit, 157 contract, 84 real integration, 62 real E2E, replay/migration/build  | `reports/goal/g16-completion.md` | none                                     | reproducible side-effect-free evidence handed to G17           |
+| G17  | blocked_external | `8d65d3f` | clean verify: 765 unit/contract, 84 integration, 62 E2E, replay/build/smoke       | `reports/goal/g17-completion.md` | PR #9 owner-authenticated external merge | user direction required; no auto-revert/tag                    |
 
 ## Discoveries and Surprises
 
@@ -467,7 +467,9 @@ remain unchanged.
 - G16 evidence HEAD: `8886f0f6c66b85ee7b38b3fe890cdf0636279c8a`
 - G17 runtime controls: `8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e`
 - G17 clean verification commit: `7e505412bc50917a71c4a724ef15f659c6d5c296`
-- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
+- Externally merged PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
+- Corrective Draft PR after external merge:
+  <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/11>
 
 ## Changed Files
 
@@ -532,8 +534,8 @@ reports.
 
 ## Next Execution Step
 
-Publish G17 evidence, synchronize Draft PR #9 and mark it Ready for protected review. Do not merge or
-tag.
+Do not automatically revert `main`, merge the recreated branch or create a tag. Record the external
+merge and request user direction on whether a corrective PR/revert is desired.
 
 ## Outcomes and Retrospective
 

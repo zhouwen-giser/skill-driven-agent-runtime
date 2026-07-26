@@ -1,10 +1,21 @@
 {
   "schemaVersion": 1,
   "release": "v1.2.3",
-  "status": "release_gates_passed_publication_pending",
+  "status": "release_gates_passed_external_owner_authenticated_merge_deviation",
   "verificationCommit": "7e505412bc50917a71c4a724ef15f659c6d5c296",
   "verificationReport": "reports/verification/summary.json",
   "verificationDirty": false,
+  "publicationDeviation": {
+    "report": "reports/v1.2.3-release/merge-deviation-audit.json",
+    "pullRequest": 9,
+    "mergeCommit": "d68195a7634a7c9694f0ba1e971d9327813fb03d",
+    "eventActor": "zhouwen-giser",
+    "performedViaGitHubApp": null,
+    "nativeAutoMergeProven": false,
+    "rootCause": "unverified",
+    "requiredUnmergedStateSatisfied": false,
+    "correctiveDraftPullRequest": 11
+  },
   "acceptance": [
     { "id": "AC-G17-01", "status": "passed", "classification": ["real PostgreSQL", "real Redis", "real HTTP", "mock Model", "mock MCP"] },
     { "id": "AC-G17-02", "status": "passed", "classification": ["real PostgreSQL persistence", "real Redis queue", "simulated worker/model failure", "inherited real v1.2.2 database restart"] },
@@ -14,7 +25,7 @@
     { "id": "AC-G17-06", "status": "passed", "classification": ["static source/license/SBOM audit"] },
     { "id": "AC-G17-07", "status": "passed", "classification": ["official frozen A2A HTTP+JSON MUST TCK", "static OpenAPI drift gate"] },
     { "id": "AC-G17-08", "status": "passed", "classification": ["release boundary audit"] },
-    { "id": "AC-G17-09", "status": "pending_publication", "classification": ["git/GitHub publication audit"] }
+    { "id": "AC-G17-09", "status": "failed_external_merge", "classification": ["git/GitHub publication audit"] }
   ],
   "metrics": {
     "unitAndContract": { "passed": 765, "total": 765 },
