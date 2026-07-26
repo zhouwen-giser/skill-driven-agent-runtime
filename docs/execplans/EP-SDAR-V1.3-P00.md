@@ -57,7 +57,8 @@ Replay/Shadow has zero physical side effects, and confirmed plans enter the exis
 - [x] 2026-07-26 Generated actual contracts, completion candidate and standard Handoff.
 - [x] 2026-07-26 Completed independent read-only review; closed all remediable major/minor findings
   and retained the v1.2.3 release-acceptance blocker.
-- [ ] Commit P00 evidence and orchestration state.
+- [x] 2026-07-26 Created Completion Commit
+  `97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6` and prepared blocked orchestration state.
 
 ## Changed Files
 
@@ -121,6 +122,9 @@ The Handoff is now blocked, v1.2.3 verification evidence is restored, P00 has an
 `scripts/validate-v13-p00-evidence.mjs` is the repeatable gate, and final state will be updated with the
 Completion Commit SHA. Full disposition: `reports/goal/v1.3-p00-review.md`.
 
+The read-only remediation re-review found no new blocking/major issue, confirmed all four major and the
+minor finding closed, and authorized committing the blocked state without advancing P01.
+
 ## Idempotence and Recovery
 
 All P00 checks are read-only or regenerate evidence deterministically. Resume by validating
@@ -142,8 +146,8 @@ Package-local evidence is in `reports/goal/v1.3-p00-*` and
 
 ## Completion / Handoff
 
-Verification and independent review are complete. Completion/state commits remain pending. The
-Handoff is `BLOCKED_BASELINE`; P01 is forbidden.
+Verification, independent review and Completion Commit are complete. The Handoff is
+`BLOCKED_BASELINE`; P01 is forbidden.
 
 ## Outcomes and Retrospective
 

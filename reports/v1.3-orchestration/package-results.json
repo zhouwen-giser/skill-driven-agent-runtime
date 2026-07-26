@@ -1,4 +1,37 @@
 {
   "schemaVersion": "1.0",
-  "packages": {}
+  "packages": {
+    "P00": {
+      "packageId": "SDAR-V1.3-P00",
+      "goals": [
+        "G00"
+      ],
+      "formalPackage": true,
+      "status": "BLOCKED_BASELINE",
+      "acceptance": {
+        "passed": 5,
+        "failed": 0,
+        "blocked": 1
+      },
+      "tests": {
+        "status": "passed",
+        "summary": "reports/v1.3-orchestration/p00-verification-summary.json",
+        "commit": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+        "dirty": false
+      },
+      "contractAlignment": "passed",
+      "handoff": "reports/goal/v1.3-p00-handoff.json",
+      "review": {
+        "blockingOpen": 1,
+        "majorClosed": 4,
+        "minorClosed": 1,
+        "report": "reports/goal/v1.3-p00-review.md"
+      },
+      "completionCommit": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6",
+      "draftPrUrl": "",
+      "openBlockers": [
+        "V123_RELEASE_DEVIATION_NOT_ACCEPTED"
+      ]
+    }
+  }
 }

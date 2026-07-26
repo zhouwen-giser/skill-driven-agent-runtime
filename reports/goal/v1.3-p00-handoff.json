@@ -8,7 +8,8 @@
   "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
   "branch": "feature/v1.3-sequential-implementation",
   "commits": {
-    "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572"
+    "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+    "completion": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6"
   },
   "draftPrUrl": "",
   "contractRegistryVersion": "1.1",

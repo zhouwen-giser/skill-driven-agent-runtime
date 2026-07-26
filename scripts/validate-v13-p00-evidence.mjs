@@ -18,10 +18,7 @@ assertExactKeys(handoff, Object.keys(template), 'HANDOFF_TOP_LEVEL_FIELDS');
 assert(handoff.packageId === lock.packageId, 'HANDOFF_PACKAGE_ID');
 assert(handoff.contractRegistryVersion === lock.registryVersion, 'HANDOFF_REGISTRY_VERSION');
 assert(handoff.contractRegistrySha256 === lock.registrySha256, 'HANDOFF_REGISTRY_HASH');
-assert(
-  ['READY_FULL', 'BLOCKED_BASELINE'].includes(handoff.status),
-  'HANDOFF_STATUS_NOT_ALLOWED',
-);
+assert(['READY_FULL', 'BLOCKED_BASELINE'].includes(handoff.status), 'HANDOFF_STATUS_NOT_ALLOWED');
 
 const expectedConsumed = Object.values(lock.consumedContracts);
 assertContractMetadata(handoff.consumedContracts, expectedConsumed, 'HANDOFF_CONSUMED');
