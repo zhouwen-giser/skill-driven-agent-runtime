@@ -424,3 +424,20 @@ G12 affected gates pass 568 unit, 155 contract, 82 real integration, 62 real E2E
 operations, 397-source architecture, A2A MUST 74/74, production build, Server smoke and migration
 0120 as the thirteenth additive v1.2.3 migration. Exact evidence and retained failures are in
 `reports/goal/g12-completion.md`.
+
+## SDAR v1.2.3 G13 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G13-01 structured Active filters | verified | exact passed-Promotion join plus scope, applicability, Catalog and policy filters | real PostgreSQL excludes Candidate and cross-user rows |
+| AC-G13-02 Vector/Text RRF | verified | parallel Memory-vector and PostgreSQL-FTS recall with deterministic RRF | focused ranking unit and dual-channel persisted influence |
+| AC-G13-03 bounded relations | verified | one-hop/16-edge expander plus transactional Candidate relation projection | all five relation types in unit; real relation row |
+| AC-G13-04 Session dedupe | verified | advisory lock, exact revision unique index and returned reservation set | unit and real second-retrieval empty bundle |
+| AC-G13-05 progressive disclosure | verified | reduced index, kind-limited definitions and complete current exact Skill declarations | no-definition index and oversized-Skill fail-closed tests |
+| AC-G13-06 isolation/20K budget | verified | generic Memory exclusion, authority recheck and exact factory character count | cross-user/Candidate integration and budget unit |
+| AC-G13-07 P95 | verified | monotonic elapsed measurement over real hybrid retrieval | 20 samples, P95 4.476 ms ≤ 500 ms |
+
+G13 affected gates pass 575 unit, 155 contract, 83 real integration, 62 real E2E, 147 unchanged
+OpenAPI operations, 408-source architecture, production build, Server smoke and migration 0121 as the
+fourteenth additive v1.2.3 migration. Exact evidence and retained failures are in
+`reports/goal/g13-completion.md`.

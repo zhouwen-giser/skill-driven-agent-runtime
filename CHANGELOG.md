@@ -72,6 +72,10 @@ All notable changes to this project are documented here. The format follows Keep
   activation.
 - Active-only rebuildable Memory projection, contradiction/rejection/policy/catalog/Skill-version
   invalidation, migration 0120, four lifecycle APIs and 147-operation OpenAPI/JSON Schema coverage.
+- G13 scoped Active-only Vector+FTS retrieval with deterministic RRF, bounded five-type relation
+  expansion, Planning-Session usage dedupe and transactional `planning.knowledge_used` evidence.
+- Strict Level-0 Index → selected Full Definition → complete current exact Skill disclosure, with
+  frozen kind limits, conflict separation and a factory-verified 20K total context budget.
 
 ### Changed
 
@@ -101,6 +105,9 @@ All notable changes to this project are documented here. The format follows Keep
 - Only G12 Active knowledge can be projected for retrieval. PostgreSQL remains authoritative and
   Memory reconciliation rebuilds missing projections and invalidates stale ones; Promotion cannot
   publish a Skill or bypass current Readiness/compatibility and confirmation.
+- Generic Memory searches exclude Active Knowledge projections. G13 alone joins vector projections
+  back to exact scoped PostgreSQL authority, while Reflection persists governed Candidate relations
+  that remain unavailable until Promotion.
 
 ### Verification
 
@@ -151,6 +158,10 @@ All notable changes to this project are documented here. The format follows Keep
   thirteen additive migrations through 0120. Test-first, sandbox/port, migration-ledger, command,
   fixture-ID, HTTP-conflict and exact-revision review failures remain recorded in
   `reports/goal/g12-completion.md`; implementation is `59f20f6`.
+- G13 passes 575 unit, 155 contract, 83 real PostgreSQL/Redis integration with measured P95 4.476 ms,
+  62 real E2E, 147 unchanged OpenAPI operations, 408-source architecture, production build, Server
+  smoke and the fourteen additive migrations through 0121. Retained failures and fixes are recorded
+  in `reports/goal/g13-completion.md`; implementations are `1879ff1` and `3201325`.
 
 ## [1.2.2] - Unreleased
 

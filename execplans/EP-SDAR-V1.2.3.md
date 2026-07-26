@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G12 are complete; G13 is next
+Status: ACTIVE — G00–G13 are complete; G14 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -94,7 +94,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G10  | completed   | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates   | `reports/goal/g10-completion.md` | none           | Candidate Task Types handed to G11/G12                         |
 | G11  | completed   | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none           | Candidate Patterns handed to G12; Gaps remain operational      |
 | G12  | completed   | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none           | Active-only governed knowledge handed to G13                   |
-| G13  | not_started | —         | —                                                                                 | —                                | none           | retrieval/progressive disclosure                               |
+| G13  | completed   | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none           | bounded Active-only retrieval handed to G14                    |
 | G14  | not_started | —         | —                                                                                 | —                                | G05/G13        | experience-enriched planner/fallback                           |
 | G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
 | G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
@@ -205,6 +205,13 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: G12 review found that invalidating Active revision 1 after Candidate revision 2 appeared
   must lock the explicit Active revision, not the latest row. Exact-revision locking now preserves
   CAS and the real newer-revision contradiction test passes.
+- 2026-07-26: G13's first real usage event reused the Planning Session as an Outbox aggregate and
+  violated the existing aggregate/version uniqueness invariant. Each immutable usage row now owns its
+  event aggregate while the Session remains correlation; real integration passes.
+- 2026-07-26: final G13 review found four authority/budget gaps: Level 0 still carried Full Definition,
+  exact Skill detail was only a summary, generic Memory could bypass scoped retrieval, and Candidate
+  relations had no production projection. Reduced index/exact declaration contracts, generic Memory
+  exclusion, a factory-checked complete 20K budget and transactional relation projection close them.
 
 ## Decision Log
 
@@ -271,6 +278,10 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: every first activation remains manual. New contradictions, increased rejection ratio,
   Promotion policy drift and G11 Catalog/exact-Skill changes return Active knowledge to validating.
   Promotion has no Skill publication port and Candidate knowledge remains outside the Planner.
+- 2026-07-26: G13 treats Memory and FTS as recall channels only. Every result resolves to the exact
+  PostgreSQL Active revision with scope, policy, Catalog and applicability checks; only transactionally
+  reserved exact revisions are returned. G14 alone may decorate formal planning and must retain the
+  base-Planner fallback.
 
 ## Implementation Steps
 
@@ -360,12 +371,16 @@ G09 likewise uses original repository TypeScript and existing dependencies. ACE 
 AutoSkill Identity/Merge and LangMem change sets remain exact-commit concept references only; no source
 was copied or translated, so no Source Intake or dependency metadata changed.
 
+G13 uses original repository TypeScript and existing PostgreSQL/pgvector/Memory dependencies. ReMe
+RRF/relation/dedup and Codex progressive disclosure remain locked conceptual references only; no source
+was copied or translated and no dependency metadata changed.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0119 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0121 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection through all twelve migrations.
-- OpenAPI: 143 management operations include Capability, Understanding, Goal/Plan review, Experience
+  rejection through all fourteen migrations.
+- OpenAPI: 147 management operations include Capability, Understanding, Goal/Plan review, Experience
   Episode/Observation/Reflection/dead-letter reads, explicit replay, Candidate Task Type and Capability
   Pattern/Gap reads.
 - A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
@@ -380,6 +395,8 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `10d9cb385a7d4ef87b69f2856d315573faafca9c`
 - G12 implementation HEAD: `59f20f6cb4af22458d1aef018809791a998826b0`
+- G13 implementation: `1879ff1aca1e7ac6806f111f951909db4d2b698f`
+- G13 relation correction HEAD: `3201325d7cd9c59d047301b0ef1f16188a4adff4`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -423,17 +440,20 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 - G12 implementation `59f20f6`: shared governed Promotion with separate Heuristic/Task Type/Capability
   targets, exact-revision CAS/evaluation/audit, persisted replay/evidence aggregation, contradiction
   and version invalidation, Active-only Memory reconciliation, migration 0120 and four lifecycle APIs.
+- G13 implementations `1879ff1`/`3201325`: Active-authority hybrid retrieval, deterministic RRF,
+  bounded relation expansion/projection, Session usage/Outbox dedupe, exact Skill progressive
+  disclosure, complete 20K budget, migration 0121 and real P95 evidence.
 
 ## Open Blockers
 
-None for G00–G12. The former platform approval and worktree-hygiene blockers are retained in the Goal
-reports and were resolved before the real 79-integration/62-E2E verification. G13–G17 remain ordinary
+None for G00–G13. The former platform approval and worktree-hygiene blockers are retained in the Goal
+reports and were resolved before the real 79-integration/62-E2E verification. G14–G17 remain ordinary
 unfinished work, not blockers.
 
 ## Next Execution Step
 
-Publish the G12 evidence head and update Draft PR #9 without changing Draft status, then implement G13
-Active-only retrieval, scope/risk filtering and bounded progressive disclosure over exact authority.
+Publish the G13 evidence head and update Draft PR #9 without changing Draft status, then implement G14
+experience-enriched planning as a decorator with strict validation and base-Planner fallback.
 
 ## Outcomes and Retrospective
 
@@ -455,4 +475,7 @@ induction and explicit non-executable Gaps, passing 560 unit, 154 contract, 81 i
 143 OpenAPI, 385-source architecture, build and migrations through 0119. G12 adds governed,
 exact-revision knowledge Promotion and rebuildable Active-only Memory projection, passing 568 unit,
 155 contract, 82 integration, 62 E2E, 147 OpenAPI, 397-source architecture, build/smoke and migrations
-through 0120. G13–G17 remain open.
+through 0120. G13 adds scoped Active-only hybrid retrieval, exact Skill progressive disclosure and
+Session usage evidence, passing 575 unit, 155 contract, 83 integration, 62 E2E, 147 OpenAPI,
+408-source architecture,
+build/smoke and migrations through 0121 with measured local P95 4.476 ms. G14–G17 remain open.

@@ -244,3 +244,16 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - Promotion replay in G12 is a side-effect-free evaluation over persisted authoritative Episode
   outcomes. G16 must add the richer holdout/replay/shadow comparison harness without changing G12's
   lifecycle, PostgreSQL authority or manual activation gates.
+
+## v1.2.3 G13 Retrieval boundary (2026-07-26)
+
+- G13 composes the governed Retriever but intentionally does not inject it into formal planning;
+  decorator/fallback behavior and injection-mode rollout belong to G14.
+- Task-scoped Knowledge is fail-closed unless its authoritative definition carries the exact `taskId`;
+  the shared v1.2.3 knowledge skeleton has no separate task-scope column. Tenant and user scopes use
+  dedicated columns and are exact-match filtered.
+- Reflection automatically projects `related` and revision `supersedes` edges. The reader supports all
+  five frozen relation types, while `requires`, `contradicts` and `supported_by` rows require a
+  governed structured knowledge producer; G13 adds no public relation-mutation API.
+- The P95 result is a reproducible local PostgreSQL integration measurement, not a production capacity
+  claim. G17 must repeat capacity/soak measurement in its release environment.
