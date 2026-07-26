@@ -82,7 +82,8 @@ second workflow authority.
       0 Minor; `COMPLETED` Handoff allowed.
 - [x] 2026-07-27 Finalize immutable verification evidence, combined review and exact 28-field
       `COMPLETED` Handoff.
-- [ ] Commit/push evidence and advance the orchestration cursor to P03.
+- [x] 2026-07-27 Commit final P02 evidence as `699f57f`.
+- [ ] Commit the orchestration cursor at P03 and push through Draft PR #12.
 
 ## Changed Files
 

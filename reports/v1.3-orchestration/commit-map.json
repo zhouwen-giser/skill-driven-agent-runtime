@@ -10,6 +10,10 @@
     "P01": {
       "implementationCompletion": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
       "evidenceCompletion": "eff64e7b1149b296439132322d7f75cbb90c7f91"
+    },
+    "P02": {
+      "implementationCompletion": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+      "evidenceCompletion": "699f57f849c102ffe7d83c8941c5126e8442a326"
     }
   }
 }

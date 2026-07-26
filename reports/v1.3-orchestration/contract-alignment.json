@@ -133,6 +133,68 @@
       },
       "validationCommand": "node scripts/validate-v13-p01-evidence.mjs",
       "errors": []
+    },
+    "P02": {
+      "status": "passed",
+      "decision": "COMPLETED",
+      "contractLock": "SDAR-V1.3-P02/1.1",
+      "consumedContracts": {
+        "CompiledArtifact": {
+          "version": "1.1",
+          "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf",
+          "fields": "exact"
+        },
+        "ArtifactLineage": {
+          "version": "1.1",
+          "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57",
+          "fields": "exact"
+        },
+        "ArtifactRuntimeBinding": {
+          "version": "1.1",
+          "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337",
+          "fields": "exact"
+        }
+      },
+      "producedContracts": {
+        "ArtifactRepository": {
+          "version": "1.1",
+          "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53",
+          "fields": "exact"
+        },
+        "ArtifactValidationRepository": {
+          "version": "1.1",
+          "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9",
+          "fields": "exact"
+        },
+        "ArtifactExecutionRepository": {
+          "version": "1.1",
+          "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650",
+          "fields": "exact"
+        },
+        "ArtifactRegistryService": {
+          "version": "1.1",
+          "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5",
+          "fields": "exact"
+        },
+        "OperatorIdentityPort": {
+          "version": "1.1",
+          "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75",
+          "fields": "exact"
+        },
+        "ArtifactGovernancePort": {
+          "version": "1.1",
+          "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf",
+          "fields": "exact"
+        }
+      },
+      "handoffEnvelope": {
+        "version": "1.1",
+        "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5",
+        "topLevelFields": 28,
+        "fields": "exact"
+      },
+      "validationCommand": "node scripts/validate-v13-p02-evidence.mjs",
+      "errors": []
     }
   }
 }

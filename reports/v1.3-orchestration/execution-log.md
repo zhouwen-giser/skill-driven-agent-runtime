@@ -112,3 +112,29 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
   branch to Draft PR #12. P01 is `READY_FULL` with 9/9 acceptance and zero blockers; the cursor
   advances to P02.
 - No merge, tag, release or deployment was performed.
+
+## P02 Artifact Persistence, Registry and Governance
+
+- P02 self-check, aggregate validation, P01 Handoff consumption and all six frozen produced hashes
+  passed.
+- Implemented migration 0125 with the exact ten canonical tables, immutable Artifact/Lineage
+  authority, validation/approval/activation/execution/feedback repositories, rebuildable Registry,
+  fail-closed identity, tenant-bound governance, Pointer tombstone CAS and complete audit/Outbox
+  transactions.
+- The first independent review rejected 4 Blocking, 6 Major and 1 Minor finding. Commit `ee52158`
+  remediated current evidence binding, tenant scope, CAS ABA, late delivery, immutability, event
+  aggregates, rebuild bounds, JSON bounds, expected versions and immutable Set surfaces.
+- The second review rejected 1 Blocking and 2 Major findings. Commit `e740fa1` stopped claiming
+  shared `published_at`, invalidated every lifecycle cache state and enforced/checked Lineage
+  creation time with real mixed-event Server startup evidence.
+- The third review rejected 1 Blocking finding because IDENTITY allocation is not commit order.
+  Commit `14abffe` moved cursor allocation behind a transaction-scoped database lock and added a
+  real two-client `pg_blocking_pids` regression.
+- The fourth new independent read-only review accepted `14abffe` with zero findings and allowed
+  `COMPLETED`.
+- The exact `dirty=false` full gate passed 795 unit/contract, 92 integration, 62 E2E, 447-source
+  architecture, A2A 74/74, OpenAPI 152, 18 migrations, Replay, production build and both smokes in
+  170,656 ms.
+- Created evidence completion `699f57f849c102ffe7d83c8941c5126e8442a326`. P02 is `COMPLETED`,
+  7/7 accepted with zero blockers; the cursor advances to P03.
+- No merge, tag, release or deployment was performed.
