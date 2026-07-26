@@ -68,14 +68,22 @@ describe('G13 planning knowledge retrieval', () => {
 
   it('expands at most one bounded relation hop and keeps conflicts separate', () => {
     const seed = fused('knowledge.a');
-    const related = [fused('knowledge.b'), fused('knowledge.c'), fused('knowledge.d')];
+    const related = [
+      fused('knowledge.b'),
+      fused('knowledge.c'),
+      fused('knowledge.d'),
+      fused('knowledge.e'),
+      fused('knowledge.f'),
+    ];
     const relations: KnowledgeRelation[] = [
       relation('knowledge.a', 'knowledge.b', 'requires'),
       relation('knowledge.a', 'knowledge.c', 'contradicts'),
       relation('knowledge.a', 'knowledge.d', 'related'),
-      relation('knowledge.d', 'knowledge.a', 'related'),
+      relation('knowledge.a', 'knowledge.e', 'supersedes'),
+      relation('knowledge.a', 'knowledge.f', 'supported_by'),
+      relation('knowledge.f', 'knowledge.a', 'related'),
     ];
-    const expanded = new KnowledgeRelationExpander({ maxRelations: 2 }).expand({
+    const expanded = new KnowledgeRelationExpander({ maxRelations: 5 }).expand({
       seeds: [seed],
       relations,
       related,
@@ -83,10 +91,15 @@ describe('G13 planning knowledge retrieval', () => {
     expect(expanded.included.map((item) => item.entry.knowledgeId)).toEqual([
       'knowledge.a',
       'knowledge.b',
+      'knowledge.d',
+      'knowledge.f',
     ]);
-    expect(expanded.conflicts).toEqual([
-      expect.objectContaining({ targetKnowledgeId: 'knowledge.c', relationType: 'contradicts' }),
-    ]);
+    expect(expanded.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ targetKnowledgeId: 'knowledge.c', relationType: 'contradicts' }),
+        expect.objectContaining({ targetKnowledgeId: 'knowledge.e', relationType: 'supersedes' }),
+      ]),
+    );
   });
 
   it('applies kind limits and a hard 20K character budget with index-before-detail ordering', () => {

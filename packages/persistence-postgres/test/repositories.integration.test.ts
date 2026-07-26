@@ -4183,6 +4183,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
       contradictionSourceRefs: [sourceRef],
       createdAt: '2026-07-16T00:00:10.000Z',
     });
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES('knowledge.reflection.related.db',1,'candidate','global_candidate',
+         NULL,NULL,'low',$1::jsonb,1,$2)`,
+      [
+        JSON.stringify({
+          title: 'Related evidence heuristic',
+          summary: 'A known Candidate relation target.',
+        }),
+        '2026-07-16T00:00:09.000Z',
+      ],
+    );
     const delta = createKnowledgeDelta({
       schemaVersion: '1.0',
       deltaId: 'knowledge-delta.reflection.db',
@@ -4191,7 +4204,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       knowledgeKind: 'planning_heuristic',
       fingerprint: `sha256:${'8'.repeat(64)}`,
       identity,
-      relatedKnowledgeIds: [],
+      relatedKnowledgeIds: ['knowledge.reflection.related.db'],
       candidate,
       supportEvidence: [support],
       contradictionEvidence: [contradiction],
@@ -4268,6 +4281,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       reflection_events: number;
       candidate_events: number;
       contradiction_events: number;
+      relations: number;
     }>(
       `SELECT
          (SELECT count(*)::integer FROM experience_reflection WHERE reflection_id=$1) AS reflections,
@@ -4280,7 +4294,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
          (SELECT count(*)::integer FROM cognitive_runtime_outbox
           WHERE event_type='knowledge.candidate_created' AND aggregate_id=$2) AS candidate_events,
          (SELECT count(*)::integer FROM cognitive_runtime_outbox
-          WHERE event_type='knowledge.contradiction_recorded' AND aggregate_id=$2) AS contradiction_events`,
+          WHERE event_type='knowledge.contradiction_recorded' AND aggregate_id=$2) AS contradiction_events,
+         (SELECT count(*)::integer FROM knowledge_relation
+          WHERE source_kind='planning_heuristic' AND source_knowledge_id=$2
+            AND source_revision=1 AND relation_type='related') AS relations`,
       [reflection.reflectionId, candidate.knowledgeId],
     );
     expect(reflectionCounts.rows[0]).toEqual({
@@ -4292,6 +4309,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       reflection_events: 1,
       candidate_events: 1,
       contradiction_events: 1,
+      relations: 1,
     });
   });
 

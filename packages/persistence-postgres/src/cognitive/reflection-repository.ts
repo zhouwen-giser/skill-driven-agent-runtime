@@ -374,6 +374,7 @@ async function saveDelta(
       delta.createdAt,
     ],
   );
+  await saveCandidateRelations(client, delta, candidate, table.definition, priorRevision);
   await appendOutbox(client, {
     eventId: stableId('outbox-knowledge-candidate', delta.deltaId),
     eventType: 'knowledge.candidate_created',
@@ -405,6 +406,102 @@ async function saveDelta(
       occurredAt: delta.createdAt,
     });
   }
+}
+
+async function saveCandidateRelations(
+  client: PoolClient,
+  delta: KnowledgeDelta,
+  candidate: KnowledgeCandidateSnapshot,
+  definitionTable: string,
+  priorRevision: number | undefined,
+): Promise<void> {
+  const evidenceRefs = [
+    ...new Set(
+      [...delta.supportEvidence, ...delta.contradictionEvidence].map(
+        (evidence) => evidence.evidenceId,
+      ),
+    ),
+  ];
+  if (priorRevision !== undefined) {
+    await insertKnowledgeRelation(client, {
+      relationId: stableId(
+        'knowledge-relation-supersedes',
+        `${candidate.kind}:${candidate.knowledgeId}:${String(candidate.revision)}:${String(priorRevision)}`,
+      ),
+      sourceKind: candidate.kind,
+      sourceKnowledgeId: candidate.knowledgeId,
+      sourceRevision: candidate.revision,
+      targetKind: candidate.kind,
+      targetKnowledgeId: candidate.knowledgeId,
+      targetRevision: priorRevision,
+      relationType: 'supersedes',
+      evidenceRefs,
+      createdAt: delta.createdAt,
+    });
+  }
+  for (const relatedKnowledgeId of delta.relatedKnowledgeIds) {
+    const target = await client.query<{ revision: number } & QueryResultRow>(
+      `SELECT revision FROM ${definitionTable}
+       WHERE knowledge_id=$1 ORDER BY revision DESC LIMIT 1`,
+      [relatedKnowledgeId],
+    );
+    const targetRevision = target.rows[0]?.revision;
+    if (targetRevision === undefined) continue;
+    await insertKnowledgeRelation(client, {
+      relationId: stableId(
+        'knowledge-relation-related',
+        `${candidate.kind}:${candidate.knowledgeId}:${String(candidate.revision)}:${relatedKnowledgeId}:${String(targetRevision)}`,
+      ),
+      sourceKind: candidate.kind,
+      sourceKnowledgeId: candidate.knowledgeId,
+      sourceRevision: candidate.revision,
+      targetKind: candidate.kind,
+      targetKnowledgeId: relatedKnowledgeId,
+      targetRevision,
+      relationType: 'related',
+      evidenceRefs,
+      createdAt: delta.createdAt,
+    });
+  }
+}
+
+function insertKnowledgeRelation(
+  client: PoolClient,
+  input: Readonly<{
+    relationId: string;
+    sourceKind: KnowledgeKind;
+    sourceKnowledgeId: string;
+    sourceRevision: number;
+    targetKind: KnowledgeKind;
+    targetKnowledgeId: string;
+    targetRevision: number;
+    relationType: 'related' | 'supersedes';
+    evidenceRefs: readonly string[];
+    createdAt: string;
+  }>,
+): Promise<unknown> {
+  return client.query(
+    `INSERT INTO knowledge_relation(
+       relation_id,source_kind,source_knowledge_id,source_revision,target_kind,
+       target_knowledge_id,target_revision,relation_type,evidence_refs,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+     ON CONFLICT (
+       source_kind,source_knowledge_id,source_revision,
+       target_kind,target_knowledge_id,target_revision,relation_type
+     ) DO NOTHING`,
+    [
+      input.relationId,
+      input.sourceKind,
+      input.sourceKnowledgeId,
+      input.sourceRevision,
+      input.targetKind,
+      input.targetKnowledgeId,
+      input.targetRevision,
+      input.relationType,
+      JSON.stringify(input.evidenceRefs),
+      input.createdAt,
+    ],
+  );
 }
 
 async function appendOutbox(
