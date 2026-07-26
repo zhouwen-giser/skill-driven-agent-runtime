@@ -46,3 +46,15 @@ Completed remediation:
 4. recorded <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12>.
 
 No merge, tag, release or deploy is authorized.
+
+## P01 first independent review
+
+Severity: two blocking, two major.
+
+Status: closed on 2026-07-27.
+
+The first review rejected P01 for PlanTemplate/P04 incompatibility, Domain/Zod/AJV drift, an Active
+construction bypass, incomplete nested validation and overstated evidence. All findings were fixed
+by the main implementation Agent and rerun through focused and full gates. A new independent
+read-only review accepted the remediated tree with zero blocking/major findings. Its one
+documentation-only minor item was also closed. P01 Handoff is `READY_FULL` with no open blocker.

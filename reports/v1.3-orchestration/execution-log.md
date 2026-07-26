@@ -89,3 +89,26 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
   <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12>.
 - Closed `GITHUB_AUTH_INVALID`, completed P00 as `READY_FULL` and advanced the serial cursor to P01.
 - No merge, tag, release or deployment was performed.
+
+## P01 Runtime Artifact Domain
+
+- P01 self-check, P00 Handoff consumption and all fifteen frozen produced contract hashes passed.
+- Implemented the Domain-owned immutable Artifact aggregate, five definition variants, bounded
+  conditions/data, lifecycle, lineage, runtime binding, Zod/JSON Schema boundary, golden fixture and
+  architecture isolation guard. No persistence, registry or online Runtime scope was added.
+- The first independent review rejected readiness with two blocking and two major findings:
+  PlanTemplate/P04 incompatibility, cross-validator drift, direct Active construction bypass, missing
+  nested enum checks and overstated evidence.
+- Remediation aligned exact P04 nested shapes, added five isolated AJV semantic keywords, closed
+  Domain/Zod/AJV parity gaps, guarded direct activation and added exhaustive lifecycle/graph/boundary
+  regressions. Focused tests pass 20/20.
+- A new independent read-only review accepted the final tree with zero blocking/major findings; its
+  one documentation-only minor item was closed.
+- Created meaningful implementation completion `8ac5f5e35982d6406290302c1a095a79d1031aa1`.
+  Its clean full gate passed with `dirty=false`: 785 unit/contract, 84 real integration, 62 real E2E,
+  A2A MUST 74/74, 152 OpenAPI operations, 435-source architecture, 17 migrations, Replay with zero
+  physical Provider calls, production build and both smoke stages.
+- Created evidence completion `eff64e7b1149b296439132322d7f75cbb90c7f91` and pushed the integration
+  branch to Draft PR #12. P01 is `READY_FULL` with 9/9 acceptance and zero blockers; the cursor
+  advances to P02.
+- No merge, tag, release or deployment was performed.

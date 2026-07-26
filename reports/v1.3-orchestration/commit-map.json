@@ -6,6 +6,10 @@
     "P00": {
       "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
       "completion": "09205a15b5c6df7be28c7eca7c1e418474b6a033"
+    },
+    "P01": {
+      "implementationCompletion": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+      "evidenceCompletion": "eff64e7b1149b296439132322d7f75cbb90c7f91"
     }
   }
 }
