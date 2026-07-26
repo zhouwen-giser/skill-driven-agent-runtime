@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P00",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "alignmentStatus": "passed",
+  "contracts": {
+    "BaselineGateResult": {
+      "version": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+      "value": {
+        "status": "BLOCKED_BASELINE",
+        "repository": "zhouwen-giser/skill-driven-agent-runtime",
+        "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+        "v123FinalEvidenceRefs": [
+          "reports/v1.2.3-release/release-report.json",
+          "reports/goal/g17-completion.md",
+          "reports/v1.3-orchestration/p00-verification-summary.json",
+          "v1.2.3-final"
+        ],
+        "fullVerifyStatus": "passed",
+        "migrationHead": "0124_v123_replay_shadow_evidence",
+        "openBlockers": [
+          "V123_RELEASE_DEVIATION_NOT_ACCEPTED: docs/16_DEFINITION_OF_DONE.md and docs/17_TRACEABILITY_MATRIX.md retain failed protected-review acceptance; no explicit repository-owner acceptance closes the external merge deviation."
+        ]
+      }
+    },
+    "V123PrerequisiteMatrix": {
+      "version": "1.1",
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c",
+      "value": {
+        "schemaVersion": "1.1",
+        "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+        "items": [
+          "P00-PREREQ-01",
+          "P00-PREREQ-02",
+          "P00-PREREQ-03",
+          "P00-PREREQ-04",
+          "P00-PREREQ-05",
+          "P00-PREREQ-06",
+          "P00-PREREQ-07",
+          "P00-PREREQ-08",
+          "P00-PREREQ-09",
+          "P00-PREREQ-10"
+        ],
+        "fullVerify": {
+          "status": "passed",
+          "commit": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+          "dirty": false,
+          "report": "reports/v1.3-orchestration/p00-verification-summary.json"
+        },
+        "decision": "BLOCKED_BASELINE"
+      }
+    }
+  }
+}

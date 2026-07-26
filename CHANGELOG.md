@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P00 foundation gate — blocked
+
+- Added the frozen fifteen-package execution bundle and persistent serial-orchestration state.
+- Verified the execution baseline SHA, all package contracts and a clean full local gate without
+  changing the protected operator database.
+- Added a reproducible P00 actual-contract/Handoff evidence validator and immutable P00 verification
+  report.
+- Stopped P01–P13 because authoritative v1.2.3 records retain the failed external-merge/protected-review
+  acceptance and no explicit repository-owner acceptance closes that deviation.
+
 ## [1.2.3] - Unreleased
 
 ### Added
@@ -978,14 +988,3 @@ All notable changes to this project are documented here. The format follows Keep
 - PostgreSQL-authoritative configurable Evolution success threshold with management GET/PUT and immutable per-Experience trigger audit records.
 - Reproducible Skill induction reports covering consistency, stability, generalizability and duplication against the current formal Skill registry.
 - Fail-closed capability-boundary evolution that creates either an immutable existing-Skill version or a distinct new Skill with a persisted decision reason.
-# Unreleased
-
-## SDAR v1.3 P00 foundation gate (in progress)
-
-- Added the frozen fifteen-package execution bundle and persistent serial-orchestration state.
-- Verified the execution baseline is exact `origin/main@v1.2.3-final`
-  `856f909d22c33e6e20d7e0a1cffc2f54c03b4477`.
-- Isolated immutable task-package scripts from product-source ESLint without changing their package
-  hashes.
-- Preserved the operator's historical default database and ran the full diagnostic gate against a
-  separately named clean-slate verification database.

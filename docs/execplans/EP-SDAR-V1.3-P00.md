@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P00 — v1.3 Foundation Gate
 
-Status: in progress
+Status: blocked — `BLOCKED_BASELINE`
 
 ## Purpose / Outcome
 
@@ -51,10 +51,12 @@ Replay/Shadow has zero physical side effects, and confirmed plans enter the exis
 - [x] 2026-07-26 Installed the frozen dependency graph.
 - [x] 2026-07-26 Passed a complete dirty-tree diagnostic `pnpm verify` after isolating a dedicated
   clean-slate database; a clean-commit rerun remains required for completion evidence.
-- [ ] Run and retain the clean-commit full verification result.
-- [ ] Inspect prerequisite implementation, migration and release evidence item by item.
-- [ ] Generate actual contracts, completion report and standard Handoff.
-- [ ] Complete independent read-only review and close blocking/major findings.
+- [x] 2026-07-26 Passed and retained clean-commit full verification at
+  `1bcee05792c918a1273b06ee7d58f7adb40bb572` with `dirty=false`.
+- [x] 2026-07-26 Inspected prerequisite implementation, migration and release evidence item by item.
+- [x] 2026-07-26 Generated actual contracts, completion candidate and standard Handoff.
+- [x] 2026-07-26 Completed independent read-only review; closed all remediable major/minor findings
+  and retained the v1.2.3 release-acceptance blocker.
 - [ ] Commit P00 evidence and orchestration state.
 
 ## Changed Files
@@ -107,7 +109,17 @@ unverified production behavior.
 
 ## Review Findings
 
-Independent review pending.
+The independent read-only session rejected the initial `READY_FULL` candidate:
+
+- Blocking: authoritative v1.2.3 DoD/Traceability/release evidence still records the failed external
+  merge/protected-review acceptance. Retained as `V123_RELEASE_DEVIATION_NOT_ACCEPTED`.
+- Major: premature Handoff status, overwritten v1.2.3 verification evidence, missing reproducible
+  contract gate and stale orchestration state.
+- Minor: `v1.2.3-final` is a lightweight tag, not an annotated tag.
+
+The Handoff is now blocked, v1.2.3 verification evidence is restored, P00 has an immutable summary,
+`scripts/validate-v13-p00-evidence.mjs` is the repeatable gate, and final state will be updated with the
+Completion Commit SHA. Full disposition: `reports/goal/v1.3-p00-review.md`.
 
 ## Idempotence and Recovery
 
@@ -116,18 +128,25 @@ All P00 checks are read-only or regenerate evidence deterministically. Resume by
 
 ## Evidence
 
-Startup evidence is recorded in `reports/v1.3-orchestration/execution-log.md`. Package-local evidence
-paths will be added after verification.
+Startup and failure evidence is recorded in `reports/v1.3-orchestration/execution-log.md`.
+Package-local evidence is in `reports/goal/v1.3-p00-*` and
+`reports/v1.3-orchestration/p00-verification-summary.json`. The shared
+`reports/verification/summary.json` remains the immutable v1.2.3 release report target.
 
 ## Decisions
 
 - Use the exact `origin/main` commit carrying tag `v1.2.3-final`.
 - Preserve P00 as a documentation/evidence-only gate.
+- A matching main/lightweight-tag SHA does not override an explicit failed acceptance row. Without
+  owner acceptance or a restored protected-review path, P00 must be `BLOCKED_BASELINE`.
 
 ## Completion / Handoff
 
-Pending verification and independent review.
+Verification and independent review are complete. Completion/state commits remain pending. The
+Handoff is `BLOCKED_BASELINE`; P01 is forbidden.
 
 ## Outcomes and Retrospective
 
-Pending.
+Runtime prerequisites and every executable gate pass, but release-freeze acceptance does not. P00
+stops the serial program with a single precise remediation rather than converting green tests into a
+false release claim.

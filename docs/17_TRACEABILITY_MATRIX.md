@@ -511,3 +511,19 @@ operations. Exact commands, classifications and retained failures are in
 Exact real/simulated/unverified classification is in
 `reports/v1.2.3-release/release-report.{md,json}` and exact commands/failures are in
 `reports/goal/g17-completion.md`.
+
+## SDAR v1.3 P00 Foundation Gate Addendum
+
+| Acceptance | Status | Implementation / evidence |
+| --- | --- | --- |
+| P00 v1.2.2 execution authority | verified | `UserGoalPlanController` remains sole terminal owner; architecture gate and 62 real-path E2E pass |
+| P00 Experience closed loop | verified | Episode, Observer, typed Extractors, Reflector, Promotion and Active retrieval paths mapped in `v1.3-p00-prerequisite-matrix.json` |
+| P00 Planner Experience injection | verified | advisory decorator retains base validator, confirmation and Goal-version authority; focused unit and E2E regression pass |
+| P00 Replay/Shadow isolation | verified | deterministic Replay verifier passes with zero physical Provider/MCP/device calls |
+| P00 frozen baseline | blocked | `origin/main == v1.2.3-final == 856f909d...b4477`, but AC-G17-09/AC-MASTER-05 and the DoD protected-review item remain failed without owner acceptance |
+| P00 full gate | verified | clean commit `1bcee057...bb572`, `dirty=false`; 765 unit/contract, 84 real integration, 62 real E2E, migrations/build/smoke pass |
+| P00 contract handoff | blocked | independent review accepted field/hash alignment but rejected `READY_FULL`; exact Handoff now carries `V123_RELEASE_DEVIATION_NOT_ACCEPTED` |
+
+Exact P00 evidence is in `reports/goal/v1.3-p00-{baseline-report,architecture-dependency-map,completion}.md`,
+`reports/goal/v1.3-p00-{prerequisite-matrix,actual-contract,handoff}.json` and
+`reports/v1.3-orchestration/p00-verification-summary.json`.

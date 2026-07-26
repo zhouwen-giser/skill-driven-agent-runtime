@@ -11,5 +11,31 @@
     "packageSelfChecksPassed": 15,
     "errors": []
   },
-  "packages": {}
+  "packages": {
+    "P00": {
+      "status": "passed",
+      "decision": "BLOCKED_BASELINE",
+      "contractLock": "SDAR-V1.3-P00/1.1",
+      "producedContracts": {
+        "BaselineGateResult": {
+          "version": "1.1",
+          "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+          "fields": "exact"
+        },
+        "V123PrerequisiteMatrix": {
+          "version": "1.1",
+          "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c",
+          "fields": "exact"
+        }
+      },
+      "handoffEnvelope": {
+        "version": "1.1",
+        "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5",
+        "topLevelFields": 28,
+        "fields": "exact"
+      },
+      "validationCommand": "node scripts/validate-v13-p00-evidence.mjs",
+      "errors": []
+    }
+  }
 }

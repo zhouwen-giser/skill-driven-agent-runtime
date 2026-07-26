@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P00",
+  "packageVersion": "1.1",
+  "sequence": 0,
+  "status": "BLOCKED_BASELINE",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572"
+  },
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [],
+  "producedContracts": [
+    {
+      "name": "BaselineGateResult",
+      "version": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135"
+    },
+    {
+      "name": "V123PrerequisiteMatrix",
+      "version": "1.1",
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p00-baseline-report.md",
+    "reports/goal/v1.3-p00-architecture-dependency-map.md",
+    "reports/goal/v1.3-p00-prerequisite-matrix.json",
+    "reports/goal/v1.3-p00-actual-contract.json",
+    "reports/goal/v1.3-p00-completion.md",
+    "reports/goal/v1.3-p00-review.md",
+    "reports/v1.3-orchestration/p00-verification-summary.json"
+  ],
+  "acceptanceSummary": {
+    "passed": 5,
+    "failed": 0,
+    "blocked": 1
+  },
+  "knownLimitations": [
+    "Production-scale soak beyond the single-instance 1-10 active-task target is unverified.",
+    "External production Provider interoperability and authentication/tenant authorization are unverified and outside the trusted-intranet V1 baseline.",
+    "The v1.2.3 runtime and full local verification gates pass, but the protected-review release acceptance remains failed in authoritative project records."
+  ],
+  "openBlockers": [
+    "V123_RELEASE_DEVIATION_NOT_ACCEPTED: obtain explicit repository-owner acceptance of the external merge deviation and update docs/16_DEFINITION_OF_DONE.md, docs/17_TRACEABILITY_MATRIX.md and reports/v1.2.3-release/release-report.json consistently, or restore and re-run the required protected-review release path."
+  ],
+  "nextPackage": "P01",
+  "packageOutputs": {
+    "BaselineGateResult": {
+      "contractVersion": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+      "refs": [
+        "reports/goal/v1.3-p00-actual-contract.json",
+        "reports/goal/v1.3-p00-baseline-report.md"
+      ]
+    },
+    "V123PrerequisiteMatrix": {
+      "contractVersion": "1.1",
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c",
+      "refs": [
+        "reports/goal/v1.3-p00-prerequisite-matrix.json"
+      ]
+    }
+  }
+}

@@ -10,7 +10,7 @@
   cross-package errors.
 - All fifteen package `scripts/self-check.mjs` commands passed. Every formal package reported registry
   SHA-256 `d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb`.
-- `origin/main` and annotated tag `v1.2.3-final` both resolved to
+- `origin/main` and lightweight tag `v1.2.3-final` both resolved to
   `856f909d22c33e6e20d7e0a1cffc2f54c03b4477`.
 - Created `feature/v1.3-sequential-implementation` from that exact baseline. The supplied, untracked
   task-package directory was preserved.
@@ -19,7 +19,7 @@
 
 ## Active package
 
-P00 Foundation Gate is in progress. Product code changes are forbidden for this package.
+P00 Foundation Gate is blocked. Product code changes are forbidden for this package.
 
 ## P00 first full-gate failure
 
@@ -46,3 +46,16 @@ P00 Foundation Gate is in progress. Product code changes are forbidden for this 
   real E2E, cognitive Replay with no physical Provider call, migration verification, production build,
   infrastructure smoke and Server/Console smoke. This run was diagnostic because the P00 asset and
   orchestration worktree was intentionally dirty; a clean-commit rerun is still required.
+
+## P00 clean gate and independent review
+
+- Created non-completion orchestration baseline commit
+  `1bcee05792c918a1273b06ee7d58f7adb40bb572`.
+- A clean-commit `pnpm verify` passed all seven stages with `dirty=false`; its immutable P00 copy is
+  `reports/v1.3-orchestration/p00-verification-summary.json`.
+- Restored `reports/verification/summary.{json,md}` to the original v1.2.3 release evidence so the
+  v1.2.3 release report does not point at a later P00 run.
+- Independent read-only review rejected `READY_FULL`: the authoritative Definition of Done,
+  Traceability Matrix and release report retain the external-merge/protected-review acceptance
+  failure. The matching remote main/lightweight tag SHA does not close that failure.
+- P00 decision changed to `BLOCKED_BASELINE`. P01–P13 were not started.

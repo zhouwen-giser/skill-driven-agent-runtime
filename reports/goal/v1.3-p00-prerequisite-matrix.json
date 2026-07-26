@@ -1,0 +1,225 @@
+{
+  "schemaVersion": "1.1",
+  "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "items": [
+    {
+      "id": "P00-PREREQ-01",
+      "name": "v1.2.2 execution authority",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/application/src/user-goal-plan-controller.ts",
+        "packages/application/src/workflow-controller.ts",
+        "adr/ADR-109-v1.2.2-clean-slate-user-goal-runtime.md"
+      ],
+      "testRefs": [
+        "packages/application/test/user-goal-plan-controller.unit.test.ts",
+        "packages/application/test/workflow-controller.unit.test.ts",
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/v1.3-orchestration/p00-verification-summary.json",
+        "reports/goal/g17-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-02",
+      "name": "Goal Experience Episode",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/domain/src/cognitive/experience.ts",
+        "packages/application/src/cognitive/goal-experience-episode-builder.ts",
+        "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "infra/postgres/migrations/0115_v123_experience_episode.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/experience-job.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g07-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-03",
+      "name": "Experience Observer and typed extractors",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/domain/src/cognitive/observation.ts",
+        "packages/application/src/cognitive/experience-observer-service.ts",
+        "packages/application/src/cognitive/experience-extractor-pipeline.ts",
+        "packages/application/src/cognitive/extractors/typed-experience-extractors.ts",
+        "infra/postgres/migrations/0116_v123_experience_observation.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/experience-observer.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g08-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-04",
+      "name": "Experience Reflector",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/domain/src/cognitive/reflection.ts",
+        "packages/application/src/cognitive/experience-reflector-service.ts",
+        "packages/application/src/cognitive/knowledge-curator-service.ts",
+        "infra/postgres/migrations/0117_v123_experience_reflection.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/experience-reflector.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g09-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-05",
+      "name": "Task Type and Capability Pattern induction",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/domain/src/cognitive/capability-pattern.ts",
+        "infra/postgres/migrations/0118_v123_task_type_induction.up.sql",
+        "infra/postgres/migrations/0119_v123_capability_pattern_induction.up.sql"
+      ],
+      "testRefs": [
+        "packages/persistence-postgres/test/repositories.integration.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g10-completion.md",
+        "reports/goal/g11-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-06",
+      "name": "Governed Knowledge Promotion",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/application/src/cognitive/knowledge-promotion-service.ts",
+        "packages/persistence-postgres/src/cognitive/promotion-repository.ts",
+        "infra/postgres/migrations/0120_v123_knowledge_promotion.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/knowledge-promotion.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g12-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-07",
+      "name": "Active-only Knowledge retrieval",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/application/src/cognitive/planning-knowledge-retriever.ts",
+        "packages/application/src/cognitive/knowledge-applicability-evaluator.ts",
+        "infra/postgres/migrations/0121_v123_knowledge_usage.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/planning-knowledge-retrieval.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g13-completion.md",
+        "reports/v1.3-orchestration/p00-verification-summary.json"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-08",
+      "name": "Planner Experience Injection",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/application/src/cognitive/experience-enriched-planner.ts",
+        "packages/application/src/cognitive/planning-experience-context-builder.ts",
+        "infra/postgres/migrations/0122_v123_experience_enriched_planning.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/experience-enriched-planning.unit.test.ts",
+        "packages/application/test/user-goal-planning.unit.test.ts",
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g14-completion.md"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-09",
+      "name": "Replay and Shadow foundation",
+      "status": "verified",
+      "implementationRefs": [
+        "packages/application/src/cognitive/planning-replay.ts",
+        "packages/persistence-postgres/src/cognitive/planning-replay-repository.ts",
+        "infra/postgres/migrations/0124_v123_replay_shadow_evidence.up.sql"
+      ],
+      "testRefs": [
+        "packages/application/test/planning-replay.unit.test.ts",
+        "packages/persistence-postgres/test/repositories.integration.test.ts",
+        "scripts/run-cognitive-replay.mjs"
+      ],
+      "evidenceRefs": [
+        "reports/goal/g16-completion.md",
+        "reports/v1.2.3-replay/README.md",
+        "reports/v1.3-orchestration/p00-verification-summary.json"
+      ]
+    },
+    {
+      "id": "P00-PREREQ-10",
+      "name": "v1.2.3 release evidence and frozen baseline",
+      "status": "blocked",
+      "implementationRefs": [
+        "packages/application/src/cognitive/runtime-hardening.ts"
+      ],
+      "testRefs": [
+        "scripts/verify-full.mjs",
+        "scripts/check-cognitive-architecture.mjs",
+        "scripts/verify-migration-path.mjs"
+      ],
+      "evidenceRefs": [
+        "reports/v1.2.3-release/release-report.json",
+        "reports/goal/g17-completion.md",
+        "reports/v1.3-orchestration/p00-verification-summary.json",
+        "v1.2.3-final",
+        "docs/16_DEFINITION_OF_DONE.md",
+        "docs/17_TRACEABILITY_MATRIX.md"
+      ],
+      "blocker": "The v1.2.3 protected-review acceptance remains failed in the authoritative Definition of Done and Traceability Matrix; no repository-owner acceptance record closes the external merge deviation."
+    }
+  ],
+  "fullVerify": {
+    "status": "passed",
+    "commit": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+    "dirty": false,
+    "report": "reports/v1.3-orchestration/p00-verification-summary.json",
+    "unitAndContract": {
+      "passed": 765,
+      "total": 765
+    },
+    "integration": {
+      "passed": 84,
+      "total": 84,
+      "classification": "real PostgreSQL/pgvector and Redis"
+    },
+    "e2e": {
+      "passed": 62,
+      "total": 62,
+      "classification": "real Server/PostgreSQL/Redis/A2A with deterministic mock Model/MCP"
+    },
+    "a2aMust": {
+      "passed": 74,
+      "total": 74
+    },
+    "openapiOperations": 152,
+    "architectureSources": 425,
+    "additiveMigrations": 17,
+    "replayPhysicalProviderCalls": 0,
+    "smoke": "passed"
+  },
+  "decision": "BLOCKED_BASELINE"
+}
