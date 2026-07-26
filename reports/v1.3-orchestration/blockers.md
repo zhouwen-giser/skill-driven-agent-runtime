@@ -32,3 +32,25 @@ Choose one authority-preserving path:
 
 After remediation, re-run P00 self-check, the P00 evidence validator, `pnpm verify`, contract alignment
 and a fresh independent read-only P00 review. Only `READY_FULL` may unlock P01.
+
+## P00 remote checklist — `GITHUB_AUTH_INVALID`
+
+Severity: external coordination
+
+Status: open
+
+Effect: local P00 evidence and blocked state are committed, but the branch is not pushed and no Draft
+PR exists.
+
+`gh --version` passes. `gh auth status` reports that the active `zhouwen-giser` token is invalid. The
+GitHub publish workflow stopped before `git push` as required by the repository publish skill.
+
+Minimum remediation:
+
+1. run `gh auth login -h github.com`;
+2. confirm `gh auth status` succeeds;
+3. re-check the three-commit P00 scope;
+4. push `feature/v1.3-sequential-implementation`;
+5. create a Draft PR targeting `main` and record its URL.
+
+No merge, tag, release or deploy is authorized.

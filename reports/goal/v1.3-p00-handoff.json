@@ -55,7 +55,8 @@
     "The v1.2.3 runtime and full local verification gates pass, but the protected-review release acceptance remains failed in authoritative project records."
   ],
   "openBlockers": [
-    "V123_RELEASE_DEVIATION_NOT_ACCEPTED: obtain explicit repository-owner acceptance of the external merge deviation and update docs/16_DEFINITION_OF_DONE.md, docs/17_TRACEABILITY_MATRIX.md and reports/v1.2.3-release/release-report.json consistently, or restore and re-run the required protected-review release path."
+    "V123_RELEASE_DEVIATION_NOT_ACCEPTED: obtain explicit repository-owner acceptance of the external merge deviation and update docs/16_DEFINITION_OF_DONE.md, docs/17_TRACEABILITY_MATRIX.md and reports/v1.2.3-release/release-report.json consistently, or restore and re-run the required protected-review release path.",
+    "GITHUB_AUTH_INVALID: run gh auth login -h github.com and re-verify gh auth status before pushing feature/v1.3-sequential-implementation and creating the required Draft PR."
   ],
   "nextPackage": "P01",
   "packageOutputs": {

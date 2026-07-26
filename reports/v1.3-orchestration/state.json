@@ -12,7 +12,8 @@
       "completionCommit": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6",
       "handoff": "reports/goal/v1.3-p00-handoff.json",
       "openBlockers": [
-        "V123_RELEASE_DEVIATION_NOT_ACCEPTED"
+        "V123_RELEASE_DEVIATION_NOT_ACCEPTED",
+        "GITHUB_AUTH_INVALID"
       ]
     }
   },

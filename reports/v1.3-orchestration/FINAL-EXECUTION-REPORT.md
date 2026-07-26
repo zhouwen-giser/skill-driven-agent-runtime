@@ -10,6 +10,8 @@ Status: stopped at defined hard blocker.
 - P00: `BLOCKED_BASELINE`
 - P01–P14: not started
 - Blocking reason: `V123_RELEASE_DEVIATION_NOT_ACCEPTED`
+- Remote push: not performed (`GITHUB_AUTH_INVALID`)
+- Draft PR: not created
 
 All fifteen package self-checks and aggregate contract validation pass. P00's clean full gate passes
 765 unit/contract, 84 real integration, 62 real E2E, A2A MUST 74/74, OpenAPI 152, architecture 425
@@ -19,4 +21,4 @@ The program stopped because the authoritative v1.2.3 DoD/Traceability/release re
 protected-review acceptance with no explicit repository-owner acceptance of the external merge
 deviation. See `reports/v1.3-orchestration/blockers.md`.
 
-No merge, tag, release or deployment was performed.
+No push, merge, tag, release or deployment was performed.

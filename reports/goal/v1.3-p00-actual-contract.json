@@ -21,7 +21,8 @@
         "fullVerifyStatus": "passed",
         "migrationHead": "0124_v123_replay_shadow_evidence",
         "openBlockers": [
-          "V123_RELEASE_DEVIATION_NOT_ACCEPTED: docs/16_DEFINITION_OF_DONE.md and docs/17_TRACEABILITY_MATRIX.md retain failed protected-review acceptance; no explicit repository-owner acceptance closes the external merge deviation."
+          "V123_RELEASE_DEVIATION_NOT_ACCEPTED: docs/16_DEFINITION_OF_DONE.md and docs/17_TRACEABILITY_MATRIX.md retain failed protected-review acceptance; no explicit repository-owner acceptance closes the external merge deviation.",
+          "GITHUB_AUTH_INVALID: the configured gh token for zhouwen-giser is invalid, so the required push and Draft PR were not performed."
         ]
       }
     },

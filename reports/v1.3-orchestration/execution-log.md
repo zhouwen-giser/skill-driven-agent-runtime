@@ -62,3 +62,5 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
 - Created P00 Completion Commit `97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6`.
 - Prepared atomic blocked state with `currentPackage=P00`, `blockedPackage=P00`; the serial cursor was
   not advanced.
+- GitHub publication preflight found the active `zhouwen-giser` `gh` token invalid. The publish
+  workflow stopped before push; no Draft PR, merge, tag, release or deploy occurred.

@@ -59,6 +59,8 @@ Replay/Shadow has zero physical side effects, and confirmed plans enter the exis
   and retained the v1.2.3 release-acceptance blocker.
 - [x] 2026-07-26 Created Completion Commit
   `97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6` and prepared blocked orchestration state.
+- [ ] Push the integration branch and create the required Draft PR. Blocked because `gh auth status`
+  reports an invalid active token for `zhouwen-giser`.
 
 ## Changed Files
 
@@ -147,7 +149,7 @@ Package-local evidence is in `reports/goal/v1.3-p00-*` and
 ## Completion / Handoff
 
 Verification, independent review and Completion Commit are complete. The Handoff is
-`BLOCKED_BASELINE`; P01 is forbidden.
+`BLOCKED_BASELINE`; P01 is forbidden. Remote push/Draft PR awaits restored GitHub authentication.
 
 ## Outcomes and Retrospective
 
