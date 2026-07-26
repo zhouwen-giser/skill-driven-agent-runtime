@@ -4,7 +4,7 @@
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "branch": "feature/v1.2.3-cognitive-planning-runtime",
   "baseMainSha": "10d9cb385a7d4ef87b69f2856d315573faafca9c",
-  "headSha": "1b5ab838beffda524ea54377dc1ace2984122548",
+  "headSha": "e95d079af9f9c46aecc5efadd6d12fa5e60512c7",
   "draftPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9",
   "goals": {
     "G00": { "status": "completed", "commit": "ffd979152ae45468f00e2cf673e97ed5fe32616c", "pushed": true, "evidence": "reports/goal/g00-completion.md", "blocker": "", "next": "Completed; frozen contracts handed to G01." },
