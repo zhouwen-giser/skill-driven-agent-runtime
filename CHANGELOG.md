@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## SDAR v1.3 P02 Artifact Persistence, Registry and Governance — review pending
+## SDAR v1.3 P02 Artifact Persistence, Registry and Governance — complete
 
 - Added migration 0125 with the ten exact frozen Artifact authority tables, replayable rollback,
   bounded JSON depth/size, immutable versions and a unique CAS Active Pointer.
@@ -42,6 +42,9 @@ All notable changes to this project are documented here. The format follows Keep
   type/lint/contract, 18-migration replay and 8/8 real integration scenarios pass. The complete
   working-tree gate passes 795 unit/contract, 92 integration and 62 E2E tests plus all build/smoke
   stages.
+- Exact implementation commit `14abffe` passes the same full gate with `dirty=false`. A fourth new
+  independent read-only reviewer accepts with zero Blocking/Major/Minor findings; P02 emits its
+  exact 28-field `COMPLETED` Handoff for P03.
 
 ## SDAR v1.3 P00 foundation gate — complete
 
