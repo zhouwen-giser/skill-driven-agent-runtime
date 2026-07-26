@@ -24,7 +24,11 @@
     "knowledgeCandidate",
     "knowledgeTransition",
     "knowledgePromotionEvaluation",
-    "activeKnowledgeProjection"
+    "activeKnowledgeProjection",
+    "activeKnowledgeDefinition",
+    "knowledgeRelation",
+    "experienceUsageRecord",
+    "planningKnowledgeBundle"
   ],
   "properties": {
     "featureFlags": { "$ref": "#/$defs/featureFlags" },
@@ -46,7 +50,11 @@
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
     "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" },
     "knowledgePromotionEvaluation": { "$ref": "#/$defs/knowledgePromotionEvaluation" },
-    "activeKnowledgeProjection": { "$ref": "#/$defs/activeKnowledgeProjection" }
+    "activeKnowledgeProjection": { "$ref": "#/$defs/activeKnowledgeProjection" },
+    "activeKnowledgeDefinition": { "$ref": "#/$defs/activeKnowledgeDefinition" },
+    "knowledgeRelation": { "$ref": "#/$defs/knowledgeRelation" },
+    "experienceUsageRecord": { "$ref": "#/$defs/experienceUsageRecord" },
+    "planningKnowledgeBundle": { "$ref": "#/$defs/planningKnowledgeBundle" }
   },
   "$defs": {
     "id": {
@@ -1642,6 +1650,193 @@
         "risk": { "enum": ["low", "medium", "high"] },
         "status": { "const": "active" },
         "projectedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "activeKnowledgeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "knowledgeId",
+        "revision",
+        "version",
+        "status",
+        "scope",
+        "risk",
+        "title",
+        "summary",
+        "definition",
+        "authoritativeRef",
+        "exactSkillVersionRefs",
+        "promotionPolicyVersion",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "kind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "const": "active" },
+        "scope": { "enum": ["task", "user", "tenant", "global_candidate"] },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "userId": { "$ref": "#/$defs/id" },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "definition": { "type": "object" },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "exactSkillVersionRefs": { "$ref": "#/$defs/strings" },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "promotionPolicyVersion": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeIndexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "knowledgeId",
+        "revision",
+        "authoritativeRef",
+        "title",
+        "summary",
+        "risk"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "kind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "risk": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "knowledgeRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "relationId",
+        "sourceKind",
+        "sourceKnowledgeId",
+        "sourceRevision",
+        "targetKind",
+        "targetKnowledgeId",
+        "targetRevision",
+        "relationType",
+        "evidenceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "relationId": { "$ref": "#/$defs/id" },
+        "sourceKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "sourceKnowledgeId": { "$ref": "#/$defs/id" },
+        "sourceRevision": { "type": "integer", "minimum": 1 },
+        "targetKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "targetKnowledgeId": { "$ref": "#/$defs/id" },
+        "targetRevision": { "type": "integer", "minimum": 1 },
+        "relationType": {
+          "enum": ["requires", "contradicts", "supersedes", "supported_by", "related"]
+        },
+        "evidenceRefs": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "exactSkillKnowledgeDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skillId", "version", "name", "summary", "status", "declaration"],
+      "properties": {
+        "skillId": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "status": { "const": "enabled" },
+        "declaration": { "type": "object" }
+      }
+    },
+    "experienceUsageRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "usageId",
+        "planningSessionId",
+        "planCandidateId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "authoritativeRef",
+        "queryFingerprint",
+        "retrievalRank",
+        "injectionMode",
+        "influence",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "usageId": { "$ref": "#/$defs/id" },
+        "planningSessionId": { "$ref": "#/$defs/id" },
+        "planCandidateId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "queryFingerprint": { "$ref": "#/$defs/hash" },
+        "retrievalRank": { "type": "integer", "minimum": 1 },
+        "injectionMode": { "enum": ["off", "shadow", "advisory", "active_low_risk"] },
+        "influence": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "planningKnowledgeBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "queryFingerprint",
+        "index",
+        "definitions",
+        "exactSkills",
+        "conflicts",
+        "disclosureOrder",
+        "characterCount",
+        "truncated",
+        "elapsedMs"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "queryFingerprint": { "$ref": "#/$defs/hash" },
+        "index": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/knowledgeIndexEntry" }
+        },
+        "definitions": {
+          "type": "array",
+          "maxItems": 19,
+          "items": { "$ref": "#/$defs/activeKnowledgeDefinition" }
+        },
+        "exactSkills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/exactSkillKnowledgeDetail" }
+        },
+        "conflicts": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/knowledgeRelation" }
+        },
+        "disclosureOrder": { "$ref": "#/$defs/strings" },
+        "characterCount": { "type": "integer", "minimum": 0, "maximum": 20000 },
+        "truncated": { "type": "boolean" },
+        "elapsedMs": { "type": "number", "minimum": 0 }
       }
     },
     "strings": {

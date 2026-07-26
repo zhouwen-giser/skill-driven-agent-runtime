@@ -135,9 +135,16 @@ import {
   DuplicateCandidateDetector,
   EvidenceThresholdEvaluator,
   KnowledgePromotionService,
+  KnowledgeApplicabilityEvaluator,
+  KnowledgeQueryFingerprintBuilder,
+  KnowledgeRelationExpander,
   MemoryActiveKnowledgeProjectionRepository,
+  PlanningContextBudget,
   PlanningHeuristicPromotionTarget,
+  PlanningKnowledgeRetriever,
+  ReciprocalRankFusion,
   TaskTypePromotionTarget,
+  CurrentExactSkillKnowledgeSource,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -219,6 +226,7 @@ import {
   PostgresTaskTypeRepository,
   PostgresCapabilityPatternRepository,
   PostgresKnowledgePromotionRepository,
+  PostgresKnowledgeSearchRepository,
   PostgresPromotionReplayEvaluationRunner,
   PostgresActiveKnowledgeProjectionInventory,
   PostgresSkillSelectionRepository,
@@ -344,6 +352,7 @@ export interface ServerRuntimeOptions {
 export interface ServerRuntimeHandle {
   readonly a2a: A2AHttpEndpointHandle;
   readonly management: ManagementHttpEndpointHandle;
+  readonly planningKnowledge: PlanningKnowledgeRetriever;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -1019,6 +1028,18 @@ export async function startServerRuntime(
       })}\n`,
     );
   }
+  const planningKnowledge = new PlanningKnowledgeRetriever({
+    repository: new PostgresKnowledgeSearchRepository(pool),
+    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
+    skills: new CurrentExactSkillKnowledgeSource(skills),
+    fingerprints: new KnowledgeQueryFingerprintBuilder(),
+    ranker: new ReciprocalRankFusion(),
+    relations: new KnowledgeRelationExpander(),
+    applicability: new KnowledgeApplicabilityEvaluator(),
+    budget: new PlanningContextBudget(),
+    clock,
+    nextUsageId: () => `experience-usage-${randomUUID()}`,
+  });
   const planningCorrections = new PlanningCorrectionService({
     repository: planningCorrectionRepository,
     builder: new PlanningInteractionEpisodeBuilder({
@@ -3778,6 +3799,7 @@ export async function startServerRuntime(
     return {
       a2a,
       management: startedManagement,
+      planningKnowledge,
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },

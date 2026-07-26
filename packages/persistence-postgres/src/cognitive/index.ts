@@ -11,4 +11,5 @@ export * from './reflection-repository.js';
 export * from './task-type-repository.js';
 export * from './capability-pattern-repository.js';
 export * from './promotion-repository.js';
+export * from './knowledge-search-repository.js';
 export * from './active-knowledge-projection-inventory.js';

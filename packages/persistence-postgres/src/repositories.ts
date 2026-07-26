@@ -2861,6 +2861,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
       `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
        FROM memory_item
        WHERE status='active' AND durability='durable'
+         AND COALESCE(content_json->>'projectionType','')<>'active_knowledge'
          AND embedding_provider_id=$2 AND embedding_dimensions=$3
          AND (scope_type='global' OR (scope_type='user' AND scope_user_id=$4))
        ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $5`,

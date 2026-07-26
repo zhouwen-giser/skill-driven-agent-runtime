@@ -619,5 +619,103 @@
     "risk": "low",
     "status": "active",
     "projectedAt": "2026-07-26T06:00:00.000Z"
+  },
+  "activeKnowledgeDefinition": {
+    "schemaVersion": "1.0",
+    "kind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "revision": 1,
+    "version": 3,
+    "status": "active",
+    "scope": "global_candidate",
+    "risk": "low",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "definition": {
+      "title": "Inspect before repair",
+      "summary": "For matching low-risk tasks, gather structured evidence before proposing repair."
+    },
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "exactSkillVersionRefs": [],
+    "promotionPolicyVersion": "knowledge-promotion-v1",
+    "createdAt": "2026-07-26T06:00:00.000Z"
+  },
+  "knowledgeRelation": {
+    "schemaVersion": "1.0",
+    "relationId": "relation.knowledge.v123",
+    "sourceKind": "planning_heuristic",
+    "sourceKnowledgeId": "knowledge.v123",
+    "sourceRevision": 1,
+    "targetKind": "task_type",
+    "targetKnowledgeId": "task-type.inspection.v123",
+    "targetRevision": 1,
+    "relationType": "requires",
+    "evidenceRefs": ["episode.promotion.1"],
+    "createdAt": "2026-07-26T08:30:00.000Z"
+  },
+  "experienceUsageRecord": {
+    "schemaVersion": "1.0",
+    "usageId": "usage.knowledge.v123",
+    "planningSessionId": "planning-session.v123",
+    "planCandidateId": "plan-candidate.v123",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "queryFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "retrievalRank": 1,
+    "injectionMode": "advisory",
+    "influence": {
+      "rrfScore": 0.03278688524590164,
+      "sources": ["text", "vector"]
+    },
+    "createdAt": "2026-07-26T08:30:00.000Z"
+  },
+  "planningKnowledgeBundle": {
+    "schemaVersion": "1.0",
+    "queryFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "index": [
+      {
+        "schemaVersion": "1.0",
+        "kind": "planning_heuristic",
+        "knowledgeId": "knowledge.v123",
+        "revision": 1,
+        "risk": "low",
+        "title": "Inspect before repair",
+        "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+        "authoritativeRef": "planning_heuristic:knowledge.v123:1"
+      }
+    ],
+    "definitions": [
+      {
+        "schemaVersion": "1.0",
+        "kind": "planning_heuristic",
+        "knowledgeId": "knowledge.v123",
+        "revision": 1,
+        "version": 3,
+        "status": "active",
+        "scope": "global_candidate",
+        "risk": "low",
+        "title": "Inspect before repair",
+        "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+        "definition": {
+          "title": "Inspect before repair",
+          "summary": "For matching low-risk tasks, gather structured evidence before proposing repair."
+        },
+        "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+        "exactSkillVersionRefs": [],
+        "promotionPolicyVersion": "knowledge-promotion-v1",
+        "createdAt": "2026-07-26T06:00:00.000Z"
+      }
+    ],
+    "exactSkills": [],
+    "conflicts": [],
+    "disclosureOrder": [
+      "planning_heuristic:knowledge.v123:1",
+      "detail:planning_heuristic:knowledge.v123:1"
+    ],
+    "characterCount": 954,
+    "truncated": false,
+    "elapsedMs": 12
   }
 }

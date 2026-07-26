@@ -20,9 +20,15 @@ import {
   DuplicateCandidateDetector,
   EvidenceThresholdEvaluator,
   KnowledgePromotionService,
+  KnowledgeApplicabilityEvaluator,
+  KnowledgeQueryFingerprintBuilder,
+  KnowledgeRelationExpander,
   MemoryActiveKnowledgeProjectionRepository,
   MemoryService,
+  PlanningContextBudget,
   PlanningHeuristicPromotionTarget,
+  PlanningKnowledgeRetriever,
+  ReciprocalRankFusion,
   TaskTypePromotionTarget,
   TaskService,
 } from '../../application/src/index.js';
@@ -85,6 +91,7 @@ import {
   PostgresTaskTypeRepository,
   PostgresCapabilityPatternRepository,
   PostgresKnowledgePromotionRepository,
+  PostgresKnowledgeSearchRepository,
   PostgresPromotionReplayEvaluationRunner,
   PostgresActiveKnowledgeProjectionInventory,
   PostgresUserGoalRuntimeRepository,
@@ -259,7 +266,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
+    'TRUNCATE knowledge_relation, experience_usage_record, knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
   );
   await pool.query(
     'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
@@ -6038,7 +6045,292 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ],
     });
   });
+
+  it('hybrid-retrieves only scoped Active authority, expands one hop and deduplicates a Session', async () => {
+    const goalSession = await seedConfirmedGoalSessionForPlanning();
+    const planningSessionId = 'planning-session.knowledge.db';
+    const planCandidateId = 'plan-candidate.knowledge.db';
+    await pool.query(
+      `INSERT INTO interactive_planning_session(
+         session_id,task_id,goal_session_id,confirmed_contract_candidate_id,state,version,
+         current_candidate_id,current_candidate_revision,revision_count,max_revisions,
+         created_at,updated_at,goal_id,goal_version,max_elapsed_ms)
+       VALUES($1,'task.knowledge.db',$2,$3,'plan_review',1,$4,1,1,4,$5,$5,
+         'goal.knowledge.db',1,900000)`,
+      [
+        planningSessionId,
+        goalSession.sessionId,
+        goalSession.candidateId,
+        planCandidateId,
+        '2026-07-26T08:30:00.000Z',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO user_goal_plan_candidate(
+         candidate_id,session_id,revision,status,base_plan_id,plan,plan_hash,validation,
+         source_refs,created_at,diff,experience_hints,confirmation_policy,risk_level,
+         planning_metadata,patch_model_invocation_id)
+       VALUES($1,$2,1,'candidate',NULL,'{}'::jsonb,$3,'{}'::jsonb,'[]'::jsonb,$4,
+         '{}'::jsonb,'[]'::jsonb,'manual_all','low','{}'::jsonb,NULL)`,
+      [planCandidateId, planningSessionId, `sha256:${'9'.repeat(64)}`, '2026-07-26T08:30:00.000Z'],
+    );
+    const policyVersion = 'knowledge-promotion-v1';
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.global',
+      scope: 'global_candidate',
+      title: 'Inspect pump pressure',
+      summary: 'Inspect pressure before changing pump state.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.user-a',
+      scope: 'user',
+      userId: 'user.a',
+      title: 'Inspect user pump pressure preference',
+      summary: 'For this user, capture pump pressure evidence first.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.user-b',
+      scope: 'user',
+      userId: 'user.b',
+      title: 'Other user pump inspection preference',
+      summary: 'This private user preference must not cross scope.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'task_type',
+      knowledgeId: 'knowledge.retrieval.related-task-type',
+      scope: 'global_candidate',
+      title: 'Stabilization protocol',
+      summary: 'Verify stable conditions and evidence.',
+      policyVersion,
+    });
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES('knowledge.retrieval.candidate',1,'candidate','global_candidate',NULL,NULL,'low',
+         $1::jsonb,1,$2)`,
+      [
+        JSON.stringify({
+          title: 'Candidate pump inspection',
+          summary: 'This Candidate must not be retrieved.',
+        }),
+        '2026-07-26T08:30:00.000Z',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO knowledge_relation(
+         relation_id,source_kind,source_knowledge_id,source_revision,target_kind,
+         target_knowledge_id,target_revision,relation_type,evidence_refs,created_at)
+       VALUES('relation.retrieval.requires','planning_heuristic',
+         'knowledge.retrieval.global',1,'task_type',
+         'knowledge.retrieval.related-task-type',1,'requires',$1::jsonb,$2)`,
+      [JSON.stringify(['episode.retrieval']), '2026-07-26T08:30:00.000Z'],
+    );
+    const clock = { now: () => '2026-07-26T08:30:00.000Z' };
+    const memories = new MemoryService({
+      repository: new PostgresMemoryRepository(pool),
+      embeddings: {
+        embed: () => Promise.resolve({ providerId: 'knowledge-retrieval-test', vector: [1, 0, 0] }),
+      },
+      clock,
+      nextId: () => 'unused-knowledge-memory-id',
+      nextTransitionId: () => 'unused-knowledge-memory-transition',
+    });
+    for (const knowledgeId of [
+      'knowledge.retrieval.global',
+      'knowledge.retrieval.user-a',
+      'knowledge.retrieval.user-b',
+      'knowledge.retrieval.candidate',
+    ]) {
+      await memories.create({
+        memoryId: `knowledge-projection-planning_heuristic-${knowledgeId}-1`,
+        type: 'workflow_pattern',
+        content: {
+          projectionType: 'active_knowledge',
+          authoritativeRef: `planning_heuristic:${knowledgeId}:1`,
+          knowledgeKind: 'planning_heuristic',
+          knowledgeId,
+          knowledgeRevision: 1,
+          risk: 'low',
+        },
+        summary: `Search projection for ${knowledgeId}.`,
+        sourceRefs: [`planning_heuristic:${knowledgeId}:1`],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'G13 scoped retrieval integration fixture.',
+      });
+    }
+    await expect(memories.search('inspect pump pressure', 10, 'user.a')).resolves.toEqual([]);
+    const search = new PostgresKnowledgeSearchRepository(pool);
+    let usageSequence = 0;
+    const retriever = new PlanningKnowledgeRetriever({
+      repository: search,
+      embeddings: {
+        embed: () => Promise.resolve({ providerId: 'knowledge-retrieval-test', vector: [1, 0, 0] }),
+      },
+      skills: { loadCurrentExact: () => Promise.resolve([]) },
+      fingerprints: new KnowledgeQueryFingerprintBuilder(),
+      ranker: new ReciprocalRankFusion(),
+      relations: new KnowledgeRelationExpander(),
+      applicability: new KnowledgeApplicabilityEvaluator(),
+      budget: new PlanningContextBudget(),
+      clock,
+      nextUsageId: () => `usage.knowledge.db.${String(++usageSequence)}`,
+    });
+    const input = {
+      query: 'inspect pump pressure',
+      applicabilityTerms: ['inspection', 'pressure'],
+      scope: { taskId: 'task.knowledge.db', tenantId: 'tenant.a', userId: 'user.a' },
+      catalogHash: `sha256:${'1'.repeat(64)}`,
+      promotionPolicyVersion: policyVersion,
+      planningSessionId,
+      planCandidateId,
+      injectionMode: 'advisory' as const,
+    };
+    const first = await retriever.retrieve(input);
+    expect(first.definitions.map((item) => item.knowledgeId)).toEqual(
+      expect.arrayContaining([
+        'knowledge.retrieval.global',
+        'knowledge.retrieval.user-a',
+        'knowledge.retrieval.related-task-type',
+      ]),
+    );
+    expect(first.definitions.map((item) => item.knowledgeId)).not.toEqual(
+      expect.arrayContaining(['knowledge.retrieval.user-b', 'knowledge.retrieval.candidate']),
+    );
+    expect(first.characterCount).toBeLessThanOrEqual(20_000);
+    await expect(retriever.retrieve(input)).resolves.toMatchObject({
+      index: [],
+      definitions: [],
+    });
+    const persisted = await pool.query<{
+      usages: number;
+      events: number;
+      dual_channel: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_usage_record
+         WHERE planning_session_id=$1) AS usages,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE correlation->>'correlationId'=$1
+            AND event_type='planning.knowledge_used') AS events,
+         (SELECT count(*)::integer FROM experience_usage_record
+          WHERE planning_session_id=$1
+            AND influence->'sources' ?& ARRAY['text','vector']) AS dual_channel`,
+      [planningSessionId],
+    );
+    expect(persisted.rows[0]).toEqual({ usages: 3, events: 3, dual_channel: 2 });
+    const durations: number[] = [];
+    for (let iteration = 0; iteration < 20; iteration += 1) {
+      const started = performance.now();
+      await retriever.retrieve(input);
+      durations.push(performance.now() - started);
+    }
+    durations.sort((left, right) => left - right);
+    const p95 = durations[Math.ceil(durations.length * 0.95) - 1];
+    expect(p95).toBeDefined();
+    expect(p95).toBeLessThanOrEqual(500);
+    process.stdout.write(
+      `${JSON.stringify({
+        event: 'planning.knowledge_retrieval.p95',
+        samples: durations.length,
+        p95Ms: Number(p95?.toFixed(3)),
+        targetMs: 500,
+      })}\n`,
+    );
+  });
 });
+
+async function insertRetrievalKnowledgeFixture(input: {
+  kind: 'planning_heuristic' | 'task_type';
+  knowledgeId: string;
+  scope: 'global_candidate' | 'user' | 'tenant' | 'task';
+  userId?: string;
+  tenantId?: string;
+  title: string;
+  summary: string;
+  policyVersion: string;
+}) {
+  const createdAt = '2026-07-26T08:30:00.000Z';
+  const definition = {
+    title: input.title,
+    summary: input.summary,
+    ...(input.kind === 'task_type' ? { status: 'active' } : {}),
+    ...(input.scope === 'task' ? { taskId: 'task.knowledge.db' } : {}),
+  };
+  if (input.kind === 'planning_heuristic') {
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,1,'active',$2,$3,$4,'low',$5::jsonb,3,$6)`,
+      [
+        input.knowledgeId,
+        input.scope,
+        input.tenantId ?? null,
+        input.userId ?? null,
+        JSON.stringify(definition),
+        createdAt,
+      ],
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO task_type_definition(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,fingerprint,
+         definition,version,created_at)
+       VALUES($1,1,'active',$2,$3,$4,'low',$5,$6::jsonb,3,$7)`,
+      [
+        input.knowledgeId,
+        input.scope,
+        input.tenantId ?? null,
+        input.userId ?? null,
+        `sha256:${createHash('sha256').update(input.knowledgeId).digest('hex')}`,
+        JSON.stringify(definition),
+        createdAt,
+      ],
+    );
+  }
+  await pool.query(
+    `INSERT INTO knowledge_promotion_evaluation(
+       evaluation_id,knowledge_kind,knowledge_id,knowledge_revision,policy_version,status,
+       evidence_summary,replay_report_ref,shadow_report_ref,human_approved,decided_by,
+       created_at,decided_at)
+     VALUES($1,$2,$3,1,$4,'passed',$5::jsonb,'replay.retrieval',NULL,true,
+       'operator.retrieval',$6,$6)`,
+    [
+      `evaluation.retrieval.${input.knowledgeId}`,
+      input.kind,
+      input.knowledgeId,
+      input.policyVersion,
+      JSON.stringify({
+        evidence: {
+          uniqueGoalCount: 3,
+          uniqueUserCount: 1,
+          successfulOutcomeCount: 3,
+          failedOutcomeCount: 0,
+          userAcceptedPlanningCount: 1,
+          userRejectedPlanningCount: 0,
+          replayPassedCount: 3,
+          replayFailedCount: 0,
+          shadowImprovedCount: 0,
+          shadowRegressedCount: 0,
+          supportingRefs: ['episode.retrieval'],
+          contradictingRefs: [],
+        },
+        gates: [],
+        policyAllowed: true,
+        decisionSummary: 'G13 active retrieval fixture.',
+      }),
+      createdAt,
+    ],
+  );
+}
 
 function taskTypeExample(episode: GoalExperienceEpisode, semanticObjective: readonly string[]) {
   return createTaskTypeInductionExample({
