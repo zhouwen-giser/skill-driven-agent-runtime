@@ -15,6 +15,25 @@ All notable changes to this project are documented here. The format follows Keep
 - Restored authenticated publication, pushed the integration branch and created Draft PR #12 without
   merge, tag, release or deployment.
 
+## SDAR v1.3 P01 Runtime Artifact Domain — in review
+
+- Added all 15 frozen P01 Artifact Domain contracts and registry-pinned hashes, including five
+  definition kinds, applicability, dependency snapshots, lineage and rebuildable runtime bindings.
+- Added immutable factories, bounded declarative JSON/conditions, deterministic canonicalization and
+  lifecycle transitions requiring validation plus approval evidence before activation.
+- Added strict Zod and draft-2020-12 JSON Schema contracts, a five-definition golden fixture and
+  cross-validator negative tests.
+- Aligned PlanTemplate nested fields with the exact shared-design/P04 consumer contracts and added
+  SDAR AJV keywords for recursive depth, condition complexity and keyed uniqueness.
+- Closed the first independent review's activation and enum findings with direct-construction
+  evidence enforcement, nested enum guards and exhaustive lifecycle/cross-validator regressions.
+- Added an architecture gate that prevents Artifact Domain dependencies on database, application,
+  Skill/MCP/Provider execution, Console, queue, LangGraph, Zod or AJV.
+- The first independent review rejected readiness; remediation passes 20/20 focused tests and the
+  post-remediation full gate passes 785 unit/contract, 84 real integration, 62 real E2E, architecture,
+  A2A, migration, Replay, build and smoke. A new independent re-review accepts with zero
+  blocking/major findings; clean-commit verification remains pending.
+
 ## [1.2.3] - Unreleased
 
 ### Added

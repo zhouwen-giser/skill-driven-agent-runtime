@@ -317,3 +317,24 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   follow the configured legal retention boundary and are not silently physically erased.
 - G17 does not add external authentication or tenant authorization. Trusted-intranet warnings remain
   release requirements.
+
+## v1.3 P01 Runtime Artifact Domain boundary (2026-07-26)
+
+- The frozen P01 registry fixes all top-level fields but does not separately freeze every nested
+  helper type used by plan templates and cases. ADR-116 adopts the exact shared-design/P04 Plan
+  Template nested shapes and the smallest bounded pure-data shapes for the remaining helpers; later
+  packages must version any incompatible nested-field change instead of silently widening these
+  definitions.
+- JSON Schema uses five SDAR extension keywords implemented by the isolated AJV adapter for recursive
+  JSON depth, expression depth, condition-node count, keyed uniqueness and Plan DAG/cross-reference
+  semantics. Consumers that validate the portable schema must use the SDAR adapter or implement these
+  documented keywords; generic validators that ignore annotation-like extensions do not prove the
+  complete Domain acceptance boundary.
+- The documented lifecycle arrow is treated as the primary promotion/revalidation spine, with an
+  explicit Domain transition table for rejection, deprecation, and archival. Activation requires
+  validation plus recorded approval; P01 deliberately does not implement an active-pointer write.
+- `requiredSkillVersionRefs` is implemented as a required array because it is an exact frozen
+  `ArtifactDependencySnapshot` field. An artifact with no direct version dependency uses an empty
+  array; omission is schema-invalid.
+- P01 provides only domain and schema contracts. It makes no persistence, compilation quality,
+  online routing, Skill execution, MCP/Provider interoperability, API, Console, or rollout claim.

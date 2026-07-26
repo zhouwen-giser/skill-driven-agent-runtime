@@ -44,6 +44,7 @@ await assertImports('packages/application', forbiddenApplicationImports);
 await assertSingleWorkflowRuntime();
 await assertRemovedCompatibilitySymbols();
 await import('./check-cognitive-architecture.mjs');
+await import('./check-artifact-architecture.mjs');
 
 const sourceFiles = [
   ...(await collectSourceFiles('packages')),

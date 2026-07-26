@@ -1,5 +1,17 @@
 # Project Status
 
+SDAR v1.3 P01/G01 Runtime Artifact Domain is remediated after a rejected first independent review
+(2026-07-26) on `feature/v1.3-sequential-implementation`. The first review found downstream
+PlanTemplate incompatibility, Domain/Zod/AJV drift, a direct-activation bypass and missing nested enum
+guards. Exact shared-design/P04 nested shapes, AJV recursive-bound keywords, direct activation
+evidence and expanded regressions now pass 20/20 focused tests. The post-remediation complete gate
+passes 785/785 unit+contract, 84/84 real integration, 62/62 real E2E, 435-source architecture, A2A
+74/74, 152 OpenAPI operations, 17 migrations, Replay with zero physical Provider calls, production
+build and both smoke tests. A new independent read-only re-review accepts the remediated tree with
+zero blocking/major findings; its documentation-only minor item is closed. Clean-commit verification,
+final SHA bookkeeping and push are still required; P01 remains `READY_REVIEW` and does not advance
+to P02.
+
 SDAR v1.3 P00 foundation gate is complete as `READY_FULL` (2026-07-26) on
 `feature/v1.3-sequential-implementation` from exact `origin/main@v1.2.3-final`
 `856f909d22c33e6e20d7e0a1cffc2f54c03b4477`. All fifteen package self-checks and the aggregate
@@ -11,7 +23,7 @@ architecture, A2A, OpenAPI, Replay, 17 migrations, production builds and both sm
 dedicated clean-slate database. Fresh independent read-only review accepts the exact `READY_FULL`
 contracts with zero baseline blockers and no product/P01 scope drift. The branch is pushed through
 `cbd9069`; Draft PR #12 targets `main` and remains Draft. No merge, tag, release or deployment was
-performed. P01 is the active serial package.
+performed.
 
 SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
 Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,

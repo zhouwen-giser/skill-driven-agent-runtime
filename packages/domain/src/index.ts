@@ -1,5 +1,39 @@
 export * from './conversation-context.js';
 export * from './cognitive/index.js';
+export {
+  ARTIFACT_CONTRACT_SCHEMA_HASHES,
+  ARTIFACT_CONTRACT_VERSION,
+  ARTIFACT_DATA_LIMITS,
+  ARTIFACT_STATUS_TRANSITIONS,
+  COMPILED_ARTIFACT_STATUSES,
+  COMPILED_ARTIFACT_TYPES,
+  ArtifactDomainError,
+  canTransitionArtifactStatus,
+  canonicalizeArtifactData,
+  createArtifactLineage,
+  createArtifactRuntimeBinding,
+  createCompiledArtifact,
+  createConditionExpression,
+  transitionCompiledArtifact,
+  type ArtifactActivationEvidence,
+  type ArtifactApplicability,
+  type ArtifactDependencySnapshot,
+  type ArtifactDomainErrorCode,
+  type ArtifactLineage,
+  type ArtifactRuntimeBinding,
+  type CaseArtifactDefinition,
+  type CompiledArtifact,
+  type CompiledArtifactDefinition,
+  type CompiledArtifactStatus,
+  type CompiledArtifactType,
+  type ConditionExpression,
+  type DecisionOutput,
+  type DecisionRuleArtifactDefinition,
+  type IntentRouteArtifactDefinition,
+  type ModelRouteArtifactDefinition,
+  type PlanTemplateArtifactDefinition,
+  type SkillGoalNodeTemplate,
+} from './compiler/index.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-cancellation.js';

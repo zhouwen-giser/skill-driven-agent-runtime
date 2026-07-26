@@ -1,0 +1,855 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/schemas/v1.3/artifact-domain.schema.json",
+  "title": "SDAR v1.3 Runtime Artifact Domain",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifacts", "lineage", "runtimeBinding"],
+  "properties": {
+    "artifacts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/compiledArtifact" }
+    },
+    "lineage": { "$ref": "#/$defs/artifactLineage" },
+    "runtimeBinding": { "$ref": "#/$defs/artifactRuntimeBinding" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,191}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "idArray": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "jsonValue": {
+      "x-sdar-max-depth": 12,
+      "oneOf": [
+        { "type": "string", "maxLength": 65536 },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "not": { "enum": ["__proto__", "constructor", "prototype"] }
+          },
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "conditionExpression": {
+      "x-sdar-max-condition-depth": 12,
+      "x-sdar-max-condition-nodes": 256,
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "enum": ["all", "any"] },
+            "children": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "items": { "$ref": "#/$defs/conditionExpression" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "child"],
+          "properties": {
+            "type": { "const": "not" },
+            "child": { "$ref": "#/$defs/conditionExpression" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "field", "operator", "value"],
+          "properties": {
+            "type": { "const": "atomic" },
+            "field": { "$ref": "#/$defs/id" },
+            "operator": {
+              "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "contains"]
+            },
+            "value": { "$ref": "#/$defs/jsonValue" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "field", "operator"],
+          "properties": {
+            "type": { "const": "atomic" },
+            "field": { "$ref": "#/$defs/id" },
+            "operator": { "const": "exists" }
+          }
+        }
+      ]
+    },
+    "conditionArray": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/conditionExpression" }
+    },
+    "capabilityRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilityId"],
+      "properties": {
+        "capabilityId": { "$ref": "#/$defs/id" },
+        "minimumVersion": { "$ref": "#/$defs/id" }
+      }
+    },
+    "capabilityRequirements": {
+      "type": "array",
+      "maxItems": 256,
+      "x-sdar-unique-key": "capabilityId",
+      "items": { "$ref": "#/$defs/capabilityRequirement" }
+    },
+    "policyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyId", "version"],
+      "properties": {
+        "policyId": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/id" }
+      }
+    },
+    "artifactApplicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredConditions",
+        "optionalConditions",
+        "forbiddenConditions",
+        "requiredParameters",
+        "allowedEnvironmentClasses",
+        "excludedEnvironmentClasses",
+        "minimumIntentScore",
+        "minimumConditionScore",
+        "maximumUncertainty",
+        "outOfDistributionPolicy"
+      ],
+      "properties": {
+        "requiredConditions": { "$ref": "#/$defs/conditionArray" },
+        "optionalConditions": { "$ref": "#/$defs/conditionArray" },
+        "forbiddenConditions": { "$ref": "#/$defs/conditionArray" },
+        "requiredParameters": { "$ref": "#/$defs/idArray" },
+        "allowedEnvironmentClasses": { "$ref": "#/$defs/idArray" },
+        "excludedEnvironmentClasses": { "$ref": "#/$defs/idArray" },
+        "minimumIntentScore": { "$ref": "#/$defs/probability" },
+        "minimumConditionScore": { "$ref": "#/$defs/probability" },
+        "maximumUncertainty": { "$ref": "#/$defs/probability" },
+        "outOfDistributionPolicy": {
+          "enum": ["fallback_reasoning", "require_confirmation", "deny"]
+        }
+      }
+    },
+    "artifactDependencySnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilityCatalogHash",
+        "policyVersionRefs",
+        "taskTypeVersionRefs",
+        "schemaVersionRefs",
+        "requiredSkillVersionRefs",
+        "compilerVersion"
+      ],
+      "properties": {
+        "capabilityCatalogHash": { "$ref": "#/$defs/hash" },
+        "policyVersionRefs": { "$ref": "#/$defs/idArray" },
+        "taskTypeVersionRefs": { "$ref": "#/$defs/idArray" },
+        "schemaVersionRefs": { "$ref": "#/$defs/idArray" },
+        "requiredSkillVersionRefs": { "$ref": "#/$defs/idArray" },
+        "compilerVersion": { "$ref": "#/$defs/id" }
+      }
+    },
+    "exactPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern", "flags"],
+      "properties": {
+        "pattern": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "flags": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "enum": ["case_insensitive", "unicode", "whole_input"] }
+        }
+      }
+    },
+    "structuredHint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator", "value"],
+          "properties": {
+            "field": { "$ref": "#/$defs/id" },
+            "operator": { "enum": ["eq", "in"] },
+            "value": { "$ref": "#/$defs/jsonValue" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator"],
+          "properties": {
+            "field": { "$ref": "#/$defs/id" },
+            "operator": { "const": "exists" }
+          }
+        }
+      ]
+    },
+    "intentRouteDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskTypeId",
+        "semanticExamples",
+        "exactPatterns",
+        "structuredHints",
+        "nextPath"
+      ],
+      "properties": {
+        "taskTypeId": { "$ref": "#/$defs/id" },
+        "semanticExamples": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "type": "string", "minLength": 1, "maxLength": 65536 }
+        },
+        "exactPatterns": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/exactPattern" }
+        },
+        "structuredHints": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/structuredHint" }
+        },
+        "nextPath": {
+          "enum": ["plan_template", "case_retrieval", "small_model", "cognitive_runtime"]
+        }
+      }
+    },
+    "criterionTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterionTemplateId", "statementTemplate", "required"],
+      "properties": {
+        "criterionTemplateId": { "$ref": "#/$defs/id" },
+        "statementTemplate": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "required": { "type": "boolean" }
+      }
+    },
+    "parameterBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parameterName",
+        "schema",
+        "required",
+        "allowedSources",
+        "trustLevel",
+        "defaultPolicy"
+      ],
+      "properties": {
+        "parameterName": { "$ref": "#/$defs/id" },
+        "schema": { "$ref": "#/$defs/jsonValue" },
+        "required": { "type": "boolean" },
+        "allowedSources": {
+          "enum": [
+            "user_confirmed",
+            "request",
+            "world_state",
+            "runtime_context",
+            "small_model_candidate"
+          ]
+        },
+        "trustLevel": { "enum": ["authoritative", "trusted", "candidate"] },
+        "defaultPolicy": { "enum": ["none", "low_risk_only"] }
+      }
+    },
+    "skillGoalNodeTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeKey",
+        "nodeType",
+        "objectiveTemplate",
+        "requiredCapabilities",
+        "requiredEffectRefs",
+        "coveredCriterionTemplateIds",
+        "evidenceRequirements",
+        "artifactRequirements",
+        "inputTemplate",
+        "assumptionsAllowed",
+        "constraints"
+      ],
+      "properties": {
+        "nodeKey": { "$ref": "#/$defs/id" },
+        "nodeType": {
+          "enum": ["action", "observation", "reasoning", "verification", "recovery", "human_gate"]
+        },
+        "objectiveTemplate": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "requiredCapabilities": { "$ref": "#/$defs/idArray" },
+        "requiredEffectRefs": { "$ref": "#/$defs/idArray" },
+        "coveredCriterionTemplateIds": { "$ref": "#/$defs/idArray" },
+        "evidenceRequirements": { "$ref": "#/$defs/idArray" },
+        "artifactRequirements": { "$ref": "#/$defs/idArray" },
+        "inputTemplate": { "$ref": "#/$defs/jsonValue" },
+        "assumptionsAllowed": { "$ref": "#/$defs/idArray" },
+        "constraints": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "type": "string", "minLength": 1, "maxLength": 65536 }
+        }
+      }
+    },
+    "skillGoalDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependencyKey", "predecessorNodeKey", "successorNodeKey", "predicate"],
+      "properties": {
+        "dependencyKey": { "$ref": "#/$defs/id" },
+        "predecessorNodeKey": { "$ref": "#/$defs/id" },
+        "successorNodeKey": { "$ref": "#/$defs/id" },
+        "predicate": { "enum": ["required", "optional"] },
+        "condition": { "$ref": "#/$defs/conditionExpression" }
+      }
+    },
+    "recoveryBranch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trigger",
+        "requiredCapabilities",
+        "planPatchTemplate",
+        "maximumApplications",
+        "sideEffectReplayPolicy"
+      ],
+      "properties": {
+        "trigger": { "$ref": "#/$defs/conditionExpression" },
+        "requiredCapabilities": { "$ref": "#/$defs/idArray" },
+        "planPatchTemplate": { "$ref": "#/$defs/jsonValue" },
+        "maximumApplications": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "sideEffectReplayPolicy": { "enum": ["forbidden", "explicitly_safe"] }
+      }
+    },
+    "planTemplateDefinition": {
+      "type": "object",
+      "x-sdar-valid-plan-template": true,
+      "additionalProperties": false,
+      "required": [
+        "goalPattern",
+        "parameterSchema",
+        "parameterBindings",
+        "skillGoalGraph",
+        "completionContractTemplate",
+        "recoveryBranches"
+      ],
+      "properties": {
+        "goalPattern": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["objectiveTemplate", "criterionTemplates"],
+          "properties": {
+            "objectiveTemplate": { "type": "string", "minLength": 1, "maxLength": 65536 },
+            "criterionTemplates": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "x-sdar-unique-key": "criterionTemplateId",
+              "items": { "$ref": "#/$defs/criterionTemplate" }
+            }
+          }
+        },
+        "parameterSchema": { "$ref": "#/$defs/jsonValue" },
+        "parameterBindings": {
+          "type": "array",
+          "maxItems": 256,
+          "x-sdar-unique-key": "parameterName",
+          "items": { "$ref": "#/$defs/parameterBinding" }
+        },
+        "skillGoalGraph": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nodes", "dependencies"],
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "x-sdar-unique-key": "nodeKey",
+              "items": { "$ref": "#/$defs/skillGoalNodeTemplate" }
+            },
+            "dependencies": {
+              "type": "array",
+              "maxItems": 256,
+              "x-sdar-unique-key": "dependencyKey",
+              "items": { "$ref": "#/$defs/skillGoalDependency" }
+            }
+          }
+        },
+        "completionContractTemplate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "titleTemplate",
+            "descriptionTemplate",
+            "criteria",
+            "evidenceRequirements",
+            "artifactRequirements"
+          ],
+          "properties": {
+            "titleTemplate": { "type": "string", "minLength": 1, "maxLength": 65536 },
+            "descriptionTemplate": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 65536
+            },
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "x-sdar-unique-key": "criterionTemplateId",
+              "items": { "$ref": "#/$defs/criterionTemplate" }
+            },
+            "evidenceRequirements": { "$ref": "#/$defs/idArray" },
+            "artifactRequirements": { "$ref": "#/$defs/idArray" }
+          }
+        },
+        "recoveryBranches": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/recoveryBranch" }
+        }
+      }
+    },
+    "decisionOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisionType", "parameters", "explanationCode"],
+      "properties": {
+        "decisionType": {
+          "enum": [
+            "set_risk",
+            "select_template",
+            "require_confirmation",
+            "select_recovery",
+            "select_model",
+            "degrade"
+          ]
+        },
+        "parameters": {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        },
+        "explanationCode": { "$ref": "#/$defs/id" }
+      }
+    },
+    "decisionRuleDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "condition", "decision", "priority", "conflictPolicy"],
+      "properties": {
+        "category": {
+          "enum": ["risk", "routing", "confirmation", "recovery", "degradation", "model_selection"]
+        },
+        "condition": { "$ref": "#/$defs/conditionExpression" },
+        "decision": { "$ref": "#/$defs/decisionOutput" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "conflictGroup": { "$ref": "#/$defs/id" },
+        "conflictPolicy": {
+          "enum": ["deny_overrides", "higher_priority", "most_specific", "require_human"]
+        }
+      }
+    },
+    "structuredConstraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator", "value"],
+          "properties": {
+            "field": { "$ref": "#/$defs/id" },
+            "operator": {
+              "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "contains"]
+            },
+            "value": { "$ref": "#/$defs/jsonValue" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator"],
+          "properties": {
+            "field": { "$ref": "#/$defs/id" },
+            "operator": { "const": "exists" }
+          }
+        }
+      ]
+    },
+    "caseDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "problemFingerprint",
+        "solutionPattern",
+        "adaptationRules",
+        "applicability",
+        "failureBoundaries",
+        "priorOutcomeSummary"
+      ],
+      "properties": {
+        "problemFingerprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "taskTypeId",
+            "goalFeatureHash",
+            "entityClasses",
+            "environmentClasses",
+            "eventTypes",
+            "failureTypes",
+            "capabilityState",
+            "constraints",
+            "riskLevel"
+          ],
+          "properties": {
+            "taskTypeId": { "$ref": "#/$defs/id" },
+            "goalFeatureHash": { "$ref": "#/$defs/hash" },
+            "entityClasses": { "$ref": "#/$defs/idArray" },
+            "environmentClasses": { "$ref": "#/$defs/idArray" },
+            "eventTypes": { "$ref": "#/$defs/idArray" },
+            "failureTypes": { "$ref": "#/$defs/idArray" },
+            "capabilityState": { "$ref": "#/$defs/idArray" },
+            "constraints": {
+              "type": "array",
+              "maxItems": 256,
+              "items": { "$ref": "#/$defs/structuredConstraint" }
+            },
+            "riskLevel": { "enum": ["low", "medium", "high", "critical"] }
+          }
+        },
+        "solutionPattern": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decisionSuggestions"],
+          "properties": {
+            "planPatchTemplate": { "$ref": "#/$defs/jsonValue" },
+            "recoveryPlanTemplate": { "$ref": "#/$defs/jsonValue" },
+            "decisionSuggestions": {
+              "type": "array",
+              "maxItems": 256,
+              "items": { "$ref": "#/$defs/decisionOutput" }
+            }
+          },
+          "anyOf": [
+            {
+              "properties": { "planPatchTemplate": {} },
+              "required": ["planPatchTemplate"]
+            },
+            {
+              "properties": { "recoveryPlanTemplate": {} },
+              "required": ["recoveryPlanTemplate"]
+            },
+            {
+              "properties": {
+                "decisionSuggestions": { "type": "array", "minItems": 1 }
+              }
+            }
+          ]
+        },
+        "adaptationRules": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["condition", "action", "template"],
+            "properties": {
+              "condition": { "$ref": "#/$defs/conditionExpression" },
+              "action": { "enum": ["bind_parameters", "plan_patch", "recovery_patch"] },
+              "template": { "$ref": "#/$defs/jsonValue" }
+            }
+          }
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contextRequirements", "minimumSimilarity"],
+          "properties": {
+            "contextRequirements": { "$ref": "#/$defs/conditionArray" },
+            "minimumSimilarity": { "$ref": "#/$defs/probability" }
+          }
+        },
+        "failureBoundaries": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["condition", "action", "reasonCode"],
+            "properties": {
+              "condition": { "$ref": "#/$defs/conditionExpression" },
+              "action": { "enum": ["fallback_reasoning", "require_confirmation", "deny"] },
+              "reasonCode": { "$ref": "#/$defs/id" }
+            }
+          }
+        },
+        "priorOutcomeSummary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["successRate", "sampleCount", "limitations"],
+          "properties": {
+            "successRate": { "$ref": "#/$defs/probability" },
+            "sampleCount": { "type": "integer", "minimum": 0 },
+            "limitations": {
+              "type": "array",
+              "maxItems": 256,
+              "items": { "type": "string", "minLength": 1, "maxLength": 65536 }
+            }
+          }
+        }
+      }
+    },
+    "modelRoute": {
+      "enum": ["none", "local_small", "cloud_medium", "cloud_reasoning", "human"]
+    },
+    "modelRouteDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conditions", "route", "budget", "fallbackRoutes"],
+      "properties": {
+        "conditions": { "$ref": "#/$defs/conditionArray" },
+        "route": { "$ref": "#/$defs/modelRoute" },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxTokens", "maxLatencyMs", "maxCostUnits"],
+          "properties": {
+            "maxTokens": { "type": "integer", "minimum": 0 },
+            "maxLatencyMs": { "type": "integer", "minimum": 0 },
+            "maxCostUnits": { "type": "number", "minimum": 0 }
+          }
+        },
+        "fallbackRoutes": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/modelRoute" }
+        }
+      }
+    },
+    "compiledArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "artifactKey",
+        "version",
+        "artifactType",
+        "name",
+        "description",
+        "scope",
+        "definition",
+        "applicability",
+        "requiredCapabilities",
+        "requiredPolicies",
+        "dependencySnapshot",
+        "riskLevel",
+        "status",
+        "lineageRef",
+        "contentHash",
+        "createdAt"
+      ],
+      "properties": {
+        "artifactId": { "$ref": "#/$defs/id" },
+        "artifactKey": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "artifactType": {
+          "enum": ["intent_route", "plan_template", "decision_rule", "case_template", "model_route"]
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["domain", "taskTypeIds"],
+          "properties": {
+            "tenantId": { "$ref": "#/$defs/id" },
+            "domain": { "$ref": "#/$defs/id" },
+            "taskTypeIds": { "$ref": "#/$defs/idArray" }
+          }
+        },
+        "definition": {
+          "oneOf": [
+            { "$ref": "#/$defs/intentRouteDefinition" },
+            { "$ref": "#/$defs/planTemplateDefinition" },
+            { "$ref": "#/$defs/decisionRuleDefinition" },
+            { "$ref": "#/$defs/caseDefinition" },
+            { "$ref": "#/$defs/modelRouteDefinition" }
+          ]
+        },
+        "applicability": { "$ref": "#/$defs/artifactApplicability" },
+        "requiredCapabilities": { "$ref": "#/$defs/capabilityRequirements" },
+        "requiredPolicies": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/policyReference" }
+        },
+        "dependencySnapshot": { "$ref": "#/$defs/artifactDependencySnapshot" },
+        "riskLevel": { "enum": ["low", "medium", "high", "critical"] },
+        "status": {
+          "enum": [
+            "discovered",
+            "candidate",
+            "validating",
+            "awaiting_approval",
+            "active",
+            "revalidating",
+            "deprecated",
+            "archived",
+            "rejected"
+          ]
+        },
+        "lineageRef": { "$ref": "#/$defs/id" },
+        "validationSummaryRef": { "$ref": "#/$defs/id" },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "createdAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "artifactType": { "const": "intent_route" } } },
+          "then": { "properties": { "definition": { "$ref": "#/$defs/intentRouteDefinition" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "plan_template" } } },
+          "then": { "properties": { "definition": { "$ref": "#/$defs/planTemplateDefinition" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "decision_rule" } } },
+          "then": { "properties": { "definition": { "$ref": "#/$defs/decisionRuleDefinition" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "case_template" } } },
+          "then": { "properties": { "definition": { "$ref": "#/$defs/caseDefinition" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "model_route" } } },
+          "then": { "properties": { "definition": { "$ref": "#/$defs/modelRouteDefinition" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "active" } } },
+          "then": {
+            "properties": { "validationSummaryRef": { "$ref": "#/$defs/id" } },
+            "required": ["validationSummaryRef"]
+          }
+        }
+      ]
+    },
+    "artifactLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineageId",
+        "artifactId",
+        "artifactVersion",
+        "sourceEpisodeRefs",
+        "sourceKnowledgeRefs",
+        "sourceCorrectionRefs",
+        "sourcePatternRefs",
+        "generationMethods",
+        "validationRunRefs",
+        "supersedesArtifactRefs"
+      ],
+      "properties": {
+        "lineageId": { "$ref": "#/$defs/id" },
+        "artifactId": { "$ref": "#/$defs/id" },
+        "artifactVersion": { "type": "integer", "minimum": 1 },
+        "sourceEpisodeRefs": { "$ref": "#/$defs/idArray" },
+        "sourceKnowledgeRefs": { "$ref": "#/$defs/idArray" },
+        "sourceCorrectionRefs": { "$ref": "#/$defs/idArray" },
+        "sourcePatternRefs": { "$ref": "#/$defs/idArray" },
+        "generationMethods": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "process_mining",
+              "workflow_induction",
+              "rule_mining",
+              "case_mining",
+              "model_assisted_generalization",
+              "human_authored"
+            ]
+          }
+        },
+        "validationRunRefs": { "$ref": "#/$defs/idArray" },
+        "supersedesArtifactRefs": { "$ref": "#/$defs/idArray" }
+      }
+    },
+    "artifactRuntimeBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bindingId",
+        "artifactId",
+        "artifactVersion",
+        "runtimeType",
+        "compilerVersion",
+        "compiledPayloadHash",
+        "compiledAt"
+      ],
+      "properties": {
+        "bindingId": { "$ref": "#/$defs/id" },
+        "artifactId": { "$ref": "#/$defs/id" },
+        "artifactVersion": { "type": "integer", "minimum": 1 },
+        "runtimeType": {
+          "enum": ["template_plan_builder", "decision_engine", "case_adapter", "model_router"]
+        },
+        "compilerVersion": { "$ref": "#/$defs/id" },
+        "compiledPayloadHash": { "$ref": "#/$defs/hash" },
+        "compiledAt": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

@@ -527,3 +527,23 @@ Exact real/simulated/unverified classification is in
 Exact P00 evidence is in `reports/goal/v1.3-p00-{baseline-report,architecture-dependency-map,completion}.md`,
 `reports/goal/v1.3-p00-{prerequisite-matrix,actual-contract,handoff}.json` and
 `reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json`.
+
+## SDAR v1.3 P01 Runtime Artifact Domain Addendum
+
+| G01 acceptance                    | Status                   | Implementation                                                                                                              | Tests / evidence                                                                   |
+| --------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| G01 frozen Artifact types         | verified                 | `COMPILED_ARTIFACT_TYPES`; exact five values and registry hashes in Domain                                                  | enum/hash unit; golden fixture contains all five kinds                             |
+| G01 complete lifecycle vocabulary | verified                 | `COMPILED_ARTIFACT_STATUSES`; immutable `ARTIFACT_STATUS_TRANSITIONS`                                                       | exhaustive declared/undeclared transition-table unit coverage                      |
+| G01 guarded transitions           | verified                 | transition and direct factory construction require validation summary plus explicit approval/validation evidence for Active | activation-without-evidence and direct-active bypass regressions                   |
+| G01 exact immutable aggregate     | verified                 | `createCompiledArtifact`; exact fields, definition/type pairing, deep freeze                                                | five factories, unknown-field, mismatch and mutation regressions                   |
+| G01 bounded active data           | verified                 | bounded `JsonValue`, `ConditionExpression`, graph and nested definition validators                                          | executable-like value, invalid condition, cycle and canonical JSON coverage        |
+| G01 schema agreement              | verified                 | strict Zod plus draft-2020-12 JSON Schema, SDAR AJV bound/Plan keywords and golden fixture                                  | cross-validator 12/12; depth, graph, duplicate, boolean and OOD parity             |
+| G01 lineage/runtime binding       | verified                 | immutable lineage factory; rebuildable Runtime Binding factory                                                              | identity/version/hash and immutability unit coverage                               |
+| G01 Domain dependency isolation   | verified                 | `scripts/check-artifact-architecture.mjs`; ADR-116 authority map                                                            | 435-source architecture gate; six Domain/two schema files inspected                |
+| G01 full repository regression    | verified at working tree | complete isolated `pnpm verify`                                                                                             | post-remediation 785 unit/contract, 84 integration, 62 E2E, A2A 74/74, build/smoke |
+
+Exact evidence is in `reports/goal/v1.3-p01-completion.md` and
+`reports/v1.3-orchestration/p01-verification-summary.{json,md}` and
+`reports/goal/v1.3-p01-review.md`. The first independent review rejected readiness and its findings
+are remediated with a passing full gate; the new independent re-review accepts with zero
+blocking/major findings. Clean-commit verification remains required.

@@ -109,3 +109,17 @@ Goal Patch 一旦生效，旧 Workflow、确认和中间结果全部失效。
 - The SRS rule to use the current Skill version remains the legacy default. A native v1.2 Usage plan
   intentionally freezes an exact version from selection through execution; version drift invalidates
   the plan instead of silently upgrading it.
+
+## SDAR v1.3 Runtime Artifact aggregate
+
+P01 adds `CompiledArtifact` as a Domain-owned immutable planning-data aggregate. It has exactly one of
+five definition kinds (`intent_route`, `plan_template`, `decision_rule`, `case_template`, or
+`model_route`), plus applicability, capability/policy requirements, a dependency snapshot, risk,
+lineage, validation reference, status, content hash, and creation time.
+
+The Artifact lifecycle is separate from Knowledge promotion, Skill publication, Workflow execution,
+and Goal terminal state. Domain owns transition legality; later PostgreSQL repositories may own
+durable instances and active pointers but cannot redefine the aggregate. `ArtifactRuntimeBinding` is
+a rebuildable projection and is never the active Artifact authority. Artifact data cannot invoke a
+Skill, MCP tool, Provider, or LangGraph execution and cannot write Goal or Outcome state. Detailed
+boundary decisions are recorded in ADR-116.
