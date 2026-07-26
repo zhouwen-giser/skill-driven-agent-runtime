@@ -5,8 +5,7 @@ Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST
 425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified
 PostgreSQL-authoritative cognitive reconstruction, deletion propagation, review-only retention and the
 frozen six-stage rollout policy. Recovery/security/privacy/capacity evidence is classified in
-`reports/v1.2.3-release/`. Draft PR #9 is eligible for Ready for Review after publication; no merge or
-tag is authorized.
+`reports/v1.2.3-release/`. PR #9 is open, Ready for Review, mergeable and unmerged; no tag was created.
 
 SDAR v1.2.3 G00–G16 are complete (2026-07-26); G17 release hardening is next. G16 adds immutable,
 evidence-linked Planning Replay datasets, disjoint development/holdout partitions, all five Shadow

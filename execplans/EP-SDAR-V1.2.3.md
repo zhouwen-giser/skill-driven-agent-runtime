@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: COMPLETE — G00–G17 release gates passed; publication/Ready transition pending
+Status: COMPLETE — G00–G17 passed; evidence published and PR Ready for protected review
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -98,7 +98,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G14  | completed | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none    | governed usage and rollout evidence handed to G15/G16          |
 | G15  | completed | `d77794a` | 597 unit, 157 contract, 84 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g15-completion.md` | none    | audited integration handed to G16                              |
 | G16  | completed | `265f865` | 604 unit, 157 contract, 84 real integration, 62 real E2E, replay/migration/build  | `reports/goal/g16-completion.md` | none    | reproducible side-effect-free evidence handed to G17           |
-| G17  | completed | `8d65d3f` | clean verify: 765 unit/contract, 84 integration, 62 E2E, replay/build/smoke       | `reports/goal/g17-completion.md` | none    | publish evidence and mark PR Ready; no merge/tag               |
+| G17  | completed | `8d65d3f` | clean verify: 765 unit/contract, 84 integration, 62 E2E, replay/build/smoke       | `reports/goal/g17-completion.md` | none    | protected review only; no merge/tag                            |
 
 ## Discoveries and Surprises
 
@@ -532,8 +532,7 @@ reports.
 
 ## Next Execution Step
 
-Publish G17 evidence, synchronize Draft PR #9 and mark it Ready for protected review. Do not merge or
-tag.
+Await protected review on PR #9. Do not merge or tag automatically.
 
 ## Outcomes and Retrospective
 

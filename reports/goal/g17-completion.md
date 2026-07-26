@@ -25,7 +25,7 @@ protected review. Merge and tag remain prohibited.
 | AC-G17-06 | verified | 27 source pins, project license/NOTICE, 286 npm packages, two services and SBOM |
 | AC-G17-07 | verified | official frozen A2A HTTP+JSON MUST 74/74 and Management OpenAPI 152/152 |
 | AC-G17-08 | verified | release report states every frozen authority/advisory/Python/Skill-publication boundary |
-| AC-G17-09 | pending publication | clean verification commit; evidence push and Ready-only PR transition are the remaining steps |
+| AC-G17-09 | verified | clean evidence published; PR open, Ready, mergeable and unmerged; no tag |
 
 ## Master Gates
 
@@ -35,7 +35,7 @@ protected review. Merge and tag remain prohibited.
 | AC-MASTER-02 | verified | full verify, TCK, OpenAPI, migrations, architecture, sources, license and SBOM green |
 | AC-MASTER-03 | verified | 62 real product E2E plus G07–G16 offline Episode→Replay evidence |
 | AC-MASTER-04 | verified | complete v1.2.2 execution/Outcome/Recovery/Business Events/No Replay suites unchanged and green |
-| AC-MASTER-05 | pending publication | evidence complete; final push/Ready state still to be confirmed; no merge/tag |
+| AC-MASTER-05 | verified | evidence published; PR Ready for protected review; no merge/tag |
 
 ## Validation
 
@@ -109,6 +109,6 @@ No automatic Skill publication from the cognitive runtime
 - Release lint fix: `961ac4a`
 - Evolution evidence timing regression: `702baab`
 - retained failed verification: `7e50541`
-- final evidence/publication commits: pending
-- Draft PR #9: ready transition pending this evidence publication
+- release evidence: `f1f354c07ea0a6f32c911115973ea60aeab26b62`
+- PR #9: open, Ready for Review, mergeable and unmerged
 - Merge/tag: not performed

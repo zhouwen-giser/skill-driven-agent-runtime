@@ -1,6 +1,6 @@
 # SDAR v1.2.3 Release Audit
 
-Status: **release gates passed; evidence publication and Ready transition pending**
+Status: **passed for protected review**
 
 The clean release gate passed on
 `7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false` in 171,145 ms. It ran 765

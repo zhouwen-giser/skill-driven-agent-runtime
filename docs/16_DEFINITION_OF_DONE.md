@@ -113,5 +113,5 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       gates pass.
 - [x] The release report explicitly states Experience is advisory, no Python sidecar exists and the
       cognitive runtime never automatically publishes a Skill.
-- [ ] PR #9 publication and Ready-for-protected-review transition are pending; no merge or tag is
+- [x] PR #9 evidence is published and the PR is Ready for protected review; no merge or tag is
       performed.

@@ -494,19 +494,19 @@ operations. Exact commands, classifications and retained failures are in
 
 ## SDAR v1.2.3 G17 and Master Addendum
 
-| Acceptance       | Status              | Implementation / evidence                                                                   |
-| ---------------- | ------------------- | ------------------------------------------------------------------------------------------- |
-| AC-G17-01        | verified            | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
-| AC-G17-02        | verified            | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
-| AC-G17-03        | verified            | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
-| AC-G17-04        | verified            | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
-| AC-G17-05        | verified            | executable `FeatureRolloutPolicy` and frozen default flags                                  |
-| AC-G17-06        | verified            | sources/license/NOTICE/SBOM full gate                                                       |
-| AC-G17-07        | verified            | A2A MUST 74/74 and OpenAPI 152/152                                                          |
-| AC-G17-08        | verified            | explicit advisory/authority/Python/Skill-publication declarations                           |
-| AC-G17-09        | pending publication | clean verification is complete; evidence push and Ready-only transition remain              |
-| AC-MASTER-01..04 | verified            | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
-| AC-MASTER-05     | pending publication | evidence/Ready confirmation remains; no merge/tag                                           |
+| Acceptance       | Status   | Implementation / evidence                                                                   |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------- |
+| AC-G17-01        | verified | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
+| AC-G17-02        | verified | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
+| AC-G17-03        | verified | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
+| AC-G17-04        | verified | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
+| AC-G17-05        | verified | executable `FeatureRolloutPolicy` and frozen default flags                                  |
+| AC-G17-06        | verified | sources/license/NOTICE/SBOM full gate                                                       |
+| AC-G17-07        | verified | A2A MUST 74/74 and OpenAPI 152/152                                                          |
+| AC-G17-08        | verified | explicit advisory/authority/Python/Skill-publication declarations                           |
+| AC-G17-09        | verified | clean evidence published; PR open/Ready/mergeable/unmerged; no tag                          |
+| AC-MASTER-01..04 | verified | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
+| AC-MASTER-05     | verified | evidence published and Ready state confirmed; no merge/tag                                  |
 
 Exact real/simulated/unverified classification is in
 `reports/v1.2.3-release/release-report.{md,json}` and exact commands/failures are in
