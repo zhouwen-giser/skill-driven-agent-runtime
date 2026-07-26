@@ -8,14 +8,13 @@
   "currentHeadSha": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6",
   "packageResults": {
     "P00": {
-      "status": "BLOCKED_BASELINE",
-      "completionCommit": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6",
+      "status": "READY_FULL",
+      "completionCommit": "6e27d706fed2b64abfadc1e57302d93c36cfe334",
       "handoff": "reports/goal/v1.3-p00-handoff.json",
       "openBlockers": [
-        "V123_RELEASE_DEVIATION_NOT_ACCEPTED",
         "GITHUB_AUTH_INVALID"
       ]
     }
   },
-  "lastUpdatedAt": "2026-07-26T21:11:23+08:00"
+  "lastUpdatedAt": "2026-07-26T22:06:00+08:00"
 }

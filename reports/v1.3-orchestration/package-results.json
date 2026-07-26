@@ -7,30 +7,29 @@
         "G00"
       ],
       "formalPackage": true,
-      "status": "BLOCKED_BASELINE",
+      "status": "READY_FULL",
       "acceptance": {
-        "passed": 5,
+        "passed": 6,
         "failed": 0,
-        "blocked": 1
+        "blocked": 0
       },
       "tests": {
         "status": "passed",
-        "summary": "reports/v1.3-orchestration/p00-verification-summary.json",
-        "commit": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+        "summary": "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json",
+        "commit": "6e27d706fed2b64abfadc1e57302d93c36cfe334",
         "dirty": false
       },
       "contractAlignment": "passed",
       "handoff": "reports/goal/v1.3-p00-handoff.json",
       "review": {
-        "blockingOpen": 1,
-        "majorClosed": 4,
+        "blockingOpen": 0,
+        "majorClosed": 5,
         "minorClosed": 1,
         "report": "reports/goal/v1.3-p00-review.md"
       },
-      "completionCommit": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6",
+      "completionCommit": "6e27d706fed2b64abfadc1e57302d93c36cfe334",
       "draftPrUrl": "",
       "openBlockers": [
-        "V123_RELEASE_DEVIATION_NOT_ACCEPTED",
         "GITHUB_AUTH_INVALID"
       ]
     }

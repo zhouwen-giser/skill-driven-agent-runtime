@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P00 — v1.3 Foundation Gate
 
-Status: blocked — `BLOCKED_BASELINE`
+Status: baseline ready — `READY_FULL`; publication checklist blocked
 
 ## Purpose / Outcome
 
@@ -50,17 +50,21 @@ Replay/Shadow has zero physical side effects, and confirmed plans enter the exis
 - [x] 2026-07-26 Verified `origin/main == v1.2.3-final` and created the integration branch.
 - [x] 2026-07-26 Installed the frozen dependency graph.
 - [x] 2026-07-26 Passed a complete dirty-tree diagnostic `pnpm verify` after isolating a dedicated
-  clean-slate database; a clean-commit rerun remains required for completion evidence.
+      clean-slate database; a clean-commit rerun remains required for completion evidence.
 - [x] 2026-07-26 Passed and retained clean-commit full verification at
-  `1bcee05792c918a1273b06ee7d58f7adb40bb572` with `dirty=false`.
+      `1bcee05792c918a1273b06ee7d58f7adb40bb572` with `dirty=false`.
 - [x] 2026-07-26 Inspected prerequisite implementation, migration and release evidence item by item.
 - [x] 2026-07-26 Generated actual contracts, completion candidate and standard Handoff.
 - [x] 2026-07-26 Completed independent read-only review; closed all remediable major/minor findings
-  and retained the v1.2.3 release-acceptance blocker.
+      and retained the v1.2.3 release-acceptance blocker.
 - [x] 2026-07-26 Created Completion Commit
-  `97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6` and prepared blocked orchestration state.
+      `97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6` and prepared blocked orchestration state.
+- [x] 2026-07-26 Recorded explicit repository-owner acceptance in all three authority records.
+- [x] 2026-07-26 Passed clean owner-acceptance recovery `pnpm verify` at
+      `6e27d706fed2b64abfadc1e57302d93c36cfe334`, `dirty=false`.
+- [x] 2026-07-26 Fresh independent read-only review accepted `READY_FULL` with no baseline blocker.
 - [ ] Push the integration branch and create the required Draft PR. Blocked because `gh auth status`
-  reports an invalid active token for `zhouwen-giser`.
+      reports an invalid active token for `zhouwen-giser`.
 
 ## Changed Files
 
@@ -127,6 +131,11 @@ Completion Commit SHA. Full disposition: `reports/goal/v1.3-p00-review.md`.
 The read-only remediation re-review found no new blocking/major issue, confirmed all four major and the
 minor finding closed, and authorized committing the blocked state without advancing P01.
 
+The owner-acceptance remediation review found no baseline blocking issue and accepted the exact
+`READY_FULL` contracts. It identified stale review/traceability bookkeeping as one major finding; the
+final evidence update closes it. The invalid GitHub authentication remains an operational publication
+checklist issue, not a BaselineGateResult blocker.
+
 ## Idempotence and Recovery
 
 All P00 checks are read-only or regenerate evidence deterministically. Resume by validating
@@ -143,16 +152,18 @@ Package-local evidence is in `reports/goal/v1.3-p00-*` and
 
 - Use the exact `origin/main` commit carrying tag `v1.2.3-final`.
 - Preserve P00 as a documentation/evidence-only gate.
-- A matching main/lightweight-tag SHA does not override an explicit failed acceptance row. Without
-  owner acceptance or a restored protected-review path, P00 must be `BLOCKED_BASELINE`.
+- A matching main/lightweight-tag SHA alone did not override the failed acceptance row. The explicit
+  repository-owner acceptance now closes that deviation without claiming native auto-merge or the
+  absent unmerged state.
 
 ## Completion / Handoff
 
-Verification, independent review and Completion Commit are complete. The Handoff is
-`BLOCKED_BASELINE`; P01 is forbidden. Remote push/Draft PR awaits restored GitHub authentication.
+Verification, owner acceptance and independent review support a local `READY_FULL` Handoff. P00's
+required push/Draft PR sequence awaits restored GitHub authentication; P01 remains gated until that
+publication checklist and final orchestration bookkeeping complete.
 
 ## Outcomes and Retrospective
 
-Runtime prerequisites and every executable gate pass, but release-freeze acceptance does not. P00
-stops the serial program with a single precise remediation rather than converting green tests into a
-false release claim.
+Runtime prerequisites and every executable gate pass. The repository owner accepted the audited
+release-freeze deviation without changing its historical facts. P00 remains at the serial cursor only
+because the authenticated push/Draft PR checklist cannot currently be completed.

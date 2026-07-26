@@ -64,3 +64,17 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
   not advanced.
 - GitHub publication preflight found the active `zhouwen-giser` `gh` token invalid. The publish
   workflow stopped before push; no Draft PR, merge, tag, release or deploy occurred.
+
+## P00 owner-acceptance recovery
+
+- The repository owner explicitly accepted the external v1.2.3 merge deviation.
+- Synchronized `docs/16_DEFINITION_OF_DONE.md`, `docs/17_TRACEABILITY_MATRIX.md` and
+  `reports/v1.2.3-release/release-report.json` while retaining the audited negative facts.
+- Created authority remediation commit `6e27d706fed2b64abfadc1e57302d93c36cfe334`.
+- Aggregate validation, P00 self-check and P00 evidence validation pass.
+- Clean full `pnpm verify` at `6e27d70`, `dirty=false`, passed all seven stages; immutable evidence is
+  `reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.{json,md}`.
+- A new independent read-only review accepted the baseline as `READY_FULL` with zero baseline blockers
+  and no product/P01 scope drift.
+- `gh auth status` still reports an invalid active token. P00 push/Draft PR remain incomplete and P01
+  remains gated.

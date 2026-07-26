@@ -14,7 +14,7 @@
   "packages": {
     "P00": {
       "status": "passed",
-      "decision": "BLOCKED_BASELINE",
+      "decision": "READY_FULL",
       "contractLock": "SDAR-V1.3-P00/1.1",
       "producedContracts": {
         "BaselineGateResult": {

@@ -3,13 +3,13 @@
   "packageId": "SDAR-V1.3-P00",
   "packageVersion": "1.1",
   "sequence": 0,
-  "status": "BLOCKED_BASELINE",
+  "status": "READY_FULL",
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
   "branch": "feature/v1.3-sequential-implementation",
   "commits": {
     "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
-    "completion": "97c0e72354a36a8f751b4d6a7d6fc7bf8bf6d6f6"
+    "completion": "6e27d706fed2b64abfadc1e57302d93c36cfe334"
   },
   "draftPrUrl": "",
   "contractRegistryVersion": "1.1",
@@ -42,22 +42,20 @@
     "reports/goal/v1.3-p00-actual-contract.json",
     "reports/goal/v1.3-p00-completion.md",
     "reports/goal/v1.3-p00-review.md",
-    "reports/v1.3-orchestration/p00-verification-summary.json"
+    "reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md",
+    "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json"
   ],
   "acceptanceSummary": {
-    "passed": 5,
+    "passed": 6,
     "failed": 0,
-    "blocked": 1
+    "blocked": 0
   },
   "knownLimitations": [
     "Production-scale soak beyond the single-instance 1-10 active-task target is unverified.",
     "External production Provider interoperability and authentication/tenant authorization are unverified and outside the trusted-intranet V1 baseline.",
-    "The v1.2.3 runtime and full local verification gates pass, but the protected-review release acceptance remains failed in authoritative project records."
+    "The accepted external v1.2.3 merge deviation does not prove native auto-merge or that the required unmerged protected-review state existed."
   ],
-  "openBlockers": [
-    "V123_RELEASE_DEVIATION_NOT_ACCEPTED: obtain explicit repository-owner acceptance of the external merge deviation and update docs/16_DEFINITION_OF_DONE.md, docs/17_TRACEABILITY_MATRIX.md and reports/v1.2.3-release/release-report.json consistently, or restore and re-run the required protected-review release path.",
-    "GITHUB_AUTH_INVALID: run gh auth login -h github.com and re-verify gh auth status before pushing feature/v1.3-sequential-implementation and creating the required Draft PR."
-  ],
+  "openBlockers": [],
   "nextPackage": "P01",
   "packageOutputs": {
     "BaselineGateResult": {

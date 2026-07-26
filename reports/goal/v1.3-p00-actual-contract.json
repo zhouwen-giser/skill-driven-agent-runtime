@@ -9,21 +9,19 @@
       "version": "1.1",
       "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
       "value": {
-        "status": "BLOCKED_BASELINE",
+        "status": "READY_FULL",
         "repository": "zhouwen-giser/skill-driven-agent-runtime",
         "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
         "v123FinalEvidenceRefs": [
           "reports/v1.2.3-release/release-report.json",
+          "reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md",
           "reports/goal/g17-completion.md",
-          "reports/v1.3-orchestration/p00-verification-summary.json",
+          "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json",
           "v1.2.3-final"
         ],
         "fullVerifyStatus": "passed",
         "migrationHead": "0124_v123_replay_shadow_evidence",
-        "openBlockers": [
-          "V123_RELEASE_DEVIATION_NOT_ACCEPTED: docs/16_DEFINITION_OF_DONE.md and docs/17_TRACEABILITY_MATRIX.md retain failed protected-review acceptance; no explicit repository-owner acceptance closes the external merge deviation.",
-          "GITHUB_AUTH_INVALID: the configured gh token for zhouwen-giser is invalid, so the required push and Draft PR were not performed."
-        ]
+        "openBlockers": []
       }
     },
     "V123PrerequisiteMatrix": {
@@ -46,11 +44,11 @@
         ],
         "fullVerify": {
           "status": "passed",
-          "commit": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+          "commit": "6e27d706fed2b64abfadc1e57302d93c36cfe334",
           "dirty": false,
-          "report": "reports/v1.3-orchestration/p00-verification-summary.json"
+          "report": "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json"
         },
-        "decision": "BLOCKED_BASELINE"
+        "decision": "READY_FULL"
       }
     }
   }
