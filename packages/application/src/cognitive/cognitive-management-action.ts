@@ -9,7 +9,14 @@ export type CognitiveManagementOperation =
   | 'knowledge_promote'
   | 'knowledge_reject'
   | 'knowledge_revalidate'
-  | 'knowledge_deprecate';
+  | 'knowledge_deprecate'
+  | 'artifact_request_validation'
+  | 'artifact_record_approval'
+  | 'artifact_activate'
+  | 'artifact_request_revalidation'
+  | 'artifact_deprecate'
+  | 'artifact_rollback'
+  | 'artifact_kill_switch';
 
 export interface CognitiveManagementActionClaim {
   readonly actionId: string;

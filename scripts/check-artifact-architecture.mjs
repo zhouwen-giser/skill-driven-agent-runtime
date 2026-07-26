@@ -56,7 +56,11 @@ for (const file of productFiles) {
   if (
     normalized.startsWith('packages/domain/src/compiler/') ||
     normalized === 'packages/domain/src/index.ts' ||
-    normalized.startsWith('packages/schemas/src/')
+    normalized.startsWith('packages/schemas/src/') ||
+    normalized.startsWith('packages/application/src/compiler/') ||
+    normalized === 'packages/application/src/index.ts' ||
+    normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
+    normalized === 'packages/persistence-postgres/src/index.ts'
   ) {
     continue;
   }
@@ -67,7 +71,7 @@ for (const file of productFiles) {
 }
 
 process.stdout.write(
-  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, no runtime or product consumer dependency.\n`,
+  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02 application/PostgreSQL boundaries, no runtime product consumer dependency.\n`,
 );
 
 async function collectFiles(root) {

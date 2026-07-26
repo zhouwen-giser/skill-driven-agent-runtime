@@ -548,3 +548,21 @@ Exact evidence is in `reports/goal/v1.3-p01-completion.md` and
 are remediated with a passing full gate; the new independent re-review accepts with zero
 blocking/major findings. Completion commit `8ac5f5e` passes the same complete gate with
 `dirty=false`; P01 is `READY_FULL`.
+
+## SDAR v1.3 P02 Artifact Authority Addendum
+
+| G02-G04 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| Ten canonical PostgreSQL tables | verified, review pending | migration `0125_v13_artifact_authority`; no alias authority | fresh/idempotent/rollback/reapply migration verifier |
+| Immutable Artifact versions | verified, review pending | `PostgresArtifactRepository.saveCandidate`; complete bounded P01 envelope plus checked frozen projections | exact round-trip, idempotent same content, changed-content reject |
+| Active Pointer and CAS | verified, review pending | PostgreSQL advisory key lock, row lock and pointer lock version | two simultaneous activations produce exactly one winner |
+| Validation and Approval separation | verified, review pending | validation completion enters `awaiting_approval`; approval evidence is a separate durable row | activation without approval rejects; evidence hash required |
+| Atomic activation evidence | verified, review pending | status/hash/lineage, validation, approval, pointer, audit and Outbox share one transaction | completed audit and `artifact.activated` evidence after CAS |
+| Registry/projection rebuild | verified, review pending | PostgreSQL-backed `ArtifactRegistryService`; query/version cache is non-authoritative | cache miss/hit, tenant query key, dependency invalidation, rebuild |
+| Outbox reliability | verified, review pending | transactional canonical events and CAS consumer cursor | execution event sequence, cursor resume and duplicate-handler idempotency |
+| Operator security baseline | verified, review pending | fail-closed production provider, explicit local adapter, RBAC/tenant/reason/idempotency/expected version | missing production provider and denied permission regressions |
+| Frozen P02 contract | verified, review pending | exact six hashes/method vocabularies, 23 events, 8 queues and 7 flags | `artifact-p02.contract.test.ts` |
+| Full repository regression | verified working tree | isolated `pnpm verify` | 793 unit/contract, 87 integration, 62 E2E, 18 migrations, build/smoke |
+
+Final `COMPLETED` Handoff and clean-commit evidence remain gated on the required new independent P02
+review.

@@ -338,3 +338,23 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   array; omission is schema-invalid.
 - P01 provides only domain and schema contracts. It makes no persistence, compilation quality,
   online routing, Skill execution, MCP/Provider interoperability, API, Console, or rollout claim.
+
+## v1.3 P02 Artifact authority boundary (2026-07-27)
+
+- The frozen relational columns do not enumerate every P01 top-level Artifact and Lineage field.
+  ADR-117 therefore stores the complete validated P01 aggregate in the bounded
+  `compiled_artifact.definition` envelope and treats the other frozen columns/tables as checked,
+  indexed projections. Projection drift fails closed.
+- `cognitive_runtime_outbox.aggregate_version` is the event aggregate revision. Activation and
+  deprecation use the Active Pointer revision so the same immutable Artifact version can be
+  reactivated by a governed rollback without colliding with prior events; payloads retain the exact
+  Artifact version.
+- P02 provides an in-process rebuildable projection and a durable PostgreSQL consumer cursor. Later
+  retrieval/runtime packages may add Redis/FTS/vector projection adapters, but Redis cannot become
+  Artifact or Active Pointer authority.
+- The non-production identity adapter accepts only an explicitly constructed operator context.
+  Production construction requires an external identity provider and fails closed without one. P02
+  adds no public authentication/API endpoint and does not change the trusted-intranet V1 baseline.
+- G04 establishes governance mechanics only. Full promotion/revalidation policy and Shadow evidence
+  remain P06; online retrieval/routing remain P07/P10. P02 performs no User Request, Skill, MCP,
+  Provider, A2A or LangGraph execution.

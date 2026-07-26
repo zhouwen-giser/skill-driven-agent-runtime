@@ -1,5 +1,17 @@
 # Project Status
 
+SDAR v1.3 P02/G02-G04 Artifact Persistence, Registry and Governance implementation is ready for
+independent review (2026-07-27) on `feature/v1.3-sequential-implementation`. Migration 0125 creates
+only the ten frozen PostgreSQL authority tables with bounded JSON, immutable versions, lineage
+projection checks and CAS Active Pointer switching. The six frozen P02 Ports, rebuildable
+Level-0/Level-1 projection, durable at-least-once Outbox cursor, exact flags/events/queues and
+fail-closed operator governance are implemented without a request-path Runtime, Skill/MCP/A2A call,
+API or Console write surface. The working-tree full gate passes 793 unit/contract, 87 real
+integration and 62 real E2E tests, 447-source architecture, A2A 74/74, 152 OpenAPI operations,
+18 migrations, Replay with zero physical Provider calls, production build and both smokes.
+Completion remains pending a meaningful implementation commit, the same `dirty=false` gate and a new
+independent read-only P02 review.
+
 SDAR v1.3 P01/G01 Runtime Artifact Domain is complete as `READY_FULL` after a rejected first
 independent review and accepted remediation re-review
 (2026-07-26) on `feature/v1.3-sequential-implementation`. The first review found downstream

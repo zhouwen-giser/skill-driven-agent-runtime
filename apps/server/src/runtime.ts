@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 
 import {
@@ -4092,51 +4092,61 @@ class RemoteMcpTaskAdmissionUncertainError extends Error {
 }
 
 export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
-  const schemaState = await pool.query<{
-    migration_table: string | null;
-    public_table_count: number;
-  }>(
-    `SELECT to_regclass('public.schema_migration')::text AS migration_table,
-            (SELECT count(*)::integer
-             FROM information_schema.tables
-             WHERE table_schema='public' AND table_type='BASE TABLE') AS public_table_count`,
-  );
-  const state = schemaState.rows[0];
-  if (state?.migration_table !== null && state?.migration_table !== undefined) {
-    const versions = await pool.query<{ version: string }>(
-      `SELECT version
-       FROM public.schema_migration
-       ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
+  const client = await pool.connect();
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtextextended('sdar-runtime-migrations',0))`);
+    const schemaState = await client.query<{
+      migration_table: string | null;
+      public_table_count: number;
+    }>(
+      `SELECT to_regclass('public.schema_migration')::text AS migration_table,
+              (SELECT count(*)::integer
+               FROM information_schema.tables
+               WHERE table_schema='public' AND table_type='BASE TABLE') AS public_table_count`,
     );
-    await applyPostV122Migrations(
-      pool,
-      versions.rows.map((row) => row.version),
-    );
-    return;
-  }
-  if ((state?.public_table_count ?? 0) !== 0) throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+    const state = schemaState.rows[0];
+    if (state?.migration_table !== null && state?.migration_table !== undefined) {
+      const versions = await client.query<{ version: string }>(
+        `SELECT version
+         FROM public.schema_migration
+         ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
+      );
+      await applyPostV122Migrations(
+        client,
+        versions.rows.map((row) => row.version),
+      );
+      return;
+    }
+    if ((state?.public_table_count ?? 0) !== 0)
+      throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
 
-  const baseline = await readFile(
-    resolve(process.cwd(), 'infra', 'postgres', 'baseline', '0001_sdar_v1_2_2_baseline.sql'),
-    'utf8',
-  );
-  await pool.query(baseline);
-  const seed = await readFile(
-    resolve(process.cwd(), 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql'),
-    'utf8',
-  );
-  await pool.query(seed);
-  await assertV122RuntimeReady(pool);
-  await applyPostV122Migrations(pool, ['v1.2.2_clean_slate_baseline']);
+    const baseline = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'baseline', '0001_sdar_v1_2_2_baseline.sql'),
+      'utf8',
+    );
+    await client.query(baseline);
+    const seed = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql'),
+      'utf8',
+    );
+    await client.query(seed);
+    await assertV122RuntimeReady(client);
+    await applyPostV122Migrations(client, ['v1.2.2_clean_slate_baseline']);
+  } finally {
+    await client
+      .query(`SELECT pg_advisory_unlock(hashtextextended('sdar-runtime-migrations',0))`)
+      .catch(() => undefined);
+    client.release();
+  }
 }
 
 async function applyPostV122Migrations(
-  pool: Pool,
+  pool: Pick<PoolClient, 'query'>,
   appliedVersions: readonly string[],
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
   const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',
@@ -4153,7 +4163,7 @@ async function applyPostV122Migrations(
   }
 }
 
-async function assertV122RuntimeReady(pool: Pool): Promise<void> {
+async function assertV122RuntimeReady(pool: Pick<PoolClient, 'query'>): Promise<void> {
   const result = await pool.query<{ ready: boolean }>(
     `SELECT EXISTS (
        SELECT 1

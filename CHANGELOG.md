@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P02 Artifact Persistence, Registry and Governance — review pending
+
+- Added migration 0125 with the ten exact frozen Artifact authority tables, replayable rollback,
+  bounded JSON depth/size, immutable versions and a unique CAS Active Pointer.
+- Added lossless P01 Artifact/Lineage/Runtime Binding persistence, projection-drift detection,
+  validation, approval, execution and feedback repositories.
+- Added transactional activation with validation/approval evidence, idempotent PostgreSQL audit,
+  pointer locking/CAS and Outbox publication in one commit boundary.
+- Added the frozen Artifact Registry, rebuildable Level-0/Level-1 and version projections, canonical
+  event/queue/feature-flag vocabularies and durable at-least-once Outbox cursor.
+- Added fail-closed production identity, RBAC, tenant scope, reason/idempotency/expected-version
+  governance, separate approval/activation, revalidation, deprecation, rollback and bounded kill
+  switch foundations.
+- Added frozen-contract, migration, JSON-bound, immutable-round-trip, no-approval, concurrent
+  activation, idempotency, rollback, execution/feedback, cache and Outbox tests. The working-tree
+  full gate passes; clean-commit verification and independent review remain pending.
+
 ## SDAR v1.3 P00 foundation gate — complete
 
 - Added the frozen fifteen-package execution bundle and persistent serial-orchestration state.

@@ -17,7 +17,7 @@ const databases = [
 ];
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 const postBaselineMigrationFiles = (await readdir(migrationDirectory))
-  .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+  .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
   .sort();
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
@@ -96,7 +96,7 @@ try {
   }
 
   process.stdout.write(
-    `SDAR v1.2.3 migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
+    `SDAR migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations through v1.3 P02, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
   );
 } finally {
   await dropDatabases().catch(() => undefined);
@@ -175,6 +175,16 @@ async function verifyBaseline(pool) {
     'interactive_goal_session',
     'goal_experience_episode',
     'knowledge_status_transition',
+    'compiled_artifact',
+    'artifact_active_pointer',
+    'artifact_lineage',
+    'artifact_validation_run',
+    'artifact_approval',
+    'artifact_execution',
+    'artifact_feedback',
+    'artifact_match_log',
+    'experience_trace',
+    'pattern_candidate',
   ];
   const tables = await pool.query(
     `SELECT table_name
@@ -317,12 +327,14 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
   const tables = await pool.query(
     `SELECT to_regclass('public.runtime_capability_summary') IS NULL AS capability_absent,
             to_regclass('public.goal_experience_episode') IS NULL AS experience_absent,
-            to_regclass('public.knowledge_status_transition') IS NULL AS knowledge_absent`,
+            to_regclass('public.knowledge_status_transition') IS NULL AS knowledge_absent,
+            to_regclass('public.compiled_artifact') IS NULL AS artifact_absent`,
   );
   if (
     tables.rows[0]?.capability_absent !== true ||
     tables.rows[0]?.experience_absent !== true ||
-    tables.rows[0]?.knowledge_absent !== true
+    tables.rows[0]?.knowledge_absent !== true ||
+    tables.rows[0]?.artifact_absent !== true
   ) {
     throw new Error('V123_ROLLBACK_TABLES_REMAIN');
   }
