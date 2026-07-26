@@ -5821,25 +5821,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
           ).then((response) => response.json()),
         );
-      const evolutionEvidence = z
-        .object({
-          items: z.array(
-            z.object({
-              taskId: z.string(),
-              goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
-              workflow: z.object({ nodes: z.array(z.unknown()) }),
-              tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
-              result: z.unknown(),
-              evaluation: z.object({ decision: z.string(), summary: z.string() }),
-              successful: z.boolean(),
-            }),
-          ),
-        })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(completedTask.goalId)}/evolution-experiences`,
-          ).then((response) => response.json()),
-        );
+      const evolutionEvidence = await waitForEvolutionExperience(
+        completedTask.goalId,
+        submitted.id,
+      );
       expect(evolutionEvidence.items).toContainEqual(
         expect.objectContaining({
           taskId: submitted.id,
@@ -8943,6 +8928,33 @@ async function waitForGoalExperienceEpisode(goalId: string) {
     await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`GOAL_EXPERIENCE_EPISODE_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForEvolutionExperience(goalId: string, taskId: string) {
+  const schema = z.object({
+    items: z.array(
+      z.object({
+        taskId: z.string(),
+        goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
+        workflow: z.object({ nodes: z.array(z.unknown()) }),
+        tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+        result: z.unknown(),
+        evaluation: z.object({ decision: z.string(), summary: z.string() }),
+        successful: z.boolean(),
+      }),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(goalId)}/evolution-experiences`,
+      ).then((response) => response.json()),
+    );
+    if (latest.items.some((item) => item.taskId === taskId)) return latest;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`EVOLUTION_EXPERIENCE_NOT_READY:${goalId}:${taskId}:${JSON.stringify(latest)}`);
 }
 
 async function waitForGoalExperienceObservation(goalId: string) {
