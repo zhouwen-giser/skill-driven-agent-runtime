@@ -13,12 +13,12 @@ conflicts.
 ## Goal Contract Result
 
 ```text
-completed_pending_commit_publication
+completed
 ```
 
-The implementation and all affected gates are green. This report is included with the meaningful G10
-implementation commit; the exact SHA and push state are recorded in the follow-up evidence commit.
-Draft PR #9 remains Draft.
+The implementation and all affected gates are green. Meaningful implementation commit
+`c36e83dc265592d0385bcaf4d0941158c01f2df2` contains the product code, tests, schemas, migration and
+this report. Draft PR #9 remains Draft.
 
 ## Implementation
 
@@ -112,8 +112,8 @@ license, NOTICE, lockfile or SBOM change is required.
 
 ## Commit, Push and Draft PR
 
-- Meaningful G10 implementation commit: pending publication
-- Push: pending publication
+- Meaningful G10 implementation commit: `c36e83dc265592d0385bcaf4d0941158c01f2df2`
+- Push: published with the follow-up evidence commit
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9> remains Draft
 - Merge/tag: not performed and not authorized
 

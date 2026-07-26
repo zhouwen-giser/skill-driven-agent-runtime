@@ -54,6 +54,13 @@ All notable changes to this project are documented here. The format follows Keep
 - A Management API contract regression for the `experience_reflection` model route, plus real
   terminal-authority integration fixtures covering Contract, Plan, Skill Attempt and User Goal
   Judgment eligibility.
+- G10 Candidate-only Task Type induction with seven-dimensional canonical fingerprints,
+  deterministic pre-model clustering, strict Recognition/Negative Example/dimension/Criteria/
+  Capability/Goal/Dependency abstraction, Offline/Online revisions, 1–3 real Episode Exemplars and a
+  current-context Applicability Guard.
+- PostgreSQL Task Type origin/model lineage, fingerprint index, compatible support evidence and
+  `knowledge.candidate_created` transaction through migration 0118, plus
+  `GET /api/v1/task-types`, 142-operation OpenAPI and Cognitive JSON Schema/Golden coverage.
 
 ### Changed
 
@@ -75,6 +82,8 @@ All notable changes to this project are documented here. The format follows Keep
   Experience capture cannot become Goal/Plan/Outcome authority or delay the terminal transaction.
 - Cognitive Outbox JSONB constructors use explicit text boundary casts, and duplicate Episode delivery
   completes against the already persisted immutable Episode after a crash/retry boundary.
+- G03 continues to read deployment-owned static Task Types only. G10 induced Candidates remain
+  operational evidence and cannot affect formal Understanding before G12 promotion.
 
 ### Verification
 
@@ -112,6 +121,10 @@ All notable changes to this project are documented here. The format follows Keep
   migrations through 0117 with idempotency, rollback/reapply, guarded reset and rogue-ledger rejection.
   The earlier platform, stale-`dist`, API-enum and SQL/fixture failures remain recorded. Commits
   `301606e`, `2d600fc` and `c8754fd` are pushed; replacement PR #9 remains Draft.
+- G10 passes 554 unit, 153 contract, 80 real PostgreSQL/Redis integration, 62 real E2E, 142 OpenAPI
+  operations, 378-source architecture, A2A MUST 74/74, production build and the eleven additive
+  migrations through 0118. The test-first, optional-constraint, PostgreSQL inference and lint failures
+  remain recorded in `reports/goal/g10-completion.md`; implementation is `c36e83d`.
 
 ## [1.2.2] - Unreleased
 

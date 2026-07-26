@@ -1,6 +1,15 @@
 # Project Status
 
-SDAR v1.2.3 G00–G09 are complete, committed and pushed (2026-07-26); G10 Task Type Induction is next.
+SDAR v1.2.3 G00–G10 are complete (2026-07-26); G11 Capability Pattern Induction is next. G10 adds
+seven-dimensional deterministic Task Type fingerprints/clusters before strictly validated model naming,
+bounded Offline/Online Candidate revisions with 1–3 real Episode Exemplars, Negative Examples and a
+current-context Applicability Guard. PostgreSQL owns revision/evidence/Outbox authority through
+migration 0118; Candidate status remains excluded from the unchanged G03 formal Understanding source.
+Affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI operations,
+378-source architecture, A2A MUST 74/74, production build and all 11 migrations. Implementation
+`c36e83d` is ready to push to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G09 closure (2026-07-26):
 The former G07–G09 platform blocker is closed with real PostgreSQL/Redis/A2A evidence: 549/549 unit,
 152/152 contract, 79/79 integration and 62/62 E2E tests pass, along with 141 OpenAPI operations,
 372-source architecture, A2A MUST 74/74, licenses/SBOM, production build and the ten-migration
