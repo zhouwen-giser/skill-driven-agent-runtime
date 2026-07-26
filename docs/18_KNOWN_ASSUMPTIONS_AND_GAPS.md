@@ -234,3 +234,13 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The AutoSkill locked commit has no LICENSE/NOTICE despite its README MIT badge. It remains behavior
   reference only, with source and long-prompt copying prohibited. The other five source licenses and
   absence of root NOTICE were checked at their exact commits; G00 copies no upstream code.
+
+## v1.2.3 G12 Promotion boundary (2026-07-26)
+
+- G12 provides the strict Shadow report contract and requires a passing report for Task Type and all
+  high-risk activation, but the production Shadow harness is intentionally not supplied until G16.
+  The runtime source therefore returns no report and those candidates fail closed; no Mock or static
+  report is accepted as final evidence.
+- Promotion replay in G12 is a side-effect-free evaluation over persisted authoritative Episode
+  outcomes. G16 must add the richer holdout/replay/shadow comparison harness without changing G12's
+  lifecycle, PostgreSQL authority or manual activation gates.

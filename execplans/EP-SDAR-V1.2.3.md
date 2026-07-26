@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G11 are complete; G12 is next
+Status: ACTIVE — G00–G12 are complete; G13 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -93,8 +93,8 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G09  | completed   | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates   | `reports/goal/g09-completion.md` | none           | verified Candidate/Delta handoff to G10/G11                    |
 | G10  | completed   | `c36e83d` | 554 unit, 153 contract, 80 real integration, 62 real E2E, migration/build gates   | `reports/goal/g10-completion.md` | none           | Candidate Task Types handed to G11/G12                         |
 | G11  | completed   | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none           | Candidate Patterns handed to G12; Gaps remain operational      |
-| G12  | in_progress | —         | implementation next                                                               | —                                | none           | governed knowledge promotion                                   |
-| G13  | not_started | —         | —                                                                                 | —                                | G01/G12        | retrieval/progressive disclosure                               |
+| G12  | completed   | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none           | Active-only governed knowledge handed to G13                   |
+| G13  | not_started | —         | —                                                                                 | —                                | none           | retrieval/progressive disclosure                               |
 | G14  | not_started | —         | —                                                                                 | —                                | G05/G13        | experience-enriched planner/fallback                           |
 | G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
 | G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
@@ -199,6 +199,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: G11 review found restart idempotency could conflict when a repeated Capability Gap used a
   later clock value. Fingerprint lookup now returns the existing immutable Gap before constructing a
   new snapshot; focused unit and real PostgreSQL reruns pass.
+- 2026-07-26: G12 E2E exposed that a broad Management `_CONFLICT→409` normalization changed the
+  frozen Skill Import conflict from 400. Restricting 409 to Promotion CAS/evaluation conflicts and
+  adding a regression restored all 62 E2E scenarios.
+- 2026-07-26: G12 review found that invalidating Active revision 1 after Candidate revision 2 appeared
+  must lock the explicit Active revision, not the latest row. Exact-revision locking now preserves
+  CAS and the real newer-revision contradiction test passes.
 
 ## Decision Log
 
@@ -259,6 +265,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: an unmapped G11 capability creates a separate non-executable operational Gap and
   manual-only authoring proposal with `publishAllowed=false`; it is neither promotable knowledge nor
   the v1.2.2 terminal `capability_gap` Task authority.
+- 2026-07-26: G12 uses one deterministic Promotion service/evaluator with three separate Target
+  adapters. PostgreSQL alone owns lifecycle/evaluation/audit; Memory holds only Active summaries and
+  exact references that are rebuilt and pruned by authoritative reconciliation.
+- 2026-07-26: every first activation remains manual. New contradictions, increased rejection ratio,
+  Promotion policy drift and G11 Catalog/exact-Skill changes return Active knowledge to validating.
+  Promotion has no Skill publication port and Candidate knowledge remains outside the Planner.
 
 ## Implementation Steps
 
@@ -367,7 +379,7 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
 - Base main: `10d9cb385a7d4ef87b69f2856d315573faafca9c`
-- G11 implementation HEAD: `16441f37446bae3bead5d4a3b0d92ced8392042b`
+- G12 implementation HEAD: `59f20f6cb4af22458d1aef018809791a998826b0`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -408,17 +420,20 @@ was copied or translated, so no Source Intake or dependency metadata changed.
   Skill mapping with mandatory current checks, restart-safe non-executable Gap Candidates,
   catalog/policy invalidation, migration 0119, JSON/OpenAPI schemas and real integration/runtime
   composition.
+- G12 implementation `59f20f6`: shared governed Promotion with separate Heuristic/Task Type/Capability
+  targets, exact-revision CAS/evaluation/audit, persisted replay/evidence aggregation, contradiction
+  and version invalidation, Active-only Memory reconciliation, migration 0120 and four lifecycle APIs.
 
 ## Open Blockers
 
-None for G00–G11. The former platform approval and worktree-hygiene blockers are retained in the Goal
-reports and were resolved before the real 79-integration/62-E2E verification. G12–G17 remain ordinary
+None for G00–G12. The former platform approval and worktree-hygiene blockers are retained in the Goal
+reports and were resolved before the real 79-integration/62-E2E verification. G13–G17 remain ordinary
 unfinished work, not blockers.
 
 ## Next Execution Step
 
-Publish the G11 evidence head and update Draft PR #9 without changing Draft status, then implement G12
-governed promotion across G09 Candidate deltas, G10 Task Types and G11 Capability Patterns.
+Publish the G12 evidence head and update Draft PR #9 without changing Draft status, then implement G13
+Active-only retrieval, scope/risk filtering and bounded progressive disclosure over exact authority.
 
 ## Outcomes and Retrospective
 
@@ -437,4 +452,7 @@ terminal-fixture and Management API enum defects without weakening assertions. G
 Candidate Task Type induction and passes 554 unit, 153 contract, 80 integration, 62 E2E, 142 OpenAPI,
 378-source architecture, build and migrations through 0118. G11 adds conservative Capability Pattern
 induction and explicit non-executable Gaps, passing 560 unit, 154 contract, 81 integration, 62 E2E,
-143 OpenAPI, 385-source architecture, build and migrations through 0119. G12–G17 remain open.
+143 OpenAPI, 385-source architecture, build and migrations through 0119. G12 adds governed,
+exact-revision knowledge Promotion and rebuildable Active-only Memory projection, passing 568 unit,
+155 contract, 82 integration, 62 E2E, 147 OpenAPI, 397-source architecture, build/smoke and migrations
+through 0120. G13–G17 remain open.

@@ -67,6 +67,11 @@ All notable changes to this project are documented here. The format follows Keep
 - Exact current Skill Version mapping with mandatory current Readiness/compatibility checks,
   catalog/policy invalidation, separate non-executable Capability Gap Candidates, migration 0119,
   `GET /api/v1/capability-patterns` and 143-operation OpenAPI/JSON Schema coverage.
+- G12 governed Knowledge Promotion with shared deterministic evidence/replay/duplicate components,
+  separate Heuristic/Task Type/Capability Pattern targets, exact-revision CAS/audit and manual
+  activation.
+- Active-only rebuildable Memory projection, contradiction/rejection/policy/catalog/Skill-version
+  invalidation, migration 0120, four lifecycle APIs and 147-operation OpenAPI/JSON Schema coverage.
 
 ### Changed
 
@@ -93,6 +98,9 @@ All notable changes to this project are documented here. The format follows Keep
 - G11 Candidate Patterns likewise remain outside Understanding and Planner. Observed success cannot
   assert Skill or Provider Readiness, and unmapped Gap proposals are manual-only with
   `publishAllowed=false`.
+- Only G12 Active knowledge can be projected for retrieval. PostgreSQL remains authoritative and
+  Memory reconciliation rebuilds missing projections and invalidates stale ones; Promotion cannot
+  publish a Skill or bypass current Readiness/compatibility and confirmation.
 
 ### Verification
 
@@ -138,6 +146,11 @@ All notable changes to this project are documented here. The format follows Keep
   operations, 385-source architecture, A2A MUST 74/74, production build and the twelve additive
   migrations through 0119. Test-first, sandbox/port, command-name, lint/type and restart-idempotency
   failures remain recorded in `reports/goal/g11-completion.md`; implementation is `16441f3`.
+- G12 passes 568 unit, 155 contract, 82 real PostgreSQL/Redis integration, 62 real E2E, 147 OpenAPI
+  operations, 397-source architecture, A2A MUST 74/74, production build, Server smoke and the
+  thirteen additive migrations through 0120. Test-first, sandbox/port, migration-ledger, command,
+  fixture-ID, HTTP-conflict and exact-revision review failures remain recorded in
+  `reports/goal/g12-completion.md`; implementation is `59f20f6`.
 
 ## [1.2.2] - Unreleased
 

@@ -1,13 +1,13 @@
 # Project Status
 
-SDAR v1.2.3 G00–G11 are complete (2026-07-26); G12 Knowledge Promotion is next. G11 adds grounded
-Candidate Capability Pattern induction with separate Declared/Observed/Validated evidence, exact
-current Skill Version mappings that always require fresh Readiness/compatibility checks, and explicit
-non-executable Capability Gap Candidates. Catalog/policy changes CAS-transition affected Active
-Patterns to validating; Candidates remain excluded from Understanding and Planner. Affected gates pass
-560 unit, 154 contract, 81 real integration, 62 real E2E, 143 OpenAPI operations, 385-source
-architecture, A2A MUST 74/74, production build and all 12 migrations through 0119. Implementation
-`16441f3` is ready for evidence publication to Draft PR #9; no merge or tag is authorized.
+SDAR v1.2.3 G00–G12 are complete (2026-07-26); G13 Planning Knowledge Retrieval is next. G12 adds one
+governed Promotion framework with separate Planning Heuristic, Task Type and Capability Pattern
+targets, exact-revision CAS/audit, real evidence aggregation and manual activation. New
+contradictions, rejection-rate increases, policy drift and G11 Catalog/exact-Skill changes return
+Active knowledge to validating. PostgreSQL remains the sole authority; Memory stores only
+rebuildable Active summaries and exact references, and Promotion has no Skill publication path.
+Affected gates pass 568 unit, 155 contract, 82 real integration, 62 real E2E, 147 OpenAPI operations,
+397-source architecture, A2A MUST 74/74, production build, Server smoke and all 13 migrations through 0120. Implementation `59f20f6` is pushed to Draft PR #9; no merge or tag is authorized.
 
 SDAR v1.2.3 G00–G10 closure (2026-07-26): G10 adds
 seven-dimensional deterministic Task Type fingerprints/clusters before strictly validated model naming,
