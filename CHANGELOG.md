@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- G17 unified PostgreSQL-authoritative cognitive startup reconciliation, named user-deletion
+  propagation, review-only retention application and executable six-stage rollout policy.
+- v1.2.3 clean release verification, classified security/recovery/capacity evidence and protected-review
+  release report.
 - G16 immutable Planning Replay datasets with request/world/accepted Contract and Plan/corrections/
   Outcome/catalog/knowledge provenance, six cognitive evaluation dimensions and complete planning
   quality/cost metrics.

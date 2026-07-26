@@ -302,3 +302,18 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - `NoPhysicalProvider` rejects every nonzero Provider/MCP/device receipt. G16 performs no live device
   interoperability or production Shadow efficacy run; G17 owns the frozen rollout and release
   environment evidence.
+
+## v1.2.3 G17 release evidence boundary (2026-07-26)
+
+- Capacity figures are local release measurements, not a production soak claim. Twenty concurrent
+  waiters and PostgreSQL P95 evidence exceed the specified single-instance 1–10 active-task target,
+  but production sizing still requires deployment-specific observation.
+- Model/MCP E2E uses deterministic local services through the real product path. External physical
+  Provider execution is deliberately excluded from Replay and is not claimed.
+- The v1.2.2 disposable real database-restart audit remains the service-restart evidence for unchanged
+  execution authorities. v1.2.3 adds startup reconstruction tests and real persistence integration;
+  it does not restart the operator-managed PostgreSQL service.
+- Deletion propagation invalidates user-scoped search/Memory projections. Immutable audit/source facts
+  follow the configured legal retention boundary and are not silently physically erased.
+- G17 does not add external authentication or tenant authorization. Trusted-intranet warnings remain
+  release requirements.

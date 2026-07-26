@@ -98,3 +98,20 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       is authorized.
 - [x] Evidence commit `3ba0d59` is pushed and Draft PR #7 is open, Draft and `MERGEABLE/CLEAN`; no
       configured checks, merge or tag exist.
+
+## v1.2.3 Cognitive Planning Runtime addendum
+
+- [x] G00–G17 and AC-G00-01 through AC-G17-09 have implementation, tests, traceability and reports.
+- [x] The online Understand→Clarify→Goal/Plan confirm→v1.2.2 loop and offline
+      Fact→Episode→Observation→Candidate→Replay/Promotion→Reuse loop are composed without a second
+      runtime or authority.
+- [x] Clean `pnpm verify` on `7e50541` passes 765 Unit+Contract, 84 real Integration, 62 real E2E,
+      Replay, 17 migrations, production builds and both smoke stages with `dirty=false`.
+- [x] Recovery, scope/deletion, prompt/Card privacy, capacity/backpressure, retention and the frozen
+      rollout policy have classified evidence.
+- [x] A2A MUST 74/74, OpenAPI 152/152, 425-source architecture, 27 source pins, license/NOTICE and SBOM
+      gates pass.
+- [x] The release report explicitly states Experience is advisory, no Python sidecar exists and the
+      cognitive runtime never automatically publishes a Skill.
+- [ ] PR #9 publication and Ready-for-protected-review transition are pending; no merge or tag is
+      performed.

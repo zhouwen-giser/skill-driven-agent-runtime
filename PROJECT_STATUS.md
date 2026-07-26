@@ -1,5 +1,13 @@
 # Project Status
 
+SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
+Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,
+425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified
+PostgreSQL-authoritative cognitive reconstruction, deletion propagation, review-only retention and the
+frozen six-stage rollout policy. Recovery/security/privacy/capacity evidence is classified in
+`reports/v1.2.3-release/`. Draft PR #9 is eligible for Ready for Review after publication; no merge or
+tag is authorized.
+
 SDAR v1.2.3 G00–G16 are complete (2026-07-26); G17 release hardening is next. G16 adds immutable,
 evidence-linked Planning Replay datasets, disjoint development/holdout partitions, all five Shadow
 verdicts, hard-failure non-regression, a zero-Provider/MCP/device side-effect guard and idempotent

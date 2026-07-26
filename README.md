@@ -1,8 +1,12 @@
-# Skill-Driven Agent Runtime V1.2
+# Skill-Driven Agent Runtime V1.2.3
 
 A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
 
-V1.2 adds immutable exact-version Skill Usage packages, three safe execution modes, bounded recursive composition, V1.1 Provider readiness/continuation reuse and queryable Skill execution evidence through the existing runtime.
+V1.2.3 adds a governed cognitive planning plane around the unchanged v1.2.2 Goal/Skill execution,
+Outcome, Recovery and Business Events authorities. Experience is advisory; Candidate knowledge cannot
+enter formal planning before Replay/Shadow and manual Promotion. The default rollout ends at shadow
+injection. There is no Python sidecar, second Workflow runtime or cognitive automatic Skill
+publication. See [v1.2.3 release notes](docs/releases/v1.2.3.md).
 
 ## Safety baseline
 

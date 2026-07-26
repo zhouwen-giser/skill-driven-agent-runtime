@@ -234,6 +234,26 @@ existing Promotion service consumes replay/shadow summaries, but fewer than thre
 `reports/v1.2.3-replay/promotion-report.json` is a reproducible deterministic fixture, explicitly not
 production Shadow-efficacy evidence.
 
+## G17 release hardening and rollout
+
+`CognitiveRuntimeReconciler` is the single startup composition over the existing terminal Outbox,
+Experience/Observation/Reflection job repositories and Active Knowledge projector. Redis contains
+reconstructable wakes only; PostgreSQL remains authority. Reconstruction does not retry running formal
+tasks or physical side effects.
+
+`DeletionPropagationService` applies a named, auditable user-scope deletion request to registered
+projections while retaining source facts under the configured legal/audit boundary. The current
+product target invalidates user planning-preference Memory projections. `RetentionService` applies
+review callbacks only: V1 Domain and database rules continue to forbid automatic archive/delete.
+
+`FeatureRolloutPolicy` evaluates the ordered
+Capture → Observe → Candidate → Shadow → Advisory → Active Low-risk gates from the frozen feature
+flags. The default ends at Shadow. Active use additionally requires low risk and explicit human
+approval; Promotion remains manual.
+
+The clean release gate and evidence classification are published under `reports/v1.2.3-release/`.
+The full gate changes no v1.2.2 execution, Outcome, Recovery, Business Events or No Replay authority.
+
 ## Open-source boundary
 
 Six sources are exact-commit design references in `third_party/sources.lock.yaml` and the G00 intake
