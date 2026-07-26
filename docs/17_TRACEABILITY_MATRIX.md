@@ -333,3 +333,181 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 | AC-G06-04 immutable final Outcome revision  | verified | deterministic Episode builder/hash; append-only revision and outcome/counterexample refs                      | focused unit plus real PostgreSQL prior/new revision assertions                                   |
 | AC-G06-05 low-risk user projection only     | verified | accepted explicit preference allowlist; safety/degradation denial; existing Memory projection                 | projector unit and real A2A scoped preference lifecycle                                           |
 | AC-G06-06 deletion and tenant isolation     | verified | exact-user Memory search; projection invalidation; exact-tenant correction query                              | user A/user B and tenant A/tenant B integration plus DELETE E2E; `reports/goal/g06-completion.md` |
+
+## SDAR v1.2.3 G07 Addendum
+
+| Acceptance                                   | Status   | Implementation                                                                              | Tests / evidence                                               |
+| -------------------------------------------- | -------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| AC-G07-01 terminal Fact/outbox atomicity     | verified | terminal repository writes `user_goal.terminal_committed` in the v1.2.2 Outcome transaction | real PostgreSQL atomic-count integration passes                |
+| AC-G07-02 asynchronous terminal path         | verified | dispatcher/worker run after terminal commit; A2A does not call Experience synchronously     | real A2A terminal-then-Episode slice passes                    |
+| AC-G07-03 duplicate/restart idempotency      | verified | outbox/job keys, Episode hash/terminal uniqueness and persisted-Episode replay safety       | unit plus real PostgreSQL duplicate/crash-boundary integration |
+| AC-G07-04 no default Experience              | verified | exact Eligibility requires Contract/current Plan/Judgment/terminal authority                | exact missing-fact/no-Episode/dead-letter integration passes   |
+| AC-G07-05 PostgreSQL job authority           | verified | PG lease/attempt/backoff/reconciler; Redis `{jobId}` wake only                              | reconciler and expired-lease real integration pass             |
+| AC-G07-06 credential/reasoning/PII exclusion | verified | recursive key and inline string redaction with immutable snapshot                           | focused redaction regression passes                            |
+| AC-G07-07 dead-letter replay                 | verified | inspect and actor-attributed one-shot replay API                                            | 52 focused contracts and real replay integration pass          |
+
+G07 is pushed as `301606e479e72436ac79f80d496ee40dcae9a338`; real closure evidence and retained
+failed attempts are in `reports/goal/g07-completion.md`.
+
+## SDAR v1.2.3 G08 Addendum
+
+| Acceptance                             | Status           | Implementation                                                                                   | Tests / evidence                                        |
+| -------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| AC-G08-01 source-linked Observation    | verified         | Observer consumes immutable Goal Episodes; PG save verifies all sources and model invocation FKs | focused unit plus real PostgreSQL/A2A round-trip        |
+| AC-G08-02 typed independent extractors | verified at unit | twelve `ExperienceExtractor<T>` instances each own literal Zod/JSON Schema and failure state     | schema golden plus invalid-dependency isolation passes  |
+| AC-G08-03 distinct statement classes   | verified         | Domain/JSON schema distinguish fact/inference/candidate_lesson/uncertainty/contradiction         | all five classes asserted across 12 results             |
+| AC-G08-04 evidence no-op               | verified         | required-partition check returns `no_op` before model invocation                                 | missing recovery and correction regressions pass        |
+| AC-G08-05 untrusted text inert         | verified         | explicit inert envelope plus input/output directive, role, credential and PII sanitation         | transcript/model-output injection regression passes     |
+| AC-G08-06 failure cannot affect Goal   | verified         | async Observer retries/dead-letters after terminal commit; no Goal/Episode mutation dependency   | total failure unit and terminal-to-Observation E2E pass |
+| AC-G08-07 bounded execution            | verified         | max 8 Episodes, 512 KiB, approximate 128 Ki tokens and 3 prior Observations                      | batch/600 KiB rejection before model calls passes       |
+
+## SDAR v1.2.3 G09 Addendum
+
+| Acceptance                                  | Status   | Implementation                                                                                  | Test / evidence                                                              |
+| ------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| AC-G09-01 source-linked Reflection          | verified | `ExperienceReflectorService`; immutable Reflection/Delta factories; PG transaction              | focused Reflector unit plus real PG/A2A slice                                |
+| AC-G09-02 reusable identity boundary        | verified | de-instantiated canonical fingerprint, lexical/semantic identity, deliverable/intent boundaries | device/location/date match and different-deliverable/intent regressions pass |
+| AC-G09-03 conservative confidence           | verified | exact fingerprint short-circuit and semantic thresholds                                         | exact avoids embed; low confidence creates separate Candidate                |
+| AC-G09-04 legal Curator operations          | verified | strict six-operation Zod output plus deterministic validator                                    | malformed/illegal/unknown-relation results no-op                             |
+| AC-G09-05 positive and negative lineage     | verified | polarity evidence cites Observation statement, Episode and Outcome                              | Domain/Reflector regressions preserve both polarities                        |
+| AC-G09-06 duplicate and lineage persistence | verified | Candidate fingerprint search plus generic Delta and merge/supersede lineage tables              | real PG round-trip passes                                                    |
+| AC-G09-07 fail-open/idempotent processing   | verified | PG job claim/idempotency, retry/dead-letter and rebuildable BullMQ wake                         | invalid output no-op; real operational path preserves sources                |
+
+G08/G09 closure passes 549 unit, 152 contract, 79 real integration, 62 real E2E, 141-operation
+OpenAPI, 372-source architecture, A2A MUST 74/74, production build and migrations through 0117.
+Commits `2d600fc` and `c8754fd` are pushed; exact evidence and failed attempts are retained in
+`reports/goal/g08-completion.md` and `reports/goal/g09-completion.md`.
+
+## SDAR v1.2.3 G10 Addendum
+
+| Acceptance                              | Status   | Implementation                                                                                                                     | Tests / evidence                                                                        |
+| --------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| AC-G10-01 seven-dimensional fingerprint | verified | Domain induction example plus `TaskTypeFingerprintBuilder` canonical objective/Criteria/Artifact/Capability/DAG/Correction/Outcome | order/case/alias equivalence and different-Criteria separation unit                     |
+| AC-G10-02 cluster before model          | verified | sorted exact-fingerprint `TaskTypeClusterer`; singleton short-circuit                                                              | zero singleton model calls; one model call for a three-Episode cluster                  |
+| AC-G10-03 complete abstraction          | verified | strict Zod, Domain, cognitive JSON and OpenAPI Task Type schemas                                                                   | Recognition/Negative Examples/dimensions/Criteria/Capability/Goal/Dependency assertions |
+| AC-G10-04 no one-Episode Active         | verified | singleton skipped; factory permits Candidate only; repository stores Candidate only                                                | focused unit and real PostgreSQL zero-Active count                                      |
+| AC-G10-05 no pre-promotion influence    | verified | G10 service/API are separate from unchanged G03 `StaticTaskTypeIndexSource`                                                        | architecture review plus real E2E 62/62                                                 |
+| AC-G10-06 user applicability override   | verified | `TaskTypeApplicabilityGuard`                                                                                                       | combined Negative Example/constraint/dimension/capability rejection unit                |
+
+G10 affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI
+operations, 378-source architecture and migrations through 0118. Exact evidence and retained failures
+are in `reports/goal/g10-completion.md`.
+
+## SDAR v1.2.3 G11 Addendum
+
+| Acceptance                               | Status   | Implementation                                                                                                                                               | Tests / evidence                                                                                                           |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| AC-G11-01 separate evidence levels       | verified | Domain `evidenceByLevel`; `CapabilitySkillMapper` derives Declared only from exact current Skill declarations; Experience examples supply Observed/Validated | focused unit preserves all three arrays and byte-identical Skill input; real PostgreSQL stores 5 distinct evidence records |
+| AC-G11-02 complete Pattern shape         | verified | Domain/Zod/JSON/OpenAPI capture applicability, effects, evidence, artifacts, prerequisites, dependencies, failures and limitations                           | focused unit, cognitive schema 1/1 and Management contract                                                                 |
+| AC-G11-03 exact mapping or Gap           | verified | deterministic Catalog Hash plus exact current `skillId:version` mapping; `CapabilityGapService` for empty mapping                                            | unit maps `skill.inspect:2`; integration maps v1 and creates one unmapped Gap                                              |
+| AC-G11-04 no readiness bypass            | verified | mapping literal requires current Readiness and compatibility; no Provider/readiness fields or ports                                                          | unit authority regression, architecture audit and 62/62 E2E                                                                |
+| AC-G11-05 catalog/policy invalidation    | verified | Server startup/catalog projector calls `CapabilityPatternInvalidator`; PG version-CAS transition/audit/Outbox                                                | real Skill v1→v2 integration produces `active→validating`, transition and `knowledge.validating`                           |
+| AC-G11-06 no automatic Skill publication | verified | Gap is non-executable; proposal is manual and `publishAllowed=false`; no Skill mutation dependency                                                           | unit restart idempotency and real PostgreSQL Skill-version count before invalidation                                       |
+
+G11 affected gates pass 560 unit, 154 contract, 81 real integration, 62 real E2E, 143 OpenAPI
+operations, 385-source architecture, A2A MUST 74/74, production build and migrations through 0119.
+Exact evidence and retained failures are in `reports/goal/g11-completion.md`.
+
+## SDAR v1.2.3 G12 Addendum
+
+| Acceptance                                   | Status   | Implementation                                                                                                                         | Tests / evidence                                                                                               |
+| -------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| AC-G12-01 common framework/separate targets  | verified | `KnowledgePromotionService`, shared evaluator/replay/duplicate components and three kind-specific Target classes                       | focused unit proves one framework with distinct target validation                                              |
+| AC-G12-02 CAS lifecycle/audit                | verified | exact-revision PostgreSQL advisory locks, version CAS, one terminal evaluation, transition audit and Outbox                            | real integration observes candidate→validating→active and Active→validating                                    |
+| AC-G12-03 complete evidence                  | verified | `PromotionEvidenceSummary` plus PostgreSQL Goal/user/outcome/accept/reject/support/contradiction aggregation and replay/shadow reports | Domain/focused unit and real three-Goal persistence test                                                       |
+| AC-G12-04 high-risk gates                    | verified | deterministic replay, shadow, human and explicit policy gates; all initial activation remains manual                                   | focused high-risk failure assertions                                                                           |
+| AC-G12-05 contradiction/version invalidation | verified | post-Reflection/startup invalidation scan plus G11 Catalog/Skill invalidator and policy-version comparison                             | real newer-revision contradiction transitions the exact prior Active revision; policy drift query is asserted  |
+| AC-G12-06 Active-only rebuildable Memory     | verified | `ActiveKnowledgeProjector`, projection inventory/reconcile and exact authoritative reference                                           | unit rejects Candidate projection; integration deletes/rebuilds Active Memory and prunes it after invalidation |
+| AC-G12-07 no Skill publication               | verified | Promotion ports contain no Skill publication or registry mutation dependency                                                           | real promotion leaves Skill versions at zero; architecture audit                                               |
+
+G12 affected gates pass 568 unit, 155 contract, 82 real integration, 62 real E2E, 147 OpenAPI
+operations, 397-source architecture, A2A MUST 74/74, production build, Server smoke and migration
+0120 as the thirteenth additive v1.2.3 migration. Exact evidence and retained failures are in
+`reports/goal/g12-completion.md`.
+
+## SDAR v1.2.3 G13 Addendum
+
+| Acceptance                          | Status   | Implementation                                                                        | Tests / evidence                                          |
+| ----------------------------------- | -------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| AC-G13-01 structured Active filters | verified | exact passed-Promotion join plus scope, applicability, Catalog and policy filters     | real PostgreSQL excludes Candidate and cross-user rows    |
+| AC-G13-02 Vector/Text RRF           | verified | parallel Memory-vector and PostgreSQL-FTS recall with deterministic RRF               | focused ranking unit and dual-channel persisted influence |
+| AC-G13-03 bounded relations         | verified | one-hop/16-edge expander plus transactional Candidate relation projection             | all five relation types in unit; real relation row        |
+| AC-G13-04 Session dedupe            | verified | advisory lock, exact revision unique index and returned reservation set               | unit and real second-retrieval empty bundle               |
+| AC-G13-05 progressive disclosure    | verified | reduced index, kind-limited definitions and complete current exact Skill declarations | no-definition index and oversized-Skill fail-closed tests |
+| AC-G13-06 isolation/20K budget      | verified | generic Memory exclusion, authority recheck and exact factory character count         | cross-user/Candidate integration and budget unit          |
+| AC-G13-07 P95                       | verified | monotonic elapsed measurement over real hybrid retrieval                              | 20 samples, P95 4.476 ms ≤ 500 ms                         |
+
+G13 affected gates pass 575 unit, 155 contract, 83 real integration, 62 real E2E, 147 unchanged
+OpenAPI operations, 408-source architecture, production build, Server smoke and migration 0121 as the
+fourteenth additive v1.2.3 migration. Exact evidence and retained failures are in
+`reports/goal/g13-completion.md`.
+
+## SDAR v1.2.3 G14 Addendum
+
+| Acceptance                              | Status   | Implementation                                                                                                              | Tests / evidence                                                                                     |
+| --------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| AC-G14-01 base-planner decorator        | verified | `ExperienceEnrichedUserGoalPlanningService` wraps only candidate generation; G05 confirmed handoff remains formal authority | off-mode unit calls only base; full E2E remains green                                                |
+| AC-G14-02 four rollout modes            | verified | off, shadow, advisory and frozen `active_low_risk` have separate selection/confirmation behavior                            | focused unit proves shadow base retention, advisory manual review and low-risk-only active selection |
+| AC-G14-03 fail-open policy              | verified | stable repository/timeout/conflict/low-confidence fallback reasons                                                          | table-driven unit proves exactly one no-context base call                                            |
+| AC-G14-04 bounded invalid-plan fallback | verified | enriched output uses the same strict base planner and full validator before one base replan                                 | invalid enriched and invalid shadow regressions retain base authority                                |
+| AC-G14-05 immutable authorities         | verified | advisory context repeats immutable Contract/safety/readiness/terminal boundaries and cannot commit                          | real base-planner unit plus architecture and unchanged 62 E2E                                        |
+| AC-G14-06 complete usage lineage        | verified | Session/Candidate/usage/Outbox, action/validation and final Outcome are transactionally linked                              | real PostgreSQL save/action/bad-binding rollback/restart/terminal tests                              |
+
+G14 affected gates pass 587 unit, 155 contract, 83 real integration, 62 real E2E, 147 unchanged
+OpenAPI operations, 411-source architecture, production build, isolated Server smoke and migration
+0122 as the fifteenth additive v1.2.3 migration. Exact evidence and retained failures are in
+`reports/goal/g14-completion.md`.
+
+## SDAR v1.2.3 G15 Addendum
+
+| Acceptance                                 | Status   | Implementation                                                                                                                                  | Tests / evidence                                                                                        |
+| ------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| AC-G15-01 authenticated/audited writes     | verified | `CognitiveManagementController`, optional bearer guard, strict actor/reason/CAS/idempotency envelope, PostgreSQL action gate and migration 0123 | bearer-before-mutation contract; durable result/retry/conflict integration; private-reasoning rejection |
+| AC-G15-02 complete operational Console     | verified | Task Understanding/Goal Contract/Plan DAG review plus Cognitive Governance and Capability views over real APIs                                  | Console SSR contract, TypeScript/build and 152-operation OpenAPI drift gate                             |
+| AC-G15-03 exact A2A interaction routing    | verified | `InteractiveActionRouter.route` selects current Planning then Goal Session and applies the observed version                                     | focused unit plus real A2A input-required → answer/confirm/patch continuation E2E                       |
+| AC-G15-04 no direct authority mutation     | verified | Console governance calls Candidate lifecycle/replay only; confirmed handoff remains the existing service                                        | static route assertions, architecture audit and unchanged terminal-authority E2E                        |
+| AC-G15-05 OpenAPI/frontend synchronization | verified | exact-ID Summary/Card/Episode, Heuristic and audit APIs plus strict write schemas                                                               | management contracts, OpenAPI 152/152 and Console build                                                 |
+| AC-G15-06 public/internal isolation        | verified | routing-only A2A metadata and existing allowlisted Public Card; internal evidence stays management-only                                         | projection unit denies Candidate/Understanding data; Public Card privacy unit/E2E                       |
+
+G15 affected gates pass 597 unit, 157 contract, 84 real integration and 62 real E2E tests. The
+16-migration v1.2.3 chain through 0123 passes idempotency, rollback/reapply, reset guard and rogue-ledger
+rejection. Exact commands, retained sandbox-only failed attempts and handoff are in
+`reports/goal/g15-completion.md`.
+
+## SDAR v1.2.3 G16 Addendum
+
+| Acceptance                           | Status   | Implementation                                                                                                                                                          | Tests / evidence                                                                        |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| AC-G16-01 complete Replay provenance | verified | immutable Domain Replay case/dataset factories and evidence-linked PostgreSQL Episode source preserve request/world/Contract/Plan/corrections/Outcome/catalog/knowledge | focused dataset unit, real repository integration and generated report artifact         |
+| AC-G16-02 separated data             | verified | deterministic ordered one-third `promotion_test` holdout, remaining `mutate_dev`, factory-enforced disjoint IDs                                                         | 6-case 4/2 unit, 3-case 2/1 artifact and byte-stable verifier                           |
+| AC-G16-03 non-regressing comparison  | verified | `ShadowPlanningService.compare` evaluates Baseline/Champion/Candidate and Promotion gates hard failures                                                                 | all five verdict unit plus explicit hard-failure rejection                              |
+| AC-G16-04 formal Task isolation      | verified | Replay accepts immutable snapshots and has no Task/Planner commit port                                                                                                  | unchanged formal-task unit and 62/62 real E2E                                           |
+| AC-G16-05 no physical side effect    | verified | `NoPhysicalProvider.assertNoSideEffects` requires none/0/0/0 receipt                                                                                                    | forbidden MCP-call unit and report verifier                                             |
+| AC-G16-06 reproducible report        | verified | deterministic Dataset/Comparison/Report hashes and one PostgreSQL row per exact Candidate revision                                                                      | concurrent idempotency unit, real persistence integration and `verify:cognitive-replay` |
+| AC-G16-07 incubation                 | verified | fewer than three complete cases gives `incubating`; Promotion cannot activate it                                                                                        | empty/two-case unit and service-level Candidate-state regression                        |
+
+G16 affected gates pass 604 unit, 157 contract, 84 real integration and 62 real E2E tests. The
+17-migration v1.2.3 chain through 0124 passes fresh/idempotent/rollback/reapply/reset/rogue-ledger
+verification; architecture covers 423 TypeScript sources and OpenAPI remains unchanged at 152
+operations. Exact commands, classifications and retained failures are in
+`reports/goal/g16-completion.md`.
+
+## SDAR v1.2.3 G17 and Master Addendum
+
+| Acceptance       | Status              | Implementation / evidence                                                                   |
+| ---------------- | ------------------- | ------------------------------------------------------------------------------------------- |
+| AC-G17-01        | verified            | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
+| AC-G17-02        | verified            | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
+| AC-G17-03        | verified            | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
+| AC-G17-04        | verified            | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
+| AC-G17-05        | verified            | executable `FeatureRolloutPolicy` and frozen default flags                                  |
+| AC-G17-06        | verified            | sources/license/NOTICE/SBOM full gate                                                       |
+| AC-G17-07        | verified            | A2A MUST 74/74 and OpenAPI 152/152                                                          |
+| AC-G17-08        | verified            | explicit advisory/authority/Python/Skill-publication declarations                           |
+| AC-G17-09        | pending publication | clean verification is complete; evidence push and Ready-only transition remain              |
+| AC-MASTER-01..04 | verified            | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
+| AC-MASTER-05     | pending publication | evidence/Ready confirmation remains; no merge/tag                                           |
+
+Exact real/simulated/unverified classification is in
+`reports/v1.2.3-release/release-report.{md,json}` and exact commands/failures are in
+`reports/goal/g17-completion.md`.

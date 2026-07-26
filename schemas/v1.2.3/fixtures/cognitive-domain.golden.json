@@ -231,10 +231,17 @@
     "episodeId": "episode.v123",
     "goalId": "goal.v123",
     "goalVersion": 1,
+    "taskId": "task.v123",
+    "contextId": "context.v123",
+    "episodeType": "terminal",
     "revision": 1,
+    "terminalOutcomeRef": "runtime-terminal-outcome:outcome.v123",
+    "sourceHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "episodeHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "completeness": 1,
+    "status": "complete",
     "dataClassification": "internal",
+    "snapshot": { "terminalOutcome": { "outcomeId": "outcome.v123" } },
     "sourceRefs": [
       {
         "schemaVersion": "1.0",
@@ -249,6 +256,295 @@
     ],
     "redactionCodes": ["credentials_excluded"],
     "createdAt": "2026-07-23T00:00:01.000Z"
+  },
+  "experienceObservation": {
+    "schemaVersion": "1.0",
+    "observationId": "observation.v123",
+    "scope": "goal_episode",
+    "sourceEpisodeIds": ["episode.v123"],
+    "revision": 1,
+    "status": "completed",
+    "statements": [
+      {
+        "statementId": "statement.v123",
+        "kind": "fact",
+        "summary": "The verified terminal Outcome reports success.",
+        "confidence": 1,
+        "sourceRefIds": ["source.goal.1"]
+      }
+    ],
+    "extractions": [
+      {
+        "extractionId": "extraction.v123",
+        "observationId": "observation.v123",
+        "extractorKind": "goal_pattern",
+        "status": "completed",
+        "modelTier": "reasoning",
+        "sourceEpisodeIds": ["episode.v123"],
+        "statements": [
+          {
+            "statementId": "statement.v123",
+            "kind": "fact",
+            "summary": "The verified terminal Outcome reports success.",
+            "confidence": 1,
+            "sourceRefIds": ["source.goal.1"]
+          }
+        ],
+        "changeSuggestions": [],
+        "modelInvocationId": "model-invocation.v123",
+        "inputBytes": 1024,
+        "outputBytes": 256,
+        "createdAt": "2026-07-23T00:00:02.000Z"
+      }
+    ],
+    "modelInvocationRefs": ["model-invocation.v123"],
+    "observationHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "summary": { "extractorCount": 12, "completed": 1, "noOp": 11, "failed": 0 },
+    "createdAt": "2026-07-23T00:00:02.000Z"
+  },
+  "experienceReflection": {
+    "schemaVersion": "1.0",
+    "reflectionId": "reflection.v123",
+    "seedObservationId": "observation.v123",
+    "observationIds": ["observation.v123"],
+    "revision": 1,
+    "status": "completed",
+    "group": {
+      "goalPatternFingerprint": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "capabilityFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+      "timeWindow": "2026-07-23/P7D"
+    },
+    "impacts": [
+      {
+        "impactId": "impact.v123",
+        "disposition": "helpful",
+        "observationId": "observation.v123",
+        "statementId": "statement.v123",
+        "sourceEpisodeIds": ["episode.v123"],
+        "sourceRefIds": ["source.goal.1"],
+        "outcomeRefs": ["runtime-terminal-outcome:outcome.v123"],
+        "summary": "The cited evidence supported the verified terminal Outcome."
+      }
+    ],
+    "deltas": [
+      {
+        "schemaVersion": "1.0",
+        "deltaId": "delta.v123",
+        "reflectionId": "reflection.v123",
+        "operation": "CREATE_REVISION",
+        "knowledgeKind": "planning_heuristic",
+        "fingerprint": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "identity": {
+          "jobToBeDone": "Inspect equipment and verify pressure evidence",
+          "objectiveTerms": ["inspect", "pressure"],
+          "criterionTerms": ["verified"],
+          "artifactTerms": ["report"],
+          "capabilityTerms": ["sensor.read"],
+          "tags": ["inspection"],
+          "deliverable": "pressure evidence report",
+          "instanceTerms": ["pump-17", "Shanghai", "2026-07-23"],
+          "recentIntentBoundary": "intent.v123"
+        },
+        "relatedKnowledgeIds": [],
+        "candidate": {
+          "schemaVersion": "1.0",
+          "knowledgeId": "knowledge.reflection.v123",
+          "kind": "planning_heuristic",
+          "revision": 1,
+          "status": "candidate",
+          "scope": "global_candidate",
+          "title": "Verify pressure evidence",
+          "summary": "Collect cited pressure evidence before declaring completion.",
+          "risk": "low",
+          "supportSourceRefs": [
+            {
+              "schemaVersion": "1.0",
+              "sourceRefId": "source.goal.1",
+              "sourceKind": "goal_contract",
+              "sourceId": "goal.v123",
+              "sourceRevision": 1,
+              "authority": "runtime_fact",
+              "dataClassification": "internal",
+              "capturedAt": "2026-07-23T00:00:00.000Z"
+            }
+          ],
+          "contradictionSourceRefs": [],
+          "createdAt": "2026-07-23T00:00:03.000Z"
+        },
+        "supportEvidence": [
+          {
+            "evidenceId": "evidence.support.v123",
+            "polarity": "support",
+            "observationId": "observation.v123",
+            "statementIds": ["statement.v123"],
+            "sourceEpisodeIds": ["episode.v123"],
+            "sourceRefIds": ["source.goal.1"],
+            "outcomeRefs": ["runtime-terminal-outcome:outcome.v123"],
+            "summary": "The verified terminal Outcome reports success.",
+            "createdAt": "2026-07-23T00:00:03.000Z"
+          }
+        ],
+        "contradictionEvidence": [],
+        "confidence": 0.9,
+        "reason": "Create a candidate revision for review.",
+        "modelInvocationId": "model-invocation.reflection.v123",
+        "createdAt": "2026-07-23T00:00:03.000Z"
+      }
+    ],
+    "modelInvocationRefs": ["model-invocation.reflection.v123"],
+    "reflectionHash": "sha256:dededededededededededededededededededededededededededededededede",
+    "createdAt": "2026-07-23T00:00:03.000Z"
+  },
+  "taskTypeDefinition": {
+    "schemaVersion": "1.0",
+    "taskTypeId": "task-type.inspection.v123",
+    "revision": 1,
+    "status": "candidate",
+    "origin": "induced",
+    "inductionMode": "offline_batch",
+    "fingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "title": "Inspect a pump",
+    "summary": "Inspect a pump and return cited pressure evidence.",
+    "recognition": {
+      "hints": ["inspect pump", "pressure evidence"],
+      "positiveExamples": ["Inspect pump P-17 and return a pressure report."],
+      "negativeExamples": ["Repairing a failed pump is a different job."]
+    },
+    "requiredDimensions": ["target", "criteria"],
+    "optionalDimensions": ["time_range"],
+    "criteriaTemplate": ["Pressure is stable.", "Evidence is attached."],
+    "capabilityRequirements": ["device.inspect", "evidence.capture"],
+    "goalPattern": "Inspect [instance] and verify evidence.",
+    "dependencyPattern": ["inspect->verify"],
+    "incompatibleConstraints": [],
+    "exemplars": [
+      {
+        "episodeId": "episode.task-type.1",
+        "goalId": "goal.task-type.1",
+        "goalVersion": 1,
+        "summary": "Inspected a pump and verified pressure evidence."
+      },
+      {
+        "episodeId": "episode.task-type.2",
+        "goalId": "goal.task-type.2",
+        "goalVersion": 1,
+        "summary": "Checked a pump and attached pressure evidence."
+      }
+    ],
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.task-type.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.task-type.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "modelInvocationId": "model-invocation.task-type.v123",
+    "createdAt": "2026-07-26T05:00:00.000Z"
+  },
+  "capabilityPattern": {
+    "schemaVersion": "1.0",
+    "patternId": "capability-pattern.inspection.v123",
+    "revision": 1,
+    "version": 1,
+    "status": "candidate",
+    "fingerprint": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    "catalogHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "policyVersion": "capability-pattern-policy-v1",
+    "capabilityId": "inspection.device",
+    "title": "Inspect devices with evidence",
+    "summary": "Inspect a known device and return structured evidence.",
+    "applicableConditions": ["device identity is known"],
+    "effects": ["device state is inspected"],
+    "evidenceRequirements": ["structured observation is captured"],
+    "artifacts": ["inspection report"],
+    "prerequisites": ["device is reachable"],
+    "dependencies": ["evidence.capture"],
+    "failures": ["device is unavailable"],
+    "limitations": ["current provider readiness is not asserted"],
+    "evidenceByLevel": {
+      "declared": [],
+      "observed": [
+        {
+          "level": "observed",
+          "summary": "An inspection attempt produced evidence.",
+          "sourceRefIds": ["source.capability.episode.1"],
+          "episodeId": "episode.capability.1"
+        }
+      ],
+      "validated": [
+        {
+          "level": "validated",
+          "summary": "The inspection evidence passed validation.",
+          "sourceRefIds": ["source.capability.episode.2"],
+          "episodeId": "episode.capability.2"
+        }
+      ]
+    },
+    "exactSkillVersionMappings": [],
+    "requiresCurrentReadiness": true,
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      },
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.2",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.2",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "modelInvocationId": "model-invocation.capability-pattern.v123",
+    "createdAt": "2026-07-26T05:00:00.000Z"
+  },
+  "capabilityGap": {
+    "schemaVersion": "1.0",
+    "gapId": "capability-gap.inspection.v123",
+    "status": "candidate",
+    "fingerprint": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+    "patternId": "capability-pattern.inspection.v123",
+    "patternRevision": 1,
+    "capabilityId": "inspection.device",
+    "catalogHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "exactSkillVersionRefs": [],
+    "executable": false,
+    "authoringProposal": {
+      "proposalId": "skill-proposal.inspection.v123",
+      "status": "proposed",
+      "reviewMode": "manual",
+      "publishAllowed": false,
+      "capabilityId": "inspection.device",
+      "title": "Author an inspection Skill",
+      "summary": "Manual review is required; this proposal cannot publish a Skill."
+    },
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "createdAt": "2026-07-26T05:00:00.000Z"
   },
   "knowledgeCandidate": {
     "schemaVersion": "1.0",
@@ -276,5 +572,155 @@
     "actorId": "operator.v123",
     "humanApproved": false,
     "occurredAt": "2026-07-23T00:00:03.000Z"
+  },
+  "knowledgePromotionEvaluation": {
+    "schemaVersion": "1.0",
+    "evaluationId": "evaluation.promotion.v123",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "policyVersion": "knowledge-promotion-v1",
+    "status": "passed",
+    "evidence": {
+      "uniqueGoalCount": 3,
+      "uniqueUserCount": 2,
+      "successfulOutcomeCount": 2,
+      "failedOutcomeCount": 0,
+      "userAcceptedPlanningCount": 2,
+      "userRejectedPlanningCount": 0,
+      "replayPassedCount": 3,
+      "replayFailedCount": 0,
+      "shadowImprovedCount": 0,
+      "shadowRegressedCount": 0,
+      "supportingRefs": ["episode.promotion.1", "episode.promotion.2", "episode.promotion.3"],
+      "contradictingRefs": []
+    },
+    "gates": [
+      { "code": "unique_goals", "passed": true, "actual": 3, "required": 3 },
+      { "code": "human_approval", "passed": true, "actual": true, "required": true }
+    ],
+    "replayReportRef": "promotion-replay:planning_heuristic:knowledge.v123:1",
+    "humanApproved": true,
+    "policyAllowed": true,
+    "decidedBy": "operator.v123",
+    "decisionSummary": "All deterministic Promotion gates passed.",
+    "createdAt": "2026-07-26T06:00:00.000Z",
+    "decidedAt": "2026-07-26T06:00:00.000Z"
+  },
+  "activeKnowledgeProjection": {
+    "schemaVersion": "1.0",
+    "projectionId": "knowledge-projection-planning_heuristic-knowledge.v123-1",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "risk": "low",
+    "status": "active",
+    "projectedAt": "2026-07-26T06:00:00.000Z"
+  },
+  "activeKnowledgeDefinition": {
+    "schemaVersion": "1.0",
+    "kind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "revision": 1,
+    "version": 3,
+    "status": "active",
+    "scope": "global_candidate",
+    "risk": "low",
+    "title": "Inspect before repair",
+    "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+    "definition": {
+      "title": "Inspect before repair",
+      "summary": "For matching low-risk tasks, gather structured evidence before proposing repair."
+    },
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "exactSkillVersionRefs": [],
+    "promotionPolicyVersion": "knowledge-promotion-v1",
+    "createdAt": "2026-07-26T06:00:00.000Z"
+  },
+  "knowledgeRelation": {
+    "schemaVersion": "1.0",
+    "relationId": "relation.knowledge.v123",
+    "sourceKind": "planning_heuristic",
+    "sourceKnowledgeId": "knowledge.v123",
+    "sourceRevision": 1,
+    "targetKind": "task_type",
+    "targetKnowledgeId": "task-type.inspection.v123",
+    "targetRevision": 1,
+    "relationType": "requires",
+    "evidenceRefs": ["episode.promotion.1"],
+    "createdAt": "2026-07-26T08:30:00.000Z"
+  },
+  "experienceUsageRecord": {
+    "schemaVersion": "1.0",
+    "usageId": "usage.knowledge.v123",
+    "planningSessionId": "planning-session.v123",
+    "planCandidateId": "plan-candidate.v123",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.v123",
+    "knowledgeRevision": 1,
+    "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+    "queryFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "retrievalRank": 1,
+    "injectionMode": "advisory",
+    "affectedSkillGoalIds": ["skill-goal.inspect.v123"],
+    "influence": {
+      "rrfScore": 0.03278688524590164,
+      "sources": ["text", "vector"],
+      "affectedSkillGoalIds": ["skill-goal.inspect.v123"]
+    },
+    "userAction": "accepted",
+    "validatorResult": { "valid": true, "errorCodes": [] },
+    "finalOutcomeRef": "outcome.v123",
+    "createdAt": "2026-07-26T08:30:00.000Z"
+  },
+  "planningKnowledgeBundle": {
+    "schemaVersion": "1.0",
+    "queryFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "index": [
+      {
+        "schemaVersion": "1.0",
+        "kind": "planning_heuristic",
+        "knowledgeId": "knowledge.v123",
+        "revision": 1,
+        "risk": "low",
+        "title": "Inspect before repair",
+        "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+        "authoritativeRef": "planning_heuristic:knowledge.v123:1"
+      }
+    ],
+    "definitions": [
+      {
+        "schemaVersion": "1.0",
+        "kind": "planning_heuristic",
+        "knowledgeId": "knowledge.v123",
+        "revision": 1,
+        "version": 3,
+        "status": "active",
+        "scope": "global_candidate",
+        "risk": "low",
+        "title": "Inspect before repair",
+        "summary": "For matching low-risk tasks, gather structured evidence before proposing repair.",
+        "definition": {
+          "title": "Inspect before repair",
+          "summary": "For matching low-risk tasks, gather structured evidence before proposing repair."
+        },
+        "authoritativeRef": "planning_heuristic:knowledge.v123:1",
+        "exactSkillVersionRefs": [],
+        "promotionPolicyVersion": "knowledge-promotion-v1",
+        "createdAt": "2026-07-26T06:00:00.000Z"
+      }
+    ],
+    "exactSkills": [],
+    "conflicts": [],
+    "disclosureOrder": [
+      "planning_heuristic:knowledge.v123:1",
+      "detail:planning_heuristic:knowledge.v123:1"
+    ],
+    "characterCount": 954,
+    "truncated": false,
+    "elapsedMs": 12
   }
 }

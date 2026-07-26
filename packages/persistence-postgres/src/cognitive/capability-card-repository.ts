@@ -1,7 +1,10 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
-import type { CapabilityCardRepository } from '../../../application/src/cognitive/index.js';
+import {
+  CapabilityCardRevisionConflictError,
+  type CapabilityCardRepository,
+} from '../../../application/src/cognitive/index.js';
 import {
   createPublicCapabilityCardSnapshot,
   type CapabilityCardStatus,
@@ -106,6 +109,10 @@ export class PostgresCapabilityCardRepository implements CapabilityCardRepositor
     );
   }
 
+  async findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined> {
+    return this.#findOne('WHERE snapshot_id=$1', [cardId]);
+  }
+
   async findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -128,6 +135,13 @@ export class PostgresCapabilityCardRepository implements CapabilityCardRepositor
       await client.query('BEGIN');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar:v123:capability-card'))");
       await assertActiveSummaryBinding(client, candidate);
+      const current = await findCardRow(client, "WHERE status='active'");
+      if (
+        expectedActiveRevision !== undefined &&
+        (current?.revision ?? 0) !== expectedActiveRevision
+      ) {
+        throw new CapabilityCardRevisionConflictError();
+      }
       const existing = await findCardRow(
         client,
         'WHERE catalog_hash=$1 AND generation_policy_version=$2',
@@ -138,10 +152,6 @@ export class PostgresCapabilityCardRepository implements CapabilityCardRepositor
         const active = mapCard({ ...existing, status: 'active' });
         await client.query('COMMIT');
         return active;
-      }
-      const current = await findCardRow(client, "WHERE status='active'");
-      if (expectedActiveRevision !== undefined && current?.revision !== expectedActiveRevision) {
-        throw new Error('CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT');
       }
       await client.query(
         `INSERT INTO public_capability_card_snapshot(

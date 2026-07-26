@@ -11,6 +11,8 @@ export class ManagementApiError extends Error {
 export async function managementRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('Accept', 'application/json');
+  const bearerToken = managementBearerToken();
+  if (bearerToken !== undefined) headers.set('Authorization', `Bearer ${bearerToken}`);
   if (init?.body !== undefined) headers.set('Content-Type', 'application/json');
   const response = await fetch(path, {
     ...init,
@@ -19,6 +21,36 @@ export async function managementRequest<T>(path: string, init?: RequestInit): Pr
   const payload: unknown = response.status === 204 ? undefined : await response.json();
   if (!response.ok) throw new ManagementApiError(response.status, payload);
   return payload as T;
+}
+
+export function setManagementBearerToken(token: string): void {
+  const storage = browserSessionStorage();
+  if (storage === undefined) return;
+  const normalized = token.trim();
+  if (normalized === '') storage.removeItem('sdar.managementBearerToken');
+  else storage.setItem('sdar.managementBearerToken', normalized);
+}
+
+function managementBearerToken(): string | undefined {
+  const token = browserSessionStorage()?.getItem('sdar.managementBearerToken')?.trim();
+  return token === undefined || token === '' ? undefined : token;
+}
+
+function browserSessionStorage():
+  | Readonly<{
+      getItem(key: string): string | null;
+      setItem(key: string, value: string): void;
+      removeItem(key: string): void;
+    }>
+  | undefined {
+  const candidate = (globalThis as Readonly<{ sessionStorage?: unknown }>).sessionStorage;
+  return typeof candidate === 'object' && candidate !== null
+    ? (candidate as Readonly<{
+        getItem(key: string): string | null;
+        setItem(key: string, value: string): void;
+        removeItem(key: string): void;
+      }>)
+    : undefined;
 }
 
 export interface HealthPayload {

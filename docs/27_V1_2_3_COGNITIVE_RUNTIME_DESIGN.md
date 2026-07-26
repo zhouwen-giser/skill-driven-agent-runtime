@@ -174,6 +174,86 @@ the currently activated snapshot. It exposes the optional
 `io.sdar/capabilityProfile` extension. The Console and Management API are operational projections over
 the same durable record and hold no independent capability authority.
 
+## G15 Management, Console and A2A integration
+
+`InteractiveActionRouter` is the single Application route used by the A2A continuation path. It checks
+the current Planning Session first, otherwise the current Goal Session, parses only the frozen action
+vocabulary and applies the action against the exact session version it just observed. Existing
+PostgreSQL turn idempotency and the v1.2.2 continuation/terminal authority remain unchanged.
+
+`A2AInteractionProjection.toInputRequired` exposes routing metadata only: Session ID, interaction type,
+question ID when applicable, expected version and allowed actions. Candidate Contract/Plan content,
+Understanding internals, Provider facts and Outcome evidence remain available only through trusted
+management reads and are not copied into public A2A Task metadata.
+
+`CognitiveManagementController` owns the optional authentication check and common durable action gate.
+Every cognitive write carries actor, displayable reason, expected version and idempotency key. The
+default remains the frozen trusted-intranet/no-auth deployment, where actor is only an audit label. An
+operator may configure `SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN` to enable the optional bearer guard;
+the secret is never persisted. ADR-115 records this non-breaking reconciliation.
+
+Migration `0123_v123_cognitive_management_audit` adds an audit-only table, not business authority. A
+claim is persisted before the write. Identical completed retries return the stored result; request-key
+reuse with different fields fails closed; pending/failed claims are never automatically replayed after
+restart. Existing Session, Knowledge, Capability and Experience tables remain authoritative. Private
+reasoning is rejected before an action result enters audit.
+
+The Management API now covers exact Summary/Card IDs, exact Episodes, Planning Heuristic inventory and
+cognitive action audit in addition to current/revision/session/Knowledge lifecycle operations. Console
+Task views provide Understanding, Goal Contract diff and Skill Goal DAG review. Cognitive Governance
+provides Episode/Observation/Reflection/dead-letter inspection, replay, Task Type and Knowledge
+lifecycle controls. Capability views remain public allowlist projections. No Console route can directly
+mutate Provider state, final Outcome or the active execution Plan.
+
+## G16 Evaluation, Replay and Shadow harness
+
+`PlanningReplayDatasetBuilder` resolves only complete Goal Experience Episodes referenced by the exact
+Promotion Candidate evidence. Each immutable case contains the request, recorded world summary,
+accepted Contract and Plan, corrections, Outcome, source hash, current catalog hash and exact
+Knowledge revision. Six dimension scores cover Understanding, Contract, Plan, Injection, Task Type
+Recognition and Capability Gap; aggregate metrics cover missing dimensions, coverage, patches,
+attempts, recovery, risk, tokens, latency and hard failures.
+
+Cases are sorted by Episode ID and split deterministically: the final one-third, with a minimum of one
+when data exists, is `promotion_test`; the rest is `mutate_dev`. Only the holdout is compared.
+`ShadowPlanningService` produces `improved`, `neutral`, `regressed`, `invalid` or `unsafe` for
+Baseline/Champion/Candidate. Any hard-failure increase, coverage loss or risk increase is a regression.
+Dataset, comparisons and complete Promotion provenance use canonical SHA-256 identities.
+
+`NoPhysicalProvider` is mandatory at the composition boundary and accepts only a `none` receipt with
+zero Provider, MCP and device calls. The first-release `ConservativeReplayPlanningEvaluator` returns
+validated neutral results from recorded metrics, so production code makes no unsupported efficacy
+claim. A configured evaluator remains behind the same zero-side-effect and Domain-validation gates.
+Replay has no formal Task, Planner, Skill, Outcome, Recovery or Active Knowledge write port.
+
+`ReplayPromotionEvidenceService` generates or reads one report per exact Knowledge
+kind/ID/revision. Migration `0124_v123_replay_shadow_evidence` stores the complete report as
+audit/evaluation evidence with unique report and dataset hashes; it is not business authority. The
+existing Promotion service consumes replay/shadow summaries, but fewer than three complete cases is
+`incubating` regardless of count-based thresholds and returns the Knowledge status to `candidate`.
+`reports/v1.2.3-replay/promotion-report.json` is a reproducible deterministic fixture, explicitly not
+production Shadow-efficacy evidence.
+
+## G17 release hardening and rollout
+
+`CognitiveRuntimeReconciler` is the single startup composition over the existing terminal Outbox,
+Experience/Observation/Reflection job repositories and Active Knowledge projector. Redis contains
+reconstructable wakes only; PostgreSQL remains authority. Reconstruction does not retry running formal
+tasks or physical side effects.
+
+`DeletionPropagationService` applies a named, auditable user-scope deletion request to registered
+projections while retaining source facts under the configured legal/audit boundary. The current
+product target invalidates user planning-preference Memory projections. `RetentionService` applies
+review callbacks only: V1 Domain and database rules continue to forbid automatic archive/delete.
+
+`FeatureRolloutPolicy` evaluates the ordered
+Capture → Observe → Candidate → Shadow → Advisory → Active Low-risk gates from the frozen feature
+flags. The default ends at Shadow. Active use additionally requires low risk and explicit human
+approval; Promotion remains manual.
+
+The clean release gate and evidence classification are published under `reports/v1.2.3-release/`.
+The full gate changes no v1.2.2 execution, Outcome, Recovery, Business Events or No Replay authority.
+
 ## Open-source boundary
 
 Six sources are exact-commit design references in `third_party/sources.lock.yaml` and the G00 intake

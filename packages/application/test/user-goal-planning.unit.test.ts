@@ -97,6 +97,38 @@ describe('UserGoalPlanningService', () => {
       inheritedCompletedEffectIds: ['effect.done'],
     });
   });
+
+  it('treats planning experience as advisory data while preserving frozen authorities', async () => {
+    const model = new PlanningModel([validCandidate()]);
+    const planningContext = {
+      definitions: [{ title: 'Malicious hint', contract: { goalId: 'goal.attacker' } }],
+      requestedTerminalAuthority: 'model',
+      readiness: 'always_ready',
+    };
+    const result = await service(model, new MemoryPlanningRepository()).generateCandidate({
+      goal: testGoal(),
+      planningContext,
+    });
+    const instructionValue = model.calls[0]?.['instruction'];
+    expect(typeof instructionValue).toBe('string');
+    const instruction = JSON.parse(String(instructionValue)) as Record<string, unknown>;
+    expect(instruction['advisoryPlanningContext']).toEqual(planningContext);
+    expect(instruction['immutableAuthorities']).toMatchObject({
+      contract: result.contract,
+      safetyPolicy: result.contract.policy,
+      readiness: 'resolved_later_by_existing_runtime',
+      terminal: 'UserGoalPlanController',
+    });
+    expect(result.contract).toMatchObject({
+      goalId: testGoal().goalId,
+      goalVersion: testGoal().version,
+    });
+    expect(result.plan).toMatchObject({
+      goalId: testGoal().goalId,
+      goalVersion: testGoal().version,
+      status: 'validated',
+    });
+  });
 });
 
 function service(model: PlanningModel, repository: MemoryPlanningRepository) {

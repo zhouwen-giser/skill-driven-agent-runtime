@@ -148,6 +148,7 @@ export class UserGoalPlanningService {
       goal: Goal;
       revision?: number;
       revisionKind?: UserGoalPlanRevisionKind;
+      planningContext?: unknown;
       sourcePlan?: Readonly<{
         planId: string;
         revision: number;
@@ -171,6 +172,7 @@ export class UserGoalPlanningService {
       goal: Goal;
       revision?: number;
       revisionKind?: UserGoalPlanRevisionKind;
+      planningContext?: unknown;
       sourcePlan?: Readonly<{
         planId: string;
         revision: number;
@@ -200,6 +202,17 @@ export class UserGoalPlanningService {
                 'Provider/MCP operation',
                 'Workflow/model provider',
               ],
+              ...(input.planningContext === undefined
+                ? {}
+                : {
+                    advisoryPlanningContext: input.planningContext,
+                    immutableAuthorities: {
+                      contract,
+                      safetyPolicy: contract.policy,
+                      readiness: 'resolved_later_by_existing_runtime',
+                      terminal: 'UserGoalPlanController',
+                    },
+                  }),
             }),
             responseSchema: planCandidateResponseSchema,
             correctionErrors,

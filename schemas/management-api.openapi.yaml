@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Skill-Driven Agent Runtime Management API
   version: 1.0.0-dev
-  description: Unauthenticated V1 API for trusted-intranet deployments only.
+  description: Trusted-intranet V1 API with an optional deployment-configured bearer guard for cognitive management writes.
 servers:
   - url: http://127.0.0.1:9998
 paths:
@@ -107,6 +107,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: applyInteractiveGoalAction
+      security: [{ CognitiveBearer: [] }, {}]
       description: Applies one actor-attributed, CAS-protected and idempotent interaction action.
       requestBody:
         required: true
@@ -136,6 +137,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: applyInteractivePlanningAction
+      security: [{ CognitiveBearer: [] }, {}]
       description: Applies one actor-attributed, CAS-protected and idempotent accept, patch, reject, or cancel action. Only a confirmed valid candidate is handed to the authoritative v1.2.2 planner.
       requestBody:
         required: true
@@ -187,6 +189,252 @@ paths:
                 required: [deleted]
                 properties:
                   deleted: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/episodes:
+    get:
+      operationId: listGoalExperienceEpisodes
+      description: Lists immutable Goal Experience Episodes built asynchronously from persisted Runtime facts. Experience is advisory.
+      parameters:
+        - { name: goalId, in: query, required: false, schema: { type: string } }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Goal Experience Episodes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoalExperienceEpisodeList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/episodes/{episodeId}:
+    parameters: [{ name: episodeId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getGoalExperienceEpisode
+      description: Returns one immutable Goal Experience Episode by authoritative identity.
+      responses:
+        '200': { description: Immutable Goal Experience Episode }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/dead-letters:
+    get:
+      operationId: listExperienceDeadLetters
+      description: Lists inspectable exhausted PostgreSQL Experience jobs without exposing credentials or private reasoning.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Experience dead letters
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceDeadLetterList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/observations:
+    get:
+      operationId: listExperienceObservations
+      description: Lists immutable source-linked structured Observations. Facts, inferences and candidate lessons remain advisory.
+      parameters:
+        - { name: goalId, in: query, required: false, schema: { type: string } }
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Experience Observations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceObservationList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/reflections:
+    get:
+      operationId: listExperienceReflections
+      description: Lists immutable candidate-only Reflection, identity, Delta and positive/negative evidence lineage. No item is active knowledge.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Immutable Experience Reflections
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceReflectionList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/task-types:
+    get:
+      operationId: listTaskTypes
+      description: Lists versioned fixture or induced Task Type Candidate definitions. Candidate status is advisory and cannot enter formal Understanding before governed promotion.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Versioned Task Type Candidate definitions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskTypeDefinitionList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/heuristics:
+    get:
+      operationId: listPlanningHeuristics
+      description: Lists versioned Planning Heuristic candidates and active revisions for governance review.
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        '200': { description: Planning Heuristic governance inventory }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/cognitive-management/actions:
+    get:
+      operationId: listCognitiveManagementActions
+      description: Lists PostgreSQL-authoritative actor, reason, CAS, idempotency and terminal result audit for cognitive writes.
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        '200':
+          description: Cognitive management action audit inventory
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CognitiveManagementActionRecord' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capability-patterns:
+    get:
+      operationId: listCapabilityPatterns
+      description: Lists versioned Candidate Capability Patterns and non-executable Gap Candidates. Exact Skill mappings never assert current readiness or compatibility, and Gap proposals cannot publish Skills.
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200':
+          description: Candidate Capability Patterns and Gap Candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilityPatternList' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/promote:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: promoteKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
+      description: Deterministically evaluates one exact Candidate revision under CAS. First-release activation always requires explicit human approval; high-risk activation also requires persisted replay, shadow and policy allow gates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgePromoteAction' }
+      responses:
+        '200':
+          description: Promotion Evaluation and resulting Knowledge status
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/reject:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: rejectKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
+      description: Records an actor-attributed terminal rejection for one Candidate revision without invoking Skill publication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeRejectAction' }
+      responses:
+        '200':
+          description: Rejected Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/revalidate:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: revalidateKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
+      description: CAS-transitions Active Knowledge back to validating after contradiction, catalog, policy or exact Skill-version change and removes its rebuildable Memory projection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeRevalidateAction' }
+      responses:
+        '200':
+          description: Validating Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/{kind}/{knowledgeId}/deprecate:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
+    post:
+      operationId: deprecateKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
+      description: Manually deprecates Active Knowledge under CAS and invalidates its rebuildable Memory search projection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeDeprecateAction' }
+      responses:
+        '200':
+          description: Deprecated Knowledge revision
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/dead-letters/{deadLetterId}/replay:
+    parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: replayExperienceDeadLetter
+      security: [{ CognitiveBearer: [] }, {}]
+      description: Manually resets an exhausted PostgreSQL Experience job and emits a rebuildable Redis wake reference.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
+      responses:
+        '200':
+          description: Replayed PostgreSQL Experience job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExperienceJob' }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/memories:
     post:
@@ -904,10 +1152,28 @@ paths:
                   characterCount: 2
                   truncated: false
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/summary/{summaryId}:
+    parameters: [{ name: summaryId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getRuntimeCapabilitySummaryById
+      description: Returns one immutable internal Capability Summary revision by identity.
+      responses:
+        '200':
+          description: Requested Capability Summary and bounded index
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilitySummaryView' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/capabilities/rebuild:
     post:
       operationId: rebuildRuntimeCapabilitySummary
+      security: [{ CognitiveBearer: [] }, {}]
       description: Deterministically rebuilds and transactionally activates the exact current catalog snapshot. No model or live readiness source is called.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
       responses:
         '200':
           description: Idempotently activated hash-matched Capability Summary
@@ -926,10 +1192,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/card/{cardId}:
+    parameters: [{ name: cardId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getPublicCapabilityCardById
+      description: Returns one immutable allowlisted Public Capability Card revision by identity.
+      responses:
+        '200':
+          description: Requested Public Capability Card snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/capabilities/card/rebuild:
     post:
       operationId: rebuildPublicCapabilityCard
+      security: [{ CognitiveBearer: [] }, {}]
       description: Builds from the active hash-matched Runtime Capability Summary, validates the public allowlist and idempotently activates the Card. Optional Narrative failure uses the deterministic template.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
       responses:
         '200':
           description: Idempotently activated Public Capability Card snapshot
@@ -1375,6 +1659,11 @@ paths:
                 qualityTrend: []
         '400': { $ref: '#/components/responses/Error' }
 components:
+  securitySchemes:
+    CognitiveBearer:
+      type: http
+      scheme: bearer
+      description: Optional deployment-configured bearer guard for cognitive management writes.
   parameters:
     BoundedListLimit:
       {
@@ -1404,6 +1693,756 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    CognitiveWriteAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+          description: Current authoritative revision; use 0 only when the managed resource is absent or an Experience dead letter is unreplayed.
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    CognitiveManagementActionRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          actionId,
+          operation,
+          subjectId,
+          expectedVersion,
+          idempotencyKey,
+          actorId,
+          reason,
+          requestHash,
+          status,
+          claimedAt,
+          updatedAt,
+        ]
+      properties:
+        actionId: { type: string }
+        operation:
+          enum:
+            [
+              goal_session_action,
+              planning_session_action,
+              capability_rebuild,
+              capability_card_rebuild,
+              experience_dead_letter_replay,
+              knowledge_promote,
+              knowledge_reject,
+              knowledge_revalidate,
+              knowledge_deprecate,
+            ]
+        subjectId: { type: string }
+        expectedVersion: { type: integer, minimum: 0 }
+        idempotencyKey: { type: string }
+        actorId: { type: string }
+        reason: { type: string }
+        requestHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        status: { enum: [pending, completed, failed] }
+        result: {}
+        errorCode: { type: string }
+        claimedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        failedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    KnowledgeKind:
+      type: string
+      enum: [planning_heuristic, task_type, capability_pattern]
+    KnowledgePromoteAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason, humanApproved, policyAllowed]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+        humanApproved: { type: boolean }
+        policyAllowed: { type: boolean }
+    KnowledgeRejectAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    KnowledgeRevalidateAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason:
+          enum: [contradiction_detected, catalog_changed, policy_changed, skill_version_changed]
+    KnowledgeDeprecateAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    GoalExperienceEpisodeList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                schemaVersion,
+                episodeId,
+                goalId,
+                goalVersion,
+                contextId,
+                episodeType,
+                revision,
+                terminalOutcomeRef,
+                sourceHash,
+                episodeHash,
+                completeness,
+                status,
+                dataClassification,
+                snapshot,
+                sourceRefs,
+                redactionCodes,
+                createdAt,
+              ]
+            properties:
+              schemaVersion: { const: '1.0' }
+              episodeId: { type: string }
+              goalId: { type: string }
+              goalVersion: { type: integer, minimum: 1 }
+              taskId: { type: string }
+              contextId: { type: string }
+              episodeType: { enum: [terminal, revision, interaction, recovery] }
+              revision: { type: integer, minimum: 1 }
+              terminalOutcomeRef: { type: string }
+              sourceHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              episodeHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+              completeness: { type: number, minimum: 0, maximum: 1 }
+              status: { enum: [partial, complete] }
+              dataClassification: { enum: [public, internal, user_scoped, restricted] }
+              snapshot: { type: object, additionalProperties: true }
+              sourceRefs: { type: array, minItems: 1, items: { type: object } }
+              redactionCodes: { type: array, items: { type: string } }
+              createdAt: { type: string, format: date-time }
+    ExperienceDeadLetterList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [deadLetterId, jobId, errorCode, errorSummary, failedAt]
+            properties:
+              deadLetterId: { type: string }
+              jobId: { type: string }
+              errorCode: { type: string }
+              errorSummary: { type: string, maxLength: 2048 }
+              failedAt: { type: string, format: date-time }
+              replayedAt: { type: string, format: date-time }
+              replayedBy: { type: string }
+    ExperienceObservationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservation' }
+    ExperienceObservation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          observationId,
+          scope,
+          sourceEpisodeIds,
+          revision,
+          status,
+          statements,
+          extractions,
+          modelInvocationRefs,
+          observationHash,
+          summary,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        observationId: { type: string }
+        scope: { enum: [goal_episode, planning_interaction, cross_episode_batch] }
+        sourceEpisodeIds: { type: array, minItems: 1, maxItems: 8, items: { type: string } }
+        revision: { type: integer, minimum: 1 }
+        status: { enum: [partial, completed, failed] }
+        statements:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservationStatement' }
+        extractions:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceExtraction' }
+        modelInvocationRefs: { type: array, items: { type: string } }
+        observationHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        summary: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    ExperienceObservationStatement:
+      type: object
+      additionalProperties: false
+      required: [statementId, kind, summary, confidence, sourceRefIds]
+      properties:
+        statementId: { type: string }
+        kind: { enum: [fact, inference, candidate_lesson, uncertainty, contradiction] }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+    ExperienceExtraction:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          extractionId,
+          observationId,
+          extractorKind,
+          status,
+          modelTier,
+          sourceEpisodeIds,
+          statements,
+          changeSuggestions,
+          inputBytes,
+          outputBytes,
+          createdAt,
+        ]
+      properties:
+        extractionId: { type: string }
+        observationId: { type: string }
+        extractorKind:
+          enum:
+            [
+              goal_pattern,
+              task_type_signal,
+              decomposition,
+              dependency,
+              criterion,
+              evidence,
+              artifact,
+              capability,
+              failure,
+              recovery,
+              no_progress,
+              human_correction,
+            ]
+        status: { enum: [completed, no_op, failed] }
+        modelTier: { enum: [fast, reasoning] }
+        sourceEpisodeIds: { type: array, minItems: 1, maxItems: 8, items: { type: string } }
+        statements:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceObservationStatement' }
+        changeSuggestions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [action, summary, sourceRefIds]
+            properties:
+              action:
+                enum:
+                  [create_candidate, create_revision, suggest_supersede, suggest_reject, no_change]
+              summary: { type: string, minLength: 1, maxLength: 4096 }
+              sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+        modelInvocationId: { type: string }
+        errorCode: { type: string }
+        inputBytes: { type: integer, minimum: 0, maximum: 524288 }
+        outputBytes: { type: integer, minimum: 0, maximum: 262144 }
+        createdAt: { type: string, format: date-time }
+    ExperienceReflectionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExperienceReflection' }
+    ExperienceReflection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          reflectionId,
+          seedObservationId,
+          observationIds,
+          revision,
+          status,
+          group,
+          impacts,
+          deltas,
+          modelInvocationRefs,
+          reflectionHash,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        reflectionId: { type: string }
+        seedObservationId: { type: string }
+        observationIds: { type: array, minItems: 1, maxItems: 100, items: { type: string } }
+        revision: { type: integer, minimum: 1 }
+        status: { enum: [completed, no_op, failed] }
+        group:
+          type: object
+          additionalProperties: false
+          required: [goalPatternFingerprint, capabilityFingerprint, timeWindow]
+          properties:
+            tenantId: { type: string }
+            goalPatternFingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            taskTypeCandidateId: { type: string }
+            capabilityFingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            timeWindow: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}/P7D$' }
+        impacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                impactId,
+                disposition,
+                observationId,
+                statementId,
+                sourceEpisodeIds,
+                sourceRefIds,
+                outcomeRefs,
+                summary,
+              ]
+            properties:
+              impactId: { type: string }
+              disposition: { enum: [helpful, harmful, neutral] }
+              observationId: { type: string }
+              statementId: { type: string }
+              sourceEpisodeIds: { type: array, minItems: 1, items: { type: string } }
+              sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+              outcomeRefs: { type: array, items: { type: string } }
+              summary: { type: string, minLength: 1, maxLength: 4096 }
+        deltas:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeDelta' }
+        modelInvocationRefs: { type: array, items: { type: string } }
+        reflectionHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        createdAt: { type: string, format: date-time }
+    TaskTypeDefinitionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TaskTypeDefinition' }
+    TaskTypeDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          taskTypeId,
+          revision,
+          status,
+          origin,
+          inductionMode,
+          fingerprint,
+          title,
+          summary,
+          recognition,
+          requiredDimensions,
+          optionalDimensions,
+          criteriaTemplate,
+          capabilityRequirements,
+          goalPattern,
+          dependencyPattern,
+          incompatibleConstraints,
+          exemplars,
+          sourceRefs,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        taskTypeId: { type: string }
+        revision: { type: integer, minimum: 1 }
+        status: { enum: [candidate, validating, active, deprecated, rejected] }
+        origin: { enum: [fixture, induced] }
+        inductionMode: { enum: [offline_batch, online_candidate] }
+        fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        title: { type: string, minLength: 1, maxLength: 512 }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        recognition:
+          type: object
+          additionalProperties: false
+          required: [hints, positiveExamples, negativeExamples]
+          properties:
+            hints: { type: array, minItems: 1, maxItems: 32, items: { type: string } }
+            positiveExamples: { type: array, minItems: 1, maxItems: 16, items: { type: string } }
+            negativeExamples: { type: array, minItems: 1, maxItems: 16, items: { type: string } }
+        requiredDimensions:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/TaskDimensionKind' }
+        optionalDimensions:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/TaskDimensionKind' }
+        criteriaTemplate: { type: array, minItems: 1, maxItems: 32, items: { type: string } }
+        capabilityRequirements: { type: array, minItems: 1, maxItems: 32, items: { type: string } }
+        goalPattern: { type: string, minLength: 1, maxLength: 4096 }
+        dependencyPattern: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        incompatibleConstraints: { type: array, maxItems: 32, items: { type: string } }
+        exemplars:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: object
+            additionalProperties: false
+            required: [episodeId, goalId, goalVersion, summary]
+            properties:
+              episodeId: { type: string }
+              goalId: { type: string }
+              goalVersion: { type: integer, minimum: 1 }
+              summary: { type: string, minLength: 1, maxLength: 4096 }
+        sourceRefs:
+          type: array
+          minItems: 1
+          items: { type: object, additionalProperties: true }
+        modelInvocationId: { type: string }
+        createdAt: { type: string, format: date-time }
+    TaskDimensionKind:
+      enum:
+        [
+          target,
+          scope,
+          time_range,
+          priority,
+          criteria,
+          artifact,
+          evidence,
+          side_effect_authorization,
+          risk_tolerance,
+          degradation_policy,
+          uncovered_case_policy,
+          human_confirmation_policy,
+        ]
+    CapabilityPatternList:
+      type: object
+      additionalProperties: false
+      required: [items, gaps]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CapabilityPatternDefinition' }
+        gaps:
+          type: array
+          items: { $ref: '#/components/schemas/CapabilityGapCandidate' }
+    CapabilityPatternDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          patternId,
+          revision,
+          version,
+          status,
+          fingerprint,
+          catalogHash,
+          policyVersion,
+          capabilityId,
+          title,
+          summary,
+          applicableConditions,
+          effects,
+          evidenceRequirements,
+          artifacts,
+          prerequisites,
+          dependencies,
+          failures,
+          limitations,
+          evidenceByLevel,
+          exactSkillVersionMappings,
+          requiresCurrentReadiness,
+          sourceRefs,
+          modelInvocationId,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        patternId: { type: string }
+        revision: { type: integer, minimum: 1 }
+        version: { type: integer, minimum: 1 }
+        status: { enum: [candidate, validating, active, deprecated, rejected] }
+        fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        policyVersion: { type: string }
+        capabilityId: { type: string }
+        title: { type: string, minLength: 1, maxLength: 512 }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        applicableConditions:
+          { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        effects: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        evidenceRequirements:
+          { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        artifacts: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        prerequisites: { type: array, maxItems: 64, items: { type: string } }
+        dependencies: { type: array, maxItems: 64, items: { type: string } }
+        failures: { type: array, maxItems: 64, items: { type: string } }
+        limitations: { type: array, maxItems: 64, items: { type: string } }
+        evidenceByLevel:
+          type: object
+          additionalProperties: false
+          required: [declared, observed, validated]
+          properties:
+            declared:
+              type: array
+              items: { $ref: '#/components/schemas/CapabilityPatternEvidence' }
+            observed:
+              type: array
+              items: { $ref: '#/components/schemas/CapabilityPatternEvidence' }
+            validated:
+              type: array
+              items: { $ref: '#/components/schemas/CapabilityPatternEvidence' }
+        exactSkillVersionMappings:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                exactSkillVersionRef,
+                mappingBasis,
+                requiresCurrentReadiness,
+                compatibilityStatus,
+              ]
+            properties:
+              exactSkillVersionRef: { type: string }
+              mappingBasis: { const: declared_capability }
+              requiresCurrentReadiness: { const: true }
+              compatibilityStatus: { const: requires_current_check }
+        requiresCurrentReadiness: { const: true }
+        sourceRefs:
+          type: array
+          minItems: 1
+          items: { type: object, additionalProperties: true }
+        modelInvocationId: { type: string }
+        createdAt: { type: string, format: date-time }
+    CapabilityPatternEvidence:
+      type: object
+      additionalProperties: false
+      required: [level, summary, sourceRefIds]
+      properties:
+        level: { enum: [declared, observed, validated] }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+        episodeId: { type: string }
+        exactSkillVersionRef: { type: string }
+    CapabilityGapCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          gapId,
+          status,
+          fingerprint,
+          patternId,
+          patternRevision,
+          capabilityId,
+          catalogHash,
+          exactSkillVersionRefs,
+          executable,
+          authoringProposal,
+          sourceRefs,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        gapId: { type: string }
+        status: { const: candidate }
+        fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        patternId: { type: string }
+        patternRevision: { type: integer, minimum: 1 }
+        capabilityId: { type: string }
+        catalogHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        exactSkillVersionRefs: { type: array, maxItems: 0 }
+        executable: { const: false }
+        authoringProposal:
+          type: object
+          additionalProperties: false
+          required:
+            [proposalId, status, reviewMode, publishAllowed, capabilityId, title, summary]
+          properties:
+            proposalId: { type: string }
+            status: { const: proposed }
+            reviewMode: { const: manual }
+            publishAllowed: { const: false }
+            capabilityId: { type: string }
+            title: { type: string }
+            summary: { type: string }
+        sourceRefs:
+          type: array
+          minItems: 1
+          items: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    KnowledgeDelta:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          deltaId,
+          reflectionId,
+          operation,
+          knowledgeKind,
+          fingerprint,
+          identity,
+          relatedKnowledgeIds,
+          supportEvidence,
+          contradictionEvidence,
+          confidence,
+          reason,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { const: '1.0' }
+        deltaId: { type: string }
+        reflectionId: { type: string }
+        operation:
+          enum:
+            [
+              CREATE_REVISION,
+              SUGGEST_MERGE,
+              SUGGEST_SUPERSEDE,
+              ADD_EVIDENCE,
+              ADD_CONTRADICTION,
+              NO_CHANGE,
+            ]
+        knowledgeKind: { enum: [planning_heuristic, task_type, capability_pattern] }
+        fingerprint: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        identity: { $ref: '#/components/schemas/KnowledgeCandidateIdentity' }
+        targetKnowledgeId: { type: string }
+        targetRevision: { type: integer, minimum: 1 }
+        relatedKnowledgeIds: { type: array, items: { type: string } }
+        candidate:
+          type: object
+          additionalProperties: true
+          description: Candidate-only immutable revision; active status is forbidden at this boundary.
+        supportEvidence:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeEvidence' }
+        contradictionEvidence:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeEvidence' }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 4096 }
+        modelInvocationId: { type: string }
+        createdAt: { type: string, format: date-time }
+    KnowledgeCandidateIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          jobToBeDone,
+          objectiveTerms,
+          criterionTerms,
+          artifactTerms,
+          capabilityTerms,
+          tags,
+          deliverable,
+        ]
+      properties:
+        jobToBeDone: { type: string, minLength: 1, maxLength: 4096 }
+        objectiveTerms: { type: array, items: { type: string } }
+        criterionTerms: { type: array, items: { type: string } }
+        artifactTerms: { type: array, items: { type: string } }
+        capabilityTerms: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string } }
+        deliverable: { type: string, minLength: 1, maxLength: 4096 }
+        instanceTerms: { type: array, items: { type: string } }
+        recentIntentBoundary: { type: string }
+    KnowledgeEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          evidenceId,
+          polarity,
+          observationId,
+          statementIds,
+          sourceEpisodeIds,
+          sourceRefIds,
+          outcomeRefs,
+          summary,
+          createdAt,
+        ]
+      properties:
+        evidenceId: { type: string }
+        polarity: { enum: [support, contradiction] }
+        observationId: { type: string }
+        statementIds: { type: array, minItems: 1, items: { type: string } }
+        sourceEpisodeIds: { type: array, minItems: 1, items: { type: string } }
+        sourceRefIds: { type: array, minItems: 1, items: { type: string } }
+        sourceRefs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        outcomeRefs: { type: array, items: { type: string } }
+        summary: { type: string, minLength: 1, maxLength: 4096 }
+        createdAt: { type: string, format: date-time }
+    ExperienceJob:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          jobId,
+          jobType,
+          subjectId,
+          status,
+          attempt,
+          maxAttempts,
+          availableAt,
+          idempotencyKey,
+          payload,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        jobId: { type: string }
+        jobType: { enum: [episode, observe, reflect, induce, revalidate] }
+        subjectId: { type: string }
+        status: { enum: [pending, leased, retry_wait, completed, dead_letter] }
+        attempt: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        availableAt: { type: string, format: date-time }
+        leaseOwner: { type: string }
+        leaseExpiresAt: { type: string, format: date-time }
+        idempotencyKey: { type: string }
+        payload: { type: object, additionalProperties: true }
+        resultRef: { type: string }
+        lastErrorCode: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     PlanningInteractionsResponse:
       type: object
       additionalProperties: false
@@ -1415,7 +2454,23 @@ components:
             type: object
             additionalProperties: true
             required:
-              [schemaVersion, correctionId, taskId, target, correctionType, scope, beforeSnapshot, userInstruction, structuredPatch, afterSnapshot, validation, accepted, correctionHash, sourceRefs, createdAt]
+              [
+                schemaVersion,
+                correctionId,
+                taskId,
+                target,
+                correctionType,
+                scope,
+                beforeSnapshot,
+                userInstruction,
+                structuredPatch,
+                afterSnapshot,
+                validation,
+                accepted,
+                correctionHash,
+                sourceRefs,
+                createdAt,
+              ]
             properties:
               schemaVersion: { const: '1.0' }
               correctionId: { type: string }
@@ -1423,7 +2478,21 @@ components:
               target: { enum: [task_understanding, goal_contract, skill_goal_plan] }
               correctionType:
                 enum:
-                  [missing_target, missing_scope, missing_criterion, missing_artifact, missing_evidence, missing_capability, wrong_decomposition, wrong_dependency, wrong_priority, unsafe_side_effect, unnecessary_goal, parallelism_correction, degradation_correction]
+                  [
+                    missing_target,
+                    missing_scope,
+                    missing_criterion,
+                    missing_artifact,
+                    missing_evidence,
+                    missing_capability,
+                    wrong_decomposition,
+                    wrong_dependency,
+                    wrong_priority,
+                    unsafe_side_effect,
+                    unnecessary_goal,
+                    parallelism_correction,
+                    degradation_correction,
+                  ]
               scope: { enum: [task, user, tenant, global_candidate] }
               beforeSnapshot: { type: object }
               userInstruction: { type: string }
@@ -1440,7 +2509,20 @@ components:
             type: object
             additionalProperties: true
             required:
-              [schemaVersion, episodeId, taskId, revision, originalRequest, turns, correctionIds, completeness, inductionFingerprint, episodeHash, sourceRefs, createdAt]
+              [
+                schemaVersion,
+                episodeId,
+                taskId,
+                revision,
+                originalRequest,
+                turns,
+                correctionIds,
+                completeness,
+                inductionFingerprint,
+                episodeHash,
+                sourceRefs,
+                createdAt,
+              ]
             properties:
               schemaVersion: { const: '1.0' }
               episodeId: { type: string }
@@ -1457,11 +2539,12 @@ components:
     InteractivePlanningAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, idempotencyKey, actorId, action, payload]
+      required: [expectedVersion, idempotencyKey, actorId, reason, action, payload]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
         idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 128 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
         action: { enum: [accept, patch, reject, cancel] }
         payload: { type: object, additionalProperties: true }
     InteractivePlanningSessionView:
@@ -1533,11 +2616,12 @@ components:
     InteractiveGoalAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, idempotencyKey, actorId, action, payload]
+      required: [expectedVersion, idempotencyKey, actorId, reason, action, payload]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
         idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 128 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
         action: { enum: [answer, accept, patch, reject, restart_understanding, cancel] }
         payload: { type: object, additionalProperties: true }
     InteractiveGoalSessionView:

@@ -16,8 +16,19 @@
     "planningCorrection",
     "planningInteractionEpisode",
     "experienceEpisode",
+    "experienceObservation",
+    "experienceReflection",
+    "taskTypeDefinition",
+    "capabilityPattern",
+    "capabilityGap",
     "knowledgeCandidate",
-    "knowledgeTransition"
+    "knowledgeTransition",
+    "knowledgePromotionEvaluation",
+    "activeKnowledgeProjection",
+    "activeKnowledgeDefinition",
+    "knowledgeRelation",
+    "experienceUsageRecord",
+    "planningKnowledgeBundle"
   ],
   "properties": {
     "featureFlags": { "$ref": "#/$defs/featureFlags" },
@@ -31,8 +42,19 @@
     "planningCorrection": { "$ref": "#/$defs/planningCorrection" },
     "planningInteractionEpisode": { "$ref": "#/$defs/planningInteractionEpisode" },
     "experienceEpisode": { "$ref": "#/$defs/experienceEpisode" },
+    "experienceObservation": { "$ref": "#/$defs/experienceObservation" },
+    "experienceReflection": { "$ref": "#/$defs/experienceReflection" },
+    "taskTypeDefinition": { "$ref": "#/$defs/taskTypeDefinition" },
+    "capabilityPattern": { "$ref": "#/$defs/capabilityPattern" },
+    "capabilityGap": { "$ref": "#/$defs/capabilityGap" },
     "knowledgeCandidate": { "$ref": "#/$defs/knowledgeCandidate" },
-    "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" }
+    "knowledgeTransition": { "$ref": "#/$defs/knowledgeTransition" },
+    "knowledgePromotionEvaluation": { "$ref": "#/$defs/knowledgePromotionEvaluation" },
+    "activeKnowledgeProjection": { "$ref": "#/$defs/activeKnowledgeProjection" },
+    "activeKnowledgeDefinition": { "$ref": "#/$defs/activeKnowledgeDefinition" },
+    "knowledgeRelation": { "$ref": "#/$defs/knowledgeRelation" },
+    "experienceUsageRecord": { "$ref": "#/$defs/experienceUsageRecord" },
+    "planningKnowledgeBundle": { "$ref": "#/$defs/planningKnowledgeBundle" }
   },
   "$defs": {
     "id": {
@@ -75,6 +97,7 @@
             "business_event",
             "planning_correction",
             "model_invocation",
+            "goal_experience_episode",
             "knowledge_revision",
             "skill_version"
           ]
@@ -804,10 +827,16 @@
         "episodeId",
         "goalId",
         "goalVersion",
+        "contextId",
+        "episodeType",
         "revision",
+        "terminalOutcomeRef",
+        "sourceHash",
         "episodeHash",
         "completeness",
+        "status",
         "dataClassification",
+        "snapshot",
         "sourceRefs",
         "redactionCodes",
         "createdAt"
@@ -817,12 +846,621 @@
         "episodeId": { "$ref": "#/$defs/id" },
         "goalId": { "$ref": "#/$defs/id" },
         "goalVersion": { "type": "integer", "minimum": 1 },
+        "taskId": { "$ref": "#/$defs/id" },
+        "contextId": { "$ref": "#/$defs/id" },
+        "episodeType": { "enum": ["terminal", "revision", "interaction", "recovery"] },
         "revision": { "type": "integer", "minimum": 1 },
+        "terminalOutcomeRef": { "type": "string", "minLength": 1 },
+        "sourceHash": { "$ref": "#/$defs/hash" },
         "episodeHash": { "$ref": "#/$defs/hash" },
         "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "status": { "enum": ["partial", "complete"] },
         "dataClassification": { "enum": ["public", "internal", "user_scoped", "restricted"] },
+        "snapshot": { "type": "object" },
         "sourceRefs": { "type": "array", "$ref": "#/$defs/sourceRefs", "minItems": 1 },
         "redactionCodes": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "experienceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "observationId",
+        "scope",
+        "sourceEpisodeIds",
+        "revision",
+        "status",
+        "statements",
+        "extractions",
+        "modelInvocationRefs",
+        "observationHash",
+        "summary",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "observationId": { "$ref": "#/$defs/id" },
+        "scope": { "enum": ["goal_episode", "planning_interaction", "cross_episode_batch"] },
+        "sourceEpisodeIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["partial", "completed", "failed"] },
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/experienceObservationStatement" }
+        },
+        "extractions": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/experienceExtraction" }
+        },
+        "modelInvocationRefs": { "$ref": "#/$defs/strings" },
+        "observationHash": { "$ref": "#/$defs/hash" },
+        "summary": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "experienceObservationStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statementId", "kind", "summary", "confidence", "sourceRefIds"],
+      "properties": {
+        "statementId": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": ["fact", "inference", "candidate_lesson", "uncertainty", "contradiction"]
+        },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sourceRefIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "experienceExtraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extractionId",
+        "observationId",
+        "extractorKind",
+        "status",
+        "modelTier",
+        "sourceEpisodeIds",
+        "statements",
+        "changeSuggestions",
+        "inputBytes",
+        "outputBytes",
+        "createdAt"
+      ],
+      "properties": {
+        "extractionId": { "$ref": "#/$defs/id" },
+        "observationId": { "$ref": "#/$defs/id" },
+        "extractorKind": {
+          "enum": [
+            "goal_pattern",
+            "task_type_signal",
+            "decomposition",
+            "dependency",
+            "criterion",
+            "evidence",
+            "artifact",
+            "capability",
+            "failure",
+            "recovery",
+            "no_progress",
+            "human_correction"
+          ]
+        },
+        "status": { "enum": ["completed", "no_op", "failed"] },
+        "modelTier": { "enum": ["fast", "reasoning"] },
+        "sourceEpisodeIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/experienceObservationStatement" }
+        },
+        "changeSuggestions": { "type": "array", "maxItems": 8, "items": { "type": "object" } },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "errorCode": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "inputBytes": { "type": "integer", "minimum": 0, "maximum": 524288 },
+        "outputBytes": { "type": "integer", "minimum": 0, "maximum": 262144 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "experienceReflection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "reflectionId",
+        "seedObservationId",
+        "observationIds",
+        "revision",
+        "status",
+        "group",
+        "impacts",
+        "deltas",
+        "modelInvocationRefs",
+        "reflectionHash",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "reflectionId": { "$ref": "#/$defs/id" },
+        "seedObservationId": { "$ref": "#/$defs/id" },
+        "observationIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["completed", "no_op", "failed"] },
+        "group": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["goalPatternFingerprint", "capabilityFingerprint", "timeWindow"],
+          "properties": {
+            "tenantId": { "$ref": "#/$defs/id" },
+            "goalPatternFingerprint": { "$ref": "#/$defs/hash" },
+            "taskTypeCandidateId": { "$ref": "#/$defs/id" },
+            "capabilityFingerprint": { "$ref": "#/$defs/hash" },
+            "timeWindow": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}/P7D$" }
+          }
+        },
+        "impacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "impactId",
+              "disposition",
+              "observationId",
+              "statementId",
+              "sourceEpisodeIds",
+              "sourceRefIds",
+              "outcomeRefs",
+              "summary"
+            ],
+            "properties": {
+              "impactId": { "$ref": "#/$defs/id" },
+              "disposition": { "enum": ["helpful", "harmful", "neutral"] },
+              "observationId": { "$ref": "#/$defs/id" },
+              "statementId": { "$ref": "#/$defs/id" },
+              "sourceEpisodeIds": { "$ref": "#/$defs/strings" },
+              "sourceRefIds": { "$ref": "#/$defs/strings" },
+              "outcomeRefs": { "$ref": "#/$defs/strings" },
+              "summary": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            }
+          }
+        },
+        "deltas": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/knowledgeDelta" }
+        },
+        "modelInvocationRefs": { "$ref": "#/$defs/strings" },
+        "reflectionHash": { "$ref": "#/$defs/hash" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "deltaId",
+        "reflectionId",
+        "operation",
+        "knowledgeKind",
+        "fingerprint",
+        "identity",
+        "relatedKnowledgeIds",
+        "supportEvidence",
+        "contradictionEvidence",
+        "confidence",
+        "reason",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "deltaId": { "$ref": "#/$defs/id" },
+        "reflectionId": { "$ref": "#/$defs/id" },
+        "operation": {
+          "enum": [
+            "CREATE_REVISION",
+            "SUGGEST_MERGE",
+            "SUGGEST_SUPERSEDE",
+            "ADD_EVIDENCE",
+            "ADD_CONTRADICTION",
+            "NO_CHANGE"
+          ]
+        },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobToBeDone",
+            "objectiveTerms",
+            "criterionTerms",
+            "artifactTerms",
+            "capabilityTerms",
+            "tags",
+            "deliverable"
+          ],
+          "properties": {
+            "jobToBeDone": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "objectiveTerms": { "$ref": "#/$defs/strings" },
+            "criterionTerms": { "$ref": "#/$defs/strings" },
+            "artifactTerms": { "$ref": "#/$defs/strings" },
+            "capabilityTerms": { "$ref": "#/$defs/strings" },
+            "tags": { "$ref": "#/$defs/strings" },
+            "deliverable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "instanceTerms": { "$ref": "#/$defs/strings" },
+            "recentIntentBoundary": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        },
+        "targetKnowledgeId": { "$ref": "#/$defs/id" },
+        "targetRevision": { "type": "integer", "minimum": 1 },
+        "relatedKnowledgeIds": { "$ref": "#/$defs/strings" },
+        "candidate": { "$ref": "#/$defs/knowledgeCandidate" },
+        "supportEvidence": { "type": "array", "items": { "$ref": "#/$defs/knowledgeEvidence" } },
+        "contradictionEvidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/knowledgeEvidence" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceId",
+        "polarity",
+        "observationId",
+        "statementIds",
+        "sourceEpisodeIds",
+        "sourceRefIds",
+        "outcomeRefs",
+        "summary",
+        "createdAt"
+      ],
+      "properties": {
+        "evidenceId": { "$ref": "#/$defs/id" },
+        "polarity": { "enum": ["support", "contradiction"] },
+        "observationId": { "$ref": "#/$defs/id" },
+        "statementIds": { "$ref": "#/$defs/strings" },
+        "sourceEpisodeIds": { "$ref": "#/$defs/strings" },
+        "sourceRefIds": { "$ref": "#/$defs/strings" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "outcomeRefs": { "$ref": "#/$defs/strings" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "taskTypeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "taskTypeId",
+        "revision",
+        "status",
+        "origin",
+        "inductionMode",
+        "fingerprint",
+        "title",
+        "summary",
+        "recognition",
+        "requiredDimensions",
+        "optionalDimensions",
+        "criteriaTemplate",
+        "capabilityRequirements",
+        "goalPattern",
+        "dependencyPattern",
+        "incompatibleConstraints",
+        "exemplars",
+        "sourceRefs",
+        "modelInvocationId",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "taskTypeId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["candidate", "validating", "active", "deprecated", "rejected"] },
+        "origin": { "enum": ["fixture", "induced"] },
+        "inductionMode": { "enum": ["offline_batch", "online_candidate"] },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "recognition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hints", "positiveExamples", "negativeExamples"],
+          "properties": {
+            "hints": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": { "type": "string" }
+            },
+            "positiveExamples": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": { "type": "string" }
+            },
+            "negativeExamples": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "requiredDimensions": { "$ref": "#/$defs/taskDimensionKinds" },
+        "optionalDimensions": { "$ref": "#/$defs/taskDimensionKinds" },
+        "criteriaTemplate": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "type": "string" }
+        },
+        "capabilityRequirements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "goalPattern": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "dependencyPattern": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "incompatibleConstraints": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string" }
+        },
+        "exemplars": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["episodeId", "goalId", "goalVersion", "summary"],
+            "properties": {
+              "episodeId": { "$ref": "#/$defs/id" },
+              "goalId": { "$ref": "#/$defs/id" },
+              "goalVersion": { "type": "integer", "minimum": 1 },
+              "summary": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            }
+          }
+        },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "capabilityPatternEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "summary", "sourceRefIds"],
+      "properties": {
+        "level": { "enum": ["declared", "observed", "validated"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceRefIds": { "$ref": "#/$defs/strings" },
+        "episodeId": { "$ref": "#/$defs/id" },
+        "exactSkillVersionRef": { "type": "string", "minLength": 3, "maxLength": 160 }
+      }
+    },
+    "capabilityPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "patternId",
+        "revision",
+        "version",
+        "status",
+        "fingerprint",
+        "catalogHash",
+        "policyVersion",
+        "capabilityId",
+        "title",
+        "summary",
+        "applicableConditions",
+        "effects",
+        "evidenceRequirements",
+        "artifacts",
+        "prerequisites",
+        "dependencies",
+        "failures",
+        "limitations",
+        "evidenceByLevel",
+        "exactSkillVersionMappings",
+        "requiresCurrentReadiness",
+        "sourceRefs",
+        "modelInvocationId",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "patternId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": {
+          "enum": ["candidate", "validating", "active", "deprecated", "rejected"]
+        },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "policyVersion": { "$ref": "#/$defs/id" },
+        "capabilityId": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "applicableConditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "evidenceRequirements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "prerequisites": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "failures": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string" }
+        },
+        "evidenceByLevel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["declared", "observed", "validated"],
+          "properties": {
+            "declared": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/capabilityPatternEvidence" }
+            },
+            "observed": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/capabilityPatternEvidence" }
+            },
+            "validated": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/capabilityPatternEvidence" }
+            }
+          }
+        },
+        "exactSkillVersionMappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "exactSkillVersionRef",
+              "mappingBasis",
+              "requiresCurrentReadiness",
+              "compatibilityStatus"
+            ],
+            "properties": {
+              "exactSkillVersionRef": { "type": "string" },
+              "mappingBasis": { "const": "declared_capability" },
+              "requiresCurrentReadiness": { "const": true },
+              "compatibilityStatus": { "const": "requires_current_check" }
+            }
+          }
+        },
+        "requiresCurrentReadiness": { "const": true },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "modelInvocationId": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "capabilityGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "gapId",
+        "status",
+        "fingerprint",
+        "patternId",
+        "patternRevision",
+        "capabilityId",
+        "catalogHash",
+        "exactSkillVersionRefs",
+        "executable",
+        "authoringProposal",
+        "sourceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "gapId": { "$ref": "#/$defs/id" },
+        "status": { "const": "candidate" },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "patternId": { "$ref": "#/$defs/id" },
+        "patternRevision": { "type": "integer", "minimum": 1 },
+        "capabilityId": { "$ref": "#/$defs/id" },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "exactSkillVersionRefs": { "type": "array", "maxItems": 0 },
+        "executable": { "const": false },
+        "authoringProposal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposalId",
+            "status",
+            "reviewMode",
+            "publishAllowed",
+            "capabilityId",
+            "title",
+            "summary"
+          ],
+          "properties": {
+            "proposalId": { "$ref": "#/$defs/id" },
+            "status": { "const": "proposed" },
+            "reviewMode": { "const": "manual" },
+            "publishAllowed": { "const": false },
+            "capabilityId": { "$ref": "#/$defs/id" },
+            "title": { "type": "string", "minLength": 1 },
+            "summary": { "type": "string", "minLength": 1 }
+          }
+        },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -893,6 +1531,7 @@
             "catalog_changed",
             "policy_changed",
             "skill_version_changed",
+            "revision_superseded",
             "manual_deprecation"
           ]
         },
@@ -901,10 +1540,339 @@
         "occurredAt": { "type": "string", "format": "date-time" }
       }
     },
+    "promotionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uniqueGoalCount",
+        "uniqueUserCount",
+        "successfulOutcomeCount",
+        "failedOutcomeCount",
+        "userAcceptedPlanningCount",
+        "userRejectedPlanningCount",
+        "replayPassedCount",
+        "replayFailedCount",
+        "shadowImprovedCount",
+        "shadowRegressedCount",
+        "supportingRefs",
+        "contradictingRefs"
+      ],
+      "properties": {
+        "uniqueGoalCount": { "type": "integer", "minimum": 0 },
+        "uniqueUserCount": { "type": "integer", "minimum": 0 },
+        "successfulOutcomeCount": { "type": "integer", "minimum": 0 },
+        "failedOutcomeCount": { "type": "integer", "minimum": 0 },
+        "userAcceptedPlanningCount": { "type": "integer", "minimum": 0 },
+        "userRejectedPlanningCount": { "type": "integer", "minimum": 0 },
+        "replayPassedCount": { "type": "integer", "minimum": 0 },
+        "replayFailedCount": { "type": "integer", "minimum": 0 },
+        "shadowImprovedCount": { "type": "integer", "minimum": 0 },
+        "shadowRegressedCount": { "type": "integer", "minimum": 0 },
+        "supportingRefs": { "$ref": "#/$defs/strings" },
+        "contradictingRefs": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "promotionGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "passed", "actual", "required"],
+      "properties": {
+        "code": { "$ref": "#/$defs/id" },
+        "passed": { "type": "boolean" },
+        "actual": { "type": ["number", "boolean", "string"] },
+        "required": { "type": ["number", "boolean", "string"] }
+      }
+    },
+    "knowledgePromotionEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "evaluationId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "policyVersion",
+        "status",
+        "evidence",
+        "gates",
+        "humanApproved",
+        "policyAllowed",
+        "decisionSummary",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "evaluationId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "policyVersion": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["pending", "passed", "failed", "rejected", "incubating"] },
+        "evidence": { "$ref": "#/$defs/promotionEvidence" },
+        "gates": { "type": "array", "items": { "$ref": "#/$defs/promotionGate" } },
+        "replayReportRef": { "type": "string", "minLength": 1 },
+        "shadowReportRef": { "type": "string", "minLength": 1 },
+        "humanApproved": { "type": "boolean" },
+        "policyAllowed": { "type": "boolean" },
+        "duplicateKnowledgeId": { "$ref": "#/$defs/id" },
+        "decidedBy": { "$ref": "#/$defs/id" },
+        "decisionSummary": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "decidedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "activeKnowledgeProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "projectionId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "authoritativeRef",
+        "title",
+        "summary",
+        "risk",
+        "status",
+        "projectedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "projectionId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "status": { "const": "active" },
+        "projectedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "activeKnowledgeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "knowledgeId",
+        "revision",
+        "version",
+        "status",
+        "scope",
+        "risk",
+        "title",
+        "summary",
+        "definition",
+        "authoritativeRef",
+        "exactSkillVersionRefs",
+        "promotionPolicyVersion",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "kind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "const": "active" },
+        "scope": { "enum": ["task", "user", "tenant", "global_candidate"] },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "userId": { "$ref": "#/$defs/id" },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "definition": { "type": "object" },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "exactSkillVersionRefs": { "$ref": "#/$defs/strings" },
+        "catalogHash": { "$ref": "#/$defs/hash" },
+        "promotionPolicyVersion": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "knowledgeIndexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "knowledgeId",
+        "revision",
+        "authoritativeRef",
+        "title",
+        "summary",
+        "risk"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "kind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "risk": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "knowledgeRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "relationId",
+        "sourceKind",
+        "sourceKnowledgeId",
+        "sourceRevision",
+        "targetKind",
+        "targetKnowledgeId",
+        "targetRevision",
+        "relationType",
+        "evidenceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "relationId": { "$ref": "#/$defs/id" },
+        "sourceKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "sourceKnowledgeId": { "$ref": "#/$defs/id" },
+        "sourceRevision": { "type": "integer", "minimum": 1 },
+        "targetKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "targetKnowledgeId": { "$ref": "#/$defs/id" },
+        "targetRevision": { "type": "integer", "minimum": 1 },
+        "relationType": {
+          "enum": ["requires", "contradicts", "supersedes", "supported_by", "related"]
+        },
+        "evidenceRefs": { "$ref": "#/$defs/strings" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "exactSkillKnowledgeDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skillId", "version", "name", "summary", "status", "declaration"],
+      "properties": {
+        "skillId": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "status": { "const": "enabled" },
+        "declaration": { "type": "object" }
+      }
+    },
+    "experienceUsageRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "usageId",
+        "planningSessionId",
+        "planCandidateId",
+        "knowledgeKind",
+        "knowledgeId",
+        "knowledgeRevision",
+        "authoritativeRef",
+        "queryFingerprint",
+        "retrievalRank",
+        "injectionMode",
+        "affectedSkillGoalIds",
+        "influence",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "usageId": { "$ref": "#/$defs/id" },
+        "planningSessionId": { "$ref": "#/$defs/id" },
+        "planCandidateId": { "$ref": "#/$defs/id" },
+        "knowledgeKind": { "enum": ["planning_heuristic", "task_type", "capability_pattern"] },
+        "knowledgeId": { "$ref": "#/$defs/id" },
+        "knowledgeRevision": { "type": "integer", "minimum": 1 },
+        "authoritativeRef": { "type": "string", "minLength": 1 },
+        "queryFingerprint": { "$ref": "#/$defs/hash" },
+        "retrievalRank": { "type": "integer", "minimum": 1 },
+        "injectionMode": { "enum": ["off", "shadow", "advisory", "active_low_risk"] },
+        "affectedSkillGoalIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "influence": { "type": "object" },
+        "userAction": { "enum": ["accepted", "rejected", "patched", "canceled"] },
+        "validatorResult": { "type": "object" },
+        "finalOutcomeRef": { "$ref": "#/$defs/id" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "planningKnowledgeBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "queryFingerprint",
+        "index",
+        "definitions",
+        "exactSkills",
+        "conflicts",
+        "disclosureOrder",
+        "characterCount",
+        "truncated",
+        "elapsedMs"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "queryFingerprint": { "$ref": "#/$defs/hash" },
+        "index": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/knowledgeIndexEntry" }
+        },
+        "definitions": {
+          "type": "array",
+          "maxItems": 19,
+          "items": { "$ref": "#/$defs/activeKnowledgeDefinition" }
+        },
+        "exactSkills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/exactSkillKnowledgeDetail" }
+        },
+        "conflicts": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/knowledgeRelation" }
+        },
+        "disclosureOrder": { "$ref": "#/$defs/strings" },
+        "characterCount": { "type": "integer", "minimum": 0, "maximum": 20000 },
+        "truncated": { "type": "boolean" },
+        "elapsedMs": { "type": "number", "minimum": 0 }
+      }
+    },
     "strings": {
       "type": "array",
       "maxItems": 256,
       "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "taskDimensionKinds": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "target",
+          "scope",
+          "time_range",
+          "priority",
+          "criteria",
+          "artifact",
+          "evidence",
+          "side_effect_authorization",
+          "risk_tolerance",
+          "degradation_policy",
+          "uncovered_case_policy",
+          "human_confirmation_policy"
+        ]
+      }
     },
     "sourceRefs": {
       "type": "array",

@@ -19,6 +19,7 @@ export type KnowledgeTransitionReason =
   | 'catalog_changed'
   | 'policy_changed'
   | 'skill_version_changed'
+  | 'revision_superseded'
   | 'manual_deprecation';
 
 const ALLOWED_KNOWLEDGE_TRANSITIONS = {

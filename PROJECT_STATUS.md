@@ -1,5 +1,72 @@
 # Project Status
 
+SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
+Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,
+425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified
+PostgreSQL-authoritative cognitive reconstruction, deletion propagation, review-only retention and the
+frozen six-stage rollout policy. Recovery/security/privacy/capacity evidence is classified in
+`reports/v1.2.3-release/`. Draft PR #9 is eligible for Ready for Review after publication; no merge or
+tag is authorized.
+
+SDAR v1.2.3 G00–G16 are complete (2026-07-26); G17 release hardening is next. G16 adds immutable,
+evidence-linked Planning Replay datasets, disjoint development/holdout partitions, all five Shadow
+verdicts, hard-failure non-regression, a zero-Provider/MCP/device side-effect guard and idempotent
+Promotion provenance through migration 0124. Insufficient samples now produce an `incubating`
+evaluation and leave Knowledge in `candidate`. Affected gates pass 604 unit, 157 contract, 84 real
+integration, 62 real E2E, 152 OpenAPI operations, 423-source architecture, A2A MUST 74/74, production
+build and all 17 additive migrations. Implementation `265f865` and evidence `8886f0f` are pushed to
+Draft PR #9, which remains Draft until every G17 release gate passes.
+
+SDAR v1.2.3 G00–G15 are complete (2026-07-26); G16 Replay/Shadow is next. G15 provides strict
+cognitive management write envelopes, optional non-breaking bearer authentication, durable
+PostgreSQL audit/idempotency claims, exact operational reads, real Console governance and routing-only
+A2A `INPUT_REQUIRED` continuation. Existing Session/Knowledge/Capability/Experience records remain
+authority and no Console route mutates Provider, Outcome or Active Plan directly. Affected gates pass
+597 unit, 157 contract, 84 real integration, 62 real E2E, 152 OpenAPI operations, 419-source
+architecture, A2A MUST 74/74, production build, isolated Server/Console smoke and all 16 migrations
+through 0123. Implementation `d77794a` and evidence `9d66eab` are pushed to Draft PR #9; no merge,
+tag or Ready transition is authorized before G17.
+
+SDAR v1.2.3 G00–G14 are complete (2026-07-26); G15 Management/Console/A2A integration is next. G14
+adds a governed decorator over the unchanged base Planner with distinct off/shadow/advisory/frozen
+low-risk-active modes, bounded fail-open replanning and immutable Contract/readiness/terminal
+authority. Candidate, knowledge usage, affected Skill Goals and validation save atomically; Session
+actions and final Outcome extend the same lineage in their owning transactions. Affected gates pass
+587 unit, 155 contract, 83 real integration, 62 real E2E, 147 OpenAPI operations, 411-source
+architecture, production build, isolated Server smoke and all 15 migrations through 0122.
+Implementation `1bd52dd` is pushed to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G13 closure (2026-07-26): G13 adds
+Active-only scoped Vector+FTS/RRF retrieval, bounded one-hop relations, Session dedupe and strict
+Level-0 Index → Full Definition → exact current Skill disclosure under a factory-checked 20K budget.
+PostgreSQL remains the sole authority; generic Memory cannot read Active Knowledge projections, and
+Candidate relations remain outside retrieval until Promotion. Affected gates pass 575 unit, 155
+contract, 83 real integration with P95 4.476 ms, 62 real E2E, 147 OpenAPI operations, 408-source
+architecture, production build, Server smoke and all 14 migrations through 0121. Implementations
+`1879ff1` and `3201325` are pushed to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G10 closure (2026-07-26): G10 adds
+seven-dimensional deterministic Task Type fingerprints/clusters before strictly validated model naming,
+bounded Offline/Online Candidate revisions with 1–3 real Episode Exemplars, Negative Examples and a
+current-context Applicability Guard. PostgreSQL owns revision/evidence/Outbox authority through
+migration 0118; Candidate status remains excluded from the unchanged G03 formal Understanding source.
+Affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI operations,
+378-source architecture, A2A MUST 74/74, production build and all 11 migrations. Implementation
+`c36e83d` is pushed to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G09 closure (2026-07-26):
+The former G07–G09 platform blocker is closed with real PostgreSQL/Redis/A2A evidence: 549/549 unit,
+152/152 contract, 79/79 integration and 62/62 E2E tests pass, along with 141 OpenAPI operations,
+372-source architecture, A2A MUST 74/74, licenses/SBOM, production build and the ten-migration
+0108–0117 rollback/reapply gate. Real verification found and fixed Outbox SQL type inference,
+post-insert Episode idempotency, incomplete v1.2.2 terminal-authority fixtures and a missing
+`experience_reflection` Management API stage; assertions were not weakened. Candidate Knowledge
+remains excluded from the formal Planner. Historical PR #8 was merged externally, so the branch was
+normally synchronized with `origin/main` and replacement PR #9 is Draft:
+<https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>. No merge, tag, force-push or
+direct `main` mutation was performed. See `reports/goal/g07-completion.md` through
+`reports/goal/g09-completion.md`.
+
 SDAR v1.2.3 G06 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Understanding, Goal Contract and Plan corrections now
 persist immutable actor/source-attributed before/instruction/patch/after/validation Facts and

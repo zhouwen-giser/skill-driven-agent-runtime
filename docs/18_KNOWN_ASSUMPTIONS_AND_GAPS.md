@@ -234,3 +234,86 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The AutoSkill locked commit has no LICENSE/NOTICE despite its README MIT badge. It remains behavior
   reference only, with source and long-prompt copying prohibited. The other five source licenses and
   absence of root NOTICE were checked at their exact commits; G00 copies no upstream code.
+
+## v1.2.3 G12 Promotion boundary (2026-07-26)
+
+- G12 provides the strict Shadow report contract and requires a passing report for Task Type and all
+  high-risk activation, but the production Shadow harness is intentionally not supplied until G16.
+  The runtime source therefore returns no report and those candidates fail closed; no Mock or static
+  report is accepted as final evidence.
+- Promotion replay in G12 is a side-effect-free evaluation over persisted authoritative Episode
+  outcomes. G16 must add the richer holdout/replay/shadow comparison harness without changing G12's
+  lifecycle, PostgreSQL authority or manual activation gates.
+
+## v1.2.3 G13 Retrieval boundary (2026-07-26)
+
+- G13 composes the governed Retriever but intentionally does not inject it into formal planning;
+  decorator/fallback behavior and injection-mode rollout belong to G14.
+- Task-scoped Knowledge is fail-closed unless its authoritative definition carries the exact `taskId`;
+  the shared v1.2.3 knowledge skeleton has no separate task-scope column. Tenant and user scopes use
+  dedicated columns and are exact-match filtered.
+- Reflection automatically projects `related` and revision `supersedes` edges. The reader supports all
+  five frozen relation types, while `requires`, `contradicts` and `supported_by` rows require a
+  governed structured knowledge producer; G13 adds no public relation-mutation API.
+- The P95 result is a reproducible local PostgreSQL integration measurement, not a production capacity
+  claim. G17 must repeat capacity/soak measurement in its release environment.
+
+## v1.2.3 G14 Planning injection boundary (2026-07-26)
+
+- The frozen public name `active` is represented by the existing Domain value `active_low_risk`;
+  G14 does not add a second spelling or permit medium/high-risk automatic injection.
+- G14's default deployment mode is the frozen `shadow`. G15 owns operational exposure/configuration;
+  G16 owns independent Replay/Shadow comparison reports. Neither may convert a shadow hash or usage row
+  into a formal Plan or Promotion decision.
+- Timeout abandons the decorator wait but cannot cancel an already running read-only retrieval Promise.
+  `PlanningKnowledgeRetriever.prepare` performs no durable write, so late completion cannot reserve
+  usage or mutate planning state.
+- Fallback rows record retrieved provenance and the exact fallback reason with no affected Skill Goal.
+  Only a validated enriched plan or completed shadow plan receives affected-goal attribution.
+- Final Outcome linkage is Goal-version scoped because the v1.2.2 terminal authority commits at that
+  boundary. G17 must repeat the lineage query under release-capacity concurrency.
+
+## v1.2.3 G15 management authentication and audit boundary (2026-07-26)
+
+- The authoritative V1 baseline remains trusted-intranet/no-auth. In the default mode `actorId` is an
+  operator-supplied audit label, not authenticated identity. ADR-115 adds an optional bearer guard for
+  cognitive management writes without claiming multi-tenant authentication or changing A2A access.
+- A pending/failed PostgreSQL management action claim is deliberately not auto-retried after restart.
+  This fail-closed posture avoids duplicating a write whose authority may have committed before a
+  process failure; operator review and a new idempotency key are required.
+- Cognitive management audit stores displayable API results but is not Plan, Knowledge, Experience or
+  Capability authority. A private-reasoning key is rejected before persistence.
+- G15 does not add tenant identity or cross-tenant authorization. Production exposure beyond a trusted
+  network still requires a separately reviewed authentication/authorization architecture.
+
+## v1.2.3 G16 Replay and Shadow boundary (2026-07-26)
+
+- The default production evaluator is intentionally conservative and emits neutral
+  Baseline/Champion/Candidate results from immutable recorded metrics. The fixture's improved verdict
+  validates comparison mechanics only; it is not a production model-efficacy claim.
+- Replay includes only complete Goal Experience Episodes referenced by the exact Candidate evidence.
+  It never fabricates missing Contract, Plan, Outcome or catalog data. Fewer than three usable cases
+  remains `incubating` and cannot activate Knowledge.
+- The deterministic last-one-third holdout is reproducible and disjoint, but it is not randomized or
+  stratified. Larger production datasets may require a separately versioned split policy without
+  reinterpreting existing report hashes.
+- `promotion_provenance_report` is audit/evaluation evidence, not Active Knowledge or a file-based
+  knowledge authority. Rollback refuses to discard a populated report table.
+- `NoPhysicalProvider` rejects every nonzero Provider/MCP/device receipt. G16 performs no live device
+  interoperability or production Shadow efficacy run; G17 owns the frozen rollout and release
+  environment evidence.
+
+## v1.2.3 G17 release evidence boundary (2026-07-26)
+
+- Capacity figures are local release measurements, not a production soak claim. Twenty concurrent
+  waiters and PostgreSQL P95 evidence exceed the specified single-instance 1–10 active-task target,
+  but production sizing still requires deployment-specific observation.
+- Model/MCP E2E uses deterministic local services through the real product path. External physical
+  Provider execution is deliberately excluded from Replay and is not claimed.
+- The v1.2.2 disposable real database-restart audit remains the service-restart evidence for unchanged
+  execution authorities. v1.2.3 adds startup reconstruction tests and real persistence integration;
+  it does not restart the operator-managed PostgreSQL service.
+- Deletion propagation invalidates user-scoped search/Memory projections. Immutable audit/source facts
+  follow the configured legal retention boundary and are not silently physically erased.
+- G17 does not add external authentication or tenant authorization. Trusted-intranet warnings remain
+  release requirements.

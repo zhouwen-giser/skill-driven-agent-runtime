@@ -1,0 +1,135 @@
+{
+  "candidate": {
+    "schemaVersion": "1.0",
+    "knowledgeId": "knowledge.fixture.replay",
+    "revision": 1,
+    "version": 1,
+    "status": "candidate",
+    "kind": "planning_heuristic",
+    "scope": "global_candidate",
+    "risk": "low",
+    "title": "Inspect before acting",
+    "summary": "Collect evidence before changing the plan.",
+    "definition": {},
+    "supportSourceRefs": [],
+    "contradictionSourceRefs": [],
+    "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "createdAt": "2026-07-26T11:00:00.000Z"
+  },
+  "records": [
+    {
+      "episodeId": "episode.fixture.1",
+      "request": "Inspect device one.",
+      "worldSummary": { "device": "one" },
+      "acceptedContract": { "objective": "Inspect device one." },
+      "acceptedPlan": { "planId": "plan.fixture.1" },
+      "corrections": [{ "path": "/criteria" }],
+      "outcome": { "status": "achieved" },
+      "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "createdAt": "2026-07-26T11:00:00.000Z",
+      "baselineMetrics": {
+        "missingDimensionCount": 0,
+        "coverage": 0.8,
+        "patchCount": 1,
+        "attemptCount": 1,
+        "recoveryCount": 0,
+        "riskScore": 0,
+        "tokenCount": 100,
+        "latencyMs": 50,
+        "hardFailureCount": 0,
+        "dimensionScores": {
+          "understanding": 1,
+          "contract": 1,
+          "plan": 0.8,
+          "injection": 1,
+          "task_type_recognition": 1,
+          "capability_gap": 1
+        }
+      }
+    },
+    {
+      "episodeId": "episode.fixture.2",
+      "request": "Inspect device two.",
+      "worldSummary": { "device": "two" },
+      "acceptedContract": { "objective": "Inspect device two." },
+      "acceptedPlan": { "planId": "plan.fixture.2" },
+      "corrections": [],
+      "outcome": { "status": "achieved" },
+      "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "createdAt": "2026-07-26T11:00:00.000Z",
+      "baselineMetrics": {
+        "missingDimensionCount": 0,
+        "coverage": 1,
+        "patchCount": 0,
+        "attemptCount": 1,
+        "recoveryCount": 0,
+        "riskScore": 0,
+        "tokenCount": 80,
+        "latencyMs": 40,
+        "hardFailureCount": 0,
+        "dimensionScores": {
+          "understanding": 1,
+          "contract": 1,
+          "plan": 1,
+          "injection": 1,
+          "task_type_recognition": 1,
+          "capability_gap": 1
+        }
+      }
+    },
+    {
+      "episodeId": "episode.fixture.3",
+      "request": "Inspect device three.",
+      "worldSummary": { "device": "three" },
+      "acceptedContract": { "objective": "Inspect device three." },
+      "acceptedPlan": { "planId": "plan.fixture.3" },
+      "corrections": [{ "path": "/ordering" }],
+      "outcome": { "status": "achieved" },
+      "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "createdAt": "2026-07-26T11:00:00.000Z",
+      "baselineMetrics": {
+        "missingDimensionCount": 0,
+        "coverage": 0.8,
+        "patchCount": 1,
+        "attemptCount": 1,
+        "recoveryCount": 0,
+        "riskScore": 0,
+        "tokenCount": 100,
+        "latencyMs": 50,
+        "hardFailureCount": 0,
+        "dimensionScores": {
+          "understanding": 1,
+          "contract": 1,
+          "plan": 0.8,
+          "injection": 1,
+          "task_type_recognition": 1,
+          "capability_gap": 1
+        }
+      }
+    }
+  ],
+  "candidateMetrics": {
+    "episode.fixture.3": {
+      "missingDimensionCount": 0,
+      "coverage": 1,
+      "patchCount": 0,
+      "attemptCount": 1,
+      "recoveryCount": 0,
+      "riskScore": 0,
+      "tokenCount": 90,
+      "latencyMs": 45,
+      "hardFailureCount": 0,
+      "dimensionScores": {
+        "understanding": 1,
+        "contract": 1,
+        "plan": 1,
+        "injection": 1,
+        "task_type_recognition": 1,
+        "capability_gap": 1
+      }
+    }
+  }
+}

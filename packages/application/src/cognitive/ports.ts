@@ -1,7 +1,17 @@
+import type { ZodType } from 'zod';
+
 import type {
   CognitiveDomainEvent,
   CognitiveModelStage,
+  CognitiveSourceRef,
   CognitiveRuntimeFeatureFlags,
+  ExperienceDeadLetter,
+  ExperienceExtraction,
+  ExperienceUsageRecord,
+  ExperienceExtractorKind,
+  ExperienceObservation,
+  ExperienceReflection,
+  ExperienceJob,
   GenericTaskUnderstandingRevision,
   GoalExperienceEpisode,
   InteractiveSessionSnapshot,
@@ -11,15 +21,43 @@ import type {
   InteractivePlanningSessionSnapshot,
   InteractivePlanningTurn,
   KnowledgeCandidateSnapshot,
+  KnowledgeCandidateIdentity,
+  KnowledgeKind,
   KnowledgeStatusTransition,
   PlanningCorrectionFact,
   PlanningInteractionEpisode,
   PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
+  CapabilityGapCandidateSnapshot,
+  CapabilityPatternDefinitionSnapshot,
+  TaskTypeDefinitionSnapshot,
   UserGoalPlanCandidateSnapshot,
   UserGoalPlan,
 } from '../../../domain/src/index.js';
+
+export type ExperienceObservationPartition =
+  'contract' | 'plan' | 'attempt' | 'outcome' | 'recovery' | 'correction';
+
+export interface KnowledgeSemanticSimilarityPort {
+  compare(left: string, right: string): Promise<number>;
+}
+
+export interface ExperienceExtractorInput {
+  readonly observationId: string;
+  readonly episodes: readonly GoalExperienceEpisode[];
+  readonly partitions: Readonly<Record<ExperienceObservationPartition, unknown>>;
+  readonly sourceRefs: readonly CognitiveSourceRef[];
+  readonly previousObservations: readonly ExperienceObservation[];
+}
+
+export interface ExperienceExtractor<T> {
+  readonly id: ExperienceExtractorKind;
+  readonly schema: ZodType<T>;
+  readonly modelTier: 'fast' | 'reasoning';
+  readonly requiredPartitions: readonly ExperienceObservationPartition[];
+  extract(input: ExperienceExtractorInput): Promise<ExperienceExtraction>;
+}
 
 export interface CognitiveFeatureFlagSource {
   load(): Promise<CognitiveRuntimeFeatureFlags>;
@@ -31,6 +69,7 @@ export interface CapabilityCatalogSource {
 
 export interface CapabilitySummaryRepository {
   findActive(): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
+  findById(summaryId: string): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -48,6 +87,7 @@ export interface CapabilityCatalogChangeSource {
 
 export interface CapabilityCardRepository {
   findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
+  findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined>;
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -148,6 +188,14 @@ export interface InteractivePlanningRepository {
   apply(mutation: InteractivePlanningMutation): Promise<InteractivePlanningMutationResult>;
 }
 
+export interface ExperienceUsageRepository {
+  saveWithPlanCandidate(
+    session: InteractivePlanningSessionSnapshot,
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    usageRecords: readonly ExperienceUsageRecord[],
+  ): Promise<InteractivePlanningSessionSnapshot>;
+}
+
 export interface GoalVersionLock {
   withLock<T>(goalId: string, goalVersion: number, operation: () => Promise<T>): Promise<T>;
 }
@@ -203,7 +251,147 @@ export interface PlanningInteractionTaskSource {
 export interface GoalExperienceEpisodeRepository {
   findById(episodeId: string): Promise<GoalExperienceEpisode | undefined>;
   findByGoal(goalId: string): Promise<readonly GoalExperienceEpisode[]>;
+  list(limit?: number, goalId?: string): Promise<readonly GoalExperienceEpisode[]>;
   saveIfAbsent(episode: GoalExperienceEpisode): Promise<boolean>;
+}
+
+export interface GoalExperienceEpisodeBuilderPort {
+  build(input: Readonly<{ goalId: string; goalVersion: number }>): Promise<GoalExperienceEpisode>;
+}
+
+export interface CognitiveOutboxRepository {
+  append(event: CognitiveDomainEvent): Promise<void>;
+  dispatchTerminalEvents(limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ExperienceJobRepository {
+  createEpisodeJob(event: CognitiveDomainEvent, now: string): Promise<ExperienceJob>;
+  claim(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  complete(jobId: string, workerId: string, now: string, episodeId: string): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+  replayDeadLetter(deadLetterId: string, actorId: string, now: string): Promise<ExperienceJob>;
+  listDeadLetters(limit?: number): Promise<readonly ExperienceDeadLetter[]>;
+}
+
+export interface ExperienceJobQueuePort {
+  enqueue(jobId: string): Promise<void>;
+}
+
+export interface ObservationJobRepository {
+  claimObservation(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  completeObservation(
+    jobId: string,
+    workerId: string,
+    now: string,
+    observationId: string,
+  ): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listObservationRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ObservationRepository {
+  findById(observationId: string): Promise<ExperienceObservation | undefined>;
+  findByEpisode(episodeId: string): Promise<readonly ExperienceObservation[]>;
+  list(limit?: number, goalId?: string): Promise<readonly ExperienceObservation[]>;
+  listPrevious(
+    goalId: string,
+    excludeEpisodeId: string,
+    limit: number,
+  ): Promise<readonly ExperienceObservation[]>;
+  save(observation: ExperienceObservation): Promise<boolean>;
+}
+
+export interface ReflectionJobRepository {
+  claimReflection(
+    workerId: string,
+    now: string,
+    leaseMs: number,
+    limit: number,
+  ): Promise<readonly ExperienceJob[]>;
+  completeReflection(
+    jobId: string,
+    workerId: string,
+    now: string,
+    reflectionId: string,
+  ): Promise<void>;
+  fail(
+    jobId: string,
+    workerId: string,
+    errorCode: string,
+    errorSummary: string,
+    now: string,
+    retryAt?: string,
+  ): Promise<void>;
+  listReflectionRequeueable(now: string, limit?: number): Promise<readonly ExperienceJob[]>;
+}
+
+export interface ReflectionRepository {
+  findById(reflectionId: string): Promise<ExperienceReflection | undefined>;
+  findByObservation(observationId: string): Promise<ExperienceReflection | undefined>;
+  list(limit?: number): Promise<readonly ExperienceReflection[]>;
+  listCandidateIdentities(
+    kind: KnowledgeKind,
+    limit?: number,
+  ): Promise<
+    readonly Readonly<{
+      knowledgeId: string;
+      revision: number;
+      fingerprint: string;
+      identity: KnowledgeCandidateIdentity;
+    }>[]
+  >;
+  findCandidate(
+    kind: KnowledgeKind,
+    knowledgeId: string,
+  ): Promise<KnowledgeCandidateSnapshot | undefined>;
+  save(reflection: ExperienceReflection): Promise<boolean>;
+}
+
+export interface TaskTypeRepository {
+  findByFingerprint(fingerprint: string): Promise<TaskTypeDefinitionSnapshot | undefined>;
+  list(limit?: number): Promise<readonly TaskTypeDefinitionSnapshot[]>;
+  saveCandidate(candidate: TaskTypeDefinitionSnapshot): Promise<boolean>;
+}
+
+export interface CapabilityPatternRepository {
+  findLatest(capabilityId: string): Promise<CapabilityPatternDefinitionSnapshot | undefined>;
+  list(limit?: number): Promise<readonly CapabilityPatternDefinitionSnapshot[]>;
+  saveCandidate(candidate: CapabilityPatternDefinitionSnapshot): Promise<boolean>;
+  findGapByFingerprint(fingerprint: string): Promise<CapabilityGapCandidateSnapshot | undefined>;
+  listGaps(limit?: number): Promise<readonly CapabilityGapCandidateSnapshot[]>;
+  saveGapCandidate(candidate: CapabilityGapCandidateSnapshot): Promise<boolean>;
+  invalidateByCatalog(
+    input: Readonly<{
+      catalogHash: string;
+      policyVersion: string;
+      occurredAt: string;
+    }>,
+  ): Promise<number>;
 }
 
 export interface KnowledgeRepository {

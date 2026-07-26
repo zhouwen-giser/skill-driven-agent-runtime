@@ -1,9 +1,10 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
-import type {
-  CapabilityCatalogChangeSource,
-  CapabilitySummaryRepository,
+import {
+  CapabilitySummaryRevisionConflictError,
+  type CapabilityCatalogChangeSource,
+  type CapabilitySummaryRepository,
 } from '../../../application/src/cognitive/index.js';
 import {
   createRuntimeCapabilitySummarySnapshot,
@@ -111,6 +112,10 @@ export class PostgresCapabilitySummaryRepository implements CapabilitySummaryRep
     return this.#findOne("WHERE status='active'");
   }
 
+  async findById(summaryId: string): Promise<RuntimeCapabilitySummarySnapshot | undefined> {
+    return this.#findOne('WHERE summary_id=$1', [summaryId]);
+  }
+
   async findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -133,6 +138,13 @@ export class PostgresCapabilitySummaryRepository implements CapabilitySummaryRep
     try {
       await client.query('BEGIN');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar:v123:capability-summary'))");
+      const active = await findSummaryRow(client, "WHERE status='active'");
+      if (
+        expectedActiveRevision !== undefined &&
+        (active?.revision ?? 0) !== expectedActiveRevision
+      ) {
+        throw new CapabilitySummaryRevisionConflictError();
+      }
       const existing = await findSummaryRow(
         client,
         'WHERE catalog_hash=$1 AND generation_policy_version=$2',
@@ -145,10 +157,6 @@ export class PostgresCapabilitySummaryRepository implements CapabilitySummaryRep
         return saved;
       }
 
-      const active = await findSummaryRow(client, "WHERE status='active'");
-      if (expectedActiveRevision !== undefined && active?.revision !== expectedActiveRevision) {
-        throw new Error('CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT');
-      }
       await client.query(
         `INSERT INTO runtime_capability_summary(
            summary_id,revision,catalog_hash,generation_policy_version,status,

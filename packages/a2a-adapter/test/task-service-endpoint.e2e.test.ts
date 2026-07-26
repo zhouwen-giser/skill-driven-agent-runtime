@@ -302,6 +302,8 @@ beforeAll(async () => {
     'task_clarification',
     'goal_contract_generation',
     'interactive_plan_patch',
+    'experience_observation',
+    'experience_reflection',
   ] as const) {
     const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
       method: 'PUT',
@@ -416,7 +418,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       metadata: {
         'io.sdar/interaction': {
           state: 'understand',
-          version: 1,
+          interactionType: 'goal_clarification',
+          expectedVersion: 1,
+          questionId: 'dimension.target',
           allowedActions: ['answer', 'restart_understanding', 'cancel'],
         },
       },
@@ -436,8 +440,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(answeredBoundary.metadata).toMatchObject({
       'io.sdar/interaction': {
         state: 'goal_review',
-        version: 2,
-        currentCandidateId: expect.any(String),
+        interactionType: 'goal_confirmation',
+        expectedVersion: 2,
       },
     });
     const revised = await fetch(
@@ -527,8 +531,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       metadata: {
         'io.sdar/interaction': {
           kind: 'interactive_planning',
+          interactionType: 'plan_confirmation',
           state: 'plan_review',
-          version: 1,
+          expectedVersion: 1,
           allowedActions: ['accept', 'patch', 'reject', 'cancel'],
         },
       },
@@ -566,6 +571,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           expectedVersion: 2,
           idempotencyKey: 'e2e-user-preference-patch',
           actorId: 'user.e2e.planning',
+          reason: 'Persist the explicitly reviewed planning preference.',
           action: 'patch',
           payload: {
             instruction: 'Keep the inspection read-only and retain the same evidence priority.',
@@ -922,8 +928,23 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('rebuilds and serves the deterministic Capability Summary after Skill catalog changes', async () => {
+    const currentResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/capabilities/summary`,
+    );
+    const expectedVersion = currentResponse.ok
+      ? z
+          .object({ summary: z.object({ revision: z.number().int().positive() }) })
+          .parse(await currentResponse.json()).summary.revision
+      : 0;
     const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion,
+        idempotencyKey: 'e2e-capability-summary-rebuild',
+        actorId: 'e2e.operator',
+        reason: 'Rebuild the reviewed test catalog projection.',
+      }),
     });
     expect(rebuilt.status).toBe(200);
     const baseline = capabilitySummaryResponse(await rebuilt.json());
@@ -946,8 +967,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('publishes an allowlisted Public Capability Card and serves A2A only from its active snapshot', async () => {
+    const currentResponse = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card`);
+    const expectedVersion = currentResponse.ok
+      ? z.object({ revision: z.number().int().positive() }).parse(await currentResponse.json())
+          .revision
+      : 0;
     const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion,
+        idempotencyKey: 'e2e-capability-card-rebuild',
+        actorId: 'e2e.operator',
+        reason: 'Publish the reviewed test public card projection.',
+      }),
     });
     expect(rebuilt.status).toBe(200);
     const baseline = PublicCapabilityCardSchema.parse(await rebuilt.json());
@@ -5788,25 +5821,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
           ).then((response) => response.json()),
         );
-      const evolutionEvidence = z
-        .object({
-          items: z.array(
-            z.object({
-              taskId: z.string(),
-              goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
-              workflow: z.object({ nodes: z.array(z.unknown()) }),
-              tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
-              result: z.unknown(),
-              evaluation: z.object({ decision: z.string(), summary: z.string() }),
-              successful: z.boolean(),
-            }),
-          ),
-        })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(completedTask.goalId)}/evolution-experiences`,
-          ).then((response) => response.json()),
-        );
+      const evolutionEvidence = await waitForEvolutionExperience(
+        completedTask.goalId,
+        submitted.id,
+      );
       expect(evolutionEvidence.items).toContainEqual(
         expect.objectContaining({
           taskId: submitted.id,
@@ -6291,6 +6309,13 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     );
     if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
     await attachPlannedTask(submitted.id);
+    const internalTask = z
+      .object({ goalId: z.string() })
+      .parse(
+        await fetch(
+          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+        ).then((response) => response.json()),
+      );
     await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm.');
     const completed = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
     expect(completed.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
@@ -6362,6 +6387,54 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         { component: 'result_quality', evidenceRefs: ['result_quality:evidence'] },
         { component: 'tool_call', evidenceRefs: ['tool_call:evidence'] },
       ],
+    });
+    const experienceEpisode = await waitForGoalExperienceEpisode(internalTask.goalId);
+    expect(experienceEpisode).toMatchObject({
+      goalId: internalTask.goalId,
+      taskId: submitted.id,
+      episodeType: 'terminal',
+      terminalOutcomeRef: `runtime-terminal-outcome:terminal-outcome-task-${submitted.id}`,
+      status: expect.stringMatching(/^(?:partial|complete)$/u),
+      snapshot: expect.objectContaining({
+        terminalOutcome: expect.objectContaining({ kind: 'achieved' }),
+      }),
+    });
+    const experienceObservation = await waitForGoalExperienceObservation(internalTask.goalId);
+    expect(experienceObservation).toMatchObject({
+      scope: 'goal_episode',
+      sourceEpisodeIds: [experienceEpisode.episodeId],
+      status: expect.stringMatching(/^(?:partial|completed)$/u),
+      extractions: expect.arrayContaining([
+        expect.objectContaining({ extractorKind: 'goal_pattern', status: 'completed' }),
+        expect.objectContaining({ extractorKind: 'recovery' }),
+        expect.objectContaining({ extractorKind: 'human_correction' }),
+      ]),
+      modelInvocationRefs: expect.arrayContaining([expect.any(String)]),
+    });
+    await expect(
+      waitForExperienceReflection(experienceObservation.observationId),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      observationIds: [experienceObservation.observationId],
+      impacts: expect.arrayContaining([
+        expect.objectContaining({ disposition: 'helpful' }),
+        expect.objectContaining({ disposition: 'harmful' }),
+      ]),
+      deltas: expect.arrayContaining([
+        expect.objectContaining({
+          operation: 'CREATE_REVISION',
+          candidate: expect.objectContaining({ status: 'candidate' }),
+          supportEvidence: expect.arrayContaining([
+            expect.objectContaining({
+              sourceEpisodeIds: [experienceEpisode.episodeId],
+              outcomeRefs: [`runtime-terminal-outcome:terminal-outcome-task-${submitted.id}`],
+            }),
+          ]),
+          contradictionEvidence: expect.arrayContaining([
+            expect.objectContaining({ polarity: 'contradiction' }),
+          ]),
+        }),
+      ]),
     });
   });
 
@@ -6974,6 +7047,15 @@ async function startModelLoopback(): Promise<Server> {
         const interactivePlanPatchRequest = body.messages?.some(
           (message) => message.content?.includes('untrustedUserInstruction') === true,
         );
+        const experienceObservationRequest = body.messages?.some(
+          (message) => message.content?.includes('untrusted_episode_data') === true,
+        );
+        const experienceReflectionRequest = body.messages?.some(
+          (message) => message.content?.includes('maxDrafts') === true,
+        );
+        const knowledgeCuratorRequest = body.messages?.some(
+          (message) => message.content?.includes('identityDecision') === true,
+        );
         const goalDecisionRequest = body.messages?.some(
           (message) => message.content?.includes('formulate_goal') === true,
         );
@@ -7149,6 +7231,109 @@ async function startModelLoopback(): Promise<Server> {
               },
               { op: 'set_priority', skillGoalId, priority: 10 },
             ],
+          });
+          return;
+        }
+        if (experienceObservationRequest === true) {
+          const content = body.messages?.map((message) => message.content ?? '').join('\n') ?? '';
+          const extractorKind = /"extractor":\{"kind":"([a-z_]+)"/u.exec(content)?.[1];
+          const sourceRefId = /"sourceRefIds":\["([^"]+)"/u.exec(content)?.[1];
+          if (extractorKind === undefined || sourceRefId === undefined) {
+            throw new Error('EXPERIENCE_OBSERVATION_FIXTURE_INVALID');
+          }
+          const statementKinds = [
+            'fact',
+            'inference',
+            'candidate_lesson',
+            'uncertainty',
+            'contradiction',
+          ] as const;
+          const extractorOrdinal = [
+            'goal_pattern',
+            'task_type_signal',
+            'decomposition',
+            'dependency',
+            'criterion',
+            'evidence',
+            'artifact',
+            'capability',
+            'failure',
+            'recovery',
+            'no_progress',
+            'human_correction',
+          ].indexOf(extractorKind);
+          respondStructured(response, {
+            extractorKind,
+            statements: [
+              {
+                kind:
+                  statementKinds[Math.max(0, extractorOrdinal) % statementKinds.length] ?? 'fact',
+                summary: `${extractorKind} source-linked observation`,
+                confidence: 0.8,
+                sourceRefIds: [sourceRefId],
+              },
+            ],
+            changeSuggestions: [
+              {
+                action: 'create_candidate',
+                summary: `${extractorKind} remains candidate-only`,
+                sourceRefIds: [sourceRefId],
+              },
+            ],
+          });
+          return;
+        }
+        if (experienceReflectionRequest === true) {
+          const content = body.messages?.map((message) => message.content ?? '').join('\n') ?? '';
+          const statementIds = [...content.matchAll(/"statementId":"([^"]+)"/gu)]
+            .map((match) => match[1])
+            .filter((value): value is string => value !== undefined);
+          const supportStatementId = statementIds[0];
+          const contradictionStatementId = statementIds.at(-1);
+          if (supportStatementId === undefined || contradictionStatementId === undefined) {
+            throw new Error('EXPERIENCE_REFLECTION_FIXTURE_INVALID');
+          }
+          respondStructured(response, {
+            impacts: [
+              {
+                statementId: supportStatementId,
+                disposition: 'helpful',
+                summary: 'The cited evidence helped the verified terminal Outcome.',
+              },
+              {
+                statementId: contradictionStatementId,
+                disposition: 'harmful',
+                summary: 'The retained contradiction prevents unconditional reuse.',
+              },
+            ],
+            drafts: [
+              {
+                knowledgeKind: 'planning_heuristic',
+                title: 'Preserve evidence and counterexamples',
+                summary: 'Require cited evidence and retain contradictions before promotion.',
+                risk: 'low',
+                identity: {
+                  jobToBeDone: 'Inspect a device and preserve verified evidence',
+                  objectiveTerms: ['inspect', 'device'],
+                  criterionTerms: ['verified'],
+                  artifactTerms: ['evidence'],
+                  capabilityTerms: ['inspection'],
+                  tags: ['inspection'],
+                  deliverable: 'verified inspection evidence',
+                  recentIntentBoundary: 'terminal-inspection',
+                },
+                supportStatementIds: [supportStatementId],
+                contradictionStatementIds: [contradictionStatementId],
+              },
+            ],
+          });
+          return;
+        }
+        if (knowledgeCuratorRequest === true) {
+          respondStructured(response, {
+            operation: 'CREATE_REVISION',
+            relatedKnowledgeIds: [],
+            reason: 'Create a candidate-only revision for later promotion review.',
           });
           return;
         }
@@ -8715,6 +8900,128 @@ async function waitForManagementJson(path: string): Promise<unknown> {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
   }
   throw new Error(`MANAGEMENT_RESOURCE_NOT_READY:${path}:${lastBody}`);
+}
+
+async function waitForGoalExperienceEpisode(goalId: string) {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          episodeId: z.string(),
+          goalId: z.string(),
+          episodeType: z.literal('terminal'),
+          terminalOutcomeRef: z.string(),
+          snapshot: z.record(z.string(), z.unknown()),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/experience/episodes?goalId=${encodeURIComponent(goalId)}&limit=10`,
+      ).then((response) => response.json()),
+    );
+    const episode = latest.items.find((item) => item.goalId === goalId);
+    if (episode !== undefined) return episode;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`GOAL_EXPERIENCE_EPISODE_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForEvolutionExperience(goalId: string, taskId: string) {
+  const schema = z.object({
+    items: z.array(
+      z.object({
+        taskId: z.string(),
+        goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
+        workflow: z.object({ nodes: z.array(z.unknown()) }),
+        tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
+        result: z.unknown(),
+        evaluation: z.object({ decision: z.string(), summary: z.string() }),
+        successful: z.boolean(),
+      }),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/goals/${encodeURIComponent(goalId)}/evolution-experiences`,
+      ).then((response) => response.json()),
+    );
+    if (latest.items.some((item) => item.taskId === taskId)) return latest;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`EVOLUTION_EXPERIENCE_NOT_READY:${goalId}:${taskId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForGoalExperienceObservation(goalId: string) {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          observationId: z.string(),
+          scope: z.enum(['goal_episode', 'planning_interaction', 'cross_episode_batch']),
+          sourceEpisodeIds: z.array(z.string()).min(1),
+          status: z.enum(['partial', 'completed', 'failed']),
+          statements: z.array(z.object({ sourceRefIds: z.array(z.string()).min(1) }).loose()),
+          extractions: z.array(z.object({ extractorKind: z.string(), status: z.string() }).loose()),
+          modelInvocationRefs: z.array(z.string()),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    latest = schema.parse(
+      await fetch(
+        `${runtime.management.baseUrl}/api/v1/experience/observations?goalId=${encodeURIComponent(goalId)}&limit=10`,
+      ).then((response) => response.json()),
+    );
+    const observation = latest.items[0];
+    if (observation !== undefined) return observation;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`GOAL_EXPERIENCE_OBSERVATION_NOT_READY:${goalId}:${JSON.stringify(latest)}`);
+}
+
+async function waitForExperienceReflection(observationId: string) {
+  const schema = z.object({
+    items: z.array(
+      z
+        .object({
+          reflectionId: z.string(),
+          observationIds: z.array(z.string()).min(1),
+          status: z.enum(['completed', 'no_op', 'failed']),
+          impacts: z.array(z.object({ disposition: z.string() }).loose()),
+          deltas: z.array(
+            z
+              .object({
+                operation: z.string(),
+                candidate: z.object({ status: z.string() }).loose().optional(),
+                supportEvidence: z.array(z.unknown()),
+                contradictionEvidence: z.array(z.unknown()),
+              })
+              .loose(),
+          ),
+        })
+        .loose(),
+    ),
+  });
+  let latest: z.infer<typeof schema> = { items: [] };
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    latest = schema.parse(
+      await fetch(`${runtime.management.baseUrl}/api/v1/experience/reflections?limit=20`).then(
+        (response) => response.json(),
+      ),
+    );
+    const reflection = latest.items.find((item) => item.observationIds.includes(observationId));
+    if (reflection !== undefined) return reflection;
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 20));
+  }
+  throw new Error(`EXPERIENCE_REFLECTION_NOT_READY:${observationId}:${JSON.stringify(latest)}`);
 }
 
 async function waitForRuntimeTerminalOutcomeWarning(

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "release": "v1.2.3",
+  "status": "release_gates_passed_publication_pending",
+  "verificationCommit": "7e505412bc50917a71c4a724ef15f659c6d5c296",
+  "verificationReport": "reports/verification/summary.json",
+  "verificationDirty": false,
+  "acceptance": [
+    { "id": "AC-G17-01", "status": "passed", "classification": ["real PostgreSQL", "real Redis", "real HTTP", "mock Model", "mock MCP"] },
+    { "id": "AC-G17-02", "status": "passed", "classification": ["real PostgreSQL persistence", "real Redis queue", "simulated worker/model failure", "inherited real v1.2.2 database restart"] },
+    { "id": "AC-G17-03", "status": "passed", "classification": ["real PostgreSQL scope/deletion", "real HTTP Card privacy", "mock Model prompt injection"] },
+    { "id": "AC-G17-04", "status": "passed", "classification": ["local measured capacity", "real PostgreSQL P95", "real Redis backpressure", "review-only retention"] },
+    { "id": "AC-G17-05", "status": "passed", "classification": ["deterministic rollout policy", "replay/no-physical-provider", "mock Model/MCP E2E"] },
+    { "id": "AC-G17-06", "status": "passed", "classification": ["static source/license/SBOM audit"] },
+    { "id": "AC-G17-07", "status": "passed", "classification": ["official frozen A2A HTTP+JSON MUST TCK", "static OpenAPI drift gate"] },
+    { "id": "AC-G17-08", "status": "passed", "classification": ["release boundary audit"] },
+    { "id": "AC-G17-09", "status": "pending_publication", "classification": ["git/GitHub publication audit"] }
+  ],
+  "metrics": {
+    "unitAndContract": { "passed": 765, "total": 765 },
+    "integration": { "passed": 84, "total": 84 },
+    "e2e": { "passed": 62, "total": 62 },
+    "a2aMust": { "passed": 74, "total": 74 },
+    "openapiOperations": 152,
+    "typescriptSources": 425,
+    "cognitiveDomainFiles": 20,
+    "cognitiveApplicationFiles": 62,
+    "additiveMigrations": 17,
+    "knowledgeRetrievalP95Ms": 2.99,
+    "knowledgeRetrievalTargetMs": 500,
+    "concurrentWaiters": 20,
+    "concurrentWaitElapsedMs": 265,
+    "concurrentWaitDatabaseReads": 60,
+    "lockedSources": 27,
+    "npmPackages": 286,
+    "externalServices": 2
+  },
+  "rollout": ["capture", "observe", "candidate", "shadow", "advisory", "active_low_risk"],
+  "defaults": {
+    "capabilitySummary": "on",
+    "publicCapabilityCard": "on",
+    "understanding": "ambiguous_only",
+    "interactive": "manual",
+    "capture": "on",
+    "observer": "on",
+    "induction": "shadow",
+    "promotion": "manual",
+    "injection": "shadow"
+  },
+  "boundaries": {
+    "experience": "advisory",
+    "candidateIsActiveKnowledge": false,
+    "capabilitySummaryIsRuntimeReadiness": false,
+    "capabilityPatternIsSkill": false,
+    "workflowCompletedIsGoalAchieved": false,
+    "pythonSidecar": false,
+    "automaticSkillPublicationFromCognitiveRuntime": false,
+    "physicalReplayProvider": false
+  },
+  "unverified": [
+    "production-scale soak beyond the single-instance 1-10 active-task target",
+    "live physical Provider execution during Replay (forbidden by design)",
+    "production external authentication/tenant authorization (outside trusted-intranet V1)"
+  ]
+}

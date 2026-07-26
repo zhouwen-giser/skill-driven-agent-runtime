@@ -77,6 +77,7 @@ export type CognitiveSourceKind =
   | 'business_event'
   | 'planning_correction'
   | 'model_invocation'
+  | 'goal_experience_episode'
   | 'knowledge_revision'
   | 'skill_version';
 

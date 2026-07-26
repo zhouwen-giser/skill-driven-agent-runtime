@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "1.0",
+  "reportId": "promotion-report-190859451dbc541bfe27fbb06883b004",
+  "reportRef": "promotion-provenance:planning_heuristic:knowledge.fixture.replay:1:sha256:fa7bb230f0c184bc02415139755c0f3e944de827c9b5ebf0d4cc388a4bd216e6",
+  "knowledgeKind": "planning_heuristic",
+  "knowledgeId": "knowledge.fixture.replay",
+  "knowledgeRevision": 1,
+  "dataset": {
+    "schemaVersion": "1.0",
+    "datasetId": "replay-dataset-94567bc8dd4015e151f0b75c4dd69e7e",
+    "knowledgeKind": "planning_heuristic",
+    "knowledgeId": "knowledge.fixture.replay",
+    "knowledgeRevision": 1,
+    "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cases": [
+      {
+        "schemaVersion": "1.0",
+        "caseId": "replay-case-0b02a9013516d660bf9ba6919ee05f91",
+        "episodeId": "episode.fixture.1",
+        "partition": "mutate_dev",
+        "request": "Inspect device one.",
+        "worldSummary": {
+          "device": "one"
+        },
+        "acceptedContract": {
+          "objective": "Inspect device one."
+        },
+        "acceptedPlan": {
+          "planId": "plan.fixture.1"
+        },
+        "corrections": [
+          {
+            "path": "/criteria"
+          }
+        ],
+        "outcome": {
+          "status": "achieved"
+        },
+        "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "knowledgeContext": [
+          "planning_heuristic:knowledge.fixture.replay:1"
+        ],
+        "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "baselineMetrics": {
+          "missingDimensionCount": 0,
+          "coverage": 0.8,
+          "patchCount": 1,
+          "attemptCount": 1,
+          "recoveryCount": 0,
+          "riskScore": 0,
+          "tokenCount": 100,
+          "latencyMs": 50,
+          "hardFailureCount": 0,
+          "dimensionScores": {
+            "understanding": 1,
+            "contract": 1,
+            "plan": 0.8,
+            "injection": 1,
+            "task_type_recognition": 1,
+            "capability_gap": 1
+          }
+        }
+      },
+      {
+        "schemaVersion": "1.0",
+        "caseId": "replay-case-cae1066c39da675a7c37f6b29dbba2ff",
+        "episodeId": "episode.fixture.2",
+        "partition": "mutate_dev",
+        "request": "Inspect device two.",
+        "worldSummary": {
+          "device": "two"
+        },
+        "acceptedContract": {
+          "objective": "Inspect device two."
+        },
+        "acceptedPlan": {
+          "planId": "plan.fixture.2"
+        },
+        "corrections": [],
+        "outcome": {
+          "status": "achieved"
+        },
+        "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "knowledgeContext": [
+          "planning_heuristic:knowledge.fixture.replay:1"
+        ],
+        "sourceHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "baselineMetrics": {
+          "missingDimensionCount": 0,
+          "coverage": 1,
+          "patchCount": 0,
+          "attemptCount": 1,
+          "recoveryCount": 0,
+          "riskScore": 0,
+          "tokenCount": 80,
+          "latencyMs": 40,
+          "hardFailureCount": 0,
+          "dimensionScores": {
+            "understanding": 1,
+            "contract": 1,
+            "plan": 1,
+            "injection": 1,
+            "task_type_recognition": 1,
+            "capability_gap": 1
+          }
+        }
+      },
+      {
+        "schemaVersion": "1.0",
+        "caseId": "replay-case-2740aaad9f8155e6cd4e77fe4324585d",
+        "episodeId": "episode.fixture.3",
+        "partition": "promotion_test",
+        "request": "Inspect device three.",
+        "worldSummary": {
+          "device": "three"
+        },
+        "acceptedContract": {
+          "objective": "Inspect device three."
+        },
+        "acceptedPlan": {
+          "planId": "plan.fixture.3"
+        },
+        "corrections": [
+          {
+            "path": "/ordering"
+          }
+        ],
+        "outcome": {
+          "status": "achieved"
+        },
+        "catalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "knowledgeContext": [
+          "planning_heuristic:knowledge.fixture.replay:1"
+        ],
+        "sourceHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "baselineMetrics": {
+          "missingDimensionCount": 0,
+          "coverage": 0.8,
+          "patchCount": 1,
+          "attemptCount": 1,
+          "recoveryCount": 0,
+          "riskScore": 0,
+          "tokenCount": 100,
+          "latencyMs": 50,
+          "hardFailureCount": 0,
+          "dimensionScores": {
+            "understanding": 1,
+            "contract": 1,
+            "plan": 0.8,
+            "injection": 1,
+            "task_type_recognition": 1,
+            "capability_gap": 1
+          }
+        }
+      }
+    ],
+    "datasetHash": "sha256:598dc97539567cb3f2b83bc3877fca4c9c16737d9f34d4e1f0e228b802dc24dc",
+    "builtAt": "2026-07-26T11:00:00.000Z"
+  },
+  "mutateDevCaseIds": [
+    "replay-case-0b02a9013516d660bf9ba6919ee05f91",
+    "replay-case-cae1066c39da675a7c37f6b29dbba2ff"
+  ],
+  "promotionTestCaseIds": [
+    "replay-case-2740aaad9f8155e6cd4e77fe4324585d"
+  ],
+  "shadow": {
+    "reportRef": "shadow-planning:planning_heuristic:knowledge.fixture.replay:1:sha256:62971bb6e84edab651b46e88cf1df7c9a9d31f652502d0c71a9e7bab9f35493c",
+    "datasetId": "replay-dataset-94567bc8dd4015e151f0b75c4dd69e7e",
+    "comparisons": [
+      {
+        "caseId": "replay-case-2740aaad9f8155e6cd4e77fe4324585d",
+        "verdict": "improved",
+        "baseline": {
+          "caseId": "replay-case-2740aaad9f8155e6cd4e77fe4324585d",
+          "variant": "baseline",
+          "valid": true,
+          "safe": true,
+          "metrics": {
+            "missingDimensionCount": 0,
+            "coverage": 0.8,
+            "patchCount": 1,
+            "attemptCount": 1,
+            "recoveryCount": 0,
+            "riskScore": 0,
+            "tokenCount": 100,
+            "latencyMs": 50,
+            "hardFailureCount": 0,
+            "dimensionScores": {
+              "understanding": 1,
+              "contract": 1,
+              "plan": 0.8,
+              "injection": 1,
+              "task_type_recognition": 1,
+              "capability_gap": 1
+            }
+          },
+          "hardFailures": [],
+          "outputHash": "sha256:f7dff19a696c7e085fe9a6f53bbd63c4488189608ebf77fc1987ff179eb4ef83"
+        },
+        "champion": {
+          "caseId": "replay-case-2740aaad9f8155e6cd4e77fe4324585d",
+          "variant": "champion",
+          "valid": true,
+          "safe": true,
+          "metrics": {
+            "missingDimensionCount": 0,
+            "coverage": 0.8,
+            "patchCount": 1,
+            "attemptCount": 1,
+            "recoveryCount": 0,
+            "riskScore": 0,
+            "tokenCount": 100,
+            "latencyMs": 50,
+            "hardFailureCount": 0,
+            "dimensionScores": {
+              "understanding": 1,
+              "contract": 1,
+              "plan": 0.8,
+              "injection": 1,
+              "task_type_recognition": 1,
+              "capability_gap": 1
+            }
+          },
+          "hardFailures": [],
+          "outputHash": "sha256:3b8dce94a3e103bf3f2de0682a058ad49398b50f7c5200b9f2442667504f6ebf"
+        },
+        "candidate": {
+          "caseId": "replay-case-2740aaad9f8155e6cd4e77fe4324585d",
+          "variant": "candidate",
+          "valid": true,
+          "safe": true,
+          "metrics": {
+            "missingDimensionCount": 0,
+            "coverage": 1,
+            "patchCount": 0,
+            "attemptCount": 1,
+            "recoveryCount": 0,
+            "riskScore": 0,
+            "tokenCount": 90,
+            "latencyMs": 45,
+            "hardFailureCount": 0,
+            "dimensionScores": {
+              "understanding": 1,
+              "contract": 1,
+              "plan": 1,
+              "injection": 1,
+              "task_type_recognition": 1,
+              "capability_gap": 1
+            }
+          },
+          "hardFailures": [],
+          "outputHash": "sha256:98bb2a4712c5e73e37447db47925a083ab085f0a276fa223e868ccd861c1899e"
+        }
+      }
+    ],
+    "improvedCount": 1,
+    "neutralCount": 0,
+    "regressedCount": 0,
+    "invalidCount": 0,
+    "unsafeCount": 0,
+    "comparisonHash": "sha256:62971bb6e84edab651b46e88cf1df7c9a9d31f652502d0c71a9e7bab9f35493c"
+  },
+  "replayPassedCount": 1,
+  "replayFailedCount": 0,
+  "status": "passed",
+  "gates": [
+    {
+      "code": "replay_sample_count",
+      "actual": 3,
+      "required": 3,
+      "passed": true
+    },
+    {
+      "code": "promotion_holdout_count",
+      "actual": 1,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "code": "hard_failure_non_regression",
+      "actual": true,
+      "required": true,
+      "passed": true
+    },
+    {
+      "code": "replay_failed",
+      "actual": 0,
+      "required": 0,
+      "passed": true
+    },
+    {
+      "code": "physical_side_effect_calls",
+      "actual": 0,
+      "required": 0,
+      "passed": true
+    }
+  ],
+  "generatedAt": "2026-07-26T11:00:00.000Z",
+  "reportHash": "sha256:fa7bb230f0c184bc02415139755c0f3e944de827c9b5ebf0d4cc388a4bd216e6"
+}

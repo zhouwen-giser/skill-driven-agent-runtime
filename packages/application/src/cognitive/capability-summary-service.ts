@@ -16,6 +16,14 @@ export interface CapabilitySummaryView {
   readonly index: CapabilityIndexSnapshot;
 }
 
+export class CapabilitySummaryRevisionConflictError extends Error {
+  readonly code = 'CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT' as const;
+
+  constructor() {
+    super('CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT');
+  }
+}
+
 export class CapabilitySummaryService {
   readonly #catalog: CapabilityCatalogSource;
   readonly #repository: CapabilitySummaryRepository;
@@ -61,9 +69,26 @@ export class CapabilitySummaryService {
     return this.#view(active, budget);
   }
 
-  async rebuild(budget?: CapabilityIndexBudget): Promise<CapabilitySummaryView> {
+  async getById(
+    summaryId: string,
+    budget?: CapabilityIndexBudget,
+  ): Promise<CapabilitySummaryView | undefined> {
+    const summary = await this.#repository.findById(summaryId);
+    return summary === undefined ? undefined : this.#view(summary, budget);
+  }
+
+  async rebuild(
+    budget?: CapabilityIndexBudget,
+    expectedActiveRevision?: number,
+  ): Promise<CapabilitySummaryView> {
     const skills = await this.#catalog.listEnabledSkillVersions();
     const active = await this.#repository.findActive();
+    if (
+      expectedActiveRevision !== undefined &&
+      (active?.revision ?? 0) !== expectedActiveRevision
+    ) {
+      throw new CapabilitySummaryRevisionConflictError();
+    }
     const candidate = this.#builder.build({
       summaryId: this.#nextSummaryId(),
       revision: (active?.revision ?? 0) + 1,
@@ -71,7 +96,10 @@ export class CapabilitySummaryService {
       skillVersions: skills,
       builtAt: this.#clock.now(),
     });
-    const saved = await this.#repository.saveAndActivate(candidate, active?.revision);
+    const saved = await this.#repository.saveAndActivate(
+      candidate,
+      expectedActiveRevision ?? active?.revision,
+    );
     this.#cache = saved;
     return this.#view(saved, budget);
   }

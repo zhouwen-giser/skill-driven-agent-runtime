@@ -3,3 +3,6 @@ export * from './bullmq-remote-task-poll-queue.js';
 export * from './bullmq-remote-task-continuation-queue.js';
 export * from './bullmq-remote-task-cancellation-queue.js';
 export * from './context-serial-executor.js';
+export * from './cognitive/experience-workers.js';
+export * from './cognitive/observation-workers.js';
+export * from './cognitive/reflection-workers.js';

@@ -11,7 +11,7 @@ import {
   type A2AHttpEndpointHandle,
 } from '../../../packages/a2a-adapter/src/http-endpoint.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
-import { projectInteractivePlanningInteraction } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
+import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
@@ -102,12 +102,64 @@ import {
   GenericTaskUnderstandingService,
   InteractiveGoalSessionService,
   InteractivePlanningSessionService,
+  InteractiveActionRouter,
+  CognitiveManagementActionGate,
   InteractivePlanPatchService,
   UserGoalPlanCandidateValidator,
   ConfirmedPlanHandoff,
   PlanningCorrectionService,
   PlanningInteractionEpisodeBuilder,
   PlanningPreferenceProjector,
+  ExperienceEligibilityPolicy,
+  GoalExperienceEpisodeBuilder,
+  ExperienceJobService,
+  ExperienceJobReconciler,
+  ExperienceOutboxDispatcher,
+  ExperienceManagementService,
+  ExperienceExtractorPipeline,
+  createDefaultExperienceExtractors,
+  ExperienceObserverService,
+  ObservationJobReconciler,
+  ExperienceReflectorService,
+  KnowledgeIdentityService,
+  KnowledgeDeltaValidator,
+  KnowledgeCuratorService,
+  ReflectionJobReconciler,
+  TaskTypeClusterer,
+  TaskTypeFingerprintBuilder,
+  TaskTypeInductionService,
+  CapabilityGapService,
+  CapabilityPatternInductionService,
+  CapabilityPatternInvalidator,
+  CapabilitySkillMapper,
+  ActiveKnowledgeProjector,
+  CapabilityPatternPromotionTarget,
+  DuplicateCandidateDetector,
+  EvidenceThresholdEvaluator,
+  KnowledgePromotionService,
+  KnowledgeApplicabilityEvaluator,
+  KnowledgeQueryFingerprintBuilder,
+  KnowledgeRelationExpander,
+  MemoryActiveKnowledgeProjectionRepository,
+  PlanningContextBudget,
+  PlanningHeuristicPromotionTarget,
+  PlanningKnowledgeRetriever,
+  PlanningExperienceContextBuilder,
+  BasePlannerFallbackPolicy,
+  ExperienceEnrichedUserGoalPlanningService,
+  PlanningReplayDatasetBuilder,
+  ShadowPlanningService,
+  PromotionReportGenerator,
+  ReplayPromotionEvidenceService,
+  ConservativeReplayPlanningEvaluator,
+  NoPhysicalProvider,
+  CognitiveRuntimeReconciler,
+  DeletionPropagationService,
+  FeatureRolloutPolicy,
+  RetentionService,
+  ReciprocalRankFusion,
+  TaskTypePromotionTarget,
+  CurrentExactSkillKnowledgeSource,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -125,11 +177,13 @@ import {
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
+  DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
   createCognitiveSourceRef,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
   type AgentTask,
+  type CognitiveInjectionMode,
   type GoalExecutionContract,
   type McpInvocationOutcome,
   type SkillUsageSelectionContext,
@@ -156,6 +210,7 @@ import {
   type WorkflowRuntimePorts,
 } from '../../../packages/langgraph-runtime/src/index.js';
 import {
+  BearerCognitiveManagementAuthorizer,
   startManagementHttpEndpoint,
   type ManagementHttpEndpointHandle,
 } from '../../../packages/management-api/src/index.js';
@@ -180,6 +235,20 @@ import {
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
   PostgresPlanningCorrectionRepository,
+  PostgresCognitiveOutboxRepository,
+  PostgresExperienceJobRepository,
+  PostgresGoalExperienceEpisodeRepository,
+  PostgresCognitiveRuntimeFactReader,
+  PostgresObservationRepository,
+  PostgresReflectionRepository,
+  PostgresTaskTypeRepository,
+  PostgresCapabilityPatternRepository,
+  PostgresKnowledgePromotionRepository,
+  PostgresCognitiveManagementActionRepository,
+  PostgresKnowledgeSearchRepository,
+  PostgresPlanningReplayDatasetSource,
+  PostgresPromotionProvenanceReportRepository,
+  PostgresActiveKnowledgeProjectionInventory,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -223,6 +292,12 @@ import {
   BullMqRemoteTaskContinuationWorker,
   BullMqRemoteTaskCancellationQueue,
   BullMqRemoteTaskCancellationWorker,
+  BullMqExperienceQueue,
+  BullMqExperienceWorker,
+  BullMqObservationQueue,
+  BullMqObservationWorker,
+  BullMqReflectionQueue,
+  BullMqReflectionWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -237,6 +312,8 @@ export interface ServerRuntimeOptions {
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
+  /** Optional non-breaking bearer guard for cognitive management writes only. */
+  readonly cognitiveManagementBearerToken?: string;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -272,6 +349,8 @@ export interface ServerRuntimeOptions {
       maxElapsedMs: number;
     }>;
   }>;
+  /** Controls governed planning-knowledge injection; the frozen V1.2.3 default is shadow. */
+  readonly cognitiveInjectionMode?: CognitiveInjectionMode;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -297,6 +376,7 @@ export interface ServerRuntimeOptions {
 export interface ServerRuntimeHandle {
   readonly a2a: A2AHttpEndpointHandle;
   readonly management: ManagementHttpEndpointHandle;
+  readonly planningKnowledge: PlanningKnowledgeRetriever;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -396,6 +476,66 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
+  const cognitiveManagementActions = new CognitiveManagementActionGate({
+    repository: cognitiveManagementActionRepository,
+    clock,
+  });
+  const cognitiveOutbox = new PostgresCognitiveOutboxRepository(pool, clock);
+  const experienceJobRepository = new PostgresExperienceJobRepository(pool);
+  const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
+  const experienceObservations = new PostgresObservationRepository(pool);
+  const experienceReflections = new PostgresReflectionRepository(pool);
+  const taskTypeRepository = new PostgresTaskTypeRepository(pool);
+  const capabilityPatternRepository = new PostgresCapabilityPatternRepository(pool);
+  const capabilityPatternPolicyVersion = 'capability-pattern-policy-v1';
+  const capabilityPatternInvalidator = new CapabilityPatternInvalidator({
+    repository: capabilityPatternRepository,
+    clock,
+  });
+  const knowledgePromotionRef: {
+    current?: Pick<
+      KnowledgePromotionService,
+      'rebuildActiveProjections' | 'revalidateChangedActive'
+    >;
+  } = {};
+  const experienceQueue = new BullMqExperienceQueue(options.redis);
+  const observationQueue = new BullMqObservationQueue(options.redis);
+  const reflectionQueue = new BullMqReflectionQueue(options.redis);
+  const experienceJobs = new ExperienceJobService({
+    jobs: experienceJobRepository,
+    episodes: goalExperienceEpisodes,
+    builder: new GoalExperienceEpisodeBuilder({
+      facts: new PostgresCognitiveRuntimeFactReader(pool),
+      episodes: goalExperienceEpisodes,
+      eligibility: new ExperienceEligibilityPolicy(),
+      clock,
+      nextEpisodeId: () => `goal-experience-episode-${randomUUID()}`,
+    }),
+    clock,
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+  });
+  const experienceReconciler = new ExperienceJobReconciler({
+    jobs: experienceJobRepository,
+    queue: experienceQueue,
+  });
+  const experienceOutboxDispatcher = new ExperienceOutboxDispatcher({
+    outbox: cognitiveOutbox,
+    queue: experienceQueue,
+  });
+  const experienceManagement = new ExperienceManagementService({
+    episodes: goalExperienceEpisodes,
+    jobs: experienceJobRepository,
+    queue: experienceQueue,
+    observations: experienceObservations,
+    reflections: experienceReflections,
+    clock,
+  });
+  const experienceWorker = new BullMqExperienceWorker(
+    options.redis,
+    experienceJobs,
+    `experience-worker-${randomUUID()}`,
+  );
   const capabilitySummaries = new CapabilitySummaryService({
     catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
     repository: new PostgresCapabilitySummaryRepository(pool),
@@ -417,7 +557,14 @@ export async function startServerRuntime(
     changes: new PostgresCapabilityCatalogChangeSource(pool),
     summaries: capabilitySummaries,
     clock,
-    afterRebuild: (view) => capabilityCards.publish(view).then(() => undefined),
+    async afterRebuild(view) {
+      await capabilityPatternInvalidator.invalidateByCatalog({
+        catalogHash: view.summary.catalogHash,
+        policyVersion: capabilityPatternPolicyVersion,
+      });
+      await knowledgePromotionRef.current?.rebuildActiveProjections();
+      await capabilityCards.publish(view);
+    },
   });
   let capabilityCatalogProjection = Promise.resolve();
   const refreshCapabilityCatalog = (): Promise<void> => {
@@ -453,7 +600,11 @@ export async function startServerRuntime(
       );
     }
   };
-  await capabilitySummaries.rebuild();
+  const initialCapabilitySummary = await capabilitySummaries.rebuild();
+  await capabilityPatternInvalidator.invalidateByCatalog({
+    catalogHash: initialCapabilitySummary.summary.catalogHash,
+    policyVersion: capabilityPatternPolicyVersion,
+  });
   await capabilityCards.publish();
   await refreshCapabilityCatalog();
   const skillExecutionRepository = new PostgresSkillExecutionRepository(pool);
@@ -572,7 +723,12 @@ export async function startServerRuntime(
         input.stage !== 'task_understanding' &&
         input.stage !== 'task_clarification' &&
         input.stage !== 'goal_contract_generation' &&
-        input.stage !== 'interactive_plan_patch'
+        input.stage !== 'interactive_plan_patch' &&
+        input.stage !== 'experience_observation' &&
+        input.stage !== 'experience_reflection' &&
+        input.stage !== 'task_type_induction' &&
+        input.stage !== 'capability_pattern_induction' &&
+        input.stage !== 'knowledge_promotion_assessment'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -587,6 +743,130 @@ export async function startServerRuntime(
       });
     },
   };
+  const taskTypeFingerprints = new TaskTypeFingerprintBuilder({
+    objectiveAliases: {
+      check: 'inspect',
+      verify: 'inspect',
+      examine: 'inspect',
+    },
+  });
+  const taskTypeInduction = new TaskTypeInductionService({
+    fingerprints: taskTypeFingerprints,
+    clusterer: new TaskTypeClusterer({ fingerprints: taskTypeFingerprints }),
+    repository: taskTypeRepository,
+    model: cognitiveModel,
+    clock,
+    nextTaskTypeId: (fingerprint) =>
+      `task-type-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+  });
+  const capabilitySkillMapper = new CapabilitySkillMapper({
+    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+  });
+  const capabilityPatternInduction = new CapabilityPatternInductionService({
+    repository: capabilityPatternRepository,
+    mapper: capabilitySkillMapper,
+    gaps: new CapabilityGapService({
+      repository: capabilityPatternRepository,
+      clock,
+      nextGapId: (fingerprint) =>
+        `capability-gap-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+      nextProposalId: (fingerprint) =>
+        `skill-proposal-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+    }),
+    model: cognitiveModel,
+    policyVersion: capabilityPatternPolicyVersion,
+    clock,
+    nextPatternId: (capabilityId) =>
+      `capability-pattern-${createHash('sha256').update(capabilityId).digest('hex').slice(0, 24)}`,
+  });
+  const observationPipeline = new ExperienceExtractorPipeline({
+    extractors: createDefaultExperienceExtractors({
+      model: cognitiveModel,
+      clock,
+      nextExtractionId: (kind) => `experience-extraction-${kind}-${randomUUID()}`,
+    }),
+    policy: {
+      maxEpisodes: 8,
+      maxInputBytes: 512 * 1024,
+      maxApproxTokens: 128 * 1024,
+      maxPreviousObservations: 3,
+    },
+  });
+  const experienceObserver = new ExperienceObserverService({
+    jobs: experienceJobRepository,
+    episodes: goalExperienceEpisodes,
+    observations: experienceObservations,
+    pipeline: observationPipeline,
+    clock,
+    nextObservationId: (episodeId) => `experience-observation-${episodeId}`,
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+  });
+  const observationReconciler = new ObservationJobReconciler({
+    jobs: experienceJobRepository,
+    queue: observationQueue,
+  });
+  const observationWorker = new BullMqObservationWorker(
+    options.redis,
+    experienceObserver,
+    `observation-worker-${randomUUID()}`,
+  );
+  const reflectionEmbeddings = new Map<
+    string,
+    Promise<Readonly<{ providerId: string; vector: readonly number[] }>>
+  >();
+  const embedForReflection = (text: string) => {
+    const existing = reflectionEmbeddings.get(text);
+    if (existing !== undefined) return existing;
+    const pending = modelRuntime.embed('experience_reflection', text);
+    reflectionEmbeddings.set(text, pending);
+    if (reflectionEmbeddings.size > 256) {
+      const oldest = reflectionEmbeddings.keys().next().value;
+      if (typeof oldest === 'string') reflectionEmbeddings.delete(oldest);
+    }
+    return pending;
+  };
+  const knowledgeIdentity = new KnowledgeIdentityService({
+    similarity: {
+      compare: async (left, right) => {
+        const [leftEmbedding, rightEmbedding] = await Promise.all([
+          embedForReflection(left),
+          embedForReflection(right),
+        ]);
+        if (leftEmbedding.providerId !== rightEmbedding.providerId) return 0;
+        return cosineSimilarity(leftEmbedding.vector, rightEmbedding.vector);
+      },
+    },
+    policy: { semanticThreshold: 0.82, lexicalThreshold: 0.55, combinedThreshold: 0.72 },
+  });
+  const knowledgeCurator = new KnowledgeCuratorService({
+    model: cognitiveModel,
+    validator: new KnowledgeDeltaValidator(),
+    clock,
+    nextDeltaId: () => `knowledge-delta-${randomUUID()}`,
+  });
+  const experienceReflector = new ExperienceReflectorService({
+    jobs: experienceJobRepository,
+    observations: experienceObservations,
+    episodes: goalExperienceEpisodes,
+    reflections: experienceReflections,
+    identity: knowledgeIdentity,
+    curator: knowledgeCurator,
+    model: cognitiveModel,
+    clock,
+    nextReflectionId: (observationId) => `experience-reflection-${observationId}`,
+    afterReflection: () =>
+      knowledgePromotionRef.current?.revalidateChangedActive() ?? Promise.resolve(0),
+    retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+  });
+  const reflectionReconciler = new ReflectionJobReconciler({
+    jobs: experienceJobRepository,
+    queue: reflectionQueue,
+  });
+  const reflectionWorker = new BullMqReflectionWorker(
+    options.redis,
+    experienceReflector,
+    `reflection-worker-${randomUUID()}`,
+  );
   const taskUnderstanding =
     options.taskUnderstanding === undefined
       ? undefined
@@ -676,36 +956,17 @@ export async function startServerRuntime(
           interactions: planningCorrectionObserver,
         });
   let interactivePlanningSessions: InteractivePlanningSessionService | undefined;
+  const a2aInteractionProjection = new A2AInteractionProjection();
   const interactiveGoalMetadata = async (
     taskId: string,
   ): Promise<Readonly<Record<string, unknown>> | undefined> => {
     const planning = await interactivePlanningSessions?.getByTask(taskId);
     if (planning !== undefined) {
-      return projectInteractivePlanningInteraction(planning);
+      return a2aInteractionProjection.toInputRequired(planning);
     }
     const view = await interactiveGoalSessions?.getByTask(taskId);
     if (view === undefined) return undefined;
-    return {
-      kind: 'interactive_goal',
-      sessionId: view.session.sessionId,
-      state: view.session.state,
-      version: view.session.version,
-      currentUnderstandingId: view.session.currentUnderstandingId,
-      ...(view.session.currentCandidateId === undefined
-        ? {}
-        : {
-            currentCandidateId: view.session.currentCandidateId,
-            currentCandidateRevision: view.session.currentCandidateRevision,
-          }),
-      allowedActions:
-        view.session.state === 'understand'
-          ? ['answer', 'restart_understanding', 'cancel']
-          : view.session.state === 'goal_review'
-            ? ['accept', 'patch', 'reject', 'restart_understanding', 'cancel']
-            : [],
-      ...(view.question === undefined ? {} : { question: view.question }),
-      ...(view.candidate === undefined ? {} : { candidate: view.candidate }),
-    };
+    return a2aInteractionProjection.toInputRequired(view);
   };
   const schemaValidator = new AjvJsonSchemaValidator();
   const skillPackageSchema = JSON.parse(
@@ -739,6 +1000,64 @@ export async function startServerRuntime(
     nextTransitionId: () => `memory-transition-${randomUUID()}`,
     model: modelRuntime,
   });
+  const knowledgePromotionRepository = new PostgresKnowledgePromotionRepository(pool);
+  const promotionReplayEvidence = new ReplayPromotionEvidenceService({
+    generator: new PromotionReportGenerator({
+      datasets: new PlanningReplayDatasetBuilder(new PostgresPlanningReplayDatasetSource(pool)),
+      shadow: new ShadowPlanningService({
+        evaluator: new ConservativeReplayPlanningEvaluator(),
+        physicalProvider: new NoPhysicalProvider(),
+      }),
+    }),
+    repository: new PostgresPromotionProvenanceReportRepository(pool),
+  });
+  const knowledgePromotion = new KnowledgePromotionService({
+    repository: knowledgePromotionRepository,
+    evaluator: new EvidenceThresholdEvaluator(),
+    replay: promotionReplayEvidence,
+    duplicates: new DuplicateCandidateDetector(knowledgePromotionRepository),
+    shadow: promotionReplayEvidence,
+    projector: new ActiveKnowledgeProjector({
+      repository: new MemoryActiveKnowledgeProjectionRepository(
+        memories,
+        new PostgresActiveKnowledgeProjectionInventory(pool),
+      ),
+      clock,
+    }),
+    targets: [
+      new PlanningHeuristicPromotionTarget(),
+      new TaskTypePromotionTarget(),
+      new CapabilityPatternPromotionTarget(),
+    ],
+    policyVersion: 'knowledge-promotion-v1',
+    clock,
+    nextEvaluationId: () => `knowledge-promotion-evaluation-${randomUUID()}`,
+    nextTransitionId: () => `knowledge-promotion-transition-${randomUUID()}`,
+  });
+  knowledgePromotionRef.current = knowledgePromotion;
+  try {
+    await knowledgePromotion.revalidateChangedActive();
+  } catch (error: unknown) {
+    process.stderr.write(
+      `${JSON.stringify({
+        event: 'knowledge_projection_rebuild.deferred',
+        errorCode: runtimeErrorCode(error),
+        summary: error instanceof Error ? error.message : String(error),
+      })}\n`,
+    );
+  }
+  const planningKnowledge = new PlanningKnowledgeRetriever({
+    repository: new PostgresKnowledgeSearchRepository(pool),
+    embeddings: { embed: (text) => modelRuntime.embed('goal', text) },
+    skills: new CurrentExactSkillKnowledgeSource(skills),
+    fingerprints: new KnowledgeQueryFingerprintBuilder(),
+    ranker: new ReciprocalRankFusion(),
+    relations: new KnowledgeRelationExpander(),
+    applicability: new KnowledgeApplicabilityEvaluator(),
+    budget: new PlanningContextBudget(),
+    clock,
+    nextUsageId: () => `experience-usage-${randomUUID()}`,
+  });
   const planningCorrections = new PlanningCorrectionService({
     repository: planningCorrectionRepository,
     builder: new PlanningInteractionEpisodeBuilder({
@@ -754,9 +1073,20 @@ export async function startServerRuntime(
     nextCorrectionId: () => `planning-correction-${randomUUID()}`,
   });
   planningCorrectionRef.current = planningCorrections;
-  const memoryRetention = new MemoryRetentionPolicyService({
-    repository: new PostgresMemoryRetentionPolicyRepository(pool),
-    clock,
+  const deletionPropagation = new DeletionPropagationService({
+    targets: [
+      {
+        name: 'planning_preferences',
+        deleteUserScope: (userId, actorId) =>
+          planningCorrections.deleteUserScopedProjection(userId, actorId),
+      },
+    ],
+  });
+  const memoryRetention = new RetentionService({
+    policies: new MemoryRetentionPolicyService({
+      repository: new PostgresMemoryRetentionPolicyRepository(pool),
+      clock,
+    }),
   });
   const prompts = new PromptService({
     repository: new PostgresPromptRepository(pool),
@@ -1701,11 +2031,34 @@ export async function startServerRuntime(
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
   });
+  const experiencePlanning = new ExperienceEnrichedUserGoalPlanningService({
+    base: userGoalPlanning,
+    contexts: new PlanningExperienceContextBuilder(planningKnowledge, {
+      async getCatalogHash() {
+        const active = await capabilitySummaries.getSummary();
+        if (active === undefined) throw new Error('EXPERIENCE_PLANNING_CATALOG_UNAVAILABLE');
+        return active.summary.catalogHash;
+      },
+    }),
+    fallback: new BasePlannerFallbackPolicy(),
+  });
+  const configuredInjectionMode =
+    options.cognitiveInjectionMode ?? DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS.injectionMode;
+  const effectiveInjectionMode = new FeatureRolloutPolicy().evaluate({
+    stage: 'shadow',
+    flags: {
+      ...DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
+      injectionMode: configuredInjectionMode,
+    },
+  }).effectiveInjectionMode;
   if (interactiveGoalSessions !== undefined) {
     const planCandidateValidator = new UserGoalPlanCandidateValidator();
     interactivePlanningSessions = new InteractivePlanningSessionService({
       repository: interactivePlanningRepository,
       planner: userGoalPlanning,
+      experiencePlanner: experiencePlanning,
+      experienceUsage: interactivePlanningRepository,
+      injectionMode: effectiveInjectionMode,
       patches: new InteractivePlanPatchService({
         model: cognitiveModel,
         validator: planCandidateValidator,
@@ -1731,6 +2084,13 @@ export async function startServerRuntime(
       interactions: planningCorrectionObserver,
     });
   }
+  const interactiveActions =
+    interactiveGoalSessions === undefined || interactivePlanningSessions === undefined
+      ? undefined
+      : new InteractiveActionRouter({
+          goalSessions: interactiveGoalSessions,
+          planningSessions: interactivePlanningSessions,
+        });
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -2654,6 +3014,7 @@ export async function startServerRuntime(
     ...(interactivePlanningSessions === undefined
       ? {}
       : { planningSessions: interactivePlanningSessions }),
+    ...(interactiveActions === undefined ? {} : { interactiveActions }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -3136,6 +3497,25 @@ export async function startServerRuntime(
       });
   }, 250);
   capabilityCatalogRefreshTimer.unref();
+  let experienceDispatchRunning = false;
+  const experienceDispatchTimer = setInterval(() => {
+    if (experienceDispatchRunning) return;
+    experienceDispatchRunning = true;
+    void experienceOutboxDispatcher
+      .dispatch()
+      .then(() => experienceReconciler.requeue(clock.now()))
+      .then(() => observationReconciler.requeue(clock.now()))
+      .then(() => reflectionReconciler.requeue(clock.now()))
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        experienceDispatchRunning = false;
+      });
+  }, 500);
+  experienceDispatchTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -3236,7 +3616,24 @@ export async function startServerRuntime(
     await remoteTaskContinuationReconciler.reconcile();
   if (remoteTaskCancellationReconciler !== undefined)
     await remoteTaskCancellationReconciler.reconcile();
+  const cognitiveRuntimeReconciler = new CognitiveRuntimeReconciler({
+    dispatchTerminalOutbox: () => experienceOutboxDispatcher.dispatch(),
+    requeueExperience: () => experienceReconciler.requeue(clock.now()),
+    requeueObservation: () => observationReconciler.requeue(clock.now()),
+    requeueReflection: () => reflectionReconciler.requeue(clock.now()),
+    rebuildActiveKnowledge: () => knowledgePromotion.rebuildActiveProjections(),
+  });
+  try {
+    await cognitiveRuntimeReconciler.rebuild();
+  } catch (error: unknown) {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
+    );
+  }
   worker.start();
+  experienceWorker.start();
+  observationWorker.start();
+  reflectionWorker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3282,7 +3679,17 @@ export async function startServerRuntime(
                 },
               },
             }),
-        planningInteractions: planningCorrections,
+        planningInteractions: {
+          listTaskInteractions: planningCorrections.listTaskInteractions.bind(planningCorrections),
+          async deleteUserScopedProjection(userId, actorId) {
+            return (await deletionPropagation.propagate(userId, actorId)).deletedCount;
+          },
+        },
+        experience: experienceManagement,
+        taskTypes: taskTypeInduction,
+        capabilityPatterns: capabilityPatternInduction,
+        knowledgePromotion,
+        cognitiveManagementAudit: cognitiveManagementActionRepository,
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3422,6 +3829,14 @@ export async function startServerRuntime(
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
       consoleDirectory: resolve('apps/console/dist'),
+      cognitiveManagementActions,
+      ...(options.cognitiveManagementBearerToken === undefined
+        ? {}
+        : {
+            cognitiveManagementAuthorizer: new BearerCognitiveManagementAuthorizer(
+              options.cognitiveManagementBearerToken,
+            ),
+          }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({
@@ -3462,6 +3877,7 @@ export async function startServerRuntime(
     return {
       a2a,
       management: startedManagement,
+      planningKnowledge,
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },
@@ -3538,6 +3954,7 @@ export async function startServerRuntime(
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
+        clearInterval(experienceDispatchTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -3552,10 +3969,16 @@ export async function startServerRuntime(
         await remoteTaskWorker?.close();
         await remoteTaskContinuationWorker?.close();
         await remoteTaskCancellationWorker?.close();
+        await experienceWorker.close();
+        await observationWorker.close();
+        await reflectionWorker.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
         await remoteTaskCancellationQueue?.close();
+        await experienceQueue.close();
+        await observationQueue.close();
+        await reflectionQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -3571,6 +3994,7 @@ export async function startServerRuntime(
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
+    clearInterval(experienceDispatchTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
@@ -3581,9 +4005,15 @@ export async function startServerRuntime(
     await management?.close();
     await remoteTaskWorker?.close();
     await remoteTaskContinuationWorker?.close();
+    await experienceWorker.close();
+    await observationWorker.close();
+    await reflectionWorker.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
+    await experienceQueue.close();
+    await observationQueue.close();
+    await reflectionQueue.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -3741,4 +4171,21 @@ function runtimeErrorCode(error: unknown): string {
     typeof error.code === 'string'
     ? error.code
     : 'TASK_EXECUTION_FAILED';
+}
+
+function cosineSimilarity(left: readonly number[], right: readonly number[]): number {
+  if (left.length === 0 || left.length !== right.length) return 0;
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    const leftValue = left[index] ?? 0;
+    const rightValue = right[index] ?? 0;
+    if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) return 0;
+    dot += leftValue * rightValue;
+    leftMagnitude += leftValue * leftValue;
+    rightMagnitude += rightValue * rightValue;
+  }
+  if (leftMagnitude === 0 || rightMagnitude === 0) return 0;
+  return Math.max(-1, Math.min(1, dot / Math.sqrt(leftMagnitude * rightMagnitude)));
 }

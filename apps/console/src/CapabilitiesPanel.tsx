@@ -42,7 +42,19 @@ export function CapabilitiesPanel() {
 
   async function refresh(path = '/api/v1/capabilities/card', method = 'GET') {
     try {
-      const next = await managementRequest<PublicCapabilityCardView>(path, { method });
+      const next = await managementRequest<PublicCapabilityCardView>(path, {
+        method,
+        ...(method === 'POST'
+          ? {
+              body: JSON.stringify({
+                expectedVersion: card?.revision ?? 0,
+                idempotencyKey: `console:capability-card:${String(card?.revision ?? 0)}`,
+                actorId: 'console.operator',
+                reason: 'Rebuild the reviewed public Capability Card projection.',
+              }),
+            }
+          : {}),
+      });
       setCard(next);
       setMessage('Active Public Capability Card loaded from the management API.');
     } catch (error: unknown) {

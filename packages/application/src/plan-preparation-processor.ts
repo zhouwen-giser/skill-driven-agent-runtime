@@ -30,6 +30,7 @@ import type { GoalInputInferenceService } from './goal-input-inference.js';
 import { TaskApplicationError } from './task-service.js';
 import type { SkillInputResolutionService } from './skill-input-resolution.js';
 import { skillInputResolutionQuestion } from './skill-input-resolution.js';
+import type { InteractiveActionRouter } from './cognitive/interactive-action-router.js';
 import type {
   CognitiveEntryRoute,
   GenericTaskUnderstandingService,
@@ -167,6 +168,7 @@ export interface PlanPreparationProcessorDependencies {
     InteractivePlanningSessionService,
     'start' | 'getByTask' | 'applyAction'
   >;
+  readonly interactiveActions?: Pick<InteractiveActionRouter, 'route'>;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -371,6 +373,68 @@ export class PlanPreparationProcessor {
       });
       return;
     }
+    const routedInteraction = await this.#dependencies.interactiveActions?.route({
+      taskId: task.taskId,
+      idempotencyKey: continuation.request.inputRequestId,
+      actorId: 'a2a:user',
+      content: continuation.response.content,
+    });
+    if (routedInteraction?.kind === 'planning') {
+      const view = routedInteraction.view;
+      if (view.session.state === 'plan_review') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          'Review the candidate Skill Goal DAG and submit accept, patch, reject, or cancel.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'confirmed') {
+        await this.#scheduleUserGoalPlan(
+          task,
+          await this.#dependencies.goals.get(view.session.goalId),
+          view.candidate.plan.planId,
+        );
+        return;
+      }
+      if (view.session.state === 'canceled') {
+        await this.#transition(
+          task,
+          'canceled',
+          'Interactive planning session canceled by the user.',
+        );
+        return;
+      }
+      throw new Error(`INTERACTIVE_PLANNING_SESSION_${view.session.state.toUpperCase()}`);
+    }
+    if (routedInteraction?.kind === 'goal') {
+      const view = routedInteraction.view;
+      if (view.session.state === 'understand') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          view.question?.question ?? 'Additional Task Understanding input is required.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'goal_review') {
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          'Review the candidate Goal Contract and submit accept, patch, reject, or cancel.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (view.session.state === 'confirmed' && view.candidate !== undefined) {
+        await this.#createConfirmedGoalAndPlan(task, view.candidate.contract);
+        return;
+      }
+      if (view.session.state === 'canceled') {
+        await this.#transition(task, 'canceled', 'Interactive Goal session canceled by the user.');
+        return;
+      }
+      throw new Error(`INTERACTIVE_GOAL_SESSION_${view.session.state.toUpperCase()}`);
+    }
     const planningSession = await this.#dependencies.planningSessions?.getByTask(task.taskId);
     if (planningSession !== undefined) {
       const action = interactivePlanningActionFor(continuation.response.content);
@@ -526,6 +590,7 @@ export class PlanPreparationProcessor {
       }
       const planning = await this.#dependencies.planningSessions.start({
         taskId: task.taskId,
+        userId: task.userId,
         goalSessionId: goalSession.session.sessionId,
         confirmedContractCandidateId: goalSession.candidate.candidateId,
         goal,

@@ -2154,6 +2154,44 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           ],
         );
       }
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at,published_at)
+         VALUES(
+           'outbox-terminal-' || md5($1),
+           'user_goal.terminal_committed','user_goal',$2,$3,
+           jsonb_strip_nulls(jsonb_build_object(
+             'correlationId',$1::text,'goalId',$2::text,'taskId',$4::text
+           )),
+           jsonb_strip_nulls(jsonb_build_object(
+             'outcomeId',$1::text,'controlId',$5::text,'taskId',$4::text,
+             'outcomeKind',$6::text,'authority',$7::text
+           )),
+           $8,NULL
+         )
+         ON CONFLICT(aggregate_type,aggregate_id,aggregate_version,event_type) DO NOTHING`,
+        [
+          input.outcomeId,
+          input.goalId,
+          input.goalVersion,
+          input.taskId ?? null,
+          input.controlId,
+          kind,
+          authority,
+          input.committedAt,
+        ],
+      );
+      await client.query(
+        `UPDATE experience_usage_record AS usage
+         SET final_outcome_ref=$1
+         FROM interactive_planning_session AS planning
+         WHERE usage.planning_session_id=planning.session_id
+           AND planning.goal_id=$2
+           AND planning.goal_version=$3
+           AND usage.final_outcome_ref IS NULL`,
+        [input.outcomeId, input.goalId, input.goalVersion],
+      );
       await client.query('COMMIT');
       if (committedTask !== undefined) this.#onTaskStateCommitted?.(committedTask);
       return {
@@ -2833,6 +2871,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
       `SELECT *,GREATEST(0,LEAST(1,(2-(embedding <=> $1::vector))/2))::double precision score
        FROM memory_item
        WHERE status='active' AND durability='durable'
+         AND COALESCE(content_json->>'projectionType','')<>'active_knowledge'
          AND embedding_provider_id=$2 AND embedding_dimensions=$3
          AND (scope_type='global' OR (scope_type='user' AND scope_user_id=$4))
        ORDER BY embedding <=> $1::vector,created_at DESC,memory_id LIMIT $5`,

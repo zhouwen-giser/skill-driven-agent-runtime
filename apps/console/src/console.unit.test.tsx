@@ -33,8 +33,22 @@ import {
 } from './SkillsPanel.js';
 import { TaskReferenceLinks } from './RelatedLinks.js';
 import { CapabilityCardDetails } from './CapabilitiesPanel.js';
+import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders governed Experience and Task Type controls without direct authority mutations', () => {
+    const markup = renderToStaticMarkup(<CognitiveGovernancePanel />);
+    expect(markup).toContain('EXPERIENCE GOVERNANCE');
+    expect(markup).toContain('TASK TYPE GOVERNANCE');
+    expect(markup).toContain('Promote');
+    expect(markup).toContain('Revalidate');
+    expect(markup).toContain('Expected version');
+    expect(markup).toContain('Audit reason');
+    expect(markup).not.toContain('/providers/');
+    expect(markup).not.toContain('/outcomes/');
+    expect(markup).not.toContain('/active-plan');
+  });
+
   it('renders the activated Public Capability Card without private runtime details', () => {
     const markup = renderToStaticMarkup(
       <CapabilityCardDetails

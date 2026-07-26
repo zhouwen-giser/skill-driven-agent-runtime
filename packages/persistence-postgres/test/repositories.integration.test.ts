@@ -4,7 +4,40 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
-import { TaskService } from '../../application/src/index.js';
+import {
+  ExperienceEligibilityPolicy,
+  ExperienceJobService,
+  GoalExperienceEpisodeBuilder,
+  TaskTypeClusterer,
+  TaskTypeFingerprintBuilder,
+  TaskTypeInductionService,
+  CapabilityGapService,
+  CapabilityPatternInductionService,
+  CapabilityPatternInvalidator,
+  CapabilitySkillMapper,
+  ActiveKnowledgeProjector,
+  CapabilityPatternPromotionTarget,
+  DuplicateCandidateDetector,
+  EvidenceThresholdEvaluator,
+  KnowledgePromotionService,
+  KnowledgeApplicabilityEvaluator,
+  KnowledgeQueryFingerprintBuilder,
+  KnowledgeRelationExpander,
+  MemoryActiveKnowledgeProjectionRepository,
+  MemoryService,
+  PlanningContextBudget,
+  PlanningHeuristicPromotionTarget,
+  PlanningKnowledgeRetriever,
+  PlanningReplayDatasetBuilder,
+  PromotionReportGenerator,
+  ReplayPromotionEvidenceService,
+  ShadowPlanningService,
+  ConservativeReplayPlanningEvaluator,
+  NoPhysicalProvider,
+  ReciprocalRankFusion,
+  TaskTypePromotionTarget,
+  TaskService,
+} from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
 import {
   PostgresAgentTaskRepository,
@@ -55,10 +88,26 @@ import {
   PostgresInteractivePlanningRepository,
   PostgresGoalVersionLock,
   PostgresPlanningCorrectionRepository,
+  PostgresCognitiveOutboxRepository,
+  PostgresExperienceJobRepository,
+  PostgresGoalExperienceEpisodeRepository,
+  PostgresCognitiveRuntimeFactReader,
+  PostgresObservationRepository,
+  PostgresReflectionRepository,
+  PostgresTaskTypeRepository,
+  PostgresCapabilityPatternRepository,
+  PostgresKnowledgePromotionRepository,
+  PostgresKnowledgeSearchRepository,
+  PostgresPlanningReplayDatasetSource,
+  PostgresPromotionProvenanceReportRepository,
+  PostgresActiveKnowledgeProjectionInventory,
+  PostgresCognitiveManagementActionRepository,
+  PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
   createAgentTask,
+  createSkillAttempt,
   createTaskExecutionAttempt,
   createTaskInputRequest,
   createRemoteTaskBinding,
@@ -87,6 +136,19 @@ import {
   createMemoryItem,
   createPlanningCorrectionFact,
   createPlanningInteractionEpisode,
+  createExperienceObservation,
+  createExperienceExtraction,
+  createExperienceObservationStatement,
+  createExperienceReflection,
+  createExperienceUsageRecord,
+  createKnowledgeCandidateIdentity,
+  createKnowledgeCandidateSnapshot,
+  createKnowledgeDelta,
+  createKnowledgeEvidence,
+  createTaskTypeInductionExample,
+  createCapabilityPatternInductionExample,
+  createUserGoalCompletionContract,
+  type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -213,6 +275,9 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await pool.query(
+    'TRUNCATE cognitive_management_action, knowledge_relation, experience_usage_record, knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
+  );
+  await pool.query(
     'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
   );
   await pool.query(
@@ -234,6 +299,38 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists cognitive management idempotency, result audit, and conflicting-key rejection', async () => {
+    const repository = new PostgresCognitiveManagementActionRepository(pool);
+    const claim = {
+      actionId: 'cognitive-management-action-1',
+      operation: 'knowledge_promote' as const,
+      subjectId: 'planning_heuristic:heuristic-1',
+      expectedVersion: 1,
+      idempotencyKey: 'review-1',
+      actorId: 'operator-1',
+      reason: 'Reviewed evidence passed.',
+      requestHash: `sha256:${'a'.repeat(64)}`,
+      claimedAt: '2026-07-26T10:00:00.000Z',
+    };
+    await expect(repository.claim(claim)).resolves.toEqual({ disposition: 'claimed' });
+    await repository.complete(
+      claim.actionId,
+      { knowledgeId: 'heuristic-1', version: 3 },
+      '2026-07-26T10:00:01.000Z',
+    );
+    await expect(repository.claim(claim)).resolves.toEqual({
+      disposition: 'completed',
+      result: { knowledgeId: 'heuristic-1', version: 3 },
+    });
+    await expect(
+      repository.claim({
+        ...claim,
+        actionId: 'cognitive-management-action-2',
+        requestHash: `sha256:${'b'.repeat(64)}`,
+      }),
+    ).resolves.toEqual({ disposition: 'conflict' });
+  });
+
   it('persists low-confidence feedback and finds the previous terminal Task', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);
@@ -3807,6 +3904,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
   it('atomically commits and idempotently replays an achieved runtime outcome', async () => {
     const fixture = await createTerminalOutcomeFixture('achieved');
+    const linkedUsageId = await seedTerminalLinkedExperienceUsage(fixture.goalId, 1);
 
     const first = await fixture.outcomes.commitAchieved(fixture.achievedInput);
     const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
@@ -3836,6 +3934,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ]);
     const counts = await terminalOutcomeCounts(fixture);
     expect(counts).toEqual({ outcomes: 1, results: 1, events: 1, rounds: 1 });
+    await expect(
+      pool.query('SELECT final_outcome_ref FROM experience_usage_record WHERE usage_id=$1', [
+        linkedUsageId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [{ final_outcome_ref: fixture.achievedInput.outcomeId }],
+    });
 
     const warning = {
       source: 'result_memory' as const,
@@ -3848,6 +3953,536 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(fixture.outcomes.find(first.outcomeId)).resolves.toMatchObject({
       enhancementWarnings: [warning],
     });
+  });
+
+  it('atomically dispatches a terminal Fact into one leased job and immutable Goal Episode', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-terminal');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+
+    const atomic = await pool.query<{ outcomes: number; events: number }>(
+      `SELECT
+         (SELECT count(*)::integer FROM runtime_terminal_outcome WHERE outcome_id=$1) AS outcomes,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='user_goal.terminal_committed' AND aggregate_id=$2) AS events`,
+      [fixture.achievedInput.outcomeId, fixture.goalId],
+    );
+    expect(atomic.rows[0]).toEqual({ outcomes: 1, events: 1 });
+
+    const clock = { now: () => '2026-07-16T00:00:06.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    const dispatched = await outbox.dispatchTerminalEvents();
+    const repeated = await outbox.dispatchTerminalEvents();
+    expect(dispatched).toHaveLength(1);
+    expect(repeated).toHaveLength(0);
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const service = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => 'goal-experience-episode.db',
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [claimed] = await service.claim('experience-worker.db', 1);
+    if (claimed === undefined) throw new Error('EXPERIENCE_JOB_NOT_CLAIMED');
+    await service.process(claimed, 'experience-worker.db');
+    await service.process(claimed, 'experience-worker.db');
+
+    const stored = await episodes.findByGoal(fixture.goalId);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({
+      goalId: fixture.goalId,
+      goalVersion: 1,
+      episodeType: 'terminal',
+      terminalOutcomeRef: `runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`,
+      status: 'complete',
+    });
+    expect(JSON.stringify(stored[0]?.snapshot)).not.toMatch(
+      /password|secret|credential|privateReasoning/iu,
+    );
+    const persistence = await pool.query<{
+      episodes: number;
+      episode_events: number;
+      observe_jobs: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM goal_experience_episode WHERE goal_id=$1) AS episodes,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.episode_created' AND aggregate_id=$2) AS episode_events,
+         (SELECT count(*)::integer FROM experience_job
+          WHERE job_type='observe' AND subject_id=$2) AS observe_jobs`,
+      [fixture.goalId, 'goal-experience-episode.db'],
+    );
+    expect(persistence.rows[0]).toEqual({ episodes: 1, episode_events: 1, observe_jobs: 1 });
+  });
+
+  it('persists a source/model-linked Observation and atomically schedules reflection', async () => {
+    const fixture = await createTerminalOutcomeFixture('observation');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const clock = { now: () => '2026-07-16T00:00:06.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => 'goal-experience-episode.observation.db',
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [episodeJob] = await episodeService.claim('episode-worker.observation.db', 1);
+    if (episodeJob === undefined) throw new Error('OBSERVATION_EPISODE_JOB_MISSING');
+    await episodeService.process(episodeJob, 'episode-worker.observation.db');
+    const [episode] = await episodes.findByGoal(fixture.goalId);
+    if (episode === undefined) throw new Error('OBSERVATION_SOURCE_EPISODE_MISSING');
+
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.observation.db',
+      name: 'Observation Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'observation-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: '2026-07-16T00:00:06.000Z',
+      updatedAt: '2026-07-16T00:00:06.000Z',
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.observation.db',
+      taskId: fixture.taskId,
+      stage: 'experience_observation',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { extractorKind: 'goal_pattern' },
+      context: { sourceEpisodeId: episode.episodeId },
+      structuredResult: { statements: 1 },
+      inputTokens: 128,
+      outputTokens: 32,
+      durationMs: 25,
+      status: 'succeeded',
+      createdAt: '2026-07-16T00:00:07.000Z',
+    });
+
+    const statement = createExperienceObservationStatement({
+      statementId: 'observation-statement.db',
+      kind: 'fact',
+      summary: 'The cited terminal Outcome is achieved.',
+      confidence: 1,
+      sourceRefIds: [episode.sourceRefs[0]?.sourceRefId ?? 'source-missing'],
+    });
+    const observation = createExperienceObservation({
+      schemaVersion: '1.0',
+      observationId: 'experience-observation.db',
+      scope: 'goal_episode',
+      sourceEpisodeIds: [episode.episodeId],
+      revision: 1,
+      status: 'completed',
+      statements: [statement],
+      extractions: [
+        createExperienceExtraction({
+          extractionId: 'experience-extraction.db',
+          observationId: 'experience-observation.db',
+          extractorKind: 'goal_pattern',
+          status: 'completed',
+          modelTier: 'reasoning',
+          sourceEpisodeIds: [episode.episodeId],
+          statements: [statement],
+          changeSuggestions: [
+            {
+              action: 'create_candidate',
+              summary: 'Candidate only; promotion remains separate.',
+              sourceRefIds: statement.sourceRefIds,
+            },
+          ],
+          modelInvocationId: 'model-invocation.observation.db',
+          inputBytes: 1024,
+          outputBytes: 256,
+          createdAt: '2026-07-16T00:00:07.000Z',
+        }),
+      ],
+      modelInvocationRefs: ['model-invocation.observation.db'],
+      observationHash: `sha256:${'7'.repeat(64)}`,
+      summary: { extractorCount: 12, completed: 1, noOp: 11, failed: 0 },
+      createdAt: '2026-07-16T00:00:07.000Z',
+    });
+    const observations = new PostgresObservationRepository(pool);
+    await expect(observations.save(observation)).resolves.toBe(true);
+    await expect(observations.save(observation)).resolves.toBe(false);
+    await expect(observations.findByEpisode(episode.episodeId)).resolves.toEqual([observation]);
+    await expect(observations.list(10, fixture.goalId)).resolves.toEqual([observation]);
+
+    const [observeJob] = await jobs.claimObservation(
+      'observation-worker.db',
+      '2026-07-16T00:00:08.000Z',
+      60_000,
+      1,
+    );
+    if (observeJob === undefined) throw new Error('OBSERVATION_JOB_MISSING');
+    await jobs.completeObservation(
+      observeJob.jobId,
+      'observation-worker.db',
+      '2026-07-16T00:00:09.000Z',
+      observation.observationId,
+    );
+    const counts = await pool.query<{
+      observations: number;
+      statements: number;
+      extractions: number;
+      observation_events: number;
+      reflect_jobs: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_observation WHERE observation_id=$1) AS observations,
+         (SELECT count(*)::integer FROM experience_observation_fact WHERE observation_id=$1) AS statements,
+         (SELECT count(*)::integer FROM experience_extraction WHERE observation_id=$1) AS extractions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.observation_completed' AND aggregate_id=$1) AS observation_events,
+         (SELECT count(*)::integer FROM experience_job
+          WHERE job_type='reflect' AND subject_id=$1) AS reflect_jobs`,
+      [observation.observationId],
+    );
+    expect(counts.rows[0]).toEqual({
+      observations: 1,
+      statements: 1,
+      extractions: 1,
+      observation_events: 1,
+      reflect_jobs: 1,
+    });
+
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.reflection.db',
+      taskId: fixture.taskId,
+      stage: 'experience_reflection',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { observationId: observation.observationId },
+      context: { sourceEpisodeId: episode.episodeId },
+      structuredResult: { operation: 'CREATE_REVISION' },
+      inputTokens: 96,
+      outputTokens: 24,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const sourceRef = episode.sourceRefs[0];
+    if (sourceRef === undefined) throw new Error('REFLECTION_SOURCE_REF_MISSING');
+    const support = createKnowledgeEvidence({
+      evidenceId: 'knowledge-evidence.support.db',
+      polarity: 'support',
+      observationId: observation.observationId,
+      statementIds: [statement.statementId],
+      sourceEpisodeIds: [episode.episodeId],
+      sourceRefIds: [sourceRef.sourceRefId],
+      sourceRefs: [sourceRef],
+      outcomeRefs: [`runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`],
+      summary: statement.summary,
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const contradiction = createKnowledgeEvidence({
+      ...support,
+      evidenceId: 'knowledge-evidence.contradiction.db',
+      polarity: 'contradiction',
+      summary: 'A retained counterexample contradicts unconditional reuse.',
+    });
+    const identity = createKnowledgeCandidateIdentity({
+      jobToBeDone: 'Complete a verified goal with cited terminal evidence',
+      objectiveTerms: ['complete', 'verified', 'goal'],
+      criterionTerms: ['terminal', 'verified'],
+      artifactTerms: ['evidence'],
+      capabilityTerms: ['runtime'],
+      tags: ['terminal'],
+      deliverable: 'verified terminal evidence',
+      recentIntentBoundary: 'intent.reflection.db',
+    });
+    const candidate = createKnowledgeCandidateSnapshot({
+      schemaVersion: '1.0',
+      knowledgeId: 'knowledge.reflection.db',
+      kind: 'planning_heuristic',
+      revision: 1,
+      status: 'candidate',
+      scope: 'global_candidate',
+      title: 'Require cited terminal evidence',
+      summary: 'Preserve both supporting evidence and counterexamples before promotion.',
+      risk: 'low',
+      supportSourceRefs: [sourceRef],
+      contradictionSourceRefs: [sourceRef],
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES('knowledge.reflection.related.db',1,'candidate','global_candidate',
+         NULL,NULL,'low',$1::jsonb,1,$2)`,
+      [
+        JSON.stringify({
+          title: 'Related evidence heuristic',
+          summary: 'A known Candidate relation target.',
+        }),
+        '2026-07-16T00:00:09.000Z',
+      ],
+    );
+    const delta = createKnowledgeDelta({
+      schemaVersion: '1.0',
+      deltaId: 'knowledge-delta.reflection.db',
+      reflectionId: 'experience-reflection.db',
+      operation: 'CREATE_REVISION',
+      knowledgeKind: 'planning_heuristic',
+      fingerprint: `sha256:${'8'.repeat(64)}`,
+      identity,
+      relatedKnowledgeIds: ['knowledge.reflection.related.db'],
+      candidate,
+      supportEvidence: [support],
+      contradictionEvidence: [contradiction],
+      confidence: 0.9,
+      reason: 'Candidate-only reflection revision.',
+      modelInvocationId: 'model-invocation.reflection.db',
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const reflection = createExperienceReflection({
+      schemaVersion: '1.0',
+      reflectionId: 'experience-reflection.db',
+      seedObservationId: observation.observationId,
+      observationIds: [observation.observationId],
+      revision: 1,
+      status: 'completed',
+      group: {
+        goalPatternFingerprint: `sha256:${'9'.repeat(64)}`,
+        capabilityFingerprint: `sha256:${'a'.repeat(64)}`,
+        timeWindow: '2026-07-16/P7D',
+      },
+      impacts: [
+        {
+          impactId: 'reflection-impact.db',
+          disposition: 'helpful',
+          observationId: observation.observationId,
+          statementId: statement.statementId,
+          sourceEpisodeIds: [episode.episodeId],
+          sourceRefIds: [sourceRef.sourceRefId],
+          outcomeRefs: [`runtime-terminal-outcome:${fixture.achievedInput.outcomeId}`],
+          summary: 'The cited statement helped the verified Outcome.',
+        },
+      ],
+      deltas: [delta],
+      modelInvocationRefs: ['model-invocation.reflection.db'],
+      reflectionHash: `sha256:${'b'.repeat(64)}`,
+      createdAt: '2026-07-16T00:00:10.000Z',
+    });
+    const reflections = new PostgresReflectionRepository(pool);
+    await expect(reflections.save(reflection)).resolves.toBe(true);
+    await expect(reflections.save(reflection)).resolves.toBe(false);
+    await expect(reflections.findByObservation(observation.observationId)).resolves.toEqual(
+      reflection,
+    );
+    await expect(reflections.listCandidateIdentities('planning_heuristic', 10)).resolves.toEqual([
+      {
+        knowledgeId: candidate.knowledgeId,
+        revision: 1,
+        fingerprint: delta.fingerprint,
+        identity,
+      },
+    ]);
+    await expect(
+      reflections.findCandidate('planning_heuristic', candidate.knowledgeId),
+    ).resolves.toEqual(candidate);
+    const [reflectJob] = await jobs.claimReflection(
+      'reflection-worker.db',
+      '2026-07-16T00:00:11.000Z',
+      60_000,
+      1,
+    );
+    if (reflectJob === undefined) throw new Error('REFLECTION_JOB_MISSING');
+    await jobs.completeReflection(
+      reflectJob.jobId,
+      'reflection-worker.db',
+      '2026-07-16T00:00:12.000Z',
+      reflection.reflectionId,
+    );
+    const reflectionCounts = await pool.query<{
+      reflections: number;
+      deltas: number;
+      candidates: number;
+      evidence: number;
+      lineage: number;
+      reflection_events: number;
+      candidate_events: number;
+      contradiction_events: number;
+      relations: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_reflection WHERE reflection_id=$1) AS reflections,
+         (SELECT count(*)::integer FROM knowledge_delta_record WHERE reflection_id=$1) AS deltas,
+         (SELECT count(*)::integer FROM planning_heuristic WHERE knowledge_id=$2) AS candidates,
+         (SELECT count(*)::integer FROM planning_heuristic_evidence WHERE knowledge_id=$2) AS evidence,
+         (SELECT count(*)::integer FROM knowledge_candidate_lineage WHERE knowledge_id=$2) AS lineage,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='experience.reflection_completed' AND aggregate_id=$1) AS reflection_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created' AND aggregate_id=$2) AS candidate_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.contradiction_recorded' AND aggregate_id=$2) AS contradiction_events,
+         (SELECT count(*)::integer FROM knowledge_relation
+          WHERE source_kind='planning_heuristic' AND source_knowledge_id=$2
+            AND source_revision=1 AND relation_type='related') AS relations`,
+      [reflection.reflectionId, candidate.knowledgeId],
+    );
+    expect(reflectionCounts.rows[0]).toEqual({
+      reflections: 1,
+      deltas: 1,
+      candidates: 1,
+      evidence: 2,
+      lineage: 1,
+      reflection_events: 1,
+      candidate_events: 1,
+      contradiction_events: 1,
+      relations: 1,
+    });
+  });
+
+  it('reclaims expired PostgreSQL leases and supports explicit dead-letter replay', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-replay');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const outbox = new PostgresCognitiveOutboxRepository(pool, {
+      now: () => '2026-07-16T00:00:06.000Z',
+    });
+    await outbox.dispatchTerminalEvents();
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const [firstLease] = await jobs.claim(
+      'experience-worker.first',
+      '2026-07-16T00:00:06.000Z',
+      60_000,
+      1,
+    );
+    if (firstLease === undefined) throw new Error('EXPERIENCE_FIRST_LEASE_MISSING');
+    await expect(jobs.listRequeueable('2026-07-16T00:01:05.999Z')).resolves.toHaveLength(0);
+    await expect(jobs.listRequeueable('2026-07-16T00:01:06.000Z')).resolves.toEqual([
+      expect.objectContaining({ jobId: firstLease.jobId, status: 'leased' }),
+    ]);
+
+    const [reclaimed] = await jobs.claim(
+      'experience-worker.restarted',
+      '2026-07-16T00:01:06.000Z',
+      60_000,
+      1,
+    );
+    if (reclaimed === undefined) throw new Error('EXPERIENCE_RECLAIMED_LEASE_MISSING');
+    expect(reclaimed).toMatchObject({
+      jobId: firstLease.jobId,
+      status: 'leased',
+      attempt: 2,
+      leaseOwner: 'experience-worker.restarted',
+    });
+
+    const service = new ExperienceJobService({
+      jobs,
+      episodes: new PostgresGoalExperienceEpisodeRepository(pool),
+      builder: {
+        build: () => Promise.reject(new Error('credential=local-only password=do-not-store')),
+      },
+      clock: { now: () => '2026-07-16T00:01:07.000Z' },
+      retryPolicy: { maxAttempts: 1, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    await service.process(reclaimed, 'experience-worker.restarted');
+    const [deadLetter] = await jobs.listDeadLetters();
+    if (deadLetter === undefined) throw new Error('EXPERIENCE_DEAD_LETTER_MISSING');
+    expect(deadLetter).toMatchObject({
+      jobId: firstLease.jobId,
+      errorCode: 'EXPERIENCE_JOB_FAILED',
+      errorSummary: 'credential=[REDACTED] password=[REDACTED]',
+    });
+
+    await expect(
+      jobs.replayDeadLetter(
+        deadLetter.deadLetterId,
+        'operator.experience-replay',
+        '2026-07-16T00:01:08.000Z',
+      ),
+    ).resolves.toMatchObject({
+      jobId: firstLease.jobId,
+      status: 'pending',
+      attempt: 0,
+      availableAt: '2026-07-16T00:01:08.000Z',
+    });
+    await expect(jobs.listDeadLetters()).resolves.toEqual([
+      expect.objectContaining({
+        deadLetterId: deadLetter.deadLetterId,
+        replayedBy: 'operator.experience-replay',
+        replayedAt: '2026-07-16T00:01:08.000Z',
+      }),
+    ]);
+    await expect(
+      jobs.replayDeadLetter(
+        deadLetter.deadLetterId,
+        'operator.experience-replay',
+        '2026-07-16T00:01:09.000Z',
+      ),
+    ).rejects.toThrow('EXPERIENCE_DEAD_LETTER_ALREADY_REPLAYED');
+  });
+
+  it('dead-letters a terminal job instead of fabricating Experience when Judgment is missing', async () => {
+    const fixture = await createTerminalOutcomeFixture('experience-missing-judgment');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    await pool.query(
+      `DELETE FROM outcome_decision
+       WHERE plan_id=$1 AND level='user_goal' AND subject_id=$2`,
+      [fixture.planId, fixture.goalId],
+    );
+    const outbox = new PostgresCognitiveOutboxRepository(pool, {
+      now: () => '2026-07-16T00:00:06.000Z',
+    });
+    await outbox.dispatchTerminalEvents();
+
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const service = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock: { now: () => '2026-07-16T00:00:07.000Z' },
+        nextEpisodeId: () => 'goal-experience-episode.must-not-exist',
+      }),
+      clock: { now: () => '2026-07-16T00:00:07.000Z' },
+      retryPolicy: { maxAttempts: 1, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [job] = await service.claim('experience-worker.missing-judgment', 1);
+    if (job === undefined) throw new Error('EXPERIENCE_MISSING_JUDGMENT_JOB_MISSING');
+    await service.process(job, 'experience-worker.missing-judgment');
+
+    await expect(episodes.findByGoal(fixture.goalId)).resolves.toEqual([]);
+    await expect(jobs.listDeadLetters()).resolves.toEqual([
+      expect.objectContaining({
+        jobId: job.jobId,
+        errorCode: 'EXPERIENCE_EPISODE_INELIGIBLE',
+        errorSummary: 'Goal Experience Episode is not eligible: missing_user_goal_judgment',
+      }),
+    ]);
   });
 
   it('atomically commits unachievable and canceled terminal projections', async () => {
@@ -4650,7 +5285,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: candidate.createdAt,
       updatedAt: candidate.createdAt,
     });
-    await repository.start(session, candidate);
+    const usage = createExperienceUsageRecord({
+      schemaVersion: '1.0',
+      usageId: 'usage.planning.pg.1',
+      planningSessionId: session.sessionId,
+      planCandidateId: candidate.candidateId,
+      knowledgeKind: 'planning_heuristic',
+      knowledgeId: 'knowledge.planning.pg.1',
+      knowledgeRevision: 1,
+      authoritativeRef: 'planning_heuristic:knowledge.planning.pg.1:1',
+      queryFingerprint: `sha256:${'3'.repeat(64)}`,
+      retrievalRank: 1,
+      injectionMode: 'advisory',
+      affectedSkillGoalIds: ['skill-goal.inspect.pg'],
+      influence: { knowledgeScope: 'user', rrfScore: 0.75, sources: ['text', 'vector'] },
+      createdAt: candidate.createdAt,
+    });
+    await repository.saveWithPlanCandidate(session, candidate, [usage]);
     const mutations = ['planning.accept.a', 'planning.accept.b'].map((key, index) => ({
       expectedVersion: 1,
       idempotencyKey: key,
@@ -4698,6 +5349,43 @@ describe('PostgreSQL protocol-domain repositories', () => {
       'plan.candidate_created',
       'plan.confirmed',
     ]);
+    await expect(
+      pool.query(
+        `SELECT plan_candidate_id,user_action,validator_result,affected_skill_goal_ids
+         FROM experience_usage_record WHERE usage_id=$1`,
+        [usage.usageId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          plan_candidate_id: candidate.candidateId,
+          user_action: 'accepted',
+          validator_result: candidate.validation,
+          affected_skill_goal_ids: ['skill-goal.inspect.pg'],
+        },
+      ],
+    });
+    const rolledBackCandidate = createUserGoalPlanCandidateSnapshot({
+      ...candidate,
+      candidateId: 'plan-candidate.pg.rollback',
+      sessionId: 'planning-session.pg.rollback',
+    });
+    const rolledBackSession = createInteractivePlanningSessionSnapshot({
+      ...session,
+      sessionId: rolledBackCandidate.sessionId,
+      taskId: 'task.interactive-planning.pg.rollback',
+      currentCandidateId: rolledBackCandidate.candidateId,
+    });
+    const invalidBinding = createExperienceUsageRecord({
+      ...usage,
+      usageId: 'usage.planning.pg.rollback',
+      planningSessionId: rolledBackSession.sessionId,
+      planCandidateId: 'plan-candidate.pg.wrong-binding',
+    });
+    await expect(
+      repository.saveWithPlanCandidate(rolledBackSession, rolledBackCandidate, [invalidBinding]),
+    ).rejects.toThrow('EXPERIENCE_USAGE_PLAN_CANDIDATE_BINDING_INVALID');
+    await expect(repository.find(rolledBackSession.sessionId)).resolves.toBeUndefined();
 
     const lock = new PostgresGoalVersionLock(pool);
     let active = 0;
@@ -4882,7 +5570,1059 @@ describe('PostgreSQL protocol-domain repositories', () => {
       memories.search({ ...embedding, limit: 10, userId: 'user.pg.2' }),
     ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.pg' } }]);
   });
+
+  it('persists Candidate-only Task Type revisions with Episode exemplars and Outbox lineage', async () => {
+    const firstFixture = await createTerminalOutcomeFixture('task-type-first');
+    const secondFixture = await createTerminalOutcomeFixture('task-type-second');
+    const thirdFixture = await createTerminalOutcomeFixture('task-type-third');
+    await firstFixture.outcomes.commitAchieved(firstFixture.achievedInput);
+    await secondFixture.outcomes.commitAchieved(secondFixture.achievedInput);
+    await thirdFixture.outcomes.commitAchieved(thirdFixture.achievedInput);
+    const clock = { now: () => '2026-07-26T05:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.task-type.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('task-type-episode-worker', 3)) {
+      await episodeService.process(job, 'task-type-episode-worker');
+    }
+    const [firstEpisode] = await episodes.findByGoal(firstFixture.goalId);
+    const [secondEpisode] = await episodes.findByGoal(secondFixture.goalId);
+    const [thirdEpisode] = await episodes.findByGoal(thirdFixture.goalId);
+    if (firstEpisode === undefined || secondEpisode === undefined || thirdEpisode === undefined) {
+      throw new Error('TASK_TYPE_TEST_EPISODES_MISSING');
+    }
+
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.task-type.db',
+      name: 'Task Type Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'task-type-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.task-type.db',
+      stage: 'task_type_induction',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: {
+        episodeIds: [firstEpisode.episodeId, secondEpisode.episodeId, thirdEpisode.episodeId],
+      },
+      context: { mode: 'offline_batch' },
+      structuredResult: taskTypeModelOutput(),
+      inputTokens: 96,
+      outputTokens: 32,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: clock.now(),
+    });
+    const repository = new PostgresTaskTypeRepository(pool);
+    const fingerprints = new TaskTypeFingerprintBuilder({
+      objectiveAliases: { check: 'inspect' },
+    });
+    const service = new TaskTypeInductionService({
+      fingerprints,
+      clusterer: new TaskTypeClusterer({ fingerprints }),
+      repository,
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.task-type.db',
+            structuredResult: taskTypeModelOutput(),
+          }),
+      },
+      clock,
+      nextTaskTypeId: () => 'task-type.inspection.db',
+    });
+    const inductionExamples = [
+      taskTypeExample(firstEpisode, ['inspect', 'pump']),
+      taskTypeExample(secondEpisode, ['check', 'pump']),
+      taskTypeExample(thirdEpisode, ['inspect', 'pump']),
+    ];
+    const first = await service.induce({
+      mode: 'offline_batch',
+      examples: inductionExamples.slice(0, 2),
+    });
+    expect(first.candidates[0]).toMatchObject({ revision: 1, status: 'candidate' });
+    const second = await service.induce({
+      mode: 'online_candidate',
+      examples: inductionExamples,
+    });
+    expect(second.candidates[0]).toMatchObject({ revision: 2, status: 'candidate' });
+    await expect(
+      new PostgresTaskTypeRepository(pool).findByFingerprint(
+        first.candidates[0]?.fingerprint ?? '',
+      ),
+    ).resolves.toEqual(second.candidates[0]);
+
+    const counts = await pool.query<{
+      definitions: number;
+      evidence: number;
+      candidate_events: number;
+      active_definitions: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM task_type_definition
+          WHERE knowledge_id='task-type.inspection.db') AS definitions,
+         (SELECT count(*)::integer FROM task_type_evidence
+          WHERE knowledge_id='task-type.inspection.db') AS evidence,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created'
+            AND aggregate_id='task-type.inspection.db') AS candidate_events,
+         (SELECT count(*)::integer FROM task_type_definition
+          WHERE knowledge_id='task-type.inspection.db' AND status='active') AS active_definitions`,
+    );
+    expect(counts.rows[0]).toEqual({
+      definitions: 2,
+      evidence: 5,
+      candidate_events: 2,
+      active_definitions: 0,
+    });
+  });
+
+  it('persists Capability Patterns, exact current Skill mappings, Gap Candidates and catalog invalidation', async () => {
+    const firstFixture = await createTerminalOutcomeFixture('capability-pattern-first');
+    const secondFixture = await createTerminalOutcomeFixture('capability-pattern-second');
+    await firstFixture.outcomes.commitAchieved(firstFixture.achievedInput);
+    await secondFixture.outcomes.commitAchieved(secondFixture.achievedInput);
+    const clock = { now: () => '2026-07-26T06:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.capability.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('capability-pattern-episode-worker', 2)) {
+      await episodeService.process(job, 'capability-pattern-episode-worker');
+    }
+    const [firstEpisode] = await episodes.findByGoal(firstFixture.goalId);
+    const [secondEpisode] = await episodes.findByGoal(secondFixture.goalId);
+    if (firstEpisode === undefined || secondEpisode === undefined) {
+      throw new Error('CAPABILITY_PATTERN_TEST_EPISODES_MISSING');
+    }
+
+    const skills = new PostgresSkillRepository(pool);
+    const firstSkill = capabilityPatternSkill(1);
+    await skills.saveVersionAndSetCurrent(firstSkill, firstSkill.createdAt);
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.capability-pattern.db',
+      name: 'Capability Pattern Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'capability-pattern-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.capability-pattern.db',
+      stage: 'capability_pattern_induction',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { episodeIds: [firstEpisode.episodeId, secondEpisode.episodeId] },
+      context: { authority: 'candidate_only' },
+      structuredResult: capabilityPatternModelOutput(),
+      inputTokens: 96,
+      outputTokens: 32,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: clock.now(),
+    });
+    const repository = new PostgresCapabilityPatternRepository(pool);
+    const mapper = new CapabilitySkillMapper({
+      catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    });
+    const service = new CapabilityPatternInductionService({
+      repository,
+      mapper,
+      gaps: new CapabilityGapService({
+        repository,
+        clock,
+        nextGapId: (fingerprint) => `capability-gap-${fingerprint.slice(-20)}`,
+        nextProposalId: (fingerprint) => `skill-proposal-${fingerprint.slice(-20)}`,
+      }),
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.capability-pattern.db',
+            structuredResult: capabilityPatternModelOutput(),
+          }),
+      },
+      policyVersion: 'capability-pattern-policy-v1',
+      clock,
+      nextPatternId: (capabilityId) => `capability-pattern.${capabilityId}`,
+    });
+    const result = await service.induce({
+      examples: [
+        capabilityPatternExample(firstEpisode, 'inspection.device', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.device', 'validated'),
+        capabilityPatternExample(firstEpisode, 'inspection.unmapped', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.unmapped', 'validated'),
+      ],
+    });
+    expect(result.patterns).toHaveLength(2);
+    expect(
+      result.patterns.find((pattern) => pattern.capabilityId === 'inspection.device')
+        ?.exactSkillVersionMappings,
+    ).toEqual([
+      expect.objectContaining({
+        exactSkillVersionRef: 'skill.capability-pattern.db:1',
+        requiresCurrentReadiness: true,
+        compatibilityStatus: 'requires_current_check',
+      }),
+    ]);
+    expect(result.gaps).toEqual([
+      expect.objectContaining({
+        capabilityId: 'inspection.unmapped',
+        executable: false,
+        authoringProposal: expect.objectContaining({
+          reviewMode: 'manual',
+          publishAllowed: false,
+        }),
+      }),
+    ]);
+    await service.induce({
+      examples: [
+        capabilityPatternExample(firstEpisode, 'inspection.device', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.device', 'validated'),
+        capabilityPatternExample(firstEpisode, 'inspection.unmapped', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.unmapped', 'validated'),
+      ],
+    });
+    const beforeInvalidation = await pool.query<{
+      patterns: number;
+      pattern_evidence: number;
+      experience_evidence: number;
+      gaps: number;
+      candidate_events: number;
+      gap_events: number;
+      skill_versions: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM capability_pattern_definition
+          WHERE definition_origin='capability_pattern_induction') AS patterns,
+         (SELECT count(*)::integer FROM capability_pattern_evidence) AS pattern_evidence,
+         (SELECT count(*)::integer FROM capability_experience_evidence) AS experience_evidence,
+         (SELECT count(*)::integer FROM capability_gap_candidate) AS gaps,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created'
+            AND aggregate_type='capability_pattern') AS candidate_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='capability.gap_candidate_created') AS gap_events,
+         (SELECT count(*)::integer FROM skill_version) AS skill_versions`,
+    );
+    expect(beforeInvalidation.rows[0]).toEqual({
+      patterns: 2,
+      pattern_evidence: 5,
+      experience_evidence: 5,
+      gaps: 1,
+      candidate_events: 2,
+      gap_events: 1,
+      skill_versions: 1,
+    });
+
+    const mapped = result.patterns.find((pattern) => pattern.capabilityId === 'inspection.device');
+    if (mapped === undefined) throw new Error('CAPABILITY_PATTERN_MAPPED_FIXTURE_MISSING');
+    await pool.query(
+      `UPDATE capability_pattern_definition
+       SET status='active',definition=jsonb_set(definition,'{status}','"active"'::jsonb,false)
+       WHERE knowledge_id=$1 AND revision=$2`,
+      [mapped.patternId, mapped.revision],
+    );
+    const secondSkill = capabilityPatternSkill(2);
+    await skills.saveVersionAndSetCurrent(secondSkill, secondSkill.createdAt);
+    const currentMapping = await mapper.mapCurrentVersions('inspection.device');
+    const invalidator = new CapabilityPatternInvalidator({ repository, clock });
+    await expect(
+      invalidator.invalidateByCatalog({
+        catalogHash: currentMapping.catalogHash,
+        policyVersion: 'capability-pattern-policy-v1',
+      }),
+    ).resolves.toBe(1);
+    const invalidated = await pool.query<{
+      status: string;
+      version: number;
+      transitions: number;
+      validating_events: number;
+    }>(
+      `SELECT status,version,
+         (SELECT count(*)::integer FROM knowledge_status_transition
+          WHERE knowledge_id=$1 AND reason='catalog_changed') AS transitions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE aggregate_id=$1 AND event_type='knowledge.validating') AS validating_events
+       FROM capability_pattern_definition
+       WHERE knowledge_id=$1 AND revision=$2`,
+      [mapped.patternId, mapped.revision],
+    );
+    expect(invalidated.rows[0]).toEqual({
+      status: 'validating',
+      version: 2,
+      transitions: 1,
+      validating_events: 1,
+    });
+  });
+
+  it('CAS-promotes real multi-Goal evidence, projects Active Memory and rebuilds deletion', async () => {
+    const fixtures = await Promise.all([
+      createTerminalOutcomeFixture('promotion-first'),
+      createTerminalOutcomeFixture('promotion-second'),
+      createTerminalOutcomeFixture('promotion-third'),
+    ]);
+    for (const fixture of fixtures) await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const clock = { now: () => '2026-07-26T06:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.promotion.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('promotion-episode-worker', 3)) {
+      await episodeService.process(job, 'promotion-episode-worker');
+    }
+    const storedEpisodes = (
+      await Promise.all(fixtures.map((fixture) => episodes.findByGoal(fixture.goalId)))
+    ).flat();
+    expect(storedEpisodes).toHaveLength(3);
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,1,'candidate','global_candidate',NULL,NULL,'low',$2::jsonb,1,$3)`,
+      [
+        'knowledge.promotion.db',
+        JSON.stringify({
+          title: 'Inspect before changing state',
+          summary: 'Collect durable evidence before proposing a state-changing plan.',
+          fingerprint: `sha256:${'7'.repeat(64)}`,
+          identity: {},
+        }),
+        clock.now(),
+      ],
+    );
+    for (const episode of storedEpisodes) {
+      const sourceRef = createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.promotion.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      });
+      const evidence = createKnowledgeEvidence({
+        evidenceId: `evidence.promotion.${episode.episodeId}`,
+        polarity: 'support',
+        observationId: `observation.promotion.${episode.episodeId}`,
+        statementIds: [`statement.promotion.${episode.episodeId}`],
+        sourceEpisodeIds: [episode.episodeId],
+        sourceRefIds: [sourceRef.sourceRefId],
+        sourceRefs: [sourceRef],
+        outcomeRefs: [episode.terminalOutcomeRef],
+        summary: 'The achieved Goal supports this planning heuristic.',
+        createdAt: clock.now(),
+      });
+      await pool.query(
+        `INSERT INTO planning_heuristic_evidence(
+           knowledge_id,knowledge_revision,evidence_id,polarity,source_ref,created_at)
+         VALUES($1,1,$2,'support',$3::jsonb,$4)`,
+        ['knowledge.promotion.db', evidence.evidenceId, JSON.stringify(evidence), clock.now()],
+      );
+    }
+    const promotionRepository = new PostgresKnowledgePromotionRepository(pool);
+    await pool.query(
+      `INSERT INTO runtime_capability_summary(
+         summary_id,revision,catalog_hash,generation_policy_version,status,
+         schema_version,source_refs,built_at)
+       VALUES('summary.promotion.replay',1,$1,'capability-policy-v1','active','1.0','[]'::jsonb,$2)`,
+      [`sha256:${'a'.repeat(64)}`, clock.now()],
+    );
+    const memories = new MemoryService({
+      repository: new PostgresMemoryRepository(pool),
+      embeddings: {
+        embed: () =>
+          Promise.resolve({ providerId: 'promotion-test-embedding', vector: [0.25, 0.5, 0.75] }),
+      },
+      clock,
+      nextId: () => 'unused-memory-id',
+      nextTransitionId: () => 'memory-transition.promotion.db',
+    });
+    const projectionRepository = new MemoryActiveKnowledgeProjectionRepository(
+      memories,
+      new PostgresActiveKnowledgeProjectionInventory(pool),
+    );
+    let transitionSequence = 0;
+    const promotionReports = new PostgresPromotionProvenanceReportRepository(pool);
+    const replayEvidence = new ReplayPromotionEvidenceService({
+      generator: new PromotionReportGenerator({
+        datasets: new PlanningReplayDatasetBuilder(new PostgresPlanningReplayDatasetSource(pool)),
+        shadow: new ShadowPlanningService({
+          evaluator: new ConservativeReplayPlanningEvaluator(),
+          physicalProvider: new NoPhysicalProvider(),
+        }),
+      }),
+      repository: promotionReports,
+    });
+    const service = new KnowledgePromotionService({
+      repository: promotionRepository,
+      evaluator: new EvidenceThresholdEvaluator(),
+      replay: replayEvidence,
+      duplicates: new DuplicateCandidateDetector(promotionRepository),
+      shadow: replayEvidence,
+      projector: new ActiveKnowledgeProjector({ repository: projectionRepository, clock }),
+      targets: [
+        new PlanningHeuristicPromotionTarget(),
+        new TaskTypePromotionTarget(),
+        new CapabilityPatternPromotionTarget(),
+      ],
+      policyVersion: 'knowledge-promotion-v1',
+      clock,
+      nextEvaluationId: () => 'promotion-evaluation.db',
+      nextTransitionId: () => `promotion-transition.db.${String(++transitionSequence)}`,
+    });
+    const promoted = await service.evaluate({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.promotion.db',
+      expectedVersion: 1,
+      actorId: 'operator.promotion.db',
+      humanApproved: true,
+      policyAllowed: true,
+    });
+    expect(promoted.evaluation.status).toBe('passed');
+    expect(promoted.knowledge).toMatchObject({ status: 'active', version: 3 });
+    await expect(promotionReports.find(promoted.knowledge)).resolves.toMatchObject({
+      status: 'passed',
+      mutateDevCaseIds: [expect.any(String), expect.any(String)],
+      promotionTestCaseIds: [expect.any(String)],
+      replayFailedCount: 0,
+      shadow: { neutralCount: 1, regressedCount: 0, unsafeCount: 0 },
+    });
+    const persisted = await pool.query<{
+      status: string;
+      version: number;
+      evaluations: number;
+      transitions: number;
+      promoted_events: number;
+      memory_status: string;
+      memory_content: unknown;
+      skill_versions: number;
+    }>(
+      `SELECT h.status,h.version,
+         (SELECT count(*)::integer FROM knowledge_promotion_evaluation
+          WHERE knowledge_id=h.knowledge_id) AS evaluations,
+         (SELECT count(*)::integer FROM knowledge_status_transition
+          WHERE knowledge_id=h.knowledge_id) AS transitions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE aggregate_id=h.knowledge_id AND event_type='knowledge.promoted') AS promoted_events,
+         (SELECT status FROM memory_item
+          WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1')
+           AS memory_status,
+         (SELECT content_json FROM memory_item
+          WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1')
+           AS memory_content,
+         (SELECT count(*)::integer FROM skill_version) AS skill_versions
+       FROM planning_heuristic h WHERE h.knowledge_id=$1`,
+      ['knowledge.promotion.db'],
+    );
+    expect(persisted.rows[0]).toEqual(
+      expect.objectContaining({
+        status: 'active',
+        version: 3,
+        evaluations: 1,
+        transitions: 2,
+        promoted_events: 1,
+        memory_status: 'active',
+        skill_versions: 0,
+        memory_content: expect.objectContaining({
+          projectionType: 'active_knowledge',
+          authoritativeRef: 'planning_heuristic:knowledge.promotion.db:1',
+        }),
+      }),
+    );
+    await expect(
+      service.evaluate({
+        kind: 'planning_heuristic',
+        knowledgeId: 'knowledge.promotion.db',
+        expectedVersion: 1,
+        actorId: 'operator.promotion.db',
+        humanApproved: true,
+        policyAllowed: true,
+      }),
+    ).rejects.toThrow('KNOWLEDGE_PROMOTION_VERSION_CONFLICT');
+    await expect(
+      promotionRepository.listRevalidationCandidates('knowledge-promotion-v2'),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        reason: 'policy_changed',
+        record: expect.objectContaining({
+          knowledgeId: 'knowledge.promotion.db',
+          status: 'active',
+        }),
+      }),
+    ]);
+    await pool.query(
+      "DELETE FROM memory_item WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'",
+    );
+    await expect(service.rebuildActiveProjections()).resolves.toBe(1);
+    await expect(
+      pool.query(
+        "SELECT 1 FROM memory_item WHERE memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'",
+      ),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    const contradictionCreatedAt = '2026-07-26T06:01:00.000Z';
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,2,'candidate','global_candidate',NULL,NULL,'low',$2::jsonb,2,$3)`,
+      [
+        'knowledge.promotion.db',
+        JSON.stringify({
+          title: 'Inspect before changing state',
+          summary:
+            'A newer candidate revision retains the heuristic while recording a counterexample.',
+          fingerprint: `sha256:${'7'.repeat(64)}`,
+          identity: {},
+        }),
+        contradictionCreatedAt,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO planning_heuristic_evidence(
+         knowledge_id,knowledge_revision,evidence_id,polarity,source_ref,created_at)
+       VALUES($1,2,$2,'contradiction',$3::jsonb,$4)`,
+      [
+        'knowledge.promotion.db',
+        'evidence.promotion.new-contradiction',
+        JSON.stringify({
+          evidenceId: 'evidence.promotion.new-contradiction',
+          polarity: 'contradiction',
+          sourceEpisodeIds: [],
+          sourceRefIds: [],
+          sourceRefs: [],
+          outcomeRefs: [],
+          summary: 'A newer counterexample contradicts the active heuristic.',
+          createdAt: contradictionCreatedAt,
+        }),
+        contradictionCreatedAt,
+      ],
+    );
+    await expect(service.revalidateChangedActive()).resolves.toBe(1);
+    await expect(
+      pool.query(
+        `SELECT h.status,h.version,m.status AS memory_status,
+           (SELECT count(*)::integer FROM knowledge_status_transition
+            WHERE knowledge_id=h.knowledge_id AND reason='contradiction_detected')
+             AS contradiction_transitions
+         FROM planning_heuristic h
+         LEFT JOIN memory_item m
+           ON m.memory_id='knowledge-projection-planning_heuristic-knowledge.promotion.db-1'
+         WHERE h.knowledge_id='knowledge.promotion.db' AND h.revision=1`,
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'validating',
+          version: 4,
+          memory_status: 'invalid',
+          contradiction_transitions: 1,
+        },
+      ],
+    });
+  });
+
+  it('hybrid-retrieves only scoped Active authority, expands one hop and deduplicates a Session', async () => {
+    const goalSession = await seedConfirmedGoalSessionForPlanning();
+    const planningSessionId = 'planning-session.knowledge.db';
+    const planCandidateId = 'plan-candidate.knowledge.db';
+    await pool.query(
+      `INSERT INTO interactive_planning_session(
+         session_id,task_id,goal_session_id,confirmed_contract_candidate_id,state,version,
+         current_candidate_id,current_candidate_revision,revision_count,max_revisions,
+         created_at,updated_at,goal_id,goal_version,max_elapsed_ms)
+       VALUES($1,'task.knowledge.db',$2,$3,'plan_review',1,$4,1,1,4,$5,$5,
+         'goal.knowledge.db',1,900000)`,
+      [
+        planningSessionId,
+        goalSession.sessionId,
+        goalSession.candidateId,
+        planCandidateId,
+        '2026-07-26T08:30:00.000Z',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO user_goal_plan_candidate(
+         candidate_id,session_id,revision,status,base_plan_id,plan,plan_hash,validation,
+         source_refs,created_at,diff,experience_hints,confirmation_policy,risk_level,
+         planning_metadata,patch_model_invocation_id)
+       VALUES($1,$2,1,'candidate',NULL,'{}'::jsonb,$3,'{}'::jsonb,'[]'::jsonb,$4,
+         '{}'::jsonb,'[]'::jsonb,'manual_all','low','{}'::jsonb,NULL)`,
+      [planCandidateId, planningSessionId, `sha256:${'9'.repeat(64)}`, '2026-07-26T08:30:00.000Z'],
+    );
+    const policyVersion = 'knowledge-promotion-v1';
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.global',
+      scope: 'global_candidate',
+      title: 'Inspect pump pressure',
+      summary: 'Inspect pressure before changing pump state.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.user-a',
+      scope: 'user',
+      userId: 'user.a',
+      title: 'Inspect user pump pressure preference',
+      summary: 'For this user, capture pump pressure evidence first.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'planning_heuristic',
+      knowledgeId: 'knowledge.retrieval.user-b',
+      scope: 'user',
+      userId: 'user.b',
+      title: 'Other user pump inspection preference',
+      summary: 'This private user preference must not cross scope.',
+      policyVersion,
+    });
+    await insertRetrievalKnowledgeFixture({
+      kind: 'task_type',
+      knowledgeId: 'knowledge.retrieval.related-task-type',
+      scope: 'global_candidate',
+      title: 'Stabilization protocol',
+      summary: 'Verify stable conditions and evidence.',
+      policyVersion,
+    });
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES('knowledge.retrieval.candidate',1,'candidate','global_candidate',NULL,NULL,'low',
+         $1::jsonb,1,$2)`,
+      [
+        JSON.stringify({
+          title: 'Candidate pump inspection',
+          summary: 'This Candidate must not be retrieved.',
+        }),
+        '2026-07-26T08:30:00.000Z',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO knowledge_relation(
+         relation_id,source_kind,source_knowledge_id,source_revision,target_kind,
+         target_knowledge_id,target_revision,relation_type,evidence_refs,created_at)
+       VALUES('relation.retrieval.requires','planning_heuristic',
+         'knowledge.retrieval.global',1,'task_type',
+         'knowledge.retrieval.related-task-type',1,'requires',$1::jsonb,$2)`,
+      [JSON.stringify(['episode.retrieval']), '2026-07-26T08:30:00.000Z'],
+    );
+    const clock = { now: () => '2026-07-26T08:30:00.000Z' };
+    const memories = new MemoryService({
+      repository: new PostgresMemoryRepository(pool),
+      embeddings: {
+        embed: () => Promise.resolve({ providerId: 'knowledge-retrieval-test', vector: [1, 0, 0] }),
+      },
+      clock,
+      nextId: () => 'unused-knowledge-memory-id',
+      nextTransitionId: () => 'unused-knowledge-memory-transition',
+    });
+    for (const knowledgeId of [
+      'knowledge.retrieval.global',
+      'knowledge.retrieval.user-a',
+      'knowledge.retrieval.user-b',
+      'knowledge.retrieval.candidate',
+    ]) {
+      await memories.create({
+        memoryId: `knowledge-projection-planning_heuristic-${knowledgeId}-1`,
+        type: 'workflow_pattern',
+        content: {
+          projectionType: 'active_knowledge',
+          authoritativeRef: `planning_heuristic:${knowledgeId}:1`,
+          knowledgeKind: 'planning_heuristic',
+          knowledgeId,
+          knowledgeRevision: 1,
+          risk: 'low',
+        },
+        summary: `Search projection for ${knowledgeId}.`,
+        sourceRefs: [`planning_heuristic:${knowledgeId}:1`],
+        supersedes: [],
+        confidence: 1,
+        durability: 'durable',
+        authority: 'admin',
+        durabilityReason: 'G13 scoped retrieval integration fixture.',
+      });
+    }
+    await expect(memories.search('inspect pump pressure', 10, 'user.a')).resolves.toEqual([]);
+    const search = new PostgresKnowledgeSearchRepository(pool);
+    let usageSequence = 0;
+    const retriever = new PlanningKnowledgeRetriever({
+      repository: search,
+      embeddings: {
+        embed: () => Promise.resolve({ providerId: 'knowledge-retrieval-test', vector: [1, 0, 0] }),
+      },
+      skills: { loadCurrentExact: () => Promise.resolve([]) },
+      fingerprints: new KnowledgeQueryFingerprintBuilder(),
+      ranker: new ReciprocalRankFusion(),
+      relations: new KnowledgeRelationExpander(),
+      applicability: new KnowledgeApplicabilityEvaluator(),
+      budget: new PlanningContextBudget(),
+      clock,
+      nextUsageId: () => `usage.knowledge.db.${String(++usageSequence)}`,
+    });
+    const input = {
+      query: 'inspect pump pressure',
+      applicabilityTerms: ['inspection', 'pressure'],
+      scope: { taskId: 'task.knowledge.db', tenantId: 'tenant.a', userId: 'user.a' },
+      catalogHash: `sha256:${'1'.repeat(64)}`,
+      promotionPolicyVersion: policyVersion,
+      planningSessionId,
+      planCandidateId,
+      injectionMode: 'advisory' as const,
+    };
+    const first = await retriever.retrieve(input);
+    expect(first.definitions.map((item) => item.knowledgeId)).toEqual(
+      expect.arrayContaining([
+        'knowledge.retrieval.global',
+        'knowledge.retrieval.user-a',
+        'knowledge.retrieval.related-task-type',
+      ]),
+    );
+    expect(first.definitions.map((item) => item.knowledgeId)).not.toEqual(
+      expect.arrayContaining(['knowledge.retrieval.user-b', 'knowledge.retrieval.candidate']),
+    );
+    expect(first.characterCount).toBeLessThanOrEqual(20_000);
+    await expect(retriever.retrieve(input)).resolves.toMatchObject({
+      index: [],
+      definitions: [],
+    });
+    const persisted = await pool.query<{
+      usages: number;
+      events: number;
+      dual_channel: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_usage_record
+         WHERE planning_session_id=$1) AS usages,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE correlation->>'correlationId'=$1
+            AND event_type='planning.knowledge_used') AS events,
+         (SELECT count(*)::integer FROM experience_usage_record
+          WHERE planning_session_id=$1
+            AND influence->'sources' ?& ARRAY['text','vector']) AS dual_channel`,
+      [planningSessionId],
+    );
+    expect(persisted.rows[0]).toEqual({ usages: 3, events: 3, dual_channel: 2 });
+    const durations: number[] = [];
+    for (let iteration = 0; iteration < 20; iteration += 1) {
+      const started = performance.now();
+      await retriever.retrieve(input);
+      durations.push(performance.now() - started);
+    }
+    durations.sort((left, right) => left - right);
+    const p95 = durations[Math.ceil(durations.length * 0.95) - 1];
+    expect(p95).toBeDefined();
+    expect(p95).toBeLessThanOrEqual(500);
+    process.stdout.write(
+      `${JSON.stringify({
+        event: 'planning.knowledge_retrieval.p95',
+        samples: durations.length,
+        p95Ms: Number(p95?.toFixed(3)),
+        targetMs: 500,
+      })}\n`,
+    );
+  });
 });
+
+async function insertRetrievalKnowledgeFixture(input: {
+  kind: 'planning_heuristic' | 'task_type';
+  knowledgeId: string;
+  scope: 'global_candidate' | 'user' | 'tenant' | 'task';
+  userId?: string;
+  tenantId?: string;
+  title: string;
+  summary: string;
+  policyVersion: string;
+}) {
+  const createdAt = '2026-07-26T08:30:00.000Z';
+  const definition = {
+    title: input.title,
+    summary: input.summary,
+    ...(input.kind === 'task_type' ? { status: 'active' } : {}),
+    ...(input.scope === 'task' ? { taskId: 'task.knowledge.db' } : {}),
+  };
+  if (input.kind === 'planning_heuristic') {
+    await pool.query(
+      `INSERT INTO planning_heuristic(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,definition,version,created_at)
+       VALUES($1,1,'active',$2,$3,$4,'low',$5::jsonb,3,$6)`,
+      [
+        input.knowledgeId,
+        input.scope,
+        input.tenantId ?? null,
+        input.userId ?? null,
+        JSON.stringify(definition),
+        createdAt,
+      ],
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO task_type_definition(
+         knowledge_id,revision,status,scope,tenant_id,user_id,risk,fingerprint,
+         definition,version,created_at)
+       VALUES($1,1,'active',$2,$3,$4,'low',$5,$6::jsonb,3,$7)`,
+      [
+        input.knowledgeId,
+        input.scope,
+        input.tenantId ?? null,
+        input.userId ?? null,
+        `sha256:${createHash('sha256').update(input.knowledgeId).digest('hex')}`,
+        JSON.stringify(definition),
+        createdAt,
+      ],
+    );
+  }
+  await pool.query(
+    `INSERT INTO knowledge_promotion_evaluation(
+       evaluation_id,knowledge_kind,knowledge_id,knowledge_revision,policy_version,status,
+       evidence_summary,replay_report_ref,shadow_report_ref,human_approved,decided_by,
+       created_at,decided_at)
+     VALUES($1,$2,$3,1,$4,'passed',$5::jsonb,'replay.retrieval',NULL,true,
+       'operator.retrieval',$6,$6)`,
+    [
+      `evaluation.retrieval.${input.knowledgeId}`,
+      input.kind,
+      input.knowledgeId,
+      input.policyVersion,
+      JSON.stringify({
+        evidence: {
+          uniqueGoalCount: 3,
+          uniqueUserCount: 1,
+          successfulOutcomeCount: 3,
+          failedOutcomeCount: 0,
+          userAcceptedPlanningCount: 1,
+          userRejectedPlanningCount: 0,
+          replayPassedCount: 3,
+          replayFailedCount: 0,
+          shadowImprovedCount: 0,
+          shadowRegressedCount: 0,
+          supportingRefs: ['episode.retrieval'],
+          contradictingRefs: [],
+        },
+        gates: [],
+        policyAllowed: true,
+        decisionSummary: 'G13 active retrieval fixture.',
+      }),
+      createdAt,
+    ],
+  );
+}
+
+function taskTypeExample(episode: GoalExperienceEpisode, semanticObjective: readonly string[]) {
+  return createTaskTypeInductionExample({
+    schemaVersion: '1.0',
+    episodeId: episode.episodeId,
+    goalId: episode.goalId,
+    goalVersion: episode.goalVersion,
+    dimensions: {
+      semanticObjective,
+      criteria: ['pressure stable', 'evidence attached'],
+      artifacts: ['inspection report'],
+      capabilities: ['device.inspect', 'evidence.capture'],
+      dagShape: ['inspect->verify'],
+      corrections: ['include pressure evidence'],
+      outcome: ['achieved'],
+    },
+    constraints: [],
+    sourceRefs: [
+      createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.task-type.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      }),
+    ],
+    createdAt: episode.createdAt,
+  });
+}
+
+function taskTypeModelOutput() {
+  return {
+    title: 'Inspect a pump',
+    summary: 'Inspect a pump and return cited evidence.',
+    recognitionHints: ['inspect pump', 'pressure evidence'],
+    positiveExamples: ['Inspect pump P-17 and return a pressure report.'],
+    negativeExamples: ['Repairing a failed pump is a different job.'],
+    requiredDimensions: ['target', 'criteria'],
+    optionalDimensions: ['time_range'],
+    criteriaTemplate: ['Pressure is stable.', 'Evidence is attached.'],
+    capabilityRequirements: ['device.inspect', 'evidence.capture'],
+    goalPattern: 'Inspect [instance] and verify evidence.',
+    dependencyPattern: ['inspect->verify'],
+    incompatibleConstraints: [],
+  };
+}
+
+function capabilityPatternExample(
+  episode: GoalExperienceEpisode,
+  capabilityId: string,
+  evidenceLevel: 'observed' | 'validated',
+) {
+  return createCapabilityPatternInductionExample({
+    schemaVersion: '1.0',
+    episodeId: episode.episodeId,
+    goalId: episode.goalId,
+    goalVersion: episode.goalVersion,
+    capabilityId,
+    evidenceLevel,
+    signals: {
+      skillOutcomes: ['inspection outcome achieved'],
+      attempts: ['inspection attempt succeeded'],
+      evidence: ['structured observation is captured'],
+      artifacts: ['inspection report'],
+      corrections: ['include cited observations'],
+      recoveries: ['retry after device reconnect'],
+      eventImpacts: ['device inspection event recorded'],
+      applicableConditions: ['device identity is known'],
+      effects: ['device state is inspected'],
+      prerequisites: ['device is reachable'],
+      dependencies: ['evidence.capture'],
+      failures: ['device is unavailable'],
+      limitations: ['current provider readiness is not asserted'],
+    },
+    sourceRefs: [
+      createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.capability-pattern.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      }),
+    ],
+    createdAt: episode.createdAt,
+  });
+}
+
+function capabilityPatternModelOutput() {
+  return {
+    title: 'Inspect devices with evidence',
+    summary: 'Inspect a known device and return structured evidence.',
+    applicableConditions: ['device identity is known'],
+    effects: ['device state is inspected'],
+    evidenceRequirements: ['structured observation is captured'],
+    artifacts: ['inspection report'],
+    prerequisites: ['device is reachable'],
+    dependencies: ['evidence.capture'],
+    failures: ['device is unavailable'],
+    limitations: ['current provider readiness is not asserted'],
+  };
+}
+
+function capabilityPatternSkill(version: number) {
+  const skillId = 'skill.capability-pattern.db';
+  const outcome = {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion: version,
+    effects: ['device state is inspected'],
+    evidence: ['structured observation is captured'],
+    artifacts: ['inspection report'],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: { classification: 'read_only' },
+  };
+  return createSkillVersion({
+    skillId,
+    version,
+    name: 'Capability Pattern inspection Skill',
+    summary: 'Inspects a device and returns evidence.',
+    description: 'Current exact Skill declaration for Capability Pattern mapping.',
+    capabilities: ['inspection.device'],
+    workflowGuidance: 'Check current readiness before execution.',
+    outputInstruction: 'Return structured evidence.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    ...(version === 1 ? {} : { previousVersion: version - 1 }),
+    createdAt: `2026-07-26T0${String(version)}:00:00.000Z`,
+    outcomeSpecification: {
+      ...outcome,
+      specificationHash: `sha256:${createHash('sha256').update(JSON.stringify(outcome)).digest('hex')}`,
+    },
+  });
+}
 
 async function seedConfirmedGoalSessionForPlanning() {
   await pool.query(
@@ -4959,6 +6699,54 @@ async function seedConfirmedGoalSessionForPlanning() {
   });
   await new PostgresInteractiveGoalRepository(pool).start(session, candidate);
   return { sessionId: session.sessionId, candidateId: candidate.candidateId, sourceRefs: [] };
+}
+
+async function seedTerminalLinkedExperienceUsage(
+  goalId: string,
+  goalVersion: number,
+): Promise<string> {
+  const goalSession = await seedConfirmedGoalSessionForPlanning();
+  const planningSessionId = 'planning-session.terminal-usage.pg';
+  const planCandidateId = 'plan-candidate.terminal-usage.pg';
+  const usageId = 'usage.terminal-outcome.pg';
+  const createdAt = '2026-07-16T00:00:01.000Z';
+  await pool.query(
+    `INSERT INTO interactive_planning_session(
+       session_id,task_id,goal_session_id,confirmed_contract_candidate_id,state,version,
+       current_candidate_id,current_candidate_revision,revision_count,max_revisions,
+       created_at,updated_at,goal_id,goal_version,max_elapsed_ms)
+     VALUES($1,'task.terminal-usage.pg',$2,$3,'plan_review',1,$4,1,1,4,$5,$5,$6,$7,900000)`,
+    [
+      planningSessionId,
+      goalSession.sessionId,
+      goalSession.candidateId,
+      planCandidateId,
+      createdAt,
+      goalId,
+      goalVersion,
+    ],
+  );
+  await pool.query(
+    `INSERT INTO user_goal_plan_candidate(
+       candidate_id,session_id,revision,status,base_plan_id,plan,plan_hash,validation,
+       source_refs,created_at,diff,experience_hints,confirmation_policy,risk_level,
+       planning_metadata,patch_model_invocation_id)
+     VALUES($1,$2,1,'candidate',NULL,'{}'::jsonb,$3,'{}'::jsonb,'[]'::jsonb,$4,
+       '{}'::jsonb,'[]'::jsonb,'manual_all','low','{}'::jsonb,NULL)`,
+    [planCandidateId, planningSessionId, `sha256:${'8'.repeat(64)}`, createdAt],
+  );
+  await pool.query(
+    `INSERT INTO experience_usage_record(
+       usage_id,planning_session_id,plan_candidate_id,knowledge_kind,knowledge_id,
+       knowledge_revision,injection_mode,influence,user_action,validator_result,
+       final_outcome_ref,created_at,authoritative_ref,query_fingerprint,retrieval_rank,
+       affected_skill_goal_ids)
+     VALUES($1,$2,$3,'planning_heuristic','knowledge.terminal-usage.pg',1,'advisory',
+       '{}'::jsonb,'accepted','{}'::jsonb,NULL,$4,
+       'planning_heuristic:knowledge.terminal-usage.pg:1',$5,1,'[]'::jsonb)`,
+    [usageId, planningSessionId, planCandidateId, createdAt, `sha256:${'7'.repeat(64)}`],
+  );
+  return usageId;
 }
 
 function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {
@@ -5095,6 +6883,100 @@ async function createTerminalOutcomeFixture(suffix: string) {
     attemptCount: 1,
     createdAt: '2026-07-16T00:00:01.000Z',
   });
+  const contractHash = `sha256:${createHash('sha256')
+    .update(`terminal-contract:${suffix}`)
+    .digest('hex')}`;
+  const userGoalRuntime = new PostgresUserGoalRuntimeRepository(pool);
+  await userGoalRuntime.saveContract(
+    createUserGoalCompletionContract({
+      schemaVersion: '1.0',
+      goalId,
+      goalVersion: 1,
+      title: 'Terminal outcome',
+      description: 'Commit all authoritative terminal projections together.',
+      constraints: [],
+      criteria: [
+        {
+          criterionId: `criterion.terminal.${suffix}`,
+          description: 'All authoritative terminal projections agree.',
+          required: true,
+          expectedEffectRefs: [],
+          evidenceRequirements: [],
+          artifactRequirements: [],
+        },
+      ],
+      assumptions: [],
+      policy: {
+        maxSkillGoals: 16,
+        maxDagDepth: 8,
+        maxParallelReadyGoals: 4,
+        maxPlanRevisions: 4,
+        maxPlanningModelAttempts: 2,
+      },
+    }),
+    contractHash,
+    '2026-07-16T00:00:01.000Z',
+  );
+  await userGoalRuntime.createPlan(
+    createUserGoalPlan({
+      schemaVersion: '1.0',
+      planId,
+      goalId,
+      goalVersion: 1,
+      revision: 1,
+      revisionKind: 'initial',
+      status: 'active',
+      contractHash,
+      contentHash: `sha256:${createHash('sha256').update(`terminal-plan:${suffix}`).digest('hex')}`,
+      skillGoals: [
+        {
+          skillGoalId: `skill-goal.terminal.${suffix}`,
+          requiredResult: 'All authoritative terminal projections agree.',
+          capabilityNeeds: ['terminal.projection'],
+          coveredCriterionIds: [`criterion.terminal.${suffix}`],
+          requiredEffectRefs: [],
+          evidenceRequirements: [],
+          artifactRequirements: [],
+          assumptions: [],
+          constraints: [],
+          status: 'achieved',
+        },
+      ],
+      dependencies: [],
+      inheritedCompletedEffectIds: [],
+      forbiddenReplayFingerprints: [],
+      createdAt: '2026-07-16T00:00:01.000Z',
+    }),
+  );
+  await userGoalRuntime.createAttempt(
+    createSkillAttempt({
+      attemptId: `attempt.terminal.${suffix}`,
+      planId,
+      skillGoalId: `skill-goal.terminal.${suffix}`,
+      ordinal: 1,
+      status: 'achieved',
+      strategyFingerprint: `sha256:${createHash('sha256')
+        .update(`terminal-attempt:${suffix}`)
+        .digest('hex')}`,
+      budget: { maxAttempts: 1, consumedAttempts: 1 },
+      createdAt: '2026-07-16T00:00:02.000Z',
+    }),
+  );
+  await pool.query(
+    `INSERT INTO outcome_decision(
+       outcome_decision_id,level,subject_id,plan_id,status,confidence,decision_json,created_at)
+     VALUES($1,'user_goal',$2,$3,'achieved','high',$4::jsonb,$5)`,
+    [
+      `outcome-decision.terminal.${suffix}`,
+      goalId,
+      planId,
+      JSON.stringify({
+        decision: 'achieved',
+        summary: 'All criteria are satisfied.',
+      }),
+      '2026-07-16T00:00:03.000Z',
+    ],
+  );
   await executions.saveInstance({
     instanceId,
     planId,

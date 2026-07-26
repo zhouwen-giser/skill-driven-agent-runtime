@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- G17 unified PostgreSQL-authoritative cognitive startup reconciliation, named user-deletion
+  propagation, review-only retention application and executable six-stage rollout policy.
+- v1.2.3 clean release verification, classified security/recovery/capacity evidence and protected-review
+  release report.
+- G16 immutable Planning Replay datasets with request/world/accepted Contract and Plan/corrections/
+  Outcome/catalog/knowledge provenance, six cognitive evaluation dimensions and complete planning
+  quality/cost metrics.
+- Disjoint deterministic `mutate_dev`/`promotion_test` partitions, side-effect-free
+  Baseline/Champion/Candidate Shadow verdicts, hard-failure non-regression and reproducible Promotion
+  reports through audit-only migration 0124.
+- A conservative production Replay evaluator, explicit `NoPhysicalProvider` zero-call guard,
+  incubating Candidate enforcement, generated fixture artifact and `verify:cognitive-replay` gate.
 - The complete SDAR v1.2.3 Goal package, Master ExecPlan and machine-readable Goal sync state.
 - ADR-111–114 for cognitive planning authority, Experience/knowledge governance, deterministic
   snapshots/CAS and post-v1.2.2 migrations.
@@ -36,8 +48,58 @@ All notable changes to this project are documented here. The format follows Keep
   and A2A plan-review metadata at the existing `INPUT_REQUIRED` boundary.
 - G06 immutable Planning Correction Facts and deterministic Interaction Episode revisions spanning
   Understanding, Goal Contract, Plan review, final Outcome and later counterexamples.
+- G14 governed Experience-enriched planning decorator with off/shadow/advisory/low-risk-active modes,
+  bounded fail-open base replanning and immutable Contract/readiness/terminal authority.
+- Transactional planning knowledge usage lineage from Plan Candidate and affected Skill Goals through
+  Validator/user action to final runtime Outcome, with additive migration 0122.
 - Scoped low-risk user-preference projection into the existing Memory service, exact-user retrieval,
   propagated deletion, task/user/tenant correction queries and management interaction evidence.
+- G07 PostgreSQL-transactional terminal outbox, leased/retryable Experience jobs, immutable redacted
+  Goal Episodes, rebuildable BullMQ job-id wakes, dead-letter inspection/replay and operational API
+  evidence. The implementation is pushed; real integration/E2E remain an explicit release blocker.
+- G08 source/model-linked Experience Observations, twelve independent Zod/JSON-Schema typed
+  extractors, evidence partitioning, bounded prior-Observation consolidation, fast/reasoning tiers,
+  no-op and failure isolation, PostgreSQL Observation/outbox/reflect-job persistence, rebuildable
+  BullMQ observation wakes, migration 0116 and operational API/Console evidence. Publication and real
+  Docker-backed verification remain blocked by the platform approval limit.
+- G09 Candidate-only Experience Reflection with helpful/harmful/neutral impact, de-instantiated
+  fingerprint plus lexical/semantic identity, strict six-operation Curator Deltas, deterministic
+  no-op validation, positive/negative evidence and merge/supersede lineage. Migration 0117,
+  PostgreSQL/BullMQ persistence, Reflection API/Console and A2A evidence are published and
+  Docker-backed verification passes.
+- A Management API contract regression for the `experience_reflection` model route, plus real
+  terminal-authority integration fixtures covering Contract, Plan, Skill Attempt and User Goal
+  Judgment eligibility.
+- G10 Candidate-only Task Type induction with seven-dimensional canonical fingerprints,
+  deterministic pre-model clustering, strict Recognition/Negative Example/dimension/Criteria/
+  Capability/Goal/Dependency abstraction, Offline/Online revisions, 1–3 real Episode Exemplars and a
+  current-context Applicability Guard.
+- PostgreSQL Task Type origin/model lineage, fingerprint index, compatible support evidence and
+  `knowledge.candidate_created` transaction through migration 0118, plus
+  `GET /api/v1/task-types`, 142-operation OpenAPI and Cognitive JSON Schema/Golden coverage.
+- G11 grounded Candidate Capability Pattern induction with complete applicability/effect/evidence/
+  artifact/prerequisite/dependency/failure/limitation signals and separate
+  Declared/Observed/Validated evidence.
+- Exact current Skill Version mapping with mandatory current Readiness/compatibility checks,
+  catalog/policy invalidation, separate non-executable Capability Gap Candidates, migration 0119,
+  `GET /api/v1/capability-patterns` and 143-operation OpenAPI/JSON Schema coverage.
+- G12 governed Knowledge Promotion with shared deterministic evidence/replay/duplicate components,
+  separate Heuristic/Task Type/Capability Pattern targets, exact-revision CAS/audit and manual
+  activation.
+- Active-only rebuildable Memory projection, contradiction/rejection/policy/catalog/Skill-version
+  invalidation, migration 0120, four lifecycle APIs and 147-operation OpenAPI/JSON Schema coverage.
+- G13 scoped Active-only Vector+FTS retrieval with deterministic RRF, bounded five-type relation
+  expansion, Planning-Session usage dedupe and transactional `planning.knowledge_used` evidence.
+- Strict Level-0 Index → selected Full Definition → complete current exact Skill disclosure, with
+  frozen kind limits, conflict separation and a factory-verified 20K total context budget.
+- G15 complete Capability/Understanding/Goal Session/Planning Session/Experience/Knowledge management
+  reads, exact-ID history, Planning Heuristic inventory and PostgreSQL cognitive-action audit.
+- `InteractiveActionRouter` for exact-session A2A continuation and
+  `A2AInteractionProjection.toInputRequired` with routing-only public metadata.
+- Operational Experience/Knowledge/Task Type governance Console, audit/error details and optional
+  per-tab bearer token support without Provider/Outcome/Active Plan mutation controls.
+- ADR-115, optional deployment-configured bearer authentication and restart-stable
+  actor/reason/CAS/idempotency audit through additive migration 0123.
 
 ### Changed
 
@@ -55,9 +117,32 @@ All notable changes to this project are documented here. The format follows Keep
   G05 accept under the `goalId + goalVersion` lock may create the existing formal plan and schedule it.
 - G04/G05 interaction actions and terminal Outcomes now append non-authoritative correction/Episode
   evidence; task, tenant, global-candidate and safety/authorization corrections never auto-promote.
+- Terminal Outcome commits now atomically append `user_goal.terminal_committed`; asynchronous
+  Experience capture cannot become Goal/Plan/Outcome authority or delay the terminal transaction.
+- Cognitive Outbox JSONB constructors use explicit text boundary casts, and duplicate Episode delivery
+  completes against the already persisted immutable Episode after a crash/retry boundary.
+- G03 continues to read deployment-owned static Task Types only. G10 induced Candidates remain
+  operational evidence and cannot affect formal Understanding before G12 promotion.
+- G11 Candidate Patterns likewise remain outside Understanding and Planner. Observed success cannot
+  assert Skill or Provider Readiness, and unmapped Gap proposals are manual-only with
+  `publishAllowed=false`.
+- Only G12 Active knowledge can be projected for retrieval. PostgreSQL remains authoritative and
+  Memory reconciliation rebuilds missing projections and invalidates stale ones; Promotion cannot
+  publish a Skill or bypass current Readiness/compatibility and confirmation.
+- Generic Memory searches exclude Active Knowledge projections. G13 alone joins vector projections
+  back to exact scoped PostgreSQL authority, while Reflection persists governed Candidate relations
+  that remain unavailable until Promotion.
+- Cognitive write requests now use one strict actor/reason/expectedVersion/idempotency envelope.
+  Trusted-intranet/no-auth remains the default; configured bearer deployments authenticate before any
+  action claim or business mutation.
+- A2A `io.sdar/interaction` no longer embeds Candidate Contract/Plan or internal Understanding data;
+  it carries only Session routing metadata at the standard `INPUT_REQUIRED` boundary.
 
 ### Verification
 
+- G15 affected gates pass 597 unit, 157 contract, 84 real PostgreSQL/Redis integration and 62 real
+  Server/A2A E2E tests, 152 OpenAPI operations, 419-source architecture, A2A MUST 74/74, production
+  build, isolated Server/Console smoke and all 16 additive migrations through 0123.
 - G00 verified. The isolated-database full gate passes 635 unit/contract, 68 integration, 59 E2E,
   A2A MUST 74/74, 124 OpenAPI operations, migration rollback/reapply, build and both smoke stages in
   168,876 ms; implementation commit `ffd9791` is pushed and Draft PR #8 remains Draft.
@@ -87,6 +172,28 @@ All notable changes to this project are documented here. The format follows Keep
   Failed test-first, assertion-shape, formatting, lint, CLI-option and non-TTY build attempts are
   retained in `reports/goal/g06-completion.md`; implementation `cade96f` is pushed and Draft PR #8
   remains Draft.
+- G07–G09 closure passes 549 unit, 152 contract, 79 real PostgreSQL/Redis integration and 62 real
+  Server/A2A E2E tests, plus 141 OpenAPI operations, 372-source architecture and the ten additive
+  migrations through 0117 with idempotency, rollback/reapply, guarded reset and rogue-ledger rejection.
+  The earlier platform, stale-`dist`, API-enum and SQL/fixture failures remain recorded. Commits
+  `301606e`, `2d600fc` and `c8754fd` are pushed; replacement PR #9 remains Draft.
+- G10 passes 554 unit, 153 contract, 80 real PostgreSQL/Redis integration, 62 real E2E, 142 OpenAPI
+  operations, 378-source architecture, A2A MUST 74/74, production build and the eleven additive
+  migrations through 0118. The test-first, optional-constraint, PostgreSQL inference and lint failures
+  remain recorded in `reports/goal/g10-completion.md`; implementation is `c36e83d`.
+- G11 passes 560 unit, 154 contract, 81 real PostgreSQL/Redis integration, 62 real E2E, 143 OpenAPI
+  operations, 385-source architecture, A2A MUST 74/74, production build and the twelve additive
+  migrations through 0119. Test-first, sandbox/port, command-name, lint/type and restart-idempotency
+  failures remain recorded in `reports/goal/g11-completion.md`; implementation is `16441f3`.
+- G12 passes 568 unit, 155 contract, 82 real PostgreSQL/Redis integration, 62 real E2E, 147 OpenAPI
+  operations, 397-source architecture, A2A MUST 74/74, production build, Server smoke and the
+  thirteen additive migrations through 0120. Test-first, sandbox/port, migration-ledger, command,
+  fixture-ID, HTTP-conflict and exact-revision review failures remain recorded in
+  `reports/goal/g12-completion.md`; implementation is `59f20f6`.
+- G13 passes 575 unit, 155 contract, 83 real PostgreSQL/Redis integration with measured P95 4.476 ms,
+  62 real E2E, 147 unchanged OpenAPI operations, 408-source architecture, production build, Server
+  smoke and the fourteen additive migrations through 0121. Retained failures and fixes are recorded
+  in `reports/goal/g13-completion.md`; implementations are `1879ff1` and `3201325`.
 
 ## [1.2.2] - Unreleased
 
