@@ -1,0 +1,452 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P05",
+  "registryVersion": "1.1",
+  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": {
+    "CompiledArtifact": {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "artifactId",
+        "artifactKey",
+        "version",
+        "artifactType",
+        "name",
+        "description",
+        "scope",
+        "definition",
+        "applicability",
+        "requiredCapabilities",
+        "requiredPolicies",
+        "dependencySnapshot",
+        "riskLevel",
+        "status",
+        "lineageRef",
+        "validationSummaryRef",
+        "contentHash",
+        "createdAt"
+      ],
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    "ExperienceTrace": {
+      "name": "ExperienceTrace",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "traceId",
+        "sourceEpisodeId",
+        "taskTypeRefs",
+        "goalFingerprint",
+        "capabilityFingerprint",
+        "environmentFingerprint",
+        "trace",
+        "completeness",
+        "dataClassification",
+        "normalizerVersion",
+        "sourceHash",
+        "createdAt"
+      ],
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
+    },
+    "CandidateStaticValidationResult": {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.1",
+      "owner": "P04",
+      "fields": [
+        "artifactRef",
+        "schemaValid",
+        "dagValid",
+        "requiredCriteriaCovered",
+        "capabilityShapeValid",
+        "parameterPolicyValid",
+        "sideEffectReplaySafe",
+        "boundsValid",
+        "duplicateFingerprint",
+        "errors",
+        "warnings",
+        "validatorVersion",
+        "result"
+      ],
+      "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba"
+    }
+  },
+  "producedContracts": {
+    "ArtifactReplayCase": {
+      "name": "ArtifactReplayCase",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "replayCaseId",
+        "tenantId",
+        "requestSnapshotRef",
+        "goalContractSnapshotRef",
+        "capabilityCatalogSnapshotRef",
+        "worldStateSnapshotRef",
+        "policySnapshotRef",
+        "readinessSnapshotRef",
+        "acceptedPlanSnapshotRef",
+        "executionTraceSnapshotRef",
+        "outcomeSnapshotRef",
+        "correctionRefs",
+        "environmentClass",
+        "deviceClass",
+        "taskTypeId",
+        "sourceEpisodeRefs",
+        "goalLineageHash",
+        "snapshotCompleteness",
+        "contentHash"
+      ],
+      "schemaHash": "ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f"
+    },
+    "ReplayDatasetManifest": {
+      "name": "ReplayDatasetManifest",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "datasetId",
+        "datasetVersion",
+        "purpose",
+        "tenantId",
+        "taskTypeIds",
+        "caseRefs",
+        "splitPolicyVersion",
+        "sourceRange",
+        "sourceHash",
+        "contentHash",
+        "leakageCheckRef",
+        "createdAt"
+      ],
+      "schemaHash": "132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e"
+    },
+    "ArtifactValidationRun": {
+      "name": "ArtifactValidationRun",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "validationRunId",
+        "artifactId",
+        "artifactVersion",
+        "validationType",
+        "datasetRef",
+        "status",
+        "result",
+        "metrics",
+        "counterexampleRefs",
+        "startedAt",
+        "completedAt"
+      ],
+      "schemaHash": "c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a"
+    },
+    "ArtifactValidationResult": {
+      "name": "ArtifactValidationResult",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "validationRunId",
+        "artifactRef",
+        "datasetRef",
+        "validationType",
+        "metrics",
+        "failureRefs",
+        "counterexampleRefs",
+        "unsafe",
+        "result",
+        "validatorVersion",
+        "metricCatalogVersion",
+        "artifactHash",
+        "datasetHash",
+        "resultHash",
+        "completedAt"
+      ],
+      "schemaHash": "0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b"
+    },
+    "ArtifactValidationFailure": {
+      "name": "ArtifactValidationFailure",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "failureId",
+        "validationRunRef",
+        "replayCaseRef",
+        "category",
+        "severity",
+        "expectedRef",
+        "actualRef",
+        "evidenceRefs",
+        "explanation"
+      ],
+      "schemaHash": "e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182"
+    },
+    "ArtifactCounterexample": {
+      "name": "ArtifactCounterexample",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "counterexampleId",
+        "artifactRef",
+        "replayCaseRef",
+        "failureRef",
+        "conditionFingerprint",
+        "environmentClass",
+        "failureBoundaryCandidate",
+        "sourceRefs",
+        "status",
+        "createdAt"
+      ],
+      "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3"
+    }
+  },
+  "handoffEnvelope": {
+    "name": "HandoffEnvelope",
+    "version": "1.1",
+    "owner": "shared",
+    "fields": [
+      "schemaVersion",
+      "packageId",
+      "packageVersion",
+      "sequence",
+      "status",
+      "repository",
+      "baselineSha",
+      "branch",
+      "commits",
+      "draftPrUrl",
+      "contractRegistryVersion",
+      "contractRegistrySha256",
+      "consumedContracts",
+      "producedContracts",
+      "migrations",
+      "repositoryPorts",
+      "applicationPorts",
+      "runtimePorts",
+      "events",
+      "queues",
+      "featureFlags",
+      "reasonCodeCatalogVersion",
+      "evidenceRefs",
+      "acceptanceSummary",
+      "knownLimitations",
+      "openBlockers",
+      "nextPackage",
+      "packageOutputs"
+    ],
+    "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5"
+  },
+  "artifactTypes": [
+    "intent_route",
+    "plan_template",
+    "decision_rule",
+    "case_template",
+    "model_route"
+  ],
+  "artifactStatuses": [
+    "discovered",
+    "candidate",
+    "validating",
+    "awaiting_approval",
+    "active",
+    "revalidating",
+    "deprecated",
+    "archived",
+    "rejected"
+  ],
+  "fastGatewayPaths": [
+    "compiled_fast",
+    "template_adapt",
+    "case_adapt",
+    "small_model",
+    "cognitive_runtime",
+    "human_input",
+    "denied"
+  ],
+  "persistenceTables": {
+    "compiled_artifact": [
+      "artifact_id",
+      "artifact_key",
+      "version",
+      "artifact_type",
+      "tenant_id",
+      "domain",
+      "status",
+      "risk_level",
+      "definition",
+      "applicability",
+      "dependency_snapshot",
+      "lineage_id",
+      "validation_summary_id",
+      "content_hash",
+      "created_at"
+    ],
+    "artifact_active_pointer": [
+      "artifact_key",
+      "artifact_id",
+      "artifact_version",
+      "activated_by",
+      "activated_at",
+      "lock_version"
+    ],
+    "artifact_lineage": [
+      "lineage_id",
+      "artifact_id",
+      "artifact_version",
+      "source_episode_refs",
+      "source_knowledge_refs",
+      "source_correction_refs",
+      "source_pattern_refs",
+      "generation_methods",
+      "compiler_version",
+      "created_at"
+    ],
+    "artifact_validation_run": [
+      "validation_run_id",
+      "artifact_id",
+      "artifact_version",
+      "validation_type",
+      "dataset_ref",
+      "status",
+      "result",
+      "metrics",
+      "counterexample_refs",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_approval": [
+      "approval_id",
+      "artifact_id",
+      "artifact_version",
+      "approver_id",
+      "decision",
+      "reason",
+      "validation_summary_hash",
+      "created_at"
+    ],
+    "artifact_execution": [
+      "artifact_execution_id",
+      "artifact_id",
+      "artifact_version",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "mode",
+      "decision_snapshot",
+      "generated_plan_id",
+      "status",
+      "fallback_reason_code",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_feedback": [
+      "feedback_id",
+      "artifact_execution_id",
+      "artifact_id",
+      "feedback_type",
+      "reason_code",
+      "summary",
+      "impact",
+      "outcome_ref",
+      "created_at"
+    ],
+    "artifact_match_log": [
+      "match_id",
+      "request_id",
+      "task_id",
+      "candidate_artifact_id",
+      "score",
+      "applicability",
+      "decision",
+      "reason_codes",
+      "policy_snapshot_hash",
+      "created_at"
+    ],
+    "experience_trace": [
+      "trace_id",
+      "source_episode_id",
+      "task_type_refs",
+      "goal_fingerprint",
+      "capability_fingerprint",
+      "environment_fingerprint",
+      "trace",
+      "completeness",
+      "created_at"
+    ],
+    "pattern_candidate": [
+      "pattern_id",
+      "pattern_type",
+      "cohort_fingerprint",
+      "definition",
+      "support_refs",
+      "contradiction_refs",
+      "confidence",
+      "status",
+      "created_at"
+    ]
+  },
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created",
+    "artifact.validation_started",
+    "artifact.validation_completed",
+    "artifact.shadow_started",
+    "artifact.shadow_completed",
+    "artifact.promotion_ready",
+    "artifact.approval_recorded",
+    "artifact.activated",
+    "artifact.revalidating",
+    "artifact.deprecated",
+    "artifact.match_evaluated",
+    "artifact.execution_started",
+    "artifact.execution_completed",
+    "artifact.execution_failed",
+    "artifact.feedback_recorded",
+    "gateway.route_selected",
+    "gateway.confirmation_required",
+    "gateway.fallback_started",
+    "gateway.formal_handoff",
+    "model_route.selected",
+    "model_cascade.escalated"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation",
+    "sdar-artifact-replay",
+    "sdar-artifact-simulation",
+    "sdar-artifact-shadow",
+    "sdar-artifact-revalidation"
+  ],
+  "featureFlags": {
+    "SDAR_V13_ARTIFACT_MODE": [
+      "off",
+      "shadow",
+      "advisory",
+      "active"
+    ],
+    "SDAR_V13_TEMPLATE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_RULE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_FAST_GATEWAY_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_CASE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_MODEL_CASCADE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_TENANT_ALLOWLIST": [
+      "csv"
+    ]
+  }
+}

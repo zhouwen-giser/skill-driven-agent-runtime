@@ -1,0 +1,2089 @@
+{
+  "schemaVersion": "1.1",
+  "title": "SDAR v1.3 Frozen Cross-package Interface Registry",
+  "sourceDesigns": [
+    "SDAR_v1.3_Design_Compendium_V1.0.md",
+    "SDAR_v1.3_Codex_Implementation_Package_Design_V1.0.md"
+  ],
+  "formalPackages": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P11",
+    "P12",
+    "P13"
+  ],
+  "artifactTypes": [
+    "intent_route",
+    "plan_template",
+    "decision_rule",
+    "case_template",
+    "model_route"
+  ],
+  "artifactStatuses": [
+    "discovered",
+    "candidate",
+    "validating",
+    "awaiting_approval",
+    "active",
+    "revalidating",
+    "deprecated",
+    "archived",
+    "rejected"
+  ],
+  "fastGatewayPaths": [
+    "compiled_fast",
+    "template_adapt",
+    "case_adapt",
+    "small_model",
+    "cognitive_runtime",
+    "human_input",
+    "denied"
+  ],
+  "validationResults": [
+    "passed",
+    "failed",
+    "needs_more_data",
+    "unsafe"
+  ],
+  "contracts": {
+    "HandoffEnvelope": {
+      "name": "HandoffEnvelope",
+      "version": "1.1",
+      "owner": "shared",
+      "fields": [
+        "schemaVersion",
+        "packageId",
+        "packageVersion",
+        "sequence",
+        "status",
+        "repository",
+        "baselineSha",
+        "branch",
+        "commits",
+        "draftPrUrl",
+        "contractRegistryVersion",
+        "contractRegistrySha256",
+        "consumedContracts",
+        "producedContracts",
+        "migrations",
+        "repositoryPorts",
+        "applicationPorts",
+        "runtimePorts",
+        "events",
+        "queues",
+        "featureFlags",
+        "reasonCodeCatalogVersion",
+        "evidenceRefs",
+        "acceptanceSummary",
+        "knownLimitations",
+        "openBlockers",
+        "nextPackage",
+        "packageOutputs"
+      ],
+      "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5"
+    },
+    "CompiledArtifactType": {
+      "name": "CompiledArtifactType",
+      "version": "1.1",
+      "owner": "P01",
+      "enum": [
+        "intent_route",
+        "plan_template",
+        "decision_rule",
+        "case_template",
+        "model_route"
+      ],
+      "schemaHash": "2dc5bd1322559c8ae0f5dabe945e69c01b6cb69ad379ceaa0f633f2e88072cea"
+    },
+    "CompiledArtifactStatus": {
+      "name": "CompiledArtifactStatus",
+      "version": "1.1",
+      "owner": "P01",
+      "enum": [
+        "discovered",
+        "candidate",
+        "validating",
+        "awaiting_approval",
+        "active",
+        "revalidating",
+        "deprecated",
+        "archived",
+        "rejected"
+      ],
+      "schemaHash": "266a7448640bf17113b431919c1fb6113b022e1b9d8a932b9443404f620c8ba5"
+    },
+    "CompiledArtifact": {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "artifactId",
+        "artifactKey",
+        "version",
+        "artifactType",
+        "name",
+        "description",
+        "scope",
+        "definition",
+        "applicability",
+        "requiredCapabilities",
+        "requiredPolicies",
+        "dependencySnapshot",
+        "riskLevel",
+        "status",
+        "lineageRef",
+        "validationSummaryRef",
+        "contentHash",
+        "createdAt"
+      ],
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    "ArtifactApplicability": {
+      "name": "ArtifactApplicability",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "requiredConditions",
+        "optionalConditions",
+        "forbiddenConditions",
+        "requiredParameters",
+        "allowedEnvironmentClasses",
+        "excludedEnvironmentClasses",
+        "minimumIntentScore",
+        "minimumConditionScore",
+        "maximumUncertainty",
+        "outOfDistributionPolicy"
+      ],
+      "schemaHash": "4af9af86a57212d4120637a0c97484890eb6c34e729fd7d90d6d893c32bf47c8"
+    },
+    "ArtifactDependencySnapshot": {
+      "name": "ArtifactDependencySnapshot",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "capabilityCatalogHash",
+        "policyVersionRefs",
+        "taskTypeVersionRefs",
+        "schemaVersionRefs",
+        "requiredSkillVersionRefs",
+        "compilerVersion"
+      ],
+      "schemaHash": "ab5eb452c0299802016cf8771536a2796cf656c8117a67d0a8c6158aca2e127a"
+    },
+    "ConditionExpression": {
+      "name": "ConditionExpression",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "type",
+        "children",
+        "child",
+        "field",
+        "operator",
+        "value"
+      ],
+      "notes": "all|any|not|atomic; active evaluation is deterministic",
+      "schemaHash": "db033c6d65b1123fefd8185a8424eb6e227d8fea5978c599c48a7c835db5607e"
+    },
+    "IntentRouteArtifactDefinition": {
+      "name": "IntentRouteArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "taskTypeId",
+        "semanticExamples",
+        "exactPatterns",
+        "structuredHints",
+        "nextPath"
+      ],
+      "schemaHash": "7a95d4c0620a5623725cb5672d22433a47981f8b239997a3e872a597378b8f7a"
+    },
+    "PlanTemplateArtifactDefinition": {
+      "name": "PlanTemplateArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "goalPattern",
+        "parameterSchema",
+        "parameterBindings",
+        "skillGoalGraph",
+        "completionContractTemplate",
+        "recoveryBranches"
+      ],
+      "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04"
+    },
+    "SkillGoalNodeTemplate": {
+      "name": "SkillGoalNodeTemplate",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "nodeKey",
+        "nodeType",
+        "objectiveTemplate",
+        "requiredCapabilities",
+        "requiredEffectRefs",
+        "coveredCriterionTemplateIds",
+        "evidenceRequirements",
+        "artifactRequirements",
+        "inputTemplate",
+        "assumptionsAllowed",
+        "constraints"
+      ],
+      "notes": "nodeType includes action|observation|reasoning|verification|recovery|human_gate",
+      "schemaHash": "f8deaf1d8882195927d9c5070262fd14c8e894e084eaafc29e193dff8f3cb0a7"
+    },
+    "DecisionRuleArtifactDefinition": {
+      "name": "DecisionRuleArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "category",
+        "condition",
+        "decision",
+        "priority",
+        "conflictGroup",
+        "conflictPolicy"
+      ],
+      "schemaHash": "5710c7a6e2aa4b76f19449776af894cf039140f3f35a88fc14525ecbef920e85"
+    },
+    "DecisionOutput": {
+      "name": "DecisionOutput",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "decisionType",
+        "parameters",
+        "explanationCode"
+      ],
+      "schemaHash": "e1b890a30d853179f36092c01e1404c5b811f1cc54a63b98bf3eef9045877dc9"
+    },
+    "CaseArtifactDefinition": {
+      "name": "CaseArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "problemFingerprint",
+        "solutionPattern",
+        "adaptationRules",
+        "applicability",
+        "failureBoundaries",
+        "priorOutcomeSummary"
+      ],
+      "schemaHash": "c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5"
+    },
+    "ModelRouteArtifactDefinition": {
+      "name": "ModelRouteArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "conditions",
+        "route",
+        "budget",
+        "fallbackRoutes"
+      ],
+      "schemaHash": "2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678"
+    },
+    "ArtifactLineage": {
+      "name": "ArtifactLineage",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "lineageId",
+        "artifactId",
+        "artifactVersion",
+        "sourceEpisodeRefs",
+        "sourceKnowledgeRefs",
+        "sourceCorrectionRefs",
+        "sourcePatternRefs",
+        "generationMethods",
+        "validationRunRefs",
+        "supersedesArtifactRefs"
+      ],
+      "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57"
+    },
+    "ArtifactRuntimeBinding": {
+      "name": "ArtifactRuntimeBinding",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "bindingId",
+        "artifactId",
+        "artifactVersion",
+        "runtimeType",
+        "compilerVersion",
+        "compiledPayloadHash",
+        "compiledAt"
+      ],
+      "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337"
+    },
+    "ArtifactRepository": {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "findActiveIndex(query); getDefinition(ref); saveCandidate(candidate); activate(input); deprecate(input)",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53"
+    },
+    "ArtifactValidationRepository": {
+      "name": "ArtifactValidationRepository",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "createRun(input); appendResult(input); findPromotionSummary(ref)",
+      "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9"
+    },
+    "ArtifactExecutionRepository": {
+      "name": "ArtifactExecutionRepository",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "start(input); complete(input); appendFeedback(input)",
+      "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650"
+    },
+    "ArtifactRegistryService": {
+      "name": "ArtifactRegistryService",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "createCandidate; getVersion; queryActiveIndex; invalidateDependency; rebuildProjection",
+      "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5"
+    },
+    "OperatorIdentityPort": {
+      "name": "OperatorIdentityPort",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "requireIdentity; requirePermission; getTenantScope",
+      "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75"
+    },
+    "ArtifactGovernancePort": {
+      "name": "ArtifactGovernancePort",
+      "version": "1.1",
+      "owner": "P02",
+      "signature": "requestValidation; recordApproval; activate; requestRevalidation; deprecate; rollback; killSwitch",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf"
+    },
+    "ExperienceTrace": {
+      "name": "ExperienceTrace",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "traceId",
+        "sourceEpisodeId",
+        "taskTypeRefs",
+        "goalFingerprint",
+        "capabilityFingerprint",
+        "environmentFingerprint",
+        "trace",
+        "completeness",
+        "dataClassification",
+        "normalizerVersion",
+        "sourceHash",
+        "createdAt"
+      ],
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
+    },
+    "ExperienceTraceEvent": {
+      "name": "ExperienceTraceEvent",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "eventType",
+        "actorType",
+        "capabilityRefs",
+        "authorityRefs",
+        "parentEventRefs",
+        "concurrencyGroup",
+        "branchRef",
+        "payloadSummary"
+      ],
+      "schemaHash": "8b9742001edfbbe7a6dc93971d5f08dff002f32d56a7ca124c5b54e59133a878"
+    },
+    "CohortDefinition": {
+      "name": "CohortDefinition",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "tenantId",
+        "taskTypeId",
+        "goalFingerprint",
+        "capabilityFingerprint",
+        "environmentClass",
+        "deviceClass",
+        "timeRange",
+        "minimumCompleteness"
+      ],
+      "schemaHash": "864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90"
+    },
+    "ProcessVariant": {
+      "name": "ProcessVariant",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "variantId",
+        "activitySequence",
+        "concurrencyGroups",
+        "branchSequence",
+        "occurrenceCount",
+        "traceRefs",
+        "successCount",
+        "failureCount"
+      ],
+      "schemaHash": "f8f772dfbc589945e691bb9052b0164941e62dab0f7ac68f7d8021c16010fa86"
+    },
+    "DiscoveredProcessPattern": {
+      "name": "DiscoveredProcessPattern",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "patternId",
+        "cohortFingerprint",
+        "algorithmVersion",
+        "mandatoryActivities",
+        "optionalActivities",
+        "orderingConstraints",
+        "parallelCandidates",
+        "recoveryBranches",
+        "failureVariants",
+        "supportRefs",
+        "contradictionRefs",
+        "environmentCoverage",
+        "quality"
+      ],
+      "schemaHash": "de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac"
+    },
+    "WorkflowPattern": {
+      "name": "WorkflowPattern",
+      "version": "1.1",
+      "owner": "P03",
+      "fields": [
+        "workflowPatternId",
+        "taskTypeId",
+        "activityPatterns",
+        "dependencyPatterns",
+        "recoveryPatterns",
+        "sourcePatternRef",
+        "sourceTraceRefs",
+        "quality"
+      ],
+      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b"
+    },
+    "FusedPattern": {
+      "name": "FusedPattern",
+      "version": "1.1",
+      "owner": "P04",
+      "fields": [
+        "fusedPatternId",
+        "sourceWorkflowPatternRef",
+        "sourceProcessPatternRef",
+        "sourceTraceRefs",
+        "structuralPattern",
+        "semanticCandidate",
+        "applicabilityCandidate",
+        "supportRefs",
+        "contradictionRefs",
+        "confidence",
+        "fusionVersion",
+        "contentHash"
+      ],
+      "schemaHash": "df1216e93f02a3ec0cc24d96547d5db3436500789818ec8bcee3847fcbd9d24e"
+    },
+    "GeneralizedPattern": {
+      "name": "GeneralizedPattern",
+      "version": "1.1",
+      "owner": "P04",
+      "fields": [
+        "generalizedPatternId",
+        "domain",
+        "taskTypeId",
+        "variables",
+        "invariants",
+        "requiredConditions",
+        "forbiddenConditions",
+        "retainedExampleRefs",
+        "counterexampleRefs",
+        "sourceFusedPatternRef",
+        "generalizerVersion",
+        "contentHash"
+      ],
+      "schemaHash": "96f2c70c36985897ebbc700b540048314cad2e2597777e7b9b64118e227a08bd"
+    },
+    "CandidateStaticValidationResult": {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.1",
+      "owner": "P04",
+      "fields": [
+        "artifactRef",
+        "schemaValid",
+        "dagValid",
+        "requiredCriteriaCovered",
+        "capabilityShapeValid",
+        "parameterPolicyValid",
+        "sideEffectReplaySafe",
+        "boundsValid",
+        "duplicateFingerprint",
+        "errors",
+        "warnings",
+        "validatorVersion",
+        "result"
+      ],
+      "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba"
+    },
+    "ArtifactReplayCase": {
+      "name": "ArtifactReplayCase",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "replayCaseId",
+        "tenantId",
+        "requestSnapshotRef",
+        "goalContractSnapshotRef",
+        "capabilityCatalogSnapshotRef",
+        "worldStateSnapshotRef",
+        "policySnapshotRef",
+        "readinessSnapshotRef",
+        "acceptedPlanSnapshotRef",
+        "executionTraceSnapshotRef",
+        "outcomeSnapshotRef",
+        "correctionRefs",
+        "environmentClass",
+        "deviceClass",
+        "taskTypeId",
+        "sourceEpisodeRefs",
+        "goalLineageHash",
+        "snapshotCompleteness",
+        "contentHash"
+      ],
+      "schemaHash": "ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f"
+    },
+    "ReplayDatasetManifest": {
+      "name": "ReplayDatasetManifest",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "datasetId",
+        "datasetVersion",
+        "purpose",
+        "tenantId",
+        "taskTypeIds",
+        "caseRefs",
+        "splitPolicyVersion",
+        "sourceRange",
+        "sourceHash",
+        "contentHash",
+        "leakageCheckRef",
+        "createdAt"
+      ],
+      "schemaHash": "132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e"
+    },
+    "ArtifactValidationRun": {
+      "name": "ArtifactValidationRun",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "validationRunId",
+        "artifactId",
+        "artifactVersion",
+        "validationType",
+        "datasetRef",
+        "status",
+        "result",
+        "metrics",
+        "counterexampleRefs",
+        "startedAt",
+        "completedAt"
+      ],
+      "schemaHash": "c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a"
+    },
+    "ArtifactValidationResult": {
+      "name": "ArtifactValidationResult",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "validationRunId",
+        "artifactRef",
+        "datasetRef",
+        "validationType",
+        "metrics",
+        "failureRefs",
+        "counterexampleRefs",
+        "unsafe",
+        "result",
+        "validatorVersion",
+        "metricCatalogVersion",
+        "artifactHash",
+        "datasetHash",
+        "resultHash",
+        "completedAt"
+      ],
+      "schemaHash": "0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b"
+    },
+    "ArtifactValidationFailure": {
+      "name": "ArtifactValidationFailure",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "failureId",
+        "validationRunRef",
+        "replayCaseRef",
+        "category",
+        "severity",
+        "expectedRef",
+        "actualRef",
+        "evidenceRefs",
+        "explanation"
+      ],
+      "schemaHash": "e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182"
+    },
+    "ArtifactCounterexample": {
+      "name": "ArtifactCounterexample",
+      "version": "1.1",
+      "owner": "P05",
+      "fields": [
+        "counterexampleId",
+        "artifactRef",
+        "replayCaseRef",
+        "failureRef",
+        "conditionFingerprint",
+        "environmentClass",
+        "failureBoundaryCandidate",
+        "sourceRefs",
+        "status",
+        "createdAt"
+      ],
+      "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3"
+    },
+    "ArtifactShadowRun": {
+      "name": "ArtifactShadowRun",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "shadowRunId",
+        "artifactRef",
+        "artifactHash",
+        "formalRequestRef",
+        "formalGoalRef",
+        "formalPlanRef",
+        "formalGoalVersion",
+        "formalPlanVersion",
+        "status",
+        "shadowMode",
+        "startedAt",
+        "completedAt"
+      ],
+      "schemaHash": "57b1f4a99385c94d967ac2eb84ed90dc74ab196c25e42fc67de488d963ec369d"
+    },
+    "ArtifactShadowResult": {
+      "name": "ArtifactShadowResult",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "shadowRunRef",
+        "artifactRef",
+        "shadowDecisionRef",
+        "shadowPlanRef",
+        "formalPlanRef",
+        "formalOutcomeRef",
+        "comparison",
+        "policyViolation",
+        "unsafeAttempt",
+        "stale",
+        "resultHash",
+        "evaluatorVersion",
+        "completedAt"
+      ],
+      "schemaHash": "69f51efc62cb86f2b0df4e5a95cf3bce00580869a0b6fb891498cdc260c1ec69"
+    },
+    "ArtifactPromotionPackage": {
+      "name": "ArtifactPromotionPackage",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "promotionPackageId",
+        "artifactRef",
+        "artifactHash",
+        "validationSummaryRef",
+        "validationSummaryHash",
+        "shadowSummaryRef",
+        "shadowSummaryHash",
+        "counterexampleSummaryRef",
+        "counterexampleSummaryHash",
+        "riskReviewRef",
+        "riskReviewHash",
+        "dependencySnapshotRef",
+        "dependencySnapshotHash",
+        "promotionPolicyVersion",
+        "eligibility",
+        "contentHash",
+        "createdAt"
+      ],
+      "schemaHash": "4889edac5db4fe3251d9b29c4aaddb05341bb1d9adb257398a556859a517bf52"
+    },
+    "ArtifactApprovalRecord": {
+      "name": "ArtifactApprovalRecord",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "approvalId",
+        "artifactId",
+        "artifactVersion",
+        "approverId",
+        "decision",
+        "reason",
+        "validationSummaryHash",
+        "promotionPackageHash",
+        "createdAt"
+      ],
+      "schemaHash": "a041ba372f0e123ba7ba4d5fb451ba889e0f46ae727a4714aabb5c70c119394d"
+    },
+    "ArtifactActivationRecord": {
+      "name": "ArtifactActivationRecord",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "activationId",
+        "artifactRef",
+        "artifactHash",
+        "approvalRef",
+        "approvalHash",
+        "previousActiveArtifactRef",
+        "activePointerVersion",
+        "activatedBy",
+        "activatedAt"
+      ],
+      "schemaHash": "d45959a850c3433df4be744f77e758209e317ceb88c5dc816d448878b2e3a7ef"
+    },
+    "ArtifactRevalidationTrigger": {
+      "name": "ArtifactRevalidationTrigger",
+      "version": "1.1",
+      "owner": "P06",
+      "fields": [
+        "triggerId",
+        "artifactRef",
+        "triggerType",
+        "sourceRefs",
+        "severity",
+        "createdAt"
+      ],
+      "schemaHash": "cd9b13e443b5fa7aa80a004bbb99b3e988a44247eed92997efa8682ea774745a"
+    },
+    "ArtifactIndexEntry": {
+      "name": "ArtifactIndexEntry",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "artifactRef",
+        "artifactKey",
+        "artifactVersion",
+        "artifactType",
+        "tenantId",
+        "domain",
+        "taskTypeIds",
+        "riskLevel",
+        "status",
+        "exactPatterns",
+        "structuredHints",
+        "embeddingRef",
+        "activePointerVersion",
+        "contentHash"
+      ],
+      "schemaHash": "dd7bc4378007ad394fa1905aebc529b30f24fc279857ba67605f29036afe9bf0"
+    },
+    "ArtifactMatchScore": {
+      "name": "ArtifactMatchScore",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "intentScore",
+        "structuredConditionScore",
+        "parameterCoverageScore",
+        "capabilityShapeScore",
+        "environmentSimilarityScore",
+        "validationConfidenceScore",
+        "recentReliabilityScore",
+        "riskPenalty",
+        "totalScore"
+      ],
+      "schemaHash": "73ddec591cef1fc8e4b4d25d5cf20e7f64523e1ca66a24ca86db32ba8ed18bc5"
+    },
+    "ArtifactMatch": {
+      "name": "ArtifactMatch",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "artifactRef",
+        "rank",
+        "score",
+        "retrievalSources",
+        "reasonCodes"
+      ],
+      "schemaHash": "7334e4ba7c70f3744b81bb14bef308ca5abd32c6b99f7f05bf0d210b2d7267d7"
+    },
+    "ArtifactApplicabilityResult": {
+      "name": "ArtifactApplicabilityResult",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "applicable",
+        "confidence",
+        "satisfiedConditionIds",
+        "missingConditionIds",
+        "violatedConditionIds",
+        "uncertainConditionIds",
+        "outOfDistribution",
+        "disposition"
+      ],
+      "schemaHash": "0f87d569e3a38dc37526077d92040e1db7c745120c56ec7a79430d369265ec81"
+    },
+    "ParameterBindingResult": {
+      "name": "ParameterBindingResult",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "artifactRef",
+        "bindings",
+        "missingRequiredParameters",
+        "rejectedCandidateBindings",
+        "requiresConfirmation"
+      ],
+      "schemaHash": "13eaeb0cad67bd18fc3b83d9bf2315d6c72213602260c5f5898c419b4c9891a5"
+    },
+    "DependencyValidationResult": {
+      "name": "DependencyValidationResult",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "artifactRef",
+        "valid",
+        "mismatches",
+        "snapshotHash",
+        "reasonCodes"
+      ],
+      "schemaHash": "1a8a8c2c0f3001fdda76864c4029b3bb30193ecf4487e02b361c1ec1d6485470"
+    },
+    "CapabilityReadinessResult": {
+      "name": "CapabilityReadinessResult",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "artifactRef",
+        "requiredCapabilities",
+        "skillCandidateRefs",
+        "providerReadiness",
+        "valid",
+        "reasonCodes"
+      ],
+      "schemaHash": "d1715f16e6faddabc1967207e4abd5b2c94f6fa92d2c7e51024e747b9d475fa4"
+    },
+    "RuntimeExecutionDecision": {
+      "name": "RuntimeExecutionDecision",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "decisionId",
+        "requestId",
+        "path",
+        "selectedArtifactRef",
+        "parameterBindings",
+        "missingParameters",
+        "requiredConfirmations",
+        "reasonCodes",
+        "matcherSnapshotHash",
+        "policySnapshotHash",
+        "createdAt"
+      ],
+      "schemaHash": "4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"
+    },
+    "FastGatewayPath": {
+      "name": "FastGatewayPath",
+      "version": "1.1",
+      "owner": "P07",
+      "enum": [
+        "compiled_fast",
+        "template_adapt",
+        "case_adapt",
+        "small_model",
+        "cognitive_runtime",
+        "human_input",
+        "denied"
+      ],
+      "schemaHash": "af5fb1fd8fd79ea3b56580dbc1d073bb9e0ad8dd3b568fba2fecf1bb59f1e24b"
+    },
+    "TemplateInstantiationInput": {
+      "name": "TemplateInstantiationInput",
+      "version": "1.1",
+      "owner": "P08",
+      "fields": [
+        "requestRef",
+        "goalContractRef",
+        "goalVersion",
+        "artifactRef",
+        "artifactVersion",
+        "artifactHash",
+        "activePointerVersion",
+        "applicabilityRef",
+        "parameterBindingRef",
+        "dependencyValidationRef",
+        "capabilityReadinessRef",
+        "policyDecisionRef",
+        "matcherSnapshotHash",
+        "policySnapshotHash",
+        "idempotencyKey",
+        "deadlineAt",
+        "cancellationRef"
+      ],
+      "schemaHash": "b1305ecee05292e77d0694bed39b1ea1bcaf5679c26a17bf21360fe523c1fb7a"
+    },
+    "GoalContextSnapshot": {
+      "name": "GoalContextSnapshot",
+      "version": "1.1",
+      "owner": "P08",
+      "fields": [
+        "goalContractRef",
+        "goalVersion",
+        "objective",
+        "requiredCriterionRefs",
+        "optionalCriterionRefs",
+        "evidenceRequirementRefs",
+        "artifactRequirementRefs",
+        "targetScope",
+        "constraints",
+        "authorizationRefs",
+        "riskLevel",
+        "contentHash"
+      ],
+      "schemaHash": "8b7c4d0307be2e7786ddcd4187eff7f428f89788564415196c8d9d98a60a809d"
+    },
+    "UserGoalPlanCandidate": {
+      "name": "UserGoalPlanCandidate",
+      "version": "1.1",
+      "owner": "P08",
+      "fields": [
+        "candidateId",
+        "goalContractRef",
+        "goalVersion",
+        "sourceArtifactRef",
+        "sourceArtifactVersion",
+        "sourceArtifactHash",
+        "parameterBindings",
+        "skillGoalGraph",
+        "completionContract",
+        "recoveryBranches",
+        "criterionCoverage",
+        "adaptationRefs",
+        "runtimeSnapshotHash",
+        "contentHash"
+      ],
+      "schemaHash": "0703bdf935e746d6e3ec5b27a72d334baa39d50e8daa4ca144ef67a41f00d396"
+    },
+    "TemplateInstantiationResult": {
+      "name": "TemplateInstantiationResult",
+      "version": "1.1",
+      "owner": "P08",
+      "fields": [
+        "instantiationId",
+        "requestRef",
+        "artifactRef",
+        "disposition",
+        "planCandidateRef",
+        "missingParameters",
+        "requiredConfirmations",
+        "reasonCodes",
+        "createdAt"
+      ],
+      "schemaHash": "4d10a971c8fb2d79355f6364de04d45fea36143d0ebcd0a9b9faca785264de96"
+    },
+    "FormalPlanHandoffResult": {
+      "name": "FormalPlanHandoffResult",
+      "version": "1.1",
+      "owner": "P08",
+      "fields": [
+        "handoffId",
+        "planCandidateRef",
+        "disposition",
+        "formalPlanningSessionRef",
+        "formalPlanRef",
+        "formalPlanVersion",
+        "validationRef",
+        "goalLockRef",
+        "reasonCodes",
+        "completedAt"
+      ],
+      "schemaHash": "7cd74f217530c34f78a6d5793f2e190675dee96e6e9cb3dd39cf69dec05fe883"
+    },
+    "TemplateRuntime": {
+      "name": "TemplateRuntime",
+      "version": "1.1",
+      "owner": "P08",
+      "signature": "instantiate(input: TemplateInstantiationInput): Promise<UserGoalPlanCandidate>",
+      "schemaHash": "fe1a817f0a5633b648d018742e0fcb2278e0ef887d9a9adf1922d55a755e553a"
+    },
+    "FormalPlanHandoffPort": {
+      "name": "FormalPlanHandoffPort",
+      "version": "1.1",
+      "owner": "P08",
+      "signature": "submit(candidate: UserGoalPlanCandidate): Promise<FormalPlanHandoffResult>",
+      "schemaHash": "84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"
+    },
+    "RuleDecisionContext": {
+      "name": "RuleDecisionContext",
+      "version": "1.1",
+      "owner": "P09",
+      "fields": [
+        "requestRef",
+        "goalContractRef",
+        "goalVersion",
+        "planRef",
+        "planVersion",
+        "artifactRef",
+        "artifactVersion",
+        "artifactHash",
+        "activePointerVersion",
+        "tenantId",
+        "authorizationRefs",
+        "requestSnapshotRef",
+        "worldStateSnapshotRef",
+        "businessEventRefs",
+        "parameterBindingRef",
+        "capabilityReadinessRef",
+        "policyDecisionRef",
+        "dependencyValidationRef",
+        "runtimeSnapshotHash"
+      ],
+      "schemaHash": "151c3f7fafb1c7a8d3d6361feabdf924c5e96b8988ebfff887c8660b7efee77e"
+    },
+    "RuleConditionResult": {
+      "name": "RuleConditionResult",
+      "version": "1.1",
+      "owner": "P09",
+      "fields": [
+        "conditionId",
+        "result",
+        "operandRefs",
+        "observedValues",
+        "operator",
+        "reasonCodes"
+      ],
+      "schemaHash": "627bf8a47de6632abcfa0fe5abd5f197d1c37826636bf878f2b22da454442d82"
+    },
+    "RuleDecisionResult": {
+      "name": "RuleDecisionResult",
+      "version": "1.1",
+      "owner": "P09",
+      "fields": [
+        "evaluationId",
+        "ruleRef",
+        "ruleHash",
+        "matched",
+        "unknown",
+        "conditionResults",
+        "proposedAction",
+        "actionPayload",
+        "evaluatorVersion",
+        "runtimeSnapshotHash",
+        "resultHash",
+        "createdAt"
+      ],
+      "schemaHash": "44c06ea58232e4713b695dc3d7082cd189a5e7b00fe94374c76c0af09e7a4f47"
+    },
+    "RuleConflictResolution": {
+      "name": "RuleConflictResolution",
+      "version": "1.1",
+      "owner": "P09",
+      "fields": [
+        "resolutionId",
+        "evaluationRefs",
+        "selectedRuleRefs",
+        "suppressedRuleRefs",
+        "disposition",
+        "policySeverity",
+        "specificityOrder",
+        "reasonCodes",
+        "resolverVersion",
+        "resultHash"
+      ],
+      "schemaHash": "03f47932366feffc992f3ffc991a51db71a71db5ea6eb3aeb79de9a13b223358"
+    },
+    "RulePlanPatchCandidate": {
+      "name": "RulePlanPatchCandidate",
+      "version": "1.1",
+      "owner": "P09",
+      "fields": [
+        "patchCandidateId",
+        "goalContractRef",
+        "goalVersion",
+        "planRef",
+        "planVersion",
+        "sourceRuleRefs",
+        "patchOperations",
+        "affectedCriterionRefs",
+        "requiredConfirmations",
+        "bounded",
+        "contentHash"
+      ],
+      "schemaHash": "a406785ef94494b4aabaead4556d0652e8929f3c5b8d44923cb45e49d74d3163"
+    },
+    "RuleRuntime": {
+      "name": "RuleRuntime",
+      "version": "1.1",
+      "owner": "P09",
+      "signature": "evaluate(input: RuleDecisionContext): Promise<RuleDecisionResult>",
+      "schemaHash": "77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca"
+    },
+    "RuntimeRequestContext": {
+      "name": "RuntimeRequestContext",
+      "version": "1.1",
+      "owner": "P10",
+      "fields": [
+        "requestId",
+        "taskId",
+        "contextId",
+        "rawText",
+        "normalizedText",
+        "actor",
+        "extractedFeatures",
+        "worldStateRef",
+        "capabilitySummaryRef",
+        "policySnapshotRef",
+        "deadlineAt",
+        "cancellationRef",
+        "idempotencyKey",
+        "createdAt"
+      ],
+      "schemaHash": "6ada60cdd637cd3a2467347c8ef858ce2932c5e56d891c7aaaf1dfaabc41595e"
+    },
+    "FastGateway": {
+      "name": "FastGateway",
+      "version": "1.1",
+      "owner": "P10",
+      "signature": "evaluate(input: RuntimeRequestContext): Promise<RuntimeExecutionDecision>",
+      "schemaHash": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"
+    },
+    "GatewayDecisionRecord": {
+      "name": "GatewayDecisionRecord",
+      "version": "1.1",
+      "owner": "P10",
+      "fields": [
+        "gatewayDecisionId",
+        "requestId",
+        "runtimeDecisionRef",
+        "stageResults",
+        "formalHandoffRef",
+        "fallbackRef",
+        "reasonCodes",
+        "runtimeSnapshotHash",
+        "decisionHash",
+        "createdAt"
+      ],
+      "schemaHash": "1beecf8ae5527d5b8db7bcf89c36b4e73d35e083d6818f9ad18874f13e31d3ab"
+    },
+    "GatewayFeedbackEnvelope": {
+      "name": "GatewayFeedbackEnvelope",
+      "version": "1.1",
+      "owner": "P10",
+      "fields": [
+        "feedbackId",
+        "requestId",
+        "gatewayDecisionRef",
+        "selectedArtifactRefs",
+        "formalGoalRef",
+        "formalPlanRef",
+        "formalOutcomeRef",
+        "feedbackType",
+        "payload",
+        "sourceRefs",
+        "createdAt"
+      ],
+      "schemaHash": "22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b"
+    },
+    "CaseRetrievalInput": {
+      "name": "CaseRetrievalInput",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "runtimeRequestRef",
+        "goalContextRef",
+        "taskTypeId",
+        "problemFingerprint",
+        "tenantId",
+        "deadlineAt",
+        "runtimeSnapshotHash"
+      ],
+      "schemaHash": "161342c806b7f58254efac7d076d3193da80982d9c0bea22998c91e71cd3b1de"
+    },
+    "CaseMatch": {
+      "name": "CaseMatch",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "score",
+        "applicability",
+        "failureBoundaryStatus",
+        "reasonCodes"
+      ],
+      "schemaHash": "135dbfad26d68afa26201c43cf69816a80be23d4a550c28062a755ff6cfb084f"
+    },
+    "CaseAdaptationInput": {
+      "name": "CaseAdaptationInput",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "goalContextRef",
+        "parameterBindingRef",
+        "policyDecisionRef",
+        "deadlineAt",
+        "runtimeSnapshotHash"
+      ],
+      "schemaHash": "0c81b6bcabb43c588175a33d2621c431463a2547a6040efdfe39883e3a427929"
+    },
+    "CaseAdaptationResult": {
+      "name": "CaseAdaptationResult",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "parameterMappings",
+        "planPatchCandidate",
+        "recoveryPlanCandidate",
+        "confidence",
+        "unknowns",
+        "validationRequired"
+      ],
+      "schemaHash": "b2cd17de0f8a9bd09948981f29c368a1bc0ae18fedf4c9caf4d422e26ed2a72d"
+    },
+    "CaseRuntime": {
+      "name": "CaseRuntime",
+      "version": "1.1",
+      "owner": "P11",
+      "signature": "retrieve(input: CaseRetrievalInput): Promise<CaseMatch[]>; adapt(input: CaseAdaptationInput): Promise<CaseAdaptationResult>",
+      "schemaHash": "a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"
+    },
+    "ModelProfile": {
+      "name": "ModelProfile",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "profileId",
+        "providerId",
+        "modelId",
+        "modelVersion",
+        "capabilityTags",
+        "qualityTier",
+        "latencyTier",
+        "costTier",
+        "contextWindow",
+        "modalities",
+        "structuredOutputSupport",
+        "toolCallingSupport",
+        "dataResidency",
+        "dataClassificationAllowance",
+        "rateCapacity",
+        "readiness",
+        "health",
+        "profileVersion"
+      ],
+      "schemaHash": "03bc8f277534a5a1529d186697f7afa61eb27342a2f6ca6da85e5521d2af70bd"
+    },
+    "ModelRouteContext": {
+      "name": "ModelRouteContext",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "requestRef",
+        "tenantId",
+        "taskTypeId",
+        "operationType",
+        "riskLevel",
+        "dataClassification",
+        "requiredCapabilities",
+        "outputSchemaRef",
+        "deadlineAt",
+        "budget",
+        "policySnapshotHash",
+        "providerProfileSnapshotHash"
+      ],
+      "schemaHash": "346e0917e77a181b332581bfdb94943742dc0dfec035938e50ba3ac225b93aa2"
+    },
+    "ModelRouteDecision": {
+      "name": "ModelRouteDecision",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "route",
+        "reasonCodes",
+        "budget",
+        "fallbackRoutes",
+        "selectedProfileRefs",
+        "decisionHash"
+      ],
+      "schemaHash": "9785cd514c16f49982012f3943441defe246c33dfcf3429a3504885187b7d1fd"
+    },
+    "ModelCascadeRun": {
+      "name": "ModelCascadeRun",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "cascadeRunId",
+        "routeDecisionRef",
+        "status",
+        "stepRefs",
+        "selectedOutputRef",
+        "totalCostUnits",
+        "totalInputTokens",
+        "totalOutputTokens",
+        "completedAt"
+      ],
+      "schemaHash": "160a4e179dc1911f4b56557361bb0c688ea79d6c7f0964646fe70309959591df"
+    },
+    "ModelRouteRuntime": {
+      "name": "ModelRouteRuntime",
+      "version": "1.1",
+      "owner": "P11",
+      "signature": "evaluate(input: ModelRouteContext): Promise<ModelRouteDecision>",
+      "schemaHash": "386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"
+    },
+    "ManagementApiContract": {
+      "name": "ManagementApiContract",
+      "version": "1.1",
+      "owner": "P12",
+      "fields": [
+        "queryOperations",
+        "commandOperations",
+        "pagination",
+        "filters",
+        "expectedVersion",
+        "idempotency",
+        "rbac",
+        "tenant",
+        "redaction",
+        "openapiVersion"
+      ],
+      "schemaHash": "842c040064b7171337082d865d4b46cbc27c8063ab3b0a3f881f4458247e8cbe"
+    },
+    "A2AArtifactProjection": {
+      "name": "A2AArtifactProjection",
+      "version": "1.1",
+      "owner": "P12",
+      "fields": [
+        "publicCapabilitySummary",
+        "inputRequired",
+        "confirmation",
+        "formalTaskState",
+        "safeEvidence",
+        "redactionPolicyVersion"
+      ],
+      "schemaHash": "bdf152659c84b4fbbcb7d1d9dd47b97aedf73f5e82c55265a796ec4fd406d0ff"
+    },
+    "SseArtifactEventProjection": {
+      "name": "SseArtifactEventProjection",
+      "version": "1.1",
+      "owner": "P12",
+      "fields": [
+        "eventId",
+        "eventType",
+        "tenantId",
+        "safePayload",
+        "sourceRef",
+        "createdAt"
+      ],
+      "schemaHash": "c9c2b763d109005241827ddb1cb957e28fcf7003a759d387f0888a85700f7380"
+    },
+    "ReleaseCandidateDecision": {
+      "name": "ReleaseCandidateDecision",
+      "version": "1.1",
+      "owner": "P13",
+      "enum": [
+        "RELEASE_CANDIDATE_READY",
+        "RELEASE_CANDIDATE_BLOCKED"
+      ],
+      "schemaHash": "370b260730ee559a3f292d57c82b9296f626c4b437defa1dc2776f59020f9045"
+    },
+    "BaselineGateResult": {
+      "name": "BaselineGateResult",
+      "version": "1.1",
+      "owner": "P00",
+      "fields": [
+        "status",
+        "repository",
+        "baselineSha",
+        "v123FinalEvidenceRefs",
+        "fullVerifyStatus",
+        "migrationHead",
+        "openBlockers"
+      ],
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135"
+    },
+    "V123PrerequisiteMatrix": {
+      "name": "V123PrerequisiteMatrix",
+      "version": "1.1",
+      "owner": "P00",
+      "fields": [
+        "schemaVersion",
+        "baselineSha",
+        "items",
+        "fullVerify",
+        "decision"
+      ],
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c"
+    }
+  },
+  "persistenceTables": {
+    "compiled_artifact": [
+      "artifact_id",
+      "artifact_key",
+      "version",
+      "artifact_type",
+      "tenant_id",
+      "domain",
+      "status",
+      "risk_level",
+      "definition",
+      "applicability",
+      "dependency_snapshot",
+      "lineage_id",
+      "validation_summary_id",
+      "content_hash",
+      "created_at"
+    ],
+    "artifact_active_pointer": [
+      "artifact_key",
+      "artifact_id",
+      "artifact_version",
+      "activated_by",
+      "activated_at",
+      "lock_version"
+    ],
+    "artifact_lineage": [
+      "lineage_id",
+      "artifact_id",
+      "artifact_version",
+      "source_episode_refs",
+      "source_knowledge_refs",
+      "source_correction_refs",
+      "source_pattern_refs",
+      "generation_methods",
+      "compiler_version",
+      "created_at"
+    ],
+    "artifact_validation_run": [
+      "validation_run_id",
+      "artifact_id",
+      "artifact_version",
+      "validation_type",
+      "dataset_ref",
+      "status",
+      "result",
+      "metrics",
+      "counterexample_refs",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_approval": [
+      "approval_id",
+      "artifact_id",
+      "artifact_version",
+      "approver_id",
+      "decision",
+      "reason",
+      "validation_summary_hash",
+      "created_at"
+    ],
+    "artifact_execution": [
+      "artifact_execution_id",
+      "artifact_id",
+      "artifact_version",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "mode",
+      "decision_snapshot",
+      "generated_plan_id",
+      "status",
+      "fallback_reason_code",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_feedback": [
+      "feedback_id",
+      "artifact_execution_id",
+      "artifact_id",
+      "feedback_type",
+      "reason_code",
+      "summary",
+      "impact",
+      "outcome_ref",
+      "created_at"
+    ],
+    "artifact_match_log": [
+      "match_id",
+      "request_id",
+      "task_id",
+      "candidate_artifact_id",
+      "score",
+      "applicability",
+      "decision",
+      "reason_codes",
+      "policy_snapshot_hash",
+      "created_at"
+    ],
+    "experience_trace": [
+      "trace_id",
+      "source_episode_id",
+      "task_type_refs",
+      "goal_fingerprint",
+      "capability_fingerprint",
+      "environment_fingerprint",
+      "trace",
+      "completeness",
+      "created_at"
+    ],
+    "pattern_candidate": [
+      "pattern_id",
+      "pattern_type",
+      "cohort_fingerprint",
+      "definition",
+      "support_refs",
+      "contradiction_refs",
+      "confidence",
+      "status",
+      "created_at"
+    ]
+  },
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created",
+    "artifact.validation_started",
+    "artifact.validation_completed",
+    "artifact.shadow_started",
+    "artifact.shadow_completed",
+    "artifact.promotion_ready",
+    "artifact.approval_recorded",
+    "artifact.activated",
+    "artifact.revalidating",
+    "artifact.deprecated",
+    "artifact.match_evaluated",
+    "artifact.execution_started",
+    "artifact.execution_completed",
+    "artifact.execution_failed",
+    "artifact.feedback_recorded",
+    "gateway.route_selected",
+    "gateway.confirmation_required",
+    "gateway.fallback_started",
+    "gateway.formal_handoff",
+    "model_route.selected",
+    "model_cascade.escalated"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation",
+    "sdar-artifact-replay",
+    "sdar-artifact-simulation",
+    "sdar-artifact-shadow",
+    "sdar-artifact-revalidation"
+  ],
+  "featureFlags": {
+    "SDAR_V13_ARTIFACT_MODE": [
+      "off",
+      "shadow",
+      "advisory",
+      "active"
+    ],
+    "SDAR_V13_TEMPLATE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_RULE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_FAST_GATEWAY_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_CASE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_MODEL_CASCADE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_TENANT_ALLOWLIST": [
+      "csv"
+    ]
+  },
+  "packageSpecs": {
+    "P00": {
+      "goals": [
+        "G00"
+      ],
+      "phase": "Foundation Gate",
+      "deps": [],
+      "next": "P01",
+      "status": [
+        "READY_FULL",
+        "BLOCKED_BASELINE"
+      ],
+      "consumes": [],
+      "produces": [
+        "BaselineGateResult",
+        "V123PrerequisiteMatrix"
+      ]
+    },
+    "P01": {
+      "goals": [
+        "G01"
+      ],
+      "phase": "Foundation Domain",
+      "deps": [
+        "P00"
+      ],
+      "next": "P02",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "BaselineGateResult"
+      ],
+      "produces": [
+        "CompiledArtifactType",
+        "CompiledArtifactStatus",
+        "CompiledArtifact",
+        "ArtifactApplicability",
+        "ArtifactDependencySnapshot",
+        "ConditionExpression",
+        "IntentRouteArtifactDefinition",
+        "PlanTemplateArtifactDefinition",
+        "SkillGoalNodeTemplate",
+        "DecisionRuleArtifactDefinition",
+        "DecisionOutput",
+        "CaseArtifactDefinition",
+        "ModelRouteArtifactDefinition",
+        "ArtifactLineage",
+        "ArtifactRuntimeBinding"
+      ]
+    },
+    "P02": {
+      "goals": [
+        "G02",
+        "G03",
+        "G04"
+      ],
+      "phase": "Foundation Persistence Governance",
+      "deps": [
+        "P00",
+        "P01"
+      ],
+      "next": "P03",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ArtifactLineage",
+        "ArtifactRuntimeBinding"
+      ],
+      "produces": [
+        "ArtifactRepository",
+        "ArtifactValidationRepository",
+        "ArtifactExecutionRepository",
+        "ArtifactRegistryService",
+        "OperatorIdentityPort",
+        "ArtifactGovernancePort"
+      ]
+    },
+    "P03": {
+      "goals": [
+        "G05",
+        "G06"
+      ],
+      "phase": "Offline Compiler",
+      "deps": [
+        "P00",
+        "P01",
+        "P02"
+      ],
+      "next": "P04",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "ArtifactRepository"
+      ],
+      "produces": [
+        "ExperienceTrace",
+        "ExperienceTraceEvent",
+        "CohortDefinition",
+        "ProcessVariant",
+        "DiscoveredProcessPattern",
+        "WorkflowPattern"
+      ]
+    },
+    "P04": {
+      "goals": [
+        "G07",
+        "G08"
+      ],
+      "phase": "Offline Compiler",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03"
+      ],
+      "next": "P05",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "WorkflowPattern",
+        "CompiledArtifact",
+        "PlanTemplateArtifactDefinition"
+      ],
+      "produces": [
+        "FusedPattern",
+        "GeneralizedPattern",
+        "CandidateStaticValidationResult"
+      ]
+    },
+    "P05": {
+      "goals": [
+        "G09",
+        "G10"
+      ],
+      "phase": "Validation",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04"
+      ],
+      "next": "P06",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ExperienceTrace",
+        "CandidateStaticValidationResult"
+      ],
+      "produces": [
+        "ArtifactReplayCase",
+        "ReplayDatasetManifest",
+        "ArtifactValidationRun",
+        "ArtifactValidationResult",
+        "ArtifactValidationFailure",
+        "ArtifactCounterexample"
+      ]
+    },
+    "P06": {
+      "goals": [
+        "G11",
+        "G12"
+      ],
+      "phase": "Validation Governance",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05"
+      ],
+      "next": "P07",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "ArtifactValidationResult",
+        "ArtifactCounterexample",
+        "ArtifactGovernancePort"
+      ],
+      "produces": [
+        "ArtifactShadowRun",
+        "ArtifactShadowResult",
+        "ArtifactPromotionPackage",
+        "ArtifactApprovalRecord",
+        "ArtifactActivationRecord",
+        "ArtifactRevalidationTrigger"
+      ]
+    },
+    "P07": {
+      "goals": [
+        "G13",
+        "G14"
+      ],
+      "phase": "Online Runtime Foundation",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06"
+      ],
+      "next": "P08",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ArtifactActivationRecord",
+        "ArtifactRepository"
+      ],
+      "produces": [
+        "ArtifactIndexEntry",
+        "ArtifactMatchScore",
+        "ArtifactMatch",
+        "ArtifactApplicabilityResult",
+        "ParameterBindingResult",
+        "DependencyValidationResult",
+        "CapabilityReadinessResult",
+        "RuntimeExecutionDecision",
+        "FastGatewayPath"
+      ]
+    },
+    "P08": {
+      "goals": [
+        "G15"
+      ],
+      "phase": "Online Runtime",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07"
+      ],
+      "next": "P09",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "PlanTemplateArtifactDefinition",
+        "ParameterBindingResult"
+      ],
+      "produces": [
+        "TemplateInstantiationInput",
+        "GoalContextSnapshot",
+        "UserGoalPlanCandidate",
+        "TemplateInstantiationResult",
+        "FormalPlanHandoffResult",
+        "TemplateRuntime",
+        "FormalPlanHandoffPort"
+      ]
+    },
+    "P09": {
+      "goals": [
+        "G16"
+      ],
+      "phase": "Online Runtime",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08"
+      ],
+      "next": "P10",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "DecisionRuleArtifactDefinition",
+        "FormalPlanHandoffPort"
+      ],
+      "produces": [
+        "RuleDecisionContext",
+        "RuleConditionResult",
+        "RuleDecisionResult",
+        "RuleConflictResolution",
+        "RulePlanPatchCandidate",
+        "RuleRuntime"
+      ]
+    },
+    "P10": {
+      "goals": [
+        "G17",
+        "G18"
+      ],
+      "phase": "Online Runtime Integration",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08",
+        "P09"
+      ],
+      "next": "P11",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "TemplateRuntime",
+        "RuleRuntime",
+        "FormalPlanHandoffPort"
+      ],
+      "produces": [
+        "RuntimeRequestContext",
+        "FastGateway",
+        "GatewayDecisionRecord",
+        "GatewayFeedbackEnvelope"
+      ]
+    },
+    "P11": {
+      "goals": [
+        "G19",
+        "G20"
+      ],
+      "phase": "Extended Runtime",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08",
+        "P09",
+        "P10"
+      ],
+      "next": "P12",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "FastGateway",
+        "RuntimeExecutionDecision",
+        "FormalPlanHandoffPort",
+        "CaseArtifactDefinition",
+        "ModelRouteArtifactDefinition"
+      ],
+      "produces": [
+        "CaseRetrievalInput",
+        "CaseMatch",
+        "CaseAdaptationInput",
+        "CaseAdaptationResult",
+        "CaseRuntime",
+        "ModelProfile",
+        "ModelRouteContext",
+        "ModelRouteDecision",
+        "ModelCascadeRun",
+        "ModelRouteRuntime"
+      ]
+    },
+    "P12": {
+      "goals": [
+        "G21"
+      ],
+      "phase": "Productization",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ],
+      "next": "P13",
+      "status": [
+        "COMPLETED",
+        "BLOCKED"
+      ],
+      "consumes": [
+        "ArtifactGovernancePort",
+        "FastGateway",
+        "CaseRuntime",
+        "ModelRouteRuntime"
+      ],
+      "produces": [
+        "ManagementApiContract",
+        "A2AArtifactProjection",
+        "SseArtifactEventProjection"
+      ]
+    },
+    "P13": {
+      "goals": [
+        "G22"
+      ],
+      "phase": "Hardening Release",
+      "deps": [
+        "P00",
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08",
+        "P09",
+        "P10",
+        "P11",
+        "P12"
+      ],
+      "next": null,
+      "status": [
+        "RELEASE_CANDIDATE_READY",
+        "RELEASE_CANDIDATE_BLOCKED"
+      ],
+      "consumes": [
+        "ManagementApiContract",
+        "A2AArtifactProjection",
+        "SseArtifactEventProjection"
+      ],
+      "produces": [
+        "ReleaseCandidateDecision"
+      ]
+    }
+  },
+  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb"
+}

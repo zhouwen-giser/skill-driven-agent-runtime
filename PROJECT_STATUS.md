@@ -1,5 +1,14 @@
 # Project Status
 
+SDAR v1.3 P00 foundation-gate execution is in progress (2026-07-26) on
+`feature/v1.3-sequential-implementation` from exact `origin/main@v1.2.3-final`
+`856f909d22c33e6e20d7e0a1cffc2f54c03b4477`. All fifteen package self-checks and the aggregate
+cross-package validator pass with frozen registry SHA-256 `d7b1d971...a7ff4cbb`. A complete
+dirty-tree diagnostic gate passes 765 unit/contract, 84 real integration, 62 real E2E, architecture,
+A2A, OpenAPI, Replay, 17 migrations, production builds and both smoke stages against a dedicated
+clean-slate database. P00 is not complete until a clean-commit rerun, exact frozen outputs and the
+required independent read-only review are recorded.
+
 SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
 Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,
 425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified

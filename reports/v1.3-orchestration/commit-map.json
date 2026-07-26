@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "1.0",
+  "baseMainSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "integrationBranch": "feature/v1.3-sequential-implementation",
+  "packages": {}
+}

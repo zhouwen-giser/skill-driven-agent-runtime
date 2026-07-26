@@ -1,0 +1,291 @@
+{
+  "ok": true,
+  "packages": [
+    {
+      "package": "P00",
+      "goals": [
+        "G00"
+      ],
+      "consumes": [],
+      "produces": [
+        "BaselineGateResult",
+        "V123PrerequisiteMatrix"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P01",
+      "goals": [
+        "G01"
+      ],
+      "consumes": [
+        "BaselineGateResult"
+      ],
+      "produces": [
+        "CompiledArtifactType",
+        "CompiledArtifactStatus",
+        "CompiledArtifact",
+        "ArtifactApplicability",
+        "ArtifactDependencySnapshot",
+        "ConditionExpression",
+        "IntentRouteArtifactDefinition",
+        "PlanTemplateArtifactDefinition",
+        "SkillGoalNodeTemplate",
+        "DecisionRuleArtifactDefinition",
+        "DecisionOutput",
+        "CaseArtifactDefinition",
+        "ModelRouteArtifactDefinition",
+        "ArtifactLineage",
+        "ArtifactRuntimeBinding"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P02",
+      "goals": [
+        "G02",
+        "G03",
+        "G04"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ArtifactLineage",
+        "ArtifactRuntimeBinding"
+      ],
+      "produces": [
+        "ArtifactRepository",
+        "ArtifactValidationRepository",
+        "ArtifactExecutionRepository",
+        "ArtifactRegistryService",
+        "OperatorIdentityPort",
+        "ArtifactGovernancePort"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P03",
+      "goals": [
+        "G05",
+        "G06"
+      ],
+      "consumes": [
+        "ArtifactRepository"
+      ],
+      "produces": [
+        "ExperienceTrace",
+        "ExperienceTraceEvent",
+        "CohortDefinition",
+        "ProcessVariant",
+        "DiscoveredProcessPattern",
+        "WorkflowPattern"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P04",
+      "goals": [
+        "G07",
+        "G08"
+      ],
+      "consumes": [
+        "WorkflowPattern",
+        "CompiledArtifact",
+        "PlanTemplateArtifactDefinition"
+      ],
+      "produces": [
+        "FusedPattern",
+        "GeneralizedPattern",
+        "CandidateStaticValidationResult"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P05",
+      "goals": [
+        "G09",
+        "G10"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ExperienceTrace",
+        "CandidateStaticValidationResult"
+      ],
+      "produces": [
+        "ArtifactReplayCase",
+        "ReplayDatasetManifest",
+        "ArtifactValidationRun",
+        "ArtifactValidationResult",
+        "ArtifactValidationFailure",
+        "ArtifactCounterexample"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P06",
+      "goals": [
+        "G11",
+        "G12"
+      ],
+      "consumes": [
+        "ArtifactValidationResult",
+        "ArtifactCounterexample",
+        "ArtifactGovernancePort"
+      ],
+      "produces": [
+        "ArtifactShadowRun",
+        "ArtifactShadowResult",
+        "ArtifactPromotionPackage",
+        "ArtifactApprovalRecord",
+        "ArtifactActivationRecord",
+        "ArtifactRevalidationTrigger"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P07",
+      "goals": [
+        "G13",
+        "G14"
+      ],
+      "consumes": [
+        "CompiledArtifact",
+        "ArtifactActivationRecord",
+        "ArtifactRepository"
+      ],
+      "produces": [
+        "ArtifactIndexEntry",
+        "ArtifactMatchScore",
+        "ArtifactMatch",
+        "ArtifactApplicabilityResult",
+        "ParameterBindingResult",
+        "DependencyValidationResult",
+        "CapabilityReadinessResult",
+        "RuntimeExecutionDecision",
+        "FastGatewayPath"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P08",
+      "goals": [
+        "G15"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "PlanTemplateArtifactDefinition",
+        "ParameterBindingResult"
+      ],
+      "produces": [
+        "TemplateInstantiationInput",
+        "GoalContextSnapshot",
+        "UserGoalPlanCandidate",
+        "TemplateInstantiationResult",
+        "FormalPlanHandoffResult",
+        "TemplateRuntime",
+        "FormalPlanHandoffPort"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P09",
+      "goals": [
+        "G16"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "DecisionRuleArtifactDefinition",
+        "FormalPlanHandoffPort"
+      ],
+      "produces": [
+        "RuleDecisionContext",
+        "RuleConditionResult",
+        "RuleDecisionResult",
+        "RuleConflictResolution",
+        "RulePlanPatchCandidate",
+        "RuleRuntime"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P10",
+      "goals": [
+        "G17",
+        "G18"
+      ],
+      "consumes": [
+        "RuntimeExecutionDecision",
+        "TemplateRuntime",
+        "RuleRuntime",
+        "FormalPlanHandoffPort"
+      ],
+      "produces": [
+        "RuntimeRequestContext",
+        "FastGateway",
+        "GatewayDecisionRecord",
+        "GatewayFeedbackEnvelope"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P11",
+      "goals": [
+        "G19",
+        "G20"
+      ],
+      "consumes": [
+        "FastGateway",
+        "RuntimeExecutionDecision",
+        "FormalPlanHandoffPort",
+        "CaseArtifactDefinition",
+        "ModelRouteArtifactDefinition"
+      ],
+      "produces": [
+        "CaseRetrievalInput",
+        "CaseMatch",
+        "CaseAdaptationInput",
+        "CaseAdaptationResult",
+        "CaseRuntime",
+        "ModelProfile",
+        "ModelRouteContext",
+        "ModelRouteDecision",
+        "ModelCascadeRun",
+        "ModelRouteRuntime"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P12",
+      "goals": [
+        "G21"
+      ],
+      "consumes": [
+        "ArtifactGovernancePort",
+        "FastGateway",
+        "CaseRuntime",
+        "ModelRouteRuntime"
+      ],
+      "produces": [
+        "ManagementApiContract",
+        "A2AArtifactProjection",
+        "SseArtifactEventProjection"
+      ],
+      "selfCheck": true
+    },
+    {
+      "package": "P13",
+      "goals": [
+        "G22"
+      ],
+      "consumes": [
+        "ManagementApiContract",
+        "A2AArtifactProjection",
+        "SseArtifactEventProjection"
+      ],
+      "produces": [
+        "ReleaseCandidateDecision"
+      ],
+      "selfCheck": true
+    }
+  ],
+  "errors": []
+}

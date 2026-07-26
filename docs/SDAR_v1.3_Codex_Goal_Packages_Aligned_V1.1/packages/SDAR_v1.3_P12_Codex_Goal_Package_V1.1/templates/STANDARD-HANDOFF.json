@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P12",
+  "packageVersion": "1.1",
+  "sequence": 12,
+  "status": "",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "",
+  "branch": "",
+  "commits": {},
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {
+      "name": "ArtifactGovernancePort",
+      "version": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf"
+    },
+    {
+      "name": "FastGateway",
+      "version": "1.1",
+      "schemaHash": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"
+    },
+    {
+      "name": "CaseRuntime",
+      "version": "1.1",
+      "schemaHash": "a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"
+    },
+    {
+      "name": "ModelRouteRuntime",
+      "version": "1.1",
+      "schemaHash": "386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ManagementApiContract",
+      "version": "1.1",
+      "schemaHash": "842c040064b7171337082d865d4b46cbc27c8063ab3b0a3f881f4458247e8cbe"
+    },
+    {
+      "name": "A2AArtifactProjection",
+      "version": "1.1",
+      "schemaHash": "bdf152659c84b4fbbcb7d1d9dd47b97aedf73f5e82c55265a796ec4fd406d0ff"
+    },
+    {
+      "name": "SseArtifactEventProjection",
+      "version": "1.1",
+      "schemaHash": "c9c2b763d109005241827ddb1cb957e28fcf7003a759d387f0888a85700f7380"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [],
+  "acceptanceSummary": {
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [],
+  "openBlockers": [],
+  "nextPackage": "P13",
+  "packageOutputs": {
+    "ManagementApiContract": {
+      "contractVersion": "1.1",
+      "schemaHash": "842c040064b7171337082d865d4b46cbc27c8063ab3b0a3f881f4458247e8cbe",
+      "refs": []
+    },
+    "A2AArtifactProjection": {
+      "contractVersion": "1.1",
+      "schemaHash": "bdf152659c84b4fbbcb7d1d9dd47b97aedf73f5e82c55265a796ec4fd406d0ff",
+      "refs": []
+    },
+    "SseArtifactEventProjection": {
+      "contractVersion": "1.1",
+      "schemaHash": "c9c2b763d109005241827ddb1cb957e28fcf7003a759d387f0888a85700f7380",
+      "refs": []
+    }
+  }
+}

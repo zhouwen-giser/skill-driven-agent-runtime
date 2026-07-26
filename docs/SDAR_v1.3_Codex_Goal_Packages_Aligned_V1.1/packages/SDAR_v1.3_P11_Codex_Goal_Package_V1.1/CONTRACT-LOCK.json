@@ -1,0 +1,468 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P11",
+  "registryVersion": "1.1",
+  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": {
+    "FastGateway": {
+      "name": "FastGateway",
+      "version": "1.1",
+      "owner": "P10",
+      "signature": "evaluate(input: RuntimeRequestContext): Promise<RuntimeExecutionDecision>",
+      "schemaHash": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"
+    },
+    "RuntimeExecutionDecision": {
+      "name": "RuntimeExecutionDecision",
+      "version": "1.1",
+      "owner": "P07",
+      "fields": [
+        "decisionId",
+        "requestId",
+        "path",
+        "selectedArtifactRef",
+        "parameterBindings",
+        "missingParameters",
+        "requiredConfirmations",
+        "reasonCodes",
+        "matcherSnapshotHash",
+        "policySnapshotHash",
+        "createdAt"
+      ],
+      "schemaHash": "4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"
+    },
+    "FormalPlanHandoffPort": {
+      "name": "FormalPlanHandoffPort",
+      "version": "1.1",
+      "owner": "P08",
+      "signature": "submit(candidate: UserGoalPlanCandidate): Promise<FormalPlanHandoffResult>",
+      "schemaHash": "84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"
+    },
+    "CaseArtifactDefinition": {
+      "name": "CaseArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "problemFingerprint",
+        "solutionPattern",
+        "adaptationRules",
+        "applicability",
+        "failureBoundaries",
+        "priorOutcomeSummary"
+      ],
+      "schemaHash": "c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5"
+    },
+    "ModelRouteArtifactDefinition": {
+      "name": "ModelRouteArtifactDefinition",
+      "version": "1.1",
+      "owner": "P01",
+      "fields": [
+        "conditions",
+        "route",
+        "budget",
+        "fallbackRoutes"
+      ],
+      "schemaHash": "2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678"
+    }
+  },
+  "producedContracts": {
+    "CaseRetrievalInput": {
+      "name": "CaseRetrievalInput",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "runtimeRequestRef",
+        "goalContextRef",
+        "taskTypeId",
+        "problemFingerprint",
+        "tenantId",
+        "deadlineAt",
+        "runtimeSnapshotHash"
+      ],
+      "schemaHash": "161342c806b7f58254efac7d076d3193da80982d9c0bea22998c91e71cd3b1de"
+    },
+    "CaseMatch": {
+      "name": "CaseMatch",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "score",
+        "applicability",
+        "failureBoundaryStatus",
+        "reasonCodes"
+      ],
+      "schemaHash": "135dbfad26d68afa26201c43cf69816a80be23d4a550c28062a755ff6cfb084f"
+    },
+    "CaseAdaptationInput": {
+      "name": "CaseAdaptationInput",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "goalContextRef",
+        "parameterBindingRef",
+        "policyDecisionRef",
+        "deadlineAt",
+        "runtimeSnapshotHash"
+      ],
+      "schemaHash": "0c81b6bcabb43c588175a33d2621c431463a2547a6040efdfe39883e3a427929"
+    },
+    "CaseAdaptationResult": {
+      "name": "CaseAdaptationResult",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "caseRef",
+        "parameterMappings",
+        "planPatchCandidate",
+        "recoveryPlanCandidate",
+        "confidence",
+        "unknowns",
+        "validationRequired"
+      ],
+      "schemaHash": "b2cd17de0f8a9bd09948981f29c368a1bc0ae18fedf4c9caf4d422e26ed2a72d"
+    },
+    "CaseRuntime": {
+      "name": "CaseRuntime",
+      "version": "1.1",
+      "owner": "P11",
+      "signature": "retrieve(input: CaseRetrievalInput): Promise<CaseMatch[]>; adapt(input: CaseAdaptationInput): Promise<CaseAdaptationResult>",
+      "schemaHash": "a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"
+    },
+    "ModelProfile": {
+      "name": "ModelProfile",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "profileId",
+        "providerId",
+        "modelId",
+        "modelVersion",
+        "capabilityTags",
+        "qualityTier",
+        "latencyTier",
+        "costTier",
+        "contextWindow",
+        "modalities",
+        "structuredOutputSupport",
+        "toolCallingSupport",
+        "dataResidency",
+        "dataClassificationAllowance",
+        "rateCapacity",
+        "readiness",
+        "health",
+        "profileVersion"
+      ],
+      "schemaHash": "03bc8f277534a5a1529d186697f7afa61eb27342a2f6ca6da85e5521d2af70bd"
+    },
+    "ModelRouteContext": {
+      "name": "ModelRouteContext",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "requestRef",
+        "tenantId",
+        "taskTypeId",
+        "operationType",
+        "riskLevel",
+        "dataClassification",
+        "requiredCapabilities",
+        "outputSchemaRef",
+        "deadlineAt",
+        "budget",
+        "policySnapshotHash",
+        "providerProfileSnapshotHash"
+      ],
+      "schemaHash": "346e0917e77a181b332581bfdb94943742dc0dfec035938e50ba3ac225b93aa2"
+    },
+    "ModelRouteDecision": {
+      "name": "ModelRouteDecision",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "route",
+        "reasonCodes",
+        "budget",
+        "fallbackRoutes",
+        "selectedProfileRefs",
+        "decisionHash"
+      ],
+      "schemaHash": "9785cd514c16f49982012f3943441defe246c33dfcf3429a3504885187b7d1fd"
+    },
+    "ModelCascadeRun": {
+      "name": "ModelCascadeRun",
+      "version": "1.1",
+      "owner": "P11",
+      "fields": [
+        "cascadeRunId",
+        "routeDecisionRef",
+        "status",
+        "stepRefs",
+        "selectedOutputRef",
+        "totalCostUnits",
+        "totalInputTokens",
+        "totalOutputTokens",
+        "completedAt"
+      ],
+      "schemaHash": "160a4e179dc1911f4b56557361bb0c688ea79d6c7f0964646fe70309959591df"
+    },
+    "ModelRouteRuntime": {
+      "name": "ModelRouteRuntime",
+      "version": "1.1",
+      "owner": "P11",
+      "signature": "evaluate(input: ModelRouteContext): Promise<ModelRouteDecision>",
+      "schemaHash": "386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"
+    }
+  },
+  "handoffEnvelope": {
+    "name": "HandoffEnvelope",
+    "version": "1.1",
+    "owner": "shared",
+    "fields": [
+      "schemaVersion",
+      "packageId",
+      "packageVersion",
+      "sequence",
+      "status",
+      "repository",
+      "baselineSha",
+      "branch",
+      "commits",
+      "draftPrUrl",
+      "contractRegistryVersion",
+      "contractRegistrySha256",
+      "consumedContracts",
+      "producedContracts",
+      "migrations",
+      "repositoryPorts",
+      "applicationPorts",
+      "runtimePorts",
+      "events",
+      "queues",
+      "featureFlags",
+      "reasonCodeCatalogVersion",
+      "evidenceRefs",
+      "acceptanceSummary",
+      "knownLimitations",
+      "openBlockers",
+      "nextPackage",
+      "packageOutputs"
+    ],
+    "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5"
+  },
+  "artifactTypes": [
+    "intent_route",
+    "plan_template",
+    "decision_rule",
+    "case_template",
+    "model_route"
+  ],
+  "artifactStatuses": [
+    "discovered",
+    "candidate",
+    "validating",
+    "awaiting_approval",
+    "active",
+    "revalidating",
+    "deprecated",
+    "archived",
+    "rejected"
+  ],
+  "fastGatewayPaths": [
+    "compiled_fast",
+    "template_adapt",
+    "case_adapt",
+    "small_model",
+    "cognitive_runtime",
+    "human_input",
+    "denied"
+  ],
+  "persistenceTables": {
+    "compiled_artifact": [
+      "artifact_id",
+      "artifact_key",
+      "version",
+      "artifact_type",
+      "tenant_id",
+      "domain",
+      "status",
+      "risk_level",
+      "definition",
+      "applicability",
+      "dependency_snapshot",
+      "lineage_id",
+      "validation_summary_id",
+      "content_hash",
+      "created_at"
+    ],
+    "artifact_active_pointer": [
+      "artifact_key",
+      "artifact_id",
+      "artifact_version",
+      "activated_by",
+      "activated_at",
+      "lock_version"
+    ],
+    "artifact_lineage": [
+      "lineage_id",
+      "artifact_id",
+      "artifact_version",
+      "source_episode_refs",
+      "source_knowledge_refs",
+      "source_correction_refs",
+      "source_pattern_refs",
+      "generation_methods",
+      "compiler_version",
+      "created_at"
+    ],
+    "artifact_validation_run": [
+      "validation_run_id",
+      "artifact_id",
+      "artifact_version",
+      "validation_type",
+      "dataset_ref",
+      "status",
+      "result",
+      "metrics",
+      "counterexample_refs",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_approval": [
+      "approval_id",
+      "artifact_id",
+      "artifact_version",
+      "approver_id",
+      "decision",
+      "reason",
+      "validation_summary_hash",
+      "created_at"
+    ],
+    "artifact_execution": [
+      "artifact_execution_id",
+      "artifact_id",
+      "artifact_version",
+      "task_id",
+      "goal_id",
+      "goal_version",
+      "mode",
+      "decision_snapshot",
+      "generated_plan_id",
+      "status",
+      "fallback_reason_code",
+      "started_at",
+      "completed_at"
+    ],
+    "artifact_feedback": [
+      "feedback_id",
+      "artifact_execution_id",
+      "artifact_id",
+      "feedback_type",
+      "reason_code",
+      "summary",
+      "impact",
+      "outcome_ref",
+      "created_at"
+    ],
+    "artifact_match_log": [
+      "match_id",
+      "request_id",
+      "task_id",
+      "candidate_artifact_id",
+      "score",
+      "applicability",
+      "decision",
+      "reason_codes",
+      "policy_snapshot_hash",
+      "created_at"
+    ],
+    "experience_trace": [
+      "trace_id",
+      "source_episode_id",
+      "task_type_refs",
+      "goal_fingerprint",
+      "capability_fingerprint",
+      "environment_fingerprint",
+      "trace",
+      "completeness",
+      "created_at"
+    ],
+    "pattern_candidate": [
+      "pattern_id",
+      "pattern_type",
+      "cohort_fingerprint",
+      "definition",
+      "support_refs",
+      "contradiction_refs",
+      "confidence",
+      "status",
+      "created_at"
+    ]
+  },
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created",
+    "artifact.validation_started",
+    "artifact.validation_completed",
+    "artifact.shadow_started",
+    "artifact.shadow_completed",
+    "artifact.promotion_ready",
+    "artifact.approval_recorded",
+    "artifact.activated",
+    "artifact.revalidating",
+    "artifact.deprecated",
+    "artifact.match_evaluated",
+    "artifact.execution_started",
+    "artifact.execution_completed",
+    "artifact.execution_failed",
+    "artifact.feedback_recorded",
+    "gateway.route_selected",
+    "gateway.confirmation_required",
+    "gateway.fallback_started",
+    "gateway.formal_handoff",
+    "model_route.selected",
+    "model_cascade.escalated"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation",
+    "sdar-artifact-replay",
+    "sdar-artifact-simulation",
+    "sdar-artifact-shadow",
+    "sdar-artifact-revalidation"
+  ],
+  "featureFlags": {
+    "SDAR_V13_ARTIFACT_MODE": [
+      "off",
+      "shadow",
+      "advisory",
+      "active"
+    ],
+    "SDAR_V13_TEMPLATE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_RULE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_FAST_GATEWAY_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_CASE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_MODEL_CASCADE_ENABLED": [
+      "false",
+      "true"
+    ],
+    "SDAR_V13_TENANT_ALLOWLIST": [
+      "csv"
+    ]
+  }
+}

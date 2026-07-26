@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "currentPackage": "P00",
+  "completedPackages": [],
+  "blockedPackage": null,
+  "integrationBranch": "feature/v1.3-sequential-implementation",
+  "baseMainSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "currentHeadSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "packageResults": {},
+  "lastUpdatedAt": "2026-07-26T20:35:43+08:00"
+}
