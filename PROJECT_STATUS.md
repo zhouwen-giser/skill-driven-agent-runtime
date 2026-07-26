@@ -7,8 +7,8 @@ A2A `INPUT_REQUIRED` continuation. Existing Session/Knowledge/Capability/Experie
 authority and no Console route mutates Provider, Outcome or Active Plan directly. Affected gates pass
 597 unit, 157 contract, 84 real integration, 62 real E2E, 152 OpenAPI operations, 419-source
 architecture, A2A MUST 74/74, production build, isolated Server/Console smoke and all 16 migrations
-through 0123. Implementation `d77794a` is committed locally for Draft PR #9; no merge, tag or Ready
-transition is authorized before G17.
+through 0123. Implementation `d77794a` and evidence `9d66eab` are pushed to Draft PR #9; no merge,
+tag or Ready transition is authorized before G17.
 
 SDAR v1.2.3 G00–G14 are complete (2026-07-26); G15 Management/Console/A2A integration is next. G14
 adds a governed decorator over the unchanged base Planner with distinct off/shadow/advisory/frozen

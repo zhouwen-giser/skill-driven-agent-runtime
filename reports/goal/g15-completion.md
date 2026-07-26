@@ -123,7 +123,9 @@ NOTICE or SBOM update is required.
 ## Commit, Push and Draft PR
 
 - Primary G15 implementation: `d77794a2620362bc4f59f2021283d61a164b5139`
-- Push: pending evidence commit at report creation; both commits will be pushed together
+- Evidence commit: `9d66eab`
+- Push: implementation and evidence are published to
+  `origin/feature/v1.2.3-cognitive-planning-runtime`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9> remains Draft
 - Merge/tag/Ready transition: not performed and not authorized before G17
 

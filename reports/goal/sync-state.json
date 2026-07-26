@@ -22,11 +22,11 @@
     "G12": { "status": "completed", "commit": "59f20f6cb4af22458d1aef018809791a998826b0", "pushed": true, "evidence": "reports/goal/g12-completion.md", "blocker": "", "next": "Completed; governed Active-only knowledge handed to G13." },
     "G13": { "status": "completed", "commit": "3201325d7cd9c59d047301b0ef1f16188a4adff4", "pushed": true, "evidence": "reports/goal/g13-completion.md", "blocker": "", "next": "Completed; bounded Active-only retrieval handed to G14." },
     "G14": { "status": "completed", "commit": "1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd", "pushed": true, "evidence": "reports/goal/g14-completion.md", "blocker": "", "next": "Completed; governed planning usage and rollout evidence handed to G15/G16." },
-    "G15": { "status": "completed", "commit": "d77794a2620362bc4f59f2021283d61a164b5139", "pushed": false, "evidence": "reports/goal/g15-completion.md", "blocker": "", "next": "Completed; audited API/Console/A2A integration handed to G16." },
+    "G15": { "status": "completed", "commit": "d77794a2620362bc4f59f2021283d61a164b5139", "pushed": true, "evidence": "reports/goal/g15-completion.md", "blocker": "", "next": "Completed; audited API/Console/A2A integration handed to G16." },
     "G16": { "status": "not_started", "commit": "", "pushed": false, "evidence": "", "blocker": "", "next": "Replay and Shadow harness." },
     "G17": { "status": "not_started", "commit": "", "pushed": false, "evidence": "", "blocker": "G00-G16", "next": "Hardening, rollout and release gates." }
   },
-  "lastUpdatedAt": "2026-07-26T18:47:35+08:00",
+  "lastUpdatedAt": "2026-07-26T18:50:00+08:00",
   "nextGoal": "G16",
   "openBlockers": [],
   "validation": {
