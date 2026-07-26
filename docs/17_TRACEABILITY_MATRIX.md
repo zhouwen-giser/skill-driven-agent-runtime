@@ -504,7 +504,7 @@ operations. Exact commands, classifications and retained failures are in
 | AC-G17-06        | verified               | sources/license/NOTICE/SBOM full gate                                                       |
 | AC-G17-07        | verified               | A2A MUST 74/74 and OpenAPI 152/152                                                          |
 | AC-G17-08        | verified               | explicit advisory/authority/Python/Skill-publication declarations                           |
-| AC-G17-09        | failed: external merge | GitHub auto-merged PR #9 after Ready; no Codex Merge call and no tag                        |
+| AC-G17-09        | failed: external merge | owner-authenticated external merge of PR #9 after Ready; no Codex Merge call and no tag     |
 | AC-MASTER-01..04 | verified               | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
 | AC-MASTER-05     | failed: external merge | required unmerged PR state no longer exists; evidence and no-tag state remain               |
 

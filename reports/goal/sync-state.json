@@ -4,7 +4,7 @@
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "branch": "feature/v1.2.3-cognitive-planning-runtime",
   "baseMainSha": "10d9cb385a7d4ef87b69f2856d315573faafca9c",
-  "headSha": "3e32d73c75954e9bf9ae1610e42531d9f6254dda",
+  "headSha": "219061f5829830abb2815863713e2a313987ec86",
   "draftPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/11",
   "externallyMergedPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9",
   "goals": {
@@ -25,11 +25,11 @@
     "G14": { "status": "completed", "commit": "1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd", "pushed": true, "evidence": "reports/goal/g14-completion.md", "blocker": "", "next": "Completed; governed planning usage and rollout evidence handed to G15/G16." },
     "G15": { "status": "completed", "commit": "d77794a2620362bc4f59f2021283d61a164b5139", "pushed": true, "evidence": "reports/goal/g15-completion.md", "blocker": "", "next": "Completed; audited API/Console/A2A integration handed to G16." },
     "G16": { "status": "completed", "commit": "265f865dfefecf6e2e2a3d5f8d70de6516029bee", "pushed": true, "evidence": "reports/goal/g16-completion.md", "blocker": "", "next": "Completed; reproducible side-effect-free Replay/Shadow evidence handed to G17." },
-    "G17": { "status": "blocked_external", "commit": "8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e", "pushed": true, "evidence": "reports/goal/g17-completion.md", "blocker": "GitHub externally auto-merged PR #9 after the authorized Ready transition.", "next": "User direction required; do not auto-revert, merge or tag." }
+    "G17": { "status": "blocked_external", "commit": "8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e", "pushed": true, "evidence": "reports/goal/g17-completion.md", "blocker": "PR #9 was externally merged under the repository-owner identity after the authorized Ready transition; the initiating mechanism is unverified.", "next": "User direction required; do not auto-revert, merge or tag." }
   },
-  "lastUpdatedAt": "2026-07-26T19:59:00+08:00",
+  "lastUpdatedAt": "2026-07-26T20:03:18+08:00",
   "nextGoal": "external_merge_resolution",
-  "openBlockers": ["PR #9 externally auto-merged as d68195a after Ready; unmerged final state cannot be restored without a new authorized mutation."],
+  "openBlockers": ["PR #9 was externally merged under the repository-owner identity as d68195a after Ready; unmerged final state cannot be restored without a new authorized mutation."],
   "validation": {
     "packageIntegrity": "passed_50_hashes_18_goals_lf_normalized_csv_checksums",
     "pnpmInstallFrozen": "passed",

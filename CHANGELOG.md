@@ -103,6 +103,9 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Changed
 
+- G17 publication evidence now distinguishes the verified external owner-authenticated PR #9 merge
+  from an unproven native auto-merge mechanism, with exact public event IDs, merge metadata, current
+  repository settings and corrective Draft PR #11 containment.
 - The task-package self-check now uses `fileURLToPath` on Windows and remains protected by its updated
   package hash manifest.
 - Runtime migration startup accepts only the ordered v1.2.2 baseline plus known `01xx_v123_*` prefix;

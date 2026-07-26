@@ -5,10 +5,11 @@ Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST
 425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified
 PostgreSQL-authoritative cognitive reconstruction, deletion propagation, review-only retention and the
 frozen six-stage rollout policy. Recovery/security/privacy/capacity evidence is classified in
-`reports/v1.2.3-release/`. After the authorized Ready transition, GitHub externally auto-merged PR #9
-as `d68195a` and deleted the branch; no Codex Merge call or tag occurred. The branch was recreated by
-the already-running final evidence push. Release gates remain green, but the required unmerged final
-state is not satisfied and no automatic revert is authorized.
+`reports/v1.2.3-release/`. After the authorized Ready transition, GitHub recorded an external
+owner-authenticated merge of PR #9 as `d68195a` and deleted the branch; no Codex Merge call or tag
+occurred. No native auto-merge event is present, so the initiating mechanism remains unverified. The
+branch was recreated by the already-running final evidence push. Release gates remain green, but the
+required unmerged final state is not satisfied and no automatic revert is authorized.
 Corrective evidence is isolated in Draft PR #11; it must remain Draft pending user direction.
 
 SDAR v1.2.3 G00–G16 are complete (2026-07-26); G17 release hardening is next. G16 adds immutable,
