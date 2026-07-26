@@ -494,19 +494,19 @@ operations. Exact commands, classifications and retained failures are in
 
 ## SDAR v1.2.3 G17 and Master Addendum
 
-| Acceptance       | Status                 | Implementation / evidence                                                                   |
-| ---------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
-| AC-G17-01        | verified               | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
-| AC-G17-02        | verified               | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
-| AC-G17-03        | verified               | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
-| AC-G17-04        | verified               | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
-| AC-G17-05        | verified               | executable `FeatureRolloutPolicy` and frozen default flags                                  |
-| AC-G17-06        | verified               | sources/license/NOTICE/SBOM full gate                                                       |
-| AC-G17-07        | verified               | A2A MUST 74/74 and OpenAPI 152/152                                                          |
-| AC-G17-08        | verified               | explicit advisory/authority/Python/Skill-publication declarations                           |
-| AC-G17-09        | failed: external merge | owner-authenticated external merge of PR #9 after Ready; no Codex Merge call and no tag     |
-| AC-MASTER-01..04 | verified               | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
-| AC-MASTER-05     | failed: external merge | required unmerged PR state no longer exists; evidence and no-tag state remain               |
+| Acceptance       | Status             | Implementation / evidence                                                                   |
+| ---------------- | ------------------ | ------------------------------------------------------------------------------------------- |
+| AC-G17-01        | verified           | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
+| AC-G17-02        | verified           | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
+| AC-G17-03        | verified           | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
+| AC-G17-04        | verified           | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
+| AC-G17-05        | verified           | executable `FeatureRolloutPolicy` and frozen default flags                                  |
+| AC-G17-06        | verified           | sources/license/NOTICE/SBOM full gate                                                       |
+| AC-G17-07        | verified           | A2A MUST 74/74 and OpenAPI 152/152                                                          |
+| AC-G17-08        | verified           | explicit advisory/authority/Python/Skill-publication declarations                           |
+| AC-G17-09        | accepted deviation | owner explicitly accepted the audited external merge after Ready; no Codex Merge call/tag   |
+| AC-MASTER-01..04 | verified           | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
+| AC-MASTER-05     | accepted deviation | required unmerged state is absent but explicitly owner-accepted; evidence/no-tag remain     |
 
 Exact real/simulated/unverified classification is in
 `reports/v1.2.3-release/release-report.{md,json}` and exact commands/failures are in
@@ -514,15 +514,15 @@ Exact real/simulated/unverified classification is in
 
 ## SDAR v1.3 P00 Foundation Gate Addendum
 
-| Acceptance | Status | Implementation / evidence |
-| --- | --- | --- |
-| P00 v1.2.2 execution authority | verified | `UserGoalPlanController` remains sole terminal owner; architecture gate and 62 real-path E2E pass |
-| P00 Experience closed loop | verified | Episode, Observer, typed Extractors, Reflector, Promotion and Active retrieval paths mapped in `v1.3-p00-prerequisite-matrix.json` |
-| P00 Planner Experience injection | verified | advisory decorator retains base validator, confirmation and Goal-version authority; focused unit and E2E regression pass |
-| P00 Replay/Shadow isolation | verified | deterministic Replay verifier passes with zero physical Provider/MCP/device calls |
-| P00 frozen baseline | blocked | `origin/main == v1.2.3-final == 856f909d...b4477`, but AC-G17-09/AC-MASTER-05 and the DoD protected-review item remain failed without owner acceptance |
-| P00 full gate | verified | clean commit `1bcee057...bb572`, `dirty=false`; 765 unit/contract, 84 real integration, 62 real E2E, migrations/build/smoke pass |
-| P00 contract handoff | blocked | independent review accepted field/hash alignment but rejected `READY_FULL`; exact Handoff now carries `V123_RELEASE_DEVIATION_NOT_ACCEPTED` |
+| Acceptance                       | Status               | Implementation / evidence                                                                                                                                               |
+| -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P00 v1.2.2 execution authority   | verified             | `UserGoalPlanController` remains sole terminal owner; architecture gate and 62 real-path E2E pass                                                                       |
+| P00 Experience closed loop       | verified             | Episode, Observer, typed Extractors, Reflector, Promotion and Active retrieval paths mapped in `v1.3-p00-prerequisite-matrix.json`                                      |
+| P00 Planner Experience injection | verified             | advisory decorator retains base validator, confirmation and Goal-version authority; focused unit and E2E regression pass                                                |
+| P00 Replay/Shadow isolation      | verified             | deterministic Replay verifier passes with zero physical Provider/MCP/device calls                                                                                       |
+| P00 frozen baseline              | remediation accepted | `origin/main == v1.2.3-final == 856f909d...b4477`; owner acceptance closes the external-merge deviation without claiming native auto-merge or the absent unmerged state |
+| P00 full gate                    | verified             | clean commit `1bcee057...bb572`, `dirty=false`; 765 unit/contract, 84 real integration, 62 real E2E, migrations/build/smoke pass                                        |
+| P00 contract handoff             | revalidation pending | owner acceptance removes `V123_RELEASE_DEVIATION_NOT_ACCEPTED`; P00 recovery gates and fresh independent review must pass before `READY_FULL`                           |
 
 Exact P00 evidence is in `reports/goal/v1.3-p00-{baseline-report,architecture-dependency-map,completion}.md`,
 `reports/goal/v1.3-p00-{prerequisite-matrix,actual-contract,handoff}.json` and

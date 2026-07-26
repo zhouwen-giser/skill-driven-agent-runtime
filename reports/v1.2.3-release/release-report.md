@@ -1,6 +1,6 @@
 # SDAR v1.2.3 Release Audit
 
-Status: **release gates passed; external owner-authenticated merge deviation**
+Status: **release gates passed; external merge deviation explicitly accepted by the repository owner**
 
 The clean release gate passed on
 `7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false` in 171,145 ms. It ran 765
@@ -60,6 +60,8 @@ owner-authenticated merge at `d68195a7634a7c9694f0ba1e971d9327813fb03d` without 
 and deleted the branch. The public timeline contains no native auto-merge enablement event and the
 current repository setting disables auto-merge, so the initiating mechanism remains unverified. The
 branch was recreated by the already-running final evidence push. No tag was created. The merge cannot
-be honestly classified as compliant with AC-G17-09/AC-MASTER-05 and is not reverted automatically.
-Exact event IDs and current containment are in
-`reports/v1.2.3-release/merge-deviation-audit.{md,json}`.
+be honestly classified as having preserved the required unmerged state. On 2026-07-26 the repository
+owner explicitly accepted that external-merge deviation as the v1.2.3 release disposition, without
+claiming native auto-merge or rewriting the audited timeline. Exact event IDs and current containment
+are in `reports/v1.2.3-release/merge-deviation-audit.{md,json}`; the acceptance record is
+`reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md`.
