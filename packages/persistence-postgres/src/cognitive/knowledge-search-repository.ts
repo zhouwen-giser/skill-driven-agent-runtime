@@ -339,8 +339,9 @@ async function insertUsage(client: PoolClient, input: ExperienceUsageRecord): Pr
     `INSERT INTO experience_usage_record(
        usage_id,planning_session_id,plan_candidate_id,knowledge_kind,knowledge_id,
        knowledge_revision,injection_mode,influence,user_action,validator_result,
-       final_outcome_ref,created_at,authoritative_ref,query_fingerprint,retrieval_rank)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,NULL,NULL,NULL,$9,$10,$11,$12)
+       final_outcome_ref,created_at,authoritative_ref,query_fingerprint,retrieval_rank,
+       affected_skill_goal_ids)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,NULL,NULL,NULL,$9,$10,$11,$12,$13::jsonb)
      ON CONFLICT (planning_session_id,knowledge_kind,knowledge_id,knowledge_revision)
      DO NOTHING
      RETURNING usage_id`,
@@ -357,6 +358,7 @@ async function insertUsage(client: PoolClient, input: ExperienceUsageRecord): Pr
       input.authoritativeRef,
       input.queryFingerprint,
       input.retrievalRank,
+      JSON.stringify(input.affectedSkillGoalIds),
     ],
   );
   return result.rowCount === 1;
@@ -374,8 +376,8 @@ function insertUsageEvent(client: PoolClient, input: ExperienceUsageRecord): Pro
          'knowledgeKind',$5::text,'knowledgeId',$6::text,
          'knowledgeRevision',$7::integer,'authoritativeRef',$8::text,
          'queryFingerprint',$9::text,'retrievalRank',$10::integer,
-         'injectionMode',$11::text
-       ),$12,NULL)`,
+         'injectionMode',$11::text,'affectedSkillGoalIds',$12::jsonb
+       ),$13,NULL)`,
     [
       stableId('outbox-planning-knowledge-used', input.usageId),
       input.planningSessionId,
@@ -388,6 +390,7 @@ function insertUsageEvent(client: PoolClient, input: ExperienceUsageRecord): Pro
       input.queryFingerprint,
       input.retrievalRank,
       input.injectionMode,
+      JSON.stringify(input.affectedSkillGoalIds),
       input.createdAt,
     ],
   );

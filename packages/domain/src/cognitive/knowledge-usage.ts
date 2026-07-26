@@ -98,7 +98,11 @@ export interface ExperienceUsageRecord {
   readonly queryFingerprint: string;
   readonly retrievalRank: number;
   readonly injectionMode: CognitiveInjectionMode;
+  readonly affectedSkillGoalIds: readonly string[];
   readonly influence: Readonly<Record<string, unknown>>;
+  readonly userAction?: 'accepted' | 'rejected' | 'patched' | 'canceled';
+  readonly validatorResult?: Readonly<Record<string, unknown>>;
+  readonly finalOutcomeRef?: string;
   readonly createdAt: string;
 }
 
@@ -235,14 +239,29 @@ export function createExperienceUsageRecord(input: ExperienceUsageRecord): Exper
   assertPositiveVersion(input.knowledgeRevision, 'knowledgeRevision');
   assertPositiveVersion(input.retrievalRank, 'retrievalRank');
   assertTimestamp(input.createdAt, 'createdAt');
+  if (input.finalOutcomeRef !== undefined)
+    assertIdentifier(input.finalOutcomeRef, 'finalOutcomeRef');
   if (
     input.authoritativeRef !==
       `${input.knowledgeKind}:${input.knowledgeId}:${String(input.knowledgeRevision)}` ||
-    !/^sha256:[0-9a-f]{64}$/u.test(input.queryFingerprint)
+    !/^sha256:[0-9a-f]{64}$/u.test(input.queryFingerprint) ||
+    (input.userAction !== undefined &&
+      !['accepted', 'rejected', 'patched', 'canceled'].includes(input.userAction)) ||
+    (input.validatorResult !== undefined &&
+      (typeof input.validatorResult !== 'object' ||
+        input.validatorResult === null ||
+        Array.isArray(input.validatorResult)))
   ) {
-    invalid('Experience usage authority or query fingerprint is invalid.');
+    invalid('Experience usage authority, feedback or query fingerprint is invalid.');
   }
-  return Object.freeze({ ...input, influence: Object.freeze({ ...input.influence }) });
+  return Object.freeze({
+    ...input,
+    affectedSkillGoalIds: identifiers(input.affectedSkillGoalIds, 'affectedSkillGoalId'),
+    influence: Object.freeze({ ...input.influence }),
+    ...(input.validatorResult === undefined
+      ? {}
+      : { validatorResult: Object.freeze({ ...input.validatorResult }) }),
+  });
 }
 
 function identifiers(values: readonly string[], field: string, sort = true): readonly string[] {

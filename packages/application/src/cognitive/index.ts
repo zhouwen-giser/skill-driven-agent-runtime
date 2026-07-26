@@ -53,3 +53,5 @@ export * from './planning-context-budget.js';
 export * from './current-exact-skill-source.js';
 export * from './knowledge-applicability-evaluator.js';
 export * from './planning-knowledge-retriever.js';
+export * from './planning-experience-context-builder.js';
+export * from './experience-enriched-planner.js';

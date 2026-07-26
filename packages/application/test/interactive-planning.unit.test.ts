@@ -282,6 +282,7 @@ function goal(): Goal {
 function startInput(value: Goal) {
   return {
     taskId: 'task.interactive-plan',
+    userId: 'user.interactive-plan',
     goalSessionId: 'goal-session.interactive-plan',
     confirmedContractCandidateId: 'goal-contract-candidate.confirmed',
     goal: value,

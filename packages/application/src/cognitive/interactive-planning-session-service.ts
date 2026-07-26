@@ -3,7 +3,9 @@ import {
   createInteractivePlanningSessionSnapshot,
   createInteractivePlanningTurn,
   createUserGoalPlanCandidateSnapshot,
+  type CognitiveInjectionMode,
   type CognitiveSourceRef,
+  type ExperienceUsageRecord,
   type Goal,
   type InteractivePlanningAction,
   type InteractivePlanningSessionSnapshot,
@@ -19,7 +21,15 @@ import {
 } from '../user-goal-planning.js';
 import type { ConfirmedPlanHandoff } from './confirmed-plan-handoff.js';
 import type { InteractivePlanPatchService } from './interactive-plan-patch-service.js';
-import type { InteractivePlanningMutationResult, InteractivePlanningRepository } from './ports.js';
+import type {
+  ExperienceUsageRepository,
+  InteractivePlanningMutationResult,
+  InteractivePlanningRepository,
+} from './ports.js';
+import type {
+  ExperienceEnrichedUserGoalPlanningService,
+  ExperiencePlanningResult,
+} from './experience-enriched-planner.js';
 import type { UserGoalPlanCandidateValidator } from './user-goal-plan-candidate-validator.js';
 import type {
   PlanningCorrectionObserver,
@@ -44,6 +54,9 @@ export interface InteractivePlanningSessionView {
 export class InteractivePlanningSessionService {
   readonly #repository: InteractivePlanningRepository;
   readonly #planner: Pick<UserGoalPlanningService, 'generateCandidate'>;
+  readonly #experiencePlanner: Pick<ExperienceEnrichedUserGoalPlanningService, 'plan'> | undefined;
+  readonly #experienceUsage: ExperienceUsageRepository | undefined;
+  readonly #injectionMode: CognitiveInjectionMode;
   readonly #patches: Pick<InteractivePlanPatchService, 'compile'>;
   readonly #validator: UserGoalPlanCandidateValidator;
   readonly #handoff: Pick<ConfirmedPlanHandoff, 'commit'>;
@@ -63,6 +76,9 @@ export class InteractivePlanningSessionService {
     dependencies: Readonly<{
       repository: InteractivePlanningRepository;
       planner: Pick<UserGoalPlanningService, 'generateCandidate'>;
+      experiencePlanner?: Pick<ExperienceEnrichedUserGoalPlanningService, 'plan'>;
+      experienceUsage?: ExperienceUsageRepository;
+      injectionMode?: CognitiveInjectionMode;
       patches: Pick<InteractivePlanPatchService, 'compile'>;
       validator: UserGoalPlanCandidateValidator;
       handoff: Pick<ConfirmedPlanHandoff, 'commit'>;
@@ -81,6 +97,9 @@ export class InteractivePlanningSessionService {
   ) {
     this.#repository = dependencies.repository;
     this.#planner = dependencies.planner;
+    this.#experiencePlanner = dependencies.experiencePlanner;
+    this.#experienceUsage = dependencies.experienceUsage;
+    this.#injectionMode = dependencies.injectionMode ?? 'off';
     this.#patches = dependencies.patches;
     this.#validator = dependencies.validator;
     this.#handoff = dependencies.handoff;
@@ -96,6 +115,7 @@ export class InteractivePlanningSessionService {
   async start(
     input: Readonly<{
       taskId: string;
+      userId: string;
       goalSessionId: string;
       confirmedContractCandidateId: string;
       goal: Goal;
@@ -111,18 +131,29 @@ export class InteractivePlanningSessionService {
     }
     const timestamp = this.#clock.now();
     const sessionId = this.#ids.nextSessionId();
-    const generated = await this.#planner.generateCandidate({ goal: input.goal });
+    const candidateId = this.#ids.nextCandidateId();
+    const planned = await this.#plan({
+      taskId: input.taskId,
+      userId: input.userId,
+      sessionId,
+      candidateId,
+      goal: input.goal,
+    });
+    const generated = { contract: planned.contract, plan: planned.plan };
+    const confirmationPolicy = planned.requiresManualConfirmation
+      ? 'manual_all'
+      : this.#defaultConfirmationPolicy;
     const validation = this.#validator.validate(
       generated.contract,
       generated.plan,
-      this.#defaultConfirmationPolicy,
+      confirmationPolicy,
     );
     if (!validation.valid) throw new Error(validation.errorCodes.join(','));
     const riskLevel = this.#validator.riskLevel(generated.plan);
-    const autoConfirm = shouldAutoConfirm(this.#defaultConfirmationPolicy, riskLevel);
+    const autoConfirm = shouldAutoConfirm(confirmationPolicy, riskLevel);
     const candidate = createUserGoalPlanCandidateSnapshot({
       schemaVersion: COGNITIVE_SCHEMA_VERSION,
-      candidateId: this.#ids.nextCandidateId(),
+      candidateId,
       sessionId,
       revision: 1,
       status: autoConfirm ? 'confirmed' : 'candidate',
@@ -134,11 +165,18 @@ export class InteractivePlanningSessionService {
         addedSkillGoalIds: generated.plan.skillGoals.map((goal) => goal.skillGoalId).sort(),
         removedSkillGoalIds: [],
       },
-      experienceHints: input.experienceHints ?? [],
-      confirmationPolicy: this.#defaultConfirmationPolicy,
+      experienceHints: [
+        ...(input.experienceHints ?? []),
+        `injection_mode:${planned.mode}`,
+        ...(planned.fallbackReason === undefined
+          ? []
+          : [`experience_fallback:${planned.fallbackReason}`]),
+        ...planned.usageRecords.map((record) => `knowledge:${record.authoritativeRef}`),
+      ],
+      confirmationPolicy,
       riskLevel,
       planningMetadata: { priorities: {}, parallelGroups: {} },
-      sourceRefs: input.sourceRefs,
+      sourceRefs: [...input.sourceRefs, ...knowledgeSourceRefs(planned.usageRecords, timestamp)],
       createdAt: timestamp,
     });
     const session = createInteractivePlanningSessionSnapshot({
@@ -159,7 +197,14 @@ export class InteractivePlanningSessionService {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    const persisted = await this.#repository.start(session, candidate);
+    const persisted =
+      planned.usageRecords.length > 0 && this.#experienceUsage !== undefined
+        ? await this.#experienceUsage.saveWithPlanCandidate(
+            session,
+            candidate,
+            planned.usageRecords,
+          )
+        : await this.#repository.start(session, candidate);
     return this.#viewAndEnsureHandoff(
       persisted.sessionId === session.sessionId ? 'started' : 'duplicate',
       persisted,
@@ -267,6 +312,34 @@ export class InteractivePlanningSessionService {
     return this.#viewAndEnsureHandoff(result.outcome, result.session);
   }
 
+  async #plan(input: {
+    taskId: string;
+    userId: string;
+    sessionId: string;
+    candidateId: string;
+    goal: Goal;
+  }): Promise<ExperiencePlanningResult> {
+    if (this.#experiencePlanner !== undefined) {
+      return this.#experiencePlanner.plan({
+        mode: this.#injectionMode,
+        taskId: input.taskId,
+        userId: input.userId,
+        planningSessionId: input.sessionId,
+        planCandidateId: input.candidateId,
+        promotionPolicyVersion: 'knowledge-promotion-v1',
+        goal: input.goal,
+      });
+    }
+    const generated = await this.#planner.generateCandidate({ goal: input.goal });
+    return {
+      ...generated,
+      mode: 'off',
+      selected: 'base',
+      requiresManualConfirmation: false,
+      usageRecords: [],
+    };
+  }
+
   async #viewAndEnsureHandoff(
     outcome: InteractivePlanningSessionView['outcome'],
     session: InteractivePlanningSessionSnapshot,
@@ -302,6 +375,32 @@ export class InteractivePlanningSessionService {
   ): InteractivePlanningSessionView {
     return { outcome, session, candidate };
   }
+}
+
+function knowledgeSourceRefs(
+  records: readonly ExperienceUsageRecord[],
+  capturedAt: string,
+): readonly CognitiveSourceRef[] {
+  return records.map((record) => ({
+    schemaVersion: COGNITIVE_SCHEMA_VERSION,
+    sourceRefId: `source.knowledge.${record.knowledgeKind}.${record.knowledgeId}.${String(record.knowledgeRevision)}`,
+    sourceKind: 'knowledge_revision',
+    sourceId: record.knowledgeId,
+    sourceRevision: record.knowledgeRevision,
+    authority: 'promoted_knowledge',
+    dataClassification: knowledgeDataClassification(record),
+    capturedAt,
+    contentHash: record.queryFingerprint,
+  }));
+}
+
+function knowledgeDataClassification(
+  record: ExperienceUsageRecord,
+): CognitiveSourceRef['dataClassification'] {
+  const scope = record.influence['knowledgeScope'];
+  if (scope === 'user') return 'user_scoped';
+  if (scope === 'global_candidate') return 'internal';
+  return 'restricted';
 }
 
 function planCorrectionInput(

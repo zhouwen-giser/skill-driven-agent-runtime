@@ -132,6 +132,7 @@ import {
   createExperienceExtraction,
   createExperienceObservationStatement,
   createExperienceReflection,
+  createExperienceUsageRecord,
   createKnowledgeCandidateIdentity,
   createKnowledgeCandidateSnapshot,
   createKnowledgeDelta,
@@ -3863,6 +3864,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
   });
   it('atomically commits and idempotently replays an achieved runtime outcome', async () => {
     const fixture = await createTerminalOutcomeFixture('achieved');
+    const linkedUsageId = await seedTerminalLinkedExperienceUsage(fixture.goalId, 1);
 
     const first = await fixture.outcomes.commitAchieved(fixture.achievedInput);
     const repeated = await fixture.outcomes.commitAchieved(fixture.achievedInput);
@@ -3892,6 +3894,13 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ]);
     const counts = await terminalOutcomeCounts(fixture);
     expect(counts).toEqual({ outcomes: 1, results: 1, events: 1, rounds: 1 });
+    await expect(
+      pool.query('SELECT final_outcome_ref FROM experience_usage_record WHERE usage_id=$1', [
+        linkedUsageId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [{ final_outcome_ref: fixture.achievedInput.outcomeId }],
+    });
 
     const warning = {
       source: 'result_memory' as const,
@@ -5236,7 +5245,23 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: candidate.createdAt,
       updatedAt: candidate.createdAt,
     });
-    await repository.start(session, candidate);
+    const usage = createExperienceUsageRecord({
+      schemaVersion: '1.0',
+      usageId: 'usage.planning.pg.1',
+      planningSessionId: session.sessionId,
+      planCandidateId: candidate.candidateId,
+      knowledgeKind: 'planning_heuristic',
+      knowledgeId: 'knowledge.planning.pg.1',
+      knowledgeRevision: 1,
+      authoritativeRef: 'planning_heuristic:knowledge.planning.pg.1:1',
+      queryFingerprint: `sha256:${'3'.repeat(64)}`,
+      retrievalRank: 1,
+      injectionMode: 'advisory',
+      affectedSkillGoalIds: ['skill-goal.inspect.pg'],
+      influence: { knowledgeScope: 'user', rrfScore: 0.75, sources: ['text', 'vector'] },
+      createdAt: candidate.createdAt,
+    });
+    await repository.saveWithPlanCandidate(session, candidate, [usage]);
     const mutations = ['planning.accept.a', 'planning.accept.b'].map((key, index) => ({
       expectedVersion: 1,
       idempotencyKey: key,
@@ -5284,6 +5309,43 @@ describe('PostgreSQL protocol-domain repositories', () => {
       'plan.candidate_created',
       'plan.confirmed',
     ]);
+    await expect(
+      pool.query(
+        `SELECT plan_candidate_id,user_action,validator_result,affected_skill_goal_ids
+         FROM experience_usage_record WHERE usage_id=$1`,
+        [usage.usageId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          plan_candidate_id: candidate.candidateId,
+          user_action: 'accepted',
+          validator_result: candidate.validation,
+          affected_skill_goal_ids: ['skill-goal.inspect.pg'],
+        },
+      ],
+    });
+    const rolledBackCandidate = createUserGoalPlanCandidateSnapshot({
+      ...candidate,
+      candidateId: 'plan-candidate.pg.rollback',
+      sessionId: 'planning-session.pg.rollback',
+    });
+    const rolledBackSession = createInteractivePlanningSessionSnapshot({
+      ...session,
+      sessionId: rolledBackCandidate.sessionId,
+      taskId: 'task.interactive-planning.pg.rollback',
+      currentCandidateId: rolledBackCandidate.candidateId,
+    });
+    const invalidBinding = createExperienceUsageRecord({
+      ...usage,
+      usageId: 'usage.planning.pg.rollback',
+      planningSessionId: rolledBackSession.sessionId,
+      planCandidateId: 'plan-candidate.pg.wrong-binding',
+    });
+    await expect(
+      repository.saveWithPlanCandidate(rolledBackSession, rolledBackCandidate, [invalidBinding]),
+    ).rejects.toThrow('EXPERIENCE_USAGE_PLAN_CANDIDATE_BINDING_INVALID');
+    await expect(repository.find(rolledBackSession.sessionId)).resolves.toBeUndefined();
 
     const lock = new PostgresGoalVersionLock(pool);
     let active = 0;
@@ -6572,6 +6634,54 @@ async function seedConfirmedGoalSessionForPlanning() {
   });
   await new PostgresInteractiveGoalRepository(pool).start(session, candidate);
   return { sessionId: session.sessionId, candidateId: candidate.candidateId, sourceRefs: [] };
+}
+
+async function seedTerminalLinkedExperienceUsage(
+  goalId: string,
+  goalVersion: number,
+): Promise<string> {
+  const goalSession = await seedConfirmedGoalSessionForPlanning();
+  const planningSessionId = 'planning-session.terminal-usage.pg';
+  const planCandidateId = 'plan-candidate.terminal-usage.pg';
+  const usageId = 'usage.terminal-outcome.pg';
+  const createdAt = '2026-07-16T00:00:01.000Z';
+  await pool.query(
+    `INSERT INTO interactive_planning_session(
+       session_id,task_id,goal_session_id,confirmed_contract_candidate_id,state,version,
+       current_candidate_id,current_candidate_revision,revision_count,max_revisions,
+       created_at,updated_at,goal_id,goal_version,max_elapsed_ms)
+     VALUES($1,'task.terminal-usage.pg',$2,$3,'plan_review',1,$4,1,1,4,$5,$5,$6,$7,900000)`,
+    [
+      planningSessionId,
+      goalSession.sessionId,
+      goalSession.candidateId,
+      planCandidateId,
+      createdAt,
+      goalId,
+      goalVersion,
+    ],
+  );
+  await pool.query(
+    `INSERT INTO user_goal_plan_candidate(
+       candidate_id,session_id,revision,status,base_plan_id,plan,plan_hash,validation,
+       source_refs,created_at,diff,experience_hints,confirmation_policy,risk_level,
+       planning_metadata,patch_model_invocation_id)
+     VALUES($1,$2,1,'candidate',NULL,'{}'::jsonb,$3,'{}'::jsonb,'[]'::jsonb,$4,
+       '{}'::jsonb,'[]'::jsonb,'manual_all','low','{}'::jsonb,NULL)`,
+    [planCandidateId, planningSessionId, `sha256:${'8'.repeat(64)}`, createdAt],
+  );
+  await pool.query(
+    `INSERT INTO experience_usage_record(
+       usage_id,planning_session_id,plan_candidate_id,knowledge_kind,knowledge_id,
+       knowledge_revision,injection_mode,influence,user_action,validator_result,
+       final_outcome_ref,created_at,authoritative_ref,query_fingerprint,retrieval_rank,
+       affected_skill_goal_ids)
+     VALUES($1,$2,$3,'planning_heuristic','knowledge.terminal-usage.pg',1,'advisory',
+       '{}'::jsonb,'accepted','{}'::jsonb,NULL,$4,
+       'planning_heuristic:knowledge.terminal-usage.pg:1',$5,1,'[]'::jsonb)`,
+    [usageId, planningSessionId, planCandidateId, createdAt, `sha256:${'7'.repeat(64)}`],
+  );
+  return usageId;
 }
 
 function capabilitySummary(summaryId: string, revision: number, hashCharacter: string) {

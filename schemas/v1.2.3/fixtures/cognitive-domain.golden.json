@@ -665,10 +665,15 @@
     "queryFingerprint": "sha256:abababababababababababababababababababababababababababababababab",
     "retrievalRank": 1,
     "injectionMode": "advisory",
+    "affectedSkillGoalIds": ["skill-goal.inspect.v123"],
     "influence": {
       "rrfScore": 0.03278688524590164,
-      "sources": ["text", "vector"]
+      "sources": ["text", "vector"],
+      "affectedSkillGoalIds": ["skill-goal.inspect.v123"]
     },
+    "userAction": "accepted",
+    "validatorResult": { "valid": true, "errorCodes": [] },
+    "finalOutcomeRef": "outcome.v123",
     "createdAt": "2026-07-26T08:30:00.000Z"
   },
   "planningKnowledgeBundle": {

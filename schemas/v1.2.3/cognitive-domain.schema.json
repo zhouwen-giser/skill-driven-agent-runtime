@@ -1777,6 +1777,7 @@
         "queryFingerprint",
         "retrievalRank",
         "injectionMode",
+        "affectedSkillGoalIds",
         "influence",
         "createdAt"
       ],
@@ -1792,7 +1793,15 @@
         "queryFingerprint": { "$ref": "#/$defs/hash" },
         "retrievalRank": { "type": "integer", "minimum": 1 },
         "injectionMode": { "enum": ["off", "shadow", "advisory", "active_low_risk"] },
+        "affectedSkillGoalIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
         "influence": { "type": "object" },
+        "userAction": { "enum": ["accepted", "rejected", "patched", "canceled"] },
+        "validatorResult": { "type": "object" },
+        "finalOutcomeRef": { "$ref": "#/$defs/id" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },

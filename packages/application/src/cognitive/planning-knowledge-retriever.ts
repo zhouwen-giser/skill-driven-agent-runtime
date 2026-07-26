@@ -20,6 +20,23 @@ import type { KnowledgeRelationExpander } from './knowledge-relation-expander.js
 import type { PlanningContextBudget } from './planning-context-budget.js';
 import type { ReciprocalRankFusion } from './rrf-ranker.js';
 
+export interface PlanningKnowledgeRetrievalInput {
+  readonly query: string;
+  readonly applicabilityTerms: readonly string[];
+  readonly scope: KnowledgeUsageScope;
+  readonly catalogHash: string;
+  readonly promotionPolicyVersion: string;
+  readonly planningSessionId: string;
+  readonly planCandidateId: string;
+  readonly injectionMode: CognitiveInjectionMode;
+  readonly limit?: number;
+}
+
+export interface PreparedPlanningKnowledge {
+  readonly bundle: PlanningKnowledgeBundle;
+  readonly usageRecords: readonly ExperienceUsageRecord[];
+}
+
 export class PlanningKnowledgeRetriever {
   readonly #repository: KnowledgeSearchRepository;
   readonly #embeddings: TextEmbeddingProvider;
@@ -61,19 +78,37 @@ export class PlanningKnowledgeRetriever {
     this.#nextUsageId = dependencies.nextUsageId;
   }
 
-  async retrieve(
-    input: Readonly<{
-      query: string;
-      applicabilityTerms: readonly string[];
-      scope: KnowledgeUsageScope;
-      catalogHash: string;
-      promotionPolicyVersion: string;
-      planningSessionId: string;
-      planCandidateId: string;
-      injectionMode: CognitiveInjectionMode;
-      limit?: number;
-    }>,
-  ): Promise<PlanningKnowledgeBundle> {
+  async retrieve(input: PlanningKnowledgeRetrievalInput): Promise<PlanningKnowledgeBundle> {
+    const prepared = await this.prepare(input);
+    const reservedRefs = new Set(await this.#repository.recordUsage(prepared.usageRecords));
+    const ranked = prepared.bundle.definitions
+      .filter((definition) => reservedRefs.has(definition.authoritativeRef))
+      .map((entry) => {
+        const record = prepared.usageRecords.find(
+          (candidate) => candidate.authoritativeRef === entry.authoritativeRef,
+        );
+        return {
+          entry,
+          rrfScore: numericInfluence(record, 'rrfScore'),
+          sources: influenceSources(record),
+          ...(numericInfluence(record, 'textConfidence') === 0
+            ? {}
+            : { textConfidence: numericInfluence(record, 'textConfidence') }),
+          ...(numericInfluence(record, 'vectorConfidence') === 0
+            ? {}
+            : { vectorConfidence: numericInfluence(record, 'vectorConfidence') }),
+        } satisfies FusedKnowledgeHit;
+      });
+    return this.#budget.apply({
+      queryFingerprint: prepared.bundle.queryFingerprint,
+      ranked,
+      exactSkills: prepared.bundle.exactSkills,
+      conflicts: relevantConflicts(prepared.bundle.conflicts, reservedRefs),
+      elapsedMs: prepared.bundle.elapsedMs,
+    });
+  }
+
+  async prepare(input: PlanningKnowledgeRetrievalInput): Promise<PreparedPlanningKnowledge> {
     const started = this.#monotonicNow();
     const query = input.query.trim();
     if (query.length === 0) throw new Error('KNOWLEDGE_RETRIEVAL_QUERY_REQUIRED');
@@ -85,7 +120,10 @@ export class PlanningKnowledgeRetriever {
       promotionPolicyVersion: input.promotionPolicyVersion,
     });
     if (input.injectionMode === 'off') {
-      return emptyBundle(queryFingerprint, this.#monotonicNow() - started);
+      return Object.freeze({
+        bundle: emptyBundle(queryFingerprint, this.#monotonicNow() - started),
+        usageRecords: Object.freeze([]),
+      });
     }
     const filters: KnowledgeSearchFilters = Object.freeze({
       scope: input.scope,
@@ -152,16 +190,9 @@ export class PlanningKnowledgeRetriever {
         ranked: expanded.included,
       }),
     );
-    const reservedRefs = new Set(await this.#repository.recordUsage(records));
-    const reserved = expanded.included.filter((item) =>
-      reservedRefs.has(item.entry.authoritativeRef),
-    );
-    return this.#budget.apply({
-      queryFingerprint,
-      ranked: reserved,
-      exactSkills,
-      conflicts: relevantConflicts(expanded.conflicts, reservedRefs),
-      elapsedMs: this.#monotonicNow() - started,
+    return Object.freeze({
+      bundle: provisional,
+      usageRecords: Object.freeze(records),
     });
   }
 
@@ -191,7 +222,9 @@ export class PlanningKnowledgeRetriever {
       queryFingerprint: input.queryFingerprint,
       retrievalRank: input.rank,
       injectionMode: input.injectionMode,
+      affectedSkillGoalIds: [],
       influence: {
+        knowledgeScope: input.definition.scope,
         rrfScore: hit?.rrfScore ?? 0,
         sources: hit?.sources ?? [],
         ...(hit?.textConfidence === undefined ? {} : { textConfidence: hit.textConfidence }),
@@ -200,6 +233,22 @@ export class PlanningKnowledgeRetriever {
       createdAt: this.#clock.now(),
     });
   }
+}
+
+function numericInfluence(record: ExperienceUsageRecord | undefined, field: string): number {
+  const value = record?.influence[field];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function influenceSources(
+  record: ExperienceUsageRecord | undefined,
+): readonly ('text' | 'vector')[] {
+  const value = record?.influence['sources'];
+  return Array.isArray(value)
+    ? value.filter(
+        (source): source is 'text' | 'vector' => source === 'text' || source === 'vector',
+      )
+    : [];
 }
 
 function relationTargets(relations: readonly KnowledgeRelation[]): readonly string[] {

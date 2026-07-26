@@ -2182,6 +2182,16 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           input.committedAt,
         ],
       );
+      await client.query(
+        `UPDATE experience_usage_record AS usage
+         SET final_outcome_ref=$1
+         FROM interactive_planning_session AS planning
+         WHERE usage.planning_session_id=planning.session_id
+           AND planning.goal_id=$2
+           AND planning.goal_version=$3
+           AND usage.final_outcome_ref IS NULL`,
+        [input.outcomeId, input.goalId, input.goalVersion],
+      );
       await client.query('COMMIT');
       if (committedTask !== undefined) this.#onTaskStateCommitted?.(committedTask);
       return {

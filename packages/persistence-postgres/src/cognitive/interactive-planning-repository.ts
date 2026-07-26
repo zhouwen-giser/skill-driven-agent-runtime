@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
@@ -8,11 +10,13 @@ import type {
 } from '../../../application/src/cognitive/index.js';
 import {
   createCognitiveSourceRef,
+  createExperienceUsageRecord,
   createInteractivePlanningSessionSnapshot,
   createInteractivePlanningTurn,
   createUserGoalPlan,
   createUserGoalPlanCandidateSnapshot,
   type CognitiveSourceRef,
+  type ExperienceUsageRecord,
   type InteractivePlanningSessionSnapshot,
   type InteractivePlanningTurn,
   type UserGoalPlan,
@@ -261,6 +265,22 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
     session: InteractivePlanningSessionSnapshot,
     candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
   ): Promise<InteractivePlanningSessionSnapshot> {
+    return this.#start(session, candidate, []);
+  }
+
+  async saveWithPlanCandidate(
+    session: InteractivePlanningSessionSnapshot,
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    usageRecords: readonly ExperienceUsageRecord[],
+  ): Promise<InteractivePlanningSessionSnapshot> {
+    return this.#start(session, candidate, usageRecords.map(createExperienceUsageRecord));
+  }
+
+  async #start(
+    session: InteractivePlanningSessionSnapshot,
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    usageRecords: readonly ExperienceUsageRecord[],
+  ): Promise<InteractivePlanningSessionSnapshot> {
     const snapshot = createInteractivePlanningSessionSnapshot(session);
     const client = await this.#pool.connect();
     try {
@@ -276,6 +296,15 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
       }
       await insertSession(client, snapshot);
       await upsertCandidate(client, candidate);
+      for (const usage of usageRecords) {
+        if (
+          usage.planningSessionId !== snapshot.sessionId ||
+          usage.planCandidateId !== candidate.candidateId
+        ) {
+          throw new Error('EXPERIENCE_USAGE_PLAN_CANDIDATE_BINDING_INVALID');
+        }
+        await insertExperienceUsage(client, usage, candidate.validation);
+      }
       await appendEvent(client, 'plan.candidate_created', snapshot, 'start', {
         candidateId: candidate.candidateId,
         planHash: candidate.planHash,
@@ -341,6 +370,14 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
         ],
       );
       if (updated.rowCount !== 1) throw new Error('INTERACTIVE_PLANNING_SESSION_CAS_FAILED');
+      await client.query(
+        `UPDATE experience_usage_record AS usage
+         SET user_action=$2,validator_result=candidate.validation
+         FROM user_goal_plan_candidate AS candidate
+         WHERE usage.plan_candidate_id=$1
+           AND candidate.candidate_id=usage.plan_candidate_id`,
+        [currentRow.current_candidate_id, experienceUserAction(mutation.turn.action)],
+      );
       if (mutation.turn.action === 'patch' && mutation.candidate !== undefined)
         await appendEvent(client, 'plan.revised', mutation.nextSession, mutation.turn.turnId, {
           candidateId: mutation.candidate.candidateId,
@@ -474,6 +511,70 @@ async function upsertCandidate(
   );
 }
 
+async function insertExperienceUsage(
+  client: PoolClient,
+  input: ExperienceUsageRecord,
+  validatorResult: UserGoalPlanCandidateSnapshot<UserGoalPlan>['validation'],
+): Promise<void> {
+  const result = await client.query(
+    `INSERT INTO experience_usage_record(
+       usage_id,planning_session_id,plan_candidate_id,knowledge_kind,knowledge_id,
+       knowledge_revision,injection_mode,influence,user_action,validator_result,
+       final_outcome_ref,created_at,authoritative_ref,query_fingerprint,retrieval_rank,
+       affected_skill_goal_ids)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,NULL,$9::jsonb,NULL,$10,$11,$12,$13,$14::jsonb)
+     ON CONFLICT (planning_session_id,knowledge_kind,knowledge_id,knowledge_revision)
+     DO NOTHING
+     RETURNING usage_id`,
+    [
+      input.usageId,
+      input.planningSessionId,
+      input.planCandidateId,
+      input.knowledgeKind,
+      input.knowledgeId,
+      input.knowledgeRevision,
+      input.injectionMode,
+      JSON.stringify(input.influence),
+      JSON.stringify(validatorResult),
+      input.createdAt,
+      input.authoritativeRef,
+      input.queryFingerprint,
+      input.retrievalRank,
+      JSON.stringify(input.affectedSkillGoalIds),
+    ],
+  );
+  if (result.rowCount !== 1) return;
+  await client.query(
+    `INSERT INTO cognitive_runtime_outbox(
+       event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+       correlation,payload,occurred_at,published_at)
+     VALUES($1,'planning.knowledge_used','experience_usage_record',$3,1,
+       jsonb_build_object('correlationId',$2::text),
+       jsonb_build_object(
+         'usageId',$3::text,'planCandidateId',$4::text,
+         'knowledgeKind',$5::text,'knowledgeId',$6::text,
+         'knowledgeRevision',$7::integer,'authoritativeRef',$8::text,
+         'queryFingerprint',$9::text,'retrievalRank',$10::integer,
+         'injectionMode',$11::text,'affectedSkillGoalIds',$12::jsonb
+       ),$13,NULL)`,
+    [
+      stableId('outbox-planning-knowledge-used', input.usageId),
+      input.planningSessionId,
+      input.usageId,
+      input.planCandidateId,
+      input.knowledgeKind,
+      input.knowledgeId,
+      input.knowledgeRevision,
+      input.authoritativeRef,
+      input.queryFingerprint,
+      input.retrievalRank,
+      input.injectionMode,
+      JSON.stringify(input.affectedSkillGoalIds),
+      input.createdAt,
+    ],
+  );
+}
+
 async function appendEvent(
   client: PoolClient,
   eventType: 'plan.candidate_created' | 'plan.revised' | 'plan.confirmed',
@@ -497,6 +598,19 @@ async function appendEvent(
       session.updatedAt,
     ],
   );
+}
+
+function stableId(prefix: string, value: string): string {
+  return `${prefix}-${createHash('sha256').update(value).digest('hex').slice(0, 32)}`;
+}
+
+function experienceUserAction(
+  action: InteractivePlanningTurn['action'],
+): 'accepted' | 'rejected' | 'patched' | 'canceled' {
+  if (action === 'accept') return 'accepted';
+  if (action === 'reject') return 'rejected';
+  if (action === 'patch') return 'patched';
+  return 'canceled';
 }
 
 async function findSessionRow(

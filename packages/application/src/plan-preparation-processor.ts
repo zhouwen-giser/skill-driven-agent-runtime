@@ -526,6 +526,7 @@ export class PlanPreparationProcessor {
       }
       const planning = await this.#dependencies.planningSessions.start({
         taskId: task.taskId,
+        userId: task.userId,
         goalSessionId: goalSession.session.sessionId,
         confirmedContractCandidateId: goalSession.candidate.candidateId,
         goal,

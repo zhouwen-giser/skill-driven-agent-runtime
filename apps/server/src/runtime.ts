@@ -142,6 +142,9 @@ import {
   PlanningContextBudget,
   PlanningHeuristicPromotionTarget,
   PlanningKnowledgeRetriever,
+  PlanningExperienceContextBuilder,
+  BasePlannerFallbackPolicy,
+  ExperienceEnrichedUserGoalPlanningService,
   ReciprocalRankFusion,
   TaskTypePromotionTarget,
   CurrentExactSkillKnowledgeSource,
@@ -162,11 +165,13 @@ import {
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
+  DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
   createCognitiveSourceRef,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
   type AgentTask,
+  type CognitiveInjectionMode,
   type GoalExecutionContract,
   type McpInvocationOutcome,
   type SkillUsageSelectionContext,
@@ -327,6 +332,8 @@ export interface ServerRuntimeOptions {
       maxElapsedMs: number;
     }>;
   }>;
+  /** Controls governed planning-knowledge injection; the frozen V1.2.3 default is shadow. */
+  readonly cognitiveInjectionMode?: CognitiveInjectionMode;
   readonly workflowBudgetDefaults?: WorkflowBudgetLimits;
   readonly workflowCallCosts?: WorkflowCallCosts;
   readonly taskWaitSweepIntervalMs?: number;
@@ -2002,11 +2009,26 @@ export async function startServerRuntime(
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
   });
+  const experiencePlanning = new ExperienceEnrichedUserGoalPlanningService({
+    base: userGoalPlanning,
+    contexts: new PlanningExperienceContextBuilder(planningKnowledge, {
+      async getCatalogHash() {
+        const active = await capabilitySummaries.getSummary();
+        if (active === undefined) throw new Error('EXPERIENCE_PLANNING_CATALOG_UNAVAILABLE');
+        return active.summary.catalogHash;
+      },
+    }),
+    fallback: new BasePlannerFallbackPolicy(),
+  });
   if (interactiveGoalSessions !== undefined) {
     const planCandidateValidator = new UserGoalPlanCandidateValidator();
     interactivePlanningSessions = new InteractivePlanningSessionService({
       repository: interactivePlanningRepository,
       planner: userGoalPlanning,
+      experiencePlanner: experiencePlanning,
+      experienceUsage: interactivePlanningRepository,
+      injectionMode:
+        options.cognitiveInjectionMode ?? DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS.injectionMode,
       patches: new InteractivePlanPatchService({
         model: cognitiveModel,
         validator: planCandidateValidator,

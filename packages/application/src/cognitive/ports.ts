@@ -7,6 +7,7 @@ import type {
   CognitiveRuntimeFeatureFlags,
   ExperienceDeadLetter,
   ExperienceExtraction,
+  ExperienceUsageRecord,
   ExperienceExtractorKind,
   ExperienceObservation,
   ExperienceReflection,
@@ -183,6 +184,14 @@ export interface InteractivePlanningRepository {
     candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
   ): Promise<InteractivePlanningSessionSnapshot>;
   apply(mutation: InteractivePlanningMutation): Promise<InteractivePlanningMutationResult>;
+}
+
+export interface ExperienceUsageRepository {
+  saveWithPlanCandidate(
+    session: InteractivePlanningSessionSnapshot,
+    candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    usageRecords: readonly ExperienceUsageRecord[],
+  ): Promise<InteractivePlanningSessionSnapshot>;
 }
 
 export interface GoalVersionLock {
