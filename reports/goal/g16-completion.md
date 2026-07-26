@@ -123,8 +123,9 @@ shadow-rollout evidence. The real PostgreSQL production evaluator is conservativ
 ## Commit, Push and Draft PR
 
 - Primary G16 implementation: `265f865dfefecf6e2e2a3d5f8d70de6516029bee`
-- Evidence commit: pending this report/traceability synchronization
-- Push: pending evidence commit
+- Evidence commit: `8886f0f`
+- Push: implementation and evidence are published to
+  `origin/feature/v1.2.3-cognitive-planning-runtime`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9> remains Draft
 - Merge/tag/Ready transition: not performed and not authorized before G17
 

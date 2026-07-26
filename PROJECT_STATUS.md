@@ -6,8 +6,8 @@ verdicts, hard-failure non-regression, a zero-Provider/MCP/device side-effect gu
 Promotion provenance through migration 0124. Insufficient samples now produce an `incubating`
 evaluation and leave Knowledge in `candidate`. Affected gates pass 604 unit, 157 contract, 84 real
 integration, 62 real E2E, 152 OpenAPI operations, 423-source architecture, A2A MUST 74/74, production
-build and all 17 additive migrations. Implementation `265f865` is committed; Draft PR #9 remains Draft
-until every G17 release gate passes.
+build and all 17 additive migrations. Implementation `265f865` and evidence `8886f0f` are pushed to
+Draft PR #9, which remains Draft until every G17 release gate passes.
 
 SDAR v1.2.3 G00–G15 are complete (2026-07-26); G16 Replay/Shadow is next. G15 provides strict
 cognitive management write envelopes, optional non-breaking bearer authentication, durable

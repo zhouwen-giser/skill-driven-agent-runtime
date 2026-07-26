@@ -456,6 +456,7 @@ remain unchanged.
 - G14 implementation HEAD: `1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd`
 - G15 implementation HEAD: `d77794a2620362bc4f59f2021283d61a164b5139`
 - G16 implementation HEAD: `265f865dfefecf6e2e2a3d5f8d70de6516029bee`
+- G16 evidence HEAD: `8886f0f6c66b85ee7b38b3fe890cdf0636279c8a`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -518,9 +519,8 @@ unfinished release work, not a blocker.
 
 ## Next Execution Step
 
-Publish the G16 evidence head and update Draft PR #9 without changing Draft status, then execute G17
-clean-checkout release, recovery, security/privacy, capacity/retention and rollout gates. Only after
-every G17 gate passes may the Draft be marked Ready; do not merge or tag.
+Execute G17 clean-checkout release, recovery, security/privacy, capacity/retention and rollout gates.
+Only after every G17 gate passes may the Draft be marked Ready; do not merge or tag.
 
 ## Outcomes and Retrospective
 
