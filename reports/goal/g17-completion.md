@@ -116,4 +116,6 @@ No automatic Skill publication from the cognitive runtime
 - retained failed verification: `7e50541`
 - release evidence: `f1f354c07ea0a6f32c911115973ea60aeab26b62`
 - PR #9: externally merged as `d68195a`; no Codex Merge call; no tag
+- corrective evidence: `3e32d73c75954e9bf9ae1610e42531d9f6254dda`
+- corrective PR #11: open and Draft; do not mark Ready/merge/tag without user direction
 - Merge/tag: not performed

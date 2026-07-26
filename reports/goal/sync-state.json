@@ -4,8 +4,9 @@
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "branch": "feature/v1.2.3-cognitive-planning-runtime",
   "baseMainSha": "10d9cb385a7d4ef87b69f2856d315573faafca9c",
-  "headSha": "f1f354c07ea0a6f32c911115973ea60aeab26b62",
-  "draftPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9",
+  "headSha": "3e32d73c75954e9bf9ae1610e42531d9f6254dda",
+  "draftPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/11",
+  "externallyMergedPr": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9",
   "goals": {
     "G00": { "status": "completed", "commit": "ffd979152ae45468f00e2cf673e97ed5fe32616c", "pushed": true, "evidence": "reports/goal/g00-completion.md", "blocker": "", "next": "Completed; frozen contracts handed to G01." },
     "G01": { "status": "completed", "commit": "820d78d22acd26a747448510fb02c5d1168a817b", "pushed": true, "evidence": "reports/goal/g01-completion.md", "blocker": "", "next": "Completed; activated Capability Summary handed to G02." },
@@ -26,7 +27,7 @@
     "G16": { "status": "completed", "commit": "265f865dfefecf6e2e2a3d5f8d70de6516029bee", "pushed": true, "evidence": "reports/goal/g16-completion.md", "blocker": "", "next": "Completed; reproducible side-effect-free Replay/Shadow evidence handed to G17." },
     "G17": { "status": "blocked_external", "commit": "8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e", "pushed": true, "evidence": "reports/goal/g17-completion.md", "blocker": "GitHub externally auto-merged PR #9 after the authorized Ready transition.", "next": "User direction required; do not auto-revert, merge or tag." }
   },
-  "lastUpdatedAt": "2026-07-26T19:57:00+08:00",
+  "lastUpdatedAt": "2026-07-26T19:59:00+08:00",
   "nextGoal": "external_merge_resolution",
   "openBlockers": ["PR #9 externally auto-merged as d68195a after Ready; unmerged final state cannot be restored without a new authorized mutation."],
   "validation": {

@@ -467,7 +467,9 @@ remain unchanged.
 - G16 evidence HEAD: `8886f0f6c66b85ee7b38b3fe890cdf0636279c8a`
 - G17 runtime controls: `8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e`
 - G17 clean verification commit: `7e505412bc50917a71c4a724ef15f659c6d5c296`
-- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
+- Externally merged PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
+- Corrective Draft PR after external merge:
+  <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/11>
 
 ## Changed Files
 

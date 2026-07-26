@@ -9,6 +9,7 @@ frozen six-stage rollout policy. Recovery/security/privacy/capacity evidence is 
 as `d68195a` and deleted the branch; no Codex Merge call or tag occurred. The branch was recreated by
 the already-running final evidence push. Release gates remain green, but the required unmerged final
 state is not satisfied and no automatic revert is authorized.
+Corrective evidence is isolated in Draft PR #11; it must remain Draft pending user direction.
 
 SDAR v1.2.3 G00–G16 are complete (2026-07-26); G17 release hardening is next. G16 adds immutable,
 evidence-linked Planning Replay datasets, disjoint development/holdout partitions, all five Shadow
