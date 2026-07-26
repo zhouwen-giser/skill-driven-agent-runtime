@@ -2,7 +2,7 @@
 
 ## Summary
 
-G07 implementation is complete and pushed. The v1.2.2 terminal Outcome transaction now
+G07 implementation is complete, pushed and verified against real PostgreSQL/Redis/A2A execution. The v1.2.2 terminal Outcome transaction now
 atomically appends `user_goal.terminal_committed`; a PostgreSQL-authoritative outbox/job/lease path
 builds one immutable Goal Experience Episode asynchronously, while BullMQ carries only rebuildable
 job-id wakes. Missing Contract, current Plan, User Goal Judgment or terminal authority is rejected
@@ -11,15 +11,13 @@ instead of producing default Experience. Dead letters are inspectable and manual
 ## Goal Contract Result
 
 ```text
-completed_with_external_test_blocker
+completed
 ```
 
-The G07 completion contract permits tests to be honestly blocked with evidence. Docker-backed
-integration/E2E execution was rejected before execution by the Codex automatic approval service
-because the account usage limit was reached (retry time reported as 2026-07-29 01:43). The meaningful
-implementation/evidence commit `301606e479e72436ac79f80d496ee40dcae9a338` is nevertheless present on
-the branch and `origin`, so G07 satisfies its Goal-level contract while the unexecuted real gates remain
-an explicit G17 release blocker. Draft PR #8 remains Draft and now contains G07.
+The original platform-usage blocker is retained under Failed Attempts. It is now resolved: the
+meaningful implementation commit `301606e479e72436ac79f80d496ee40dcae9a338` is present on the branch
+and origin, and the combined G07–G09 real verification passes. The externally merged historical PR #8
+was replaced by Draft PR #9 for continued work.
 
 ## Implementation
 
@@ -43,30 +41,30 @@ an explicit G17 release blocker. Draft PR #8 remains Draft and now contains G07.
 
 | Acceptance | Result | Evidence |
 | --- | --- | --- |
-| AC-G07-01 | implemented; real integration authored | terminal Outcome/outbox same transaction plus atomic-count integration assertion |
-| AC-G07-02 | implemented; real E2E authored | terminal A2A result is awaited before polling the asynchronously created Episode |
-| AC-G07-03 | implemented; unit verified | duplicate delivery, immutable hash and handler idempotency; PostgreSQL integration authored |
-| AC-G07-04 | verified at unit; integration authored | exact missing-fact reasons and no-Episode/dead-letter PostgreSQL assertion |
-| AC-G07-05 | implemented; unit verified | PG lease/reconciler authority and job-id-only Redis wake; expired-lease integration authored |
+| AC-G07-01 | verified | terminal Outcome/outbox same transaction plus atomic-count real PostgreSQL assertion |
+| AC-G07-02 | verified | real A2A terminal result is awaited before the asynchronously created Episode |
+| AC-G07-03 | verified | duplicate delivery, immutable hash and handler idempotency pass with PostgreSQL |
+| AC-G07-04 | verified | exact missing-fact reasons and no-Episode/dead-letter PostgreSQL assertion |
+| AC-G07-05 | verified | PG lease/reconciler authority, expired-lease recovery and job-id-only Redis wake |
 | AC-G07-06 | verified at unit | sensitive keys, inline credentials, Bearer values, URL userinfo, email and private reasoning excluded |
-| AC-G07-07 | implemented; contract verified | dead-letter GET and actor-attributed replay POST; one-shot replay integration authored |
+| AC-G07-07 | verified | dead-letter GET, actor-attributed replay POST and one-shot real integration |
 
 ## Validation
 
 | Command / gate | Result | Evidence / duration |
 | --- | ---: | --- |
-| focused G07 unit | 10/10 | 2 files; final 2.28 s Vitest duration |
-| focused API/schema contract | 52/52 | 2 files; 3.70 s Vitest duration |
-| full `vitest run --project unit` | 533/533 | 92 files; final 8.75 s Vitest duration |
-| serial `vitest run --project contract --maxWorkers=1` | 151/151 | 19 files; 18.29 s Vitest duration |
+| focused G07 unit | 10/10 | 2 files; retained Goal-focused evidence |
+| focused API/schema contract | 52/52 | Management boundary regression included |
+| full `pnpm test:unit` | 549/549 | 94 files; sandbox-external rerun after retained `listen EPERM` |
+| full `pnpm test:contract` | 152/152 | 19 files; sandbox-external rerun after retained `listen/spawn EPERM` |
 | full Prettier / ESLint / strict TypeScript | passed | all configured files; zero lint errors; `--noEmit` clean |
-| architecture gate | passed | 354 TypeScript sources; six v1.2.2 authorities; no Python product runtime |
-| management OpenAPI | passed | 139 operations |
+| architecture gate | passed | 372 TypeScript sources; six v1.2.2 authorities; no Python product runtime |
+| management OpenAPI | passed | 141 operations |
 | acceptance map / A2A baseline | passed | 18 mapped scenarios; HTTP-JSON MUST 74/74 baseline |
 | production TypeScript + Console build | passed | Vite 29 modules; 286.34 kB JS bundle |
-| migration path | passed before quota rejection | disposable PostgreSQL 17 + pgvector; 0108-0115 full migration checks |
-| real PostgreSQL/Redis integration | blocked before start | Docker approval rejected due account usage limit |
-| real Server/PostgreSQL/Redis/A2A E2E | blocked before start | same external approval limit; authored G07 slice remains unclaimed |
+| migration path | passed | v1.2.2 baseline plus 10 additive migrations through 0117, rollback/reapply and rogue-ledger rejection |
+| real PostgreSQL/Redis integration | 79/79 | 8 files; terminal authority, outbox, Episode, Observation and Reflection path |
+| real Server/PostgreSQL/Redis/A2A E2E | 62/62 | 2 files; no skipped item counted as a pass |
 | commit / push | passed | `301606e479e72436ac79f80d496ee40dcae9a338` is branch/origin HEAD before G08 work |
 
 ## Failed Attempts and Root Cause
@@ -85,7 +83,11 @@ an explicit G17 release blocker. Draft PR #8 remains Draft and now contains G07.
    values. Inline credential, Bearer, URL-userinfo and email redaction plus regressions were added.
 7. Docker integration/E2E and one staging attempt were rejected by the platform approval service due
    the usage limit. No mock evidence or default-database reset occurred. The later authoritative
-   repository state records the pushed G07 commit above; the real test blocker remains unchanged.
+   repository state records the pushed G07 commit above; the blocker was resolved on 2026-07-26.
+8. The first real integration run exposed PostgreSQL parameter inference defects in JSONB Outbox
+   construction, duplicate Episode completion after an idempotent insert, and an incomplete test
+   fixture that omitted v1.2.2 Contract/Plan/Judgment authority. Explicit text casts, persisted-Episode
+   reuse and an authoritative fixture closed these defects; the unchanged real suite passes 79/79.
 
 ## Architecture, Privacy and Recovery
 
@@ -106,11 +108,11 @@ lockfile or SBOM change is required.
 
 - Implementation/evidence commit: `301606e479e72436ac79f80d496ee40dcae9a338`
 - Push: present at `origin/feature/v1.2.3-cognitive-planning-runtime`
-- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8> remains Draft and contains G07
+- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9> remains Draft and contains G07–G09
 - Merge/tag: not performed and not authorized
 
 ## G08 Handoff
 
-G08 builds on the pushed G07 interfaces, schema, migration, `experience.episode_created` event and
-pending `observe` job. G07 must return to real integration/E2E when the external approval limit permits;
-until those gates pass, G07 evidence remains honest but cannot support the final G17 release claim.
+G08 builds on the pushed and real-verified G07 interfaces, schema, migration,
+`experience.episode_created` event and pending `observe` job. G17 will repeat the clean-checkout release
+gate; no remaining G07-specific blocker is open.

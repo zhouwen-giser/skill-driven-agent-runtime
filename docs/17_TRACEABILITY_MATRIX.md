@@ -338,43 +338,42 @@ Phase 1–5 的逐阶段命令、边界和分类保留在 `reports/v1.1-mcp-task
 
 | Acceptance | Status | Implementation | Tests / evidence |
 | --- | --- | --- | --- |
-| AC-G07-01 terminal Fact/outbox atomicity | implemented, real test blocked | terminal repository writes `user_goal.terminal_committed` in the v1.2.2 Outcome transaction | authored PostgreSQL atomic-count integration; execution blocked by platform quota |
-| AC-G07-02 asynchronous terminal path | implemented, real test blocked | dispatcher/worker run after terminal commit; A2A does not call Experience synchronously | authored real A2A terminal-then-Episode polling slice; execution blocked |
-| AC-G07-03 duplicate/restart idempotency | unit verified, real test blocked | outbox/job keys, Episode hash/terminal uniqueness and handler replay safety | duplicate unit passes; PostgreSQL integration authored |
-| AC-G07-04 no default Experience | unit verified, real test blocked | exact Eligibility requires Contract/current Plan/Judgment/terminal authority | missing-fact unit passes; no-Episode/dead-letter integration authored |
-| AC-G07-05 PostgreSQL job authority | unit verified, real test blocked | PG lease/attempt/backoff/reconciler; Redis `{jobId}` wake only | reconciler unit passes; expired-lease integration authored |
+| AC-G07-01 terminal Fact/outbox atomicity | verified | terminal repository writes `user_goal.terminal_committed` in the v1.2.2 Outcome transaction | real PostgreSQL atomic-count integration passes |
+| AC-G07-02 asynchronous terminal path | verified | dispatcher/worker run after terminal commit; A2A does not call Experience synchronously | real A2A terminal-then-Episode slice passes |
+| AC-G07-03 duplicate/restart idempotency | verified | outbox/job keys, Episode hash/terminal uniqueness and persisted-Episode replay safety | unit plus real PostgreSQL duplicate/crash-boundary integration |
+| AC-G07-04 no default Experience | verified | exact Eligibility requires Contract/current Plan/Judgment/terminal authority | exact missing-fact/no-Episode/dead-letter integration passes |
+| AC-G07-05 PostgreSQL job authority | verified | PG lease/attempt/backoff/reconciler; Redis `{jobId}` wake only | reconciler and expired-lease real integration pass |
 | AC-G07-06 credential/reasoning/PII exclusion | verified | recursive key and inline string redaction with immutable snapshot | focused redaction regression passes |
-| AC-G07-07 dead-letter replay | contract verified, real test blocked | inspect and actor-attributed one-shot replay API | 52 focused contracts pass; replay integration authored |
+| AC-G07-07 dead-letter replay | verified | inspect and actor-attributed one-shot replay API | 52 focused contracts and real replay integration pass |
 
-G07 is pushed as `301606e479e72436ac79f80d496ee40dcae9a338`; its Goal contract permits the
-real integration/E2E gates to remain honestly blocked, but those gates still block the final release
-claim. Exact evidence and failed attempts are retained in `reports/goal/g07-completion.md`.
+G07 is pushed as `301606e479e72436ac79f80d496ee40dcae9a338`; real closure evidence and retained
+failed attempts are in `reports/goal/g07-completion.md`.
 
 ## SDAR v1.2.3 G08 Addendum
 
 | Acceptance | Status | Implementation | Tests / evidence |
 | --- | --- | --- | --- |
-| AC-G08-01 source-linked Observation | implemented, real test blocked | Observer consumes immutable Goal Episodes; PG save verifies all sources and model invocation FKs | focused service unit passes; PostgreSQL round-trip and real A2A slice authored |
+| AC-G08-01 source-linked Observation | verified | Observer consumes immutable Goal Episodes; PG save verifies all sources and model invocation FKs | focused unit plus real PostgreSQL/A2A round-trip |
 | AC-G08-02 typed independent extractors | verified at unit | twelve `ExperienceExtractor<T>` instances each own literal Zod/JSON Schema and failure state | schema golden plus invalid-dependency isolation passes |
 | AC-G08-03 distinct statement classes | verified | Domain/JSON schema distinguish fact/inference/candidate_lesson/uncertainty/contradiction | all five classes asserted across 12 results |
 | AC-G08-04 evidence no-op | verified | required-partition check returns `no_op` before model invocation | missing recovery and correction regressions pass |
 | AC-G08-05 untrusted text inert | verified | explicit inert envelope plus input/output directive, role, credential and PII sanitation | transcript/model-output injection regression passes |
-| AC-G08-06 failure cannot affect Goal | unit verified, real test blocked | async Observer retries/dead-letters after terminal commit; no Goal/Episode mutation dependency | total failure unit passes; terminal-to-Observation E2E authored |
+| AC-G08-06 failure cannot affect Goal | verified | async Observer retries/dead-letters after terminal commit; no Goal/Episode mutation dependency | total failure unit and terminal-to-Observation E2E pass |
 | AC-G08-07 bounded execution | verified | max 8 Episodes, 512 KiB, approximate 128 Ki tokens and 3 prior Observations | batch/600 KiB rejection before model calls passes |
 
 ## SDAR v1.2.3 G09 Addendum
 
 | Acceptance | Status | Implementation | Test / evidence |
 | --- | --- | --- | --- |
-| AC-G09-01 source-linked Reflection | unit verified, real test blocked | `ExperienceReflectorService`; immutable Reflection/Delta factories; PG transaction | focused Reflector unit passes; PG/A2A slice authored |
+| AC-G09-01 source-linked Reflection | verified | `ExperienceReflectorService`; immutable Reflection/Delta factories; PG transaction | focused Reflector unit plus real PG/A2A slice |
 | AC-G09-02 reusable identity boundary | verified | de-instantiated canonical fingerprint, lexical/semantic identity, deliverable/intent boundaries | device/location/date match and different-deliverable/intent regressions pass |
 | AC-G09-03 conservative confidence | verified | exact fingerprint short-circuit and semantic thresholds | exact avoids embed; low confidence creates separate Candidate |
 | AC-G09-04 legal Curator operations | verified | strict six-operation Zod output plus deterministic validator | malformed/illegal/unknown-relation results no-op |
 | AC-G09-05 positive and negative lineage | verified | polarity evidence cites Observation statement, Episode and Outcome | Domain/Reflector regressions preserve both polarities |
-| AC-G09-06 duplicate and lineage persistence | implemented, real test blocked | Candidate fingerprint search plus generic Delta and merge/supersede lineage tables | PG round-trip authored; Docker execution blocked |
-| AC-G09-07 fail-open/idempotent processing | unit verified, real worker test blocked | PG job claim/idempotency, retry/dead-letter and rebuildable BullMQ wake | invalid output no-op; operational failure leaves sources unchanged |
+| AC-G09-06 duplicate and lineage persistence | verified | Candidate fingerprint search plus generic Delta and merge/supersede lineage tables | real PG round-trip passes |
+| AC-G09-07 fail-open/idempotent processing | verified | PG job claim/idempotency, retry/dead-letter and rebuildable BullMQ wake | invalid output no-op; real operational path preserves sources |
 
-G08 passes 539 unit, 151 contract, 140-operation OpenAPI, 362-source architecture, A2A MUST 74/74
-and production builds. Migration 0116, real integration/E2E and meaningful commit/push remain blocked
-before execution by the platform approval usage limit; exact evidence is in
-`reports/goal/g08-completion.md`.
+G08/G09 closure passes 549 unit, 152 contract, 79 real integration, 62 real E2E, 141-operation
+OpenAPI, 372-source architecture, A2A MUST 74/74, production build and migrations through 0117.
+Commits `2d600fc` and `c8754fd` are pushed; exact evidence and failed attempts are retained in
+`reports/goal/g08-completion.md` and `reports/goal/g09-completion.md`.

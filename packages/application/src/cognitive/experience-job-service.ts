@@ -46,8 +46,18 @@ export class ExperienceJobService {
       const goalId = requireString(job.payload['goalId'], 'goalId');
       const goalVersion = requirePositiveInteger(job.payload['goalVersion'], 'goalVersion');
       const episode = await this.#builder.build({ goalId, goalVersion });
-      await this.#episodes.saveIfAbsent(episode);
-      await this.#jobs.complete(job.jobId, workerId, this.#clock.now(), episode.episodeId);
+      const inserted = await this.#episodes.saveIfAbsent(episode);
+      const persistedEpisode = inserted
+        ? episode
+        : (await this.#episodes.findByGoal(goalId)).find(
+            (candidate) =>
+              candidate.goalVersion === goalVersion &&
+              candidate.terminalOutcomeRef === episode.terminalOutcomeRef,
+          );
+      if (persistedEpisode === undefined) {
+        throw new Error('EXPERIENCE_EPISODE_IDEMPOTENCY_CONFLICT');
+      }
+      await this.#jobs.complete(job.jobId, workerId, this.#clock.now(), persistedEpisode.episodeId);
     } catch (error: unknown) {
       const now = this.#clock.now();
       const attemptLimit = Math.min(job.maxAttempts, this.#retryPolicy.maxAttempts);

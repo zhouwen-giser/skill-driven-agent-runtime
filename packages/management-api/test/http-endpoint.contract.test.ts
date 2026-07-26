@@ -988,6 +988,32 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
   });
 
+  it('accepts the experience reflection model stage at the management boundary', async () => {
+    const routedStages: string[] = [];
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        models: {
+          ...configured.models,
+          route: (stage) => {
+            routedStages.push(stage);
+            return Promise.resolve();
+          },
+        },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/experience_reflection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.local' }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(routedStages).toEqual(['experience_reflection']);
+  });
+
   it('reads and updates disabled-by-default Memory retention controls', async () => {
     const policy = {
       reviewAfterDays: 90,

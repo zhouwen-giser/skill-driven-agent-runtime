@@ -2162,11 +2162,11 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
            'outbox-terminal-' || md5($1),
            'user_goal.terminal_committed','user_goal',$2,$3,
            jsonb_strip_nulls(jsonb_build_object(
-             'correlationId',$1,'goalId',$2,'taskId',$4
+             'correlationId',$1::text,'goalId',$2::text,'taskId',$4::text
            )),
            jsonb_strip_nulls(jsonb_build_object(
-             'outcomeId',$1,'controlId',$5,'taskId',$4,'outcomeKind',$6,
-             'authority',$7
+             'outcomeId',$1::text,'controlId',$5::text,'taskId',$4::text,
+             'outcomeKind',$6::text,'authority',$7::text
            )),
            $8,NULL
          )

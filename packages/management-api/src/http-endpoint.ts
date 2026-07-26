@@ -357,6 +357,7 @@ const ModelStageSchema = z.enum([
   'goal_contract_generation',
   'interactive_plan_patch',
   'experience_observation',
+  'experience_reflection',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),

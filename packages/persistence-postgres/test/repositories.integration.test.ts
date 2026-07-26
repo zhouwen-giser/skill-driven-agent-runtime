@@ -66,10 +66,12 @@ import {
   PostgresCognitiveRuntimeFactReader,
   PostgresObservationRepository,
   PostgresReflectionRepository,
+  PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
   createAgentTask,
+  createSkillAttempt,
   createTaskExecutionAttempt,
   createTaskInputRequest,
   createRemoteTaskBinding,
@@ -106,6 +108,7 @@ import {
   createKnowledgeCandidateSnapshot,
   createKnowledgeDelta,
   createKnowledgeEvidence,
+  createUserGoalCompletionContract,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -5626,6 +5629,100 @@ async function createTerminalOutcomeFixture(suffix: string) {
     attemptCount: 1,
     createdAt: '2026-07-16T00:00:01.000Z',
   });
+  const contractHash = `sha256:${createHash('sha256')
+    .update(`terminal-contract:${suffix}`)
+    .digest('hex')}`;
+  const userGoalRuntime = new PostgresUserGoalRuntimeRepository(pool);
+  await userGoalRuntime.saveContract(
+    createUserGoalCompletionContract({
+      schemaVersion: '1.0',
+      goalId,
+      goalVersion: 1,
+      title: 'Terminal outcome',
+      description: 'Commit all authoritative terminal projections together.',
+      constraints: [],
+      criteria: [
+        {
+          criterionId: `criterion.terminal.${suffix}`,
+          description: 'All authoritative terminal projections agree.',
+          required: true,
+          expectedEffectRefs: [],
+          evidenceRequirements: [],
+          artifactRequirements: [],
+        },
+      ],
+      assumptions: [],
+      policy: {
+        maxSkillGoals: 16,
+        maxDagDepth: 8,
+        maxParallelReadyGoals: 4,
+        maxPlanRevisions: 4,
+        maxPlanningModelAttempts: 2,
+      },
+    }),
+    contractHash,
+    '2026-07-16T00:00:01.000Z',
+  );
+  await userGoalRuntime.createPlan(
+    createUserGoalPlan({
+      schemaVersion: '1.0',
+      planId,
+      goalId,
+      goalVersion: 1,
+      revision: 1,
+      revisionKind: 'initial',
+      status: 'active',
+      contractHash,
+      contentHash: `sha256:${createHash('sha256').update(`terminal-plan:${suffix}`).digest('hex')}`,
+      skillGoals: [
+        {
+          skillGoalId: `skill-goal.terminal.${suffix}`,
+          requiredResult: 'All authoritative terminal projections agree.',
+          capabilityNeeds: ['terminal.projection'],
+          coveredCriterionIds: [`criterion.terminal.${suffix}`],
+          requiredEffectRefs: [],
+          evidenceRequirements: [],
+          artifactRequirements: [],
+          assumptions: [],
+          constraints: [],
+          status: 'achieved',
+        },
+      ],
+      dependencies: [],
+      inheritedCompletedEffectIds: [],
+      forbiddenReplayFingerprints: [],
+      createdAt: '2026-07-16T00:00:01.000Z',
+    }),
+  );
+  await userGoalRuntime.createAttempt(
+    createSkillAttempt({
+      attemptId: `attempt.terminal.${suffix}`,
+      planId,
+      skillGoalId: `skill-goal.terminal.${suffix}`,
+      ordinal: 1,
+      status: 'achieved',
+      strategyFingerprint: `sha256:${createHash('sha256')
+        .update(`terminal-attempt:${suffix}`)
+        .digest('hex')}`,
+      budget: { maxAttempts: 1, consumedAttempts: 1 },
+      createdAt: '2026-07-16T00:00:02.000Z',
+    }),
+  );
+  await pool.query(
+    `INSERT INTO outcome_decision(
+       outcome_decision_id,level,subject_id,plan_id,status,confidence,decision_json,created_at)
+     VALUES($1,'user_goal',$2,$3,'achieved','high',$4::jsonb,$5)`,
+    [
+      `outcome-decision.terminal.${suffix}`,
+      goalId,
+      planId,
+      JSON.stringify({
+        decision: 'achieved',
+        summary: 'All criteria are satisfied.',
+      }),
+      '2026-07-16T00:00:03.000Z',
+    ],
+  );
   await executions.saveInstance({
     instanceId,
     planId,

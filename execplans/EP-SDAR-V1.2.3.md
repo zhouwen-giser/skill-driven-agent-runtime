@@ -1,10 +1,10 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G07 is pushed; G08/G09 are locally complete but externally blocked; G10 is next provisionally
+Status: ACTIVE — G00–G09 are pushed and real G07–G09 gates pass; G10 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
-Base `origin/main`: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
+Base `origin/main`: `10d9cb385a7d4ef87b69f2856d315573faafca9c`
 
 ## Purpose / Outcome
 
@@ -88,10 +88,10 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G04  | completed   | `d226bfb` | 667 unit/contract, 73 integration, 62 real E2E, migration/API/build gates         | `reports/goal/g04-completion.md` | none           | hand confirmed Goal Contract authority to G05                  |
 | G05  | completed   | `02a367d` | 526 unit, 149 contract, 74 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g05-completion.md` | none           | hand correction/interaction lineage to G06                     |
 | G06  | completed   | `cade96f` | 529 unit, 150 contract, 75 integration, 62 real E2E, migration/API/build gates    | `reports/goal/g06-completion.md` | none           | hand correction/Episode lineage to G07/G10                     |
-| G07  | completed   | `301606e` | 533 unit, 151 contract, API/architecture/build; integration/E2E blocked          | `reports/goal/g07-completion.md` | test quota     | real gates carried to G17; handoff to G08                      |
-| G08  | blocked     | none      | 539 unit, 151 contract, 140 API, 362-source architecture, build; real gates blocked | `reports/goal/g08-completion.md` | platform quota | commit/push after approval; provisional handoff to G09         |
-| G09  | blocked     | none      | 549 unit, 151 contract, 141 API, 372-source architecture, build; real gates blocked | `reports/goal/g09-completion.md` | platform quota | commit/push after approval; provisional handoff to G10/G11     |
-| G10  | in_progress | —         | provisional local implementation next                                             | —                                | G09 publish    | Task Type induction                                            |
+| G07  | completed   | `301606e` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g07-completion.md` | none           | verified handoff to G08                                        |
+| G08  | completed   | `2d600fc` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g08-completion.md` | none           | verified handoff to G09                                        |
+| G09  | completed   | `c8754fd` | 549 unit, 152 contract, 79 real integration, 62 real E2E, migration/build gates | `reports/goal/g09-completion.md` | none           | verified Candidate/Delta handoff to G10/G11                    |
+| G10  | in_progress | —         | implementation next                                                             | —                                | none           | Task Type induction                                            |
 | G11  | not_started | —         | —                                                                                 | —                                | G01/G09        | capability pattern/gap                                         |
 | G12  | not_started | —         | —                                                                                 | —                                | G09/G10/G11    | knowledge promotion                                            |
 | G13  | not_started | —         | —                                                                                 | —                                | G01/G12        | retrieval/progressive disclosure                               |
@@ -174,6 +174,22 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   target was verified inside the repository with a matching TypeScript/TSX source, but platform
   approval rejected exact cleanup before execution. Further Vitest evidence is paused because imports
   ending in `.js` could select stale generated output instead of the TypeScript working tree.
+- 2026-07-26: PR #8 had been merged externally at G00–G06. The feature branch merged the current
+  `origin/main` normally, preserved G07–G09, pushed the merge commit, and opened replacement Draft PR
+  #9. No force-push, merge, tag or direct `main` mutation was performed.
+- 2026-07-26: real PostgreSQL integration exposed previously masked G07–G09 defects: untyped text
+  parameters inside JSONB constructors, duplicate Episode delivery after an idempotent insert, and a
+  terminal fixture missing the v1.2.2 Contract/Plan/Judgment authority chain. The production SQL,
+  idempotent completion path and authoritative fixture were fixed without weakening assertions.
+- 2026-07-26: E2E then exposed a Management API enum drift: `experience_reflection` existed in Domain,
+  Application, runtime and migration state but not the HTTP boundary schema. A contract regression now
+  keeps the route configurable.
+- 2026-07-26: the first migration rerun used stale `dist/` output and correctly failed marker
+  comparison. A production build followed by the identical command passed all ten additive migrations,
+  idempotency, rollback/reapply, guarded reset and rogue-ledger rejection.
+- 2026-07-26: the task package's two CSV hashes represented pre-checkout line endings while
+  `.gitattributes` normalizes them to LF. The checksum manifest now records the committed bytes and the
+  complete 50-file/18-Goal self-check passes.
 
 ## Decision Log
 
@@ -330,9 +346,10 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 ## Branch / HEAD / Main / Draft PR
 
 - Branch: `feature/v1.2.3-cognitive-planning-runtime`
-- Base main: `35cb9277396e0316b1c6b8aac57e6fa69a8a29df`
-- Current pushed HEAD: `301606e479e72436ac79f80d496ee40dcae9a338`
-- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/8>
+- Base main: `10d9cb385a7d4ef87b69f2856d315573faafca9c`
+- Current pushed HEAD before the G07–G09 verification-fix commit:
+  `1b5ab838beffda524ea54377dc1ace2984122548`
+- Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
 
@@ -359,30 +376,23 @@ was copied or translated, so no Source Intake or dependency metadata changed.
 - G07 implementation `301606e`: transactional terminal outbox, PG-authoritative job/Episode lifecycle,
   migration 0115, rebuildable BullMQ wakes, API/OpenAPI/Console and authored real integration/A2A
   evidence.
-- G08 working tree: Observation Domain/Application/PostgreSQL path, twelve typed extractors,
-  migration 0116, separate rebuildable BullMQ wakes, Model stage, API/OpenAPI/Console and authored real
-  integration/A2A evidence. No G08 commit exists because `.git` approval was rejected before staging.
-- G09 working tree: Reflection/Knowledge Delta Domain, Reflector/Identity/Curator Application path,
+- G08 implementation `2d600fc`: Observation Domain/Application/PostgreSQL path, twelve typed extractors,
+  migration 0116, separate rebuildable BullMQ wakes, Model stage, API/OpenAPI/Console and real
+  integration/A2A evidence.
+- G09 implementation `c8754fd`: Reflection/Knowledge Delta Domain, Reflector/Identity/Curator Application path,
   Candidate/evidence/lineage PostgreSQL transaction, migration 0117, rebuildable BullMQ wakes,
-  Reflection Model stage/API/OpenAPI/Console and authored integration/A2A evidence. No G09 commit exists
-  because the same `.git` approval blocker remains active.
+  Reflection Model stage/API/OpenAPI/Console and real integration/A2A evidence.
 
 ## Open Blockers
 
-G07-G09 real integration/E2E execution and the G08/G09 `.git` writes are blocked by the Codex automatic
-approval usage limit, which reported retry availability at 2026-07-29 01:43. G07 is pushed as
-`301606e`; G08/G09 remain only in the working tree. No blocked gate is claimed passed, Draft PR #8 remains
-Draft at G00-G07, and the default operator database remains untouched. Worktree hygiene is additionally
-blocked until explicit approval removes 378 verified generated/untracked `.js` compiler outputs.
+None for G00–G09. The former platform approval and worktree-hygiene blockers are retained in the Goal
+reports and were resolved before the real 79-integration/62-E2E verification. G10–G17 remain ordinary
+unfinished work, not blockers.
 
 ## Next Execution Step
 
-First remove the 378 verified generated/untracked `.js` compiler outputs so subsequent Vitest imports
-cannot select stale code. Then proceed provisionally with G10 against the local G06 correction and G09
-Candidate/Delta contracts, followed by G11 where dependencies permit. When approval becomes available,
-return to G07-G09 real
-integration/E2E, create and push separate meaningful G08 and G09 commits, and update Draft PR #8
-without changing Draft status.
+Commit and push the verified G07–G09 closure fixes/evidence, update Draft PR #9 without changing Draft
+status, then implement G10 against the committed G06 correction and G09 Candidate/Delta contracts.
 
 ## Outcomes and Retrospective
 
@@ -394,10 +404,7 @@ v1.2.2 formal plan authority. G06 now records immutable correction and Episode e
 low-risk-only Memory projection. Its affected gates pass 529 unit, 150 contract, 75 integration and 62
 E2E tests plus migration/OpenAPI/architecture/build. Implementation `cade96f` is pushed. Disposable
 test databases were deleted and the default local `sdar` volume remains protected historical operator
-data. G07 is pushed and passes 533 unit, 151 contract, OpenAPI, architecture and build gates; its real
-integration/E2E remain honestly blocked. G08 locally adds source-linked typed Observation with 539
-unit, 151 contract, 140 OpenAPI operations, 362-source architecture, A2A MUST 74/74 and builds passing;
-its real integration/E2E plus commit/push remain honestly blocked. G09 locally adds Candidate-only
-Reflection/Delta with 549 unit, 151 contract, 141 OpenAPI operations, 372-source architecture, A2A MUST
-74/74 and builds passing; its real gates and publication are likewise blocked. G08–G09 are blocked and
-G10–G17 remain open.
+data. G07–G09 are pushed and their combined closure passes 549 unit, 152 contract, 79 real integration,
+62 real E2E, 141 OpenAPI operations, 372-source architecture, A2A MUST 74/74, production build and
+ten migrations through 0117. Real verification found and closed SQL parameter, Episode idempotency,
+terminal-fixture and Management API enum defects without weakening assertions. G10–G17 remain open.

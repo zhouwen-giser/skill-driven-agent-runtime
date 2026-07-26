@@ -49,8 +49,11 @@ All notable changes to this project are documented here. The format follows Keep
 - G09 Candidate-only Experience Reflection with helpful/harmful/neutral impact, de-instantiated
   fingerprint plus lexical/semantic identity, strict six-operation Curator Deltas, deterministic
   no-op validation, positive/negative evidence and merge/supersede lineage. Migration 0117,
-  PostgreSQL/BullMQ persistence, Reflection API/Console and A2A evidence are authored; publication and
-  real Docker-backed verification remain blocked by the platform approval limit.
+  PostgreSQL/BullMQ persistence, Reflection API/Console and A2A evidence are published and
+  Docker-backed verification passes.
+- A Management API contract regression for the `experience_reflection` model route, plus real
+  terminal-authority integration fixtures covering Contract, Plan, Skill Attempt and User Goal
+  Judgment eligibility.
 
 ### Changed
 
@@ -70,6 +73,8 @@ All notable changes to this project are documented here. The format follows Keep
   evidence; task, tenant, global-candidate and safety/authorization corrections never auto-promote.
 - Terminal Outcome commits now atomically append `user_goal.terminal_committed`; asynchronous
   Experience capture cannot become Goal/Plan/Outcome authority or delay the terminal transaction.
+- Cognitive Outbox JSONB constructors use explicit text boundary casts, and duplicate Episode delivery
+  completes against the already persisted immutable Episode after a crash/retry boundary.
 
 ### Verification
 
@@ -102,6 +107,11 @@ All notable changes to this project are documented here. The format follows Keep
   Failed test-first, assertion-shape, formatting, lint, CLI-option and non-TTY build attempts are
   retained in `reports/goal/g06-completion.md`; implementation `cade96f` is pushed and Draft PR #8
   remains Draft.
+- G07–G09 closure passes 549 unit, 152 contract, 79 real PostgreSQL/Redis integration and 62 real
+  Server/A2A E2E tests, plus 141 OpenAPI operations, 372-source architecture and the ten additive
+  migrations through 0117 with idempotency, rollback/reapply, guarded reset and rogue-ledger rejection.
+  The earlier platform, stale-`dist`, API-enum and SQL/fixture failures remain recorded. Commits
+  `301606e`, `2d600fc` and `c8754fd` are pushed; replacement PR #9 remains Draft.
 
 ## [1.2.2] - Unreleased
 

@@ -423,7 +423,7 @@ async function appendOutbox(
     `INSERT INTO cognitive_runtime_outbox(
        event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
        correlation,payload,occurred_at,published_at)
-     VALUES($1,$2,$3,$4,$5,jsonb_build_object('correlationId',$4),$6::jsonb,$7,NULL)`,
+     VALUES($1,$2,$3,$4,$5,jsonb_build_object('correlationId',$4::text),$6::jsonb,$7,NULL)`,
     [
       input.eventId,
       input.eventType,

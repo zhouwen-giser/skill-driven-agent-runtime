@@ -235,8 +235,10 @@ export class PostgresObservationRepository implements ObservationRepository {
            event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
            correlation,payload,occurred_at,published_at)
          VALUES($1,'experience.observation_completed','experience_observation',$2,$3,
-           jsonb_build_object('correlationId',$2),
-           jsonb_build_object('observationId',$2,'sourceEpisodeIds',$4::jsonb,'status',$5),
+           jsonb_build_object('correlationId',$2::text),
+           jsonb_build_object(
+             'observationId',$2::text,'sourceEpisodeIds',$4::jsonb,'status',$5::text
+           ),
            $6,NULL)`,
         [
           eventId,

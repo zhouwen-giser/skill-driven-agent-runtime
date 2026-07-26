@@ -1,34 +1,17 @@
 # Project Status
 
-SDAR v1.2.3 G09 implementation is complete locally but not committed or published (2026-07-23).
-Reflector/Identity/Curator now convert immutable Observation/Episode/Outcome evidence into validated,
-source-linked Candidate-only Knowledge Deltas, preserving both positive and negative evidence.
-De-instantiated fingerprint plus lexical/semantic comparison respects deliverable and recent-intent
-boundaries; low confidence and illegal Curator output no-op or create separate Candidates, never Active
-Knowledge. Non-Docker gates pass 549 unit, 151 serial contract, 141 OpenAPI operations, 372-source
-architecture, A2A MUST 74/74, licenses/SBOM and production build. Migration 0117, real integration and
-real A2A E2E are authored but unexecuted; Git staging remains blocked by the Codex approval usage limit.
-A root build also emitted 378 verified generated/untracked `.js` files whose exact cleanup was rejected;
-they must be removed before further Vitest evidence can be trusted. G10 remains provisionally next.
-See `reports/goal/g09-completion.md`.
-
-SDAR v1.2.3 G08 implementation is complete locally but not committed or published (2026-07-23).
-Exactly twelve independent typed extractors produce source/model-linked structured Observations from
-redacted immutable Goal Episodes. PostgreSQL owns Observation/idempotency/outbox/next-job state;
-BullMQ carries rebuildable job-id wakes only. Evidence absence no-ops, one extractor failure is
-isolated, and total Observer failure cannot affect the original Goal. Non-Docker gates pass 539 unit,
-151 serial contract, 140 OpenAPI operations, 362-source architecture, A2A MUST 74/74 and production
-build. Migration 0116, real integration and real A2A E2E are authored but unexecuted; the G08 staging
-attempt was rejected before execution by the Codex approval usage limit. G09 proceeds provisionally
-from local contracts. See `reports/goal/g08-completion.md`.
-
-SDAR v1.2.3 G07 is complete and pushed as `301606e` (2026-07-23). The v1.2.2 terminal transaction
-atomically emits a PostgreSQL outbox Fact; PostgreSQL leases and idempotent jobs asynchronously build
-redacted immutable Goal Experience Episodes, while Redis carries rebuildable job-id wakes only. Dead
-letters are inspectable and manually replayable. Non-Docker gates pass 533 unit, 151 serial contract,
-139 OpenAPI operations, 354-source architecture and production build; isolated migrations 0108-0115
-passed. Real integration/E2E remain honestly blocked by the platform quota and are carried to G17.
-Draft PR #8 remains Draft and contains G00-G07. See `reports/goal/g07-completion.md`.
+SDAR v1.2.3 G00–G09 are complete, committed and pushed (2026-07-26); G10 Task Type Induction is next.
+The former G07–G09 platform blocker is closed with real PostgreSQL/Redis/A2A evidence: 549/549 unit,
+152/152 contract, 79/79 integration and 62/62 E2E tests pass, along with 141 OpenAPI operations,
+372-source architecture, A2A MUST 74/74, licenses/SBOM, production build and the ten-migration
+0108–0117 rollback/reapply gate. Real verification found and fixed Outbox SQL type inference,
+post-insert Episode idempotency, incomplete v1.2.2 terminal-authority fixtures and a missing
+`experience_reflection` Management API stage; assertions were not weakened. Candidate Knowledge
+remains excluded from the formal Planner. Historical PR #8 was merged externally, so the branch was
+normally synchronized with `origin/main` and replacement PR #9 is Draft:
+<https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>. No merge, tag, force-push or
+direct `main` mutation was performed. See `reports/goal/g07-completion.md` through
+`reports/goal/g09-completion.md`.
 
 SDAR v1.2.3 G06 is complete and pushed (2026-07-23) on
 `feature/v1.2.3-cognitive-planning-runtime`. Understanding, Goal Contract and Plan corrections now
