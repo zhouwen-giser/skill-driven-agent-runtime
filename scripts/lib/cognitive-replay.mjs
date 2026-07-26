@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import process from 'node:process';
 
 export async function generateReplayArtifact(options = {}) {
   const root = process.cwd();

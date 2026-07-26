@@ -188,8 +188,7 @@ export class FeatureRolloutPolicy {
       advisory &&
       flags.injectionMode === 'active_low_risk' &&
       input.risk === 'low' &&
-      input.humanApproved === true &&
-      flags.promotionMode === 'manual';
+      input.humanApproved === true;
     const enabledByStage: Readonly<Record<CognitiveRolloutStage, boolean>> = {
       capture: flags.experienceCaptureEnabled,
       observe: observed,
