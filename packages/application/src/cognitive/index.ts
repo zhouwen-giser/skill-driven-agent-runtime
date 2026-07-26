@@ -34,3 +34,7 @@ export * from './reflection-job-reconciler.js';
 export * from './task-type-fingerprint.js';
 export * from './task-type-applicability-guard.js';
 export * from './task-type-induction-service.js';
+export * from './capability-skill-mapper.js';
+export * from './capability-gap-service.js';
+export * from './capability-pattern-invalidator.js';
+export * from './capability-pattern-induction-service.js';

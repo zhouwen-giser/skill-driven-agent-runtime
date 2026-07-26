@@ -392,3 +392,18 @@ Commits `2d600fc` and `c8754fd` are pushed; exact evidence and failed attempts a
 G10 affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI
 operations, 378-source architecture and migrations through 0118. Exact evidence and retained failures
 are in `reports/goal/g10-completion.md`.
+
+## SDAR v1.2.3 G11 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G11-01 separate evidence levels | verified | Domain `evidenceByLevel`; `CapabilitySkillMapper` derives Declared only from exact current Skill declarations; Experience examples supply Observed/Validated | focused unit preserves all three arrays and byte-identical Skill input; real PostgreSQL stores 5 distinct evidence records |
+| AC-G11-02 complete Pattern shape | verified | Domain/Zod/JSON/OpenAPI capture applicability, effects, evidence, artifacts, prerequisites, dependencies, failures and limitations | focused unit, cognitive schema 1/1 and Management contract |
+| AC-G11-03 exact mapping or Gap | verified | deterministic Catalog Hash plus exact current `skillId:version` mapping; `CapabilityGapService` for empty mapping | unit maps `skill.inspect:2`; integration maps v1 and creates one unmapped Gap |
+| AC-G11-04 no readiness bypass | verified | mapping literal requires current Readiness and compatibility; no Provider/readiness fields or ports | unit authority regression, architecture audit and 62/62 E2E |
+| AC-G11-05 catalog/policy invalidation | verified | Server startup/catalog projector calls `CapabilityPatternInvalidator`; PG version-CAS transition/audit/Outbox | real Skill v1→v2 integration produces `active→validating`, transition and `knowledge.validating` |
+| AC-G11-06 no automatic Skill publication | verified | Gap is non-executable; proposal is manual and `publishAllowed=false`; no Skill mutation dependency | unit restart idempotency and real PostgreSQL Skill-version count before invalidation |
+
+G11 affected gates pass 560 unit, 154 contract, 81 real integration, 62 real E2E, 143 OpenAPI
+operations, 385-source architecture, A2A MUST 74/74, production build and migrations through 0119.
+Exact evidence and retained failures are in `reports/goal/g11-completion.md`.

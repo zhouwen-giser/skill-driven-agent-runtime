@@ -57,6 +57,7 @@ import type {
   PlanningCorrectionService,
   ExperienceManagementService,
   TaskTypeInductionService,
+  CapabilityPatternInductionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -360,6 +361,7 @@ const ModelStageSchema = z.enum([
   'experience_observation',
   'experience_reflection',
   'task_type_induction',
+  'capability_pattern_induction',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -525,6 +527,7 @@ export interface ManagementOperations {
     'listEpisodes' | 'listObservations' | 'listReflections' | 'listDeadLetters' | 'replayDeadLetter'
   >;
   readonly taskTypes?: Pick<TaskTypeInductionService, 'list'>;
+  readonly capabilityPatterns?: Pick<CapabilityPatternInductionService, 'list' | 'listGaps'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1854,6 +1857,23 @@ export async function startManagementHttpEndpoint(
       }
       const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
       response.json({ items: await options.operations.taskTypes.list(query.limit) });
+    }),
+  );
+  app.get(
+    '/api/v1/capability-patterns',
+    asyncRoute(async (request, response) => {
+      if (options.operations.capabilityPatterns === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_PATTERNS_UNAVAILABLE',
+          'Capability Pattern induction is not configured.',
+        );
+      }
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      const [items, gaps] = await Promise.all([
+        options.operations.capabilityPatterns.list(query.limit),
+        options.operations.capabilityPatterns.listGaps(query.limit),
+      ]);
+      response.json({ items, gaps });
     }),
   );
   app.post(

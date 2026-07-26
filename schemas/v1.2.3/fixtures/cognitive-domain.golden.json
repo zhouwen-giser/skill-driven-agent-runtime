@@ -446,6 +446,106 @@
     "modelInvocationId": "model-invocation.task-type.v123",
     "createdAt": "2026-07-26T05:00:00.000Z"
   },
+  "capabilityPattern": {
+    "schemaVersion": "1.0",
+    "patternId": "capability-pattern.inspection.v123",
+    "revision": 1,
+    "version": 1,
+    "status": "candidate",
+    "fingerprint": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    "catalogHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "policyVersion": "capability-pattern-policy-v1",
+    "capabilityId": "inspection.device",
+    "title": "Inspect devices with evidence",
+    "summary": "Inspect a known device and return structured evidence.",
+    "applicableConditions": ["device identity is known"],
+    "effects": ["device state is inspected"],
+    "evidenceRequirements": ["structured observation is captured"],
+    "artifacts": ["inspection report"],
+    "prerequisites": ["device is reachable"],
+    "dependencies": ["evidence.capture"],
+    "failures": ["device is unavailable"],
+    "limitations": ["current provider readiness is not asserted"],
+    "evidenceByLevel": {
+      "declared": [],
+      "observed": [
+        {
+          "level": "observed",
+          "summary": "An inspection attempt produced evidence.",
+          "sourceRefIds": ["source.capability.episode.1"],
+          "episodeId": "episode.capability.1"
+        }
+      ],
+      "validated": [
+        {
+          "level": "validated",
+          "summary": "The inspection evidence passed validation.",
+          "sourceRefIds": ["source.capability.episode.2"],
+          "episodeId": "episode.capability.2"
+        }
+      ]
+    },
+    "exactSkillVersionMappings": [],
+    "requiresCurrentReadiness": true,
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      },
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.2",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.2",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "modelInvocationId": "model-invocation.capability-pattern.v123",
+    "createdAt": "2026-07-26T05:00:00.000Z"
+  },
+  "capabilityGap": {
+    "schemaVersion": "1.0",
+    "gapId": "capability-gap.inspection.v123",
+    "status": "candidate",
+    "fingerprint": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+    "patternId": "capability-pattern.inspection.v123",
+    "patternRevision": 1,
+    "capabilityId": "inspection.device",
+    "catalogHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "exactSkillVersionRefs": [],
+    "executable": false,
+    "authoringProposal": {
+      "proposalId": "skill-proposal.inspection.v123",
+      "status": "proposed",
+      "reviewMode": "manual",
+      "publishAllowed": false,
+      "capabilityId": "inspection.device",
+      "title": "Author an inspection Skill",
+      "summary": "Manual review is required; this proposal cannot publish a Skill."
+    },
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.capability.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.capability.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "createdAt": "2026-07-26T05:00:00.000Z"
+  },
   "knowledgeCandidate": {
     "schemaVersion": "1.0",
     "knowledgeId": "knowledge.v123",

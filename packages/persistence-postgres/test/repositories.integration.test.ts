@@ -11,6 +11,10 @@ import {
   TaskTypeClusterer,
   TaskTypeFingerprintBuilder,
   TaskTypeInductionService,
+  CapabilityGapService,
+  CapabilityPatternInductionService,
+  CapabilityPatternInvalidator,
+  CapabilitySkillMapper,
   TaskService,
 } from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
@@ -70,6 +74,7 @@ import {
   PostgresObservationRepository,
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
+  PostgresCapabilityPatternRepository,
   PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
@@ -113,6 +118,7 @@ import {
   createKnowledgeDelta,
   createKnowledgeEvidence,
   createTaskTypeInductionExample,
+  createCapabilityPatternInductionExample,
   createUserGoalCompletionContract,
   type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
@@ -5558,6 +5564,210 @@ describe('PostgreSQL protocol-domain repositories', () => {
       active_definitions: 0,
     });
   });
+
+  it('persists Capability Patterns, exact current Skill mappings, Gap Candidates and catalog invalidation', async () => {
+    const firstFixture = await createTerminalOutcomeFixture('capability-pattern-first');
+    const secondFixture = await createTerminalOutcomeFixture('capability-pattern-second');
+    await firstFixture.outcomes.commitAchieved(firstFixture.achievedInput);
+    await secondFixture.outcomes.commitAchieved(secondFixture.achievedInput);
+    const clock = { now: () => '2026-07-26T06:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.capability.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('capability-pattern-episode-worker', 2)) {
+      await episodeService.process(job, 'capability-pattern-episode-worker');
+    }
+    const [firstEpisode] = await episodes.findByGoal(firstFixture.goalId);
+    const [secondEpisode] = await episodes.findByGoal(secondFixture.goalId);
+    if (firstEpisode === undefined || secondEpisode === undefined) {
+      throw new Error('CAPABILITY_PATTERN_TEST_EPISODES_MISSING');
+    }
+
+    const skills = new PostgresSkillRepository(pool);
+    const firstSkill = capabilityPatternSkill(1);
+    await skills.saveVersionAndSetCurrent(firstSkill, firstSkill.createdAt);
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.capability-pattern.db',
+      name: 'Capability Pattern Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'capability-pattern-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.capability-pattern.db',
+      stage: 'capability_pattern_induction',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: { episodeIds: [firstEpisode.episodeId, secondEpisode.episodeId] },
+      context: { authority: 'candidate_only' },
+      structuredResult: capabilityPatternModelOutput(),
+      inputTokens: 96,
+      outputTokens: 32,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: clock.now(),
+    });
+    const repository = new PostgresCapabilityPatternRepository(pool);
+    const mapper = new CapabilitySkillMapper({
+      catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    });
+    const service = new CapabilityPatternInductionService({
+      repository,
+      mapper,
+      gaps: new CapabilityGapService({
+        repository,
+        clock,
+        nextGapId: (fingerprint) => `capability-gap-${fingerprint.slice(-20)}`,
+        nextProposalId: (fingerprint) => `skill-proposal-${fingerprint.slice(-20)}`,
+      }),
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.capability-pattern.db',
+            structuredResult: capabilityPatternModelOutput(),
+          }),
+      },
+      policyVersion: 'capability-pattern-policy-v1',
+      clock,
+      nextPatternId: (capabilityId) => `capability-pattern.${capabilityId}`,
+    });
+    const result = await service.induce({
+      examples: [
+        capabilityPatternExample(firstEpisode, 'inspection.device', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.device', 'validated'),
+        capabilityPatternExample(firstEpisode, 'inspection.unmapped', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.unmapped', 'validated'),
+      ],
+    });
+    expect(result.patterns).toHaveLength(2);
+    expect(
+      result.patterns.find((pattern) => pattern.capabilityId === 'inspection.device')
+        ?.exactSkillVersionMappings,
+    ).toEqual([
+      expect.objectContaining({
+        exactSkillVersionRef: 'skill.capability-pattern.db:1',
+        requiresCurrentReadiness: true,
+        compatibilityStatus: 'requires_current_check',
+      }),
+    ]);
+    expect(result.gaps).toEqual([
+      expect.objectContaining({
+        capabilityId: 'inspection.unmapped',
+        executable: false,
+        authoringProposal: expect.objectContaining({
+          reviewMode: 'manual',
+          publishAllowed: false,
+        }),
+      }),
+    ]);
+    await service.induce({
+      examples: [
+        capabilityPatternExample(firstEpisode, 'inspection.device', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.device', 'validated'),
+        capabilityPatternExample(firstEpisode, 'inspection.unmapped', 'observed'),
+        capabilityPatternExample(secondEpisode, 'inspection.unmapped', 'validated'),
+      ],
+    });
+    const beforeInvalidation = await pool.query<{
+      patterns: number;
+      pattern_evidence: number;
+      experience_evidence: number;
+      gaps: number;
+      candidate_events: number;
+      gap_events: number;
+      skill_versions: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM capability_pattern_definition
+          WHERE definition_origin='capability_pattern_induction') AS patterns,
+         (SELECT count(*)::integer FROM capability_pattern_evidence) AS pattern_evidence,
+         (SELECT count(*)::integer FROM capability_experience_evidence) AS experience_evidence,
+         (SELECT count(*)::integer FROM capability_gap_candidate) AS gaps,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created'
+            AND aggregate_type='capability_pattern') AS candidate_events,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='capability.gap_candidate_created') AS gap_events,
+         (SELECT count(*)::integer FROM skill_version) AS skill_versions`,
+    );
+    expect(beforeInvalidation.rows[0]).toEqual({
+      patterns: 2,
+      pattern_evidence: 5,
+      experience_evidence: 5,
+      gaps: 1,
+      candidate_events: 2,
+      gap_events: 1,
+      skill_versions: 1,
+    });
+
+    const mapped = result.patterns.find((pattern) => pattern.capabilityId === 'inspection.device');
+    if (mapped === undefined) throw new Error('CAPABILITY_PATTERN_MAPPED_FIXTURE_MISSING');
+    await pool.query(
+      `UPDATE capability_pattern_definition
+       SET status='active',definition=jsonb_set(definition,'{status}','"active"'::jsonb,false)
+       WHERE knowledge_id=$1 AND revision=$2`,
+      [mapped.patternId, mapped.revision],
+    );
+    const secondSkill = capabilityPatternSkill(2);
+    await skills.saveVersionAndSetCurrent(secondSkill, secondSkill.createdAt);
+    const currentMapping = await mapper.mapCurrentVersions('inspection.device');
+    const invalidator = new CapabilityPatternInvalidator({ repository, clock });
+    await expect(
+      invalidator.invalidateByCatalog({
+        catalogHash: currentMapping.catalogHash,
+        policyVersion: 'capability-pattern-policy-v1',
+      }),
+    ).resolves.toBe(1);
+    const invalidated = await pool.query<{
+      status: string;
+      version: number;
+      transitions: number;
+      validating_events: number;
+    }>(
+      `SELECT status,version,
+         (SELECT count(*)::integer FROM knowledge_status_transition
+          WHERE knowledge_id=$1 AND reason='catalog_changed') AS transitions,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE aggregate_id=$1 AND event_type='knowledge.validating') AS validating_events
+       FROM capability_pattern_definition
+       WHERE knowledge_id=$1 AND revision=$2`,
+      [mapped.patternId, mapped.revision],
+    );
+    expect(invalidated.rows[0]).toEqual({
+      status: 'validating',
+      version: 2,
+      transitions: 1,
+      validating_events: 1,
+    });
+  });
 });
 
 function taskTypeExample(episode: GoalExperienceEpisode, semanticObjective: readonly string[]) {
@@ -5608,6 +5818,103 @@ function taskTypeModelOutput() {
     dependencyPattern: ['inspect->verify'],
     incompatibleConstraints: [],
   };
+}
+
+function capabilityPatternExample(
+  episode: GoalExperienceEpisode,
+  capabilityId: string,
+  evidenceLevel: 'observed' | 'validated',
+) {
+  return createCapabilityPatternInductionExample({
+    schemaVersion: '1.0',
+    episodeId: episode.episodeId,
+    goalId: episode.goalId,
+    goalVersion: episode.goalVersion,
+    capabilityId,
+    evidenceLevel,
+    signals: {
+      skillOutcomes: ['inspection outcome achieved'],
+      attempts: ['inspection attempt succeeded'],
+      evidence: ['structured observation is captured'],
+      artifacts: ['inspection report'],
+      corrections: ['include cited observations'],
+      recoveries: ['retry after device reconnect'],
+      eventImpacts: ['device inspection event recorded'],
+      applicableConditions: ['device identity is known'],
+      effects: ['device state is inspected'],
+      prerequisites: ['device is reachable'],
+      dependencies: ['evidence.capture'],
+      failures: ['device is unavailable'],
+      limitations: ['current provider readiness is not asserted'],
+    },
+    sourceRefs: [
+      createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.capability-pattern.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      }),
+    ],
+    createdAt: episode.createdAt,
+  });
+}
+
+function capabilityPatternModelOutput() {
+  return {
+    title: 'Inspect devices with evidence',
+    summary: 'Inspect a known device and return structured evidence.',
+    applicableConditions: ['device identity is known'],
+    effects: ['device state is inspected'],
+    evidenceRequirements: ['structured observation is captured'],
+    artifacts: ['inspection report'],
+    prerequisites: ['device is reachable'],
+    dependencies: ['evidence.capture'],
+    failures: ['device is unavailable'],
+    limitations: ['current provider readiness is not asserted'],
+  };
+}
+
+function capabilityPatternSkill(version: number) {
+  const skillId = 'skill.capability-pattern.db';
+  const outcome = {
+    schemaVersion: '1.0' as const,
+    skillId,
+    skillVersion: version,
+    effects: ['device state is inspected'],
+    evidence: ['structured observation is captured'],
+    artifacts: ['inspection report'],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: { classification: 'read_only' },
+  };
+  return createSkillVersion({
+    skillId,
+    version,
+    name: 'Capability Pattern inspection Skill',
+    summary: 'Inspects a device and returns evidence.',
+    description: 'Current exact Skill declaration for Capability Pattern mapping.',
+    capabilities: ['inspection.device'],
+    workflowGuidance: 'Check current readiness before execution.',
+    outputInstruction: 'Return structured evidence.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    ...(version === 1 ? {} : { previousVersion: version - 1 }),
+    createdAt: `2026-07-26T0${String(version)}:00:00.000Z`,
+    outcomeSpecification: {
+      ...outcome,
+      specificationHash: `sha256:${createHash('sha256').update(JSON.stringify(outcome)).digest('hex')}`,
+    },
+  });
 }
 
 async function seedConfirmedGoalSessionForPlanning() {

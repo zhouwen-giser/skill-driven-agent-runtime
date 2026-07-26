@@ -17,7 +17,8 @@ export type ModelStage =
   | 'interactive_plan_patch'
   | 'experience_observation'
   | 'experience_reflection'
-  | 'task_type_induction';
+  | 'task_type_induction'
+  | 'capability_pattern_induction';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;

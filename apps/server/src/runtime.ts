@@ -126,6 +126,10 @@ import {
   TaskTypeClusterer,
   TaskTypeFingerprintBuilder,
   TaskTypeInductionService,
+  CapabilityGapService,
+  CapabilityPatternInductionService,
+  CapabilityPatternInvalidator,
+  CapabilitySkillMapper,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -205,6 +209,7 @@ import {
   PostgresObservationRepository,
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
+  PostgresCapabilityPatternRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -433,6 +438,12 @@ export async function startServerRuntime(
   const experienceObservations = new PostgresObservationRepository(pool);
   const experienceReflections = new PostgresReflectionRepository(pool);
   const taskTypeRepository = new PostgresTaskTypeRepository(pool);
+  const capabilityPatternRepository = new PostgresCapabilityPatternRepository(pool);
+  const capabilityPatternPolicyVersion = 'capability-pattern-policy-v1';
+  const capabilityPatternInvalidator = new CapabilityPatternInvalidator({
+    repository: capabilityPatternRepository,
+    clock,
+  });
   const experienceQueue = new BullMqExperienceQueue(options.redis);
   const observationQueue = new BullMqObservationQueue(options.redis);
   const reflectionQueue = new BullMqReflectionQueue(options.redis);
@@ -491,7 +502,13 @@ export async function startServerRuntime(
     changes: new PostgresCapabilityCatalogChangeSource(pool),
     summaries: capabilitySummaries,
     clock,
-    afterRebuild: (view) => capabilityCards.publish(view).then(() => undefined),
+    async afterRebuild(view) {
+      await capabilityPatternInvalidator.invalidateByCatalog({
+        catalogHash: view.summary.catalogHash,
+        policyVersion: capabilityPatternPolicyVersion,
+      });
+      await capabilityCards.publish(view);
+    },
   });
   let capabilityCatalogProjection = Promise.resolve();
   const refreshCapabilityCatalog = (): Promise<void> => {
@@ -527,7 +544,11 @@ export async function startServerRuntime(
       );
     }
   };
-  await capabilitySummaries.rebuild();
+  const initialCapabilitySummary = await capabilitySummaries.rebuild();
+  await capabilityPatternInvalidator.invalidateByCatalog({
+    catalogHash: initialCapabilitySummary.summary.catalogHash,
+    policyVersion: capabilityPatternPolicyVersion,
+  });
   await capabilityCards.publish();
   await refreshCapabilityCatalog();
   const skillExecutionRepository = new PostgresSkillExecutionRepository(pool);
@@ -649,7 +670,8 @@ export async function startServerRuntime(
         input.stage !== 'interactive_plan_patch' &&
         input.stage !== 'experience_observation' &&
         input.stage !== 'experience_reflection' &&
-        input.stage !== 'task_type_induction'
+        input.stage !== 'task_type_induction' &&
+        input.stage !== 'capability_pattern_induction'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -679,6 +701,26 @@ export async function startServerRuntime(
     clock,
     nextTaskTypeId: (fingerprint) =>
       `task-type-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+  });
+  const capabilitySkillMapper = new CapabilitySkillMapper({
+    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+  });
+  const capabilityPatternInduction = new CapabilityPatternInductionService({
+    repository: capabilityPatternRepository,
+    mapper: capabilitySkillMapper,
+    gaps: new CapabilityGapService({
+      repository: capabilityPatternRepository,
+      clock,
+      nextGapId: (fingerprint) =>
+        `capability-gap-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+      nextProposalId: (fingerprint) =>
+        `skill-proposal-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+    }),
+    model: cognitiveModel,
+    policyVersion: capabilityPatternPolicyVersion,
+    clock,
+    nextPatternId: (capabilityId) =>
+      `capability-pattern-${createHash('sha256').update(capabilityId).digest('hex').slice(0, 24)}`,
   });
   const observationPipeline = new ExperienceExtractorPipeline({
     extractors: createDefaultExperienceExtractors({
@@ -3496,6 +3538,7 @@ export async function startServerRuntime(
         planningInteractions: planningCorrections,
         experience: experienceManagement,
         taskTypes: taskTypeInduction,
+        capabilityPatterns: capabilityPatternInduction,
         goals: goalService,
         goalPatches,
         goalCancellations,

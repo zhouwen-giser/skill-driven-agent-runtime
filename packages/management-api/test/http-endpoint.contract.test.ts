@@ -1004,7 +1004,11 @@ describe('management HTTP API contract', () => {
       },
     });
 
-    for (const stage of ['experience_reflection', 'task_type_induction']) {
+    for (const stage of [
+      'experience_reflection',
+      'task_type_induction',
+      'capability_pattern_induction',
+    ]) {
       const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/${stage}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -1012,7 +1016,11 @@ describe('management HTTP API contract', () => {
       });
       expect(response.status).toBe(204);
     }
-    expect(routedStages).toEqual(['experience_reflection', 'task_type_induction']);
+    expect(routedStages).toEqual([
+      'experience_reflection',
+      'task_type_induction',
+      'capability_pattern_induction',
+    ]);
   });
 
   it('lists versioned Candidate Task Types without exposing them as active knowledge', async () => {
@@ -1048,6 +1056,74 @@ describe('management HTTP API contract', () => {
           fingerprint: `sha256:${'a'.repeat(64)}`,
           exemplars: [{ episodeId: 'episode-1' }, { episodeId: 'episode-2' }],
           requestedLimit: 25,
+        },
+      ],
+    });
+  });
+
+  it('lists Capability Patterns and non-executable Gap Candidates', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        capabilityPatterns: {
+          list: (limit) =>
+            Promise.resolve([
+              {
+                patternId: 'capability-pattern-inspection',
+                revision: 1,
+                status: 'candidate',
+                capabilityId: 'inspection.device',
+                exactSkillVersionMappings: [
+                  {
+                    exactSkillVersionRef: 'skill.inspect:2',
+                    requiresCurrentReadiness: true,
+                    compatibilityStatus: 'requires_current_check',
+                  },
+                ],
+                requestedLimit: limit,
+              },
+            ] as never),
+          listGaps: () =>
+            Promise.resolve([
+              {
+                gapId: 'capability-gap-inspection',
+                status: 'candidate',
+                capabilityId: 'inspection.device',
+                exactSkillVersionRefs: [],
+                executable: false,
+                authoringProposal: {
+                  reviewMode: 'manual',
+                  publishAllowed: false,
+                },
+              },
+            ] as never),
+        },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/capability-patterns?limit=25`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [
+        {
+          patternId: 'capability-pattern-inspection',
+          status: 'candidate',
+          requestedLimit: 25,
+          exactSkillVersionMappings: [
+            {
+              exactSkillVersionRef: 'skill.inspect:2',
+              requiresCurrentReadiness: true,
+              compatibilityStatus: 'requires_current_check',
+            },
+          ],
+        },
+      ],
+      gaps: [
+        {
+          gapId: 'capability-gap-inspection',
+          status: 'candidate',
+          executable: false,
+          authoringProposal: { reviewMode: 'manual', publishAllowed: false },
         },
       ],
     });

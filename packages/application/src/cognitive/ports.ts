@@ -28,6 +28,8 @@ import type {
   PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
+  CapabilityGapCandidateSnapshot,
+  CapabilityPatternDefinitionSnapshot,
   TaskTypeDefinitionSnapshot,
   UserGoalPlanCandidateSnapshot,
   UserGoalPlan,
@@ -363,6 +365,22 @@ export interface TaskTypeRepository {
   findByFingerprint(fingerprint: string): Promise<TaskTypeDefinitionSnapshot | undefined>;
   list(limit?: number): Promise<readonly TaskTypeDefinitionSnapshot[]>;
   saveCandidate(candidate: TaskTypeDefinitionSnapshot): Promise<boolean>;
+}
+
+export interface CapabilityPatternRepository {
+  findLatest(capabilityId: string): Promise<CapabilityPatternDefinitionSnapshot | undefined>;
+  list(limit?: number): Promise<readonly CapabilityPatternDefinitionSnapshot[]>;
+  saveCandidate(candidate: CapabilityPatternDefinitionSnapshot): Promise<boolean>;
+  findGapByFingerprint(fingerprint: string): Promise<CapabilityGapCandidateSnapshot | undefined>;
+  listGaps(limit?: number): Promise<readonly CapabilityGapCandidateSnapshot[]>;
+  saveGapCandidate(candidate: CapabilityGapCandidateSnapshot): Promise<boolean>;
+  invalidateByCatalog(
+    input: Readonly<{
+      catalogHash: string;
+      policyVersion: string;
+      occurredAt: string;
+    }>,
+  ): Promise<number>;
 }
 
 export interface KnowledgeRepository {

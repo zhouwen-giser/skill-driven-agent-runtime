@@ -16,7 +16,8 @@ export type CognitiveDomainErrorCode =
   | 'KNOWLEDGE_DELTA_INVALID'
   | 'KNOWLEDGE_CANDIDATE_INVALID'
   | 'KNOWLEDGE_PROMOTION_FORBIDDEN'
-  | 'TASK_TYPE_INVALID';
+  | 'TASK_TYPE_INVALID'
+  | 'CAPABILITY_PATTERN_INVALID';
 
 export class CognitiveDomainError extends DomainError {
   constructor(
