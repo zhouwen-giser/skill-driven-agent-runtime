@@ -285,3 +285,20 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   Capability authority. A private-reasoning key is rejected before persistence.
 - G15 does not add tenant identity or cross-tenant authorization. Production exposure beyond a trusted
   network still requires a separately reviewed authentication/authorization architecture.
+
+## v1.2.3 G16 Replay and Shadow boundary (2026-07-26)
+
+- The default production evaluator is intentionally conservative and emits neutral
+  Baseline/Champion/Candidate results from immutable recorded metrics. The fixture's improved verdict
+  validates comparison mechanics only; it is not a production model-efficacy claim.
+- Replay includes only complete Goal Experience Episodes referenced by the exact Candidate evidence.
+  It never fabricates missing Contract, Plan, Outcome or catalog data. Fewer than three usable cases
+  remains `incubating` and cannot activate Knowledge.
+- The deterministic last-one-third holdout is reproducible and disjoint, but it is not randomized or
+  stratified. Larger production datasets may require a separately versioned split policy without
+  reinterpreting existing report hashes.
+- `promotion_provenance_report` is audit/evaluation evidence, not Active Knowledge or a file-based
+  knowledge authority. Rollback refuses to discard a populated report table.
+- `NoPhysicalProvider` rejects every nonzero Provider/MCP/device receipt. G16 performs no live device
+  interoperability or production Shadow efficacy run; G17 owns the frozen rollout and release
+  environment evidence.

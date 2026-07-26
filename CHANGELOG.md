@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Added
 
+- G16 immutable Planning Replay datasets with request/world/accepted Contract and Plan/corrections/
+  Outcome/catalog/knowledge provenance, six cognitive evaluation dimensions and complete planning
+  quality/cost metrics.
+- Disjoint deterministic `mutate_dev`/`promotion_test` partitions, side-effect-free
+  Baseline/Champion/Candidate Shadow verdicts, hard-failure non-regression and reproducible Promotion
+  reports through audit-only migration 0124.
+- A conservative production Replay evaluator, explicit `NoPhysicalProvider` zero-call guard,
+  incubating Candidate enforcement, generated fixture artifact and `verify:cognitive-replay` gate.
 - The complete SDAR v1.2.3 Goal package, Master ExecPlan and machine-readable Goal sync state.
 - ADR-111–114 for cognitive planning authority, Experience/knowledge governance, deterministic
   snapshots/CAS and post-v1.2.2 migrations.

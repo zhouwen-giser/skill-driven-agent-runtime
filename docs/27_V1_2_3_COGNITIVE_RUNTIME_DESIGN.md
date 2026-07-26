@@ -205,6 +205,35 @@ provides Episode/Observation/Reflection/dead-letter inspection, replay, Task Typ
 lifecycle controls. Capability views remain public allowlist projections. No Console route can directly
 mutate Provider state, final Outcome or the active execution Plan.
 
+## G16 Evaluation, Replay and Shadow harness
+
+`PlanningReplayDatasetBuilder` resolves only complete Goal Experience Episodes referenced by the exact
+Promotion Candidate evidence. Each immutable case contains the request, recorded world summary,
+accepted Contract and Plan, corrections, Outcome, source hash, current catalog hash and exact
+Knowledge revision. Six dimension scores cover Understanding, Contract, Plan, Injection, Task Type
+Recognition and Capability Gap; aggregate metrics cover missing dimensions, coverage, patches,
+attempts, recovery, risk, tokens, latency and hard failures.
+
+Cases are sorted by Episode ID and split deterministically: the final one-third, with a minimum of one
+when data exists, is `promotion_test`; the rest is `mutate_dev`. Only the holdout is compared.
+`ShadowPlanningService` produces `improved`, `neutral`, `regressed`, `invalid` or `unsafe` for
+Baseline/Champion/Candidate. Any hard-failure increase, coverage loss or risk increase is a regression.
+Dataset, comparisons and complete Promotion provenance use canonical SHA-256 identities.
+
+`NoPhysicalProvider` is mandatory at the composition boundary and accepts only a `none` receipt with
+zero Provider, MCP and device calls. The first-release `ConservativeReplayPlanningEvaluator` returns
+validated neutral results from recorded metrics, so production code makes no unsupported efficacy
+claim. A configured evaluator remains behind the same zero-side-effect and Domain-validation gates.
+Replay has no formal Task, Planner, Skill, Outcome, Recovery or Active Knowledge write port.
+
+`ReplayPromotionEvidenceService` generates or reads one report per exact Knowledge
+kind/ID/revision. Migration `0124_v123_replay_shadow_evidence` stores the complete report as
+audit/evaluation evidence with unique report and dataset hashes; it is not business authority. The
+existing Promotion service consumes replay/shadow summaries, but fewer than three complete cases is
+`incubating` regardless of count-based thresholds and returns the Knowledge status to `candidate`.
+`reports/v1.2.3-replay/promotion-report.json` is a reproducible deterministic fixture, explicitly not
+production Shadow-efficacy evidence.
+
 ## Open-source boundary
 
 Six sources are exact-commit design references in `third_party/sources.lock.yaml` and the G00 intake

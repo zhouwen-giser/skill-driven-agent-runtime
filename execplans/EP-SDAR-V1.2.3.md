@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G15 are complete; G16 is next
+Status: ACTIVE — G00–G16 are complete; G17 release hardening is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -97,8 +97,8 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G13  | completed   | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none           | bounded Active-only retrieval handed to G14                    |
 | G14  | completed   | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none           | governed usage and rollout evidence handed to G15/G16          |
 | G15  | completed   | `d77794a` | 597 unit, 157 contract, 84 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g15-completion.md` | none           | audited integration handed to G16                              |
-| G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
-| G17  | not_started | —         | —                                                                                 | —                                | G00–G16        | hardening/release gates                                        |
+| G16  | completed   | `265f865` | 604 unit, 157 contract, 84 real integration, 62 real E2E, replay/migration/build  | `reports/goal/g16-completion.md` | none           | reproducible side-effect-free evidence handed to G17           |
+| G17  | not_started | —         | —                                                                                 | —                                | none           | hardening/release gates                                        |
 
 ## Discoveries and Surprises
 
@@ -233,6 +233,14 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: the first production Console build found the new governance section missing from a
   narrowed lookup-section exclusion even though root TypeScript passed. The route union was corrected;
   the production build and all affected gates then passed.
+- 2026-07-26: G16 final review found that an `incubating` report could still satisfy the older
+  count-only evaluator and activate a Candidate. Promotion now explicitly requires a non-incubating
+  report, with a service-level regression proving the revision returns to `candidate`.
+- 2026-07-26: a zero-case Replay initially lost the active catalog hash and threw before it could
+  produce evidence. The PostgreSQL source now resolves the current catalog independently, so empty and
+  insufficient datasets produce deterministic incubating reports.
+- 2026-07-26: direct integration reuse of the protected operator database failed closed on its
+  historical ledger. The standard isolated harness passed 84/84 and left operator data unchanged.
 
 ## Decision Log
 
@@ -315,6 +323,13 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: A2A continuation uses one `InteractiveActionRouter`, selecting the current Planning
   Session before Goal clarification and applying only the frozen action vocabulary at the exact
   observed version. The projection exposes no Candidate or private Understanding content.
+- 2026-07-26: G16 Replay is an Application evaluation harness over immutable Episode evidence, not a
+  second Planner or workflow runtime. Migration 0124 stores audit/evaluation reports only.
+  `NoPhysicalProvider` requires zero Provider/MCP/device calls, and the production evaluator is
+  conservative/neutral until a separately configured validated evaluator exists.
+- 2026-07-26: the one-third deterministic holdout is versioned behavior adapted clean-room from locked
+  design references. No upstream source or prompt is copied; AutoSkill's unconfirmed license continues
+  to prohibit source/long-prompt reuse.
 
 ## Implementation Steps
 
@@ -440,6 +455,7 @@ remain unchanged.
 - G13 relation correction HEAD: `3201325d7cd9c59d047301b0ef1f16188a4adff4`
 - G14 implementation HEAD: `1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd`
 - G15 implementation HEAD: `d77794a2620362bc4f59f2021283d61a164b5139`
+- G16 implementation HEAD: `265f865dfefecf6e2e2a3d5f8d70de6516029bee`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -491,16 +507,20 @@ remain unchanged.
 - G15 implementation `d77794a`: strict cognitive Management writes, optional bearer plus durable
   audit gate, exact read APIs, operational governance Console, routing-only A2A continuation,
   migration 0123 and CAS/privacy regressions.
+- G16 implementation `265f865`: immutable evidence-linked Replay datasets, disjoint development/
+  holdout partitions, all five Shadow verdicts, hard-failure non-regression, zero physical side
+  effects, idempotent Promotion provenance, migration 0124 and generated replay artifact.
 
 ## Open Blockers
 
-None for G00–G15. Retained failed attempts are documented in the Goal reports. G16–G17 remain ordinary
-unfinished work, not blockers.
+None for G00–G16. Retained failed attempts are documented in the Goal reports. G17 remains ordinary
+unfinished release work, not a blocker.
 
 ## Next Execution Step
 
-Publish the G15 evidence head and update Draft PR #9 without changing Draft status, then implement G16
-side-effect-free replay/shadow datasets, metrics and Promotion provenance.
+Publish the G16 evidence head and update Draft PR #9 without changing Draft status, then execute G17
+clean-checkout release, recovery, security/privacy, capacity/retention and rollout gates. Only after
+every G17 gate passes may the Draft be marked Ready; do not merge or tag.
 
 ## Outcomes and Retrospective
 
@@ -530,4 +550,7 @@ G14 adds governed Experience-enriched planning and complete usage lineage, passi
 contract, 83 integration, 62 E2E, 147 OpenAPI, 411-source architecture, build/smoke and migrations
 through 0122. G15 completes audited API/Console/A2A integration, passing 597 unit, 157 contract, 84
 integration, 62 E2E, 152 OpenAPI, 419-source architecture, A2A MUST 74/74, production build, isolated
-Server smoke and migrations through 0123. G16–G17 remain open.
+Server smoke and migrations through 0123. G16 adds side-effect-free evidence-linked Replay/Shadow and
+idempotent Promotion provenance, passing 604 unit, 157 contract, 84 integration, 62 E2E, 152 OpenAPI,
+423-source architecture, A2A MUST 74/74, production build, deterministic replay verification and
+migrations through 0124. G17 remains open.

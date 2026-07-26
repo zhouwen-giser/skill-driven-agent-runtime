@@ -473,3 +473,21 @@ G15 affected gates pass 597 unit, 157 contract, 84 real integration and 62 real 
 16-migration v1.2.3 chain through 0123 passes idempotency, rollback/reapply, reset guard and rogue-ledger
 rejection. Exact commands, retained sandbox-only failed attempts and handoff are in
 `reports/goal/g15-completion.md`.
+
+## SDAR v1.2.3 G16 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G16-01 complete Replay provenance | verified | immutable Domain Replay case/dataset factories and evidence-linked PostgreSQL Episode source preserve request/world/Contract/Plan/corrections/Outcome/catalog/knowledge | focused dataset unit, real repository integration and generated report artifact |
+| AC-G16-02 separated data | verified | deterministic ordered one-third `promotion_test` holdout, remaining `mutate_dev`, factory-enforced disjoint IDs | 6-case 4/2 unit, 3-case 2/1 artifact and byte-stable verifier |
+| AC-G16-03 non-regressing comparison | verified | `ShadowPlanningService.compare` evaluates Baseline/Champion/Candidate and Promotion gates hard failures | all five verdict unit plus explicit hard-failure rejection |
+| AC-G16-04 formal Task isolation | verified | Replay accepts immutable snapshots and has no Task/Planner commit port | unchanged formal-task unit and 62/62 real E2E |
+| AC-G16-05 no physical side effect | verified | `NoPhysicalProvider.assertNoSideEffects` requires none/0/0/0 receipt | forbidden MCP-call unit and report verifier |
+| AC-G16-06 reproducible report | verified | deterministic Dataset/Comparison/Report hashes and one PostgreSQL row per exact Candidate revision | concurrent idempotency unit, real persistence integration and `verify:cognitive-replay` |
+| AC-G16-07 incubation | verified | fewer than three complete cases gives `incubating`; Promotion cannot activate it | empty/two-case unit and service-level Candidate-state regression |
+
+G16 affected gates pass 604 unit, 157 contract, 84 real integration and 62 real E2E tests. The
+17-migration v1.2.3 chain through 0124 passes fresh/idempotent/rollback/reapply/reset/rogue-ledger
+verification; architecture covers 423 TypeScript sources and OpenAPI remains unchanged at 152
+operations. Exact commands, classifications and retained failures are in
+`reports/goal/g16-completion.md`.
