@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P01 — Runtime Artifact Domain Contract
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Branch: `feature/v1.3-sequential-implementation`
 
@@ -86,7 +86,8 @@ validation and approval evidence before `active`; P01 does not write an active p
       integration, 62 E2E, architecture, A2A, OpenAPI, Replay, migrations, build and both smokes.
 - [x] 2026-07-26 New independent read-only re-review accepted the remediated tree with zero
       blocking/major findings; its one documentation-only minor finding is closed below.
-- [ ] Commit, run the clean-commit full gate, finalize Handoff/status, and push Draft PR #12.
+- [x] 2026-07-27 Committed P01 as `8ac5f5e35982d6406290302c1a095a79d1031aa1`; its clean
+      full gate passed 785/84/62 with `dirty=false`, and final Handoff/evidence is `READY_FULL`.
 
 ## Discoveries and Surprises
 
@@ -196,5 +197,7 @@ Initial independent review rejected two blocking and two major defects; remediat
 nested contracts and validator/lifecycle boundaries. A new independent review accepted the final
 working tree with zero blocking/major findings. The full working-tree gate passes 785 unit/contract,
 84 integration and 62 E2E tests plus architecture, protocol, migration, Replay, build and smoke.
-Only the meaningful implementation commit, clean-commit verification, final SHA bookkeeping and
-Draft PR push remain.
+The meaningful implementation commit is `8ac5f5e35982d6406290302c1a095a79d1031aa1`.
+Its full gate started clean and passed 785 unit/contract, 84 integration and 62 E2E tests plus all
+architecture, protocol, migration, Replay, build and smoke checks. P01 produces no migration or
+runtime/API behavior and hands its 15 frozen contracts to P02 with zero blockers.

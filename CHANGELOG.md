@@ -15,7 +15,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Restored authenticated publication, pushed the integration branch and created Draft PR #12 without
   merge, tag, release or deployment.
 
-## SDAR v1.3 P01 Runtime Artifact Domain — in review
+## SDAR v1.3 P01 Runtime Artifact Domain — complete
 
 - Added all 15 frozen P01 Artifact Domain contracts and registry-pinned hashes, including five
   definition kinds, applicability, dependency snapshots, lineage and rebuildable runtime bindings.
@@ -32,7 +32,8 @@ All notable changes to this project are documented here. The format follows Keep
 - The first independent review rejected readiness; remediation passes 20/20 focused tests and the
   post-remediation full gate passes 785 unit/contract, 84 real integration, 62 real E2E, architecture,
   A2A, migration, Replay, build and smoke. A new independent re-review accepts with zero
-  blocking/major findings; clean-commit verification remains pending.
+  blocking/major findings. Completion commit `8ac5f5e` passes the same full gate with `dirty=false`;
+  the standard Handoff is `READY_FULL` with zero blockers.
 
 ## [1.2.3] - Unreleased
 

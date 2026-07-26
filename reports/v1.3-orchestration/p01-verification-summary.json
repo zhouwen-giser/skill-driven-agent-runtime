@@ -3,11 +3,11 @@
   "packageId": "SDAR-V1.3-P01",
   "goal": "G01",
   "status": "passed",
-  "verificationCommit": "a8d53ff2a6d1de2e72d508ab35c40cd90f006618",
-  "dirty": true,
-  "startedAt": "2026-07-26T16:11:18.214Z",
-  "finishedAt": "2026-07-26T16:13:44.436Z",
-  "durationMs": 146222,
+  "verificationCommit": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+  "dirty": false,
+  "startedAt": "2026-07-26T16:19:25.460Z",
+  "finishedAt": "2026-07-26T16:22:20.333Z",
+  "durationMs": 174873,
   "environment": {
     "node": "v22.23.1",
     "platform": "linux/x64",
@@ -78,5 +78,5 @@
       "summary": "The first post-remediation run inside the filesystem sandbox produced 83 EPERM failures because local listening and child-process spawning were denied. The same exact gate passed outside that sandbox."
     }
   ],
-  "cleanCommitVerificationPending": true
+  "cleanCommitVerificationPending": false
 }

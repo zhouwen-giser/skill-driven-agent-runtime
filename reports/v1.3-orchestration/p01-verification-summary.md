@@ -1,8 +1,9 @@
 # P01/G01 Verification Summary
 
-- Status: **passed after post-review remediation**
-- Verification base: `a8d53ff2a6d1de2e72d508ab35c40cd90f006618` with the P01 working tree
-- Duration: 146,222 ms
+- Status: **passed on clean completion commit**
+- Verification commit: `8ac5f5e35982d6406290302c1a095a79d1031aa1`
+- Dirty at gate start: no
+- Duration: 174,873 ms
 - Infrastructure: operator-managed PostgreSQL/Redis, existing isolated clean-baseline gate database
 - Operator database modified: no
 
@@ -19,8 +20,7 @@
 - Cognitive Replay: passed with zero physical Provider calls.
 - Production build, infrastructure smoke, and Server/Console smoke: passed.
 
-The exact seven-step gate is retained in `reports/verification/summary.json`. A new independent
-read-only re-review and clean-commit rerun are required before P01 is complete.
+The exact seven-step clean-commit gate is retained in `reports/verification/summary.json`.
 
 ## Retained attempts
 

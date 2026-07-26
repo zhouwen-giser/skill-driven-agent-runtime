@@ -1,6 +1,7 @@
 # Project Status
 
-SDAR v1.3 P01/G01 Runtime Artifact Domain is remediated after a rejected first independent review
+SDAR v1.3 P01/G01 Runtime Artifact Domain is complete as `READY_FULL` after a rejected first
+independent review and accepted remediation re-review
 (2026-07-26) on `feature/v1.3-sequential-implementation`. The first review found downstream
 PlanTemplate incompatibility, Domain/Zod/AJV drift, a direct-activation bypass and missing nested enum
 guards. Exact shared-design/P04 nested shapes, AJV recursive-bound keywords, direct activation
@@ -8,9 +9,9 @@ evidence and expanded regressions now pass 20/20 focused tests. The post-remedia
 passes 785/785 unit+contract, 84/84 real integration, 62/62 real E2E, 435-source architecture, A2A
 74/74, 152 OpenAPI operations, 17 migrations, Replay with zero physical Provider calls, production
 build and both smoke tests. A new independent read-only re-review accepts the remediated tree with
-zero blocking/major findings; its documentation-only minor item is closed. Clean-commit verification,
-final SHA bookkeeping and push are still required; P01 remains `READY_REVIEW` and does not advance
-to P02.
+zero blocking/major findings; its documentation-only minor item is closed. The meaningful completion
+commit `8ac5f5e` passes the same full gate with `dirty=false`; final Handoff has 9/9 accepted, zero
+failed/blocked and zero open blockers. P02 may now consume the 15 frozen P01 contracts.
 
 SDAR v1.3 P00 foundation gate is complete as `READY_FULL` (2026-07-26) on
 `feature/v1.3-sequential-implementation` from exact `origin/main@v1.2.3-final`
