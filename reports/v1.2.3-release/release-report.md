@@ -1,6 +1,6 @@
 # SDAR v1.2.3 Release Audit
 
-Status: **passed for protected review**
+Status: **release gates passed; external auto-merge deviation**
 
 The clean release gate passed on
 `7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false` in 171,145 ms. It ran 765
@@ -55,5 +55,7 @@ explicit human approval.
 Sources (27 pins), Apache-2.0/NOTICE, 286 npm packages, two external services, SBOM, A2A MUST 74/74,
 152 OpenAPI operations, frozen protocol and 425-source architecture all pass.
 
-This audit authorizes marking Draft PR #9 Ready for protected review only. It does not authorize merge
-or tag creation.
+PR #9 was marked Ready only after all release gates passed. GitHub then merged it externally at
+`d68195a7634a7c9694f0ba1e971d9327813fb03d` without a Codex Merge call and deleted the branch. The
+branch was recreated by the already-running final evidence push. No tag was created. The merge cannot
+be honestly classified as compliant with AC-G17-09/AC-MASTER-05 and is not reverted automatically.

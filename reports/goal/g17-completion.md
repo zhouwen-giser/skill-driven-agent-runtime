@@ -10,8 +10,9 @@ PostgreSQL. User deletion routes through a named propagation service. Retention 
 The frozen rollout order and low-risk/manual-review activation gate are executable policy.
 
 The complete release gate passed from clean commit
-`7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false`. Draft PR #9 may now become Ready for
-protected review. Merge and tag remain prohibited.
+`7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false`. PR #9 was then marked Ready, but
+GitHub merged it externally at `d68195a` without a Codex Merge call. No tag exists. The release gates
+remain valid, while the required unmerged final state is blocked by this irreversible external change.
 
 ## Acceptance Mapping
 
@@ -25,7 +26,7 @@ protected review. Merge and tag remain prohibited.
 | AC-G17-06 | verified | 27 source pins, project license/NOTICE, 286 npm packages, two services and SBOM |
 | AC-G17-07 | verified | official frozen A2A HTTP+JSON MUST 74/74 and Management OpenAPI 152/152 |
 | AC-G17-08 | verified | release report states every frozen authority/advisory/Python/Skill-publication boundary |
-| AC-G17-09 | verified | clean evidence published; PR open, Ready, mergeable and unmerged; no tag |
+| AC-G17-09 | failed: external merge | clean evidence was published and no tag exists, but GitHub auto-merged PR #9 after Ready |
 
 ## Master Gates
 
@@ -35,7 +36,7 @@ protected review. Merge and tag remain prohibited.
 | AC-MASTER-02 | verified | full verify, TCK, OpenAPI, migrations, architecture, sources, license and SBOM green |
 | AC-MASTER-03 | verified | 62 real product E2E plus G07–G16 offline Episode→Replay evidence |
 | AC-MASTER-04 | verified | complete v1.2.2 execution/Outcome/Recovery/Business Events/No Replay suites unchanged and green |
-| AC-MASTER-05 | verified | evidence published; PR Ready for protected review; no merge/tag |
+| AC-MASTER-05 | failed: external merge | evidence is complete, but the required unmerged PR state no longer exists |
 
 ## Validation
 
@@ -80,6 +81,10 @@ services exercised the real product path; they are not external-production inter
    `7e50541`; an explicitly named disposable database and explicit URL produced the final clean pass.
 4. `psql` was unavailable. The already locked `pg` client created and removed only the exact temporary
    database. Operator `sdar` data was not reset or modified by this action.
+5. The GitHub connector confirmed PR #9 `merged=false` immediately after the Ready transition. GitHub
+   then auto-merged it at `2026-07-26T11:53:11Z` as `d68195a` and deleted the branch without any
+   Codex Merge call. The already-running final evidence push recreated the branch. No tag exists.
+   Reverting `main` would be a new destructive authority and was not attempted.
 
 No assertion was weakened, no failure was hidden and no failed test was deleted.
 
@@ -110,5 +115,5 @@ No automatic Skill publication from the cognitive runtime
 - Evolution evidence timing regression: `702baab`
 - retained failed verification: `7e50541`
 - release evidence: `f1f354c07ea0a6f32c911115973ea60aeab26b62`
-- PR #9: open, Ready for Review, mergeable and unmerged
+- PR #9: externally merged as `d68195a`; no Codex Merge call; no tag
 - Merge/tag: not performed

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "release": "v1.2.3",
-  "status": "passed",
+  "status": "release_gates_passed_external_merge_deviation",
   "verificationCommit": "7e505412bc50917a71c4a724ef15f659c6d5c296",
   "verificationReport": "reports/verification/summary.json",
   "verificationDirty": false,
@@ -14,7 +14,7 @@
     { "id": "AC-G17-06", "status": "passed", "classification": ["static source/license/SBOM audit"] },
     { "id": "AC-G17-07", "status": "passed", "classification": ["official frozen A2A HTTP+JSON MUST TCK", "static OpenAPI drift gate"] },
     { "id": "AC-G17-08", "status": "passed", "classification": ["release boundary audit"] },
-    { "id": "AC-G17-09", "status": "passed", "classification": ["git/GitHub publication audit"] }
+    { "id": "AC-G17-09", "status": "failed_external_merge", "classification": ["git/GitHub publication audit"] }
   ],
   "metrics": {
     "unitAndContract": { "passed": 765, "total": 765 },
