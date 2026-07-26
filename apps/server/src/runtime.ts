@@ -153,6 +153,10 @@ import {
   ReplayPromotionEvidenceService,
   ConservativeReplayPlanningEvaluator,
   NoPhysicalProvider,
+  CognitiveRuntimeReconciler,
+  DeletionPropagationService,
+  FeatureRolloutPolicy,
+  RetentionService,
   ReciprocalRankFusion,
   TaskTypePromotionTarget,
   CurrentExactSkillKnowledgeSource,
@@ -1069,9 +1073,20 @@ export async function startServerRuntime(
     nextCorrectionId: () => `planning-correction-${randomUUID()}`,
   });
   planningCorrectionRef.current = planningCorrections;
-  const memoryRetention = new MemoryRetentionPolicyService({
-    repository: new PostgresMemoryRetentionPolicyRepository(pool),
-    clock,
+  const deletionPropagation = new DeletionPropagationService({
+    targets: [
+      {
+        name: 'planning_preferences',
+        deleteUserScope: (userId, actorId) =>
+          planningCorrections.deleteUserScopedProjection(userId, actorId),
+      },
+    ],
+  });
+  const memoryRetention = new RetentionService({
+    policies: new MemoryRetentionPolicyService({
+      repository: new PostgresMemoryRetentionPolicyRepository(pool),
+      clock,
+    }),
   });
   const prompts = new PromptService({
     repository: new PostgresPromptRepository(pool),
@@ -2027,6 +2042,15 @@ export async function startServerRuntime(
     }),
     fallback: new BasePlannerFallbackPolicy(),
   });
+  const configuredInjectionMode =
+    options.cognitiveInjectionMode ?? DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS.injectionMode;
+  const effectiveInjectionMode = new FeatureRolloutPolicy().evaluate({
+    stage: 'shadow',
+    flags: {
+      ...DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
+      injectionMode: configuredInjectionMode,
+    },
+  }).effectiveInjectionMode;
   if (interactiveGoalSessions !== undefined) {
     const planCandidateValidator = new UserGoalPlanCandidateValidator();
     interactivePlanningSessions = new InteractivePlanningSessionService({
@@ -2034,8 +2058,7 @@ export async function startServerRuntime(
       planner: userGoalPlanning,
       experiencePlanner: experiencePlanning,
       experienceUsage: interactivePlanningRepository,
-      injectionMode:
-        options.cognitiveInjectionMode ?? DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS.injectionMode,
+      injectionMode: effectiveInjectionMode,
       patches: new InteractivePlanPatchService({
         model: cognitiveModel,
         validator: planCandidateValidator,
@@ -3593,11 +3616,15 @@ export async function startServerRuntime(
     await remoteTaskContinuationReconciler.reconcile();
   if (remoteTaskCancellationReconciler !== undefined)
     await remoteTaskCancellationReconciler.reconcile();
+  const cognitiveRuntimeReconciler = new CognitiveRuntimeReconciler({
+    dispatchTerminalOutbox: () => experienceOutboxDispatcher.dispatch(),
+    requeueExperience: () => experienceReconciler.requeue(clock.now()),
+    requeueObservation: () => observationReconciler.requeue(clock.now()),
+    requeueReflection: () => reflectionReconciler.requeue(clock.now()),
+    rebuildActiveKnowledge: () => knowledgePromotion.rebuildActiveProjections(),
+  });
   try {
-    await experienceOutboxDispatcher.dispatch();
-    await experienceReconciler.requeue(clock.now());
-    await observationReconciler.requeue(clock.now());
-    await reflectionReconciler.requeue(clock.now());
+    await cognitiveRuntimeReconciler.rebuild();
   } catch (error: unknown) {
     process.stderr.write(
       `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3652,7 +3679,12 @@ export async function startServerRuntime(
                 },
               },
             }),
-        planningInteractions: planningCorrections,
+        planningInteractions: {
+          listTaskInteractions: planningCorrections.listTaskInteractions.bind(planningCorrections),
+          async deleteUserScopedProjection(userId, actorId) {
+            return (await deletionPropagation.propagate(userId, actorId)).deletedCount;
+          },
+        },
         experience: experienceManagement,
         taskTypes: taskTypeInduction,
         capabilityPatterns: capabilityPatternInduction,
