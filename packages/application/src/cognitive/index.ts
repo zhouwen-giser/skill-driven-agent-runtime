@@ -31,3 +31,6 @@ export * from './knowledge-delta-validator.js';
 export * from './knowledge-curator-service.js';
 export * from './experience-reflector-service.js';
 export * from './reflection-job-reconciler.js';
+export * from './task-type-fingerprint.js';
+export * from './task-type-applicability-guard.js';
+export * from './task-type-induction-service.js';

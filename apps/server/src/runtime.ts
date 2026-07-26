@@ -123,6 +123,9 @@ import {
   KnowledgeDeltaValidator,
   KnowledgeCuratorService,
   ReflectionJobReconciler,
+  TaskTypeClusterer,
+  TaskTypeFingerprintBuilder,
+  TaskTypeInductionService,
   StaticTaskTypeIndexSource,
   EvaluationInfluenceService,
   EvaluationAnalyticsService,
@@ -201,6 +204,7 @@ import {
   PostgresCognitiveRuntimeFactReader,
   PostgresObservationRepository,
   PostgresReflectionRepository,
+  PostgresTaskTypeRepository,
   PostgresSkillSelectionRepository,
   PostgresSkillExecutionRepository,
   PostgresSkillInputResolutionRepository,
@@ -428,6 +432,7 @@ export async function startServerRuntime(
   const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
   const experienceObservations = new PostgresObservationRepository(pool);
   const experienceReflections = new PostgresReflectionRepository(pool);
+  const taskTypeRepository = new PostgresTaskTypeRepository(pool);
   const experienceQueue = new BullMqExperienceQueue(options.redis);
   const observationQueue = new BullMqObservationQueue(options.redis);
   const reflectionQueue = new BullMqReflectionQueue(options.redis);
@@ -643,7 +648,8 @@ export async function startServerRuntime(
         input.stage !== 'goal_contract_generation' &&
         input.stage !== 'interactive_plan_patch' &&
         input.stage !== 'experience_observation' &&
-        input.stage !== 'experience_reflection'
+        input.stage !== 'experience_reflection' &&
+        input.stage !== 'task_type_induction'
       ) {
         throw new Error('COGNITIVE_MODEL_STAGE_INVALID');
       }
@@ -658,6 +664,22 @@ export async function startServerRuntime(
       });
     },
   };
+  const taskTypeFingerprints = new TaskTypeFingerprintBuilder({
+    objectiveAliases: {
+      check: 'inspect',
+      verify: 'inspect',
+      examine: 'inspect',
+    },
+  });
+  const taskTypeInduction = new TaskTypeInductionService({
+    fingerprints: taskTypeFingerprints,
+    clusterer: new TaskTypeClusterer({ fingerprints: taskTypeFingerprints }),
+    repository: taskTypeRepository,
+    model: cognitiveModel,
+    clock,
+    nextTaskTypeId: (fingerprint) =>
+      `task-type-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+  });
   const observationPipeline = new ExperienceExtractorPipeline({
     extractors: createDefaultExperienceExtractors({
       model: cognitiveModel,
@@ -3473,6 +3495,7 @@ export async function startServerRuntime(
             }),
         planningInteractions: planningCorrections,
         experience: experienceManagement,
+        taskTypes: taskTypeInduction,
         goals: goalService,
         goalPatches,
         goalCancellations,

@@ -988,7 +988,7 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
   });
 
-  it('accepts the experience reflection model stage at the management boundary', async () => {
+  it('accepts cognitive reflection and Task Type induction model stages at the management boundary', async () => {
     const routedStages: string[] = [];
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
@@ -1004,14 +1004,53 @@ describe('management HTTP API contract', () => {
       },
     });
 
-    const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/experience_reflection`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providerId: 'provider.local' }),
+    for (const stage of ['experience_reflection', 'task_type_induction']) {
+      const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/${stage}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ providerId: 'provider.local' }),
+      });
+      expect(response.status).toBe(204);
+    }
+    expect(routedStages).toEqual(['experience_reflection', 'task_type_induction']);
+  });
+
+  it('lists versioned Candidate Task Types without exposing them as active knowledge', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        taskTypes: {
+          list: (limit) =>
+            Promise.resolve([
+              {
+                taskTypeId: 'task-type-inspection',
+                revision: 2,
+                status: 'candidate',
+                origin: 'induced',
+                fingerprint: `sha256:${'a'.repeat(64)}`,
+                exemplars: [{ episodeId: 'episode-1' }, { episodeId: 'episode-2' }],
+                requestedLimit: limit,
+              },
+            ] as never),
+        },
+      },
     });
 
-    expect(response.status).toBe(204);
-    expect(routedStages).toEqual(['experience_reflection']);
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/task-types?limit=25`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      items: [
+        {
+          taskTypeId: 'task-type-inspection',
+          revision: 2,
+          status: 'candidate',
+          origin: 'induced',
+          fingerprint: `sha256:${'a'.repeat(64)}`,
+          exemplars: [{ episodeId: 'episode-1' }, { episodeId: 'episode-2' }],
+          requestedLimit: 25,
+        },
+      ],
+    });
   });
 
   it('reads and updates disabled-by-default Memory retention controls', async () => {

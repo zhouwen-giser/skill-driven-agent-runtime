@@ -377,3 +377,18 @@ G08/G09 closure passes 549 unit, 152 contract, 79 real integration, 62 real E2E,
 OpenAPI, 372-source architecture, A2A MUST 74/74, production build and migrations through 0117.
 Commits `2d600fc` and `c8754fd` are pushed; exact evidence and failed attempts are retained in
 `reports/goal/g08-completion.md` and `reports/goal/g09-completion.md`.
+
+## SDAR v1.2.3 G10 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G10-01 seven-dimensional fingerprint | verified | Domain induction example plus `TaskTypeFingerprintBuilder` canonical objective/Criteria/Artifact/Capability/DAG/Correction/Outcome | order/case/alias equivalence and different-Criteria separation unit |
+| AC-G10-02 cluster before model | verified | sorted exact-fingerprint `TaskTypeClusterer`; singleton short-circuit | zero singleton model calls; one model call for a three-Episode cluster |
+| AC-G10-03 complete abstraction | verified | strict Zod, Domain, cognitive JSON and OpenAPI Task Type schemas | Recognition/Negative Examples/dimensions/Criteria/Capability/Goal/Dependency assertions |
+| AC-G10-04 no one-Episode Active | verified | singleton skipped; factory permits Candidate only; repository stores Candidate only | focused unit and real PostgreSQL zero-Active count |
+| AC-G10-05 no pre-promotion influence | verified | G10 service/API are separate from unchanged G03 `StaticTaskTypeIndexSource` | architecture review plus real E2E 62/62 |
+| AC-G10-06 user applicability override | verified | `TaskTypeApplicabilityGuard` | combined Negative Example/constraint/dimension/capability rejection unit |
+
+G10 affected gates pass 554 unit, 153 contract, 80 real integration, 62 real E2E, 142 OpenAPI
+operations, 378-source architecture and migrations through 0118. Exact evidence and retained failures
+are in `reports/goal/g10-completion.md`.

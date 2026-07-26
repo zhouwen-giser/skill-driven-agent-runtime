@@ -395,6 +395,57 @@
     "reflectionHash": "sha256:dededededededededededededededededededededededededededededededede",
     "createdAt": "2026-07-23T00:00:03.000Z"
   },
+  "taskTypeDefinition": {
+    "schemaVersion": "1.0",
+    "taskTypeId": "task-type.inspection.v123",
+    "revision": 1,
+    "status": "candidate",
+    "origin": "induced",
+    "inductionMode": "offline_batch",
+    "fingerprint": "sha256:abababababababababababababababababababababababababababababababab",
+    "title": "Inspect a pump",
+    "summary": "Inspect a pump and return cited pressure evidence.",
+    "recognition": {
+      "hints": ["inspect pump", "pressure evidence"],
+      "positiveExamples": ["Inspect pump P-17 and return a pressure report."],
+      "negativeExamples": ["Repairing a failed pump is a different job."]
+    },
+    "requiredDimensions": ["target", "criteria"],
+    "optionalDimensions": ["time_range"],
+    "criteriaTemplate": ["Pressure is stable.", "Evidence is attached."],
+    "capabilityRequirements": ["device.inspect", "evidence.capture"],
+    "goalPattern": "Inspect [instance] and verify evidence.",
+    "dependencyPattern": ["inspect->verify"],
+    "incompatibleConstraints": [],
+    "exemplars": [
+      {
+        "episodeId": "episode.task-type.1",
+        "goalId": "goal.task-type.1",
+        "goalVersion": 1,
+        "summary": "Inspected a pump and verified pressure evidence."
+      },
+      {
+        "episodeId": "episode.task-type.2",
+        "goalId": "goal.task-type.2",
+        "goalVersion": 1,
+        "summary": "Checked a pump and attached pressure evidence."
+      }
+    ],
+    "sourceRefs": [
+      {
+        "schemaVersion": "1.0",
+        "sourceRefId": "source.task-type.episode.1",
+        "sourceKind": "goal_experience_episode",
+        "sourceId": "episode.task-type.1",
+        "sourceRevision": 1,
+        "authority": "runtime_fact",
+        "dataClassification": "internal",
+        "capturedAt": "2026-07-26T05:00:00.000Z"
+      }
+    ],
+    "modelInvocationId": "model-invocation.task-type.v123",
+    "createdAt": "2026-07-26T05:00:00.000Z"
+  },
   "knowledgeCandidate": {
     "schemaVersion": "1.0",
     "knowledgeId": "knowledge.v123",

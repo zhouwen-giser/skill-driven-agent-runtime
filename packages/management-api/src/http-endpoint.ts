@@ -56,6 +56,7 @@ import type {
   InteractivePlanningSessionService,
   PlanningCorrectionService,
   ExperienceManagementService,
+  TaskTypeInductionService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -358,6 +359,7 @@ const ModelStageSchema = z.enum([
   'interactive_plan_patch',
   'experience_observation',
   'experience_reflection',
+  'task_type_induction',
 ]);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
@@ -522,6 +524,7 @@ export interface ManagementOperations {
     ExperienceManagementService,
     'listEpisodes' | 'listObservations' | 'listReflections' | 'listDeadLetters' | 'replayDeadLetter'
   >;
+  readonly taskTypes?: Pick<TaskTypeInductionService, 'list'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -1838,6 +1841,19 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.experience.listReflections(query.limit),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/task-types',
+    asyncRoute(async (request, response) => {
+      if (options.operations.taskTypes === undefined) {
+        throw new HttpInputError(
+          'TASK_TYPES_UNAVAILABLE',
+          'Task Type induction is not configured.',
+        );
+      }
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      response.json({ items: await options.operations.taskTypes.list(query.limit) });
     }),
   );
   app.post(

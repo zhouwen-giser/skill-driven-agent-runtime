@@ -8,6 +8,9 @@ import {
   ExperienceEligibilityPolicy,
   ExperienceJobService,
   GoalExperienceEpisodeBuilder,
+  TaskTypeClusterer,
+  TaskTypeFingerprintBuilder,
+  TaskTypeInductionService,
   TaskService,
 } from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
@@ -66,6 +69,7 @@ import {
   PostgresCognitiveRuntimeFactReader,
   PostgresObservationRepository,
   PostgresReflectionRepository,
+  PostgresTaskTypeRepository,
   PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
@@ -108,7 +112,9 @@ import {
   createKnowledgeCandidateSnapshot,
   createKnowledgeDelta,
   createKnowledgeEvidence,
+  createTaskTypeInductionExample,
   createUserGoalCompletionContract,
+  type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
 
 const connectionString =
@@ -5416,7 +5422,193 @@ describe('PostgreSQL protocol-domain repositories', () => {
       memories.search({ ...embedding, limit: 10, userId: 'user.pg.2' }),
     ).resolves.toMatchObject([{ item: { memoryId: 'memory.global.pg' } }]);
   });
+
+  it('persists Candidate-only Task Type revisions with Episode exemplars and Outbox lineage', async () => {
+    const firstFixture = await createTerminalOutcomeFixture('task-type-first');
+    const secondFixture = await createTerminalOutcomeFixture('task-type-second');
+    const thirdFixture = await createTerminalOutcomeFixture('task-type-third');
+    await firstFixture.outcomes.commitAchieved(firstFixture.achievedInput);
+    await secondFixture.outcomes.commitAchieved(secondFixture.achievedInput);
+    await thirdFixture.outcomes.commitAchieved(thirdFixture.achievedInput);
+    const clock = { now: () => '2026-07-26T05:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    let episodeOrdinal = 0;
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => `goal-experience-episode.task-type.${String(++episodeOrdinal)}`,
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    for (const job of await episodeService.claim('task-type-episode-worker', 3)) {
+      await episodeService.process(job, 'task-type-episode-worker');
+    }
+    const [firstEpisode] = await episodes.findByGoal(firstFixture.goalId);
+    const [secondEpisode] = await episodes.findByGoal(secondFixture.goalId);
+    const [thirdEpisode] = await episodes.findByGoal(thirdFixture.goalId);
+    if (firstEpisode === undefined || secondEpisode === undefined || thirdEpisode === undefined) {
+      throw new Error('TASK_TYPE_TEST_EPISODES_MISSING');
+    }
+
+    const modelRuntime = new PostgresModelRuntimeRepository(pool);
+    const configuration = {
+      providerId: 'provider.task-type.db',
+      name: 'Task Type Provider',
+      kind: 'openai_compatible' as const,
+      apiStyle: 'openai_chat_completions' as const,
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'task-type-model',
+      enabled: true,
+      timeoutMs: 5_000,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    await modelRuntime.saveProvider({
+      configuration,
+      encryptedCredential: new Aes256GcmSecretCipher(randomBytes(32).toString('base64')).encrypt(
+        {},
+      ),
+    });
+    await modelRuntime.saveInvocation({
+      invocationId: 'model-invocation.task-type.db',
+      stage: 'task_type_induction',
+      providerId: configuration.providerId,
+      model: configuration.model,
+      operation: 'structured_generation',
+      request: {
+        episodeIds: [firstEpisode.episodeId, secondEpisode.episodeId, thirdEpisode.episodeId],
+      },
+      context: { mode: 'offline_batch' },
+      structuredResult: taskTypeModelOutput(),
+      inputTokens: 96,
+      outputTokens: 32,
+      durationMs: 20,
+      status: 'succeeded',
+      createdAt: clock.now(),
+    });
+    const repository = new PostgresTaskTypeRepository(pool);
+    const fingerprints = new TaskTypeFingerprintBuilder({
+      objectiveAliases: { check: 'inspect' },
+    });
+    const service = new TaskTypeInductionService({
+      fingerprints,
+      clusterer: new TaskTypeClusterer({ fingerprints }),
+      repository,
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.task-type.db',
+            structuredResult: taskTypeModelOutput(),
+          }),
+      },
+      clock,
+      nextTaskTypeId: () => 'task-type.inspection.db',
+    });
+    const inductionExamples = [
+      taskTypeExample(firstEpisode, ['inspect', 'pump']),
+      taskTypeExample(secondEpisode, ['check', 'pump']),
+      taskTypeExample(thirdEpisode, ['inspect', 'pump']),
+    ];
+    const first = await service.induce({
+      mode: 'offline_batch',
+      examples: inductionExamples.slice(0, 2),
+    });
+    expect(first.candidates[0]).toMatchObject({ revision: 1, status: 'candidate' });
+    const second = await service.induce({
+      mode: 'online_candidate',
+      examples: inductionExamples,
+    });
+    expect(second.candidates[0]).toMatchObject({ revision: 2, status: 'candidate' });
+    await expect(
+      new PostgresTaskTypeRepository(pool).findByFingerprint(
+        first.candidates[0]?.fingerprint ?? '',
+      ),
+    ).resolves.toEqual(second.candidates[0]);
+
+    const counts = await pool.query<{
+      definitions: number;
+      evidence: number;
+      candidate_events: number;
+      active_definitions: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM task_type_definition
+          WHERE knowledge_id='task-type.inspection.db') AS definitions,
+         (SELECT count(*)::integer FROM task_type_evidence
+          WHERE knowledge_id='task-type.inspection.db') AS evidence,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='knowledge.candidate_created'
+            AND aggregate_id='task-type.inspection.db') AS candidate_events,
+         (SELECT count(*)::integer FROM task_type_definition
+          WHERE knowledge_id='task-type.inspection.db' AND status='active') AS active_definitions`,
+    );
+    expect(counts.rows[0]).toEqual({
+      definitions: 2,
+      evidence: 5,
+      candidate_events: 2,
+      active_definitions: 0,
+    });
+  });
 });
+
+function taskTypeExample(episode: GoalExperienceEpisode, semanticObjective: readonly string[]) {
+  return createTaskTypeInductionExample({
+    schemaVersion: '1.0',
+    episodeId: episode.episodeId,
+    goalId: episode.goalId,
+    goalVersion: episode.goalVersion,
+    dimensions: {
+      semanticObjective,
+      criteria: ['pressure stable', 'evidence attached'],
+      artifacts: ['inspection report'],
+      capabilities: ['device.inspect', 'evidence.capture'],
+      dagShape: ['inspect->verify'],
+      corrections: ['include pressure evidence'],
+      outcome: ['achieved'],
+    },
+    constraints: [],
+    sourceRefs: [
+      createCognitiveSourceRef({
+        schemaVersion: '1.0',
+        sourceRefId: `source.task-type.${episode.episodeId}`,
+        sourceKind: 'goal_experience_episode',
+        sourceId: episode.episodeId,
+        sourceRevision: episode.revision,
+        authority: 'runtime_fact',
+        dataClassification: episode.dataClassification,
+        contentHash: episode.episodeHash,
+        capturedAt: episode.createdAt,
+      }),
+    ],
+    createdAt: episode.createdAt,
+  });
+}
+
+function taskTypeModelOutput() {
+  return {
+    title: 'Inspect a pump',
+    summary: 'Inspect a pump and return cited evidence.',
+    recognitionHints: ['inspect pump', 'pressure evidence'],
+    positiveExamples: ['Inspect pump P-17 and return a pressure report.'],
+    negativeExamples: ['Repairing a failed pump is a different job.'],
+    requiredDimensions: ['target', 'criteria'],
+    optionalDimensions: ['time_range'],
+    criteriaTemplate: ['Pressure is stable.', 'Evidence is attached.'],
+    capabilityRequirements: ['device.inspect', 'evidence.capture'],
+    goalPattern: 'Inspect [instance] and verify evidence.',
+    dependencyPattern: ['inspect->verify'],
+    incompatibleConstraints: [],
+  };
+}
 
 async function seedConfirmedGoalSessionForPlanning() {
   await pool.query(

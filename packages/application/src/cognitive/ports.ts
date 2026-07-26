@@ -28,6 +28,7 @@ import type {
   PublicCapabilityCardSnapshot,
   RuntimeCapabilitySummarySnapshot,
   SkillVersion,
+  TaskTypeDefinitionSnapshot,
   UserGoalPlanCandidateSnapshot,
   UserGoalPlan,
 } from '../../../domain/src/index.js';
@@ -356,6 +357,12 @@ export interface ReflectionRepository {
     knowledgeId: string,
   ): Promise<KnowledgeCandidateSnapshot | undefined>;
   save(reflection: ExperienceReflection): Promise<boolean>;
+}
+
+export interface TaskTypeRepository {
+  findByFingerprint(fingerprint: string): Promise<TaskTypeDefinitionSnapshot | undefined>;
+  list(limit?: number): Promise<readonly TaskTypeDefinitionSnapshot[]>;
+  saveCandidate(candidate: TaskTypeDefinitionSnapshot): Promise<boolean>;
 }
 
 export interface KnowledgeRepository {

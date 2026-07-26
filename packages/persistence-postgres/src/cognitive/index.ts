@@ -8,3 +8,4 @@ export * from './planning-correction-repository.js';
 export * from './experience-repository.js';
 export * from './observation-repository.js';
 export * from './reflection-repository.js';
+export * from './task-type-repository.js';
