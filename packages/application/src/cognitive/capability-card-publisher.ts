@@ -110,9 +110,23 @@ export class CapabilityCardPublisher {
     return this.#repository.findActive();
   }
 
-  async publish(rebuiltView?: CapabilitySummaryView): Promise<PublicCapabilityCardSnapshot> {
+  findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined> {
+    return this.#repository.findById(cardId);
+  }
+
+  async publish(
+    rebuiltView?: CapabilitySummaryView,
+    expectedActiveRevision?: number,
+  ): Promise<PublicCapabilityCardSnapshot> {
     const view = rebuiltView ?? (await this.#summaries.getSummary());
     if (view === undefined) throw new Error('CAPABILITY_CARD_SUMMARY_NOT_AVAILABLE');
+    const active = await this.#repository.findActive();
+    if (
+      expectedActiveRevision !== undefined &&
+      (active?.revision ?? 0) !== expectedActiveRevision
+    ) {
+      throw new CapabilityCardRevisionConflictError();
+    }
     const skills = await this.#catalog.listEnabledSkillVersions();
     const catalog = this.#catalogBuilder.build(skills);
     if (catalog.catalogHash !== view.summary.catalogHash) {
@@ -142,7 +156,6 @@ export class CapabilityCardPublisher {
       profile,
       publicSkills,
     };
-    const active = await this.#repository.findActive();
     return this.#repository.activate(
       createPublicCapabilityCardSnapshot({
         schemaVersion: COGNITIVE_SCHEMA_VERSION,
@@ -162,7 +175,7 @@ export class CapabilityCardPublisher {
         cardContentHash: hashCanonical(publicContent),
         generatedAt,
       }),
-      active?.revision,
+      expectedActiveRevision ?? active?.revision,
     );
   }
 
@@ -187,6 +200,14 @@ export class CapabilityCardPublisher {
     } catch {
       return undefined;
     }
+  }
+}
+
+export class CapabilityCardRevisionConflictError extends Error {
+  readonly code = 'CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT' as const;
+
+  constructor() {
+    super('CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT');
   }
 }
 

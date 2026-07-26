@@ -566,6 +566,7 @@ export function InteractiveGoalPanel({
     'answer' | 'accept' | 'patch' | 'reject' | 'restart_understanding' | 'cancel'
   >('answer');
   const [payload, setPayload] = useState('{"answer":""}');
+  const [reason, setReason] = useState('Apply the reviewed Goal Contract interaction.');
   const [message, setMessage] = useState<string>();
   if (!isRecord(value) || !isRecord(value.session)) return null;
   const session = value.session;
@@ -582,6 +583,7 @@ export function InteractiveGoalPanel({
           expectedVersion: version,
           idempotencyKey: `console:${sessionId}:${String(version)}:${action}`,
           actorId: 'console.operator',
+          reason,
           action,
           payload: JSON.parse(payload) as unknown,
         }),
@@ -624,6 +626,16 @@ export function InteractiveGoalPanel({
             </select>
           </label>
           <label>
+            Audit reason
+            <input
+              required
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
+            />
+          </label>
+          <label>
             Action payload (JSON)
             <textarea
               required
@@ -652,6 +664,7 @@ export function InteractivePlanningPanel({
 }) {
   const [action, setAction] = useState<'accept' | 'patch' | 'reject' | 'cancel'>('accept');
   const [instruction, setInstruction] = useState('Prioritize the most direct verified result.');
+  const [reason, setReason] = useState('Apply the reviewed Skill Goal DAG interaction.');
   const [message, setMessage] = useState<string>();
   if (!isRecord(value) || !isRecord(value.session) || !isRecord(value.candidate)) return null;
   const session = value.session;
@@ -673,6 +686,7 @@ export function InteractivePlanningPanel({
             expectedVersion: version,
             idempotencyKey: `console:${sessionId}:${String(version)}:${action}`,
             actorId: 'console.operator',
+            reason,
             action,
             payload: action === 'patch' ? { instruction } : {},
           }),
@@ -751,6 +765,16 @@ export function InteractivePlanningPanel({
               />
             </label>
           )}
+          <label>
+            Audit reason
+            <input
+              required
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
+            />
+          </label>
           <button type="submit">Apply CAS-protected planning action</button>
         </form>
       )}

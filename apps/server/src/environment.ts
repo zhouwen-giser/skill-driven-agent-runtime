@@ -15,6 +15,7 @@ const EnvironmentSchema = z
     SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
+    SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z.string().min(32).optional(),
     SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: z.enum(['true', 'false']).default('false'),
     SDAR_MASTER_KEY_BASE64: z.string().min(1),
     BUSINESS_EVENTS_ENABLED: z.enum(['true', 'false']).default('false'),

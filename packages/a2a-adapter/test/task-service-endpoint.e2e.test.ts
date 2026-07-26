@@ -418,7 +418,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       metadata: {
         'io.sdar/interaction': {
           state: 'understand',
-          version: 1,
+          interactionType: 'goal_clarification',
+          expectedVersion: 1,
+          questionId: 'dimension.target',
           allowedActions: ['answer', 'restart_understanding', 'cancel'],
         },
       },
@@ -438,8 +440,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(answeredBoundary.metadata).toMatchObject({
       'io.sdar/interaction': {
         state: 'goal_review',
-        version: 2,
-        currentCandidateId: expect.any(String),
+        interactionType: 'goal_confirmation',
+        expectedVersion: 2,
       },
     });
     const revised = await fetch(
@@ -529,8 +531,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       metadata: {
         'io.sdar/interaction': {
           kind: 'interactive_planning',
+          interactionType: 'plan_confirmation',
           state: 'plan_review',
-          version: 1,
+          expectedVersion: 1,
           allowedActions: ['accept', 'patch', 'reject', 'cancel'],
         },
       },
@@ -568,6 +571,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           expectedVersion: 2,
           idempotencyKey: 'e2e-user-preference-patch',
           actorId: 'user.e2e.planning',
+          reason: 'Persist the explicitly reviewed planning preference.',
           action: 'patch',
           payload: {
             instruction: 'Keep the inspection read-only and retain the same evidence priority.',
@@ -924,8 +928,23 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('rebuilds and serves the deterministic Capability Summary after Skill catalog changes', async () => {
+    const currentResponse = await fetch(
+      `${runtime.management.baseUrl}/api/v1/capabilities/summary`,
+    );
+    const expectedVersion = currentResponse.ok
+      ? z
+          .object({ summary: z.object({ revision: z.number().int().positive() }) })
+          .parse(await currentResponse.json()).summary.revision
+      : 0;
     const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion,
+        idempotencyKey: 'e2e-capability-summary-rebuild',
+        actorId: 'e2e.operator',
+        reason: 'Rebuild the reviewed test catalog projection.',
+      }),
     });
     expect(rebuilt.status).toBe(200);
     const baseline = capabilitySummaryResponse(await rebuilt.json());
@@ -948,8 +967,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('publishes an allowlisted Public Capability Card and serves A2A only from its active snapshot', async () => {
+    const currentResponse = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card`);
+    const expectedVersion = currentResponse.ok
+      ? z.object({ revision: z.number().int().positive() }).parse(await currentResponse.json())
+          .revision
+      : 0;
     const rebuilt = await fetch(`${runtime.management.baseUrl}/api/v1/capabilities/card/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion,
+        idempotencyKey: 'e2e-capability-card-rebuild',
+        actorId: 'e2e.operator',
+        reason: 'Publish the reviewed test public card projection.',
+      }),
     });
     expect(rebuilt.status).toBe(200);
     const baseline = PublicCapabilityCardSchema.parse(await rebuilt.json());

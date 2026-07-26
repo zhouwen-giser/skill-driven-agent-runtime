@@ -65,6 +65,9 @@ describe('CapabilityCardPublisher', () => {
       profile: { catalogHash: publicCatalogHash() },
     });
     expect(instruction).not.toMatch(/private-user-context|skill\.internal|sourceRef/iu);
+    await expect(publisher.publish(undefined, 0)).rejects.toThrow(
+      'CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT',
+    );
   });
 
   it('falls back to a deterministic description when optional narrative generation fails', async () => {
@@ -266,6 +269,10 @@ class InMemoryCapabilityCardRepository implements CapabilityCardRepository {
     return Promise.resolve(this.#active);
   }
 
+  findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined> {
+    return Promise.resolve(this.#active?.cardId === cardId ? this.#active : undefined);
+  }
+
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -278,7 +285,16 @@ class InMemoryCapabilityCardRepository implements CapabilityCardRepository {
     );
   }
 
-  activate(candidate: PublicCapabilityCardSnapshot): Promise<PublicCapabilityCardSnapshot> {
+  activate(
+    candidate: PublicCapabilityCardSnapshot,
+    expectedActiveRevision?: number,
+  ): Promise<PublicCapabilityCardSnapshot> {
+    if (
+      expectedActiveRevision !== undefined &&
+      expectedActiveRevision !== (this.#active?.revision ?? 0)
+    ) {
+      throw new Error('CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT');
+    }
     this.#active = { ...candidate, status: 'active' };
     return Promise.resolve(this.#active);
   }

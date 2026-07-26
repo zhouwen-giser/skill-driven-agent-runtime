@@ -94,6 +94,7 @@ import {
   PostgresKnowledgeSearchRepository,
   PostgresPromotionReplayEvaluationRunner,
   PostgresActiveKnowledgeProjectionInventory,
+  PostgresCognitiveManagementActionRepository,
   PostgresUserGoalRuntimeRepository,
 } from '../src/index.js';
 import {
@@ -267,7 +268,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE knowledge_relation, experience_usage_record, knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
+    'TRUNCATE cognitive_management_action, knowledge_relation, experience_usage_record, knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
   );
   await pool.query(
     'TRUNCATE planning_interaction_episode, planning_correction_fact, interactive_planning_turn, user_goal_plan_candidate, interactive_planning_session, interactive_goal_turn, goal_contract_candidate, interactive_goal_session CASCADE',
@@ -291,6 +292,38 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL protocol-domain repositories', () => {
+  it('persists cognitive management idempotency, result audit, and conflicting-key rejection', async () => {
+    const repository = new PostgresCognitiveManagementActionRepository(pool);
+    const claim = {
+      actionId: 'cognitive-management-action-1',
+      operation: 'knowledge_promote' as const,
+      subjectId: 'planning_heuristic:heuristic-1',
+      expectedVersion: 1,
+      idempotencyKey: 'review-1',
+      actorId: 'operator-1',
+      reason: 'Reviewed evidence passed.',
+      requestHash: `sha256:${'a'.repeat(64)}`,
+      claimedAt: '2026-07-26T10:00:00.000Z',
+    };
+    await expect(repository.claim(claim)).resolves.toEqual({ disposition: 'claimed' });
+    await repository.complete(
+      claim.actionId,
+      { knowledgeId: 'heuristic-1', version: 3 },
+      '2026-07-26T10:00:01.000Z',
+    );
+    await expect(repository.claim(claim)).resolves.toEqual({
+      disposition: 'completed',
+      result: { knowledgeId: 'heuristic-1', version: 3 },
+    });
+    await expect(
+      repository.claim({
+        ...claim,
+        actionId: 'cognitive-management-action-2',
+        requestHash: `sha256:${'b'.repeat(64)}`,
+      }),
+    ).resolves.toEqual({ disposition: 'conflict' });
+  });
+
   it('persists low-confidence feedback and finds the previous terminal Task', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
     const tasks = new PostgresAgentTaskRepository(pool);

@@ -367,6 +367,12 @@ class InMemoryPromotionRepository implements KnowledgePromotionRepository {
     return Promise.resolve(undefined);
   }
 
+  list(kind: PromotionCandidateRecord['kind'], limit = 100) {
+    return Promise.resolve(
+      kind === this.record.kind && limit > 0 ? Object.freeze([this.record]) : Object.freeze([]),
+    );
+  }
+
   complete(input: Parameters<KnowledgePromotionRepository['complete']>[0]) {
     if (input.expectedVersion !== this.record.version)
       return Promise.reject(new Error('KNOWLEDGE_PROMOTION_VERSION_CONFLICT'));

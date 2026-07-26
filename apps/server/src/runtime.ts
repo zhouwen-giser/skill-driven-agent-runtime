@@ -11,7 +11,7 @@ import {
   type A2AHttpEndpointHandle,
 } from '../../../packages/a2a-adapter/src/http-endpoint.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
-import { projectInteractivePlanningInteraction } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
+import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
@@ -102,6 +102,8 @@ import {
   GenericTaskUnderstandingService,
   InteractiveGoalSessionService,
   InteractivePlanningSessionService,
+  InteractiveActionRouter,
+  CognitiveManagementActionGate,
   InteractivePlanPatchService,
   UserGoalPlanCandidateValidator,
   ConfirmedPlanHandoff,
@@ -198,6 +200,7 @@ import {
   type WorkflowRuntimePorts,
 } from '../../../packages/langgraph-runtime/src/index.js';
 import {
+  BearerCognitiveManagementAuthorizer,
   startManagementHttpEndpoint,
   type ManagementHttpEndpointHandle,
 } from '../../../packages/management-api/src/index.js';
@@ -231,6 +234,7 @@ import {
   PostgresTaskTypeRepository,
   PostgresCapabilityPatternRepository,
   PostgresKnowledgePromotionRepository,
+  PostgresCognitiveManagementActionRepository,
   PostgresKnowledgeSearchRepository,
   PostgresPromotionReplayEvaluationRunner,
   PostgresActiveKnowledgeProjectionInventory,
@@ -297,6 +301,8 @@ export interface ServerRuntimeOptions {
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
+  /** Optional non-breaking bearer guard for cognitive management writes only. */
+  readonly cognitiveManagementBearerToken?: string;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -459,6 +465,11 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
+  const cognitiveManagementActions = new CognitiveManagementActionGate({
+    repository: cognitiveManagementActionRepository,
+    clock,
+  });
   const cognitiveOutbox = new PostgresCognitiveOutboxRepository(pool, clock);
   const experienceJobRepository = new PostgresExperienceJobRepository(pool);
   const goalExperienceEpisodes = new PostgresGoalExperienceEpisodeRepository(pool);
@@ -934,36 +945,17 @@ export async function startServerRuntime(
           interactions: planningCorrectionObserver,
         });
   let interactivePlanningSessions: InteractivePlanningSessionService | undefined;
+  const a2aInteractionProjection = new A2AInteractionProjection();
   const interactiveGoalMetadata = async (
     taskId: string,
   ): Promise<Readonly<Record<string, unknown>> | undefined> => {
     const planning = await interactivePlanningSessions?.getByTask(taskId);
     if (planning !== undefined) {
-      return projectInteractivePlanningInteraction(planning);
+      return a2aInteractionProjection.toInputRequired(planning);
     }
     const view = await interactiveGoalSessions?.getByTask(taskId);
     if (view === undefined) return undefined;
-    return {
-      kind: 'interactive_goal',
-      sessionId: view.session.sessionId,
-      state: view.session.state,
-      version: view.session.version,
-      currentUnderstandingId: view.session.currentUnderstandingId,
-      ...(view.session.currentCandidateId === undefined
-        ? {}
-        : {
-            currentCandidateId: view.session.currentCandidateId,
-            currentCandidateRevision: view.session.currentCandidateRevision,
-          }),
-      allowedActions:
-        view.session.state === 'understand'
-          ? ['answer', 'restart_understanding', 'cancel']
-          : view.session.state === 'goal_review'
-            ? ['accept', 'patch', 'reject', 'restart_understanding', 'cancel']
-            : [],
-      ...(view.question === undefined ? {} : { question: view.question }),
-      ...(view.candidate === undefined ? {} : { candidate: view.candidate }),
-    };
+    return a2aInteractionProjection.toInputRequired(view);
   };
   const schemaValidator = new AjvJsonSchemaValidator();
   const skillPackageSchema = JSON.parse(
@@ -2054,6 +2046,13 @@ export async function startServerRuntime(
       interactions: planningCorrectionObserver,
     });
   }
+  const interactiveActions =
+    interactiveGoalSessions === undefined || interactivePlanningSessions === undefined
+      ? undefined
+      : new InteractiveActionRouter({
+          goalSessions: interactiveGoalSessions,
+          planningSessions: interactivePlanningSessions,
+        });
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -2977,6 +2976,7 @@ export async function startServerRuntime(
     ...(interactivePlanningSessions === undefined
       ? {}
       : { planningSessions: interactivePlanningSessions }),
+    ...(interactiveActions === undefined ? {} : { interactiveActions }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -3642,6 +3642,7 @@ export async function startServerRuntime(
         taskTypes: taskTypeInduction,
         capabilityPatterns: capabilityPatternInduction,
         knowledgePromotion,
+        cognitiveManagementAudit: cognitiveManagementActionRepository,
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3781,6 +3782,14 @@ export async function startServerRuntime(
       ...(options.managementHost === undefined ? {} : { host: options.managementHost }),
       ...(options.managementPort === undefined ? {} : { port: options.managementPort }),
       consoleDirectory: resolve('apps/console/dist'),
+      cognitiveManagementActions,
+      ...(options.cognitiveManagementBearerToken === undefined
+        ? {}
+        : {
+            cognitiveManagementAuthorizer: new BearerCognitiveManagementAuthorizer(
+              options.cognitiveManagementBearerToken,
+            ),
+          }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({

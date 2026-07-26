@@ -232,6 +232,7 @@ export function createPlanningKnowledgeBundle(
 }
 
 export function createExperienceUsageRecord(input: ExperienceUsageRecord): ExperienceUsageRecord {
+  const validatorResult: unknown = input.validatorResult;
   assertIdentifier(input.usageId, 'usageId');
   assertIdentifier(input.planningSessionId, 'planningSessionId');
   assertIdentifier(input.planCandidateId, 'planCandidateId');
@@ -247,10 +248,10 @@ export function createExperienceUsageRecord(input: ExperienceUsageRecord): Exper
     !/^sha256:[0-9a-f]{64}$/u.test(input.queryFingerprint) ||
     (input.userAction !== undefined &&
       !['accepted', 'rejected', 'patched', 'canceled'].includes(input.userAction)) ||
-    (input.validatorResult !== undefined &&
-      (typeof input.validatorResult !== 'object' ||
-        input.validatorResult === null ||
-        Array.isArray(input.validatorResult)))
+    (validatorResult !== undefined &&
+      (validatorResult === null ||
+        typeof validatorResult !== 'object' ||
+        Array.isArray(validatorResult)))
   ) {
     invalid('Experience usage authority, feedback or query fingerprint is invalid.');
   }

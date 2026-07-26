@@ -174,6 +174,37 @@ the currently activated snapshot. It exposes the optional
 `io.sdar/capabilityProfile` extension. The Console and Management API are operational projections over
 the same durable record and hold no independent capability authority.
 
+## G15 Management, Console and A2A integration
+
+`InteractiveActionRouter` is the single Application route used by the A2A continuation path. It checks
+the current Planning Session first, otherwise the current Goal Session, parses only the frozen action
+vocabulary and applies the action against the exact session version it just observed. Existing
+PostgreSQL turn idempotency and the v1.2.2 continuation/terminal authority remain unchanged.
+
+`A2AInteractionProjection.toInputRequired` exposes routing metadata only: Session ID, interaction type,
+question ID when applicable, expected version and allowed actions. Candidate Contract/Plan content,
+Understanding internals, Provider facts and Outcome evidence remain available only through trusted
+management reads and are not copied into public A2A Task metadata.
+
+`CognitiveManagementController` owns the optional authentication check and common durable action gate.
+Every cognitive write carries actor, displayable reason, expected version and idempotency key. The
+default remains the frozen trusted-intranet/no-auth deployment, where actor is only an audit label. An
+operator may configure `SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN` to enable the optional bearer guard;
+the secret is never persisted. ADR-115 records this non-breaking reconciliation.
+
+Migration `0123_v123_cognitive_management_audit` adds an audit-only table, not business authority. A
+claim is persisted before the write. Identical completed retries return the stored result; request-key
+reuse with different fields fails closed; pending/failed claims are never automatically replayed after
+restart. Existing Session, Knowledge, Capability and Experience tables remain authoritative. Private
+reasoning is rejected before an action result enters audit.
+
+The Management API now covers exact Summary/Card IDs, exact Episodes, Planning Heuristic inventory and
+cognitive action audit in addition to current/revision/session/Knowledge lifecycle operations. Console
+Task views provide Understanding, Goal Contract diff and Skill Goal DAG review. Cognitive Governance
+provides Episode/Observation/Reflection/dead-letter inspection, replay, Task Type and Knowledge
+lifecycle controls. Capability views remain public allowlist projections. No Console route can directly
+mutate Provider state, final Outcome or the active execution Plan.
+
 ## Open-source boundary
 
 Six sources are exact-commit design references in `third_party/sources.lock.yaml` and the G00 intake

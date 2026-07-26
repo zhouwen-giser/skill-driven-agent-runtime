@@ -167,6 +167,18 @@ describe('CapabilitySummaryService', () => {
     expect((await service.getSummary())?.summary.summaryId).toBe(rebuilt.summary.summaryId);
   });
 
+  it('enforces the operator-provided active revision before rebuilding', async () => {
+    const service = capabilityService(
+      [skill('skill.inspect', 1)],
+      new InMemoryCapabilitySummaryRepository(),
+    );
+
+    await expect(service.rebuild(undefined, 0)).resolves.toBeDefined();
+    await expect(service.rebuild(undefined, 0)).rejects.toThrow(
+      'CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT',
+    );
+  });
+
   it('keeps cached Level-0 reads below the required 50 ms P95 budget', async () => {
     const catalog = [skill('skill.inspect', 1)];
     const service = capabilityService(catalog, new InMemoryCapabilitySummaryRepository());
@@ -256,6 +268,10 @@ class InMemoryCapabilitySummaryRepository implements CapabilitySummaryRepository
     return Promise.resolve(this.#active);
   }
 
+  findById(summaryId: string): Promise<RuntimeCapabilitySummarySnapshot | undefined> {
+    return Promise.resolve(this.#active?.summaryId === summaryId ? this.#active : undefined);
+  }
+
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -272,7 +288,10 @@ class InMemoryCapabilitySummaryRepository implements CapabilitySummaryRepository
     snapshot: RuntimeCapabilitySummarySnapshot,
     expectedActiveRevision?: number,
   ): Promise<RuntimeCapabilitySummarySnapshot> {
-    if (expectedActiveRevision !== undefined && expectedActiveRevision !== this.#active?.revision) {
+    if (
+      expectedActiveRevision !== undefined &&
+      expectedActiveRevision !== (this.#active?.revision ?? 0)
+    ) {
       throw new Error('CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT');
     }
     this.#active = createRuntimeCapabilitySummarySnapshot({ ...snapshot, status: 'active' });

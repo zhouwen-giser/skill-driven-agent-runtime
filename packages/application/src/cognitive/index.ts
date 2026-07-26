@@ -12,6 +12,8 @@ export * from './user-goal-plan-candidate-validator.js';
 export * from './interactive-plan-patch-service.js';
 export * from './confirmed-plan-handoff.js';
 export * from './interactive-planning-session-service.js';
+export * from './interactive-action-router.js';
+export * from './cognitive-management-action.js';
 export * from './planning-correction-service.js';
 export * from './planning-interaction-episode-builder.js';
 export * from './planning-preference-projector.js';

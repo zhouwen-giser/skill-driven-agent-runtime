@@ -69,6 +69,7 @@ export interface CapabilityCatalogSource {
 
 export interface CapabilitySummaryRepository {
   findActive(): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
+  findById(summaryId: string): Promise<RuntimeCapabilitySummarySnapshot | undefined>;
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,
@@ -86,6 +87,7 @@ export interface CapabilityCatalogChangeSource {
 
 export interface CapabilityCardRepository {
   findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
+  findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined>;
   findByCatalogHash(
     catalogHash: string,
     generationPolicyVersion: string,

@@ -58,6 +58,13 @@ export class KnowledgePromotionService {
     if (this.#targets.size !== 3) throw new Error('KNOWLEDGE_PROMOTION_TARGET_SET_INCOMPLETE');
   }
 
+  list(kind: KnowledgeKind, limit = 100): Promise<readonly PromotionCandidateRecord[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
+      throw promotionError('KNOWLEDGE_LIST_LIMIT_INVALID');
+    }
+    return this.#repository.list(kind, limit);
+  }
+
   async evaluate(
     input: Readonly<{
       kind: KnowledgeKind;
@@ -389,6 +396,7 @@ export class KnowledgePromotionService {
 }
 
 export type KnowledgePromotionErrorCode =
+  | 'KNOWLEDGE_LIST_LIMIT_INVALID'
   | 'KNOWLEDGE_PROMOTION_CANDIDATE_NOT_FOUND'
   | 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT'
   | 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'

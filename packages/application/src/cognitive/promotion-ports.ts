@@ -75,6 +75,7 @@ export interface KnowledgePromotionRepository {
     }>,
   ): Promise<PromotionCandidateRecord>;
   listActive(): Promise<readonly PromotionCandidateRecord[]>;
+  list(kind: KnowledgeKind, limit?: number): Promise<readonly PromotionCandidateRecord[]>;
   listRevalidationCandidates(
     policyVersion: string,
   ): Promise<readonly PromotionRevalidationCandidate[]>;

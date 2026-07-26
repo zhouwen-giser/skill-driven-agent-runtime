@@ -227,6 +227,17 @@ export class PostgresKnowledgePromotionRepository implements KnowledgePromotionR
     return Object.freeze(records);
   }
 
+  async list(kind: KnowledgeKind, limit = 100): Promise<readonly PromotionCandidateRecord[]> {
+    const table = tables[kind];
+    const result = await this.#pool.query<DefinitionRow>(
+      `${selectDefinition(table)}
+       ORDER BY knowledge_id,revision DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return Object.freeze(result.rows.map((row) => mapRecord(kind, row)));
+  }
+
   async listRevalidationCandidates(
     policyVersion: string,
   ): Promise<readonly PromotionRevalidationCandidate[]> {

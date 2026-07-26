@@ -4,6 +4,10 @@ import path from 'node:path';
 
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import {
+  CognitiveManagementController,
+  type CognitiveManagementAuthorizer,
+} from './cognitive/cognitive-management-controller.js';
 
 import type {
   McpRegistryService,
@@ -59,6 +63,8 @@ import type {
   TaskTypeInductionService,
   CapabilityPatternInductionService,
   KnowledgePromotionService,
+  CognitiveManagementActionGate,
+  CognitiveManagementActionRepository,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -111,6 +117,7 @@ const InteractiveGoalActionSchema = z
     expectedVersion: z.number().int().positive(),
     idempotencyKey: z.string().min(1).max(256),
     actorId: z.string().min(1).max(128),
+    reason: z.string().trim().min(1).max(2048),
     action: z.enum(['answer', 'accept', 'patch', 'reject', 'restart_understanding', 'cancel']),
     payload: z.record(z.string(), z.unknown()).default({}),
   })
@@ -120,6 +127,7 @@ const InteractivePlanningActionSchema = z
     expectedVersion: z.number().int().positive(),
     idempotencyKey: z.string().min(1).max(256),
     actorId: z.string().min(1).max(128),
+    reason: z.string().trim().min(1).max(2048),
     action: z.enum(['accept', 'patch', 'reject', 'cancel']),
     payload: z.record(z.string(), z.unknown()).default({}),
   })
@@ -451,13 +459,20 @@ const ExperienceListQuerySchema = z
   })
   .strict();
 const ExperienceDeadLetterReplaySchema = z
-  .object({ actorId: z.string().trim().min(1).max(256) })
+  .object({
+    expectedVersion: z.number().int().nonnegative(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    actorId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2048),
+  })
   .strict();
 const KnowledgeKindSchema = z.enum(['planning_heuristic', 'task_type', 'capability_pattern']);
 const KnowledgePromoteSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
     actorId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2048),
     humanApproved: z.boolean(),
     policyAllowed: z.boolean(),
   })
@@ -465,6 +480,7 @@ const KnowledgePromoteSchema = z
 const KnowledgeRejectSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
     actorId: z.string().trim().min(1).max(256),
     reason: z.string().trim().min(1).max(2048),
   })
@@ -472,6 +488,7 @@ const KnowledgeRejectSchema = z
 const KnowledgeRevalidateSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
     actorId: z.string().trim().min(1).max(256),
     reason: z.enum([
       'contradiction_detected',
@@ -484,7 +501,17 @@ const KnowledgeRevalidateSchema = z
 const KnowledgeDeprecateSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
     actorId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2048),
+  })
+  .strict();
+const CognitiveRebuildSchema = z
+  .object({
+    expectedVersion: z.number().int().nonnegative(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    actorId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2048),
   })
   .strict();
 
@@ -549,8 +576,8 @@ export interface ManagementOperations {
     | 'setEnabled'
     | 'validatePackage'
   >;
-  readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'rebuild'>;
-  readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'publish'>;
+  readonly capabilities: Pick<CapabilitySummaryService, 'getSummary' | 'getById' | 'rebuild'>;
+  readonly capabilityCards: Pick<CapabilityCardPublisher, 'findActive' | 'findById' | 'publish'>;
   readonly taskUnderstandings: Pick<TaskUnderstandingRepository, 'findCurrent' | 'listRevisions'>;
   readonly goalSessions?: Pick<InteractiveGoalSessionService, 'getByTask' | 'applyAction'>;
   readonly planningSessions?: Pick<InteractivePlanningSessionService, 'getByTask' | 'applyAction'>;
@@ -560,14 +587,20 @@ export interface ManagementOperations {
   >;
   readonly experience?: Pick<
     ExperienceManagementService,
-    'listEpisodes' | 'listObservations' | 'listReflections' | 'listDeadLetters' | 'replayDeadLetter'
+    | 'getEpisode'
+    | 'listEpisodes'
+    | 'listObservations'
+    | 'listReflections'
+    | 'listDeadLetters'
+    | 'replayDeadLetter'
   >;
   readonly taskTypes?: Pick<TaskTypeInductionService, 'list'>;
   readonly capabilityPatterns?: Pick<CapabilityPatternInductionService, 'list' | 'listGaps'>;
   readonly knowledgePromotion?: Pick<
     KnowledgePromotionService,
-    'evaluate' | 'reject' | 'revalidate' | 'deprecate' | 'rebuildActiveProjections'
+    'list' | 'evaluate' | 'reject' | 'revalidate' | 'deprecate' | 'rebuildActiveProjections'
   >;
+  readonly cognitiveManagementAudit?: Pick<CognitiveManagementActionRepository, 'list'>;
   readonly temporarySkills: Pick<TemporarySkillService, 'complete' | 'create' | 'listByTask'>;
   readonly skillEvolution: Pick<
     SkillEvolutionService,
@@ -647,18 +680,41 @@ export async function startManagementHttpEndpoint(
     consoleDirectory?: string;
     host?: string;
     port?: number;
+    cognitiveManagementAuthorizer?: CognitiveManagementAuthorizer;
+    cognitiveManagementActions?: Pick<CognitiveManagementActionGate, 'execute'>;
   }>,
 ): Promise<ManagementHttpEndpointHandle> {
   const app = express();
+  const cognitiveManagement = new CognitiveManagementController({
+    ...(options.operations.goalSessions === undefined
+      ? {}
+      : { goalSessions: options.operations.goalSessions }),
+    ...(options.operations.planningSessions === undefined
+      ? {}
+      : { planningSessions: options.operations.planningSessions }),
+    ...(options.cognitiveManagementAuthorizer === undefined
+      ? {}
+      : { authorizer: options.cognitiveManagementAuthorizer }),
+    ...(options.cognitiveManagementActions === undefined
+      ? {}
+      : { actions: options.cognitiveManagementActions }),
+  });
   app.use(express.json({ limit: '1mb' }));
   app.use((_request, response, next) => {
-    response.setHeader('X-SDAR-Security-Warning', 'trusted-intranet-only-no-auth');
+    response.setHeader(
+      'X-SDAR-Security-Warning',
+      cognitiveManagement.authorizationMode === 'bearer'
+        ? 'bearer-auth-enabled'
+        : 'trusted-intranet-only-no-auth',
+    );
+    response.setHeader('X-SDAR-Cognitive-Authorization', cognitiveManagement.authorizationMode);
     next();
   });
   app.get('/api/v1/health', (_request, response) => {
     response.json({
       status: 'ok',
-      authentication: 'none',
+      authentication:
+        cognitiveManagement.authorizationMode === 'trusted_intranet' ? 'none' : 'bearer',
       deployment: 'trusted-intranet-only',
       historicalDataRetention: {
         default: 'indefinite',
@@ -1853,6 +1909,23 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/experience/episodes/:episodeId',
+    asyncRoute(async (request, response) => {
+      if (options.operations.experience === undefined) {
+        throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
+      }
+      const episodeId = pathValue(request, 'episodeId');
+      const episode = await options.operations.experience.getEpisode(episodeId);
+      if (episode === undefined) {
+        throw new HttpInputError(
+          'EXPERIENCE_EPISODE_NOT_FOUND',
+          `Experience Episode ${episodeId} was not found.`,
+        );
+      }
+      response.json(episode);
+    }),
+  );
+  app.get(
     '/api/v1/experience/dead-letters',
     asyncRoute(async (request, response) => {
       if (options.operations.experience === undefined) {
@@ -1900,6 +1973,27 @@ export async function startManagementHttpEndpoint(
     }),
   );
   app.get(
+    '/api/v1/knowledge/heuristics',
+    asyncRoute(async (request, response) => {
+      const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      response.json({ items: await service.list('planning_heuristic', query.limit) });
+    }),
+  );
+  app.get(
+    '/api/v1/cognitive-management/actions',
+    asyncRoute(async (request, response) => {
+      if (options.operations.cognitiveManagementAudit === undefined) {
+        throw new HttpInputError(
+          'COGNITIVE_MANAGEMENT_AUDIT_UNAVAILABLE',
+          'Cognitive management audit is not configured.',
+        );
+      }
+      const query = ExperienceListQuerySchema.pick({ limit: true }).parse(request.query);
+      response.json({ items: await options.operations.cognitiveManagementAudit.list(query.limit) });
+    }),
+  );
+  app.get(
     '/api/v1/capability-patterns',
     asyncRoute(async (request, response) => {
       if (options.operations.capabilityPatterns === undefined) {
@@ -1921,12 +2015,14 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
       const input = KnowledgePromoteSchema.parse(request.body);
+      const kind = KnowledgeKindSchema.parse(pathValue(request, 'kind'));
+      const knowledgeId = pathValue(request, 'knowledgeId');
       response.json(
-        await service.evaluate({
-          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
-          knowledgeId: pathValue(request, 'knowledgeId'),
-          ...input,
-        }),
+        await cognitiveManagement.executeWrite(
+          { operation: 'knowledge_promote', subjectId: `${kind}:${knowledgeId}`, ...input },
+          request.header('authorization'),
+          () => service.evaluate({ kind, knowledgeId, ...input }),
+        ),
       );
     }),
   );
@@ -1935,12 +2031,14 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
       const input = KnowledgeRejectSchema.parse(request.body);
+      const kind = KnowledgeKindSchema.parse(pathValue(request, 'kind'));
+      const knowledgeId = pathValue(request, 'knowledgeId');
       response.json(
-        await service.reject({
-          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
-          knowledgeId: pathValue(request, 'knowledgeId'),
-          ...input,
-        }),
+        await cognitiveManagement.executeWrite(
+          { operation: 'knowledge_reject', subjectId: `${kind}:${knowledgeId}`, ...input },
+          request.header('authorization'),
+          () => service.reject({ kind, knowledgeId, ...input }),
+        ),
       );
     }),
   );
@@ -1949,12 +2047,14 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
       const input = KnowledgeRevalidateSchema.parse(request.body);
+      const kind = KnowledgeKindSchema.parse(pathValue(request, 'kind'));
+      const knowledgeId = pathValue(request, 'knowledgeId');
       response.json(
-        await service.revalidate({
-          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
-          knowledgeId: pathValue(request, 'knowledgeId'),
-          ...input,
-        }),
+        await cognitiveManagement.executeWrite(
+          { operation: 'knowledge_revalidate', subjectId: `${kind}:${knowledgeId}`, ...input },
+          request.header('authorization'),
+          () => service.revalidate({ kind, knowledgeId, ...input }),
+        ),
       );
     }),
   );
@@ -1963,26 +2063,39 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const service = requiredKnowledgePromotion(options.operations.knowledgePromotion);
       const input = KnowledgeDeprecateSchema.parse(request.body);
+      const kind = KnowledgeKindSchema.parse(pathValue(request, 'kind'));
+      const knowledgeId = pathValue(request, 'knowledgeId');
       response.json(
-        await service.deprecate({
-          kind: KnowledgeKindSchema.parse(pathValue(request, 'kind')),
-          knowledgeId: pathValue(request, 'knowledgeId'),
-          ...input,
-        }),
+        await cognitiveManagement.executeWrite(
+          { operation: 'knowledge_deprecate', subjectId: `${kind}:${knowledgeId}`, ...input },
+          request.header('authorization'),
+          () => service.deprecate({ kind, knowledgeId, ...input }),
+        ),
       );
     }),
   );
   app.post(
     '/api/v1/experience/dead-letters/:deadLetterId/replay',
     asyncRoute(async (request, response) => {
-      if (options.operations.experience === undefined) {
+      const experience = options.operations.experience;
+      if (experience === undefined) {
         throw new HttpInputError('EXPERIENCE_UNAVAILABLE', 'Experience capture is not configured.');
       }
       const input = ExperienceDeadLetterReplaySchema.parse(request.body);
+      const deadLetterId = pathValue(request, 'deadLetterId');
       response.json(
-        await options.operations.experience.replayDeadLetter(
-          pathValue(request, 'deadLetterId'),
-          input.actorId,
+        await cognitiveManagement.executeWrite(
+          { operation: 'experience_dead_letter_replay', subjectId: deadLetterId, ...input },
+          request.header('authorization'),
+          () => {
+            if (input.expectedVersion !== 0) {
+              throw new HttpInputError(
+                'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT',
+                'An unreplayed Experience dead letter has expectedVersion 0.',
+              );
+            }
+            return experience.replayDeadLetter(deadLetterId, input.actorId);
+          },
         ),
       );
     }),
@@ -2011,10 +2124,31 @@ export async function startManagementHttpEndpoint(
       response.json(view);
     }),
   );
+  app.get(
+    '/api/v1/capabilities/summary/:summaryId',
+    asyncRoute(async (request, response) => {
+      const summaryId = pathValue(request, 'summaryId');
+      const view = await options.operations.capabilities.getById(summaryId);
+      if (view === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_SUMMARY_NOT_FOUND',
+          `Capability Summary ${summaryId} was not found.`,
+        );
+      }
+      response.json(view);
+    }),
+  );
   app.post(
     '/api/v1/capabilities/rebuild',
-    asyncRoute(async (_request, response) => {
-      response.json(await options.operations.capabilities.rebuild());
+    asyncRoute(async (request, response) => {
+      const input = CognitiveRebuildSchema.parse(request.body);
+      response.json(
+        await cognitiveManagement.executeWrite(
+          { operation: 'capability_rebuild', subjectId: 'runtime-capability-summary', ...input },
+          request.header('authorization'),
+          () => options.operations.capabilities.rebuild(undefined, input.expectedVersion),
+        ),
+      );
     }),
   );
   app.get(
@@ -2030,10 +2164,31 @@ export async function startManagementHttpEndpoint(
       response.json(card);
     }),
   );
+  app.get(
+    '/api/v1/capabilities/card/:cardId',
+    asyncRoute(async (request, response) => {
+      const cardId = pathValue(request, 'cardId');
+      const card = await options.operations.capabilityCards.findById(cardId);
+      if (card === undefined) {
+        throw new HttpInputError(
+          'CAPABILITY_CARD_NOT_FOUND',
+          `Public Capability Card ${cardId} was not found.`,
+        );
+      }
+      response.json(card);
+    }),
+  );
   app.post(
     '/api/v1/capabilities/card/rebuild',
-    asyncRoute(async (_request, response) => {
-      response.json(await options.operations.capabilityCards.publish());
+    asyncRoute(async (request, response) => {
+      const input = CognitiveRebuildSchema.parse(request.body);
+      response.json(
+        await cognitiveManagement.executeWrite(
+          { operation: 'capability_card_rebuild', subjectId: 'public-capability-card', ...input },
+          request.header('authorization'),
+          () => options.operations.capabilityCards.publish(undefined, input.expectedVersion),
+        ),
+      );
     }),
   );
   app.get(
@@ -2090,19 +2245,9 @@ export async function startManagementHttpEndpoint(
         );
       }
       const taskId = pathValue(request, 'taskId');
-      const session = await options.operations.goalSessions.getByTask(taskId);
-      if (session === undefined) {
-        throw new HttpInputError(
-          'INTERACTIVE_GOAL_SESSION_NOT_FOUND',
-          `No interactive Goal session exists for Task ${taskId}.`,
-        );
-      }
       const input = InteractiveGoalActionSchema.parse(request.body);
       response.json(
-        await options.operations.goalSessions.applyAction({
-          sessionId: session.session.sessionId,
-          ...input,
-        }),
+        await cognitiveManagement.applyGoalAction(taskId, input, request.header('authorization')),
       );
     }),
   );
@@ -2136,19 +2281,13 @@ export async function startManagementHttpEndpoint(
         );
       }
       const taskId = pathValue(request, 'taskId');
-      const session = await options.operations.planningSessions.getByTask(taskId);
-      if (session === undefined) {
-        throw new HttpInputError(
-          'INTERACTIVE_PLANNING_SESSION_NOT_FOUND',
-          `No interactive planning session exists for Task ${taskId}.`,
-        );
-      }
       const input = InteractivePlanningActionSchema.parse(request.body);
       response.json(
-        await options.operations.planningSessions.applyAction({
-          sessionId: session.session.sessionId,
-          ...input,
-        }),
+        await cognitiveManagement.applyPlanningAction(
+          taskId,
+          input,
+          request.header('authorization'),
+        ),
       );
     }),
   );
@@ -2880,9 +3019,15 @@ function normalizeHttpError(error: unknown): Readonly<{
     };
   }
   const message = error instanceof Error ? error.message : 'Unexpected management API error.';
+  if (code === 'COGNITIVE_MANAGEMENT_UNAUTHORIZED') {
+    return { status: 401, body: { code, message } };
+  }
   if (code.endsWith('_NOT_FOUND')) return { status: 404, body: { code, message } };
   if (
     code.endsWith('_ALREADY_EXISTS') ||
+    code === 'CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT' ||
+    code === 'CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT' ||
+    code === 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'
   ) {

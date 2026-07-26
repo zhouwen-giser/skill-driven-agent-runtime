@@ -36,6 +36,10 @@ export class ExperienceManagementService {
     return this.#episodes.list(limit, goalId);
   }
 
+  getEpisode(episodeId: string) {
+    return this.#episodes.findById(episodeId);
+  }
+
   listDeadLetters(limit = 100) {
     return this.#jobs.listDeadLetters(limit);
   }

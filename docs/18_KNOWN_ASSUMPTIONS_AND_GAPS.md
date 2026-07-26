@@ -272,3 +272,16 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   Only a validated enriched plan or completed shadow plan receives affected-goal attribution.
 - Final Outcome linkage is Goal-version scoped because the v1.2.2 terminal authority commits at that
   boundary. G17 must repeat the lineage query under release-capacity concurrency.
+
+## v1.2.3 G15 management authentication and audit boundary (2026-07-26)
+
+- The authoritative V1 baseline remains trusted-intranet/no-auth. In the default mode `actorId` is an
+  operator-supplied audit label, not authenticated identity. ADR-115 adds an optional bearer guard for
+  cognitive management writes without claiming multi-tenant authentication or changing A2A access.
+- A pending/failed PostgreSQL management action claim is deliberately not auto-retried after restart.
+  This fail-closed posture avoids duplicating a write whose authority may have committed before a
+  process failure; operator review and a new idempotency key are required.
+- Cognitive management audit stores displayable API results but is not Plan, Knowledge, Experience or
+  Capability authority. A private-reasoning key is rejected before persistence.
+- G15 does not add tenant identity or cross-tenant authorization. Production exposure beyond a trusted
+  network still requires a separately reviewed authentication/authorization architecture.

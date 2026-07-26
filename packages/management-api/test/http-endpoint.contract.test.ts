@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -13,6 +13,7 @@ import {
 } from '../../domain/src/index.js';
 
 import {
+  BearerCognitiveManagementAuthorizer,
   startManagementHttpEndpoint,
   type ManagementHttpEndpointHandle,
   type ManagementOperations,
@@ -128,6 +129,8 @@ describe('management HTTP API contract', () => {
         ...operations(),
         capabilities: {
           getSummary: () => Promise.resolve(view),
+          getById: (summaryId) =>
+            Promise.resolve(view.summary.summaryId === summaryId ? view : undefined),
           rebuild: () => Promise.resolve(view),
         },
       },
@@ -138,8 +141,20 @@ describe('management HTTP API contract', () => {
     );
     expect(read.status).toBe(200);
     await expect(read.json()).resolves.toEqual(view);
+    const historical = await fetch(
+      `${endpoint.baseUrl}/api/v1/capabilities/summary/${view.summary.summaryId}`,
+    );
+    expect(historical.status).toBe(200);
+    await expect(historical.json()).resolves.toEqual(view);
     const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion: 1,
+        idempotencyKey: 'summary-rebuild-1',
+        actorId: 'operator-1',
+        reason: 'Refresh the reviewed capability catalog projection.',
+      }),
     });
     expect(rebuild.status).toBe(200);
     await expect(rebuild.json()).resolves.toEqual(view);
@@ -152,6 +167,7 @@ describe('management HTTP API contract', () => {
         ...operations(),
         capabilityCards: {
           findActive: () => Promise.resolve(card),
+          findById: (cardId) => Promise.resolve(card.cardId === cardId ? card : undefined),
           publish: () => Promise.resolve(card),
         },
       },
@@ -160,8 +176,18 @@ describe('management HTTP API contract', () => {
     const read = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card`);
     expect(read.status).toBe(200);
     await expect(read.json()).resolves.toEqual(card);
+    const historical = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card/${card.cardId}`);
+    expect(historical.status).toBe(200);
+    await expect(historical.json()).resolves.toEqual(card);
     const rebuild = await fetch(`${endpoint.baseUrl}/api/v1/capabilities/card/rebuild`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        expectedVersion: 1,
+        idempotencyKey: 'card-rebuild-1',
+        actorId: 'operator-1',
+        reason: 'Publish the reviewed public card projection.',
+      }),
     });
     expect(rebuild.status).toBe(200);
     await expect(rebuild.json()).resolves.toEqual(card);
@@ -215,6 +241,7 @@ describe('management HTTP API contract', () => {
         expectedVersion: 1,
         idempotencyKey: 'input-1',
         actorId: 'operator-1',
+        reason: 'Approve the reviewed Goal Contract.',
         action: 'accept',
         payload: {},
       }),
@@ -226,8 +253,51 @@ describe('management HTTP API contract', () => {
       idempotencyKey: 'input-1',
       actorId: 'operator-1',
       action: 'accept',
+      payload: { managementReason: 'Approve the reviewed Goal Contract.' },
+    });
+  });
+
+  it('optionally bearer-authenticates cognitive writes before any application mutation', async () => {
+    const applyAction = vi.fn().mockResolvedValue(interactiveGoalSessionView());
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        goalSessions: {
+          getByTask: () => Promise.resolve(interactiveGoalSessionView()),
+          applyAction,
+        },
+      },
+      cognitiveManagementAuthorizer: new BearerCognitiveManagementAuthorizer('b'.repeat(32)),
+    });
+    const body = JSON.stringify({
+      expectedVersion: 1,
+      idempotencyKey: 'bearer-action-1',
+      actorId: 'operator-1',
+      reason: 'Approve the reviewed Goal Contract.',
+      action: 'accept',
       payload: {},
     });
+    const unauthorized = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session/actions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      },
+    );
+    expect(unauthorized.status).toBe(401);
+    expect(applyAction).not.toHaveBeenCalled();
+
+    const authorized = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/goal-session/actions`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${'b'.repeat(32)}`,
+        'content-type': 'application/json',
+      },
+      body,
+    });
+    expect(authorized.status).toBe(200);
+    expect(applyAction).toHaveBeenCalledTimes(1);
   });
 
   it('reads an interactive planning session and applies a CAS/idempotent plan patch', async () => {
@@ -258,6 +328,7 @@ describe('management HTTP API contract', () => {
           expectedVersion: 1,
           idempotencyKey: 'planning-input-1',
           actorId: 'operator-1',
+          reason: 'Apply the reviewed plan correction.',
           action: 'patch',
           payload: { instruction: 'Prioritize inspection evidence.' },
         }),
@@ -270,7 +341,10 @@ describe('management HTTP API contract', () => {
       idempotencyKey: 'planning-input-1',
       actorId: 'operator-1',
       action: 'patch',
-      payload: { instruction: 'Prioritize inspection evidence.' },
+      payload: {
+        instruction: 'Prioritize inspection evidence.',
+        managementReason: 'Apply the reviewed plan correction.',
+      },
     });
   });
 
@@ -320,6 +394,12 @@ describe('management HTTP API contract', () => {
       operations: {
         ...operations(),
         experience: {
+          getEpisode: (episodeId) =>
+            Promise.resolve(
+              episodeId === 'goal-episode-1'
+                ? ({ episodeId: 'goal-episode-1', goalId: 'goal-1' } as never)
+                : undefined,
+            ),
           listEpisodes: (goalId, limit) => {
             received.push({ action: 'listEpisodes', goalId, limit });
             return Promise.resolve([{ episodeId: 'goal-episode-1', goalId: 'goal-1' }] as never);
@@ -355,6 +435,12 @@ describe('management HTTP API contract', () => {
     await expect(episodes.json()).resolves.toEqual({
       items: [{ episodeId: 'goal-episode-1', goalId: 'goal-1' }],
     });
+    const episode = await fetch(`${endpoint.baseUrl}/api/v1/experience/episodes/goal-episode-1`);
+    expect(episode.status).toBe(200);
+    await expect(episode.json()).resolves.toEqual({
+      episodeId: 'goal-episode-1',
+      goalId: 'goal-1',
+    });
     const deadLetters = await fetch(`${endpoint.baseUrl}/api/v1/experience/dead-letters?limit=10`);
     expect(deadLetters.status).toBe(200);
     await expect(deadLetters.json()).resolves.toEqual({
@@ -375,10 +461,32 @@ describe('management HTTP API contract', () => {
     const replay = await fetch(`${endpoint.baseUrl}/api/v1/experience/dead-letters/dead-1/replay`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ actorId: 'experience-operator' }),
+      body: JSON.stringify({
+        expectedVersion: 0,
+        idempotencyKey: 'dead-letter-replay-1',
+        actorId: 'experience-operator',
+        reason: 'Replay after correcting the recorded extractor failure.',
+      }),
     });
     expect(replay.status).toBe(200);
     await expect(replay.json()).resolves.toEqual({ jobId: 'job-1', status: 'pending' });
+    const staleReplay = await fetch(
+      `${endpoint.baseUrl}/api/v1/experience/dead-letters/dead-1/replay`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedVersion: 1,
+          idempotencyKey: 'dead-letter-replay-stale',
+          actorId: 'experience-operator',
+          reason: 'Attempt a stale replay.',
+        }),
+      },
+    );
+    expect(staleReplay.status).toBe(409);
+    await expect(staleReplay.json()).resolves.toMatchObject({
+      error: { code: 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' },
+    });
     expect(received).toEqual([
       { action: 'listEpisodes', goalId: 'goal-1', limit: 20 },
       { action: 'listDeadLetters', limit: 10 },
@@ -1137,6 +1245,15 @@ describe('management HTTP API contract', () => {
       operations: {
         ...operations(),
         knowledgePromotion: {
+          list: (kind, limit) =>
+            Promise.resolve([
+              {
+                knowledgeId: 'knowledge.test',
+                kind,
+                status: 'candidate',
+                requestedLimit: limit,
+              },
+            ] as never),
           evaluate: (input) => {
             calls.push({ action: 'promote', ...input });
             return Promise.resolve({
@@ -1181,12 +1298,26 @@ describe('management HTTP API contract', () => {
       },
     });
 
+    const inventory = await fetch(`${endpoint.baseUrl}/api/v1/knowledge/heuristics?limit=25`);
+    expect(inventory.status).toBe(200);
+    await expect(inventory.json()).resolves.toMatchObject({
+      items: [
+        {
+          knowledgeId: 'knowledge.test',
+          kind: 'planning_heuristic',
+          requestedLimit: 25,
+        },
+      ],
+    });
+
     const requests = [
       {
         action: 'promote',
         body: {
           expectedVersion: 1,
+          idempotencyKey: 'promote-1',
           actorId: 'operator.test',
+          reason: 'Approve the reviewed heuristic evidence.',
           humanApproved: true,
           policyAllowed: true,
         },
@@ -1195,6 +1326,7 @@ describe('management HTTP API contract', () => {
         action: 'reject',
         body: {
           expectedVersion: 1,
+          idempotencyKey: 'reject-1',
           actorId: 'operator.test',
           reason: 'Unsafe generalization.',
         },
@@ -1203,6 +1335,7 @@ describe('management HTTP API contract', () => {
         action: 'revalidate',
         body: {
           expectedVersion: 3,
+          idempotencyKey: 'revalidate-1',
           actorId: 'system.policy',
           reason: 'policy_changed',
         },
@@ -1211,7 +1344,9 @@ describe('management HTTP API contract', () => {
         action: 'deprecate',
         body: {
           expectedVersion: 3,
+          idempotencyKey: 'deprecate-1',
           actorId: 'operator.test',
+          reason: 'Retire superseded active knowledge.',
         },
       },
     ] as const;
@@ -1237,6 +1372,45 @@ describe('management HTTP API contract', () => {
       expect.objectContaining({ action: 'revalidate', reason: 'policy_changed' }),
       expect.objectContaining({ action: 'deprecate', expectedVersion: 3 }),
     ]);
+  });
+
+  it('exposes durable cognitive write audit details without private reasoning', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        cognitiveManagementAudit: {
+          list: (limit) =>
+            Promise.resolve([
+              {
+                actionId: 'cognitive-management-action-1',
+                operation: 'knowledge_promote',
+                subjectId: 'planning_heuristic:knowledge.test',
+                expectedVersion: 1,
+                idempotencyKey: 'promote-1',
+                actorId: 'operator.test',
+                reason: 'Reviewed evidence passed.',
+                requestHash: `sha256:${'a'.repeat(64)}`,
+                status: 'completed',
+                result: { status: 'active' },
+                claimedAt: '2026-07-26T10:00:00.000Z',
+                completedAt: '2026-07-26T10:00:01.000Z',
+                updatedAt: '2026-07-26T10:00:01.000Z',
+                requestedLimit: limit,
+              },
+            ] as never),
+        },
+      },
+    });
+
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/cognitive-management/actions?limit=25`,
+    );
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('knowledge_promote');
+    expect(text).toContain('Reviewed evidence passed.');
+    expect(text).toContain('"requestedLimit":25');
+    expect(text).not.toContain('chainOfThought');
   });
 
   it('reads and updates disabled-by-default Memory retention controls', async () => {
@@ -3306,8 +3480,8 @@ function operations(failServerList = false): ManagementOperations {
       setEnabled: unused,
       validatePackage: unused,
     },
-    capabilities: { getSummary: unused, rebuild: unused },
-    capabilityCards: { findActive: unused, publish: unused },
+    capabilities: { getSummary: unused, getById: unused, rebuild: unused },
+    capabilityCards: { findActive: unused, findById: unused, publish: unused },
     taskUnderstandings: { findCurrent: unused, listRevisions: () => Promise.resolve([]) },
     temporarySkills: {
       complete: unused,

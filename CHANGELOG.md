@@ -80,6 +80,14 @@ All notable changes to this project are documented here. The format follows Keep
   expansion, Planning-Session usage dedupe and transactional `planning.knowledge_used` evidence.
 - Strict Level-0 Index → selected Full Definition → complete current exact Skill disclosure, with
   frozen kind limits, conflict separation and a factory-verified 20K total context budget.
+- G15 complete Capability/Understanding/Goal Session/Planning Session/Experience/Knowledge management
+  reads, exact-ID history, Planning Heuristic inventory and PostgreSQL cognitive-action audit.
+- `InteractiveActionRouter` for exact-session A2A continuation and
+  `A2AInteractionProjection.toInputRequired` with routing-only public metadata.
+- Operational Experience/Knowledge/Task Type governance Console, audit/error details and optional
+  per-tab bearer token support without Provider/Outcome/Active Plan mutation controls.
+- ADR-115, optional deployment-configured bearer authentication and restart-stable
+  actor/reason/CAS/idempotency audit through additive migration 0123.
 
 ### Changed
 
@@ -112,9 +120,17 @@ All notable changes to this project are documented here. The format follows Keep
 - Generic Memory searches exclude Active Knowledge projections. G13 alone joins vector projections
   back to exact scoped PostgreSQL authority, while Reflection persists governed Candidate relations
   that remain unavailable until Promotion.
+- Cognitive write requests now use one strict actor/reason/expectedVersion/idempotency envelope.
+  Trusted-intranet/no-auth remains the default; configured bearer deployments authenticate before any
+  action claim or business mutation.
+- A2A `io.sdar/interaction` no longer embeds Candidate Contract/Plan or internal Understanding data;
+  it carries only Session routing metadata at the standard `INPUT_REQUIRED` boundary.
 
 ### Verification
 
+- G15 affected gates pass 597 unit, 157 contract, 84 real PostgreSQL/Redis integration and 62 real
+  Server/A2A E2E tests, 152 OpenAPI operations, 419-source architecture, A2A MUST 74/74, production
+  build, isolated Server/Console smoke and all 16 additive migrations through 0123.
 - G00 verified. The isolated-database full gate passes 635 unit/contract, 68 integration, 59 E2E,
   A2A MUST 74/74, 124 OpenAPI operations, migration rollback/reapply, build and both smoke stages in
   168,876 ms; implementation commit `ffd9791` is pushed and Draft PR #8 remains Draft.

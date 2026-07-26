@@ -104,6 +104,23 @@ nav {
   font-size: 12px;
   line-height: 1.55;
 }
+
+.sidebar-auth {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.75rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.sidebar-auth label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sidebar-auth input {
+  width: 100%;
+}
 .network-warning span {
   color: #98835b;
 }

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Skill-Driven Agent Runtime Management API
   version: 1.0.0-dev
-  description: Unauthenticated V1 API for trusted-intranet deployments only.
+  description: Trusted-intranet V1 API with an optional deployment-configured bearer guard for cognitive management writes.
 servers:
   - url: http://127.0.0.1:9998
 paths:
@@ -107,6 +107,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: applyInteractiveGoalAction
+      security: [{ CognitiveBearer: [] }, {}]
       description: Applies one actor-attributed, CAS-protected and idempotent interaction action.
       requestBody:
         required: true
@@ -136,6 +137,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: applyInteractivePlanningAction
+      security: [{ CognitiveBearer: [] }, {}]
       description: Applies one actor-attributed, CAS-protected and idempotent accept, patch, reject, or cancel action. Only a confirmed valid candidate is handed to the authoritative v1.2.2 planner.
       requestBody:
         required: true
@@ -207,6 +209,14 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/GoalExperienceEpisodeList' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/experience/episodes/{episodeId}:
+    parameters: [{ name: episodeId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getGoalExperienceEpisode
+      description: Returns one immutable Goal Experience Episode by authoritative identity.
+      responses:
+        '200': { description: Immutable Goal Experience Episode }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/experience/dead-letters:
     get:
       operationId: listExperienceDeadLetters
@@ -280,6 +290,32 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/TaskTypeDefinitionList' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/knowledge/heuristics:
+    get:
+      operationId: listPlanningHeuristics
+      description: Lists versioned Planning Heuristic candidates and active revisions for governance review.
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        '200': { description: Planning Heuristic governance inventory }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/cognitive-management/actions:
+    get:
+      operationId: listCognitiveManagementActions
+      description: Lists PostgreSQL-authoritative actor, reason, CAS, idempotency and terminal result audit for cognitive writes.
+      parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
+      responses:
+        '200':
+          description: Cognitive management action audit inventory
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CognitiveManagementActionRecord' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/capability-patterns:
     get:
       operationId: listCapabilityPatterns
@@ -304,6 +340,7 @@ paths:
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: promoteKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
       description: Deterministically evaluates one exact Candidate revision under CAS. First-release activation always requires explicit human approval; high-risk activation also requires persisted replay, shadow and policy allow gates.
       requestBody:
         required: true
@@ -324,6 +361,7 @@ paths:
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: rejectKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
       description: Records an actor-attributed terminal rejection for one Candidate revision without invoking Skill publication.
       requestBody:
         required: true
@@ -344,6 +382,7 @@ paths:
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: revalidateKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
       description: CAS-transitions Active Knowledge back to validating after contradiction, catalog, policy or exact Skill-version change and removes its rebuildable Memory projection.
       requestBody:
         required: true
@@ -364,6 +403,7 @@ paths:
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: deprecateKnowledge
+      security: [{ CognitiveBearer: [] }, {}]
       description: Manually deprecates Active Knowledge under CAS and invalidates its rebuildable Memory search projection.
       requestBody:
         required: true
@@ -382,17 +422,13 @@ paths:
     parameters: [{ name: deadLetterId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: replayExperienceDeadLetter
+      security: [{ CognitiveBearer: [] }, {}]
       description: Manually resets an exhausted PostgreSQL Experience job and emits a rebuildable Redis wake reference.
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [actorId]
-              properties:
-                actorId: { type: string, minLength: 1, maxLength: 256 }
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
       responses:
         '200':
           description: Replayed PostgreSQL Experience job
@@ -1116,10 +1152,28 @@ paths:
                   characterCount: 2
                   truncated: false
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/summary/{summaryId}:
+    parameters: [{ name: summaryId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getRuntimeCapabilitySummaryById
+      description: Returns one immutable internal Capability Summary revision by identity.
+      responses:
+        '200':
+          description: Requested Capability Summary and bounded index
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilitySummaryView' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/capabilities/rebuild:
     post:
       operationId: rebuildRuntimeCapabilitySummary
+      security: [{ CognitiveBearer: [] }, {}]
       description: Deterministically rebuilds and transactionally activates the exact current catalog snapshot. No model or live readiness source is called.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
       responses:
         '200':
           description: Idempotently activated hash-matched Capability Summary
@@ -1138,10 +1192,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities/card/{cardId}:
+    parameters: [{ name: cardId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getPublicCapabilityCardById
+      description: Returns one immutable allowlisted Public Capability Card revision by identity.
+      responses:
+        '200':
+          description: Requested Public Capability Card snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicCapabilityCardSnapshot' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/capabilities/card/rebuild:
     post:
       operationId: rebuildPublicCapabilityCard
+      security: [{ CognitiveBearer: [] }, {}]
       description: Builds from the active hash-matched Runtime Capability Summary, validates the public allowlist and idempotently activates the Card. Optional Narrative failure uses the deterministic template.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CognitiveWriteAction' }
       responses:
         '200':
           description: Idempotently activated Public Capability Card snapshot
@@ -1587,6 +1659,11 @@ paths:
                 qualityTrend: []
         '400': { $ref: '#/components/responses/Error' }
 components:
+  securitySchemes:
+    CognitiveBearer:
+      type: http
+      scheme: bearer
+      description: Optional deployment-configured bearer guard for cognitive management writes.
   parameters:
     BoundedListLimit:
       {
@@ -1616,42 +1693,105 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    CognitiveWriteAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, idempotencyKey, actorId, reason]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+          description: Current authoritative revision; use 0 only when the managed resource is absent or an Experience dead letter is unreplayed.
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    CognitiveManagementActionRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          actionId,
+          operation,
+          subjectId,
+          expectedVersion,
+          idempotencyKey,
+          actorId,
+          reason,
+          requestHash,
+          status,
+          claimedAt,
+          updatedAt,
+        ]
+      properties:
+        actionId: { type: string }
+        operation:
+          enum:
+            [
+              goal_session_action,
+              planning_session_action,
+              capability_rebuild,
+              capability_card_rebuild,
+              experience_dead_letter_replay,
+              knowledge_promote,
+              knowledge_reject,
+              knowledge_revalidate,
+              knowledge_deprecate,
+            ]
+        subjectId: { type: string }
+        expectedVersion: { type: integer, minimum: 0 }
+        idempotencyKey: { type: string }
+        actorId: { type: string }
+        reason: { type: string }
+        requestHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        status: { enum: [pending, completed, failed] }
+        result: {}
+        errorCode: { type: string }
+        claimedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        failedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     KnowledgeKind:
       type: string
       enum: [planning_heuristic, task_type, capability_pattern]
     KnowledgePromoteAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, actorId, humanApproved, policyAllowed]
+      required: [expectedVersion, idempotencyKey, actorId, reason, humanApproved, policyAllowed]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
         humanApproved: { type: boolean }
         policyAllowed: { type: boolean }
     KnowledgeRejectAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, actorId, reason]
+      required: [expectedVersion, idempotencyKey, actorId, reason]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 256 }
         reason: { type: string, minLength: 1, maxLength: 2048 }
     KnowledgeRevalidateAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, actorId, reason]
+      required: [expectedVersion, idempotencyKey, actorId, reason]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 256 }
         reason:
           enum: [contradiction_detected, catalog_changed, policy_changed, skill_version_changed]
     KnowledgeDeprecateAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, actorId]
+      required: [expectedVersion, idempotencyKey, actorId, reason]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
     GoalExperienceEpisodeList:
       type: object
       additionalProperties: false
@@ -2399,11 +2539,12 @@ components:
     InteractivePlanningAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, idempotencyKey, actorId, action, payload]
+      required: [expectedVersion, idempotencyKey, actorId, reason, action, payload]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
         idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 128 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
         action: { enum: [accept, patch, reject, cancel] }
         payload: { type: object, additionalProperties: true }
     InteractivePlanningSessionView:
@@ -2475,11 +2616,12 @@ components:
     InteractiveGoalAction:
       type: object
       additionalProperties: false
-      required: [expectedVersion, idempotencyKey, actorId, action, payload]
+      required: [expectedVersion, idempotencyKey, actorId, reason, action, payload]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
         idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
         actorId: { type: string, minLength: 1, maxLength: 128 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
         action: { enum: [answer, accept, patch, reject, restart_understanding, cancel] }
         payload: { type: object, additionalProperties: true }
     InteractiveGoalSessionView:

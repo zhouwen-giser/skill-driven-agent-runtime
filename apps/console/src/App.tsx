@@ -5,6 +5,7 @@ import {
   type McpServerSummary,
   ManagementApiError,
   managementRequest,
+  setManagementBearerToken,
   type SkillSummary,
 } from './api.js';
 import { McpPanel } from './McpPanel.js';
@@ -17,11 +18,13 @@ import { EvaluationPanel } from './EvaluationPanel.js';
 import { SystemPanel } from './SystemPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 import { CapabilitiesPanel } from './CapabilitiesPanel.js';
+import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
 
 type Section =
   | 'overview'
   | 'skills'
   | 'capabilities'
+  | 'cognitive-governance'
   | 'mcp'
   | 'workflows'
   | 'tasks'
@@ -40,6 +43,7 @@ const navigation: readonly {
   { id: 'tasks', label: '任务与 Goal', note: 'Trace' },
   { id: 'skills', label: 'Skills', note: 'Lifecycle' },
   { id: 'capabilities', label: 'Capabilities', note: 'Public Card' },
+  { id: 'cognitive-governance', label: 'Cognitive Governance', note: 'Experience' },
   { id: 'workflows', label: 'Workflows', note: 'DAG' },
   { id: 'mcp', label: 'MCP Servers', note: 'Tools' },
   { id: 'business-events', label: 'Business Events', note: 'Inbox' },
@@ -51,6 +55,7 @@ const navigation: readonly {
 
 export function App() {
   const [section, setSection] = useState<Section>('overview');
+  const [managementToken, setManagementToken] = useState('');
   const [target, setTarget] = useState<
     Readonly<{
       taskId?: string;
@@ -103,10 +108,30 @@ export function App() {
           ))}
         </nav>
         <p className="network-warning">
-          无认证 · 仅限可信内网
+          默认无认证 · 仅限可信内网
           <br />
           <span>Do not expose publicly</span>
         </p>
+        <form
+          className="sidebar-auth"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setManagementBearerToken(managementToken);
+          }}
+        >
+          <label>
+            Optional write token
+            <input
+              type="password"
+              autoComplete="off"
+              value={managementToken}
+              onChange={(event) => {
+                setManagementToken(event.target.value);
+              }}
+            />
+          </label>
+          <button type="submit">Use for this tab</button>
+        </form>
       </aside>
       <main>
         <header className="topbar">
@@ -165,6 +190,7 @@ function SectionView({
       />
     );
   if (section === 'capabilities') return <CapabilitiesPanel />;
+  if (section === 'cognitive-governance') return <CognitiveGovernancePanel />;
   if (section === 'mcp')
     return (
       <McpPanel
@@ -321,6 +347,7 @@ export function Lookup({
     | 'prompts'
     | 'system'
     | 'business-events'
+    | 'cognitive-governance'
   >;
 }) {
   const config = useMemo(

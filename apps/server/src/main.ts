@@ -13,6 +13,9 @@ const runtime = await startServerRuntime({
   a2aPort: environment.SDAR_A2A_PORT,
   managementHost: environment.SDAR_MANAGEMENT_HOST,
   managementPort: environment.SDAR_MANAGEMENT_PORT,
+  ...(environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN === undefined
+    ? {}
+    : { cognitiveManagementBearerToken: environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true'
     ? {
         frozenMcpTasks: { isolationAcknowledged: true as const },

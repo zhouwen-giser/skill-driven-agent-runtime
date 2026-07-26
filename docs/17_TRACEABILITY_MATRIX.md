@@ -457,3 +457,19 @@ G14 affected gates pass 587 unit, 155 contract, 83 real integration, 62 real E2E
 OpenAPI operations, 411-source architecture, production build, isolated Server smoke and migration
 0122 as the fifteenth additive v1.2.3 migration. Exact evidence and retained failures are in
 `reports/goal/g14-completion.md`.
+
+## SDAR v1.2.3 G15 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G15-01 authenticated/audited writes | verified | `CognitiveManagementController`, optional bearer guard, strict actor/reason/CAS/idempotency envelope, PostgreSQL action gate and migration 0123 | bearer-before-mutation contract; durable result/retry/conflict integration; private-reasoning rejection |
+| AC-G15-02 complete operational Console | verified | Task Understanding/Goal Contract/Plan DAG review plus Cognitive Governance and Capability views over real APIs | Console SSR contract, TypeScript/build and 152-operation OpenAPI drift gate |
+| AC-G15-03 exact A2A interaction routing | verified | `InteractiveActionRouter.route` selects current Planning then Goal Session and applies the observed version | focused unit plus real A2A input-required → answer/confirm/patch continuation E2E |
+| AC-G15-04 no direct authority mutation | verified | Console governance calls Candidate lifecycle/replay only; confirmed handoff remains the existing service | static route assertions, architecture audit and unchanged terminal-authority E2E |
+| AC-G15-05 OpenAPI/frontend synchronization | verified | exact-ID Summary/Card/Episode, Heuristic and audit APIs plus strict write schemas | management contracts, OpenAPI 152/152 and Console build |
+| AC-G15-06 public/internal isolation | verified | routing-only A2A metadata and existing allowlisted Public Card; internal evidence stays management-only | projection unit denies Candidate/Understanding data; Public Card privacy unit/E2E |
+
+G15 affected gates pass 597 unit, 157 contract, 84 real integration and 62 real E2E tests. The
+16-migration v1.2.3 chain through 0123 passes idempotency, rollback/reapply, reset guard and rogue-ledger
+rejection. Exact commands, retained sandbox-only failed attempts and handoff are in
+`reports/goal/g15-completion.md`.
