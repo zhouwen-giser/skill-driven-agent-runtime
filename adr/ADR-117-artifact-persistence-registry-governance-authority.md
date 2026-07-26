@@ -22,7 +22,8 @@ fully rebuildable.
   This gives lossless P01 round-trip without inventing a non-frozen payload column.
 - `artifact_lineage` stores the frozen query projection. Missing P01-only lineage fields remain
   losslessly present in the canonical version envelope; adapters compare the projection with the
-  envelope and fail closed on drift.
+  envelope and fail closed on drift. The full Lineage projection, including creation time, is
+  database-immutable after insert.
 - Artifact version identity and content are immutable. Only lifecycle status and the nullable
   validation summary projection may change through repository CAS operations.
 - Activation is one PostgreSQL transaction: lock key, validate status/hash, require a passed
@@ -32,7 +33,12 @@ fully rebuildable.
 - `cognitive_management_action` is extended with Artifact governance operation values and remains the
   idempotency/audit ledger. No second audit table is created.
 - Registry projections are Ports backed by rebuildable cache implementations. Cache misses and
-  startup rebuild read PostgreSQL; cache state never authorizes activation.
+  startup rebuild read PostgreSQL; cache state never authorizes activation. Every lifecycle event
+  that can change the projected version status invalidates or rebuilds that version.
+- Artifact projection delivery uses the existing Outbox's database-generated insertion sequence and
+  a consumer-private durable cursor. It handles only projection lifecycle/dependency events and never
+  mutates shared `published_at`, leaving unrelated events available to their actual publishers and
+  consumers.
 - Production governance fails closed without an `OperatorIdentityPort`. The local adapter requires
   explicit non-production construction and never trusts a request-body actor identifier.
 - Feature flags and queue/event names are the frozen P02 values. P02 declares and validates them but

@@ -1,13 +1,18 @@
+import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+import { applyRuntimeMigrations, startServerRuntime } from '../../../apps/server/src/runtime.js';
 import {
+  ArtifactOutboxConsumer,
+  ArtifactRegistryProjectionEventHandler,
+  ArtifactRegistryService,
   CognitiveManagementActionGate,
   ConfiguredOperatorIdentityPort,
   DefaultArtifactGovernanceService,
+  InMemoryArtifactActiveIndexProjection,
   hashValidationSummary,
 } from '../../application/src/index.js';
 import type {
@@ -102,17 +107,14 @@ describe('P02 PostgreSQL Artifact authority', () => {
         JSON.stringify(tooDeep),
       ]),
     ).rejects.toBeDefined();
-    await pool.query(
-      `UPDATE artifact_lineage SET source_episode_refs='["drift"]'::jsonb
-       WHERE artifact_id=$1`,
-      [candidate.artifact.artifactId],
-    );
     await expect(
-      repository.getDefinition({
-        artifactId: candidate.artifact.artifactId,
-        version: candidate.artifact.version,
-      }),
-    ).rejects.toMatchObject({ code: 'ARTIFACT_LINEAGE_PROJECTION_DRIFT' });
+      pool.query(
+        `UPDATE artifact_lineage
+         SET source_episode_refs='["drift"]'::jsonb,created_at=created_at+interval '1 second'
+         WHERE artifact_id=$1`,
+        [candidate.artifact.artifactId],
+      ),
+    ).rejects.toBeDefined();
   });
 
   it('requires approval, serializes concurrent activation and records atomic audit/outbox', async () => {
@@ -381,6 +383,65 @@ describe('P02 PostgreSQL Artifact authority', () => {
     ).rejects.toMatchObject({ code: 'ARTIFACT_TENANT_SCOPE_DENIED' });
   });
 
+  it('invalidates cached versions across validation and rejected approval lifecycle events', async () => {
+    const repository = new PostgresArtifactRepository(pool);
+    const validation = new PostgresArtifactValidationRepository(pool);
+    const governance = governanceService(repository);
+    const registry = new ArtifactRegistryService({
+      repository,
+      projection: new InMemoryArtifactActiveIndexProjection(),
+    });
+    const consumer = new ArtifactOutboxConsumer({
+      consumerName: 'artifact-version-cache-regression',
+      repository: new PostgresArtifactOutboxConsumerRepository(pool),
+      handler: new ArtifactRegistryProjectionEventHandler(registry),
+      clock: { now: () => '2026-07-26T00:10:00.000Z' },
+    });
+    const candidate = candidatePersistence();
+    await repository.saveCandidate(candidate);
+    await expect(registry.getVersion(candidate.artifact)).resolves.toMatchObject({
+      status: 'candidate',
+    });
+
+    await governance.requestValidation({
+      ...commandBase(candidate.artifact),
+      validationRunId: 'validation.cache.lifecycle',
+      validationType: 'static',
+      datasetRef: 'dataset.cache.lifecycle',
+    });
+    await expect(consumer.consume()).resolves.toBe(1);
+    await expect(registry.getVersion(candidate.artifact)).resolves.toMatchObject({
+      status: 'validating',
+    });
+
+    await validation.appendResult({
+      validationRunId: 'validation.cache.lifecycle',
+      status: 'passed',
+      result: 'cache lifecycle passed',
+      metrics: {},
+      counterexampleRefs: [],
+      completedAt: '2026-07-26T00:11:00.000Z',
+    });
+    await expect(consumer.consume()).resolves.toBe(1);
+    await expect(registry.getVersion(candidate.artifact)).resolves.toMatchObject({
+      status: 'awaiting_approval',
+      validationSummaryRef: 'validation.cache.lifecycle',
+    });
+    const summary = await validation.findPromotionSummary(candidate.artifact);
+    if (summary === undefined) throw new Error('Expected cache validation summary.');
+    await governance.recordApproval({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'approval-cache-lifecycle-rejected',
+      approvalId: 'approval.cache.lifecycle.rejected',
+      decision: 'rejected',
+      validationSummaryHash: hashValidationSummary(summary),
+    });
+    await expect(consumer.consume()).resolves.toBe(1);
+    await expect(registry.getVersion(candidate.artifact)).resolves.toMatchObject({
+      status: 'rejected',
+    });
+  });
+
   it('stores bounded execution and feedback records and deprecates through CAS', async () => {
     const repository = new PostgresArtifactRepository(pool);
     const validation = new PostgresArtifactValidationRepository(pool);
@@ -555,7 +616,10 @@ describe('P02 PostgreSQL Artifact authority', () => {
     ]);
     const outboxConsumer = new PostgresArtifactOutboxConsumerRepository(pool);
     const events = await outboxConsumer.readAfter(undefined, 500);
-    expect(events.length).toBeGreaterThanOrEqual(10);
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    expect(events.some((event) => event.eventType === 'artifact.approval_recorded')).toBe(true);
+    expect(events.some((event) => event.eventType === 'artifact.execution_started')).toBe(false);
+    expect(events.some((event) => event.eventType === 'artifact.feedback_recorded')).toBe(false);
     const first = events[0];
     if (first === undefined) throw new Error('Expected Artifact Outbox event.');
     await outboxConsumer.advanceCursor(
@@ -568,6 +632,12 @@ describe('P02 PostgreSQL Artifact authority', () => {
       lastEventId: first.eventId,
       version: 1,
     });
+    const sharedPublication = await pool.query<{ published_at: Date | null }>(
+      `SELECT published_at FROM cognitive_runtime_outbox
+       WHERE event_type='artifact.approval_recorded'
+       ORDER BY occurred_at LIMIT 1`,
+    );
+    expect(sharedPublication.rows[0]?.published_at).toBeNull();
     expect(await outboxConsumer.readAfter(first.eventId, 500)).toHaveLength(events.length - 1);
     await pool.query(
       `INSERT INTO cognitive_runtime_outbox(
@@ -582,6 +652,70 @@ describe('P02 PostgreSQL Artifact authority', () => {
       expect.arrayContaining([expect.objectContaining({ eventId: 'artifact-late-event' })]),
     );
   });
+
+  it('rebuilds the real startup projection without claiming shared Outbox publication', async () => {
+    const repository = new PostgresArtifactRepository(pool);
+    const validation = new PostgresArtifactValidationRepository(pool);
+    const governance = governanceService(repository);
+    const candidate = candidatePersistence();
+    await repository.saveCandidate(candidate);
+    const validationSummaryHash = await validateAndApprove(
+      governance,
+      validation,
+      candidate.artifact,
+      'startup-projection',
+    );
+    await governance.activate({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'activate-startup-projection',
+      artifactKey: candidate.artifact.artifactKey,
+      expectedLockVersion: 0,
+      validationSummaryHash,
+    });
+    await pool.query(
+      `INSERT INTO cognitive_runtime_outbox(
+         event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+         correlation,payload,occurred_at,published_at)
+       VALUES(
+         'artifact-startup-unhandled-execution','artifact.execution_started',
+         'artifact_execution','execution.startup',1,'{}'::jsonb,
+         '{"artifactId":"artifact.intent.inspect.1"}'::jsonb,
+         '2026-07-26T00:08:00.000Z',NULL
+       )`,
+    );
+
+    const runtime = await startServerRuntime({
+      postgresUrl: connectionString,
+      redis: { host: '127.0.0.1', port: 56379 },
+      masterKeyBase64: randomBytes(32).toString('base64'),
+      queueName: `artifact-startup-${randomUUID()}`,
+      applyMigrations: false,
+      a2aPort: 0,
+      managementPort: 0,
+    });
+    try {
+      await expect(runtime.artifactRegistry?.queryActiveIndex({})).resolves.toEqual([
+        expect.objectContaining({
+          artifactId: candidate.artifact.artifactId,
+          pointerLockVersion: 1,
+        }),
+      ]);
+      const publication = await pool.query<{ published: number; unpublished: number }>(
+        `SELECT
+           count(*) FILTER (WHERE published_at IS NOT NULL)::integer AS published,
+           count(*) FILTER (WHERE published_at IS NULL)::integer AS unpublished
+         FROM cognitive_runtime_outbox
+         WHERE event_type LIKE 'artifact.%'
+            OR event_type LIKE 'compiler.artifact_%'`,
+      );
+      expect(publication.rows).toEqual([
+        expect.objectContaining({ published: 0, unpublished: expect.any(Number) }),
+      ]);
+      expect(publication.rows[0]?.unpublished).toBeGreaterThan(0);
+    } finally {
+      await runtime.close();
+    }
+  }, 30_000);
 });
 
 function candidatePersistence() {

@@ -54,7 +54,18 @@ second workflow authority.
       PostgreSQL integration scenarios in an isolated database.
 - [x] 2026-07-27 Pass the post-remediation working-tree full gate: 795 unit/contract, 89 integration,
       62 E2E, 447-source architecture, migration replay, build and both smokes.
-- [ ] Create the remediation commit and pass the complete gate with `dirty=false`.
+- [x] 2026-07-27 Commit the first remediation as `ee52158` and pass the complete gate with
+      `dirty=false`.
+- [x] 2026-07-27 Obtain second independent read-only review: `REJECTED` with 1 Blocking, 2 Major and
+      0 Minor findings.
+- [x] 2026-07-27 Replace shared Outbox acknowledgement with database-sequenced consumer-private
+      cursoring, invalidate version cache for all projection lifecycle events and enforce/compare
+      immutable Lineage creation time.
+- [x] 2026-07-27 Pass focused typecheck/lint/unit/contract, migration rollback/reapply and seven
+      real PostgreSQL integration scenarios including actual mixed-event Server startup.
+- [x] 2026-07-27 Pass the second-remediation working-tree complete gate: 795 unit/contract,
+      91 integration, 62 E2E, 447-source architecture, 18-migration replay, build and both smokes.
+- [ ] Create an exact second-remediation commit and repeat the complete gate with `dirty=false`.
 - [ ] Finalize evidence and exact Handoff after independent review.
 - [ ] Obtain new independent read-only review, clean-commit gate and push.
 
@@ -70,8 +81,10 @@ second workflow authority.
 
 Migration 0125 creates exactly the ten canonical P02 tables, required constraints/indexes and
 extends the existing management audit operation constraint for Artifact governance. It reuses
-`cognitive_runtime_outbox`; no second outbox authority is created. Down migration refuses destructive
-rollback while any P02 authority row or Artifact management audit exists.
+`cognitive_runtime_outbox`; no second outbox authority is created. A generated
+`outbox_sequence` supplies database-monotonic insertion order for consumer-private cursors without
+claiming the shared `published_at`. Down migration refuses destructive rollback while any P02
+authority row or Artifact management audit exists.
 
 ## Tests
 
@@ -82,6 +95,7 @@ rollback while any P02 authority row or Artifact management audit exists.
 - validation/approval evidence and status failure cases.
 - audit actor, permission, reason, idempotency and expected-version cases.
 - Registry cache miss/hit, rebuild and duplicate outbox consumption.
+- Mixed handled/unhandled Outbox events through actual Server startup without shared publication.
 - format, lint, typecheck, unit, contract, integration, architecture and complete `pnpm verify`.
 
 ## Failed Attempts
@@ -94,20 +108,27 @@ rollback while any P02 authority row or Artifact management audit exists.
 - The rollback regression exposed the existing Outbox uniqueness rule for repeated activation of an
   immutable version. Active Pointer revision now drives Outbox aggregate revision; no constraint or
   assertion was weakened.
+- The first second-remediation integration run retained an obsolete expectation that Approval was
+  not a projection lifecycle event. The expectation was corrected to distinguish handled Approval
+  from unhandled execution/feedback events; implementation behavior and delivery assertions were
+  not weakened.
 
 ## Review Findings
 
 The first independent review rejected `591cbe4`; its exact decision is preserved in
 `reports/goal/v1.3-p02-review-1.md`. The remediation keeps the Pointer row as a monotonically
 versioned tombstone, binds current validation/approval and trusted tenant evidence in PostgreSQL,
-uses unpublished Outbox rows rather than client timestamps as delivery authority, and rebuilds all
-projection pages while clearing version caches. A new independent reviewer must assess the
-remediation after the complete gate.
+uses database insertion sequence rather than client timestamps as delivery authority, and rebuilds
+all projection pages while clearing version caches. The second independent review rejected
+`ee52158`; its exact decision is preserved in `reports/goal/v1.3-p02-review-2.md`. The second
+remediation gives the projection consumer a private cursor without mutating shared publication,
+invalidates lifecycle caches and makes Lineage creation time an immutable checked projection. A new
+independent reviewer must assess both remediation rounds after the complete gate.
 
 ## Completion
 
-Remediation implemented; complete clean-commit gate, new independent review and final evidence
-remain pending.
+Second remediation and its working-tree complete gate pass; exact commit, clean-commit gate, new
+independent review and final evidence remain pending.
 
 ## Handoff
 

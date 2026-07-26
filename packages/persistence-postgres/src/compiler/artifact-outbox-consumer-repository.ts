@@ -37,20 +37,38 @@ export class PostgresArtifactOutboxConsumerRepository implements ArtifactOutboxC
   }
 
   async readAfter(
-    _lastEventId: string | undefined,
+    lastEventId: string | undefined,
     limit: number,
   ): Promise<readonly ArtifactOutboxEvent[]> {
+    let lastSequence: string | null = null;
+    if (lastEventId !== undefined) {
+      const cursorEvent = await this.#pool.query<{ outbox_sequence: string }>(
+        `SELECT outbox_sequence::text AS outbox_sequence
+         FROM cognitive_runtime_outbox WHERE event_id=$1`,
+        [lastEventId],
+      );
+      const row = cursorEvent.rows[0];
+      if (row === undefined) throw new Error('ARTIFACT_OUTBOX_CURSOR_EVENT_MISSING');
+      lastSequence = row.outbox_sequence;
+    }
     const result = await this.#pool.query<OutboxRow>(
       `SELECT event_id,event_type,aggregate_id,aggregate_version,payload,occurred_at
        FROM cognitive_runtime_outbox event
        WHERE (
-         event.event_type LIKE 'artifact.%'
-         OR event.event_type LIKE 'compiler.artifact_%'
+         event.event_type IN (
+           'artifact.validation_started',
+           'artifact.validation_completed',
+           'artifact.approval_recorded',
+           'artifact.activated',
+           'artifact.revalidating',
+           'artifact.deprecated'
+         )
+         OR event.payload ? 'dependencyRef'
        )
-         AND event.published_at IS NULL
-       ORDER BY event.occurred_at,event.event_id
-       LIMIT $1`,
-      [limit],
+         AND ($1::bigint IS NULL OR event.outbox_sequence>$1)
+       ORDER BY event.outbox_sequence
+       LIMIT $2`,
+      [lastSequence, limit],
     );
     return Object.freeze(
       result.rows.map((row) =>
@@ -76,17 +94,23 @@ export class PostgresArtifactOutboxConsumerRepository implements ArtifactOutboxC
     updatedAt: string,
   ): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
-      const published = await client.query(
-        `UPDATE cognitive_runtime_outbox
-         SET published_at=$2
-         WHERE event_id=$1 AND published_at IS NULL
+      const event = await client.query(
+        `SELECT event_id FROM cognitive_runtime_outbox
+         WHERE event_id=$1
            AND (
-             event_type LIKE 'artifact.%'
-             OR event_type LIKE 'compiler.artifact_%'
+             event_type IN (
+               'artifact.validation_started',
+               'artifact.validation_completed',
+               'artifact.approval_recorded',
+               'artifact.activated',
+               'artifact.revalidating',
+               'artifact.deprecated'
+             )
+             OR payload ? 'dependencyRef'
            )`,
-        [eventId, updatedAt],
+        [eventId],
       );
-      if (published.rowCount !== 1) throw new Error('ARTIFACT_OUTBOX_EVENT_CAS_CONFLICT');
+      if (event.rowCount !== 1) throw new Error('ARTIFACT_OUTBOX_CURSOR_EVENT_MISSING');
       const result =
         expectedVersion === 0
           ? await client.query(

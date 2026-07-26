@@ -32,6 +32,15 @@ export interface ArtifactOutboxEventHandler {
   apply(event: ArtifactOutboxEvent): Promise<void>;
 }
 
+export const ARTIFACT_PROJECTION_LIFECYCLE_EVENTS = Object.freeze([
+  'artifact.validation_started',
+  'artifact.validation_completed',
+  'artifact.approval_recorded',
+  'artifact.activated',
+  'artifact.revalidating',
+  'artifact.deprecated',
+] as const);
+
 export class ArtifactOutboxConsumer {
   readonly #consumerName: string;
   readonly #repository: ArtifactOutboxConsumerRepository;
@@ -89,8 +98,7 @@ export class ArtifactRegistryProjectionEventHandler implements ArtifactOutboxEve
     if (typeof dependencyRef === 'string') {
       await this.#registry.invalidateDependency(dependencyRef);
     } else if (
-      event.eventType === 'artifact.activated' ||
-      event.eventType === 'artifact.deprecated'
+      (ARTIFACT_PROJECTION_LIFECYCLE_EVENTS as readonly string[]).includes(event.eventType)
     ) {
       await this.#registry.rebuildProjection();
     }

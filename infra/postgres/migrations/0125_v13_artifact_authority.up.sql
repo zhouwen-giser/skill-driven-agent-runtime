@@ -25,6 +25,11 @@ BEGIN
 END
 $$;
 
+ALTER TABLE cognitive_runtime_outbox
+  ADD COLUMN outbox_sequence bigint GENERATED ALWAYS AS IDENTITY;
+CREATE UNIQUE INDEX cognitive_runtime_outbox_sequence_uq
+  ON cognitive_runtime_outbox(outbox_sequence);
+
 CREATE TABLE compiled_artifact (
   artifact_id text PRIMARY KEY,
   artifact_key text NOT NULL,
@@ -313,6 +318,20 @@ $$;
 CREATE TRIGGER compiled_artifact_immutability
 BEFORE UPDATE ON compiled_artifact
 FOR EACH ROW EXECUTE FUNCTION sdar_enforce_compiled_artifact_immutability();
+
+CREATE FUNCTION sdar_reject_artifact_lineage_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'Artifact lineage is immutable'
+    USING ERRCODE = 'integrity_constraint_violation';
+END
+$$;
+
+CREATE TRIGGER artifact_lineage_immutability
+BEFORE UPDATE OR DELETE ON artifact_lineage
+FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_lineage_mutation();
 
 ALTER TABLE cognitive_management_action
   DROP CONSTRAINT cognitive_management_action_operation_check;

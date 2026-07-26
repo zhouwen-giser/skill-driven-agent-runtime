@@ -26,8 +26,15 @@ All notable changes to this project are documented here. The format follows Keep
 - Added explicit regressions for different-body idempotency conflicts, two validation/approval
   cycles, kill-switch ABA, tenant denial, two feedback rows, late events, 501-entry rebuild, exact
   table columns, complete JSON boundaries and startup composition. The remediated working-tree full
-  gate passes 795 unit/contract, 89 real integration and 62 real E2E tests; clean-commit verification
-  and a new independent review remain pending.
+  gate passes 795 unit/contract, 89 real integration and 62 real E2E tests.
+- The second independent review rejected first-remediation commit `ee52158` with 1 Blocking and
+  2 Major findings. The projection consumer now uses database-monotonic insertion sequence plus its
+  private CAS cursor, never marks shared Outbox rows published, refreshes version cache across the
+  full validation/approval lifecycle, and checks immutable Lineage creation time.
+- Added real Server-startup regression with mixed handled/unhandled Outbox events, lifecycle cache
+  transitions and database-rejected Lineage mutation. Focused verification passes; the
+  second-remediation working-tree full gate passes 795 unit/contract, 91 integration and 62 E2E
+  tests; the clean-commit gate and a new independent review remain pending.
 
 ## SDAR v1.3 P00 foundation gate — complete
 

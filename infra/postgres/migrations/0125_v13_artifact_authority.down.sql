@@ -60,6 +60,9 @@ DROP TABLE artifact_validation_run;
 DROP TABLE artifact_lineage;
 DROP TABLE artifact_active_pointer;
 DROP TABLE compiled_artifact;
+ALTER TABLE cognitive_runtime_outbox
+  DROP COLUMN outbox_sequence;
+DROP FUNCTION sdar_reject_artifact_lineage_mutation();
 DROP FUNCTION sdar_enforce_compiled_artifact_immutability();
 DROP FUNCTION sdar_jsonb_depth(jsonb);
 

@@ -126,29 +126,28 @@ describe('SDAR v1.3 P02 frozen contract', () => {
   });
 
   it('bounds every canonical JSON column by type, size and depth', () => {
-    const jsonColumns = [
-      'definition',
-      'applicability',
-      'dependency_snapshot',
-      'source_episode_refs',
-      'source_knowledge_refs',
-      'source_correction_refs',
-      'source_pattern_refs',
-      'generation_methods',
-      'metrics',
-      'counterexample_refs',
-      'decision_snapshot',
-      'impact',
-      'score',
-      'reason_codes',
-      'task_type_refs',
-      'trace',
-      'support_refs',
-      'contradiction_refs',
-    ] as const;
-    for (const column of jsonColumns) {
-      expect(migration).toContain(`octet_length(${column}::text)`);
-      expect(migration).toContain(`sdar_jsonb_depth(${column})`);
+    const jsonColumnsByTable = {
+      compiled_artifact: ['definition', 'applicability', 'dependency_snapshot'],
+      artifact_lineage: [
+        'source_episode_refs',
+        'source_knowledge_refs',
+        'source_correction_refs',
+        'source_pattern_refs',
+        'generation_methods',
+      ],
+      artifact_validation_run: ['metrics', 'counterexample_refs'],
+      artifact_execution: ['decision_snapshot'],
+      artifact_feedback: ['impact'],
+      artifact_match_log: ['score', 'applicability', 'reason_codes'],
+      experience_trace: ['task_type_refs', 'trace'],
+      pattern_candidate: ['definition', 'support_refs', 'contradiction_refs'],
+    } as const;
+    for (const [table, columns] of Object.entries(jsonColumnsByTable)) {
+      const block = migrationTableBlock(migration, table);
+      for (const column of columns) {
+        expect(block).toContain(`octet_length(${column}::text)`);
+        expect(block).toContain(`sdar_jsonb_depth(${column})`);
+      }
     }
   });
 });
@@ -160,10 +159,14 @@ function methods(value: abstract new (...arguments_: never[]) => object): string
 }
 
 function migrationColumns(source: string, table: string): string[] {
-  const match = new RegExp(`CREATE TABLE ${table} \\(([\\s\\S]*?)\\n\\);`, 'u').exec(source);
-  if (match?.[1] === undefined) throw new Error(`Missing migration table ${table}.`);
-  return match[1]
+  return migrationTableBlock(source, table)
     .split('\n')
     .map((line) => /^ {2}([a-z_]+) /u.exec(line)?.[1])
     .filter((column): column is string => column !== undefined);
+}
+
+function migrationTableBlock(source: string, table: string): string {
+  const match = new RegExp(`CREATE TABLE ${table} \\(([\\s\\S]*?)\\n\\);`, 'u').exec(source);
+  if (match?.[1] === undefined) throw new Error(`Missing migration table ${table}.`);
+  return match[1];
 }

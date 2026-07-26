@@ -77,6 +77,7 @@ interface LineageRow extends QueryResultRow {
   source_pattern_refs: string[];
   generation_methods: ArtifactLineage['generationMethods'];
   compiler_version: string;
+  created_at: Date | string;
 }
 
 interface ValidationRow extends QueryResultRow {
@@ -786,7 +787,7 @@ async function selectLineage(
   const result = await queryable.query<LineageRow>(
     `SELECT lineage_id,artifact_id,artifact_version,source_episode_refs,
        source_knowledge_refs,source_correction_refs,source_pattern_refs,generation_methods,
-       compiler_version
+       compiler_version,created_at
      FROM artifact_lineage WHERE artifact_id=$1 AND artifact_version=$2`,
     [ref.artifactId, ref.version],
   );
@@ -1075,7 +1076,8 @@ function assertLineageProjection(row: LineageRow, envelope: StoredArtifactEnvelo
     JSON.stringify(lineage.sourceCorrectionRefs) !== JSON.stringify(row.source_correction_refs) ||
     JSON.stringify(lineage.sourcePatternRefs) !== JSON.stringify(row.source_pattern_refs) ||
     JSON.stringify(lineage.generationMethods) !== JSON.stringify(row.generation_methods) ||
-    envelope.artifact.dependencySnapshot.compilerVersion !== row.compiler_version
+    envelope.artifact.dependencySnapshot.compilerVersion !== row.compiler_version ||
+    envelope.artifact.createdAt !== iso(row.created_at)
   ) {
     throw persistenceError(
       'ARTIFACT_LINEAGE_PROJECTION_DRIFT',

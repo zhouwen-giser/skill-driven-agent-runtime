@@ -1,19 +1,26 @@
 # Project Status
 
-SDAR v1.3 P02/G02-G04 Artifact Persistence, Registry and Governance is in independent-review
+SDAR v1.3 P02/G02-G04 Artifact Persistence, Registry and Governance is in second independent-review
 remediation (2026-07-27) on `feature/v1.3-sequential-implementation`. The first read-only review
-rejected commit `591cbe4` with 4 Blocking, 6 Major and 1 Minor finding. Remediation now binds
+rejected commit `591cbe4` with 4 Blocking, 6 Major and 1 Minor finding; its first remediation commit
+`ee52158` passed a clean-tree full gate. The second read-only review rejected that commit with
+1 Blocking, 2 Major and 0 Minor findings. The combined remediation now binds
 activation to the current Validation/Approval, binds trusted identity tenant scope to PostgreSQL,
 keeps a monotonically versioned Pointer tombstone across deprecate/kill switch, consumes late Outbox
-events without trusting client timestamps, enforces database immutability and complete JSON bounds,
+events by database insertion sequence without claiming shared publication, enforces database
+immutability and complete JSON bounds,
 uses collision-free per-run/approval/feedback aggregate revisions, keyset-rebuilds beyond 500 rows
-and clears stale version projections. Actual server startup rebuild/Outbox drain is composed without
-attaching Artifact execution to the request path. The isolated-database working-tree full gate passes
-795 unit/contract, 89 real integration and 62 real E2E tests, 447-source architecture, A2A 74/74,
-152 OpenAPI operations, 18 migrations, Replay with zero physical Provider calls, production build
-and both smokes. The old operator `/sdar` database was left unchanged; verification used the isolated
-`sdar_p02_remediation_20260726` database. Completion remains pending a remediation commit, the same
-`dirty=false` gate and a new independent read-only review.
+and invalidates version projections across the full validation/approval lifecycle. Lineage creation
+time is an immutable, exactly checked projection. Actual server startup rebuild/Outbox drain is
+tested with mixed handled and unhandled events without attaching Artifact execution to the request
+path. Focused type/lint/contract/unit, migration rollback/reapply and seven real PostgreSQL
+integration scenarios pass against isolated `sdar_p02_rereview_20260726`. The prior clean full gate
+passed 795 unit/contract, 89 integration, 62 E2E, 447-source architecture, A2A 74/74, 152 OpenAPI
+operations, 18 migrations, Replay with zero physical Provider calls, production build and both
+smokes. The second-remediation working-tree full gate now passes 795 unit/contract, 91 integration,
+62 E2E and the same complete evidence surface in 167,207 ms. The old operator `/sdar` database
+remains unchanged. Completion is pending the exact second-remediation commit, its `dirty=false`
+gate and a new independent read-only review.
 
 SDAR v1.3 P01/G01 Runtime Artifact Domain is complete as `READY_FULL` after a rejected first
 independent review and accepted remediation re-review
