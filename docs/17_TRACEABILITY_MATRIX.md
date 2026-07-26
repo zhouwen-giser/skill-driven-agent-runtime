@@ -441,3 +441,19 @@ G13 affected gates pass 575 unit, 155 contract, 83 real integration, 62 real E2E
 OpenAPI operations, 408-source architecture, production build, Server smoke and migration 0121 as the
 fourteenth additive v1.2.3 migration. Exact evidence and retained failures are in
 `reports/goal/g13-completion.md`.
+
+## SDAR v1.2.3 G14 Addendum
+
+| Acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-G14-01 base-planner decorator | verified | `ExperienceEnrichedUserGoalPlanningService` wraps only candidate generation; G05 confirmed handoff remains formal authority | off-mode unit calls only base; full E2E remains green |
+| AC-G14-02 four rollout modes | verified | off, shadow, advisory and frozen `active_low_risk` have separate selection/confirmation behavior | focused unit proves shadow base retention, advisory manual review and low-risk-only active selection |
+| AC-G14-03 fail-open policy | verified | stable repository/timeout/conflict/low-confidence fallback reasons | table-driven unit proves exactly one no-context base call |
+| AC-G14-04 bounded invalid-plan fallback | verified | enriched output uses the same strict base planner and full validator before one base replan | invalid enriched and invalid shadow regressions retain base authority |
+| AC-G14-05 immutable authorities | verified | advisory context repeats immutable Contract/safety/readiness/terminal boundaries and cannot commit | real base-planner unit plus architecture and unchanged 62 E2E |
+| AC-G14-06 complete usage lineage | verified | Session/Candidate/usage/Outbox, action/validation and final Outcome are transactionally linked | real PostgreSQL save/action/bad-binding rollback/restart/terminal tests |
+
+G14 affected gates pass 587 unit, 155 contract, 83 real integration, 62 real E2E, 147 unchanged
+OpenAPI operations, 411-source architecture, production build, isolated Server smoke and migration
+0122 as the fifteenth additive v1.2.3 migration. Exact evidence and retained failures are in
+`reports/goal/g14-completion.md`.

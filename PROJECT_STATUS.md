@@ -1,6 +1,15 @@
 # Project Status
 
-SDAR v1.2.3 G00–G13 are complete (2026-07-26); G14 Experience-Enriched Planning is next. G13 adds
+SDAR v1.2.3 G00–G14 are complete (2026-07-26); G15 Management/Console/A2A integration is next. G14
+adds a governed decorator over the unchanged base Planner with distinct off/shadow/advisory/frozen
+low-risk-active modes, bounded fail-open replanning and immutable Contract/readiness/terminal
+authority. Candidate, knowledge usage, affected Skill Goals and validation save atomically; Session
+actions and final Outcome extend the same lineage in their owning transactions. Affected gates pass
+587 unit, 155 contract, 83 real integration, 62 real E2E, 147 OpenAPI operations, 411-source
+architecture, production build, isolated Server smoke and all 15 migrations through 0122.
+Implementation `1bd52dd` is pushed to Draft PR #9; no merge or tag is authorized.
+
+SDAR v1.2.3 G00–G13 closure (2026-07-26): G13 adds
 Active-only scoped Vector+FTS/RRF retrieval, bounded one-hop relations, Session dedupe and strict
 Level-0 Index → Full Definition → exact current Skill disclosure under a factory-checked 20K budget.
 PostgreSQL remains the sole authority; generic Memory cannot read Active Knowledge projections, and

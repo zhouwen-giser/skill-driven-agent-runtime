@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G13 are complete; G14 is next
+Status: ACTIVE — G00–G14 are complete; G15 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -95,7 +95,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G11  | completed   | `16441f3` | 560 unit, 154 contract, 81 real integration, 62 real E2E, migration/build gates   | `reports/goal/g11-completion.md` | none           | Candidate Patterns handed to G12; Gaps remain operational      |
 | G12  | completed   | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none           | Active-only governed knowledge handed to G13                   |
 | G13  | completed   | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none           | bounded Active-only retrieval handed to G14                    |
-| G14  | not_started | —         | —                                                                                 | —                                | G05/G13        | experience-enriched planner/fallback                           |
+| G14  | completed   | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none           | governed usage and rollout evidence handed to G15/G16          |
 | G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
 | G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
 | G17  | not_started | —         | —                                                                                 | —                                | G00–G16        | hardening/release gates                                        |
@@ -212,6 +212,15 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   exact Skill detail was only a summary, generic Memory could bypass scoped retrieval, and Candidate
   relations had no production projection. Reduced index/exact declaration contracts, generic Memory
   exclusion, a factory-checked complete 20K budget and transactional relation projection close them.
+- 2026-07-26: G14 required usage persistence to wait until immutable Planning Session and Plan
+  Candidate identities existed. Splitting G13 into read-only `prepare` plus its existing reserving
+  `retrieve` preserved G13 compatibility while allowing G14 to save Session, Candidate and usage
+  atomically.
+- 2026-07-26: the first G14 full unit run hit one unchanged 250 ms notification timing assertion under
+  concurrent host scheduling. The isolated 8/8 rerun and two subsequent complete runs passed without
+  changing product code or assertions.
+- 2026-07-26: G14 Server smoke correctly rejected the protected 55432 operator database's historical
+  ledger. An explicitly named empty smoke database passed and was deleted; operator data was untouched.
 
 ## Decision Log
 
@@ -282,6 +291,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   PostgreSQL Active revision with scope, policy, Catalog and applicability checks; only transactionally
   reserved exact revisions are returned. G14 alone may decorate formal planning and must retain the
   base-Planner fallback.
+- 2026-07-26: G14 decorates only `generateCandidate`. Off and every fallback call the independent base
+  path without experience; shadow never replaces the formal candidate; advisory requires manual
+  confirmation; `active_low_risk` rejects any non-low definition.
+- 2026-07-26: usage attribution is exact: fallback retrieval has no affected Skill Goal, while validated
+  enriched/shadow plans record their affected goals. Candidate/usage, action/validation and terminal
+  Outcome linkage commit in the existing owning PostgreSQL transactions.
 
 ## Implementation Steps
 
@@ -375,11 +390,15 @@ G13 uses original repository TypeScript and existing PostgreSQL/pgvector/Memory 
 RRF/relation/dedup and Codex progressive disclosure remain locked conceptual references only; no source
 was copied or translated and no dependency metadata changed.
 
+G14 uses original repository TypeScript and existing dependencies. Mastra Context Projection and
+Codex/Claude interactive-planning ideas remain conceptual references only; no source was copied or
+translated and no dependency metadata changed.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0121 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0122 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection through all fourteen migrations.
+  rejection through all fifteen migrations.
 - OpenAPI: 147 management operations include Capability, Understanding, Goal/Plan review, Experience
   Episode/Observation/Reflection/dead-letter reads, explicit replay, Candidate Task Type and Capability
   Pattern/Gap reads.
@@ -397,6 +416,7 @@ was copied or translated and no dependency metadata changed.
 - G12 implementation HEAD: `59f20f6cb4af22458d1aef018809791a998826b0`
 - G13 implementation: `1879ff1aca1e7ac6806f111f951909db4d2b698f`
 - G13 relation correction HEAD: `3201325d7cd9c59d047301b0ef1f16188a4adff4`
+- G14 implementation HEAD: `1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -443,17 +463,19 @@ was copied or translated and no dependency metadata changed.
 - G13 implementations `1879ff1`/`3201325`: Active-authority hybrid retrieval, deterministic RRF,
   bounded relation expansion/projection, Session usage/Outbox dedupe, exact Skill progressive
   disclosure, complete 20K budget, migration 0121 and real P95 evidence.
+- G14 implementation `1bd52dd`: base-planner decorator, four governed injection modes, bounded
+  fail-open fallback, atomic Candidate/usage/action/Outcome lineage, migration 0122 and runtime wiring.
 
 ## Open Blockers
 
-None for G00–G13. The former platform approval and worktree-hygiene blockers are retained in the Goal
-reports and were resolved before the real 79-integration/62-E2E verification. G14–G17 remain ordinary
+None for G00–G14. The former platform approval and worktree-hygiene blockers are retained in the Goal
+reports and were resolved before the real 79-integration/62-E2E verification. G15–G17 remain ordinary
 unfinished work, not blockers.
 
 ## Next Execution Step
 
-Publish the G13 evidence head and update Draft PR #9 without changing Draft status, then implement G14
-experience-enriched planning as a decorator with strict validation and base-Planner fallback.
+Publish the G14 evidence head and update Draft PR #9 without changing Draft status, then implement G15
+credential-free Management/Console/A2A projections over the completed cognitive authority chain.
 
 ## Outcomes and Retrospective
 
@@ -478,4 +500,7 @@ exact-revision knowledge Promotion and rebuildable Active-only Memory projection
 through 0120. G13 adds scoped Active-only hybrid retrieval, exact Skill progressive disclosure and
 Session usage evidence, passing 575 unit, 155 contract, 83 integration, 62 E2E, 147 OpenAPI,
 408-source architecture,
-build/smoke and migrations through 0121 with measured local P95 4.476 ms. G14–G17 remain open.
+build/smoke and migrations through 0121 with measured local P95 4.476 ms.
+G14 adds governed Experience-enriched planning and complete usage lineage, passing 587 unit, 155
+contract, 83 integration, 62 E2E, 147 OpenAPI, 411-source architecture, build/smoke and migrations
+through 0122. G15–G17 remain open.

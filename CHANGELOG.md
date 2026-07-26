@@ -36,6 +36,10 @@ All notable changes to this project are documented here. The format follows Keep
   and A2A plan-review metadata at the existing `INPUT_REQUIRED` boundary.
 - G06 immutable Planning Correction Facts and deterministic Interaction Episode revisions spanning
   Understanding, Goal Contract, Plan review, final Outcome and later counterexamples.
+- G14 governed Experience-enriched planning decorator with off/shadow/advisory/low-risk-active modes,
+  bounded fail-open base replanning and immutable Contract/readiness/terminal authority.
+- Transactional planning knowledge usage lineage from Plan Candidate and affected Skill Goals through
+  Validator/user action to final runtime Outcome, with additive migration 0122.
 - Scoped low-risk user-preference projection into the existing Memory service, exact-user retrieval,
   propagated deletion, task/user/tenant correction queries and management interaction evidence.
 - G07 PostgreSQL-transactional terminal outbox, leased/retryable Experience jobs, immutable redacted

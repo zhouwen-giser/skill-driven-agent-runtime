@@ -257,3 +257,18 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   governed structured knowledge producer; G13 adds no public relation-mutation API.
 - The P95 result is a reproducible local PostgreSQL integration measurement, not a production capacity
   claim. G17 must repeat capacity/soak measurement in its release environment.
+
+## v1.2.3 G14 Planning injection boundary (2026-07-26)
+
+- The frozen public name `active` is represented by the existing Domain value `active_low_risk`;
+  G14 does not add a second spelling or permit medium/high-risk automatic injection.
+- G14's default deployment mode is the frozen `shadow`. G15 owns operational exposure/configuration;
+  G16 owns independent Replay/Shadow comparison reports. Neither may convert a shadow hash or usage row
+  into a formal Plan or Promotion decision.
+- Timeout abandons the decorator wait but cannot cancel an already running read-only retrieval Promise.
+  `PlanningKnowledgeRetriever.prepare` performs no durable write, so late completion cannot reserve
+  usage or mutate planning state.
+- Fallback rows record retrieved provenance and the exact fallback reason with no affected Skill Goal.
+  Only a validated enriched plan or completed shadow plan receives affected-goal attribution.
+- Final Outcome linkage is Goal-version scoped because the v1.2.2 terminal authority commits at that
+  boundary. G17 must repeat the lineage query under release-capacity concurrency.
