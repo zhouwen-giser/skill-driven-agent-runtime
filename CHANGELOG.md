@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## SDAR v1.3 P00 foundation gate — baseline ready, publication blocked
+## SDAR v1.3 P00 foundation gate — complete
 
 - Added the frozen fifteen-package execution bundle and persistent serial-orchestration state.
 - Verified the execution baseline SHA, all package contracts and a clean full local gate without
@@ -12,7 +12,8 @@ All notable changes to this project are documented here. The format follows Keep
 - Recorded explicit repository-owner acceptance of the audited v1.2.3 external-merge deviation across
   all three authoritative records without claiming native auto-merge or the absent unmerged state.
 - Re-ran the complete clean gate at `6e27d70` and obtained a fresh independent `READY_FULL` review.
-- Kept P01 gated because invalid GitHub CLI authentication prevents the required push and Draft PR.
+- Restored authenticated publication, pushed the integration branch and created Draft PR #12 without
+  merge, tag, release or deployment.
 
 ## [1.2.3] - Unreleased
 

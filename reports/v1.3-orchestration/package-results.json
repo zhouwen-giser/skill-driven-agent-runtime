@@ -28,10 +28,8 @@
         "report": "reports/goal/v1.3-p00-review.md"
       },
       "completionCommit": "09205a15b5c6df7be28c7eca7c1e418474b6a033",
-      "draftPrUrl": "",
-      "openBlockers": [
-        "GITHUB_AUTH_INVALID"
-      ]
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": []
     }
   }
 }

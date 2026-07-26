@@ -1,6 +1,6 @@
 # Project Status
 
-SDAR v1.3 P00 foundation baseline is locally `READY_FULL` (2026-07-26) on
+SDAR v1.3 P00 foundation gate is complete as `READY_FULL` (2026-07-26) on
 `feature/v1.3-sequential-implementation` from exact `origin/main@v1.2.3-final`
 `856f909d22c33e6e20d7e0a1cffc2f54c03b4477`. All fifteen package self-checks and the aggregate
 cross-package validator pass with frozen registry SHA-256 `d7b1d971...a7ff4cbb`. The repository owner
@@ -9,9 +9,9 @@ now agree without claiming native auto-merge or the absent unmerged state. A com
 gate at `6e27d70` passes 765 unit/contract, 84 real integration, 62 real E2E,
 architecture, A2A, OpenAPI, Replay, 17 migrations, production builds and both smoke stages against a
 dedicated clean-slate database. Fresh independent read-only review accepts the exact `READY_FULL`
-contracts with zero baseline blockers and no product/P01 scope drift. P00 publication is still
-incomplete because `gh auth status` reports an invalid token, so the branch is not pushed and no Draft
-PR URL exists. P01 remains gated until that atomic publication checklist and final bookkeeping finish.
+contracts with zero baseline blockers and no product/P01 scope drift. The branch is pushed through
+`cbd9069`; Draft PR #12 targets `main` and remains Draft. No merge, tag, release or deployment was
+performed. P01 is the active serial package.
 
 SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
 Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,

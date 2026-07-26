@@ -79,3 +79,13 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
 - Created READY evidence Completion Commit `09205a15b5c6df7be28c7eca7c1e418474b6a033`.
 - `gh auth status` still reports an invalid active token. P00 push/Draft PR remain incomplete and P01
   remains gated.
+
+## P00 authenticated publication
+
+- The repository owner restored GitHub CLI authentication for `zhouwen-giser`.
+- The remote integration branch was already synchronized at
+  `cbd90697c6ba72581a8898e366b4f71d860eac1d`; no force push was used.
+- Created Draft PR #12 targeting `main`:
+  <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12>.
+- Closed `GITHUB_AUTH_INVALID`, completed P00 as `READY_FULL` and advanced the serial cursor to P01.
+- No merge, tag, release or deployment was performed.

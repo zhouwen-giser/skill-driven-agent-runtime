@@ -522,7 +522,7 @@ Exact real/simulated/unverified classification is in
 | P00 Replay/Shadow isolation      | verified             | deterministic Replay verifier passes with zero physical Provider/MCP/device calls                                                                                       |
 | P00 frozen baseline              | remediation accepted | `origin/main == v1.2.3-final == 856f909d...b4477`; owner acceptance closes the external-merge deviation without claiming native auto-merge or the absent unmerged state |
 | P00 full gate                    | verified             | clean recovery commit `6e27d70...fe334`, `dirty=false`; 765 unit/contract, 84 real integration, 62 real E2E, migrations/build/smoke pass                                |
-| P00 contract handoff             | READY_FULL locally   | fresh independent review accepts exact contract/Handoff with zero baseline blockers; push/Draft PR publication checklist remains incomplete                             |
+| P00 contract handoff             | verified             | fresh independent review accepts exact contract/Handoff with zero blockers; branch pushed and Draft PR #12 records the published handoff                                |
 
 Exact P00 evidence is in `reports/goal/v1.3-p00-{baseline-report,architecture-dependency-map,completion}.md`,
 `reports/goal/v1.3-p00-{prerequisite-matrix,actual-contract,handoff}.json` and

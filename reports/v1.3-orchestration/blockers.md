@@ -31,20 +31,18 @@ independent read-only review accepted `READY_FULL`.
 
 Severity: external coordination
 
-Status: open
+Status: closed on 2026-07-26 after GitHub authentication was restored.
 
-Effect: local P00 baseline evidence is `READY_FULL`, but the branch is not pushed, no Draft PR exists
-and P01 remains gated by the P00 atomic publication checklist.
+Effect: none. The branch is pushed and Draft PR #12 exists.
 
-`gh --version` passes. `gh auth status` reports that the active `zhouwen-giser` token is invalid. The
-GitHub publish workflow stopped before `git push` as required by the repository publish skill.
+`gh --version` and `gh auth status` pass for the active `zhouwen-giser` account.
 
-Minimum remediation:
+Completed remediation:
 
-1. run `gh auth login -h github.com`;
-2. confirm `gh auth status` succeeds;
-3. re-check the three-commit P00 scope;
-4. push `feature/v1.3-sequential-implementation`;
-5. create a Draft PR targeting `main` and record its URL.
+1. restored GitHub CLI authentication;
+2. confirmed the remote integration branch at
+   `cbd90697c6ba72581a8898e366b4f71d860eac1d`;
+3. created Draft PR #12 targeting `main`;
+4. recorded <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12>.
 
 No merge, tag, release or deploy is authorized.

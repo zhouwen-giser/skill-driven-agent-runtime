@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P00 — v1.3 Foundation Gate
 
-Status: baseline ready — `READY_FULL`; publication checklist blocked
+Status: complete — `READY_FULL`
 
 ## Purpose / Outcome
 
@@ -65,8 +65,8 @@ Replay/Shadow has zero physical side effects, and confirmed plans enter the exis
 - [x] 2026-07-26 Fresh independent read-only review accepted `READY_FULL` with no baseline blocker.
 - [x] 2026-07-26 Created READY evidence Completion Commit
       `09205a15b5c6df7be28c7eca7c1e418474b6a033`.
-- [ ] Push the integration branch and create the required Draft PR. Blocked because `gh auth status`
-      reports an invalid active token for `zhouwen-giser`.
+- [x] 2026-07-26 Restored GitHub authentication, confirmed the remote branch at `cbd9069`, and created
+      Draft PR #12 targeting `main`.
 
 ## Changed Files
 
@@ -160,12 +160,11 @@ Package-local evidence is in `reports/goal/v1.3-p00-*` and
 
 ## Completion / Handoff
 
-Verification, owner acceptance and independent review support a local `READY_FULL` Handoff. P00's
-required push/Draft PR sequence awaits restored GitHub authentication; P01 remains gated until that
-publication checklist and final orchestration bookkeeping complete.
+Verification, owner acceptance and independent review support the exact `READY_FULL` Handoff. The
+branch is pushed and Draft PR #12 records the publication. P00 is complete and P01 may begin.
 
 ## Outcomes and Retrospective
 
 Runtime prerequisites and every executable gate pass. The repository owner accepted the audited
-release-freeze deviation without changing its historical facts. P00 remains at the serial cursor only
-because the authenticated push/Draft PR checklist cannot currently be completed.
+release-freeze deviation without changing its historical facts. Authenticated publication completed
+without merge, tag, release or deployment.
