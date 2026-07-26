@@ -17,6 +17,7 @@ interface GovernedArtifactRow extends QueryResultRow {
   version: number;
   tenant_id: string | null;
   status: string;
+  validation_summary_id: string | null;
 }
 
 interface ValidationSummaryRow extends QueryResultRow {
@@ -37,11 +38,11 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
   }
 
   async requestValidation(
-    input: ArtifactValidationCommand & Readonly<{ actorId: string }>,
+    input: ArtifactValidationCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
       const artifact = await selectGovernedArtifact(client, input);
-      requireTenantScope(artifact, input.context.tenantId);
+      requireTenantScope(artifact, input.tenantId);
       requireExpectedVersion(artifact, input.expectedVersion);
       if (artifact.status !== 'candidate') {
         throw governanceError('ARTIFACT_VALIDATION_STATE_INVALID');
@@ -50,8 +51,9 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
       await writeOutbox(client, {
         eventId: `artifact-validation-started-${input.validationRunId}`,
         eventType: 'artifact.validation_started',
-        aggregateId: input.artifactId,
-        aggregateVersion: input.version,
+        aggregateType: 'artifact_validation',
+        aggregateId: input.validationRunId,
+        aggregateVersion: 1,
         occurredAt: input.occurredAt,
         payload: {
           artifactId: input.artifactId,
@@ -65,11 +67,11 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
   }
 
   async recordApproval(
-    input: ArtifactApprovalCommand & Readonly<{ actorId: string }>,
+    input: ArtifactApprovalCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
       const artifact = await selectGovernedArtifact(client, input);
-      requireTenantScope(artifact, input.context.tenantId);
+      requireTenantScope(artifact, input.tenantId);
       requireExpectedVersion(artifact, input.expectedVersion);
       if (artifact.status !== 'awaiting_approval') {
         throw governanceError('ARTIFACT_APPROVAL_STATE_INVALID');
@@ -81,13 +83,14 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
       ) {
         throw governanceError('ARTIFACT_APPROVAL_EVIDENCE_INVALID');
       }
-      await client.query(
+      const inserted = await client.query(
         `INSERT INTO artifact_approval(
            approval_id,artifact_id,artifact_version,approver_id,decision,reason,
            validation_summary_hash,created_at)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT(artifact_id,artifact_version,approver_id,decision,validation_summary_hash)
-         DO NOTHING`,
+         DO NOTHING
+         RETURNING approval_id`,
         [
           input.approvalId,
           input.artifactId,
@@ -99,6 +102,9 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
           input.occurredAt,
         ],
       );
+      if (inserted.rowCount !== 1) {
+        throw governanceError('ARTIFACT_APPROVAL_IDEMPOTENCY_CONFLICT');
+      }
       if (input.decision === 'rejected') {
         await client.query(
           `UPDATE compiled_artifact SET status='rejected'
@@ -109,8 +115,9 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
       await writeOutbox(client, {
         eventId: `artifact-approval-${input.approvalId}`,
         eventType: 'artifact.approval_recorded',
-        aggregateId: input.artifactId,
-        aggregateVersion: input.version,
+        aggregateType: 'artifact_approval',
+        aggregateId: input.approvalId,
+        aggregateVersion: 1,
         occurredAt: input.occurredAt,
         payload: {
           artifactId: input.artifactId,
@@ -125,11 +132,11 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
   }
 
   async requestRevalidation(
-    input: ArtifactValidationCommand & Readonly<{ actorId: string }>,
+    input: ArtifactValidationCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
       const artifact = await selectGovernedArtifact(client, input);
-      requireTenantScope(artifact, input.context.tenantId);
+      requireTenantScope(artifact, input.tenantId);
       requireExpectedVersion(artifact, input.expectedVersion);
       if (artifact.status !== 'active') {
         throw governanceError('ARTIFACT_REVALIDATION_STATE_INVALID');
@@ -138,8 +145,9 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
       await writeOutbox(client, {
         eventId: `artifact-revalidating-${input.validationRunId}`,
         eventType: 'artifact.revalidating',
-        aggregateId: input.artifactId,
-        aggregateVersion: input.version,
+        aggregateType: 'artifact_validation',
+        aggregateId: input.validationRunId,
+        aggregateVersion: 1,
         occurredAt: input.occurredAt,
         payload: {
           artifactId: input.artifactId,
@@ -151,7 +159,9 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
     });
   }
 
-  async rollback(input: ArtifactRollbackCommand & Readonly<{ actorId: string }>): Promise<void> {
+  async rollback(
+    input: ArtifactRollbackCommand & Readonly<{ actorId: string; tenantId?: string }>,
+  ): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
         `artifact-key:${input.artifactKey}`,
@@ -180,34 +190,40 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
         artifactId: current.artifact_id,
         version: current.artifact_version,
       });
-      requireTenantScope(currentArtifact, input.context.tenantId);
+      requireTenantScope(currentArtifact, input.tenantId);
       const target = await selectGovernedArtifact(client, {
         artifactId: input.targetArtifactId,
         version: input.targetVersion,
       });
-      requireTenantScope(target, input.context.tenantId);
+      requireTenantScope(target, input.tenantId);
       if (target.artifact_key !== input.artifactKey || target.status !== 'deprecated') {
         throw governanceError('ARTIFACT_ROLLBACK_TARGET_INVALID');
       }
-      const summary = await latestValidationSummary(
-        client,
-        input.targetArtifactId,
-        input.targetVersion,
-      );
+      const summary =
+        target.validation_summary_id === null
+          ? undefined
+          : await validationSummaryById(
+              client,
+              target.validation_summary_id,
+              input.targetArtifactId,
+              input.targetVersion,
+            );
       if (
         summary?.status !== 'passed' ||
         hashValidationSummary(summary) !== input.validationSummaryHash
       ) {
         throw governanceError('ARTIFACT_ROLLBACK_EVIDENCE_INVALID');
       }
-      const approval = await client.query(
-        `SELECT approval_id FROM artifact_approval
-         WHERE artifact_id=$1 AND artifact_version=$2 AND decision='approved'
+      const approval = await client.query<{ decision: 'approved' | 'rejected' }>(
+        `SELECT decision FROM artifact_approval
+         WHERE artifact_id=$1 AND artifact_version=$2
            AND validation_summary_hash=$3
-         LIMIT 1`,
+         ORDER BY created_at DESC,approval_id DESC LIMIT 1`,
         [input.targetArtifactId, input.targetVersion, input.validationSummaryHash],
       );
-      if (approval.rowCount !== 1) throw governanceError('ARTIFACT_APPROVAL_REQUIRED');
+      if (approval.rows[0]?.decision !== 'approved') {
+        throw governanceError('ARTIFACT_APPROVAL_REQUIRED');
+      }
       await client.query(
         `UPDATE compiled_artifact SET status='deprecated'
          WHERE artifact_id=$1 AND version=$2 AND status='active'`,
@@ -251,12 +267,16 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
   }
 
   async killSwitch(
-    input: ArtifactKillSwitchCommand & Readonly<{ actorId: string }>,
+    input: ArtifactKillSwitchCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void> {
     if (input.scope.artifactKey === undefined) {
       throw governanceError('ARTIFACT_KILL_SWITCH_SCOPE_REQUIRED');
     }
+    const artifactKey = input.scope.artifactKey;
     await inTransaction(this.#pool, async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `artifact-key:${artifactKey}`,
+      ]);
       const selected = await client.query<{
         artifact_key: string;
         artifact_id: string;
@@ -273,7 +293,7 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
            AND ($2::text IS NULL OR artifact.tenant_id=$2)
            AND ($3::text IS NULL OR artifact.domain=$3)
          FOR UPDATE OF pointer`,
-        [input.scope.artifactKey ?? null, input.scope.tenantId ?? null, input.scope.domain ?? null],
+        [artifactKey, input.tenantId ?? null, input.scope.domain ?? null],
       );
       if ((selected.rows[0]?.lock_version ?? -1) !== input.expectedVersion) {
         throw governanceError('ARTIFACT_CAS_CONFLICT');
@@ -284,14 +304,17 @@ export class PostgresArtifactGovernanceStore implements ArtifactGovernanceStore 
            WHERE artifact_id=$1 AND version=$2 AND status='active'`,
           [row.artifact_id, row.artifact_version],
         );
-        await client.query(`DELETE FROM artifact_active_pointer WHERE artifact_key=$1`, [
-          row.artifact_key,
-        ]);
+        await client.query(
+          `UPDATE artifact_active_pointer
+           SET activated_by=$2,activated_at=$3,lock_version=lock_version+1
+           WHERE artifact_key=$1 AND lock_version=$4`,
+          [row.artifact_key, input.actorId, input.occurredAt, row.lock_version],
+        );
         await writeOutbox(client, {
           eventId: `artifact-kill-switch-${input.idempotencyKey}-${row.artifact_id}`,
           eventType: 'artifact.deprecated',
           aggregateId: row.artifact_id,
-          aggregateVersion: row.artifact_version,
+          aggregateVersion: row.lock_version + 1,
           occurredAt: input.occurredAt,
           payload: {
             artifactId: row.artifact_id,
@@ -313,7 +336,7 @@ async function transitionAndCreateValidation(
   to: 'validating' | 'revalidating',
 ): Promise<void> {
   const transitioned = await client.query(
-    `UPDATE compiled_artifact SET status=$4
+    `UPDATE compiled_artifact SET status=$4,validation_summary_id=NULL
      WHERE artifact_id=$1 AND version=$2 AND status=$3`,
     [input.artifactId, input.version, from, to],
   );
@@ -339,7 +362,8 @@ async function selectGovernedArtifact(
   ref: Readonly<{ artifactId: string; version: number }>,
 ): Promise<GovernedArtifactRow> {
   const result = await client.query<GovernedArtifactRow>(
-    `SELECT artifact_id,artifact_key,version,tenant_id,status FROM compiled_artifact
+    `SELECT artifact_id,artifact_key,version,tenant_id,status,validation_summary_id
+     FROM compiled_artifact
      WHERE artifact_id=$1 AND version=$2 FOR UPDATE`,
     [ref.artifactId, ref.version],
   );
@@ -378,6 +402,37 @@ async function latestValidationSummary(
   });
 }
 
+async function validationSummaryById(
+  client: PoolClient,
+  validationRunId: string,
+  artifactId: string,
+  version: number,
+): Promise<ValidationSummary | undefined> {
+  const result = await client.query<ValidationSummaryRow>(
+    `SELECT validation_run_id,artifact_id,artifact_version,status,result,metrics,completed_at
+     FROM artifact_validation_run
+     WHERE validation_run_id=$1 AND artifact_id=$2 AND artifact_version=$3
+       AND status IN ('passed','failed')`,
+    [validationRunId, artifactId, version],
+  );
+  const row = result.rows[0];
+  if (row?.result === undefined || row.result === null || row.completed_at === null) {
+    return undefined;
+  }
+  return Object.freeze({
+    validationRunId: row.validation_run_id,
+    artifactId: row.artifact_id,
+    artifactVersion: row.artifact_version,
+    status: row.status,
+    result: row.result,
+    metrics: Object.freeze({ ...row.metrics }),
+    completedAt:
+      row.completed_at instanceof Date
+        ? row.completed_at.toISOString()
+        : new Date(row.completed_at).toISOString(),
+  });
+}
+
 function requireTenantScope(artifact: GovernedArtifactRow, tenantId: string | undefined): void {
   if (tenantId !== undefined && artifact.tenant_id !== tenantId) {
     throw governanceError('ARTIFACT_TENANT_SCOPE_DENIED');
@@ -395,27 +450,54 @@ async function writeOutbox(
   event: Readonly<{
     eventId: string;
     eventType: string;
+    aggregateType?: string;
     aggregateId: string;
     aggregateVersion: number;
     occurredAt: string;
     payload: Readonly<Record<string, unknown>>;
   }>,
 ): Promise<void> {
-  await client.query(
+  const aggregateType = event.aggregateType ?? 'compiled_artifact';
+  const payload = JSON.stringify(event.payload);
+  const inserted = await client.query(
     `INSERT INTO cognitive_runtime_outbox(
        event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
        correlation,payload,occurred_at,published_at)
-     VALUES($1,$2,'compiled_artifact',$3,$4,'{}'::jsonb,$5::jsonb,$6,NULL)
-     ON CONFLICT(event_id) DO NOTHING`,
+     VALUES($1,$2,$3,$4,$5,'{}'::jsonb,$6::jsonb,$7,NULL)
+     ON CONFLICT(event_id) DO NOTHING
+     RETURNING event_id`,
     [
       event.eventId,
       event.eventType,
+      aggregateType,
       event.aggregateId,
       event.aggregateVersion,
-      JSON.stringify(event.payload),
+      payload,
       event.occurredAt,
     ],
   );
+  if (inserted.rowCount === 1) return;
+  const existing = await client.query<{ same: boolean }>(
+    `SELECT event_type=$2
+        AND aggregate_type=$3
+        AND aggregate_id=$4
+        AND aggregate_version=$5
+        AND payload=$6::jsonb
+        AND occurred_at=$7::timestamptz AS same
+     FROM cognitive_runtime_outbox WHERE event_id=$1`,
+    [
+      event.eventId,
+      event.eventType,
+      aggregateType,
+      event.aggregateId,
+      event.aggregateVersion,
+      payload,
+      event.occurredAt,
+    ],
+  );
+  if (existing.rows[0]?.same !== true) {
+    throw governanceError('ARTIFACT_OUTBOX_IDEMPOTENCY_CONFLICT');
+  }
 }
 
 async function inTransaction<T>(

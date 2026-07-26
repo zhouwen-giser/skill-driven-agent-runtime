@@ -5,6 +5,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import {
   ArtifactPersistenceError,
   assertArtifactStatus,
+  hashValidationSummary,
   type ArtifactActivationInput,
   type ArtifactCandidatePersistence,
   type ArtifactDeprecationInput,
@@ -24,6 +25,7 @@ import {
   type ValidationSummary,
 } from '../../../application/src/index.js';
 import {
+  canonicalizeArtifactData,
   createArtifactLineage,
   createArtifactRuntimeBinding,
   createCompiledArtifact,
@@ -51,7 +53,9 @@ interface ArtifactRow extends QueryResultRow {
   status: CompiledArtifactStatus;
   risk_level: CompiledArtifact['riskLevel'];
   definition: unknown;
+  applicability: CompiledArtifact['applicability'];
   dependency_snapshot: CompiledArtifact['dependencySnapshot'];
+  lineage_id: string;
   content_hash: string;
   validation_summary_id: string | null;
   created_at: Date | string;
@@ -120,8 +124,9 @@ export class PostgresArtifactRepository implements ArtifactRepository {
     const result = await this.#pool.query<ActiveIndexRow>(
       `SELECT artifact.artifact_id,artifact.artifact_key,artifact.version,
          artifact.artifact_type,artifact.tenant_id,artifact.domain,artifact.status,
-         artifact.risk_level,artifact.definition,artifact.dependency_snapshot,
-         artifact.content_hash,artifact.validation_summary_id,artifact.created_at,
+         artifact.risk_level,artifact.definition,artifact.applicability,
+         artifact.dependency_snapshot,artifact.lineage_id,artifact.content_hash,
+         artifact.validation_summary_id,artifact.created_at,
          pointer.artifact_version,pointer.lock_version,pointer.activated_at
        FROM artifact_active_pointer pointer
        JOIN compiled_artifact artifact
@@ -131,29 +136,42 @@ export class PostgresArtifactRepository implements ArtifactRepository {
          AND ($1::text IS NULL OR artifact.tenant_id=$1)
          AND ($2::text IS NULL OR artifact.domain=$2)
          AND ($3::text[] IS NULL OR artifact.artifact_type=ANY($3))
+         AND ($4::text IS NULL OR artifact.artifact_key>$4)
        ORDER BY artifact.artifact_key,artifact.version DESC
-       LIMIT $4`,
+       LIMIT $5`,
       [
         query.tenantId ?? null,
         query.domain ?? null,
         query.artifactTypes === undefined ? null : [...query.artifactTypes],
+        query.afterArtifactKey ?? null,
         limit,
       ],
     );
     return Object.freeze(
-      result.rows.map((row) =>
-        Object.freeze({
-          artifactId: row.artifact_id,
-          artifactKey: row.artifact_key,
-          artifactVersion: row.artifact_version,
-          artifactType: row.artifact_type,
-          ...(row.tenant_id === null ? {} : { tenantId: row.tenant_id }),
-          domain: row.domain,
-          riskLevel: row.risk_level,
-          contentHash: row.content_hash,
-          dependencySnapshot: Object.freeze({ ...row.dependency_snapshot }),
-          pointerLockVersion: row.lock_version,
-          activatedAt: iso(row.activated_at),
+      await Promise.all(
+        result.rows.map(async (row) => {
+          const envelope = parseEnvelope(row.definition);
+          assertEnvelopeProjection(row, envelope);
+          assertLineageProjection(
+            await selectLineage(this.#pool, {
+              artifactId: row.artifact_id,
+              version: row.version,
+            }),
+            envelope,
+          );
+          return Object.freeze({
+            artifactId: row.artifact_id,
+            artifactKey: row.artifact_key,
+            artifactVersion: row.artifact_version,
+            artifactType: row.artifact_type,
+            ...(row.tenant_id === null ? {} : { tenantId: row.tenant_id }),
+            domain: row.domain,
+            riskLevel: row.risk_level,
+            contentHash: row.content_hash,
+            dependencySnapshot: Object.freeze({ ...row.dependency_snapshot }),
+            pointerLockVersion: row.lock_version,
+            activatedAt: iso(row.activated_at),
+          });
         }),
       ),
     );
@@ -162,7 +180,8 @@ export class PostgresArtifactRepository implements ArtifactRepository {
   async getDefinition(ref: ArtifactRef): Promise<CompiledArtifact | undefined> {
     const result = await this.#pool.query<ArtifactRow>(
       `SELECT artifact_id,artifact_key,version,artifact_type,tenant_id,domain,status,risk_level,
-         definition,dependency_snapshot,content_hash,validation_summary_id,created_at
+         definition,applicability,dependency_snapshot,lineage_id,content_hash,
+         validation_summary_id,created_at
        FROM compiled_artifact WHERE artifact_id=$1 AND version=$2`,
       [ref.artifactId, ref.version],
     );
@@ -304,28 +323,44 @@ export class PostgresArtifactRepository implements ArtifactRepository {
       if (input.expectedVersion !== artifact.version) {
         throw persistenceError('ARTIFACT_EXPECTED_VERSION_CONFLICT', 'Artifact version changed.');
       }
-      assertArtifactStatus(artifact.status, ['awaiting_approval', 'revalidating'], 'activation');
-      const validation = await client.query<{ validation_run_id: string }>(
-        `SELECT validation_run_id FROM artifact_validation_run
-         WHERE artifact_id=$1 AND artifact_version=$2 AND status='passed'
-         ORDER BY completed_at DESC,validation_run_id DESC LIMIT 1`,
-        [input.artifactId, input.version],
+      if (input.tenantId !== undefined && artifact.tenant_id !== input.tenantId) {
+        throw persistenceError('ARTIFACT_TENANT_SCOPE_DENIED', 'Artifact tenant is out of scope.');
+      }
+      assertArtifactStatus(artifact.status, ['awaiting_approval'], 'activation');
+      const validation = await client.query<ValidationRow>(
+        `SELECT * FROM artifact_validation_run
+         WHERE validation_run_id=$1 AND artifact_id=$2 AND artifact_version=$3
+           AND status='passed'`,
+        [artifact.validation_summary_id, input.artifactId, input.version],
       );
-      const validationRunId = validation.rows[0]?.validation_run_id;
-      if (validationRunId === undefined) {
+      const validationRow = validation.rows[0];
+      if (
+        validationRow?.result === undefined ||
+        validationRow.result === null ||
+        validationRow.completed_at === null
+      ) {
         throw persistenceError(
           'ARTIFACT_VALIDATION_REQUIRED',
-          'Activation requires a passed validation run.',
+          'Activation requires the current passed validation run.',
         );
       }
-      const approval = await client.query(
-        `SELECT approval_id FROM artifact_approval
-         WHERE artifact_id=$1 AND artifact_version=$2 AND decision='approved'
-           AND validation_summary_hash=$3
-         ORDER BY created_at DESC LIMIT 1`,
+      const validationRunId = validationRow.validation_run_id;
+      if (
+        hashValidationSummary(validationSummaryFromRow(validationRow)) !==
+        input.validationSummaryHash
+      ) {
+        throw persistenceError(
+          'ARTIFACT_VALIDATION_EVIDENCE_INVALID',
+          'Activation evidence is not bound to the current validation result.',
+        );
+      }
+      const approval = await client.query<{ decision: 'approved' | 'rejected' }>(
+        `SELECT decision FROM artifact_approval
+         WHERE artifact_id=$1 AND artifact_version=$2 AND validation_summary_hash=$3
+         ORDER BY created_at DESC,approval_id DESC LIMIT 1`,
         [input.artifactId, input.version, input.validationSummaryHash],
       );
-      if (approval.rowCount !== 1) {
+      if (approval.rows[0]?.decision !== 'approved') {
         throw persistenceError(
           'ARTIFACT_APPROVAL_REQUIRED',
           'Activation requires matching approval evidence from the authorized actor.',
@@ -397,13 +432,25 @@ export class PostgresArtifactRepository implements ArtifactRepository {
   async deprecate(input: ArtifactDeprecationInput): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
       await lockArtifactKey(client, input.artifactKey);
-      const pointer = await client.query<{ lock_version: number }>(
-        `SELECT lock_version FROM artifact_active_pointer
-         WHERE artifact_key=$1 AND artifact_id=$2 AND artifact_version=$3 FOR UPDATE`,
+      const pointer = await client.query<{ lock_version: number; tenant_id: string | null }>(
+        `SELECT pointer.lock_version,artifact.tenant_id
+         FROM artifact_active_pointer pointer
+         JOIN compiled_artifact artifact
+           ON artifact.artifact_id=pointer.artifact_id
+          AND artifact.version=pointer.artifact_version
+         WHERE pointer.artifact_key=$1 AND pointer.artifact_id=$2
+           AND pointer.artifact_version=$3
+         FOR UPDATE OF pointer`,
         [input.artifactKey, input.artifactId, input.version],
       );
       if ((pointer.rows[0]?.lock_version ?? -1) !== input.expectedLockVersion) {
         throw persistenceError('ARTIFACT_CAS_CONFLICT', 'Active Pointer version changed.');
+      }
+      if (input.expectedVersion !== input.version) {
+        throw persistenceError('ARTIFACT_EXPECTED_VERSION_CONFLICT', 'Artifact version changed.');
+      }
+      if (input.tenantId !== undefined && pointer.rows[0]?.tenant_id !== input.tenantId) {
+        throw persistenceError('ARTIFACT_TENANT_SCOPE_DENIED', 'Artifact tenant is out of scope.');
       }
       const updated = await client.query(
         `UPDATE compiled_artifact SET status='deprecated'
@@ -413,9 +460,12 @@ export class PostgresArtifactRepository implements ArtifactRepository {
       if (updated.rowCount !== 1) {
         throw persistenceError('ARTIFACT_STATE_INVALID', 'Only an Active Artifact can deprecate.');
       }
-      await client.query(`DELETE FROM artifact_active_pointer WHERE artifact_key=$1`, [
-        input.artifactKey,
-      ]);
+      await client.query(
+        `UPDATE artifact_active_pointer
+         SET activated_by=$2,activated_at=$3,lock_version=lock_version+1
+         WHERE artifact_key=$1 AND lock_version=$4`,
+        [input.artifactKey, input.actorId, input.deprecatedAt, input.expectedLockVersion],
+      );
       await writeOutbox(client, {
         eventId: `artifact-deprecated-${input.artifactId}-${String(input.version)}-${String(input.expectedLockVersion + 1)}`,
         eventType: 'artifact.deprecated',
@@ -509,8 +559,9 @@ export class PostgresArtifactValidationRepository implements ArtifactValidationR
       await writeOutbox(client, {
         eventId: `artifact-validation-completed-${input.validationRunId}`,
         eventType: 'artifact.validation_completed',
-        aggregateId: run.artifact_id,
-        aggregateVersion: run.artifact_version,
+        aggregateType: 'artifact_validation',
+        aggregateId: input.validationRunId,
+        aggregateVersion: 2,
         occurredAt: input.completedAt,
         payload: {
           artifactId: run.artifact_id,
@@ -523,8 +574,9 @@ export class PostgresArtifactValidationRepository implements ArtifactValidationR
         await writeOutbox(client, {
           eventId: `artifact-promotion-ready-${input.validationRunId}`,
           eventType: 'artifact.promotion_ready',
-          aggregateId: run.artifact_id,
-          aggregateVersion: run.artifact_version,
+          aggregateType: 'artifact_validation',
+          aggregateId: input.validationRunId,
+          aggregateVersion: 3,
           occurredAt: input.completedAt,
           payload: {
             artifactId: run.artifact_id,
@@ -690,9 +742,9 @@ export class PostgresArtifactExecutionRepository implements ArtifactExecutionRep
       await writeOutbox(client, {
         eventId: `artifact-feedback-${input.feedbackId}`,
         eventType: 'artifact.feedback_recorded',
-        aggregateType: 'artifact_execution',
-        aggregateId: input.artifactExecutionId,
-        aggregateVersion: 3,
+        aggregateType: 'artifact_feedback',
+        aggregateId: input.feedbackId,
+        aggregateVersion: 1,
         occurredAt: input.createdAt,
         payload: {
           feedbackId: input.feedbackId,
@@ -713,7 +765,8 @@ async function selectArtifactForUpdate(
 ): Promise<ArtifactRow> {
   const result = await client.query<ArtifactRow>(
     `SELECT artifact_id,artifact_key,version,artifact_type,tenant_id,domain,status,risk_level,
-       definition,dependency_snapshot,content_hash,validation_summary_id,created_at
+       definition,applicability,dependency_snapshot,lineage_id,content_hash,
+       validation_summary_id,created_at
      FROM compiled_artifact
      WHERE artifact_id=$1 AND version=$2 AND artifact_key=$3
      FOR UPDATE`,
@@ -838,9 +891,11 @@ function activationRequestHash(input: ArtifactActivationInput): string {
     input.expectedLockVersion,
     input.expectedVersion,
     input.actorId,
+    input.tenantId ?? null,
     input.validationSummaryHash,
     input.idempotencyKey,
     input.reason,
+    input.activatedAt,
   ]);
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
 }
@@ -861,22 +916,50 @@ async function writeOutbox(
     payload: Readonly<Record<string, unknown>>;
   }>,
 ): Promise<void> {
-  await client.query(
+  const aggregateType = event.aggregateType ?? 'compiled_artifact';
+  const payload = JSON.stringify(event.payload);
+  const inserted = await client.query(
     `INSERT INTO cognitive_runtime_outbox(
        event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
        correlation,payload,occurred_at,published_at)
      VALUES($1,$2,$3,$4,$5,'{}'::jsonb,$6::jsonb,$7,NULL)
-     ON CONFLICT(event_id) DO NOTHING`,
+     ON CONFLICT(event_id) DO NOTHING
+     RETURNING event_id`,
     [
       event.eventId,
       event.eventType,
-      event.aggregateType ?? 'compiled_artifact',
+      aggregateType,
       event.aggregateId,
       event.aggregateVersion,
-      JSON.stringify(event.payload),
+      payload,
       event.occurredAt,
     ],
   );
+  if (inserted.rowCount === 1) return;
+  const existing = await client.query<{ same: boolean }>(
+    `SELECT event_type=$2
+        AND aggregate_type=$3
+        AND aggregate_id=$4
+        AND aggregate_version=$5
+        AND payload=$6::jsonb
+        AND occurred_at=$7::timestamptz AS same
+     FROM cognitive_runtime_outbox WHERE event_id=$1`,
+    [
+      event.eventId,
+      event.eventType,
+      aggregateType,
+      event.aggregateId,
+      event.aggregateVersion,
+      payload,
+      event.occurredAt,
+    ],
+  );
+  if (existing.rows[0]?.same !== true) {
+    throw persistenceError(
+      'ARTIFACT_OUTBOX_IDEMPOTENCY_CONFLICT',
+      'Outbox event identity already contains different content.',
+    );
+  }
 }
 
 async function inTransaction<T>(
@@ -937,15 +1020,48 @@ function assertEnvelopeProjection(row: ArtifactRow, envelope: StoredArtifactEnve
     artifact.artifactKey !== row.artifact_key ||
     artifact.version !== row.version ||
     artifact.artifactType !== row.artifact_type ||
+    artifact.riskLevel !== row.risk_level ||
     artifact.contentHash !== row.content_hash ||
     artifact.scope.domain !== row.domain ||
-    (artifact.scope.tenantId ?? null) !== row.tenant_id
+    (artifact.scope.tenantId ?? null) !== row.tenant_id ||
+    artifact.lineageRef !== row.lineage_id ||
+    artifact.createdAt !== iso(row.created_at) ||
+    canonicalProjection(artifact.applicability) !== canonicalProjection(row.applicability) ||
+    canonicalProjection(artifact.dependencySnapshot) !==
+      canonicalProjection(row.dependency_snapshot)
   ) {
     throw persistenceError(
       'ARTIFACT_PERSISTENCE_PROJECTION_DRIFT',
       'Stored Artifact projection differs from its canonical envelope.',
     );
   }
+}
+
+function canonicalProjection(value: unknown): string {
+  return canonicalizeArtifactData(value as Parameters<typeof canonicalizeArtifactData>[0]);
+}
+
+function validationSummaryFromRow(row: ValidationRow): ValidationSummary {
+  if (
+    row.result === null ||
+    row.completed_at === null ||
+    row.status === 'pending' ||
+    row.status === 'running'
+  ) {
+    throw persistenceError(
+      'ARTIFACT_VALIDATION_EVIDENCE_INVALID',
+      'Validation result is not terminal.',
+    );
+  }
+  return Object.freeze({
+    validationRunId: row.validation_run_id,
+    artifactId: row.artifact_id,
+    artifactVersion: row.artifact_version,
+    status: row.status,
+    result: row.result,
+    metrics: Object.freeze({ ...row.metrics }),
+    completedAt: iso(row.completed_at),
+  });
 }
 
 function assertLineageProjection(row: LineageRow, envelope: StoredArtifactEnvelope): void {

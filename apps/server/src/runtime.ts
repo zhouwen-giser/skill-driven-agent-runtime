@@ -165,6 +165,10 @@ import {
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
   InMemoryTaskStateNotifier,
+  ArtifactRegistryService,
+  InMemoryArtifactActiveIndexProjection,
+  ArtifactOutboxConsumer,
+  ArtifactRegistryProjectionEventHandler,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -282,6 +286,8 @@ import {
   PostgresWorkflowContinuationRepository,
   PostgresTaskAvailabilityEvidenceRepository,
   PostgresUserGoalRuntimeRepository,
+  PostgresArtifactRepository,
+  PostgresArtifactOutboxConsumerRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -377,6 +383,8 @@ export interface ServerRuntimeHandle {
   readonly a2a: A2AHttpEndpointHandle;
   readonly management: ManagementHttpEndpointHandle;
   readonly planningKnowledge: PlanningKnowledgeRetriever;
+  /** Present once the P02 migration is installed; rebuilt from PostgreSQL during startup. */
+  readonly artifactRegistry?: ArtifactRegistryService;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -433,6 +441,28 @@ export async function startServerRuntime(
     await applyRuntimeMigrations(pool);
   } else if (options.frozenMcpTasks !== undefined) {
     await assertV122RuntimeReady(pool);
+  }
+  const artifactAuthorityReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0125_v13_artifact_authority'
+     ) AS installed`,
+  );
+  let artifactRegistry: ArtifactRegistryService | undefined;
+  if (artifactAuthorityReady.rows[0]?.installed === true) {
+    artifactRegistry = new ArtifactRegistryService({
+      repository: new PostgresArtifactRepository(pool),
+      projection: new InMemoryArtifactActiveIndexProjection(),
+    });
+    await artifactRegistry.rebuildProjection();
+    const artifactOutbox = new ArtifactOutboxConsumer({
+      consumerName: 'artifact-active-index',
+      repository: new PostgresArtifactOutboxConsumerRepository(pool),
+      handler: new ArtifactRegistryProjectionEventHandler(artifactRegistry),
+      clock: { now: () => new Date().toISOString() },
+    });
+    while ((await artifactOutbox.consume(500)) === 500) {
+      // Bounded page drain; each event is acknowledged transactionally after projection rebuild.
+    }
   }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
@@ -3878,6 +3908,7 @@ export async function startServerRuntime(
       a2a,
       management: startedManagement,
       planningKnowledge,
+      ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },

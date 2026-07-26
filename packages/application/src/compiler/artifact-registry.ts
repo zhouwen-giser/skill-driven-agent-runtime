@@ -84,13 +84,11 @@ export function parseArtifactFeatureFlags(
     fastGatewayEnabled: parseBoolean(environment['SDAR_V13_FAST_GATEWAY_ENABLED']),
     caseEnabled: parseBoolean(environment['SDAR_V13_CASE_ENABLED']),
     modelCascadeEnabled: parseBoolean(environment['SDAR_V13_MODEL_CASCADE_ENABLED']),
-    tenantAllowlist: Object.freeze(
-      new Set(
-        (environment['SDAR_V13_TENANT_ALLOWLIST'] ?? '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0),
-      ),
+    tenantAllowlist: immutableReadonlySet(
+      (environment['SDAR_V13_TENANT_ALLOWLIST'] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
     ),
   });
 }
@@ -146,9 +144,23 @@ export class ArtifactRegistryService {
   }
 
   async rebuildProjection(): Promise<readonly ArtifactIndexEntry[]> {
-    const authoritative = await this.#repository.findActiveIndex({ limit: 500 });
+    const authoritative: ArtifactIndexEntry[] = [];
+    let afterArtifactKey: string | undefined;
+    for (;;) {
+      const page = await this.#repository.findActiveIndex({
+        limit: 500,
+        ...(afterArtifactKey === undefined ? {} : { afterArtifactKey }),
+      });
+      authoritative.push(...page);
+      if (page.length < 500) break;
+      const next = page.at(-1)?.artifactKey;
+      if (next === undefined || next === afterArtifactKey) {
+        throw new ArtifactRegistryError('ARTIFACT_PROJECTION_CURSOR_INVALID');
+      }
+      afterArtifactKey = next;
+    }
     await this.#projection.rebuild(authoritative);
-    return authoritative;
+    return Object.freeze(authoritative);
   }
 }
 
@@ -165,6 +177,10 @@ export class InMemoryArtifactActiveIndexProjection implements ArtifactActiveInde
     const result = this.#fullIndex
       .filter((entry) => query.tenantId === undefined || entry.tenantId === query.tenantId)
       .filter((entry) => query.domain === undefined || entry.domain === query.domain)
+      .filter(
+        (entry) =>
+          query.afterArtifactKey === undefined || entry.artifactKey > query.afterArtifactKey,
+      )
       .filter(
         (entry) =>
           query.artifactTypes === undefined || query.artifactTypes.includes(entry.artifactType),
@@ -189,13 +205,8 @@ export class InMemoryArtifactActiveIndexProjection implements ArtifactActiveInde
 
   invalidateDependency(dependencyRef: string): Promise<void> {
     this.#queries.clear();
-    if (this.#fullIndex !== undefined) {
-      this.#fullIndex = Object.freeze(
-        this.#fullIndex.filter(
-          (entry) => !dependencyContains(entry.dependencySnapshot, dependencyRef),
-        ),
-      );
-    }
+    // A partial deletion is not an authoritative full index. Force a PostgreSQL miss/rebuild.
+    this.#fullIndex = undefined;
     for (const [key, artifact] of this.#versions) {
       if (dependencyContains(artifact.dependencySnapshot, dependencyRef))
         this.#versions.delete(key);
@@ -205,6 +216,7 @@ export class InMemoryArtifactActiveIndexProjection implements ArtifactActiveInde
 
   rebuild(entries: readonly ArtifactIndexEntry[]): Promise<void> {
     this.#queries.clear();
+    this.#versions.clear();
     this.#fullIndex = Object.freeze([...entries]);
     return Promise.resolve();
   }
@@ -217,6 +229,7 @@ export function artifactProjectionQueryCacheKey(query: ArtifactIndexQuery): stri
     query.domain ?? '*',
     [...(query.artifactTypes ?? [])].sort(),
     query.limit ?? 100,
+    query.afterArtifactKey ?? null,
   ]);
 }
 
@@ -259,4 +272,35 @@ function dependencyContains(value: unknown, dependencyRef: string): boolean {
   }
   if (typeof value !== 'object' || value === null) return false;
   return Object.values(value).some((item) => dependencyContains(item, dependencyRef));
+}
+
+function immutableReadonlySet<T>(values: Iterable<T>): ReadonlySet<T> {
+  const set = new Set(values);
+  return Object.freeze({
+    get size() {
+      return set.size;
+    },
+    has(value: T) {
+      return set.has(value);
+    },
+    entries() {
+      return set.entries();
+    },
+    keys() {
+      return set.keys();
+    },
+    values() {
+      return set.values();
+    },
+    forEach(callback: (value: T, key: T, owner: ReadonlySet<T>) => void, thisArg?: unknown) {
+      const owner = this as ReadonlySet<T>;
+      set.forEach((value) => {
+        callback.call(thisArg, value, value, owner);
+      });
+    },
+    [Symbol.iterator]() {
+      return set[Symbol.iterator]();
+    },
+    [Symbol.toStringTag]: 'ReadonlySet',
+  });
 }

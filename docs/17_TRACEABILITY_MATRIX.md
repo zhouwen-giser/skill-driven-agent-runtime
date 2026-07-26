@@ -553,16 +553,17 @@ blocking/major findings. Completion commit `8ac5f5e` passes the same complete ga
 
 | G02-G04 acceptance | Status | Implementation | Tests / evidence |
 | --- | --- | --- | --- |
-| Ten canonical PostgreSQL tables | verified, review pending | migration `0125_v13_artifact_authority`; no alias authority | fresh/idempotent/rollback/reapply migration verifier |
-| Immutable Artifact versions | verified, review pending | `PostgresArtifactRepository.saveCandidate`; complete bounded P01 envelope plus checked frozen projections | exact round-trip, idempotent same content, changed-content reject |
-| Active Pointer and CAS | verified, review pending | PostgreSQL advisory key lock, row lock and pointer lock version | two simultaneous activations produce exactly one winner |
-| Validation and Approval separation | verified, review pending | validation completion enters `awaiting_approval`; approval evidence is a separate durable row | activation without approval rejects; evidence hash required |
+| Ten canonical PostgreSQL tables | verified, remediation review pending | migration `0125_v13_artifact_authority`; no alias authority; exact frozen column assertions and all JSON size/depth bounds | fresh/idempotent/rollback/reapply migration verifier plus frozen contract test |
+| Immutable Artifact versions | verified, remediation review pending | bounded full P01 envelope, immutable-content trigger and complete projection/lineage checks | runtime-binding round-trip, changed-content/direct-SQL reject and projection drift fail-closed |
+| Active Pointer and CAS | verified, remediation review pending | advisory/row lock plus monotonically versioned Pointer tombstone retained after deprecate/kill | concurrent single winner; stale lock 0 rejected after kill; deliberate current-revision activation succeeds |
+| Validation and Approval separation | verified, remediation review pending | activation binds `validation_summary_id`, exact current summary hash and latest matching decision | pending revalidation and old evidence reject; fresh evidence still requires fresh approval; two cycles pass |
 | Atomic activation evidence | verified, review pending | status/hash/lineage, validation, approval, pointer, audit and Outbox share one transaction | completed audit and `artifact.activated` evidence after CAS |
-| Registry/projection rebuild | verified, review pending | PostgreSQL-backed `ArtifactRegistryService`; query/version cache is non-authoritative | cache miss/hit, tenant query key, dependency invalidation, rebuild |
-| Outbox reliability | verified, review pending | transactional canonical events and CAS consumer cursor | execution event sequence, cursor resume and duplicate-handler idempotency |
-| Operator security baseline | verified, review pending | fail-closed production provider, explicit local adapter, RBAC/tenant/reason/idempotency/expected version | missing production provider and denied permission regressions |
-| Frozen P02 contract | verified, review pending | exact six hashes/method vocabularies, 23 events, 8 queues and 7 flags | `artifact-p02.contract.test.ts` |
+| Registry/projection rebuild | verified, remediation review pending | PostgreSQL-backed startup rebuild, keyset paging, non-authoritative query/version cache | cache miss/invalidation, version clearing and 501-entry two-page rebuild |
+| Outbox reliability | verified, remediation review pending | transactional canonical events, unpublished-row delivery and cursor/publish CAS transaction | late older timestamp delivered; two feedback and repeated validation/approval events do not collide |
+| Operator security baseline | verified, remediation review pending | fail-closed provider, immutable permission view, trusted tenant binding and full-body idempotency hash | omitted-tenant cross-scope deny, different-payload conflict, expected Artifact/Pointer versions |
+| Frozen P02 contract | verified, remediation review pending | exact six hashes/method vocabularies, ten tables/columns, 23 events, 8 queues and 7 flags | `artifact-p02.contract.test.ts` |
 | Full repository regression | verified working tree | isolated `pnpm verify` | 793 unit/contract, 87 integration, 62 E2E, 18 migrations, build/smoke |
 
+The first independent review is preserved in `reports/goal/v1.3-p02-review-1.md` as `REJECTED`.
 Final `COMPLETED` Handoff and clean-commit evidence remain gated on the required new independent P02
-review.
+remediation review.

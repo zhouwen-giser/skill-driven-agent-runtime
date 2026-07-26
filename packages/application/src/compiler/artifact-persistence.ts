@@ -32,6 +32,8 @@ export interface ArtifactIndexQuery {
   readonly domain?: string;
   readonly artifactTypes?: readonly CompiledArtifactType[];
   readonly limit?: number;
+  /** Internal keyset cursor used only while rebuilding a disposable projection. */
+  readonly afterArtifactKey?: string;
 }
 
 export interface ArtifactIndexEntry {
@@ -53,6 +55,7 @@ export interface ArtifactActivationInput extends ArtifactRef {
   readonly expectedLockVersion: number;
   readonly expectedVersion: number;
   readonly actorId: string;
+  readonly tenantId?: string;
   readonly validationSummaryHash: string;
   readonly idempotencyKey: string;
   readonly reason: string;
@@ -62,7 +65,9 @@ export interface ArtifactActivationInput extends ArtifactRef {
 export interface ArtifactDeprecationInput extends ArtifactRef {
   readonly artifactKey: string;
   readonly expectedLockVersion: number;
+  readonly expectedVersion: number;
   readonly actorId: string;
+  readonly tenantId?: string;
   readonly deprecatedAt: string;
 }
 

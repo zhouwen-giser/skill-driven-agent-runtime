@@ -88,14 +88,20 @@ export interface ArtifactKillSwitchCommand {
 
 export interface ArtifactGovernanceStore {
   requestValidation(
-    input: ArtifactValidationCommand & Readonly<{ actorId: string }>,
+    input: ArtifactValidationCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void>;
-  recordApproval(input: ArtifactApprovalCommand & Readonly<{ actorId: string }>): Promise<void>;
+  recordApproval(
+    input: ArtifactApprovalCommand & Readonly<{ actorId: string; tenantId?: string }>,
+  ): Promise<void>;
   requestRevalidation(
-    input: ArtifactValidationCommand & Readonly<{ actorId: string }>,
+    input: ArtifactValidationCommand & Readonly<{ actorId: string; tenantId?: string }>,
   ): Promise<void>;
-  rollback(input: ArtifactRollbackCommand & Readonly<{ actorId: string }>): Promise<void>;
-  killSwitch(input: ArtifactKillSwitchCommand & Readonly<{ actorId: string }>): Promise<void>;
+  rollback(
+    input: ArtifactRollbackCommand & Readonly<{ actorId: string; tenantId?: string }>,
+  ): Promise<void>;
+  killSwitch(
+    input: ArtifactKillSwitchCommand & Readonly<{ actorId: string; tenantId?: string }>,
+  ): Promise<void>;
 }
 
 export interface ArtifactGovernancePort {
@@ -130,30 +136,31 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
 
   async requestValidation(input: ArtifactValidationCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.validate');
-    await this.#executeAudited('artifact_request_validation', input, actorId, () =>
-      this.#store.requestValidation({ ...input, actorId }),
+    const authorization = await this.#authorize(input.context, 'artifact.validate');
+    await this.#executeAudited('artifact_request_validation', input, authorization, () =>
+      this.#store.requestValidation({ ...input, ...authorization }),
     );
   }
 
   async recordApproval(input: ArtifactApprovalCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.approve');
-    await this.#executeAudited('artifact_record_approval', input, actorId, () =>
-      this.#store.recordApproval({ ...input, actorId }),
+    const authorization = await this.#authorize(input.context, 'artifact.approve');
+    await this.#executeAudited('artifact_record_approval', input, authorization, () =>
+      this.#store.recordApproval({ ...input, ...authorization }),
     );
   }
 
   async activate(input: ArtifactActivationCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.activate');
+    const authorization = await this.#authorize(input.context, 'artifact.activate');
     const activation: ArtifactActivationInput = {
       artifactId: input.artifactId,
       version: input.version,
       artifactKey: input.artifactKey,
       expectedLockVersion: input.expectedLockVersion,
       expectedVersion: input.expectedVersion,
-      actorId,
+      actorId: authorization.actorId,
+      ...(authorization.tenantId === undefined ? {} : { tenantId: authorization.tenantId }),
       validationSummaryHash: input.validationSummaryHash,
       idempotencyKey: input.idempotencyKey,
       reason: input.reason,
@@ -164,22 +171,24 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
 
   async requestRevalidation(input: ArtifactValidationCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.revalidate');
-    await this.#executeAudited('artifact_request_revalidation', input, actorId, () =>
-      this.#store.requestRevalidation({ ...input, actorId }),
+    const authorization = await this.#authorize(input.context, 'artifact.revalidate');
+    await this.#executeAudited('artifact_request_revalidation', input, authorization, () =>
+      this.#store.requestRevalidation({ ...input, ...authorization }),
     );
   }
 
   async deprecate(input: ArtifactDeprecationCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.deprecate');
-    await this.#executeAudited('artifact_deprecate', input, actorId, async () => {
+    const authorization = await this.#authorize(input.context, 'artifact.deprecate');
+    await this.#executeAudited('artifact_deprecate', input, authorization, async () => {
       const command: ArtifactDeprecationInput = {
         artifactId: input.artifactId,
         version: input.version,
         artifactKey: input.artifactKey,
         expectedLockVersion: input.expectedLockVersion,
-        actorId,
+        expectedVersion: input.expectedVersion,
+        actorId: authorization.actorId,
+        ...(authorization.tenantId === undefined ? {} : { tenantId: authorization.tenantId }),
         deprecatedAt: input.occurredAt,
       };
       await this.#repository.deprecate(command);
@@ -188,33 +197,45 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
 
   async rollback(input: ArtifactRollbackCommand): Promise<void> {
     assertGovernanceCommand(input);
-    const actorId = await this.#authorize(input.context, 'artifact.rollback');
-    await this.#executeAudited('artifact_rollback', input, actorId, () =>
-      this.#store.rollback({ ...input, actorId }),
+    const authorization = await this.#authorize(input.context, 'artifact.rollback');
+    await this.#executeAudited('artifact_rollback', input, authorization, () =>
+      this.#store.rollback({ ...input, ...authorization }),
     );
   }
 
   async killSwitch(input: ArtifactKillSwitchCommand): Promise<void> {
     assertGovernanceWriteMetadata(input);
-    const actorId = await this.#authorize(input.context, 'artifact.kill_switch');
-    const subjectId = JSON.stringify(input.scope);
+    const authorization = await this.#authorize(input.context, 'artifact.kill_switch');
+    const normalizedScope = normalizeKillSwitchScope(input.scope, authorization.tenantId);
+    const subjectId = JSON.stringify(normalizedScope);
     await this.#audit.execute(
       {
         operation: 'artifact_kill_switch',
         subjectId,
         expectedVersion: input.expectedVersion,
         idempotencyKey: input.idempotencyKey,
-        actorId,
+        actorId: authorization.actorId,
         reason: input.reason,
+        requestFingerprint: governanceRequestFingerprint({
+          ...input,
+          scope: normalizedScope,
+        }),
       },
       async () => {
-        await this.#store.killSwitch({ ...input, actorId });
+        await this.#store.killSwitch({
+          ...input,
+          scope: normalizedScope,
+          ...authorization,
+        });
         return { subjectId, status: 'completed' };
       },
     );
   }
 
-  async #authorize(context: OperatorRequestContext, permission: ArtifactPermission) {
+  async #authorize(
+    context: OperatorRequestContext,
+    permission: ArtifactPermission,
+  ): Promise<Readonly<{ actorId: string; tenantId?: string }>> {
     const identity = await this.#identity.requireIdentity(context);
     await this.#identity.requirePermission(identity, permission);
     const tenantScope = await this.#identity.getTenantScope(identity);
@@ -225,7 +246,11 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
     ) {
       throw new ArtifactGovernanceError('ARTIFACT_TENANT_SCOPE_DENIED');
     }
-    return identity.operatorId;
+    const tenantId = tenantScope ?? context.tenantId;
+    return Object.freeze({
+      actorId: identity.operatorId,
+      ...(tenantId === undefined ? {} : { tenantId }),
+    });
   }
 
   async #executeAudited(
@@ -236,7 +261,7 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
       | 'artifact_deprecate'
       | 'artifact_rollback',
     input: ArtifactGovernanceCommand,
-    actorId: string,
+    authorization: Readonly<{ actorId: string; tenantId?: string }>,
     action: () => Promise<void>,
   ): Promise<void> {
     await this.#audit.execute(
@@ -245,8 +270,12 @@ export class DefaultArtifactGovernanceService implements ArtifactGovernancePort 
         subjectId: `${input.artifactId}:${String(input.version)}`,
         expectedVersion: input.expectedVersion,
         idempotencyKey: input.idempotencyKey,
-        actorId,
+        actorId: authorization.actorId,
         reason: input.reason,
+        requestFingerprint: JSON.stringify([
+          governanceRequestFingerprint(input),
+          authorization.tenantId ?? null,
+        ]),
       },
       async () => {
         await action();
@@ -283,7 +312,16 @@ export class ConfiguredOperatorIdentityPort implements OperatorIdentityPort {
 
   async requireIdentity(context: OperatorRequestContext): Promise<OperatorIdentity> {
     const external = await this.#provider?.resolve(context);
-    if (external !== undefined) return external;
+    if (external !== undefined) {
+      if (external.operatorId.trim().length === 0) {
+        throw new ArtifactGovernanceError('OPERATOR_IDENTITY_REQUIRED');
+      }
+      return Object.freeze({
+        operatorId: external.operatorId,
+        ...(external.tenantId === undefined ? {} : { tenantId: external.tenantId }),
+        permissions: immutableReadonlySet(external.permissions),
+      });
+    }
     if (this.#environment === 'production') {
       throw new ArtifactGovernanceError('OPERATOR_IDENTITY_REQUIRED');
     }
@@ -293,7 +331,7 @@ export class ConfiguredOperatorIdentityPort implements OperatorIdentityPort {
     return Object.freeze({
       operatorId: context.operatorId,
       ...(context.tenantId === undefined ? {} : { tenantId: context.tenantId }),
-      permissions: Object.freeze(new Set(context.permissions)),
+      permissions: immutableReadonlySet(context.permissions),
     });
   }
 
@@ -307,6 +345,90 @@ export class ConfiguredOperatorIdentityPort implements OperatorIdentityPort {
   getTenantScope(identity: OperatorIdentity): Promise<string | undefined> {
     return Promise.resolve(identity.tenantId);
   }
+}
+
+function governanceRequestFingerprint(
+  input: ArtifactGovernanceCommand | ArtifactKillSwitchCommand,
+) {
+  const command =
+    'artifactId' in input
+      ? [
+          input.artifactId,
+          input.version,
+          input.expectedVersion,
+          input.idempotencyKey,
+          input.reason,
+          input.occurredAt,
+          'validationRunId' in input ? input.validationRunId : null,
+          'validationType' in input ? input.validationType : null,
+          'datasetRef' in input ? input.datasetRef : null,
+          'approvalId' in input ? input.approvalId : null,
+          'decision' in input ? input.decision : null,
+          'validationSummaryHash' in input ? input.validationSummaryHash : null,
+          'artifactKey' in input ? input.artifactKey : null,
+          'expectedLockVersion' in input ? input.expectedLockVersion : null,
+          'targetArtifactId' in input ? input.targetArtifactId : null,
+          'targetVersion' in input ? input.targetVersion : null,
+        ]
+      : [
+          input.scope.artifactKey ?? null,
+          input.scope.tenantId ?? null,
+          input.scope.domain ?? null,
+          input.expectedVersion,
+          input.idempotencyKey,
+          input.reason,
+          input.occurredAt,
+        ];
+  return JSON.stringify(command);
+}
+
+function normalizeKillSwitchScope(
+  scope: ArtifactKillSwitchCommand['scope'],
+  tenantId: string | undefined,
+): ArtifactKillSwitchCommand['scope'] {
+  if (tenantId !== undefined && scope.tenantId !== undefined && tenantId !== scope.tenantId) {
+    throw new ArtifactGovernanceError('ARTIFACT_TENANT_SCOPE_DENIED');
+  }
+  return Object.freeze({
+    ...(scope.artifactKey === undefined ? {} : { artifactKey: scope.artifactKey }),
+    ...(tenantId === undefined
+      ? scope.tenantId === undefined
+        ? {}
+        : { tenantId: scope.tenantId }
+      : { tenantId }),
+    ...(scope.domain === undefined ? {} : { domain: scope.domain }),
+  });
+}
+
+function immutableReadonlySet<T>(values: Iterable<T>): ReadonlySet<T> {
+  const set = new Set(values);
+  return Object.freeze({
+    get size() {
+      return set.size;
+    },
+    has(value: T) {
+      return set.has(value);
+    },
+    entries() {
+      return set.entries();
+    },
+    keys() {
+      return set.keys();
+    },
+    values() {
+      return set.values();
+    },
+    forEach(callback: (value: T, key: T, owner: ReadonlySet<T>) => void, thisArg?: unknown) {
+      const owner = this as ReadonlySet<T>;
+      set.forEach((value) => {
+        callback.call(thisArg, value, value, owner);
+      });
+    },
+    [Symbol.iterator]() {
+      return set[Symbol.iterator]();
+    },
+    [Symbol.toStringTag]: 'ReadonlySet',
+  });
 }
 
 export class ArtifactGovernanceError extends Error {

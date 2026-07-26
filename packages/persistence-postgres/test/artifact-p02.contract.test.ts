@@ -7,6 +7,7 @@ import {
   ARTIFACT_GOVERNANCE_PORT_SCHEMA_HASH,
   ARTIFACT_PERSISTENCE_SCHEMA_HASHES,
   ARTIFACT_REGISTRY_SERVICE_SCHEMA_HASH,
+  ArtifactRegistryService,
   ConfiguredOperatorIdentityPort,
   DefaultArtifactGovernanceService,
   OPERATOR_IDENTITY_PORT_SCHEMA_HASH,
@@ -101,6 +102,13 @@ describe('SDAR v1.3 P02 frozen contract', () => {
       'requireIdentity',
       'requirePermission',
     ]);
+    expect(methods(ArtifactRegistryService)).toEqual([
+      'createCandidate',
+      'getVersion',
+      'invalidateDependency',
+      'queryActiveIndex',
+      'rebuildProjection',
+    ]);
   });
 
   it('uses only the ten canonical tables and exact event, queue and flag names', () => {
@@ -109,9 +117,39 @@ describe('SDAR v1.3 P02 frozen contract', () => {
       .filter((name): name is string => name !== undefined)
       .sort();
     expect(createdTables).toEqual(Object.keys(lock.persistenceTables).sort());
+    for (const [table, expectedColumns] of Object.entries(lock.persistenceTables)) {
+      expect(migrationColumns(migration, table)).toEqual(expectedColumns);
+    }
     expect(SDAR_V13_ARTIFACT_EVENTS).toEqual(lock.events);
     expect(SDAR_V13_ARTIFACT_QUEUES).toEqual(lock.queues);
     expect(ARTIFACT_FEATURE_FLAG_NAMES).toEqual(Object.keys(lock.featureFlags));
+  });
+
+  it('bounds every canonical JSON column by type, size and depth', () => {
+    const jsonColumns = [
+      'definition',
+      'applicability',
+      'dependency_snapshot',
+      'source_episode_refs',
+      'source_knowledge_refs',
+      'source_correction_refs',
+      'source_pattern_refs',
+      'generation_methods',
+      'metrics',
+      'counterexample_refs',
+      'decision_snapshot',
+      'impact',
+      'score',
+      'reason_codes',
+      'task_type_refs',
+      'trace',
+      'support_refs',
+      'contradiction_refs',
+    ] as const;
+    for (const column of jsonColumns) {
+      expect(migration).toContain(`octet_length(${column}::text)`);
+      expect(migration).toContain(`sdar_jsonb_depth(${column})`);
+    }
   });
 });
 
@@ -119,4 +157,13 @@ function methods(value: abstract new (...arguments_: never[]) => object): string
   return Object.getOwnPropertyNames(value.prototype)
     .filter((name) => name !== 'constructor')
     .sort();
+}
+
+function migrationColumns(source: string, table: string): string[] {
+  const match = new RegExp(`CREATE TABLE ${table} \\(([\\s\\S]*?)\\n\\);`, 'u').exec(source);
+  if (match?.[1] === undefined) throw new Error(`Missing migration table ${table}.`);
+  return match[1]
+    .split('\n')
+    .map((line) => /^ {2}([a-z_]+) /u.exec(line)?.[1])
+    .filter((column): column is string => column !== undefined);
 }

@@ -349,12 +349,18 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   deprecation use the Active Pointer revision so the same immutable Artifact version can be
   reactivated by a governed rollback without colliding with prior events; payloads retain the exact
   Artifact version.
-- P02 provides an in-process rebuildable projection and a durable PostgreSQL consumer cursor. Later
-  retrieval/runtime packages may add Redis/FTS/vector projection adapters, but Redis cannot become
-  Artifact or Active Pointer authority.
+- P02 provides an in-process rebuildable projection, performs a real PostgreSQL rebuild/Outbox drain
+  during server startup and transactionally acknowledges unpublished Artifact events with a durable
+  consumer cursor. Delivery authority does not depend on client-provided `occurred_at`, so a late
+  event remains consumable. Later retrieval/runtime packages may add Redis/FTS/vector projection
+  adapters, but Redis cannot become Artifact or Active Pointer authority.
 - The non-production identity adapter accepts only an explicitly constructed operator context.
   Production construction requires an external identity provider and fails closed without one. P02
   adds no public authentication/API endpoint and does not change the trusted-intranet V1 baseline.
 - G04 establishes governance mechanics only. Full promotion/revalidation policy and Shadow evidence
   remain P06; online retrieval/routing remain P07/P10. P02 performs no User Request, Skill, MCP,
   Provider, A2A or LangGraph execution.
+- The operator-managed default `/sdar` database observed during remediation predates the
+  `v1.2.2_clean_slate_baseline` ledger and was not reset or overwritten. Complete verification uses
+  the isolated `sdar_p02_remediation_20260726` database; this is an evidence-environment distinction,
+  not a product fallback or authority.

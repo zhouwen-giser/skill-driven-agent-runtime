@@ -82,6 +82,7 @@ export class CognitiveManagementActionGate {
       idempotencyKey: string;
       actorId: string;
       reason: string;
+      requestFingerprint?: string;
     }>,
     action: () => Promise<T>,
   ): Promise<T> {
@@ -150,6 +151,7 @@ function hashRequest(
     idempotencyKey: string;
     actorId: string;
     reason: string;
+    requestFingerprint?: string;
   }>,
 ): string {
   const canonical = JSON.stringify([
@@ -159,6 +161,7 @@ function hashRequest(
     input.idempotencyKey,
     input.actorId,
     input.reason,
+    input.requestFingerprint ?? null,
   ]);
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
 }

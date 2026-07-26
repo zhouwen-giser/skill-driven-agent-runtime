@@ -15,6 +15,17 @@ BEGIN
       WHERE operation LIKE 'artifact_%'
       LIMIT 1
     )
+    OR EXISTS (
+      SELECT 1 FROM cognitive_runtime_outbox
+      WHERE event_type LIKE 'artifact.%'
+         OR event_type LIKE 'compiler.artifact_%'
+      LIMIT 1
+    )
+    OR EXISTS (
+      SELECT 1 FROM cognitive_runtime_consumer_cursor
+      WHERE consumer_name LIKE 'artifact-%'
+      LIMIT 1
+    )
   THEN
     RAISE EXCEPTION
       '0125 rollback refused: Artifact authority or governance evidence would be destroyed';
@@ -49,6 +60,7 @@ DROP TABLE artifact_validation_run;
 DROP TABLE artifact_lineage;
 DROP TABLE artifact_active_pointer;
 DROP TABLE compiled_artifact;
+DROP FUNCTION sdar_enforce_compiled_artifact_immutability();
 DROP FUNCTION sdar_jsonb_depth(jsonb);
 
 DELETE FROM schema_migration

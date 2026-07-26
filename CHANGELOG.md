@@ -17,7 +17,17 @@ All notable changes to this project are documented here. The format follows Keep
   switch foundations.
 - Added frozen-contract, migration, JSON-bound, immutable-round-trip, no-approval, concurrent
   activation, idempotency, rollback, execution/feedback, cache and Outbox tests. The working-tree
-  full gate passes; clean-commit verification and independent review remain pending.
+  full gate passes.
+- The first independent review rejected `591cbe4` with 4 Blocking, 6 Major and 1 Minor finding.
+  Remediation prevents stale revalidation evidence and cross-tenant governance, preserves monotonic
+  Pointer CAS after deprecate/kill switch, delivers late Outbox events, enforces immutable
+  projections and bounded canonical JSON, assigns per-run/approval/feedback event revisions,
+  keyset-rebuilds all Active entries and removes mutable Set surfaces.
+- Added explicit regressions for different-body idempotency conflicts, two validation/approval
+  cycles, kill-switch ABA, tenant denial, two feedback rows, late events, 501-entry rebuild, exact
+  table columns, complete JSON boundaries and startup composition. The remediated working-tree full
+  gate passes 795 unit/contract, 89 real integration and 62 real E2E tests; clean-commit verification
+  and a new independent review remain pending.
 
 ## SDAR v1.3 P00 foundation gate — complete
 

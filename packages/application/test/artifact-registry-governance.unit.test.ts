@@ -71,6 +71,43 @@ describe('ArtifactRegistryService', () => {
     expect(artifactIndexEntryCacheKey(INDEX_ENTRY)).toContain('policy.read_only@1.0');
   });
 
+  it('keyset-pages a projection rebuild beyond 500 entries', async () => {
+    const firstPage = Object.freeze(
+      Array.from({ length: 500 }, (_, index) =>
+        Object.freeze({
+          ...INDEX_ENTRY,
+          artifactId: `artifact-${String(index).padStart(3, '0')}`,
+          artifactKey: `key-${String(index).padStart(3, '0')}`,
+        }),
+      ),
+    );
+    const last = Object.freeze({
+      ...INDEX_ENTRY,
+      artifactId: 'artifact-500',
+      artifactKey: 'key-500',
+    });
+    const findActiveIndex = vi
+      .fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(Object.freeze([last]));
+    const service = new ArtifactRegistryService({
+      repository: {
+        findActiveIndex,
+        getDefinition: vi.fn(),
+        saveCandidate: vi.fn(),
+        activate: vi.fn(),
+        deprecate: vi.fn(),
+      },
+      projection: new InMemoryArtifactActiveIndexProjection(),
+    });
+
+    await expect(service.rebuildProjection()).resolves.toHaveLength(501);
+    expect(findActiveIndex).toHaveBeenNthCalledWith(2, {
+      afterArtifactKey: 'key-499',
+      limit: 500,
+    });
+  });
+
   it('parses only the frozen feature-flag vocabulary', () => {
     expect(
       parseArtifactFeatureFlags({
@@ -120,7 +157,8 @@ describe('Artifact Outbox projection consumer', () => {
     await expect(consumer.consume()).resolves.toBe(1);
     await expect(consumer.consume()).resolves.toBe(0);
     await handler.apply(event);
-    expect(rebuildProjection).toHaveBeenCalledTimes(1);
+    // Redelivery is safe because the projection operation itself is idempotent and bounded.
+    expect(rebuildProjection).toHaveBeenCalledTimes(2);
     await expect(repository.loadCursor('artifact-active-index')).resolves.toEqual({
       lastEventId: event.eventId,
       version: 1,
@@ -154,6 +192,7 @@ describe('ConfiguredOperatorIdentityPort', () => {
       code: 'ARTIFACT_PERMISSION_DENIED',
     });
     await expect(identityPort.getTenantScope(identity)).resolves.toBe('tenant-a');
+    expect('add' in identity.permissions).toBe(false);
   });
 });
 

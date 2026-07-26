@@ -10,7 +10,11 @@ import {
   DefaultArtifactGovernanceService,
   hashValidationSummary,
 } from '../../application/src/index.js';
-import type { ArtifactLineage, CompiledArtifact } from '../../domain/src/index.js';
+import type {
+  ArtifactLineage,
+  ArtifactRuntimeBinding,
+  CompiledArtifact,
+} from '../../domain/src/index.js';
 import {
   PostgresArtifactExecutionRepository,
   PostgresArtifactGovernanceStore,
@@ -23,6 +27,7 @@ import {
 interface ArtifactFixture {
   readonly artifacts: readonly CompiledArtifact[];
   readonly lineage: ArtifactLineage;
+  readonly runtimeBinding: ArtifactRuntimeBinding;
 }
 
 const connectionString =
@@ -68,6 +73,11 @@ describe('P02 PostgreSQL Artifact authority', () => {
         version: candidate.artifact.version,
       }),
     ).resolves.toEqual(candidate.artifact);
+    const storedEnvelope = await pool.query<{ definition: { runtimeBinding?: unknown } }>(
+      `SELECT definition FROM compiled_artifact WHERE artifact_id=$1`,
+      [candidate.artifact.artifactId],
+    );
+    expect(storedEnvelope.rows[0]?.definition.runtimeBinding).toEqual(candidate.runtimeBinding);
 
     await expect(
       repository.saveCandidate({
@@ -181,9 +191,7 @@ describe('P02 PostgreSQL Artifact authority', () => {
     );
     expect(evidence.rows).toEqual([{ operation: 'artifact_activate', status: 'completed' }]);
     const outbox = await pool.query<{ event_type: string }>(
-      `SELECT event_type FROM cognitive_runtime_outbox
-       WHERE aggregate_id=$1 ORDER BY event_type`,
-      [candidate.artifact.artifactId],
+      `SELECT event_type FROM cognitive_runtime_outbox ORDER BY event_type`,
     );
     expect(outbox.rows.map((row) => row.event_type)).toEqual(
       expect.arrayContaining([
@@ -195,6 +203,182 @@ describe('P02 PostgreSQL Artifact authority', () => {
         'compiler.artifact_candidate_created',
       ]),
     );
+  });
+
+  it('binds revalidation to fresh evidence and preserves monotonic CAS across kill switch', async () => {
+    const repository = new PostgresArtifactRepository(pool);
+    const validation = new PostgresArtifactValidationRepository(pool);
+    const governance = governanceService(repository);
+    const candidate = candidatePersistence();
+    await repository.saveCandidate(candidate);
+    await governance.requestValidation({
+      ...commandBase(candidate.artifact),
+      validationRunId: 'validation.revalidation.initial',
+      validationType: 'replay',
+      datasetRef: 'dataset.revalidation.initial',
+    });
+    await expect(
+      governance.requestValidation({
+        ...commandBase(candidate.artifact),
+        validationRunId: 'validation.revalidation.different-payload',
+        validationType: 'simulation',
+        datasetRef: 'dataset.revalidation.different',
+      }),
+    ).rejects.toMatchObject({ code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT' });
+    await validation.appendResult({
+      validationRunId: 'validation.revalidation.initial',
+      status: 'passed',
+      result: 'initial evidence',
+      metrics: { precision: 0.9 },
+      counterexampleRefs: [],
+      completedAt: '2026-07-26T00:02:00.000Z',
+    });
+    const initialSummary = await validation.findPromotionSummary(candidate.artifact);
+    if (initialSummary === undefined) throw new Error('Expected initial validation summary.');
+    const initialHash = hashValidationSummary(initialSummary);
+    await governance.recordApproval({
+      ...commandBase(candidate.artifact),
+      approvalId: 'approval.revalidation.initial',
+      decision: 'approved',
+      validationSummaryHash: initialHash,
+    });
+    await governance.activate({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'activate-revalidation-initial',
+      artifactKey: candidate.artifact.artifactKey,
+      expectedLockVersion: 0,
+      validationSummaryHash: initialHash,
+    });
+
+    await governance.requestRevalidation({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'request-revalidation-second',
+      validationRunId: 'validation.revalidation.second',
+      validationType: 'revalidation',
+      datasetRef: 'dataset.revalidation.second',
+    });
+    await expect(
+      governance.activate({
+        ...commandBase(candidate.artifact),
+        idempotencyKey: 'activate-revalidation-pending',
+        artifactKey: candidate.artifact.artifactKey,
+        expectedLockVersion: 1,
+        validationSummaryHash: initialHash,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_STATE_INVALID' });
+    await validation.appendResult({
+      validationRunId: 'validation.revalidation.second',
+      status: 'passed',
+      result: 'fresh evidence',
+      metrics: { precision: 0.95 },
+      counterexampleRefs: [],
+      completedAt: '2026-07-26T00:04:00.000Z',
+    });
+    const freshSummary = await validation.findPromotionSummary(candidate.artifact);
+    if (freshSummary === undefined) throw new Error('Expected fresh validation summary.');
+    const freshHash = hashValidationSummary(freshSummary);
+    await expect(
+      governance.activate({
+        ...commandBase(candidate.artifact),
+        idempotencyKey: 'activate-revalidation-old-evidence',
+        artifactKey: candidate.artifact.artifactKey,
+        expectedLockVersion: 1,
+        validationSummaryHash: initialHash,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_VALIDATION_EVIDENCE_INVALID' });
+    await expect(
+      governance.activate({
+        ...commandBase(candidate.artifact),
+        idempotencyKey: 'activate-revalidation-unapproved',
+        artifactKey: candidate.artifact.artifactKey,
+        expectedLockVersion: 1,
+        validationSummaryHash: freshHash,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_APPROVAL_REQUIRED' });
+    await governance.recordApproval({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'approve-revalidation-second',
+      approvalId: 'approval.revalidation.second',
+      decision: 'approved',
+      validationSummaryHash: freshHash,
+    });
+    await governance.activate({
+      ...commandBase(candidate.artifact),
+      idempotencyKey: 'activate-revalidation-second',
+      artifactKey: candidate.artifact.artifactKey,
+      expectedLockVersion: 1,
+      validationSummaryHash: freshHash,
+    });
+    await governance.killSwitch({
+      context: commandBase(candidate.artifact).context,
+      scope: { artifactKey: candidate.artifact.artifactKey },
+      expectedVersion: 2,
+      idempotencyKey: 'kill-revalidation-artifact',
+      reason: 'Exercise emergency deactivation.',
+      occurredAt: '2026-07-26T00:06:00.000Z',
+    });
+
+    const next = nextVersion(candidate);
+    await repository.saveCandidate(next);
+    const nextHash = await validateAndApprove(governance, validation, next.artifact, 'post-kill');
+    await expect(
+      governance.activate({
+        ...commandBase(next.artifact),
+        idempotencyKey: 'activate-post-kill-stale-cas',
+        artifactKey: next.artifact.artifactKey,
+        expectedLockVersion: 0,
+        validationSummaryHash: nextHash,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_CAS_CONFLICT' });
+    await governance.activate({
+      ...commandBase(next.artifact),
+      idempotencyKey: 'activate-post-kill-current-cas',
+      artifactKey: next.artifact.artifactKey,
+      expectedLockVersion: 3,
+      validationSummaryHash: nextHash,
+    });
+    await expect(repository.findActiveIndex({})).resolves.toEqual([
+      expect.objectContaining({
+        artifactId: next.artifact.artifactId,
+        pointerLockVersion: 4,
+      }),
+    ]);
+  });
+
+  it('binds trusted tenant identity even when request context omits tenant', async () => {
+    const repository = new PostgresArtifactRepository(pool);
+    const candidate = tenantCandidate(candidatePersistence(), 'tenant-b');
+    await repository.saveCandidate(candidate);
+    const identity = new ConfiguredOperatorIdentityPort({
+      environment: 'production',
+      provider: {
+        resolve: () =>
+          Promise.resolve({
+            operatorId: 'tenant-a-operator',
+            tenantId: 'tenant-a',
+            permissions: new Set(['artifact.validate']),
+          }),
+      },
+    });
+    const governance = new DefaultArtifactGovernanceService({
+      identity,
+      repository,
+      store: new PostgresArtifactGovernanceStore(pool),
+      audit: new CognitiveManagementActionGate({
+        repository: new PostgresCognitiveManagementActionRepository(pool),
+        clock: { now: () => '2026-07-26T00:01:00.000Z' },
+      }),
+    });
+
+    await expect(
+      governance.requestValidation({
+        ...commandBase(candidate.artifact),
+        context: {},
+        validationRunId: 'validation.cross-tenant',
+        validationType: 'static',
+        datasetRef: 'dataset.cross-tenant',
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_TENANT_SCOPE_DENIED' });
   });
 
   it('stores bounded execution and feedback records and deprecates through CAS', async () => {
@@ -319,9 +503,29 @@ describe('P02 PostgreSQL Artifact authority', () => {
       impact: { latencySavedMs: 20 },
       createdAt: '2026-07-26T00:05:00.000Z',
     });
+    await execution.appendFeedback({
+      feedbackId: 'artifact-feedback-intent-2',
+      artifactExecutionId: 'artifact-execution-intent-1',
+      artifactId: candidate.artifact.artifactId,
+      feedbackType: 'outcome',
+      reasonCode: 'confirmed',
+      summary: 'A second feedback observation was retained.',
+      impact: { qualityDelta: 0.1 },
+      createdAt: '2026-07-26T00:05:30.000Z',
+    });
 
+    await expect(
+      governance.deprecate({
+        ...commandBase(candidate.artifact),
+        expectedVersion: 999,
+        idempotencyKey: 'deprecate-wrong-artifact-version',
+        artifactKey: candidate.artifact.artifactKey,
+        expectedLockVersion: 3,
+      }),
+    ).rejects.toMatchObject({ code: 'ARTIFACT_EXPECTED_VERSION_CONFLICT' });
     await governance.deprecate({
       ...commandBase(candidate.artifact),
+      idempotencyKey: 'deprecate-current-artifact-version',
       artifactKey: candidate.artifact.artifactKey,
       expectedLockVersion: 3,
     });
@@ -340,7 +544,14 @@ describe('P02 PostgreSQL Artifact authority', () => {
     expect(executionEvents.rows.map((row) => row.event_type)).toEqual([
       'artifact.execution_started',
       'artifact.execution_completed',
-      'artifact.feedback_recorded',
+    ]);
+    const feedbackEvents = await pool.query<{ event_type: string }>(
+      `SELECT event_type FROM cognitive_runtime_outbox
+       WHERE aggregate_type='artifact_feedback'`,
+    );
+    expect(feedbackEvents.rows).toEqual([
+      { event_type: 'artifact.feedback_recorded' },
+      { event_type: 'artifact.feedback_recorded' },
     ]);
     const outboxConsumer = new PostgresArtifactOutboxConsumerRepository(pool);
     const events = await outboxConsumer.readAfter(undefined, 500);
@@ -358,6 +569,18 @@ describe('P02 PostgreSQL Artifact authority', () => {
       version: 1,
     });
     expect(await outboxConsumer.readAfter(first.eventId, 500)).toHaveLength(events.length - 1);
+    await pool.query(
+      `INSERT INTO cognitive_runtime_outbox(
+         event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+         correlation,payload,occurred_at,published_at)
+       VALUES(
+         'artifact-late-event','artifact.deprecated','compiled_artifact',
+         'artifact-late',1,'{}'::jsonb,'{}'::jsonb,'2000-01-01T00:00:00.000Z',NULL
+       )`,
+    );
+    await expect(outboxConsumer.readAfter(first.eventId, 500)).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ eventId: 'artifact-late-event' })]),
+    );
   });
 });
 
@@ -371,7 +594,12 @@ function candidatePersistence() {
     artifactVersion: artifact.version,
     validationRunRefs: [],
   };
-  return { artifact, lineage };
+  const runtimeBinding = {
+    ...structuredClone(fixture.runtimeBinding),
+    artifactId: artifact.artifactId,
+    artifactVersion: artifact.version,
+  };
+  return { artifact, lineage, runtimeBinding };
 }
 
 function nextVersion(candidate: ReturnType<typeof candidatePersistence>) {
@@ -392,7 +620,77 @@ function nextVersion(candidate: ReturnType<typeof candidatePersistence>) {
       `${candidate.artifact.artifactId}@${String(candidate.artifact.version)}`,
     ],
   };
-  return { artifact, lineage };
+  const runtimeBinding: ArtifactRuntimeBinding = {
+    ...structuredClone(candidate.runtimeBinding),
+    bindingId: 'binding.intent.inspect.2',
+    artifactId: artifact.artifactId,
+    artifactVersion: artifact.version,
+    compiledAt: artifact.createdAt,
+  };
+  return { artifact, lineage, runtimeBinding };
+}
+
+function tenantCandidate(
+  candidate: ReturnType<typeof candidatePersistence>,
+  tenantId: string,
+): ReturnType<typeof candidatePersistence> {
+  const artifact: CompiledArtifact = {
+    ...structuredClone(candidate.artifact),
+    artifactId: `artifact.tenant.${tenantId}.1`,
+    artifactKey: `tenant.${tenantId}.inspect`,
+    scope: { ...structuredClone(candidate.artifact.scope), tenantId },
+    lineageRef: `lineage.tenant.${tenantId}.1`,
+    contentHash: 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  };
+  return {
+    artifact,
+    lineage: {
+      ...structuredClone(candidate.lineage),
+      lineageId: artifact.lineageRef,
+      artifactId: artifact.artifactId,
+      artifactVersion: artifact.version,
+    },
+    runtimeBinding: {
+      ...structuredClone(candidate.runtimeBinding),
+      bindingId: `binding.tenant.${tenantId}.1`,
+      artifactId: artifact.artifactId,
+      artifactVersion: artifact.version,
+    },
+  };
+}
+
+async function validateAndApprove(
+  governance: ReturnType<typeof governanceService>,
+  validation: PostgresArtifactValidationRepository,
+  artifact: CompiledArtifact,
+  suffix: string,
+): Promise<string> {
+  await governance.requestValidation({
+    ...commandBase(artifact),
+    idempotencyKey: `validate-${suffix}`,
+    validationRunId: `validation.${suffix}`,
+    validationType: 'static',
+    datasetRef: `dataset.${suffix}`,
+  });
+  await validation.appendResult({
+    validationRunId: `validation.${suffix}`,
+    status: 'passed',
+    result: `passed ${suffix}`,
+    metrics: {},
+    counterexampleRefs: [],
+    completedAt: '2026-07-26T00:07:00.000Z',
+  });
+  const summary = await validation.findPromotionSummary(artifact);
+  if (summary === undefined) throw new Error(`Expected ${suffix} validation summary.`);
+  const summaryHash = hashValidationSummary(summary);
+  await governance.recordApproval({
+    ...commandBase(artifact),
+    idempotencyKey: `approve-${suffix}`,
+    approvalId: `approval.${suffix}`,
+    decision: 'approved',
+    validationSummaryHash: summaryHash,
+  });
+  return summaryHash;
 }
 
 function governanceService(repository: PostgresArtifactRepository) {
@@ -418,6 +716,7 @@ function commandBase(artifact: CompiledArtifact) {
         'artifact.validate',
         'artifact.approve',
         'artifact.activate',
+        'artifact.revalidate',
         'artifact.deprecate',
         'artifact.rollback',
         'artifact.kill_switch',

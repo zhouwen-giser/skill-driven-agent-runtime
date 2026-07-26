@@ -44,7 +44,17 @@ second workflow authority.
 - [x] 2026-07-27 Implement and test G03 Registry/projection/outbox/flags.
 - [x] 2026-07-27 Implement and test G04 identity/RBAC/governance/audit/idempotency.
 - [x] 2026-07-27 Run working-tree full gate and contract alignment.
-- [ ] Create the meaningful implementation commit and pass the same full gate with `dirty=false`.
+- [x] 2026-07-27 Create meaningful implementation commit `591cbe4` and pass the same full gate with
+      `dirty=false`.
+- [x] 2026-07-27 Obtain first independent read-only review: `REJECTED` with 4 Blocking, 6 Major and
+      1 Minor finding.
+- [x] 2026-07-27 Remediate evidence binding, tenant authorization, monotonic Pointer CAS, late
+      Outbox delivery, immutable projections, aggregate revisions, complete rebuild and JSON bounds.
+- [x] 2026-07-27 Pass focused post-remediation type/contract/unit, 18-migration replay and five real
+      PostgreSQL integration scenarios in an isolated database.
+- [x] 2026-07-27 Pass the post-remediation working-tree full gate: 795 unit/contract, 89 integration,
+      62 E2E, 447-source architecture, migration replay, build and both smokes.
+- [ ] Create the remediation commit and pass the complete gate with `dirty=false`.
 - [ ] Finalize evidence and exact Handoff after independent review.
 - [ ] Obtain new independent read-only review, clean-commit gate and push.
 
@@ -87,11 +97,17 @@ rollback while any P02 authority row or Artifact management audit exists.
 
 ## Review Findings
 
-Pending the required new independent read-only P02 review.
+The first independent review rejected `591cbe4`; its exact decision is preserved in
+`reports/goal/v1.3-p02-review-1.md`. The remediation keeps the Pointer row as a monotonically
+versioned tombstone, binds current validation/approval and trusted tenant evidence in PostgreSQL,
+uses unpublished Outbox rows rather than client timestamps as delivery authority, and rebuilds all
+projection pages while clearing version caches. A new independent reviewer must assess the
+remediation after the complete gate.
 
 ## Completion
 
-Implementation complete; independent review, clean-commit gate and final evidence remain pending.
+Remediation implemented; complete clean-commit gate, new independent review and final evidence
+remain pending.
 
 ## Handoff
 

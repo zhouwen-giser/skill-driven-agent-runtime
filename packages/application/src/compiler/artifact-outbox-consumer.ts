@@ -77,7 +77,6 @@ export class ArtifactOutboxConsumer {
 
 export class ArtifactRegistryProjectionEventHandler implements ArtifactOutboxEventHandler {
   readonly #registry: Pick<ArtifactRegistryService, 'invalidateDependency' | 'rebuildProjection'>;
-  readonly #processed = new Set<string>();
 
   constructor(
     registry: Pick<ArtifactRegistryService, 'invalidateDependency' | 'rebuildProjection'>,
@@ -86,7 +85,6 @@ export class ArtifactRegistryProjectionEventHandler implements ArtifactOutboxEve
   }
 
   async apply(event: ArtifactOutboxEvent): Promise<void> {
-    if (this.#processed.has(event.eventId)) return;
     const dependencyRef = event.payload['dependencyRef'];
     if (typeof dependencyRef === 'string') {
       await this.#registry.invalidateDependency(dependencyRef);
@@ -96,6 +94,5 @@ export class ArtifactRegistryProjectionEventHandler implements ArtifactOutboxEve
     ) {
       await this.#registry.rebuildProjection();
     }
-    this.#processed.add(event.eventId);
   }
 }
