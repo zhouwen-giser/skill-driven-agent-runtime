@@ -65,7 +65,18 @@ second workflow authority.
       real PostgreSQL integration scenarios including actual mixed-event Server startup.
 - [x] 2026-07-27 Pass the second-remediation working-tree complete gate: 795 unit/contract,
       91 integration, 62 E2E, 447-source architecture, 18-migration replay, build and both smokes.
-- [ ] Create an exact second-remediation commit and repeat the complete gate with `dirty=false`.
+- [x] 2026-07-27 Commit second remediation as `e740fa1` and repeat the complete gate with
+      `dirty=false` in 173,409 ms.
+- [x] 2026-07-27 Obtain third independent read-only review: `REJECTED` with 1 Blocking and no
+      Major/Minor findings because IDENTITY allocation order is not commit order.
+- [x] 2026-07-27 Replace IDENTITY allocation with a trigger that acquires a transaction-scoped
+      relevant-event lock before assigning the private cursor value; add concurrent blocker/order
+      regression.
+- [x] 2026-07-27 Pass focused typecheck/lint/contract, 18-migration fresh/rollback/reapply and
+      eight real PostgreSQL integration scenarios for the third remediation.
+- [x] 2026-07-27 Pass the third-remediation working-tree complete gate: 795 unit/contract,
+      92 integration, 62 E2E, 18 migrations, architecture/A2A/OpenAPI/Replay, build and both smokes.
+- [ ] Create an exact third-remediation commit and repeat the complete gate with `dirty=false`.
 - [ ] Finalize evidence and exact Handoff after independent review.
 - [ ] Obtain new independent read-only review, clean-commit gate and push.
 
@@ -82,9 +93,10 @@ second workflow authority.
 Migration 0125 creates exactly the ten canonical P02 tables, required constraints/indexes and
 extends the existing management audit operation constraint for Artifact governance. It reuses
 `cognitive_runtime_outbox`; no second outbox authority is created. A generated
-`outbox_sequence` supplies database-monotonic insertion order for consumer-private cursors without
-claiming the shared `published_at`. Down migration refuses destructive rollback while any P02
-authority row or Artifact management audit exists.
+`outbox_sequence` is assigned only after a relevant-event transaction acquires the P02 advisory
+lock; the lock is retained through commit, making cursor order commit-visible order without claiming
+the shared `published_at`. Down migration refuses destructive rollback while any P02 authority row
+or Artifact management audit exists.
 
 ## Tests
 
@@ -112,6 +124,15 @@ authority row or Artifact management audit exists.
   not a projection lifecycle event. The expectation was corrected to distinguish handled Approval
   from unhandled execution/feedback events; implementation behavior and delivery assertions were
   not weakened.
+- The third independent review demonstrated that IDENTITY allocation can precede commit visibility.
+  The cursor allocator now obtains a transaction-scoped relevant-event advisory lock before reading
+  the current maximum and assigning the next value; rolled-back values are safely reusable and a
+  later transaction cannot publish a higher cursor first.
+- The first formatting command included SQL files unsupported by the configured Prettier parsers and
+  exited before verification; supported files were formatted and the subsequent diff/type/lint/
+  contract command passed.
+- The host has no standalone `psql` binary. The exact isolated database was instead created through
+  the healthy repository Compose PostgreSQL service; no operator database was modified.
 
 ## Review Findings
 
@@ -122,13 +143,16 @@ uses database insertion sequence rather than client timestamps as delivery autho
 all projection pages while clearing version caches. The second independent review rejected
 `ee52158`; its exact decision is preserved in `reports/goal/v1.3-p02-review-2.md`. The second
 remediation gives the projection consumer a private cursor without mutating shared publication,
-invalidates lifecycle caches and makes Lineage creation time an immutable checked projection. A new
-independent reviewer must assess both remediation rounds after the complete gate.
+invalidates lifecycle caches and makes Lineage creation time an immutable checked projection. The
+third independent review rejected `e740fa1`; its exact decision is preserved in
+`reports/goal/v1.3-p02-review-3.md`. Third remediation serializes cursor allocation through relevant
+transaction commit visibility. A new independent reviewer must assess all remediation rounds after
+the complete gate.
 
 ## Completion
 
-Second remediation and its working-tree complete gate pass; exact commit, clean-commit gate, new
-independent review and final evidence remain pending.
+Third remediation working-tree complete evidence passes; exact clean commit, new independent review
+and final evidence remain pending.
 
 ## Handoff
 

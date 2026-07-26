@@ -351,11 +351,14 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   Artifact version.
 - P02 provides an in-process rebuildable projection and performs a real PostgreSQL rebuild/Outbox
   drain during server startup. The projection reads only lifecycle/dependency events in generated
-  database insertion order and advances its own durable CAS cursor. It deliberately never claims the
-  shared `published_at`; execution, feedback and future-package events remain globally unpublished
-  for their actual dispatcher/consumer. Delivery authority does not depend on client-provided
-  `occurred_at`, so a late event remains consumable. Later retrieval/runtime packages may add
-  Redis/FTS/vector projection adapters, but Redis cannot become Artifact or Active Pointer authority.
+  database cursor order and advances its own durable CAS cursor. Relevant-event transactions acquire
+  one advisory lock before assigning `max + 1`, retain it through commit and therefore cannot expose
+  a higher cursor before a lower value becomes visible; rollback safely reuses the uncommitted
+  maximum. The projection deliberately never claims shared `published_at`; execution, feedback and
+  future-package events remain globally unpublished for their actual dispatcher/consumer. Delivery
+  authority does not depend on client-provided `occurred_at`, so a late event remains consumable.
+  Later retrieval/runtime packages may add Redis/FTS/vector projection adapters, but Redis cannot
+  become Artifact or Active Pointer authority.
 - The non-production identity adapter accepts only an explicitly constructed operator context.
   Production construction requires an external identity provider and fails closed without one. P02
   adds no public authentication/API endpoint and does not change the trusted-intranet V1 baseline.

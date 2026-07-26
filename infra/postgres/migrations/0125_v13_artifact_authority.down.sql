@@ -61,6 +61,11 @@ DROP TABLE artifact_lineage;
 DROP TABLE artifact_active_pointer;
 DROP TABLE compiled_artifact;
 ALTER TABLE cognitive_runtime_outbox
+  DROP CONSTRAINT cognitive_runtime_outbox_artifact_sequence_check;
+DROP TRIGGER cognitive_runtime_outbox_artifact_sequence ON cognitive_runtime_outbox;
+DROP FUNCTION sdar_assign_artifact_outbox_sequence();
+DROP INDEX cognitive_runtime_outbox_sequence_uq;
+ALTER TABLE cognitive_runtime_outbox
   DROP COLUMN outbox_sequence;
 DROP FUNCTION sdar_reject_artifact_lineage_mutation();
 DROP FUNCTION sdar_enforce_compiled_artifact_immutability();

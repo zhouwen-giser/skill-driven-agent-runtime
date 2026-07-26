@@ -42,13 +42,15 @@ export class PostgresArtifactOutboxConsumerRepository implements ArtifactOutboxC
   ): Promise<readonly ArtifactOutboxEvent[]> {
     let lastSequence: string | null = null;
     if (lastEventId !== undefined) {
-      const cursorEvent = await this.#pool.query<{ outbox_sequence: string }>(
+      const cursorEvent = await this.#pool.query<{ outbox_sequence: string | null }>(
         `SELECT outbox_sequence::text AS outbox_sequence
          FROM cognitive_runtime_outbox WHERE event_id=$1`,
         [lastEventId],
       );
       const row = cursorEvent.rows[0];
-      if (row === undefined) throw new Error('ARTIFACT_OUTBOX_CURSOR_EVENT_MISSING');
+      if (row?.outbox_sequence === null || row === undefined) {
+        throw new Error('ARTIFACT_OUTBOX_CURSOR_EVENT_MISSING');
+      }
       lastSequence = row.outbox_sequence;
     }
     const result = await this.#pool.query<OutboxRow>(

@@ -716,7 +716,100 @@ describe('P02 PostgreSQL Artifact authority', () => {
       await runtime.close();
     }
   }, 30_000);
+
+  it('serializes relevant Outbox allocation through commit before advancing a cursor', async () => {
+    const firstClient = await pool.connect();
+    const secondClient = await pool.connect();
+    let firstOpen = false;
+    let secondOpen = false;
+    try {
+      await firstClient.query('BEGIN');
+      firstOpen = true;
+      await secondClient.query('BEGIN');
+      secondOpen = true;
+      const firstPid = await firstClient.query<{ pid: number }>(
+        `SELECT pg_backend_pid()::integer AS pid`,
+      );
+      const secondPid = await secondClient.query<{ pid: number }>(
+        `SELECT pg_backend_pid()::integer AS pid`,
+      );
+      const firstInsert = await firstClient.query<{ outbox_sequence: string }>(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at,published_at)
+         VALUES(
+           'artifact-commit-order-first','artifact.deprecated','compiled_artifact',
+           'artifact-commit-order-first',1,'{}'::jsonb,'{}'::jsonb,
+           '2026-07-26T00:20:00.000Z',NULL
+         )
+         RETURNING outbox_sequence::text AS outbox_sequence`,
+      );
+      const secondInsertPromise = secondClient.query<{ outbox_sequence: string }>(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at,published_at)
+         VALUES(
+           'artifact-commit-order-second','artifact.deprecated','compiled_artifact',
+           'artifact-commit-order-second',1,'{}'::jsonb,'{}'::jsonb,
+           '2000-01-01T00:00:00.000Z',NULL
+         )
+         RETURNING outbox_sequence::text AS outbox_sequence`,
+      );
+      const firstBackendPid = firstPid.rows[0]?.pid;
+      const secondBackendPid = secondPid.rows[0]?.pid;
+      if (firstBackendPid === undefined || secondBackendPid === undefined) {
+        throw new Error('Expected PostgreSQL backend identifiers.');
+      }
+      await expect(waitUntilBlockedBy(secondBackendPid, firstBackendPid)).resolves.toBeUndefined();
+
+      await firstClient.query('COMMIT');
+      firstOpen = false;
+      const secondInsert = await secondInsertPromise;
+      await secondClient.query('COMMIT');
+      secondOpen = false;
+
+      expect(Number(secondInsert.rows[0]?.outbox_sequence)).toBe(
+        Number(firstInsert.rows[0]?.outbox_sequence) + 1,
+      );
+      const consumer = new PostgresArtifactOutboxConsumerRepository(pool);
+      const events = await consumer.readAfter(undefined, 10);
+      expect(events.map((event) => event.eventId)).toEqual([
+        'artifact-commit-order-first',
+        'artifact-commit-order-second',
+      ]);
+      const first = events[0];
+      if (first === undefined) throw new Error('Expected first commit-ordered event.');
+      await consumer.advanceCursor(
+        'p02-commit-order-evidence',
+        0,
+        first.eventId,
+        '2026-07-26T00:21:00.000Z',
+      );
+      await expect(consumer.readAfter(first.eventId, 10)).resolves.toEqual([
+        expect.objectContaining({ eventId: 'artifact-commit-order-second' }),
+      ]);
+    } finally {
+      if (firstOpen) await firstClient.query('ROLLBACK');
+      if (secondOpen) await secondClient.query('ROLLBACK');
+      firstClient.release();
+      secondClient.release();
+    }
+  });
 });
+
+async function waitUntilBlockedBy(blockedPid: number, blockerPid: number): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result = await pool.query<{ blocked: boolean }>(
+      `SELECT $2::integer=ANY(pg_blocking_pids($1::integer)) AS blocked`,
+      [blockedPid, blockerPid],
+    );
+    if (result.rows[0]?.blocked === true) return;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 10);
+    });
+  }
+  throw new Error('Expected relevant Outbox insert to wait for the commit-order lock.');
+}
 
 function candidatePersistence() {
   const artifact = structuredClone(fixture.artifacts[0]);

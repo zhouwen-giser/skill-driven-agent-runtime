@@ -34,7 +34,14 @@ All notable changes to this project are documented here. The format follows Keep
 - Added real Server-startup regression with mixed handled/unhandled Outbox events, lifecycle cache
   transitions and database-rejected Lineage mutation. Focused verification passes; the
   second-remediation working-tree full gate passes 795 unit/contract, 91 integration and 62 E2E
-  tests; the clean-commit gate and a new independent review remain pending.
+  tests, and exact commit `e740fa1` passes the same gate with `dirty=false`.
+- The third independent review rejected `e740fa1` with one Blocking finding: IDENTITY allocation can
+  be observed out of transaction commit order. Relevant-event cursor allocation now acquires a
+  transaction-scoped advisory lock before assigning `max + 1`, with a concurrent PostgreSQL
+  regression proving the second producer waits and remains readable after cursor advance. Focused
+  type/lint/contract, 18-migration replay and 8/8 real integration scenarios pass. The complete
+  working-tree gate passes 795 unit/contract, 92 integration and 62 E2E tests plus all build/smoke
+  stages.
 
 ## SDAR v1.3 P00 foundation gate — complete
 

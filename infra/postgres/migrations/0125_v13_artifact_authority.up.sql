@@ -26,9 +26,76 @@ END
 $$;
 
 ALTER TABLE cognitive_runtime_outbox
-  ADD COLUMN outbox_sequence bigint GENERATED ALWAYS AS IDENTITY;
+  ADD COLUMN outbox_sequence bigint;
+
+WITH ordered_artifact_events AS (
+  SELECT event_id,row_number() OVER (ORDER BY occurred_at,event_id) AS outbox_sequence
+  FROM cognitive_runtime_outbox
+  WHERE event_type IN (
+    'artifact.validation_started',
+    'artifact.validation_completed',
+    'artifact.approval_recorded',
+    'artifact.activated',
+    'artifact.revalidating',
+    'artifact.deprecated'
+  )
+     OR payload ? 'dependencyRef'
+)
+UPDATE cognitive_runtime_outbox event
+SET outbox_sequence=ordered.outbox_sequence
+FROM ordered_artifact_events ordered
+WHERE event.event_id=ordered.event_id;
+
 CREATE UNIQUE INDEX cognitive_runtime_outbox_sequence_uq
-  ON cognitive_runtime_outbox(outbox_sequence);
+  ON cognitive_runtime_outbox(outbox_sequence)
+  WHERE outbox_sequence IS NOT NULL;
+
+CREATE FUNCTION sdar_assign_artifact_outbox_sequence()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.event_type IN (
+    'artifact.validation_started',
+    'artifact.validation_completed',
+    'artifact.approval_recorded',
+    'artifact.activated',
+    'artifact.revalidating',
+    'artifact.deprecated'
+  )
+     OR NEW.payload ? 'dependencyRef'
+  THEN
+    -- The transaction-scoped lock is acquired before allocating the cursor value and is retained
+    -- through commit. Relevant producers therefore cannot expose a higher cursor value before an
+    -- earlier value becomes visible; rollback safely reuses the uncommitted maximum.
+    PERFORM pg_advisory_xact_lock(53444152,125);
+    SELECT COALESCE(MAX(event.outbox_sequence),0)+1
+    INTO NEW.outbox_sequence
+    FROM cognitive_runtime_outbox event;
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER cognitive_runtime_outbox_artifact_sequence
+BEFORE INSERT ON cognitive_runtime_outbox
+FOR EACH ROW EXECUTE FUNCTION sdar_assign_artifact_outbox_sequence();
+
+ALTER TABLE cognitive_runtime_outbox
+  ADD CONSTRAINT cognitive_runtime_outbox_artifact_sequence_check CHECK (
+    (
+      event_type NOT IN (
+        'artifact.validation_started',
+        'artifact.validation_completed',
+        'artifact.approval_recorded',
+        'artifact.activated',
+        'artifact.revalidating',
+        'artifact.deprecated'
+      )
+      AND NOT (payload ? 'dependencyRef')
+    )
+    OR outbox_sequence IS NOT NULL
+  );
 
 CREATE TABLE compiled_artifact (
   artifact_id text PRIMARY KEY,

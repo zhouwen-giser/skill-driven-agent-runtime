@@ -35,10 +35,11 @@ fully rebuildable.
 - Registry projections are Ports backed by rebuildable cache implementations. Cache misses and
   startup rebuild read PostgreSQL; cache state never authorizes activation. Every lifecycle event
   that can change the projected version status invalidates or rebuilds that version.
-- Artifact projection delivery uses the existing Outbox's database-generated insertion sequence and
-  a consumer-private durable cursor. It handles only projection lifecycle/dependency events and never
-  mutates shared `published_at`, leaving unrelated events available to their actual publishers and
-  consumers.
+- Artifact projection delivery uses the existing Outbox and a consumer-private durable cursor.
+  Relevant-event inserts acquire a transaction-scoped advisory lock before allocating `max + 1`, so
+  cursor order is commit-visible order even under concurrent producers. The projection handles only
+  lifecycle/dependency events and never mutates shared `published_at`, leaving unrelated events
+  available to their actual publishers and consumers.
 - Production governance fails closed without an `OperatorIdentityPort`. The local adapter requires
   explicit non-production construction and never trusts a request-body actor identifier.
 - Feature flags and queue/event names are the frozen P02 values. P02 declares and validates them but
