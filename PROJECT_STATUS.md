@@ -1,5 +1,15 @@
 # Project Status
 
+SDAR v1.2.3 G00–G15 are complete (2026-07-26); G16 Replay/Shadow is next. G15 provides strict
+cognitive management write envelopes, optional non-breaking bearer authentication, durable
+PostgreSQL audit/idempotency claims, exact operational reads, real Console governance and routing-only
+A2A `INPUT_REQUIRED` continuation. Existing Session/Knowledge/Capability/Experience records remain
+authority and no Console route mutates Provider, Outcome or Active Plan directly. Affected gates pass
+597 unit, 157 contract, 84 real integration, 62 real E2E, 152 OpenAPI operations, 419-source
+architecture, A2A MUST 74/74, production build, isolated Server/Console smoke and all 16 migrations
+through 0123. Implementation `d77794a` is committed locally for Draft PR #9; no merge, tag or Ready
+transition is authorized before G17.
+
 SDAR v1.2.3 G00–G14 are complete (2026-07-26); G15 Management/Console/A2A integration is next. G14
 adds a governed decorator over the unchanged base Planner with distinct off/shadow/advisory/frozen
 low-risk-active modes, bounded fail-open replanning and immutable Contract/readiness/terminal

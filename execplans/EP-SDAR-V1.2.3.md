@@ -1,6 +1,6 @@
 # EP-SDAR-V1.2.3 — Cognitive Planning Runtime
 
-Status: ACTIVE — G00–G14 are complete; G15 is next
+Status: ACTIVE — G00–G15 are complete; G16 is next
 
 Branch: `feature/v1.2.3-cognitive-planning-runtime`
 
@@ -96,7 +96,7 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 | G12  | completed   | `59f20f6` | 568 unit, 155 contract, 82 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g12-completion.md` | none           | Active-only governed knowledge handed to G13                   |
 | G13  | completed   | `3201325` | 575 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g13-completion.md` | none           | bounded Active-only retrieval handed to G14                    |
 | G14  | completed   | `1bd52dd` | 587 unit, 155 contract, 83 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g14-completion.md` | none           | governed usage and rollout evidence handed to G15/G16          |
-| G15  | not_started | —         | —                                                                                 | —                                | dependency set | API/Console/A2A integration                                    |
+| G15  | completed   | `d77794a` | 597 unit, 157 contract, 84 real integration, 62 real E2E, migration/build/smoke   | `reports/goal/g15-completion.md` | none           | audited integration handed to G16                              |
 | G16  | not_started | —         | —                                                                                 | —                                | dependency set | replay/shadow/evaluation                                       |
 | G17  | not_started | —         | —                                                                                 | —                                | G00–G16        | hardening/release gates                                        |
 
@@ -221,6 +221,18 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
   changing product code or assertions.
 - 2026-07-26: G14 Server smoke correctly rejected the protected 55432 operator database's historical
   ledger. An explicitly named empty smoke database passed and was deleted; operator data was untouched.
+- 2026-07-26: G15 exposed a baseline tension between the package's `auth` requirement and V1's
+  trusted-intranet/no-auth contract. ADR-115 preserves the default and adds a deployment-configured,
+  non-breaking bearer guard; `actorId` remains only an audit label in the default mode.
+- 2026-07-26: the old A2A interaction projection copied complete Candidate payloads into public Task
+  metadata. G15 reduced it to routing fields and kept full Contract/Plan/Understanding evidence on
+  trusted Management reads.
+- 2026-07-26: final CAS review found Capability and dead-letter write envelopes initially recorded
+  `expectedVersion` without enforcing it. Summary/Card transactions now compare the active revision,
+  while an unreplayed dead letter has version 0 under its existing one-shot repository lock.
+- 2026-07-26: the first production Console build found the new governance section missing from a
+  narrowed lookup-section exclusion even though root TypeScript passed. The route union was corrected;
+  the production build and all affected gates then passed.
 
 ## Decision Log
 
@@ -297,6 +309,12 @@ the implementation still preserves Goal-specific commits and avoids overlapping 
 - 2026-07-26: usage attribution is exact: fallback retrieval has no affected Skill Goal, while validated
   enriched/shadow plans record their affected goals. Candidate/usage, action/validation and terminal
   Outcome linkage commit in the existing owning PostgreSQL transactions.
+- 2026-07-26: G15 uses one `CognitiveManagementController` for optional authorization and a durable
+  audit/idempotency claim before every cognitive write. Migration 0123 is audit-only; existing
+  Session, Knowledge, Capability and Experience records remain business authority.
+- 2026-07-26: A2A continuation uses one `InteractiveActionRouter`, selecting the current Planning
+  Session before Goal clarification and applying only the frozen action vocabulary at the exact
+  observed version. The projection exposes no Candidate or private Understanding content.
 
 ## Implementation Steps
 
@@ -394,20 +412,24 @@ G14 uses original repository TypeScript and existing dependencies. Mastra Contex
 Codex/Claude interactive-planning ideas remain conceptual references only; no source was copied or
 translated and no dependency metadata changed.
 
+G15 also uses original repository TypeScript and existing locked dependencies. No upstream source was
+copied or translated, no dependency was added, and the source lock, license ledger, NOTICE and SBOM
+remain unchanged.
+
 ## Migration / API / Console Status
 
-- Migration: additive 0108–0122 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
+- Migration: additive 0108–0123 ledger is implemented. The isolated real PostgreSQL 17 + pgvector
   migration path passed fresh apply, idempotency, rollback/reapply, guarded reset and rogue-ledger
-  rejection through all fifteen migrations.
-- OpenAPI: 147 management operations include Capability, Understanding, Goal/Plan review, Experience
-  Episode/Observation/Reflection/dead-letter reads, explicit replay, Candidate Task Type and Capability
-  Pattern/Gap reads.
-- A2A: the Agent Card remains snapshot-only; Task `io.sdar/interaction` projects Goal and Plan review
-  boundaries. The real path captures four correction Facts, scoped preference deletion and unique
-  Episode hashes while remaining `INPUT_REQUIRED` until explicit confirmation.
-- Console: the Task panel operates the real Planning Session DAG, validation, diff, hints and actions
-  and links Correction/Episode/Observation/Reflection evidence. It remains a projection over
-  PostgreSQL/Application authority; broader G15 integration remains open.
+  rejection through all sixteen migrations.
+- OpenAPI: 152 management operations add exact Summary/Card/Episode history, Planning Heuristic
+  inventory and cognitive action audit. Every cognitive write has the strict
+  actor/reason/expectedVersion/idempotency envelope.
+- A2A: the Agent Card remains snapshot-only; `A2AInteractionProjection.toInputRequired` carries only
+  routing metadata and `InteractiveActionRouter` resumes the current session through the existing
+  `INPUT_REQUIRED` boundary.
+- Console: Task Understanding, Goal Contract and Plan DAG review plus Experience, Knowledge, Task Type
+  and Capability governance operate over real APIs. No route mutates Provider, Outcome or Active Plan
+  authority directly.
 
 ## Branch / HEAD / Main / Draft PR
 
@@ -417,6 +439,7 @@ translated and no dependency metadata changed.
 - G13 implementation: `1879ff1aca1e7ac6806f111f951909db4d2b698f`
 - G13 relation correction HEAD: `3201325d7cd9c59d047301b0ef1f16188a4adff4`
 - G14 implementation HEAD: `1bd52dd2fc2f1a98ee7da92c37e7c2e4c3b744cd`
+- G15 implementation HEAD: `d77794a2620362bc4f59f2021283d61a164b5139`
 - Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9>
 
 ## Changed Files
@@ -465,17 +488,19 @@ translated and no dependency metadata changed.
   disclosure, complete 20K budget, migration 0121 and real P95 evidence.
 - G14 implementation `1bd52dd`: base-planner decorator, four governed injection modes, bounded
   fail-open fallback, atomic Candidate/usage/action/Outcome lineage, migration 0122 and runtime wiring.
+- G15 implementation `d77794a`: strict cognitive Management writes, optional bearer plus durable
+  audit gate, exact read APIs, operational governance Console, routing-only A2A continuation,
+  migration 0123 and CAS/privacy regressions.
 
 ## Open Blockers
 
-None for G00–G14. The former platform approval and worktree-hygiene blockers are retained in the Goal
-reports and were resolved before the real 79-integration/62-E2E verification. G15–G17 remain ordinary
+None for G00–G15. Retained failed attempts are documented in the Goal reports. G16–G17 remain ordinary
 unfinished work, not blockers.
 
 ## Next Execution Step
 
-Publish the G14 evidence head and update Draft PR #9 without changing Draft status, then implement G15
-credential-free Management/Console/A2A projections over the completed cognitive authority chain.
+Publish the G15 evidence head and update Draft PR #9 without changing Draft status, then implement G16
+side-effect-free replay/shadow datasets, metrics and Promotion provenance.
 
 ## Outcomes and Retrospective
 
@@ -503,4 +528,6 @@ Session usage evidence, passing 575 unit, 155 contract, 83 integration, 62 E2E, 
 build/smoke and migrations through 0121 with measured local P95 4.476 ms.
 G14 adds governed Experience-enriched planning and complete usage lineage, passing 587 unit, 155
 contract, 83 integration, 62 E2E, 147 OpenAPI, 411-source architecture, build/smoke and migrations
-through 0122. G15–G17 remain open.
+through 0122. G15 completes audited API/Console/A2A integration, passing 597 unit, 157 contract, 84
+integration, 62 E2E, 152 OpenAPI, 419-source architecture, A2A MUST 74/74, production build, isolated
+Server smoke and migrations through 0123. G16–G17 remain open.
