@@ -20,20 +20,30 @@ export {
   type ArtifactDependencySnapshot,
   type ArtifactDomainErrorCode,
   type ArtifactLineage,
+  type ArtifactRiskLevel,
   type ArtifactRuntimeBinding,
+  type ArtifactScope,
   type CaseArtifactDefinition,
   type CompiledArtifact,
   type CompiledArtifactDefinition,
   type CompiledArtifactStatus,
   type CompiledArtifactType,
+  type CompletionContractTemplate,
   type ConditionExpression,
+  type CriterionTemplate,
   type DecisionOutput,
   type DecisionRuleArtifactDefinition,
+  type GoalPatternTemplate,
   type IntentRouteArtifactDefinition,
   type ModelRouteArtifactDefinition,
   type PlanTemplateArtifactDefinition,
+  type RecoveryBranchTemplate,
+  type SkillGoalDependencyTemplate,
+  type SkillGoalGraphTemplate,
   type SkillGoalNodeTemplate,
+  type TemplateParameterDefinition,
 } from './compiler/index.js';
+export * from './compiler/artifact-candidate-generation.js';
 export * from './compiler/experience-compilation.js';
 export * from './errors.js';
 export * from './goal.js';

@@ -6,4 +6,5 @@ export * from './context-serial-executor.js';
 export * from './cognitive/experience-workers.js';
 export * from './cognitive/observation-workers.js';
 export * from './cognitive/reflection-workers.js';
+export * from './compiler/candidate-generation-workers.js';
 export * from './compiler/experience-compilation-workers.js';
