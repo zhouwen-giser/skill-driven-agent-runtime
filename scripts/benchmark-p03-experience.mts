@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:zlib';
 
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -41,11 +42,29 @@ for (const traceCount of [1_000, 10_000]) {
   );
   const elapsedMs = performance.now() - startedAt;
   const afterHeapBytes = process.memoryUsage().heapUsed;
+  const definitionJson = JSON.stringify({
+    schemaVersion: EXPERIENCE_COMPILATION_CONTRACT_VERSION,
+    cohort: result.cohort,
+    variants: result.variants,
+    discoveredPattern: result.discoveredPattern,
+    workflowPattern: result.workflowPattern,
+  });
+  const compressed = gzipSync(definitionJson);
+  const brotliCompressed = brotliCompressSync(definitionJson, {
+    params: {
+      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+    },
+  });
   miningResults.push({
     traceCount,
     elapsedMs: rounded(elapsedMs),
     tracesPerSecond: rounded((traceCount / elapsedMs) * 1_000),
     heapDeltaBytes: afterHeapBytes - beforeHeapBytes,
+    definitionBytes: Buffer.byteLength(definitionJson),
+    compressedDefinitionBytes: compressed.byteLength,
+    base64CompressedDefinitionBytes: Buffer.byteLength(compressed.toString('base64')),
+    brotliDefinitionBytes: brotliCompressed.byteLength,
+    base64BrotliDefinitionBytes: Buffer.byteLength(brotliCompressed.toString('base64')),
     variantCount: result.variants.length,
     orderingConstraintCount: result.discoveredPattern.orderingConstraints.length,
     parallelCandidateCount: result.discoveredPattern.parallelCandidates.length,

@@ -169,6 +169,12 @@ import {
   InMemoryArtifactActiveIndexProjection,
   ArtifactOutboxConsumer,
   ArtifactRegistryProjectionEventHandler,
+  CompilationRunReconciler,
+  DeterministicProcessMiner,
+  ExperienceCompilationTriggerDispatcher,
+  ExperienceNormalizationService,
+  ExperienceTraceNormalizer,
+  ProcessMiningService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -288,6 +294,9 @@ import {
   PostgresUserGoalRuntimeRepository,
   PostgresArtifactRepository,
   PostgresArtifactOutboxConsumerRepository,
+  PostgresCompilationRunRepository,
+  PostgresExperienceCompilationRepository,
+  PostgresExperienceCompilationTriggerSource,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -304,6 +313,8 @@ import {
   BullMqObservationWorker,
   BullMqReflectionQueue,
   BullMqReflectionWorker,
+  BullMqCompilationQueue,
+  BullMqCompilationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -445,6 +456,11 @@ export async function startServerRuntime(
   const artifactAuthorityReady = await pool.query<{ installed: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM schema_migration WHERE version='0125_v13_artifact_authority'
+     ) AS installed`,
+  );
+  const experienceCompilationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0126_v13_experience_compilation'
      ) AS installed`,
   );
   let artifactRegistry: ArtifactRegistryService | undefined;
@@ -897,6 +913,63 @@ export async function startServerRuntime(
     experienceReflector,
     `reflection-worker-${randomUUID()}`,
   );
+  const experienceCompilation =
+    experienceCompilationReady.rows[0]?.installed === true
+      ? (() => {
+          const repository = new PostgresExperienceCompilationRepository(pool);
+          const runs = new PostgresCompilationRunRepository(pool);
+          const miner = new DeterministicProcessMiner();
+          const normalizationQueue = new BullMqCompilationQueue(options.redis, 'normalization');
+          const miningQueue = new BullMqCompilationQueue(options.redis, 'process_mining');
+          const normalization = new ExperienceNormalizationService({
+            runs,
+            repository,
+            normalizer: new ExperienceTraceNormalizer(),
+            clock,
+            retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+          });
+          const mining = new ProcessMiningService({
+            runs,
+            repository,
+            miner,
+            clock,
+            retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+          });
+          return {
+            dispatcher: new ExperienceCompilationTriggerDispatcher({
+              source: new PostgresExperienceCompilationTriggerSource(pool),
+              runs,
+              normalizationQueue,
+              miningQueue,
+              miner,
+            }),
+            normalizationReconciler: new CompilationRunReconciler({
+              runs,
+              queue: normalizationQueue,
+              runType: 'normalization',
+            }),
+            miningReconciler: new CompilationRunReconciler({
+              runs,
+              queue: miningQueue,
+              runType: 'process_mining',
+            }),
+            normalizationQueue,
+            miningQueue,
+            normalizationWorker: new BullMqCompilationWorker(
+              options.redis,
+              'normalization',
+              normalization,
+              `experience-normalization-worker-${randomUUID()}`,
+            ),
+            miningWorker: new BullMqCompilationWorker(
+              options.redis,
+              'process_mining',
+              mining,
+              `process-mining-worker-${randomUUID()}`,
+            ),
+          };
+        })()
+      : undefined;
   const taskUnderstanding =
     options.taskUnderstanding === undefined
       ? undefined
@@ -3536,6 +3609,9 @@ export async function startServerRuntime(
       .then(() => experienceReconciler.requeue(clock.now()))
       .then(() => observationReconciler.requeue(clock.now()))
       .then(() => reflectionReconciler.requeue(clock.now()))
+      .then(() => experienceCompilation?.dispatcher.dispatch() ?? 0)
+      .then(() => experienceCompilation?.normalizationReconciler.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.miningReconciler.requeue(clock.now()) ?? 0)
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3655,6 +3731,11 @@ export async function startServerRuntime(
   });
   try {
     await cognitiveRuntimeReconciler.rebuild();
+    if (experienceCompilation !== undefined) {
+      await experienceCompilation.dispatcher.dispatch(500);
+      await experienceCompilation.normalizationReconciler.requeue(clock.now(), 500);
+      await experienceCompilation.miningReconciler.requeue(clock.now(), 500);
+    }
   } catch (error: unknown) {
     process.stderr.write(
       `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3664,6 +3745,8 @@ export async function startServerRuntime(
   experienceWorker.start();
   observationWorker.start();
   reflectionWorker.start();
+  experienceCompilation?.normalizationWorker.start();
+  experienceCompilation?.miningWorker.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -4003,6 +4086,8 @@ export async function startServerRuntime(
         await experienceWorker.close();
         await observationWorker.close();
         await reflectionWorker.close();
+        await experienceCompilation?.normalizationWorker.close();
+        await experienceCompilation?.miningWorker.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
@@ -4010,6 +4095,8 @@ export async function startServerRuntime(
         await experienceQueue.close();
         await observationQueue.close();
         await reflectionQueue.close();
+        await experienceCompilation?.normalizationQueue.close();
+        await experienceCompilation?.miningQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -4039,12 +4126,16 @@ export async function startServerRuntime(
     await experienceWorker.close();
     await observationWorker.close();
     await reflectionWorker.close();
+    await experienceCompilation?.normalizationWorker.close();
+    await experienceCompilation?.miningWorker.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
     await experienceQueue.close();
     await observationQueue.close();
     await reflectionQueue.close();
+    await experienceCompilation?.normalizationQueue.close();
+    await experienceCompilation?.miningQueue.close();
     await queue.close();
     await pool.end();
     throw error;

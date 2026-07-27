@@ -25,6 +25,7 @@ export interface CompilationRun {
   readonly runId: string;
   readonly runType: CompilationRunType;
   readonly sourceEpisodeId?: string;
+  readonly sourceEventId?: string;
   readonly tenantId?: string;
   readonly userScopeId?: string;
   readonly cohortFingerprint?: string;
@@ -68,6 +69,10 @@ export interface ExperienceCompilationRepository {
     result: ProcessMiningResult,
     createdAt: string,
   ): Promise<Readonly<{ workflowPattern: WorkflowPattern; inserted: boolean }>>;
+  findWorkflowPattern(
+    tenantId: string,
+    workflowPatternId: string,
+  ): Promise<WorkflowPattern | undefined>;
   deleteUserScope(userScopeId: string, actorId: string): Promise<number>;
 }
 
@@ -76,12 +81,14 @@ export interface CompilationRunRepository {
     sourceEpisodeId: string,
     now: string,
     maxAttempts?: number,
+    sourceEventId?: string,
   ): Promise<CompilationRun>;
   createProcessMiningRun(
     cohort: CohortDefinition,
     cohortFingerprint: string,
     now: string,
     maxAttempts?: number,
+    sourceEventId?: string,
   ): Promise<CompilationRun>;
   claim(
     runType: CompilationRunType,
@@ -115,6 +122,73 @@ export interface CompilationRunRepository {
 
 export interface CompilationWakeQueuePort {
   enqueue(runId: string): Promise<void>;
+}
+
+export type ExperienceCompilationTrigger =
+  | Readonly<{
+      triggerId: string;
+      runType: 'normalization';
+      sourceEpisodeId: string;
+      occurredAt: string;
+    }>
+  | Readonly<{
+      triggerId: string;
+      runType: 'process_mining';
+      cohort: CohortDefinition;
+      occurredAt: string;
+    }>;
+
+export interface ExperienceCompilationTriggerSource {
+  listPending(limit?: number): Promise<readonly ExperienceCompilationTrigger[]>;
+}
+
+export class ExperienceCompilationTriggerDispatcher {
+  readonly #source: ExperienceCompilationTriggerSource;
+  readonly #runs: CompilationRunRepository;
+  readonly #normalizationQueue: CompilationWakeQueuePort;
+  readonly #miningQueue: CompilationWakeQueuePort;
+  readonly #miner: Pick<DeterministicProcessMiner, 'fingerprintCohort'>;
+
+  constructor(
+    dependencies: Readonly<{
+      source: ExperienceCompilationTriggerSource;
+      runs: CompilationRunRepository;
+      normalizationQueue: CompilationWakeQueuePort;
+      miningQueue: CompilationWakeQueuePort;
+      miner: Pick<DeterministicProcessMiner, 'fingerprintCohort'>;
+    }>,
+  ) {
+    this.#source = dependencies.source;
+    this.#runs = dependencies.runs;
+    this.#normalizationQueue = dependencies.normalizationQueue;
+    this.#miningQueue = dependencies.miningQueue;
+    this.#miner = dependencies.miner;
+  }
+
+  async dispatch(limit = 100): Promise<number> {
+    const triggers = await this.#source.listPending(limit);
+    for (const trigger of triggers) {
+      if (trigger.runType === 'normalization') {
+        const run = await this.#runs.createNormalizationRun(
+          trigger.sourceEpisodeId,
+          trigger.occurredAt,
+          5,
+          trigger.triggerId,
+        );
+        await this.#normalizationQueue.enqueue(run.runId);
+      } else {
+        const run = await this.#runs.createProcessMiningRun(
+          trigger.cohort,
+          this.#miner.fingerprintCohort(trigger.cohort),
+          trigger.occurredAt,
+          5,
+          trigger.triggerId,
+        );
+        await this.#miningQueue.enqueue(run.runId);
+      }
+    }
+    return triggers.length;
+  }
 }
 
 export class ExperienceNormalizationService {
@@ -324,6 +398,20 @@ function cohortFromPayload(value: unknown): CohortDefinition {
     throw codedError('PROCESS_MINING_COHORT_PAYLOAD_INVALID');
   }
   const input = value as Readonly<Record<string, unknown>>;
+  assertExactRecordKeys(
+    input,
+    [
+      'tenantId',
+      'taskTypeId',
+      'goalFingerprint',
+      'capabilityFingerprint',
+      'environmentClass',
+      'deviceClass',
+      'timeRange',
+      'minimumCompleteness',
+    ],
+    'PROCESS_MINING_COHORT_PAYLOAD_INVALID',
+  );
   const tenantId = requiredString(input['tenantId'], 'tenantId');
   const taskTypeId = requiredString(input['taskTypeId'], 'taskTypeId');
   const goalFingerprint = optionalString(input['goalFingerprint']);
@@ -345,6 +433,7 @@ function cohortFromPayload(value: unknown): CohortDefinition {
       throw codedError('PROCESS_MINING_TIME_RANGE_INVALID');
     }
     const timeRangeInput = timeRangeValue as Readonly<Record<string, unknown>>;
+    assertExactRecordKeys(timeRangeInput, ['from', 'to'], 'PROCESS_MINING_TIME_RANGE_INVALID');
     timeRange = {
       from: requiredString(timeRangeInput['from'], 'timeRange.from'),
       to: requiredString(timeRangeInput['to'], 'timeRange.to'),
@@ -360,6 +449,14 @@ function cohortFromPayload(value: unknown): CohortDefinition {
     ...(timeRange === undefined ? {} : { timeRange }),
     minimumCompleteness,
   });
+}
+
+function assertExactRecordKeys(
+  value: Readonly<Record<string, unknown>>,
+  allowed: readonly string[],
+  code: string,
+): void {
+  if (Object.keys(value).some((key) => !allowed.includes(key))) throw codedError(code);
 }
 
 function optionalString(value: unknown): string | undefined {

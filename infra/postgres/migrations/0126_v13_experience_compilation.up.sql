@@ -41,6 +41,7 @@ CREATE TABLE compilation_run (
   run_id text PRIMARY KEY,
   run_type text NOT NULL CHECK (run_type IN ('normalization', 'process_mining')),
   source_episode_id text REFERENCES goal_experience_episode(episode_id) ON DELETE CASCADE,
+  source_event_id text UNIQUE REFERENCES cognitive_runtime_outbox(event_id),
   tenant_id text,
   user_scope_id text,
   cohort_fingerprint text CHECK (

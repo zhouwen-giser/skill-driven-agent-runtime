@@ -12,6 +12,7 @@ import {
 } from '../../domain/src/index.js';
 import {
   CompilationRunReconciler,
+  ExperienceCompilationTriggerDispatcher,
   ExperienceNormalizationService,
   ProcessMiningService,
   type CompilationRun,
@@ -122,6 +123,56 @@ describe('Experience normalization durable orchestration', () => {
 
     await expect(reconciler.requeue(now)).resolves.toBe(1);
     expect(enqueue).toHaveBeenCalledWith('normalization-run-1');
+  });
+
+  it('dispatches formal Episode and Trace events into the two durable compiler queues', async () => {
+    const cohort = createCohortDefinition({
+      tenantId: 'tenant-1',
+      taskTypeId: 'task-type-1',
+      minimumCompleteness: 0.5,
+    });
+    const miner = new DeterministicProcessMiner();
+    const normalizationRun = leasedRun();
+    const processMiningRun = miningRun(miner.fingerprintCohort(cohort), cohort);
+    const createNormalizationRun = vi.fn(() => Promise.resolve(normalizationRun));
+    const createProcessMiningRun = vi.fn(() => Promise.resolve(processMiningRun));
+    const enqueueNormalization = vi.fn(() => Promise.resolve());
+    const enqueueMining = vi.fn(() => Promise.resolve());
+    const dispatcher = new ExperienceCompilationTriggerDispatcher({
+      source: {
+        listPending: () =>
+          Promise.resolve([
+            {
+              triggerId: 'event-episode-1',
+              runType: 'normalization' as const,
+              sourceEpisodeId: 'episode-1',
+              occurredAt: now,
+            },
+            {
+              triggerId: 'event-trace-1',
+              runType: 'process_mining' as const,
+              cohort,
+              occurredAt: now,
+            },
+          ]),
+      },
+      runs: runRepository({ createNormalizationRun, createProcessMiningRun }),
+      normalizationQueue: { enqueue: enqueueNormalization },
+      miningQueue: { enqueue: enqueueMining },
+      miner,
+    });
+
+    await expect(dispatcher.dispatch()).resolves.toBe(2);
+    expect(createNormalizationRun).toHaveBeenCalledWith('episode-1', now, 5, 'event-episode-1');
+    expect(createProcessMiningRun).toHaveBeenCalledWith(
+      cohort,
+      miner.fingerprintCohort(cohort),
+      now,
+      5,
+      'event-trace-1',
+    );
+    expect(enqueueNormalization).toHaveBeenCalledWith(normalizationRun.runId);
+    expect(enqueueMining).toHaveBeenCalledWith(processMiningRun.runId);
   });
 
   it('mines and persists a leased cohort run with the exact cohort fingerprint', async () => {
@@ -360,6 +411,7 @@ function compilationRepository(
         workflowPattern: result.workflowPattern,
         inserted: true,
       }),
+    findWorkflowPattern: () => Promise.resolve(undefined),
     deleteUserScope: () => Promise.resolve(0),
     ...overrides,
   };

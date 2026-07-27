@@ -15,8 +15,12 @@ type CompilationWake = z.infer<typeof CompilationWakeSchema>;
 export class BullMqCompilationQueue implements CompilationWakeQueuePort {
   readonly #queue: Queue<CompilationWake>;
 
-  constructor(connection: RedisConnectionConfig, runType: CompilationRunType) {
-    this.#queue = new Queue(queueName(runType), {
+  constructor(
+    connection: RedisConnectionConfig,
+    runType: CompilationRunType,
+    queueNameOverride?: string,
+  ) {
+    this.#queue = new Queue(queueName(runType, queueNameOverride), {
       connection: toConnectionOptions(connection),
       defaultJobOptions: { attempts: 1, removeOnComplete: true, removeOnFail: false },
     });
@@ -54,9 +58,10 @@ export class BullMqCompilationWorker {
       process(run: CompilationRun, workerId: string): Promise<void>;
     }>,
     workerId: string,
+    queueNameOverride?: string,
   ) {
     this.#worker = new Worker<CompilationWake, void>(
-      queueName(runType),
+      queueName(runType, queueNameOverride),
       async (job: Job<CompilationWake>) => {
         CompilationWakeSchema.parse(job.data);
         const claimed = await service.claim(workerId, 10);
@@ -80,9 +85,10 @@ export class BullMqCompilationWorker {
   }
 }
 
-function queueName(
-  runType: CompilationRunType,
-): (typeof SDAR_V13_ARTIFACT_QUEUES)[0] | (typeof SDAR_V13_ARTIFACT_QUEUES)[1] {
+function queueName(runType: CompilationRunType, queueNameOverride?: string): string {
+  if (queueNameOverride !== undefined) {
+    return z.string().min(1).max(256).parse(queueNameOverride);
+  }
   return runType === 'normalization' ? SDAR_V13_ARTIFACT_QUEUES[0] : SDAR_V13_ARTIFACT_QUEUES[1];
 }
 

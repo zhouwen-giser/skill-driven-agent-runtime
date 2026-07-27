@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { brotliCompressSync, brotliDecompressSync, constants as zlibConstants } from 'node:zlib';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
@@ -7,10 +8,12 @@ import {
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
   createCohortDefinition,
   createExperienceTrace,
+  createWorkflowPattern,
   type CohortDefinition,
   type ExperienceTrace,
   type ExperienceTraceBody,
   type ExperienceTraceEvent,
+  type WorkflowPattern,
 } from '../../../domain/src/index.js';
 import type { JsonObject, JsonValue } from '../../../domain/src/compiler/contracts.js';
 import type {
@@ -18,6 +21,8 @@ import type {
   CompilationRunRepository,
   CompilationRunType,
   ExperienceCompilationRepository,
+  ExperienceCompilationTrigger,
+  ExperienceCompilationTriggerSource,
   ProcessMiningResult,
 } from '../../../application/src/compiler/experience-compilation.js';
 import type { ExperienceTraceNormalizationReport } from '../../../application/src/compiler/experience-normalizer.js';
@@ -79,6 +84,74 @@ const TraceBodySchema = z
   })
   .strict();
 const StringArraySchema = z.array(z.string());
+const PatternQualitySchema = z
+  .object({
+    support: z.number(),
+    successRate: z.number(),
+    traceCoverage: z.number(),
+    fitness: z.number(),
+    precisionProxy: z.number(),
+    environmentCoverage: z.number(),
+    contradictionRate: z.number(),
+    generalization: z.number(),
+    mandatoryThreshold: z.number(),
+  })
+  .strict();
+const RecoveryPatternSchema = z
+  .object({
+    triggerActivity: z.string(),
+    resumeActivity: z.string().optional(),
+    activitySequence: z.array(z.string()),
+    supportRefs: z.array(z.string()),
+  })
+  .strict();
+const WorkflowPatternSchema = z
+  .object({
+    workflowPatternId: z.string(),
+    taskTypeId: z.string(),
+    activityPatterns: z.array(
+      z
+        .object({
+          activity: z.string(),
+          required: z.boolean(),
+          supportRate: z.number(),
+          capabilityRefs: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    dependencyPatterns: z.array(
+      z
+        .object({
+          predecessorActivity: z.string(),
+          successorActivity: z.string(),
+          relation: z.enum(['direct_follows', 'precedes', 'parallel']),
+          supportRefs: z.array(z.string()),
+          contradictionRefs: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    recoveryPatterns: z.array(RecoveryPatternSchema),
+    sourcePatternRef: z.string(),
+    sourceTraceRefs: z.array(z.string()),
+    quality: PatternQualitySchema,
+  })
+  .strict();
+const CompressedPatternDefinitionSchema = z
+  .object({
+    schemaVersion: z.literal(EXPERIENCE_COMPILATION_CONTRACT_VERSION),
+    encoding: z.literal('br+base64'),
+    contentHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    uncompressedBytes: z
+      .number()
+      .int()
+      .positive()
+      .max(64 * 1024 * 1024),
+    workflowPatternId: z.string(),
+    supportCount: z.number().int().positive().max(65_536),
+    contradictionCount: z.number().int().nonnegative().max(65_536),
+    payload: z.string().max(1_000_000),
+  })
+  .strict();
 
 interface TraceRow extends QueryResultRow {
   trace_id: string;
@@ -99,6 +172,7 @@ interface CompilationRunRow extends QueryResultRow {
   run_id: string;
   run_type: CompilationRun['runType'];
   source_episode_id: string | null;
+  source_event_id: string | null;
   tenant_id: string | null;
   user_scope_id: string | null;
   cohort_fingerprint: string | null;
@@ -298,6 +372,7 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
       discoveredPattern: input.discoveredPattern,
       workflowPattern: input.workflowPattern,
     };
+    const definitionEnvelope = encodePatternDefinition(definition, input.workflowPattern);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -309,11 +384,10 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
         [input.discoveredPattern.patternId],
       );
       if (existing.rows[0] !== undefined) {
-        assertSameJson(
-          existing.rows[0].definition,
-          definition,
-          'EXPERIENCE_COMPILATION_PATTERN_IDEMPOTENCY_CONFLICT',
-        );
+        const persisted = CompressedPatternDefinitionSchema.parse(existing.rows[0].definition);
+        if (persisted.contentHash !== definitionEnvelope.contentHash) {
+          throw new Error('EXPERIENCE_COMPILATION_PATTERN_IDEMPOTENCY_CONFLICT');
+        }
         await client.query('COMMIT');
         return Object.freeze({ workflowPattern: input.workflowPattern, inserted: false });
       }
@@ -341,33 +415,29 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
         [
           input.discoveredPattern.patternId,
           input.cohortFingerprint,
-          JSON.stringify(definition),
-          JSON.stringify(supportRefs),
-          JSON.stringify(contradictionRefs),
+          JSON.stringify(definitionEnvelope),
+          JSON.stringify(supportRefs.slice(0, 4_096)),
+          JSON.stringify(contradictionRefs.slice(0, 4_096)),
           input.discoveredPattern.quality.fitness,
           createdAt,
         ],
       );
-      for (const traceId of supportRefs) {
-        await insertPatternSupport(
-          client,
-          input.discoveredPattern.patternId,
-          traceId,
-          input.cohort.tenantId,
-          'support',
-          createdAt,
-        );
-      }
-      for (const traceId of contradictionRefs) {
-        await insertPatternSupport(
-          client,
-          input.discoveredPattern.patternId,
-          traceId,
-          input.cohort.tenantId,
-          'contradiction',
-          createdAt,
-        );
-      }
+      await insertPatternSupport(
+        client,
+        input.discoveredPattern.patternId,
+        supportRefs,
+        input.cohort.tenantId,
+        'support',
+        createdAt,
+      );
+      await insertPatternSupport(
+        client,
+        input.discoveredPattern.patternId,
+        contradictionRefs,
+        input.cohort.tenantId,
+        'contradiction',
+        createdAt,
+      );
       await insertOutbox(client, {
         eventId: stableId('compiler-pattern-discovered', input.discoveredPattern.patternId),
         eventType: 'compiler.pattern_discovered',
@@ -388,6 +458,29 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
     } finally {
       client.release();
     }
+  }
+
+  async findWorkflowPattern(
+    tenantId: string,
+    workflowPatternId: string,
+  ): Promise<WorkflowPattern | undefined> {
+    const result = await this.#pool.query<QueryResultRow & { definition: unknown }>(
+      `SELECT pattern.definition FROM pattern_candidate pattern
+       WHERE pattern.definition->>'workflowPatternId'=$2
+         AND EXISTS (
+           SELECT 1 FROM pattern_candidate_support support
+           WHERE support.pattern_id=pattern.pattern_id AND support.tenant_id=$1
+         )
+       ORDER BY pattern.created_at DESC,pattern.pattern_id LIMIT 1`,
+      [tenantId, workflowPatternId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    const definition = decodePatternDefinition(row.definition);
+    if (definition.workflowPattern.workflowPatternId !== workflowPatternId) {
+      throw new Error('EXPERIENCE_COMPILATION_WORKFLOW_PATTERN_PROJECTION_DRIFT');
+    }
+    return definition.workflowPattern;
   }
 
   async deleteUserScope(userScopeId: string, actorId: string): Promise<number> {
@@ -421,7 +514,7 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
         await client.query(
           `DELETE FROM compilation_run
            WHERE result_ref IN (
-             SELECT definition->'workflowPattern'->>'workflowPatternId'
+             SELECT definition->>'workflowPatternId'
              FROM pattern_candidate WHERE pattern_id=ANY($1::text[])
            )`,
           [patterns],
@@ -446,6 +539,88 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
   }
 }
 
+export class PostgresExperienceCompilationTriggerSource implements ExperienceCompilationTriggerSource {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async listPending(limit = 100): Promise<readonly ExperienceCompilationTrigger[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
+      throw new Error('EXPERIENCE_COMPILATION_TRIGGER_LIMIT_INVALID');
+    }
+    const result = await this.#pool.query<
+      QueryResultRow & {
+        trigger_id: string;
+        run_type: CompilationRunType;
+        source_episode_id: string | null;
+        tenant_id: string | null;
+        task_type_id: string | null;
+        occurred_at: Date | string;
+      }
+    >(
+      `SELECT * FROM (
+         SELECT event.event_id AS trigger_id,'normalization'::text AS run_type,
+                event.aggregate_id AS source_episode_id,NULL::text AS tenant_id,
+                NULL::text AS task_type_id,event.occurred_at
+         FROM cognitive_runtime_outbox event
+         WHERE event.event_type='experience.episode_created'
+           AND NOT EXISTS (
+             SELECT 1 FROM compilation_run run WHERE run.source_event_id=event.event_id
+           )
+         UNION ALL
+         SELECT event.event_id AS trigger_id,'process_mining'::text AS run_type,
+                NULL::text AS source_episode_id,source.tenant_id,
+                task_type.task_type_id,event.occurred_at
+         FROM cognitive_runtime_outbox event
+         JOIN experience_trace trace ON trace.trace_id=event.aggregate_id
+         JOIN experience_trace_source source ON source.trace_id=trace.trace_id
+         CROSS JOIN LATERAL (
+           SELECT value AS task_type_id
+           FROM jsonb_array_elements_text(trace.task_type_refs) AS value
+           ORDER BY value LIMIT 1
+         ) task_type
+         WHERE event.event_type='experience.trace_created'
+           AND trace.completeness >= 0.5
+           AND NOT EXISTS (
+             SELECT 1 FROM compilation_run run WHERE run.source_event_id=event.event_id
+           )
+       ) trigger
+       ORDER BY occurred_at,trigger_id LIMIT $1`,
+      [limit],
+    );
+    return Object.freeze(
+      result.rows.map((row): ExperienceCompilationTrigger => {
+        if (row.run_type === 'normalization') {
+          if (row.source_episode_id === null) {
+            throw new Error('EXPERIENCE_COMPILATION_TRIGGER_EPISODE_MISSING');
+          }
+          return Object.freeze({
+            triggerId: row.trigger_id,
+            runType: 'normalization',
+            sourceEpisodeId: row.source_episode_id,
+            occurredAt: timestamp(row.occurred_at),
+          });
+        }
+        if (row.tenant_id === null || row.task_type_id === null) {
+          throw new Error('EXPERIENCE_COMPILATION_TRIGGER_COHORT_MISSING');
+        }
+        return Object.freeze({
+          triggerId: row.trigger_id,
+          runType: 'process_mining',
+          cohort: createCohortDefinition({
+            tenantId: row.tenant_id,
+            taskTypeId: row.task_type_id,
+            minimumCompleteness: 0.5,
+          }),
+          occurredAt: timestamp(row.occurred_at),
+        });
+      }),
+    );
+  }
+}
+
 export class PostgresCompilationRunRepository implements CompilationRunRepository {
   readonly #pool: Pool;
 
@@ -457,6 +632,7 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     sourceEpisodeId: string,
     now: string,
     maxAttempts = 5,
+    sourceEventId?: string,
   ): Promise<CompilationRun> {
     const episode = await this.#pool.query<
       QueryResultRow & { tenant_id: string | null; user_scope_id: string | null }
@@ -472,16 +648,17 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     const idempotencyKey = `normalization:${sourceEpisodeId}`;
     const result = await this.#pool.query<CompilationRunRow>(
       `INSERT INTO compilation_run(
-         run_id,run_type,source_episode_id,tenant_id,user_scope_id,cohort_fingerprint,
+         run_id,run_type,source_episode_id,source_event_id,tenant_id,user_scope_id,cohort_fingerprint,
          status,attempt,max_attempts,available_at,lease_owner,lease_token,lease_expires_at,
          idempotency_key,payload,result_ref,last_error_code,last_error_summary,created_at,updated_at)
-       VALUES($1,'normalization',$2,$3,$4,NULL,'pending',0,$5,$6,NULL,NULL,NULL,$7,$8::jsonb,
-         NULL,NULL,NULL,$6,$6)
+       VALUES($1,'normalization',$2,$3,$4,$5,NULL,'pending',0,$6,$7,NULL,NULL,NULL,$8,$9::jsonb,
+         NULL,NULL,NULL,$7,$7)
        ON CONFLICT(idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key
        RETURNING *`,
       [
         stableId('compilation-normalization-run', sourceEpisodeId),
         sourceEpisodeId,
+        sourceEventId ?? null,
         scope.tenant_id,
         scope.user_scope_id,
         maxAttempts,
@@ -498,20 +675,22 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     cohortFingerprint: string,
     now: string,
     maxAttempts = 5,
+    sourceEventId?: string,
   ): Promise<CompilationRun> {
     const cohort = createCohortDefinition(input);
     const idempotencyKey = `process-mining:${cohortFingerprint}:${now}`;
     const result = await this.#pool.query<CompilationRunRow>(
       `INSERT INTO compilation_run(
-         run_id,run_type,source_episode_id,tenant_id,user_scope_id,cohort_fingerprint,
+         run_id,run_type,source_episode_id,source_event_id,tenant_id,user_scope_id,cohort_fingerprint,
          status,attempt,max_attempts,available_at,lease_owner,lease_token,lease_expires_at,
          idempotency_key,payload,result_ref,last_error_code,last_error_summary,created_at,updated_at)
-       VALUES($1,'process_mining',NULL,$2,NULL,$3,'pending',0,$4,$5,NULL,NULL,NULL,$6,$7::jsonb,
-         NULL,NULL,NULL,$5,$5)
+       VALUES($1,'process_mining',NULL,$2,$3,NULL,$4,'pending',0,$5,$6,NULL,NULL,NULL,$7,$8::jsonb,
+         NULL,NULL,NULL,$6,$6)
        ON CONFLICT(idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key
        RETURNING *`,
       [
         stableId('compilation-mining-run', `${cohortFingerprint}:${now}`),
+        sourceEventId ?? null,
         cohort.tenantId,
         cohortFingerprint,
         maxAttempts,
@@ -533,6 +712,7 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      await deadLetterExpiredExhausted(client, runType, now);
       const selected = await client.query<CompilationRunRow>(
         `SELECT * FROM compilation_run
          WHERE run_type=$1
@@ -623,6 +803,7 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     now: string,
     limit = 100,
   ): Promise<readonly CompilationRun[]> {
+    await deadLetterExpiredExhausted(this.#pool, runType, now);
     const result = await this.#pool.query<CompilationRunRow>(
       `SELECT * FROM compilation_run
        WHERE run_type=$1
@@ -636,6 +817,27 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     );
     return Object.freeze(result.rows.map(mapRun));
   }
+}
+
+async function deadLetterExpiredExhausted(
+  queryable: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+  runType: CompilationRunType,
+  now: string,
+): Promise<void> {
+  await queryable.query(
+    `UPDATE compilation_run
+     SET status='dead_letter',lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,
+         last_error_code=COALESCE(
+           last_error_code,'EXPERIENCE_COMPILATION_LEASE_ATTEMPTS_EXHAUSTED'
+         ),
+         last_error_summary=COALESCE(
+           last_error_summary,'Worker lease expired after the terminal permitted attempt.'
+         ),
+         updated_at=$2
+     WHERE run_type=$1 AND status='leased' AND lease_expires_at <= $2
+       AND attempt >= max_attempts`,
+    [runType, now],
+  );
 }
 
 function traceSelect(where: string): string {
@@ -695,6 +897,7 @@ function mapRun(row: CompilationRunRow): CompilationRun {
     runId: row.run_id,
     runType: row.run_type,
     ...(row.source_episode_id === null ? {} : { sourceEpisodeId: row.source_episode_id }),
+    ...(row.source_event_id === null ? {} : { sourceEventId: row.source_event_id }),
     ...(row.tenant_id === null ? {} : { tenantId: row.tenant_id }),
     ...(row.user_scope_id === null ? {} : { userScopeId: row.user_scope_id }),
     ...(row.cohort_fingerprint === null ? {} : { cohortFingerprint: row.cohort_fingerprint }),
@@ -718,17 +921,86 @@ function mapRun(row: CompilationRunRow): CompilationRun {
 async function insertPatternSupport(
   client: PoolClient,
   patternId: string,
-  traceId: string,
+  traceIds: readonly string[],
   tenantId: string,
   supportKind: 'support' | 'contradiction',
   createdAt: string,
 ): Promise<void> {
+  if (traceIds.length === 0) return;
   await client.query(
     `INSERT INTO pattern_candidate_support(
        pattern_id,trace_id,tenant_id,support_kind,created_at)
-     VALUES($1,$2,$3,$4,$5)`,
-    [patternId, traceId, tenantId, supportKind, createdAt],
+     SELECT $1,trace_id,$3,$4,$5
+     FROM unnest($2::text[]) AS trace_id`,
+    [patternId, traceIds, tenantId, supportKind, createdAt],
   );
+}
+
+function encodePatternDefinition(
+  definition: Readonly<Record<string, unknown>>,
+  workflowPattern: WorkflowPattern,
+) {
+  const serialized = canonicalJson(definition);
+  const compressed = brotliCompressSync(serialized, {
+    params: {
+      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+    },
+  });
+  const envelope = {
+    schemaVersion: EXPERIENCE_COMPILATION_CONTRACT_VERSION,
+    encoding: 'br+base64' as const,
+    contentHash: `sha256:${createHash('sha256').update(serialized).digest('hex')}`,
+    uncompressedBytes: Buffer.byteLength(serialized),
+    workflowPatternId: workflowPattern.workflowPatternId,
+    supportCount: workflowPattern.sourceTraceRefs.length,
+    contradictionCount: definitionContradictionCount(definition),
+    payload: compressed.toString('base64'),
+  };
+  if (Buffer.byteLength(JSON.stringify(envelope)) > 1_048_576) {
+    throw new Error('EXPERIENCE_COMPILATION_PATTERN_DEFINITION_COMPRESSED_BOUND_EXCEEDED');
+  }
+  return CompressedPatternDefinitionSchema.parse(envelope);
+}
+
+function decodePatternDefinition(value: unknown): Readonly<{ workflowPattern: WorkflowPattern }> {
+  const envelope = CompressedPatternDefinitionSchema.parse(value);
+  const compressed = Buffer.from(envelope.payload, 'base64');
+  const decompressed = brotliDecompressSync(compressed, {
+    maxOutputLength: 64 * 1024 * 1024,
+  });
+  if (decompressed.byteLength !== envelope.uncompressedBytes) {
+    throw new Error('EXPERIENCE_COMPILATION_PATTERN_DEFINITION_SIZE_DRIFT');
+  }
+  const serialized = decompressed.toString('utf8');
+  const contentHash = `sha256:${createHash('sha256').update(serialized).digest('hex')}`;
+  if (contentHash !== envelope.contentHash) {
+    throw new Error('EXPERIENCE_COMPILATION_PATTERN_DEFINITION_HASH_DRIFT');
+  }
+  const decoded: unknown = JSON.parse(serialized);
+  if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) {
+    throw new Error('EXPERIENCE_COMPILATION_PATTERN_DEFINITION_INVALID');
+  }
+  const workflowPattern = WorkflowPatternSchema.parse(
+    (decoded as Readonly<Record<string, unknown>>)['workflowPattern'],
+  );
+  return Object.freeze({
+    workflowPattern: createWorkflowPattern({
+      ...workflowPattern,
+      recoveryPatterns: workflowPattern.recoveryPatterns.map((pattern) => ({
+        triggerActivity: pattern.triggerActivity,
+        ...(pattern.resumeActivity === undefined ? {} : { resumeActivity: pattern.resumeActivity }),
+        activitySequence: pattern.activitySequence,
+        supportRefs: pattern.supportRefs,
+      })),
+    }),
+  });
+}
+
+function definitionContradictionCount(definition: Readonly<Record<string, unknown>>): number {
+  const discovered = definition['discoveredPattern'];
+  if (typeof discovered !== 'object' || discovered === null || Array.isArray(discovered)) return 0;
+  const refs = (discovered as Readonly<Record<string, unknown>>)['contradictionRefs'];
+  return Array.isArray(refs) ? refs.length : 0;
 }
 
 async function insertOutbox(

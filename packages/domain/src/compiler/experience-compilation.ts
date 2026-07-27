@@ -320,6 +320,7 @@ export function createCohortDefinition(input: CohortDefinition): CohortDefinitio
   assertUnitInterval(input.minimumCompleteness, 'minimumCompleteness');
   let timeRange: CohortTimeRange | undefined;
   if (input.timeRange !== undefined) {
+    assertExactKeys(input.timeRange, ['from', 'to'], [], 'CohortTimeRange');
     assertTimestamp(input.timeRange.from, 'timeRange.from');
     assertTimestamp(input.timeRange.to, 'timeRange.to');
     if (Date.parse(input.timeRange.from) > Date.parse(input.timeRange.to)) {
@@ -486,6 +487,22 @@ export function createWorkflowPattern(input: WorkflowPattern): WorkflowPattern {
 function createTraceBody(
   input: Omit<ExperienceTraceBody, 'schemaVersion'> & { readonly schemaVersion: string },
 ): ExperienceTraceBody {
+  assertExactKeys(
+    input,
+    [
+      'schemaVersion',
+      'tenantId',
+      'events',
+      'correctionRefs',
+      'outcomeRef',
+      'outcomeStatus',
+      'missingFactCodes',
+      'environmentClass',
+      'deviceClass',
+    ],
+    ['outcomeRef', 'deviceClass'],
+    'ExperienceTraceBody',
+  );
   if (input.schemaVersion !== EXPERIENCE_COMPILATION_CONTRACT_VERSION) {
     invalid('EXPERIENCE_TRACE_INVALID', 'Unsupported Trace schema version.');
   }
@@ -506,6 +523,12 @@ function createTraceBody(
 }
 
 function createOrderingConstraint(input: OrderingConstraint): OrderingConstraint {
+  assertExactKeys(
+    input,
+    ['predecessorActivity', 'successorActivity', 'relation', 'supportRefs', 'contradictionRefs'],
+    [],
+    'OrderingConstraint',
+  );
   assertIdentifier(input.predecessorActivity, 'predecessorActivity');
   assertIdentifier(input.successorActivity, 'successorActivity');
   if (input.predecessorActivity === input.successorActivity) {
@@ -530,6 +553,12 @@ function createOrderingConstraint(input: OrderingConstraint): OrderingConstraint
 }
 
 function createParallelCandidate(input: ParallelCandidate): ParallelCandidate {
+  assertExactKeys(
+    input,
+    ['activityRefs', 'evidenceType', 'supportRefs', 'contradictionRefs'],
+    [],
+    'ParallelCandidate',
+  );
   const activityRefs = freezeIdentifiers(input.activityRefs, 'activityRefs');
   if (activityRefs.length < 2) {
     invalid('DISCOVERED_PROCESS_PATTERN_INVALID', 'Parallel evidence requires two activities.');
@@ -558,6 +587,12 @@ function createParallelCandidate(input: ParallelCandidate): ParallelCandidate {
 }
 
 function createRecoveryPattern(input: RecoveryPattern): RecoveryPattern {
+  assertExactKeys(
+    input,
+    ['triggerActivity', 'resumeActivity', 'activitySequence', 'supportRefs'],
+    ['resumeActivity'],
+    'RecoveryPattern',
+  );
   assertIdentifier(input.triggerActivity, 'triggerActivity');
   if (input.resumeActivity !== undefined) assertIdentifier(input.resumeActivity, 'resumeActivity');
   return Object.freeze({
@@ -572,6 +607,12 @@ function createRecoveryPattern(input: RecoveryPattern): RecoveryPattern {
 }
 
 function createFailureVariant(input: FailureVariant): FailureVariant {
+  assertExactKeys(
+    input,
+    ['activitySequence', 'failureActivity', 'traceRefs', 'count'],
+    [],
+    'FailureVariant',
+  );
   assertIdentifier(input.failureActivity, 'failureActivity');
   if (!Number.isSafeInteger(input.count) || input.count < 1) {
     invalid('DISCOVERED_PROCESS_PATTERN_INVALID', 'Failure Variant count must be positive.');
@@ -588,6 +629,22 @@ function createFailureVariant(input: FailureVariant): FailureVariant {
 }
 
 function createPatternQuality(input: PatternQuality): PatternQuality {
+  assertExactKeys(
+    input,
+    [
+      'support',
+      'successRate',
+      'traceCoverage',
+      'fitness',
+      'precisionProxy',
+      'environmentCoverage',
+      'contradictionRate',
+      'generalization',
+      'mandatoryThreshold',
+    ],
+    [],
+    'PatternQuality',
+  );
   for (const field of [
     'support',
     'successRate',
@@ -605,6 +662,12 @@ function createPatternQuality(input: PatternQuality): PatternQuality {
 }
 
 function createActivityPattern(input: ActivityPattern): ActivityPattern {
+  assertExactKeys(
+    input,
+    ['activity', 'required', 'supportRate', 'capabilityRefs'],
+    [],
+    'ActivityPattern',
+  );
   assertIdentifier(input.activity, 'activity');
   assertUnitInterval(input.supportRate, 'supportRate');
   return Object.freeze({
@@ -614,6 +677,12 @@ function createActivityPattern(input: ActivityPattern): ActivityPattern {
 }
 
 function createDependencyPattern(input: DependencyPattern): DependencyPattern {
+  assertExactKeys(
+    input,
+    ['predecessorActivity', 'successorActivity', 'relation', 'supportRefs', 'contradictionRefs'],
+    [],
+    'DependencyPattern',
+  );
   assertIdentifier(input.predecessorActivity, 'predecessorActivity');
   assertIdentifier(input.successorActivity, 'successorActivity');
   if (!['direct_follows', 'precedes', 'parallel'].includes(input.relation)) {

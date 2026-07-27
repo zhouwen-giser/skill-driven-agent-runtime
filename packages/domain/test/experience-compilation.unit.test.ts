@@ -10,6 +10,7 @@ import {
   createExperienceTraceEvent,
   createProcessVariant,
   createWorkflowPattern,
+  type CohortDefinition,
   type ExperienceTrace,
 } from '../src/index.js';
 
@@ -99,6 +100,28 @@ describe('P03 frozen Experience compilation contracts', () => {
         },
       }),
     ).toThrow(/contiguous/u);
+  });
+
+  it('rejects extra fields in every persisted Trace and cohort envelope', () => {
+    const input = baseTrace();
+    expect(() =>
+      createExperienceTrace({
+        ...input,
+        trace: { ...input.trace, localAlias: 'forbidden' },
+      } as ExperienceTrace),
+    ).toThrow(/frozen contract/u);
+    expect(() =>
+      createCohortDefinition({
+        tenantId: 'tenant-1',
+        taskTypeId: 'task-type-1',
+        timeRange: {
+          from: '2026-07-01T00:00:00.000Z',
+          to: '2026-07-31T23:59:59.000Z',
+          localAlias: 'forbidden',
+        },
+        minimumCompleteness: 0.8,
+      } as CohortDefinition),
+    ).toThrow(/frozen contract/u);
   });
 
   it('rejects a parent that does not precede its child', () => {

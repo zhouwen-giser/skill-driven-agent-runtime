@@ -4,7 +4,7 @@ import process from 'node:process';
 
 const compilerFiles = await collectFiles('packages/domain/src/compiler');
 const schemaFiles = await collectFiles('packages/schemas/src');
-const productFiles = await collectFiles('packages');
+const productFiles = [...(await collectFiles('packages')), ...(await collectFiles('apps'))];
 
 const forbiddenArtifactDependencies = [
   '@a2a-js/sdk',
@@ -66,7 +66,8 @@ for (const file of productFiles) {
     normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||
     normalized.startsWith('packages/runtime-redis/src/compiler/') ||
     normalized === 'packages/runtime-redis/src/index.ts' ||
-    normalized === 'packages/domain/test/experience-compilation.unit.test.ts'
+    normalized === 'packages/domain/test/experience-compilation.unit.test.ts' ||
+    normalized === 'apps/server/src/runtime.ts'
   ) {
     continue;
   }
@@ -77,7 +78,7 @@ for (const file of productFiles) {
 }
 
 process.stdout.write(
-  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02-P03 compiler/PostgreSQL/wake-only boundaries, no online runtime product consumer dependency.\n`,
+  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02-P03 compiler/PostgreSQL/wake-only boundaries, and the single authorized Server composition root.\n`,
 );
 
 async function collectFiles(root) {
