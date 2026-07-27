@@ -1,18 +1,19 @@
 # Verification Summary
 
-- Status: **failed**
-- Commit: `1f7e043674081c2c8795e7ba6d142808abc6ff01`
-- Started: 2026-07-27T13:07:31.151Z
-- Finished: 2026-07-27T13:10:16.472Z
-- Duration: 165321 ms
+- Status: **passed**
+- Commit: `e926445b645b6425d246eb019e05f06a7c7c5f8e` (dirty working tree)
+- Started: 2026-07-27T15:44:20.528Z
+- Finished: 2026-07-27T15:48:03.306Z
+- Duration: 222778 ms
 - Environment: Node v22.23.1, linux/x64
-- Infrastructure mode: operator-managed
+- Infrastructure mode: self-managed-compose
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 82871 ms |
-| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 668 ms |
-| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 7407 ms |
-| postgres-redis-integration | `pnpm test:integration` | passed | 40333 ms |
-| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | passed | 33394 ms |
-| infrastructure-smoke | `pnpm smoke:infra` | failed | 648 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 94227 ms |
+| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 664 ms |
+| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 8553 ms |
+| postgres-redis-integration | `pnpm test:integration` | passed | 51494 ms |
+| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | passed | 40838 ms |
+| infrastructure-smoke | `pnpm smoke:infra` | passed | 6810 ms |
+| server-console-smoke | `pnpm smoke:server` | passed | 20192 ms |
