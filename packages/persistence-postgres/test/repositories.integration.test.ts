@@ -7,6 +7,8 @@ import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
   ExperienceEligibilityPolicy,
   ExperienceJobService,
+  ExperienceNormalizationService,
+  ExperienceTraceNormalizer,
   GoalExperienceEpisodeBuilder,
   TaskTypeClusterer,
   TaskTypeFingerprintBuilder,
@@ -92,6 +94,8 @@ import {
   PostgresExperienceJobRepository,
   PostgresGoalExperienceEpisodeRepository,
   PostgresCognitiveRuntimeFactReader,
+  PostgresCompilationRunRepository,
+  PostgresExperienceCompilationRepository,
   PostgresObservationRepository,
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
@@ -274,6 +278,9 @@ beforeAll(async () => {
   await applyRuntimeMigrations(pool);
 });
 beforeEach(async () => {
+  await pool.query(
+    'TRUNCATE compilation_run,pattern_candidate_support,experience_trace_source,pattern_candidate,experience_trace CASCADE',
+  );
   await pool.query(
     'TRUNCATE cognitive_management_action, knowledge_relation, experience_usage_record, knowledge_promotion_evaluation, knowledge_status_transition, capability_gap_candidate, capability_experience_evidence, capability_pattern_definition, task_type_definition, planning_heuristic, knowledge_candidate_lineage, knowledge_delta_record, experience_reflection, experience_observation, goal_experience_episode, experience_dead_letter, experience_job CASCADE',
   );
@@ -4021,6 +4028,109 @@ describe('PostgreSQL protocol-domain repositories', () => {
       [fixture.goalId, 'goal-experience-episode.db'],
     );
     expect(persistence.rows[0]).toEqual({ episodes: 1, episode_events: 1, observe_jobs: 1 });
+  });
+
+  it('normalizes an Episode once with PostgreSQL fencing, immutable Trace and deletion propagation', async () => {
+    const fixture = await createTerminalOutcomeFixture('p03-normalization');
+    await fixture.outcomes.commitAchieved(fixture.achievedInput);
+    const clock = { now: () => '2026-07-27T02:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents();
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => 'goal-experience-episode.p03-normalization',
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const [episodeJob] = await episodeService.claim('episode-worker.p03', 1);
+    if (episodeJob === undefined) throw new Error('P03_EPISODE_JOB_MISSING');
+    await episodeService.process(episodeJob, 'episode-worker.p03');
+    const [episode] = await episodes.findByGoal(fixture.goalId);
+    if (episode === undefined) throw new Error('P03_SOURCE_EPISODE_MISSING');
+
+    const runs = new PostgresCompilationRunRepository(pool);
+    const compilation = new PostgresExperienceCompilationRepository(pool);
+    const createdRun = await runs.createNormalizationRun(episode.episodeId, clock.now(), 3);
+    const repeatedRun = await runs.createNormalizationRun(episode.episodeId, clock.now(), 3);
+    expect(repeatedRun.runId).toBe(createdRun.runId);
+    const [claimed] = await runs.claim('normalization', 'normalizer.p03', clock.now(), 60_000, 1);
+    if (claimed?.leaseToken === undefined) {
+      throw new Error('P03_NORMALIZATION_RUN_NOT_CLAIMED');
+    }
+    await expect(
+      runs.complete(claimed.runId, 'normalizer.p03', 'stale-token', 'forbidden-trace', clock.now()),
+    ).resolves.toBe(false);
+    const service = new ExperienceNormalizationService({
+      runs,
+      repository: compilation,
+      normalizer: new ExperienceTraceNormalizer(),
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    await service.process(claimed, 'normalizer.p03');
+
+    const persisted = await pool.query<{
+      trace_id: string;
+      trace_events: number;
+      source_rows: number;
+      outbox_rows: number;
+      run_status: string;
+      user_scope_id: string | null;
+    }>(
+      `SELECT trace.trace_id,
+         jsonb_array_length(trace.trace->'events') AS trace_events,
+         (SELECT count(*)::integer FROM experience_trace_source source
+          WHERE source.trace_id=trace.trace_id) AS source_rows,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox event
+          WHERE event.event_type='experience.trace_created'
+            AND event.aggregate_id=trace.trace_id) AS outbox_rows,
+         (SELECT status FROM compilation_run WHERE run_id=$1) AS run_status,
+         (SELECT user_scope_id FROM experience_trace_source source
+          WHERE source.trace_id=trace.trace_id) AS user_scope_id
+       FROM experience_trace trace`,
+      [claimed.runId],
+    );
+    expect(persisted.rows).toHaveLength(1);
+    expect(persisted.rows[0]).toMatchObject({
+      source_rows: 1,
+      outbox_rows: 1,
+      run_status: 'completed',
+      user_scope_id: 'operator',
+    });
+    expect(persisted.rows[0]?.trace_events).toBeGreaterThan(0);
+    const traceId = persisted.rows[0]?.trace_id;
+    if (traceId === undefined) throw new Error('P03_TRACE_ID_MISSING');
+    await expect(compilation.findTrace(traceId)).resolves.toMatchObject({
+      traceId,
+      sourceEpisodeId: episode.episodeId,
+      sourceHash: episode.sourceHash,
+    });
+    await expect(
+      pool.query(`UPDATE experience_trace SET completeness=0 WHERE trace_id=$1`, [traceId]),
+    ).rejects.toBeDefined();
+
+    await expect(compilation.deleteUserScope('another-user', 'operator')).resolves.toBe(0);
+    await expect(compilation.deleteUserScope('operator', 'operator')).resolves.toBe(1);
+    const deleted = await pool.query<{
+      traces: number;
+      source_rows: number;
+      runs: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM experience_trace) AS traces,
+         (SELECT count(*)::integer FROM experience_trace_source) AS source_rows,
+         (SELECT count(*)::integer FROM compilation_run) AS runs`,
+    );
+    expect(deleted.rows[0]).toEqual({ traces: 0, source_rows: 0, runs: 0 });
   });
 
   it('persists a source/model-linked Observation and atomically schedules reflection', async () => {

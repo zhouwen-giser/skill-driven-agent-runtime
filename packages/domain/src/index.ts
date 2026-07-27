@@ -34,6 +34,7 @@ export {
   type PlanTemplateArtifactDefinition,
   type SkillGoalNodeTemplate,
 } from './compiler/index.js';
+export * from './compiler/experience-compilation.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-cancellation.js';

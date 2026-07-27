@@ -96,7 +96,7 @@ try {
   }
 
   process.stdout.write(
-    `SDAR migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations through v1.3 P02, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
+    `SDAR migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations through ${expectedVersions.at(-1)}, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
   );
 } finally {
   await dropDatabases().catch(() => undefined);

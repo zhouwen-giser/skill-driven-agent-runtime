@@ -59,8 +59,13 @@ for (const file of productFiles) {
     normalized.startsWith('packages/schemas/src/') ||
     normalized.startsWith('packages/application/src/compiler/') ||
     normalized === 'packages/application/src/index.ts' ||
+    normalized.startsWith('packages/application/test/experience-') ||
     normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
-    normalized === 'packages/persistence-postgres/src/index.ts'
+    normalized === 'packages/persistence-postgres/src/index.ts' ||
+    normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||
+    normalized.startsWith('packages/runtime-redis/src/compiler/') ||
+    normalized === 'packages/runtime-redis/src/index.ts' ||
+    normalized === 'packages/domain/test/experience-compilation.unit.test.ts'
   ) {
     continue;
   }
@@ -71,7 +76,7 @@ for (const file of productFiles) {
 }
 
 process.stdout.write(
-  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02 application/PostgreSQL boundaries, no runtime product consumer dependency.\n`,
+  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02-P03 compiler/PostgreSQL/wake-only boundaries, no online runtime product consumer dependency.\n`,
 );
 
 async function collectFiles(root) {
