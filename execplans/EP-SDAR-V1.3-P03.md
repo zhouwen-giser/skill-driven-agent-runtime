@@ -76,10 +76,12 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
 - [x] 2026-07-27 Implement and test G05 contracts, deterministic normalizer, migration, repository
       and wake-only worker; focused 19/19 and real PostgreSQL integration 93/93 pass.
 - [x] 2026-07-27 Verify migration 0126 fresh/idempotent/rollback/reapply and rogue-ledger rejection.
-- [ ] Run focused G05 gates and create the required meaningful G05 commit.
-- [ ] Implement and test G06 cohorting, mining, quality and Workflow Pattern mapping.
-- [ ] Run focused G06 gates and create the required meaningful G06 commit.
-- [ ] Generate all six required P03 evidence files and update status/traceability/changelog.
+- [x] 2026-07-27 Run focused G05 gates and create meaningful commit `22cf9a3`.
+- [x] 2026-07-27 Implement and test G06 cohorting, deterministic mining, quality metrics and
+      evidence-only Workflow Pattern mapping.
+- [x] 2026-07-27 Run focused G06 gates and create meaningful commit `119fe43`.
+- [ ] Generate all six required P03 evidence files and update status/traceability/changelog; the
+      four machine-readable source/schema/golden/mining reports are present.
 - [ ] Run the complete clean verification gate, migration rollback/reapply and isolation scenarios.
 - [ ] Obtain fresh independent read-only review and close every Blocking/Major finding.
 - [ ] Publish exact 28-field `COMPLETED` Handoff, push Draft PR and advance cursor to P04.
@@ -93,6 +95,9 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
   validates all 21 entries and passed; the failed generic command did not mutate the tree.
 - v1.2.3 already preserves corrections, recovery, business-event impact and terminal Outcomes in
   Episode snapshots. P03 should normalize those source facts rather than query live provider state.
+- The first 10k benchmark exposed that the generic 4,096-identifier bound also constrained mining
+  evidence references. P03 now keeps ordinary collections at 4,096, gives only mining evidence
+  references a finite 65,536 bound, and proves 10,000 accepted / 65,537 rejected.
 
 ## Decision Log
 
@@ -104,6 +109,8 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
   synthesize an event to fill a gap.
 - 2026-07-27: Require explicit concurrency group/parent/dependency facts for parallel candidates;
   timestamps are ordering evidence only.
+- 2026-07-27: Freeze the process-mining evidence reference ceiling at 65,536 so the required 10k
+  cohort is supported without unbounding ordinary domain collections.
 
 ## Implementation Steps
 
