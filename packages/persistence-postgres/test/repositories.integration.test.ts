@@ -9,6 +9,8 @@ import {
   ExperienceJobService,
   ExperienceNormalizationService,
   ExperienceTraceNormalizer,
+  ProcessMiningService,
+  DeterministicProcessMiner,
   GoalExperienceEpisodeBuilder,
   TaskTypeClusterer,
   TaskTypeFingerprintBuilder,
@@ -152,6 +154,11 @@ import {
   createTaskTypeInductionExample,
   createCapabilityPatternInductionExample,
   createUserGoalCompletionContract,
+  createExperienceTrace,
+  EXPERIENCE_COMPILATION_CONTRACT_VERSION,
+  EXPERIENCE_NORMALIZER_VERSION,
+  type ExperienceTraceEvent,
+  type ExperienceTraceEventType,
   type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
 
@@ -4133,6 +4140,210 @@ describe('PostgreSQL protocol-domain repositories', () => {
     expect(deleted.rows[0]).toEqual({ traces: 0, source_rows: 0, runs: 0 });
   });
 
+  it('mines a scoped cohort deterministically and persists one evidence-only Workflow Pattern', async () => {
+    const suffixes = ['p03-mining-a', 'p03-mining-b', 'p03-mining-c'] as const;
+    const fixtures = [];
+    for (const suffix of suffixes) {
+      const fixture = await createTerminalOutcomeFixture(suffix);
+      await fixture.outcomes.commitAchieved(fixture.achievedInput);
+      fixtures.push(fixture);
+    }
+    let episodeOrdinal = 0;
+    const clock = { now: () => '2026-07-27T03:00:00.000Z' };
+    const outbox = new PostgresCognitiveOutboxRepository(pool, clock);
+    await outbox.dispatchTerminalEvents(10);
+    const jobs = new PostgresExperienceJobRepository(pool);
+    const episodes = new PostgresGoalExperienceEpisodeRepository(pool);
+    const episodeService = new ExperienceJobService({
+      jobs,
+      episodes,
+      builder: new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock,
+        nextEpisodeId: () => {
+          episodeOrdinal += 1;
+          return `goal-experience-episode.p03-mining-${String(episodeOrdinal)}`;
+        },
+      }),
+      clock,
+      retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    const episodeJobs = await episodeService.claim('episode-worker.p03-mining', 10);
+    expect(episodeJobs).toHaveLength(3);
+    for (const job of episodeJobs) {
+      await episodeService.process(job, 'episode-worker.p03-mining');
+    }
+    const sourceEpisodes = await episodes.list(10);
+    expect(sourceEpisodes).toHaveLength(3);
+
+    const compilation = new PostgresExperienceCompilationRepository(pool);
+    for (const [index, episode] of sourceEpisodes.entries()) {
+      const failed = index === 2;
+      const events = failed
+        ? [
+            p03TraceEvent(episode.episodeId, 'goal_created', 0),
+            p03TraceEvent(episode.episodeId, 'plan_created', 1),
+            p03TraceEvent(episode.episodeId, 'skill_attempt_started', 2),
+            p03TraceEvent(episode.episodeId, 'workflow_failed', 3),
+            p03TraceEvent(episode.episodeId, 'recovery_started', 4, {
+              branchRef: 'recovery-p03',
+            }),
+            p03TraceEvent(episode.episodeId, 'skill_attempt_started', 5, {
+              branchRef: 'recovery-p03',
+            }),
+            p03TraceEvent(episode.episodeId, 'goal_failed', 6),
+          ]
+        : [
+            p03TraceEvent(episode.episodeId, 'goal_created', 0),
+            p03TraceEvent(episode.episodeId, 'plan_created', 1),
+            ...(index === 1 ? [p03TraceEvent(episode.episodeId, 'human_intervention', 2)] : []),
+            p03TraceEvent(episode.episodeId, 'skill_attempt_started', index === 1 ? 3 : 2, {
+              ...(index === 0 ? { concurrencyGroup: 'parallel-p03' } : {}),
+            }),
+            ...(index === 0
+              ? [
+                  p03TraceEvent(episode.episodeId, 'business_event_observed', 3, {
+                    concurrencyGroup: 'parallel-p03',
+                  }),
+                ]
+              : []),
+            p03TraceEvent(episode.episodeId, 'skill_attempt_completed', index === 1 ? 4 : 4),
+            p03TraceEvent(episode.episodeId, 'goal_completed', index === 1 ? 5 : 5),
+          ];
+      const trace = createExperienceTrace({
+        traceId: `trace-${episode.episodeId}`,
+        sourceEpisodeId: episode.episodeId,
+        taskTypeRefs: ['task-type-p03'],
+        goalFingerprint: `sha256:${'c'.repeat(64)}`,
+        capabilityFingerprint: `sha256:${'d'.repeat(64)}`,
+        environmentFingerprint: `sha256:${'e'.repeat(64)}`,
+        trace: {
+          schemaVersion: EXPERIENCE_COMPILATION_CONTRACT_VERSION,
+          tenantId: 'tenant-p03',
+          events,
+          correctionRefs: index === 1 ? ['correction-p03'] : [],
+          outcomeRef: `outcome-${episode.episodeId}`,
+          outcomeStatus: failed ? 'failed' : 'succeeded',
+          missingFactCodes: [],
+          environmentClass: index === 1 ? 'device' : 'server',
+          ...(index === 1 ? { deviceClass: 'robot' } : {}),
+        },
+        completeness: 0.95,
+        dataClassification: episode.dataClassification,
+        normalizerVersion: EXPERIENCE_NORMALIZER_VERSION,
+        sourceHash: episode.sourceHash,
+        createdAt: episode.createdAt,
+      });
+      await compilation.saveTrace({
+        trace,
+        missingFactCodes: [],
+        redactionCodes: episode.redactionCodes,
+      });
+    }
+
+    const cohort = {
+      tenantId: 'tenant-p03',
+      taskTypeId: 'task-type-p03',
+      minimumCompleteness: 0.8,
+    } as const;
+    const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
+    const cohortFingerprint = miner.fingerprintCohort(cohort);
+    const runs = new PostgresCompilationRunRepository(pool);
+    const firstRun = await runs.createProcessMiningRun(cohort, cohortFingerprint, clock.now(), 3);
+    const [claimed] = await runs.claim(
+      'process_mining',
+      'mining-worker.p03',
+      clock.now(),
+      120_000,
+      1,
+    );
+    if (claimed === undefined) throw new Error('P03_MINING_RUN_NOT_CLAIMED');
+    const miningService = new ProcessMiningService({
+      runs,
+      repository: compilation,
+      miner,
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    });
+    await miningService.process(claimed, 'mining-worker.p03');
+
+    const evidence = await pool.query<{
+      pattern_id: string;
+      pattern_type: string;
+      support_count: number;
+      contradiction_count: number;
+      workflow_pattern_id: string;
+      skill_binding: string | null;
+      pattern_events: number;
+      run_status: string;
+    }>(
+      `SELECT pattern.pattern_id,pattern.pattern_type,
+         jsonb_array_length(pattern.support_refs) AS support_count,
+         jsonb_array_length(pattern.contradiction_refs) AS contradiction_count,
+         pattern.definition->'workflowPattern'->>'workflowPatternId' AS workflow_pattern_id,
+         pattern.definition->'workflowPattern'->>'skillId' AS skill_binding,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox event
+          WHERE event.event_type='compiler.pattern_discovered'
+            AND event.aggregate_id=pattern.pattern_id) AS pattern_events,
+         (SELECT status FROM compilation_run WHERE run_id=$1) AS run_status
+       FROM pattern_candidate pattern`,
+      [firstRun.runId],
+    );
+    expect(evidence.rows).toHaveLength(1);
+    expect(evidence.rows[0]).toMatchObject({
+      pattern_type: 'workflow_pattern',
+      support_count: 3,
+      skill_binding: null,
+      pattern_events: 1,
+      run_status: 'completed',
+    });
+    expect(evidence.rows[0]?.workflow_pattern_id).toMatch(/^workflow-pattern-/u);
+    const supportRows = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer AS count FROM pattern_candidate_support
+       WHERE tenant_id='tenant-p03'`,
+    );
+    expect(supportRows.rows[0]?.count).toBeGreaterThanOrEqual(3);
+    await expect(compilation.listTraces({ ...cohort, tenantId: 'tenant-other' })).resolves.toEqual(
+      [],
+    );
+
+    const secondClock = '2026-07-27T03:01:00.000Z';
+    await runs.createProcessMiningRun(cohort, cohortFingerprint, secondClock, 3);
+    const [repeated] = await runs.claim(
+      'process_mining',
+      'mining-worker.p03-repeat',
+      secondClock,
+      120_000,
+      1,
+    );
+    if (repeated === undefined) throw new Error('P03_REPEAT_MINING_RUN_NOT_CLAIMED');
+    await new ProcessMiningService({
+      runs,
+      repository: compilation,
+      miner,
+      clock: { now: () => secondClock },
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+    }).process(repeated, 'mining-worker.p03-repeat');
+    const repeatedCounts = await pool.query<{ patterns: number; events: number }>(
+      `SELECT
+         (SELECT count(*)::integer FROM pattern_candidate) AS patterns,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='compiler.pattern_discovered') AS events`,
+    );
+    expect(repeatedCounts.rows[0]).toEqual({ patterns: 1, events: 1 });
+
+    await expect(compilation.deleteUserScope('operator', 'operator')).resolves.toBe(4);
+    const deleted = await pool.query<{ patterns: number; traces: number; runs: number }>(
+      `SELECT
+         (SELECT count(*)::integer FROM pattern_candidate) AS patterns,
+         (SELECT count(*)::integer FROM experience_trace) AS traces,
+         (SELECT count(*)::integer FROM compilation_run) AS runs`,
+    );
+    expect(deleted.rows[0]).toEqual({ patterns: 0, traces: 0, runs: 0 });
+  });
+
   it('persists a source/model-linked Observation and atomically schedules reflection', async () => {
     const fixture = await createTerminalOutcomeFixture('observation');
     await fixture.outcomes.commitAchieved(fixture.achievedInput);
@@ -6920,6 +7131,32 @@ function capabilityCard(
     cardContentHash: `sha256:${'f'.repeat(64)}`,
     generatedAt,
   });
+}
+
+function p03TraceEvent(
+  sourceEpisodeId: string,
+  eventType: ExperienceTraceEventType,
+  sequence: number,
+  optional: Readonly<{
+    concurrencyGroup?: string;
+    branchRef?: string;
+  }> = {},
+): ExperienceTraceEvent {
+  return {
+    eventId: `event-${sourceEpisodeId}-${eventType}-${String(sequence)}`,
+    sequence,
+    occurredAt: new Date(Date.parse('2026-07-27T03:00:00.000Z') + sequence * 1_000).toISOString(),
+    eventType,
+    actorType: eventType === 'human_intervention' ? 'user' : 'runtime',
+    capabilityRefs: eventType === 'skill_attempt_started' ? ['capability-p03'] : [],
+    authorityRefs: [`source-${sourceEpisodeId}-${String(sequence)}`],
+    parentEventRefs: [],
+    ...(optional.concurrencyGroup === undefined
+      ? {}
+      : { concurrencyGroup: optional.concurrencyGroup }),
+    ...(optional.branchRef === undefined ? {} : { branchRef: optional.branchRef }),
+    payloadSummary: { eventType },
+  };
 }
 
 async function createTerminalOutcomeFixture(suffix: string) {

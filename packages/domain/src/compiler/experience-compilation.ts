@@ -4,6 +4,8 @@ import type { JsonValue } from './contracts.js';
 export const EXPERIENCE_COMPILATION_CONTRACT_VERSION = '1.1' as const;
 export const EXPERIENCE_NORMALIZER_VERSION = 'sdar-experience-normalizer/1.1' as const;
 export const PROCESS_MINING_ALGORITHM_VERSION = 'sdar-deterministic-process-miner/1.1' as const;
+const DEFAULT_IDENTIFIER_COLLECTION_LIMIT = 4_096;
+const PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT = 65_536;
 
 export const EXPERIENCE_COMPILATION_SCHEMA_HASHES = Object.freeze({
   ExperienceTrace: 'd929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9',
@@ -361,12 +363,16 @@ export function createProcessVariant(input: ProcessVariant): ProcessVariant {
   }
   return Object.freeze({
     ...input,
-    activitySequence: freezeIdentifiers(input.activitySequence, 'activitySequence'),
+    activitySequence: freezeSequence(input.activitySequence, 'activitySequence'),
     concurrencyGroups: Object.freeze(
       input.concurrencyGroups.map((group) => freezeIdentifiers(group, 'concurrencyGroups')),
     ),
-    branchSequence: freezeIdentifiers(input.branchSequence, 'branchSequence'),
-    traceRefs: freezeIdentifiers(input.traceRefs, 'traceRefs'),
+    branchSequence: freezeSequence(input.branchSequence, 'branchSequence'),
+    traceRefs: freezeIdentifiers(
+      input.traceRefs,
+      'traceRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
@@ -404,7 +410,11 @@ export function createDiscoveredProcessPattern(
       'Mandatory and optional activities must be disjoint.',
     );
   }
-  const supportRefs = freezeIdentifiers(input.supportRefs, 'supportRefs');
+  const supportRefs = freezeIdentifiers(
+    input.supportRefs,
+    'supportRefs',
+    PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+  );
   if (supportRefs.length === 0) {
     invalid(
       'DISCOVERED_PROCESS_PATTERN_INVALID',
@@ -426,7 +436,11 @@ export function createDiscoveredProcessPattern(
     ),
     failureVariants: Object.freeze(input.failureVariants.map((item) => createFailureVariant(item))),
     supportRefs,
-    contradictionRefs: freezeIdentifiers(input.contradictionRefs, 'contradictionRefs'),
+    contradictionRefs: freezeIdentifiers(
+      input.contradictionRefs,
+      'contradictionRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
     environmentCoverage: freezeIdentifiers(input.environmentCoverage, 'environmentCoverage'),
     quality: createPatternQuality(input.quality),
   });
@@ -451,7 +465,11 @@ export function createWorkflowPattern(input: WorkflowPattern): WorkflowPattern {
   assertIdentifier(input.workflowPatternId, 'workflowPatternId');
   assertIdentifier(input.taskTypeId, 'taskTypeId');
   assertIdentifier(input.sourcePatternRef, 'sourcePatternRef');
-  const sourceTraceRefs = freezeIdentifiers(input.sourceTraceRefs, 'sourceTraceRefs');
+  const sourceTraceRefs = freezeIdentifiers(
+    input.sourceTraceRefs,
+    'sourceTraceRefs',
+    PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+  );
   if (sourceTraceRefs.length === 0) {
     invalid('WORKFLOW_PATTERN_INVALID', 'A Workflow Pattern requires source Trace references.');
   }
@@ -498,8 +516,16 @@ function createOrderingConstraint(input: OrderingConstraint): OrderingConstraint
   }
   return Object.freeze({
     ...input,
-    supportRefs: freezeIdentifiers(input.supportRefs, 'supportRefs'),
-    contradictionRefs: freezeIdentifiers(input.contradictionRefs, 'contradictionRefs'),
+    supportRefs: freezeIdentifiers(
+      input.supportRefs,
+      'supportRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
+    contradictionRefs: freezeIdentifiers(
+      input.contradictionRefs,
+      'contradictionRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
@@ -518,8 +544,16 @@ function createParallelCandidate(input: ParallelCandidate): ParallelCandidate {
   return Object.freeze({
     ...input,
     activityRefs,
-    supportRefs: freezeIdentifiers(input.supportRefs, 'supportRefs'),
-    contradictionRefs: freezeIdentifiers(input.contradictionRefs, 'contradictionRefs'),
+    supportRefs: freezeIdentifiers(
+      input.supportRefs,
+      'supportRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
+    contradictionRefs: freezeIdentifiers(
+      input.contradictionRefs,
+      'contradictionRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
@@ -528,8 +562,12 @@ function createRecoveryPattern(input: RecoveryPattern): RecoveryPattern {
   if (input.resumeActivity !== undefined) assertIdentifier(input.resumeActivity, 'resumeActivity');
   return Object.freeze({
     ...input,
-    activitySequence: freezeIdentifiers(input.activitySequence, 'activitySequence'),
-    supportRefs: freezeIdentifiers(input.supportRefs, 'supportRefs'),
+    activitySequence: freezeSequence(input.activitySequence, 'activitySequence'),
+    supportRefs: freezeIdentifiers(
+      input.supportRefs,
+      'supportRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
@@ -540,8 +578,12 @@ function createFailureVariant(input: FailureVariant): FailureVariant {
   }
   return Object.freeze({
     ...input,
-    activitySequence: freezeIdentifiers(input.activitySequence, 'activitySequence'),
-    traceRefs: freezeIdentifiers(input.traceRefs, 'traceRefs'),
+    activitySequence: freezeSequence(input.activitySequence, 'activitySequence'),
+    traceRefs: freezeIdentifiers(
+      input.traceRefs,
+      'traceRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
@@ -579,13 +621,25 @@ function createDependencyPattern(input: DependencyPattern): DependencyPattern {
   }
   return Object.freeze({
     ...input,
-    supportRefs: freezeIdentifiers(input.supportRefs, 'supportRefs'),
-    contradictionRefs: freezeIdentifiers(input.contradictionRefs, 'contradictionRefs'),
+    supportRefs: freezeIdentifiers(
+      input.supportRefs,
+      'supportRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
+    contradictionRefs: freezeIdentifiers(
+      input.contradictionRefs,
+      'contradictionRefs',
+      PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT,
+    ),
   });
 }
 
-function freezeIdentifiers(values: readonly string[], field: string): readonly string[] {
-  if (values.length > 4096)
+function freezeIdentifiers(
+  values: readonly string[],
+  field: string,
+  maximum = DEFAULT_IDENTIFIER_COLLECTION_LIMIT,
+): readonly string[] {
+  if (values.length > maximum)
     invalid('EXPERIENCE_COMPILATION_BOUND_EXCEEDED', `${field} is too large.`);
   const normalized = values.map((value) => {
     assertIdentifier(value, field);
@@ -595,6 +649,17 @@ function freezeIdentifiers(values: readonly string[], field: string): readonly s
     invalid('EXPERIENCE_COMPILATION_DUPLICATE', `${field} contains duplicates.`);
   }
   return Object.freeze(normalized);
+}
+
+function freezeSequence(values: readonly string[], field: string): readonly string[] {
+  if (values.length > 4096)
+    invalid('EXPERIENCE_COMPILATION_BOUND_EXCEEDED', `${field} is too large.`);
+  return Object.freeze(
+    values.map((value) => {
+      assertIdentifier(value, field);
+      return value.trim();
+    }),
+  );
 }
 
 function freezeJson(value: JsonValue, depth: number): JsonValue {

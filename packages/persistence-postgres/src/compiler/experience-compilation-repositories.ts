@@ -418,6 +418,14 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
             ).rows.map((row) => row.pattern_id);
       await client.query('DELETE FROM compilation_run WHERE user_scope_id=$1', [userScopeId]);
       if (patterns.length > 0) {
+        await client.query(
+          `DELETE FROM compilation_run
+           WHERE result_ref IN (
+             SELECT definition->'workflowPattern'->>'workflowPatternId'
+             FROM pattern_candidate WHERE pattern_id=ANY($1::text[])
+           )`,
+          [patterns],
+        );
         await client.query('DELETE FROM pattern_candidate WHERE pattern_id=ANY($1::text[])', [
           patterns,
         ]);
@@ -492,7 +500,7 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     maxAttempts = 5,
   ): Promise<CompilationRun> {
     const cohort = createCohortDefinition(input);
-    const idempotencyKey = `process-mining:${cohortFingerprint}`;
+    const idempotencyKey = `process-mining:${cohortFingerprint}:${now}`;
     const result = await this.#pool.query<CompilationRunRow>(
       `INSERT INTO compilation_run(
          run_id,run_type,source_episode_id,tenant_id,user_scope_id,cohort_fingerprint,
@@ -503,7 +511,7 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
        ON CONFLICT(idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key
        RETURNING *`,
       [
-        stableId('compilation-mining-run', cohortFingerprint),
+        stableId('compilation-mining-run', `${cohortFingerprint}:${now}`),
         cohort.tenantId,
         cohortFingerprint,
         maxAttempts,

@@ -152,6 +152,39 @@ describe('P03 frozen Experience compilation contracts', () => {
     ).toThrow(/inconsistent/u);
   });
 
+  it('accepts 10k mining evidence references while retaining a finite evidence bound', () => {
+    const tenThousandRefs = Array.from({ length: 10_000 }, (_, index) => `trace-${String(index)}`);
+    expect(
+      createProcessVariant({
+        variantId: 'variant-10k',
+        activitySequence: ['goal_created', 'goal_completed'],
+        concurrencyGroups: [],
+        branchSequence: [],
+        occurrenceCount: tenThousandRefs.length,
+        traceRefs: tenThousandRefs,
+        successCount: tenThousandRefs.length,
+        failureCount: 0,
+      }).traceRefs,
+    ).toHaveLength(10_000);
+
+    const overBoundRefs = Array.from(
+      { length: 65_537 },
+      (_, index) => `trace-over-bound-${String(index)}`,
+    );
+    expect(() =>
+      createProcessVariant({
+        variantId: 'variant-over-bound',
+        activitySequence: ['goal_created'],
+        concurrencyGroups: [],
+        branchSequence: [],
+        occurrenceCount: overBoundRefs.length,
+        traceRefs: overBoundRefs,
+        successCount: overBoundRefs.length,
+        failureCount: 0,
+      }),
+    ).toThrow(/too large/u);
+  });
+
   it('keeps discovered and Workflow Patterns as evidence-only contracts', () => {
     const quality = {
       support: 1,

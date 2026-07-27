@@ -60,6 +60,7 @@ for (const file of productFiles) {
     normalized.startsWith('packages/application/src/compiler/') ||
     normalized === 'packages/application/src/index.ts' ||
     normalized.startsWith('packages/application/test/experience-') ||
+    normalized === 'packages/application/test/process-miner.unit.test.ts' ||
     normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
     normalized === 'packages/persistence-postgres/src/index.ts' ||
     normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||

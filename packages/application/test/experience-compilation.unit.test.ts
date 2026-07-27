@@ -4,6 +4,7 @@ import {
   COGNITIVE_SCHEMA_VERSION,
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
   EXPERIENCE_NORMALIZER_VERSION,
+  createCohortDefinition,
   createCognitiveSourceRef,
   createExperienceTrace,
   createGoalExperienceEpisode,
@@ -12,11 +13,14 @@ import {
 import {
   CompilationRunReconciler,
   ExperienceNormalizationService,
+  ProcessMiningService,
   type CompilationRun,
   type CompilationRunRepository,
   type ExperienceCompilationRepository,
+  type ProcessMiningResult,
 } from '../src/compiler/experience-compilation.js';
 import { ExperienceTraceNormalizer } from '../src/compiler/experience-normalizer.js';
+import { DeterministicProcessMiner } from '../src/compiler/process-miner.js';
 
 const now = '2026-07-27T02:00:00.000Z';
 const sha = (character: string): string => `sha256:${character.repeat(64)}`;
@@ -119,6 +123,71 @@ describe('Experience normalization durable orchestration', () => {
     await expect(reconciler.requeue(now)).resolves.toBe(1);
     expect(enqueue).toHaveBeenCalledWith('normalization-run-1');
   });
+
+  it('mines and persists a leased cohort run with the exact cohort fingerprint', async () => {
+    const cohort = createCohortDefinition({
+      tenantId: 'tenant-1',
+      taskTypeId: 'task-type-1',
+      minimumCompleteness: 0.8,
+    });
+    const miner = new DeterministicProcessMiner();
+    const cohortFingerprint = miner.fingerprintCohort(cohort);
+    const run = miningRun(cohortFingerprint, cohort);
+    const complete = vi.fn(() => Promise.resolve(true));
+    const saveProcessMiningResult = vi.fn((result: ProcessMiningResult) =>
+      Promise.resolve({ workflowPattern: result.workflowPattern, inserted: true }),
+    );
+    const service = new ProcessMiningService({
+      runs: runRepository({ complete }),
+      repository: compilationRepository({
+        listTraces: () => Promise.resolve([persistedTrace()]),
+        saveProcessMiningResult,
+      }),
+      miner,
+      clock: { now: () => now },
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+
+    await service.process(run, 'worker-1');
+
+    expect(saveProcessMiningResult).toHaveBeenCalledOnce();
+    const result = miner.discover(cohort, [persistedTrace()]);
+    expect(complete).toHaveBeenCalledWith(
+      run.runId,
+      'worker-1',
+      'mining-lease-token-1',
+      result.workflowPattern.workflowPatternId,
+      now,
+    );
+  });
+
+  it('fails closed when a mining run payload does not match its durable fingerprint', async () => {
+    const cohort = createCohortDefinition({
+      tenantId: 'tenant-1',
+      taskTypeId: 'task-type-1',
+      minimumCompleteness: 0.8,
+    });
+    const fail = vi.fn(() => Promise.resolve(true));
+    const service = new ProcessMiningService({
+      runs: runRepository({ fail }),
+      repository: compilationRepository({}),
+      miner: new DeterministicProcessMiner(),
+      clock: { now: () => now },
+      retryPolicy: { maxAttempts: 1, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+
+    await service.process(miningRun(sha('f'), cohort), 'worker-1');
+
+    expect(fail).toHaveBeenCalledWith(
+      'mining-run-1',
+      'worker-1',
+      'mining-lease-token-1',
+      'PROCESS_MINING_COHORT_FINGERPRINT_MISMATCH',
+      'PROCESS_MINING_COHORT_FINGERPRINT_MISMATCH',
+      now,
+      undefined,
+    );
+  });
 });
 
 function leasedRun(): CompilationRun {
@@ -188,6 +257,35 @@ function sourceEpisode() {
   });
 }
 
+function miningRun(
+  cohortFingerprint: string,
+  cohort: ReturnType<typeof createCohortDefinition>,
+): CompilationRun {
+  return {
+    runId: 'mining-run-1',
+    runType: 'process_mining',
+    tenantId: cohort.tenantId,
+    cohortFingerprint,
+    status: 'leased',
+    attempt: 1,
+    maxAttempts: 3,
+    availableAt: now,
+    leaseOwner: 'worker-1',
+    leaseToken: 'mining-lease-token-1',
+    leaseExpiresAt: '2026-07-27T02:02:00.000Z',
+    idempotencyKey: `process-mining:${cohortFingerprint}:${now}`,
+    payload: {
+      cohort: {
+        tenantId: cohort.tenantId,
+        taskTypeId: cohort.taskTypeId,
+        minimumCompleteness: cohort.minimumCompleteness,
+      },
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 function persistedTrace(): ExperienceTrace {
   return createExperienceTrace({
     traceId: 'trace-1',
@@ -199,9 +297,32 @@ function persistedTrace(): ExperienceTrace {
     trace: {
       schemaVersion: EXPERIENCE_COMPILATION_CONTRACT_VERSION,
       tenantId: 'tenant-1',
-      events: [],
+      events: [
+        {
+          eventId: 'event-goal-created',
+          sequence: 0,
+          occurredAt: now,
+          eventType: 'goal_created',
+          actorType: 'runtime',
+          capabilityRefs: [],
+          authorityRefs: ['source-1'],
+          parentEventRefs: [],
+          payloadSummary: {},
+        },
+        {
+          eventId: 'event-goal-completed',
+          sequence: 1,
+          occurredAt: '2026-07-27T02:00:01.000Z',
+          eventType: 'goal_completed',
+          actorType: 'runtime',
+          capabilityRefs: [],
+          authorityRefs: ['source-2'],
+          parentEventRefs: ['event-goal-created'],
+          payloadSummary: {},
+        },
+      ],
       correctionRefs: [],
-      outcomeStatus: 'unknown',
+      outcomeStatus: 'succeeded',
       missingFactCodes: [],
       environmentClass: 'server',
     },

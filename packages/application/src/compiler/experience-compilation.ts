@@ -1,4 +1,7 @@
-import { EXPERIENCE_NORMALIZER_VERSION } from '../../../domain/src/index.js';
+import {
+  EXPERIENCE_NORMALIZER_VERSION,
+  createCohortDefinition,
+} from '../../../domain/src/index.js';
 import type {
   CohortDefinition,
   DiscoveredProcessPattern,
@@ -12,6 +15,7 @@ import type {
   ExperienceTraceNormalizer,
   ExperienceTraceNormalizationReport,
 } from './experience-normalizer.js';
+import type { DeterministicProcessMiner } from './process-miner.js';
 
 export type CompilationRunType = 'normalization' | 'process_mining';
 export type CompilationRunStatus =
@@ -199,6 +203,98 @@ export class ExperienceNormalizationService {
   }
 }
 
+export class ProcessMiningService {
+  readonly #runs: CompilationRunRepository;
+  readonly #repository: ExperienceCompilationRepository;
+  readonly #miner: Pick<DeterministicProcessMiner, 'fingerprintCohort' | 'discover'>;
+  readonly #clock: Readonly<{ now(): string }>;
+  readonly #retryPolicy: Readonly<{
+    maxAttempts: number;
+    baseBackoffMs: number;
+    maxBackoffMs: number;
+  }>;
+
+  constructor(
+    dependencies: Readonly<{
+      runs: CompilationRunRepository;
+      repository: ExperienceCompilationRepository;
+      miner: Pick<DeterministicProcessMiner, 'fingerprintCohort' | 'discover'>;
+      clock: Readonly<{ now(): string }>;
+      retryPolicy: Readonly<{
+        maxAttempts: number;
+        baseBackoffMs: number;
+        maxBackoffMs: number;
+      }>;
+    }>,
+  ) {
+    this.#runs = dependencies.runs;
+    this.#repository = dependencies.repository;
+    this.#miner = dependencies.miner;
+    this.#clock = dependencies.clock;
+    this.#retryPolicy = dependencies.retryPolicy;
+  }
+
+  claim(workerId: string, limit = 1): Promise<readonly CompilationRun[]> {
+    return this.#runs.claim('process_mining', workerId, this.#clock.now(), 120_000, limit);
+  }
+
+  async process(run: CompilationRun, workerId: string): Promise<void> {
+    if (run.runType !== 'process_mining' || run.status !== 'leased') return;
+    const leaseToken = requiredLeaseToken(run);
+    try {
+      const cohort = cohortFromPayload(run.payload['cohort']);
+      const cohortFingerprint = this.#miner.fingerprintCohort(cohort);
+      if (run.cohortFingerprint === undefined || run.cohortFingerprint !== cohortFingerprint) {
+        throw codedError('PROCESS_MINING_COHORT_FINGERPRINT_MISMATCH');
+      }
+      const traces = await this.#repository.listTraces(cohort, 10_000);
+      const result = this.#miner.discover(cohort, traces);
+      if (result.cohortFingerprint !== cohortFingerprint) {
+        throw codedError('PROCESS_MINING_RESULT_FINGERPRINT_MISMATCH');
+      }
+      const persisted = await this.#repository.saveProcessMiningResult(result, this.#clock.now());
+      await this.#runs.complete(
+        run.runId,
+        workerId,
+        leaseToken,
+        persisted.workflowPattern.workflowPatternId,
+        this.#clock.now(),
+      );
+    } catch (error: unknown) {
+      await this.#fail(run, workerId, leaseToken, error);
+    }
+  }
+
+  async #fail(
+    run: CompilationRun,
+    workerId: string,
+    leaseToken: string,
+    error: unknown,
+  ): Promise<void> {
+    const now = this.#clock.now();
+    const attemptLimit = Math.min(run.maxAttempts, this.#retryPolicy.maxAttempts);
+    const retryAt =
+      run.attempt >= attemptLimit
+        ? undefined
+        : new Date(
+            Date.parse(now) +
+              Math.min(
+                this.#retryPolicy.maxBackoffMs,
+                this.#retryPolicy.baseBackoffMs * 2 ** Math.max(0, run.attempt - 1),
+              ),
+          ).toISOString();
+    await this.#runs.fail(
+      run.runId,
+      workerId,
+      leaseToken,
+      errorCode(error),
+      errorSummary(error),
+      now,
+      retryAt,
+    );
+  }
+}
+
 export class CompilationRunReconciler {
   readonly #runs: CompilationRunRepository;
   readonly #queue: CompilationWakeQueuePort;
@@ -221,6 +317,53 @@ export class CompilationRunReconciler {
     for (const run of runs) await this.#queue.enqueue(run.runId);
     return runs.length;
   }
+}
+
+function cohortFromPayload(value: unknown): CohortDefinition {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw codedError('PROCESS_MINING_COHORT_PAYLOAD_INVALID');
+  }
+  const input = value as Readonly<Record<string, unknown>>;
+  const tenantId = requiredString(input['tenantId'], 'tenantId');
+  const taskTypeId = requiredString(input['taskTypeId'], 'taskTypeId');
+  const goalFingerprint = optionalString(input['goalFingerprint']);
+  const capabilityFingerprint = optionalString(input['capabilityFingerprint']);
+  const environmentClass = optionalString(input['environmentClass']);
+  const deviceClass = optionalString(input['deviceClass']);
+  const minimumCompleteness = input['minimumCompleteness'];
+  if (typeof minimumCompleteness !== 'number') {
+    throw codedError('PROCESS_MINING_MINIMUM_COMPLETENESS_INVALID');
+  }
+  const timeRangeValue = input['timeRange'];
+  let timeRange: CohortDefinition['timeRange'];
+  if (timeRangeValue !== undefined) {
+    if (
+      typeof timeRangeValue !== 'object' ||
+      timeRangeValue === null ||
+      Array.isArray(timeRangeValue)
+    ) {
+      throw codedError('PROCESS_MINING_TIME_RANGE_INVALID');
+    }
+    const timeRangeInput = timeRangeValue as Readonly<Record<string, unknown>>;
+    timeRange = {
+      from: requiredString(timeRangeInput['from'], 'timeRange.from'),
+      to: requiredString(timeRangeInput['to'], 'timeRange.to'),
+    };
+  }
+  return createCohortDefinition({
+    tenantId,
+    taskTypeId,
+    ...(goalFingerprint === undefined ? {} : { goalFingerprint }),
+    ...(capabilityFingerprint === undefined ? {} : { capabilityFingerprint }),
+    ...(environmentClass === undefined ? {} : { environmentClass }),
+    ...(deviceClass === undefined ? {} : { deviceClass }),
+    ...(timeRange === undefined ? {} : { timeRange }),
+    minimumCompleteness,
+  });
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function requiredLeaseToken(run: CompilationRun): string {
