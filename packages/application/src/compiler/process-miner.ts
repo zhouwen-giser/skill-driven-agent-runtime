@@ -63,14 +63,20 @@ export class DeterministicProcessMiner {
     });
   }
 
-  discover(input: CohortDefinition, traceInput: readonly ExperienceTrace[]): ProcessMiningResult {
+  async discover(
+    input: CohortDefinition,
+    traceInput: readonly ExperienceTrace[],
+  ): Promise<ProcessMiningResult> {
     const cohort = createCohortDefinition(input);
     const traces = [...traceInput].sort((left, right) => left.traceId.localeCompare(right.traceId));
     if (traces.length === 0) throw new Error('PROCESS_MINING_COHORT_EMPTY');
-    for (const trace of traces) assertTraceInCohort(trace, cohort);
+    for (const [index, trace] of traces.entries()) {
+      assertTraceInCohort(trace, cohort);
+      await yieldForOnlineRuntime(index);
+    }
     const cohortFingerprint = this.fingerprintCohort(cohort);
-    const variants = discoverVariants(traces);
-    const activitySupport = activitySupportByTrace(traces);
+    const variants = await discoverVariants(traces);
+    const activitySupport = await activitySupportByTrace(traces);
     const allActivities = [...activitySupport.keys()].sort();
     const mandatoryActivities = allActivities.filter(
       (activity) =>
@@ -80,15 +86,15 @@ export class DeterministicProcessMiner {
     const optionalActivities = allActivities.filter(
       (activity) => !mandatoryActivities.includes(activity),
     );
-    const directEvidence = relationEvidence(traces, 'direct_follows');
-    const precedenceEvidence = relationEvidence(traces, 'precedes');
+    const directEvidence = await relationEvidence(traces, 'direct_follows');
+    const precedenceEvidence = await relationEvidence(traces, 'precedes');
     const orderingConstraints = [
       ...toOrderingConstraints(directEvidence, 'direct_follows'),
       ...toOrderingConstraints(precedenceEvidence, 'precedes'),
     ].sort(compareOrdering);
-    const parallelCandidates = discoverParallelCandidates(traces);
-    const recoveryBranches = discoverRecoveryPatterns(traces);
-    const failureVariants = discoverFailureVariants(traces);
+    const parallelCandidates = await discoverParallelCandidates(traces);
+    const recoveryBranches = await discoverRecoveryPatterns(traces);
+    const failureVariants = await discoverFailureVariants(traces);
     const contradictionRefs = uniqueSorted([
       ...orderingConstraints.flatMap((constraint) => constraint.contradictionRefs),
       ...parallelCandidates.flatMap((candidate) => candidate.contradictionRefs),
@@ -156,9 +162,11 @@ export class DeterministicProcessMiner {
   }
 }
 
-function discoverVariants(traces: readonly ExperienceTrace[]): readonly ProcessVariant[] {
+async function discoverVariants(
+  traces: readonly ExperienceTrace[],
+): Promise<readonly ProcessVariant[]> {
   const accumulators = new Map<string, VariantAccumulator>();
-  for (const trace of traces) {
+  for (const [index, trace] of traces.entries()) {
     const activitySequence = trace.trace.events.map((event) => event.eventType);
     if (activitySequence.length === 0) continue;
     const concurrencyGroups = traceConcurrencyGroups(trace);
@@ -178,6 +186,7 @@ function discoverVariants(traces: readonly ExperienceTrace[]): readonly ProcessV
     if (trace.trace.outcomeStatus === 'succeeded') accumulator.successCount += 1;
     if (trace.trace.outcomeStatus === 'failed') accumulator.failureCount += 1;
     accumulators.set(key, accumulator);
+    await yieldForOnlineRuntime(index);
   }
   return Object.freeze(
     [...accumulators.entries()]
@@ -219,26 +228,27 @@ function traceConcurrencyGroups(trace: ExperienceTrace): readonly (readonly stri
   );
 }
 
-function activitySupportByTrace(
+async function activitySupportByTrace(
   traces: readonly ExperienceTrace[],
-): ReadonlyMap<string, Set<string>> {
+): Promise<ReadonlyMap<string, Set<string>>> {
   const result = new Map<string, Set<string>>();
-  for (const trace of traces) {
+  for (const [index, trace] of traces.entries()) {
     for (const activity of new Set(trace.trace.events.map((event) => event.eventType))) {
       const support = result.get(activity) ?? new Set<string>();
       support.add(trace.traceId);
       result.set(activity, support);
     }
+    await yieldForOnlineRuntime(index);
   }
   return result;
 }
 
-function relationEvidence(
+async function relationEvidence(
   traces: readonly ExperienceTrace[],
   relation: OrderingConstraint['relation'],
-): ReadonlyMap<string, RelationEvidence> {
+): Promise<ReadonlyMap<string, RelationEvidence>> {
   const supports = new Map<string, Set<string>>();
-  for (const trace of traces) {
+  for (const [index, trace] of traces.entries()) {
     const activities = trace.trace.events.map((event) => event.eventType);
     const pairs =
       relation === 'direct_follows' ? directPairs(activities) : precedencePairs(activities);
@@ -248,6 +258,7 @@ function relationEvidence(
       refs.add(trace.traceId);
       supports.set(key, refs);
     }
+    await yieldForOnlineRuntime(index);
   }
   const result = new Map<string, RelationEvidence>();
   for (const [key, support] of supports) {
@@ -313,12 +324,12 @@ function toOrderingConstraints(
   });
 }
 
-function discoverParallelCandidates(
+async function discoverParallelCandidates(
   traces: readonly ExperienceTrace[],
-): readonly ParallelCandidate[] {
+): Promise<readonly ParallelCandidate[]> {
   const support = new Map<string, Set<string>>();
   const activitiesByKey = new Map<string, readonly string[]>();
-  for (const trace of traces) {
+  for (const [index, trace] of traces.entries()) {
     for (const activities of traceConcurrencyGroups(trace)) {
       const uniqueActivities = uniqueSorted(activities);
       if (uniqueActivities.length < 2) continue;
@@ -328,6 +339,7 @@ function discoverParallelCandidates(
       support.set(key, refs);
       activitiesByKey.set(key, uniqueActivities);
     }
+    await yieldForOnlineRuntime(index);
   }
   return Object.freeze(
     [...support.keys()].sort().map((key) => {
@@ -358,7 +370,9 @@ function hasExplicitParentOrdering(trace: ExperienceTrace, activities: readonly 
   );
 }
 
-function discoverRecoveryPatterns(traces: readonly ExperienceTrace[]): readonly RecoveryPattern[] {
+async function discoverRecoveryPatterns(
+  traces: readonly ExperienceTrace[],
+): Promise<readonly RecoveryPattern[]> {
   const patterns = new Map<
     string,
     {
@@ -368,7 +382,7 @@ function discoverRecoveryPatterns(traces: readonly ExperienceTrace[]): readonly 
       refs: Set<string>;
     }
   >();
-  for (const trace of traces) {
+  for (const [traceIndex, trace] of traces.entries()) {
     for (const [index, event] of trace.trace.events.entries()) {
       if (event.eventType !== 'recovery_started') continue;
       const triggerActivity =
@@ -391,6 +405,7 @@ function discoverRecoveryPatterns(traces: readonly ExperienceTrace[]): readonly 
       pattern.refs.add(trace.traceId);
       patterns.set(key, pattern);
     }
+    await yieldForOnlineRuntime(traceIndex);
   }
   return Object.freeze(
     [...patterns.entries()]
@@ -404,12 +419,14 @@ function discoverRecoveryPatterns(traces: readonly ExperienceTrace[]): readonly 
   );
 }
 
-function discoverFailureVariants(traces: readonly ExperienceTrace[]): readonly FailureVariant[] {
+async function discoverFailureVariants(
+  traces: readonly ExperienceTrace[],
+): Promise<readonly FailureVariant[]> {
   const failures = new Map<
     string,
     { activitySequence: readonly string[]; failureActivity: string; traceRefs: string[] }
   >();
-  for (const trace of traces) {
+  for (const [index, trace] of traces.entries()) {
     const failureEvent = [...trace.trace.events]
       .reverse()
       .find((event) => ['workflow_failed', 'goal_failed'].includes(event.eventType));
@@ -421,6 +438,7 @@ function discoverFailureVariants(traces: readonly ExperienceTrace[]): readonly F
     const failure = failures.get(key) ?? { activitySequence, failureActivity, traceRefs: [] };
     failure.traceRefs.push(trace.traceId);
     failures.set(key, failure);
+    await yieldForOnlineRuntime(index);
   }
   return Object.freeze(
     [...failures.entries()]
@@ -633,6 +651,11 @@ function requiredMapValue<Key, Value>(map: ReadonlyMap<Key, Value>, key: Key): V
   const value = map.get(key);
   if (value === undefined) throw new Error('PROCESS_MINING_MAP_VALUE_MISSING');
   return value;
+}
+
+async function yieldForOnlineRuntime(index: number): Promise<void> {
+  if (index === 0 || index % 128 !== 0) return;
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 function hash(value: unknown): string {

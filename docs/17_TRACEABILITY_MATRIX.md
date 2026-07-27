@@ -567,3 +567,27 @@ blocking/major findings. Completion commit `8ac5f5e` passes the same complete ga
 The first three rejected reviews and fourth accepted review are preserved in
 `reports/goal/v1.3-p02-review.md`. P02 is `COMPLETED`, 7/7 accepted with zero open blocker; immutable
 clean-commit evidence and the exact Handoff are linked above.
+
+## SDAR v1.3 P03 Experience Trace and Process Mining Addendum
+
+| P03 acceptance                        | Status              | Implementation                                                                                                            | Tests / evidence                                                                                   |
+| ------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| AC-P03-001–002 baseline/Handoff       | verified            | P00/P01/P02 exact commits are ancestors; frozen registry/package self-checks pass                                         | P03 21-file self-check and aggregate package validator                                             |
+| AC-P03-003,005–008 strict safe Trace  | verified            | exact Domain factories, deterministic Episode normalizer, explicit missing codes and bounded redaction                    | Domain/normalizer unit and strict nested negative integration                                      |
+| AC-P03-004 formal Source attribution  | remediation         | formal Task projection plus `task_request` SourceRef; no document/live-provider substitute                                | focused tests pass; Server vertical authorityRef integration rerun pending                         |
+| AC-P03-009–010 scope/authority        | verified            | source-derived trusted-intranet tenant, scoped reads/deletion; PostgreSQL canonical Trace/Pattern tables                  | tenant isolation, cross-tenant read denial, deletion and immutable persistence integration         |
+| AC-P03-011 bounded/idempotent workers | remediation         | event-set batch identity, cohort advisory lock, 60-second rate window and bounded/single mining worker                    | focused tests pass; same-timestamp/coalescing PostgreSQL rerun pending                             |
+| AC-P03-012 Redis recovery             | verified            | PostgreSQL-authoritative requeueable state and wake-only BullMQ                                                           | real Redis obliterate/rebuild/duplicate-wake integration                                           |
+| AC-P03-013–022 deterministic mining   | verified            | exact cohort/version, variants, ordering, explicit parallel, recovery/failure and frozen quality                          | golden unit set, repeat mining and 10,000-trace PostgreSQL persistence                             |
+| AC-P03-023–025,027 scope exclusions   | verified            | evidence-only WorkflowPattern; no Skill/Artifact/template/rule/gateway/Python                                             | architecture gate across 459 TypeScript sources and product-composition integration                |
+| AC-P03-026 non-blocking mining        | remediation         | cooperative 128-trace slices, asynchronous Brotli and mining concurrency one                                              | event-loop-yield unit passes; real Server integration rerun pending                                |
+| AC-P03-028 full verify                | environment blocked | implementation stages pass on `1f7e043`; default operator `/sdar` lacks clean-baseline ledger marker at final infra smoke | 828 unit/contract, 100 integration, 62 E2E, 19 migrations, build; final dedicated-DB rerun pending |
+| AC-P03-029 separate commits           | verified            | G05 `22cf9a3`, G06 `119fe43`, compatibility `8adecec`, review remediation `1f7e043`                                       | commit history and four machine-readable P03 reports                                               |
+| AC-P03-030 independent review         | failed              | first review rejected `5802c3e`; second review rejected `1f7e043` with three new Major findings                           | exact negative findings preserved in `reports/goal/v1.3-p03-review.md`                             |
+| AC-P03-031 Draft-only publication     | verified so far     | Draft PR #12 remains unmerged; no tag/release/deploy                                                                      | Git/GitHub state                                                                                   |
+| AC-P03-032 exact P04 Handoff          | pending             | exact 28-field Handoff will be emitted only after gate and review closure                                                 | `reports/goal/v1.3-p03-handoff.json` pending                                                       |
+
+Performance evidence is classified in `reports/goal/v1.3-p03-mining-report.json`: the clean-gate
+10,000-row query measured 416.045 ms and Pattern persistence 528.616 ms; the local BullMQ sample
+processed 100 runs in 5.358 ms, with a separate one-wake queue-lag sample of 17.084 ms. These are
+local acceptance measurements, not production SLO claims.

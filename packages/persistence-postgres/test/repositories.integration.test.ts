@@ -99,6 +99,7 @@ import {
   PostgresCognitiveRuntimeFactReader,
   PostgresCompilationRunRepository,
   PostgresExperienceCompilationRepository,
+  PostgresExperienceCompilationTriggerSource,
   PostgresObservationRepository,
   PostgresReflectionRepository,
   PostgresTaskTypeRepository,
@@ -4181,6 +4182,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
             patterns: number;
             completed_runs: number;
             task_type_refs: unknown;
+            task_source_authorities: number;
             workflow_pattern_id: string | null;
           }>
         | undefined;
@@ -4190,14 +4192,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
           patterns: number;
           completed_runs: number;
           task_type_refs: unknown;
+          task_source_authorities: number;
           workflow_pattern_id: string | null;
         }>(
           `SELECT
              (SELECT count(*)::integer FROM experience_trace) AS traces,
              (SELECT count(*)::integer FROM pattern_candidate) AS patterns,
              (SELECT count(*)::integer FROM compilation_run
-              WHERE status='completed') AS completed_runs,
+             WHERE status='completed') AS completed_runs,
              (SELECT task_type_refs FROM experience_trace LIMIT 1) AS task_type_refs,
+             (SELECT jsonb_array_length(event->'authorityRefs')
+              FROM experience_trace trace,
+                   jsonb_array_elements(trace.trace->'events') event
+              WHERE event->>'eventType'='goal_created' LIMIT 1) AS task_source_authorities,
              (SELECT definition->>'workflowPatternId'
               FROM pattern_candidate LIMIT 1) AS workflow_pattern_id`,
         );
@@ -4213,6 +4220,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         completed_runs: 2,
       });
       expect(evidence?.task_type_refs).toEqual([expect.stringMatching(/^request-fingerprint-/u)]);
+      expect(evidence?.task_source_authorities).toBeGreaterThan(0);
       expect(evidence?.workflow_pattern_id).toMatch(/^workflow-pattern-/u);
       const workflowPatternId = evidence?.workflow_pattern_id;
       if (workflowPatternId === null || workflowPatternId === undefined) {
@@ -4378,7 +4386,35 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
     const cohortFingerprint = miner.fingerprintCohort(cohort);
     const runs = new PostgresCompilationRunRepository(pool);
-    const firstRun = await runs.createProcessMiningRun(cohort, cohortFingerprint, clock.now(), 3);
+    const triggerSource = new PostgresExperienceCompilationTriggerSource(pool);
+    const miningTriggers = (await triggerSource.listPending(100)).filter(
+      (trigger) => trigger.runType === 'process_mining',
+    );
+    expect(miningTriggers).toHaveLength(1);
+    const [miningTrigger] = miningTriggers;
+    if (miningTrigger === undefined) {
+      throw new Error('P03_MINING_TRIGGER_MISSING');
+    }
+    expect(miningTrigger.triggerIds).toHaveLength(3);
+    const firstRun = await runs.createProcessMiningRun(
+      cohort,
+      cohortFingerprint,
+      miningTrigger.occurredAt,
+      3,
+      miningTrigger.triggerIds,
+    );
+    const duplicateBatchRun = await runs.createProcessMiningRun(
+      cohort,
+      cohortFingerprint,
+      '2026-07-27T03:00:01.000Z',
+      3,
+      [...miningTrigger.triggerIds].reverse(),
+    );
+    expect(duplicateBatchRun.runId).toBe(firstRun.runId);
+    const pendingAfterCoalescing = (await triggerSource.listPending(100)).filter(
+      (trigger) => trigger.runType === 'process_mining',
+    );
+    expect(pendingAfterCoalescing).toEqual([]);
     const [claimed] = await runs.claim(
       'process_mining',
       'mining-worker.p03',
@@ -4549,7 +4585,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const traces = await compilation.listTraces(cohort, 10_000);
     const queryElapsedMs = performance.now() - queryStartedAt;
     expect(traces).toHaveLength(10_000);
-    const result = new DeterministicProcessMiner().discover(cohort, traces);
+    const result = await new DeterministicProcessMiner().discover(cohort, traces);
     const persistenceStartedAt = performance.now();
     const persisted = await compilation.saveProcessMiningResult(result, clock.now());
     const persistenceElapsedMs = performance.now() - persistenceStartedAt;

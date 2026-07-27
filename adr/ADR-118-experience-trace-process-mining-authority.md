@@ -24,9 +24,11 @@ Experience jobs and Redis-reconstructable wake delivery.
   frozen relational columns are checked projections. `experience_trace_source` is only an immutable
   foreign-keyed source/deletion projection.
 - `pattern_candidate` is the sole durable discovered-pattern authority. Its `definition` JSON stores
-  the exact cohort, variants, discovered process pattern and Workflow Pattern. It is never a
-  `CompiledArtifact` and cannot enter Artifact lifecycle or runtime matching. Supporting trace rows
-  are non-authoritative foreign-keyed projections.
+  a bounded Brotli+base64 envelope with canonical SHA-256 integrity over the exact cohort, variants,
+  discovered process pattern and Workflow Pattern. The existing JSON support columns retain a
+  bounded 4,096-reference index projection; `pattern_candidate_support` retains every support and
+  contradiction reference under the same candidate foreign key and tenant scope. The definition is
+  never a `CompiledArtifact` and cannot enter Artifact lifecycle or runtime matching.
 - `compilation_run` is durable delivery/lease evidence, not a Trace or Pattern authority.
   PostgreSQL owns idempotency, bounded attempts, retry/dead-letter state, leases and fencing. Frozen
   BullMQ queues contain run-ID wakes only and are reconstructed from PostgreSQL after Redis loss.
@@ -44,6 +46,22 @@ Experience jobs and Redis-reconstructable wake delivery.
 - User deletion removes the applicable scoped Trace, pattern support and compilation payloads
   transactionally. Tenant identity is derived from persisted source scope, and all cohort reads
   require exact tenant equality.
+- Formal v1.2.3 tasks do not guarantee an active Task Type. When the latest formal understanding has
+  no candidate, normalization retains `task_type_missing` and derives a deterministic normalized
+  request fingerprint only as a compatibility cohort key. That key is not a Task Type record,
+  lifecycle state or activation authority. The V1 trusted-intranet deployment identifier supplies
+  the persisted tenant partition; this does not add authentication or multi-tenant authorization.
+- Product composition occurs only in `apps/server/src/runtime.ts`: persisted Episode/Trace Outbox
+  events create source-event-linked durable runs, reconcilers rebuild wake-only Redis jobs, and
+  bounded workers claim/process PostgreSQL state. No compiler service is called in the online Goal
+  transaction.
+- Automatic mining groups at most 1,000 pending source events by tenant/Task Type. The sorted event
+  set binds run identity; a PostgreSQL advisory lock and one-active/recent-run-per-60-seconds rule
+  prevent timestamp collision, concurrent duplicate scheduling and per-Trace full-cohort mining.
+  Events arriving inside the rate window remain pending for the next batch.
+- Mining stays in the V1 process but yields cooperatively every 128 traces, uses asynchronous libuv
+  Brotli compression and runs with concurrency one. These boundaries preserve offline/background
+  semantics without introducing a second process or workflow runtime.
 
 ## Consequences
 

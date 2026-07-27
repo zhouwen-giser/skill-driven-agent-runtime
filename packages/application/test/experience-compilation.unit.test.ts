@@ -149,7 +149,7 @@ describe('Experience normalization durable orchestration', () => {
               occurredAt: now,
             },
             {
-              triggerId: 'event-trace-1',
+              triggerIds: ['event-trace-1', 'event-trace-2'],
               runType: 'process_mining' as const,
               cohort,
               occurredAt: now,
@@ -160,6 +160,7 @@ describe('Experience normalization durable orchestration', () => {
       normalizationQueue: { enqueue: enqueueNormalization },
       miningQueue: { enqueue: enqueueMining },
       miner,
+      clock: { now: () => now },
     });
 
     await expect(dispatcher.dispatch()).resolves.toBe(2);
@@ -169,7 +170,7 @@ describe('Experience normalization durable orchestration', () => {
       miner.fingerprintCohort(cohort),
       now,
       5,
-      'event-trace-1',
+      ['event-trace-1', 'event-trace-2'],
     );
     expect(enqueueNormalization).toHaveBeenCalledWith(normalizationRun.runId);
     expect(enqueueMining).toHaveBeenCalledWith(processMiningRun.runId);
@@ -202,7 +203,7 @@ describe('Experience normalization durable orchestration', () => {
     await service.process(run, 'worker-1');
 
     expect(saveProcessMiningResult).toHaveBeenCalledOnce();
-    const result = miner.discover(cohort, [persistedTrace()]);
+    const result = await miner.discover(cohort, [persistedTrace()]);
     expect(complete).toHaveBeenCalledWith(
       run.runId,
       'worker-1',

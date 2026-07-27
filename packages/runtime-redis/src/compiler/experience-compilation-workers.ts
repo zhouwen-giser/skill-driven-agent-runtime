@@ -64,12 +64,12 @@ export class BullMqCompilationWorker {
       queueName(runType, queueNameOverride),
       async (job: Job<CompilationWake>) => {
         CompilationWakeSchema.parse(job.data);
-        const claimed = await service.claim(workerId, 10);
+        const claimed = await service.claim(workerId, runType === 'process_mining' ? 1 : 10);
         for (const run of claimed) await service.process(run, workerId);
       },
       {
         connection: toConnectionOptions(connection),
-        concurrency: 4,
+        concurrency: runType === 'process_mining' ? 1 : 4,
         maxStalledCount: 0,
         autorun: false,
       },

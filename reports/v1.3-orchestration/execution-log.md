@@ -138,3 +138,25 @@ P00 Foundation Gate is blocked. Product code changes are forbidden for this pack
 - Created evidence completion `699f57f849c102ffe7d83c8941c5126e8442a326`. P02 is `COMPLETED`,
   7/7 accepted with zero blockers; the cursor advances to P03.
 - No merge, tag, release or deployment was performed.
+
+## P03 Experience Trace and Process Mining
+
+- P03 self-check, aggregate validation, P01/P02 Handoffs and frozen contract hashes passed.
+- Created G05 normalization commit `22cf9a3`, G06 deterministic mining commit `119fe43` and initial
+  evidence commit `5802c3e`.
+- The first independent review rejected `5802c3e` with 2 Blocking, 4 Major and 2 Minor findings:
+  non-persistable 10k evidence, missing production composition, formal Source/cohort incompatibility,
+  exhausted lease crash, nested Schema drift, mocked Redis recovery, missing quantitative evidence
+  and no tenant-scoped WorkflowPattern read.
+- Created formal Source compatibility commit `8adecec` and remediation commit `1f7e043`. The
+  remediated product path is Episode→source-event run→BullMQ wake→Trace→Pattern; full 10k evidence is
+  content-hashed/compressed and persisted, Redis loss is reconstructed, terminal expired leases are
+  dead-lettered and strict tenant-scoped reads are available.
+- A real integration rerun passed 10 files / 100 tests. The clean-gate samples measured a 10k query
+  at 416.045 ms, persistence at 528.616 ms, 100 worker runs in 5.358 ms and one queue wake at
+  17.084 ms.
+- The full gate at `1f7e043` passed 828 unit/contract, 100 integration, 62 E2E, migration,
+  architecture, A2A/OpenAPI and build. Its final operator infrastructure smoke retained the known
+  missing baseline-ledger failure.
+- A fresh independent read-only re-review is running. P03 remains `IN_REVIEW`; no Handoff, P04
+  start, push, merge, tag, release or deployment occurred.

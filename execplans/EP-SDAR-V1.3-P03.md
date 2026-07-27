@@ -81,8 +81,12 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
       evidence-only Workflow Pattern mapping.
 - [x] 2026-07-27 Run focused G06 gates and create meaningful commit `119fe43`.
 - [ ] Generate all six required P03 evidence files and update status/traceability/changelog; the
-      four machine-readable source/schema/golden/mining reports are present.
-- [ ] Run the complete clean verification gate, migration rollback/reapply and isolation scenarios.
+      four machine-readable source/schema/golden/mining reports are present and the completion/review
+      records are pending final gate/review closure.
+- [ ] Run the complete clean verification gate. On `1f7e043`, 828 unit/contract, 100 integration,
+      62 E2E, migration rollback/reapply, build and architecture checks passed; the final
+      infrastructure smoke is blocked because the operator-managed `/sdar` database lacks the
+      `v1.2.2_clean_slate_baseline` ledger row.
 - [ ] Obtain fresh independent read-only review and close every Blocking/Major finding.
 - [ ] Publish exact 28-field `COMPLETED` Handoff, push Draft PR and advance cursor to P04.
 
@@ -98,6 +102,20 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
 - The first 10k benchmark exposed that the generic 4,096-identifier bound also constrained mining
   evidence references. P03 now keeps ordinary collections at 4,096, gives only mining evidence
   references a finite 65,536 bound, and proves 10,000 accepted / 65,537 rejected.
+- The first independent review correctly found that an in-memory 10k proof was insufficient. The
+  canonical pattern definition is now Brotli-compressed with a content hash, the JSON projection is
+  capped at 4,096 references, and the full 10k evidence set is persisted in
+  `pattern_candidate_support`; a real PostgreSQL regression measures query and persistence time.
+- The formal v1.2.3 Task projection has no active Task Type authority. P03 therefore records the
+  gap and uses a deterministic request fingerprint only as a compatibility cohort key under the
+  frozen trusted-intranet tenant; it does not promote that fingerprint to a new Task Type authority.
+- The remediation full gate reached the last smoke step after all implementation tests passed, but
+  the operator database no longer contained the clean-baseline marker required by `smoke-infra`.
+  This is tracked as an external environment blocker and is not masked by pointing smoke at a test
+  database.
+- The second independent review closed all original findings but found three new Major issues:
+  timestamp-based trigger collision/unbounded per-Trace mining, synchronous miner/Brotli event-loop
+  blocking, and omitted formal `task_request` Source attribution.
 
 ## Decision Log
 
@@ -111,6 +129,20 @@ Artifact, Skill binding, online routing decision or second workflow/runtime auth
   timestamps are ordering evidence only.
 - 2026-07-27: Freeze the process-mining evidence reference ceiling at 65,536 so the required 10k
   cohort is supported without unbounding ordinary domain collections.
+- 2026-07-27: Persist the complete mining payload as a bounded Brotli+base64 envelope with canonical
+  SHA-256 integrity, retaining only the first 4,096 evidence references as the existing JSON index
+  projection and all references in the tenant-scoped support child table.
+- 2026-07-27: Treat the deterministic request fingerprint as a compatibility-only grouping key when
+  the formal v1.2.3 source has no Task Type candidate. Preserve `task_type_missing` and
+  `task_type_compatibility_fingerprint` so downstream packages cannot mistake it for authority.
+- 2026-07-27: Compose dispatcher, queues, workers and reconcilers only in `apps/server/src/runtime.ts`;
+  PostgreSQL outbox/source-event lineage drives durable runs and Redis remains wake-only.
+- 2026-07-27: Batch at most 1,000 pending Trace events by tenant/Task Type, bind mining identity to
+  the sorted event set, serialize cohort scheduling with an advisory lock and permit at most one
+  active/recent automatic mining run per 60 seconds. Explicit/manual mining remains separately
+  versioned and does not consume source events.
+- 2026-07-27: Preserve the single-process invariant while protecting online work through cooperative
+  128-trace yields, asynchronous libuv Brotli compression and production mining concurrency one.
 
 ## Implementation Steps
 

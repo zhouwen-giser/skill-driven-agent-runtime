@@ -88,7 +88,7 @@ export interface CompilationRunRepository {
     cohortFingerprint: string,
     now: string,
     maxAttempts?: number,
-    sourceEventId?: string,
+    sourceEventIds?: readonly string[],
   ): Promise<CompilationRun>;
   claim(
     runType: CompilationRunType,
@@ -132,7 +132,7 @@ export type ExperienceCompilationTrigger =
       occurredAt: string;
     }>
   | Readonly<{
-      triggerId: string;
+      triggerIds: readonly string[];
       runType: 'process_mining';
       cohort: CohortDefinition;
       occurredAt: string;
@@ -148,6 +148,7 @@ export class ExperienceCompilationTriggerDispatcher {
   readonly #normalizationQueue: CompilationWakeQueuePort;
   readonly #miningQueue: CompilationWakeQueuePort;
   readonly #miner: Pick<DeterministicProcessMiner, 'fingerprintCohort'>;
+  readonly #clock: Readonly<{ now(): string }>;
 
   constructor(
     dependencies: Readonly<{
@@ -156,6 +157,7 @@ export class ExperienceCompilationTriggerDispatcher {
       normalizationQueue: CompilationWakeQueuePort;
       miningQueue: CompilationWakeQueuePort;
       miner: Pick<DeterministicProcessMiner, 'fingerprintCohort'>;
+      clock: Readonly<{ now(): string }>;
     }>,
   ) {
     this.#source = dependencies.source;
@@ -163,6 +165,7 @@ export class ExperienceCompilationTriggerDispatcher {
     this.#normalizationQueue = dependencies.normalizationQueue;
     this.#miningQueue = dependencies.miningQueue;
     this.#miner = dependencies.miner;
+    this.#clock = dependencies.clock;
   }
 
   async dispatch(limit = 100): Promise<number> {
@@ -180,9 +183,9 @@ export class ExperienceCompilationTriggerDispatcher {
         const run = await this.#runs.createProcessMiningRun(
           trigger.cohort,
           this.#miner.fingerprintCohort(trigger.cohort),
-          trigger.occurredAt,
+          this.#clock.now(),
           5,
-          trigger.triggerId,
+          trigger.triggerIds,
         );
         await this.#miningQueue.enqueue(run.runId);
       }
@@ -322,7 +325,7 @@ export class ProcessMiningService {
         throw codedError('PROCESS_MINING_COHORT_FINGERPRINT_MISMATCH');
       }
       const traces = await this.#repository.listTraces(cohort, 10_000);
-      const result = this.#miner.discover(cohort, traces);
+      const result = await this.#miner.discover(cohort, traces);
       if (result.cohortFingerprint !== cohortFingerprint) {
         throw codedError('PROCESS_MINING_RESULT_FINGERPRINT_MISMATCH');
       }

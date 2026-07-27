@@ -802,6 +802,7 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
           );
 
     const sources: CognitiveSourceRef[] = [];
+    addSource(sources, 'task_request', task, 'taskId', 'task-unknown', 1);
     addSource(sources, 'goal_contract', contract, 'goalId', 'goal-unknown', 1);
     addSource(
       sources,

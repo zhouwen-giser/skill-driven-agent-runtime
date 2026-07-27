@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P03 Experience Trace and Process Mining — remediation closure
+
+- Added strict frozen ExperienceTrace, event, cohort, variant, discovered-pattern and
+  WorkflowPattern Domain contracts with deterministic, redacted formal Episode normalization.
+- Added migration 0126 projections and PostgreSQL-authoritative compiler runs with lease fencing,
+  bounded retry/dead letter, source-event lineage, deletion propagation and tenant isolation.
+- Added deterministic TypeScript process mining for variants, direct-follows, precedence, explicit
+  parallel evidence, recovery/failure separation and frozen quality metrics without a Python
+  sidecar, model authority, Skill binding or Artifact creation.
+- Connected the product Server lifecycle to source-event dispatch, wake-only BullMQ workers and
+  PostgreSQL reconcilers so Redis loss cannot lose durable work.
+- Closed the first independent review's 2 Blocking, 4 Major and 2 Minor findings: formal Source
+  compatibility, real 10k PostgreSQL persistence, content-hashed Brotli Pattern envelopes,
+  terminal-attempt crash recovery, strict nested schemas, real Redis rebuild, tenant-scoped reads
+  and quantitative DB/worker/queue evidence.
+- Remediation tests pass 828 unit/contract, 100 integration and 62 E2E plus migration, architecture,
+  A2A/OpenAPI and build gates. Final operator infrastructure smoke and independent re-review remain
+  open; P03 is not yet marked complete and P04 has not started.
+- The second independent review closed all original findings but rejected `1f7e043` with three new
+  Major findings: timestamp-colliding/unbounded mining triggers, synchronous event-loop work and
+  missing formal Task Source attribution.
+- Working-tree remediation batches up to 1,000 source events per cohort, uses event-set identity plus
+  a cohort advisory lock and 60-second durable rate window, limits mining concurrency to one, yields
+  every 128 traces, compresses with asynchronous Brotli and restores `task_request` authority refs.
+  Static regression passes 829 unit/contract tests; real integration and another review are pending.
+
 ## SDAR v1.3 P02 Artifact Persistence, Registry and Governance — complete
 
 - Added migration 0125 with the ten exact frozen Artifact authority tables, replayable rollback,

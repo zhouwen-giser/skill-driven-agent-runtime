@@ -1,5 +1,23 @@
 # Project Status
 
+SDAR v1.3 P03/G05-G06 Experience Trace normalization and deterministic process mining is in
+remediation (2026-07-27) on `feature/v1.3-sequential-implementation`. G05 `22cf9a3` and G06
+`119fe43` were followed by a rejected independent review with 2 Blocking, 4 Major and 2 Minor
+findings. Compatibility commit `8adecec` and remediation `1f7e043` connect the formal
+Episode→durable run→BullMQ→Trace→Pattern product path, persist 10,000-trace evidence within the
+existing 1 MiB authority boundary, reclaim terminal expired leases, enforce strict nested contracts,
+provide tenant-scoped WorkflowPattern reads and prove real Redis reconstruction. The remediation
+gate passes 828 unit/contract, 100 real integration, 62 real E2E, 459-source architecture, A2A
+74/74, 152 OpenAPI operations, all 19 migrations and production build. Its final infrastructure
+smoke remains environment-blocked because the protected operator `/sdar` database lacks the
+documented clean-baseline ledger marker. A second independent review closed every original finding
+but rejected `1f7e043` with three new Major findings: timestamp-colliding/unbounded mining triggers,
+event-loop blocking and missing Task Source attribution. Working-tree remediation adds
+cohort-batched event identity with advisory-lock/60-second rate control, cooperative async mining,
+async Brotli, single mining concurrency and formal `task_request` lineage; 829 unit/contract tests
+and architecture pass. Real integration, a dedicated migrated-database full gate and another fresh
+review must close before P03 can become `COMPLETED` or P04 can be read.
+
 SDAR v1.3 P02/G02-G04 Artifact Persistence, Registry and Governance is complete as `COMPLETED`
 (2026-07-27) on `feature/v1.3-sequential-implementation`. Three independent reviews rejected earlier
 commits with a combined 6 Blocking, 8 Major and 1 Minor finding; every finding is closed. A fourth

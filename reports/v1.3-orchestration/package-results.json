@@ -98,6 +98,64 @@
       "evidenceCommit": "699f57f849c102ffe7d83c8941c5126e8442a326",
       "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
       "openBlockers": []
+    },
+    "P03": {
+      "packageId": "SDAR-V1.3-P03",
+      "goals": ["G05", "G06"],
+      "formalPackage": true,
+      "status": "REMEDIATION",
+      "acceptance": {
+        "passed": 26,
+        "failed": 3,
+        "blocked": 3
+      },
+      "tests": {
+        "status": "environment_blocked",
+        "summary": "reports/verification/summary.json",
+        "commit": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
+        "dirty": false,
+        "unitAndContract": 828,
+        "integration": 100,
+        "e2e": 62,
+        "passedStages": [
+          "format",
+          "lint",
+          "typecheck",
+          "unit",
+          "contract",
+          "architecture",
+          "migration",
+          "integration",
+          "e2e",
+          "build"
+        ],
+        "blockedStage": "infrastructure-smoke"
+      },
+      "contractAlignment": "passed",
+      "handoff": null,
+      "review": {
+        "blockingOpen": 0,
+        "blockingClosed": 2,
+        "majorOpen": 3,
+        "majorClosed": 4,
+        "minorOpen": 0,
+        "minorClosed": 2,
+        "report": "reports/goal/v1.3-p03-review.md",
+        "status": "rejected_second_review"
+      },
+      "g05Commit": "22cf9a37d5049e590d60ad194a8146b056312a6e",
+      "g06Commit": "119fe43c230225b8c9caaec95fc50a41b91d0afa",
+      "compatibilityCommit": "8adececbe7bf3bd599b942d547e80b1744b3bc79",
+      "reviewRemediationCommit": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": [
+        "P03_MINING_TRIGGER_COALESCING",
+        "P03_EVENT_LOOP_BLOCKING",
+        "P03_TASK_SOURCE_ATTRIBUTION",
+        "P03_OPERATOR_DATABASE_BASELINE_SMOKE",
+        "P03_INDEPENDENT_REREVIEW_PENDING",
+        "P03_HANDOFF_PENDING"
+      ]
     }
   }
 }

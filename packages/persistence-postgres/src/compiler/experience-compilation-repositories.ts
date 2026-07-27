@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { brotliCompressSync, brotliDecompressSync, constants as zlibConstants } from 'node:zlib';
+import { promisify } from 'node:util';
+import { brotliCompress, brotliDecompressSync, constants as zlibConstants } from 'node:zlib';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
@@ -38,6 +39,7 @@ const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     JsonObjectSchema,
   ]),
 );
+const brotliCompressAsync = promisify(brotliCompress);
 const JsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), JsonValueSchema);
 const TraceEventSchema = z
   .object({
@@ -372,7 +374,7 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
       discoveredPattern: input.discoveredPattern,
       workflowPattern: input.workflowPattern,
     };
-    const definitionEnvelope = encodePatternDefinition(definition, input.workflowPattern);
+    const definitionEnvelope = await encodePatternDefinition(definition, input.workflowPattern);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -552,7 +554,7 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
     }
     const result = await this.#pool.query<
       QueryResultRow & {
-        trigger_id: string;
+        trigger_ids: string[];
         run_type: CompilationRunType;
         source_episode_id: string | null;
         tenant_id: string | null;
@@ -560,8 +562,8 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
         occurred_at: Date | string;
       }
     >(
-      `SELECT * FROM (
-         SELECT event.event_id AS trigger_id,'normalization'::text AS run_type,
+      `WITH normalization_trigger AS (
+         SELECT ARRAY[event.event_id] AS trigger_ids,'normalization'::text AS run_type,
                 event.aggregate_id AS source_episode_id,NULL::text AS tenant_id,
                 NULL::text AS task_type_id,event.occurred_at
          FROM cognitive_runtime_outbox event
@@ -569,10 +571,10 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
            AND NOT EXISTS (
              SELECT 1 FROM compilation_run run WHERE run.source_event_id=event.event_id
            )
-         UNION ALL
-         SELECT event.event_id AS trigger_id,'process_mining'::text AS run_type,
-                NULL::text AS source_episode_id,source.tenant_id,
-                task_type.task_type_id,event.occurred_at
+         ORDER BY event.occurred_at,event.event_id LIMIT $1
+       ),
+       mining_candidate AS (
+         SELECT event.event_id,source.tenant_id,task_type.task_type_id,event.occurred_at
          FROM cognitive_runtime_outbox event
          JOIN experience_trace trace ON trace.trace_id=event.aggregate_id
          JOIN experience_trace_source source ON source.trace_id=trace.trace_id
@@ -583,11 +585,36 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
          ) task_type
          WHERE event.event_type='experience.trace_created'
            AND trace.completeness >= 0.5
+           AND event.occurred_at <= clock_timestamp() - interval '2 seconds'
            AND NOT EXISTS (
-             SELECT 1 FROM compilation_run run WHERE run.source_event_id=event.event_id
+             SELECT 1 FROM compilation_run run
+             WHERE run.source_event_id=event.event_id
+                OR COALESCE(run.payload->'sourceEventIds','[]'::jsonb) ? event.event_id
            )
-       ) trigger
-       ORDER BY occurred_at,trigger_id LIMIT $1`,
+           AND NOT EXISTS (
+             SELECT 1 FROM compilation_run recent
+             WHERE recent.run_type='process_mining'
+               AND recent.tenant_id=source.tenant_id
+               AND recent.payload->'cohort'->>'taskTypeId'=task_type.task_type_id
+               AND (
+                 recent.status IN ('pending','leased','retry_wait')
+                 OR recent.created_at > clock_timestamp() - interval '60 seconds'
+               )
+           )
+         ORDER BY event.occurred_at,event.event_id LIMIT $1
+       ),
+       mining_trigger AS (
+         SELECT array_agg(event_id ORDER BY occurred_at,event_id) AS trigger_ids,
+                'process_mining'::text AS run_type,
+                NULL::text AS source_episode_id,source.tenant_id,
+                source.task_type_id,max(source.occurred_at) AS occurred_at
+         FROM mining_candidate source
+         GROUP BY source.tenant_id,source.task_type_id
+       )
+       SELECT * FROM normalization_trigger
+       UNION ALL
+       SELECT * FROM mining_trigger
+       ORDER BY occurred_at,trigger_ids LIMIT $1`,
       [limit],
     );
     return Object.freeze(
@@ -596,8 +623,12 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
           if (row.source_episode_id === null) {
             throw new Error('EXPERIENCE_COMPILATION_TRIGGER_EPISODE_MISSING');
           }
+          const triggerId = row.trigger_ids[0];
+          if (triggerId === undefined) {
+            throw new Error('EXPERIENCE_COMPILATION_TRIGGER_SOURCE_MISSING');
+          }
           return Object.freeze({
-            triggerId: row.trigger_id,
+            triggerId,
             runType: 'normalization',
             sourceEpisodeId: row.source_episode_id,
             occurredAt: timestamp(row.occurred_at),
@@ -606,8 +637,11 @@ export class PostgresExperienceCompilationTriggerSource implements ExperienceCom
         if (row.tenant_id === null || row.task_type_id === null) {
           throw new Error('EXPERIENCE_COMPILATION_TRIGGER_COHORT_MISSING');
         }
+        if (row.trigger_ids.length === 0) {
+          throw new Error('EXPERIENCE_COMPILATION_TRIGGER_SOURCE_MISSING');
+        }
         return Object.freeze({
-          triggerId: row.trigger_id,
+          triggerIds: Object.freeze([...row.trigger_ids]),
           runType: 'process_mining',
           cohort: createCohortDefinition({
             tenantId: row.tenant_id,
@@ -675,31 +709,69 @@ export class PostgresCompilationRunRepository implements CompilationRunRepositor
     cohortFingerprint: string,
     now: string,
     maxAttempts = 5,
-    sourceEventId?: string,
+    sourceEventIds?: readonly string[],
   ): Promise<CompilationRun> {
     const cohort = createCohortDefinition(input);
-    const idempotencyKey = `process-mining:${cohortFingerprint}:${now}`;
-    const result = await this.#pool.query<CompilationRunRow>(
-      `INSERT INTO compilation_run(
-         run_id,run_type,source_episode_id,source_event_id,tenant_id,user_scope_id,cohort_fingerprint,
-         status,attempt,max_attempts,available_at,lease_owner,lease_token,lease_expires_at,
-         idempotency_key,payload,result_ref,last_error_code,last_error_summary,created_at,updated_at)
-       VALUES($1,'process_mining',NULL,$2,$3,NULL,$4,'pending',0,$5,$6,NULL,NULL,NULL,$7,$8::jsonb,
-         NULL,NULL,NULL,$6,$6)
-       ON CONFLICT(idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key
-       RETURNING *`,
-      [
-        stableId('compilation-mining-run', `${cohortFingerprint}:${now}`),
-        sourceEventId ?? null,
-        cohort.tenantId,
-        cohortFingerprint,
-        maxAttempts,
-        now,
-        idempotencyKey,
-        JSON.stringify({ cohort }),
-      ],
-    );
-    return mapRun(requiredRow(result.rows[0]));
+    const eventIds = unique(sourceEventIds ?? []);
+    if (eventIds.length > 1_000) {
+      throw new Error('EXPERIENCE_COMPILATION_TRIGGER_BATCH_TOO_LARGE');
+    }
+    const batchIdentity =
+      eventIds.length === 0 ? now : stableId('source-event-batch', canonicalJson(eventIds));
+    const idempotencyKey = `process-mining:${cohortFingerprint}:${batchIdentity}`;
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (eventIds.length > 0) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          `process-mining-trigger:${cohort.tenantId}:${cohort.taskTypeId}`,
+        ]);
+        const recent = await client.query<CompilationRunRow>(
+          `SELECT * FROM compilation_run
+           WHERE run_type='process_mining'
+             AND tenant_id=$1
+             AND payload->'cohort'->>'taskTypeId'=$2
+             AND (
+               status IN ('pending','leased','retry_wait')
+               OR created_at > clock_timestamp() - interval '60 seconds'
+             )
+           ORDER BY created_at DESC,run_id DESC LIMIT 1`,
+          [cohort.tenantId, cohort.taskTypeId],
+        );
+        if (recent.rows[0] !== undefined) {
+          await client.query('COMMIT');
+          return mapRun(recent.rows[0]);
+        }
+      }
+      const result = await client.query<CompilationRunRow>(
+        `INSERT INTO compilation_run(
+           run_id,run_type,source_episode_id,source_event_id,tenant_id,user_scope_id,
+           cohort_fingerprint,status,attempt,max_attempts,available_at,lease_owner,lease_token,
+           lease_expires_at,idempotency_key,payload,result_ref,last_error_code,last_error_summary,
+           created_at,updated_at)
+         VALUES($1,'process_mining',NULL,$2,$3,NULL,$4,'pending',0,$5,$6,NULL,NULL,NULL,$7,$8::jsonb,
+           NULL,NULL,NULL,$6,$6)
+         ON CONFLICT(idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key
+         RETURNING *`,
+        [
+          stableId('compilation-mining-run', `${cohortFingerprint}:${batchIdentity}`),
+          eventIds[0] ?? null,
+          cohort.tenantId,
+          cohortFingerprint,
+          maxAttempts,
+          now,
+          idempotencyKey,
+          JSON.stringify({ cohort, sourceEventIds: eventIds }),
+        ],
+      );
+      await client.query('COMMIT');
+      return mapRun(requiredRow(result.rows[0]));
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async claim(
@@ -936,12 +1008,12 @@ async function insertPatternSupport(
   );
 }
 
-function encodePatternDefinition(
+async function encodePatternDefinition(
   definition: Readonly<Record<string, unknown>>,
   workflowPattern: WorkflowPattern,
-) {
+): Promise<z.infer<typeof CompressedPatternDefinitionSchema>> {
   const serialized = canonicalJson(definition);
-  const compressed = brotliCompressSync(serialized, {
+  const compressed = await brotliCompressAsync(serialized, {
     params: {
       [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
     },

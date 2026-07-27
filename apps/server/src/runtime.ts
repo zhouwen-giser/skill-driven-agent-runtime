@@ -942,6 +942,7 @@ export async function startServerRuntime(
               normalizationQueue,
               miningQueue,
               miner,
+              clock,
             }),
             normalizationReconciler: new CompilationRunReconciler({
               runs,

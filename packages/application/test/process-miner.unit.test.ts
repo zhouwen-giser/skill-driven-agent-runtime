@@ -15,12 +15,12 @@ const baseTime = Date.parse('2026-07-27T03:00:00.000Z');
 const sha = (character: string): string => `sha256:${character.repeat(64)}`;
 
 describe('DeterministicProcessMiner', () => {
-  it('reproduces variants, thresholds, direct-follows and Workflow Pattern byte-for-byte', () => {
+  it('reproduces variants, thresholds, direct-follows and Workflow Pattern byte-for-byte', async () => {
     const traces = goldenTraces();
     const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
     const cohort = goldenCohort();
-    const first = miner.discover(cohort, traces);
-    const second = miner.discover(cohort, [...traces].reverse());
+    const first = await miner.discover(cohort, traces);
+    const second = await miner.discover(cohort, [...traces].reverse());
 
     expect(first).toEqual(second);
     expect(first.variants).toHaveLength(3);
@@ -43,9 +43,9 @@ describe('DeterministicProcessMiner', () => {
     expect(first.workflowPattern.sourcePatternRef).toBe(first.discoveredPattern.patternId);
   });
 
-  it('uses explicit concurrency evidence and never timestamp coincidence', () => {
+  it('uses explicit concurrency evidence and never timestamp coincidence', async () => {
     const miner = new DeterministicProcessMiner();
-    const explicit = miner.discover(goldenCohort(), [
+    const explicit = await miner.discover(goldenCohort(), [
       trace('trace-explicit', 'succeeded', [
         event('goal_created', 0),
         event('skill_attempt_started', 1, { concurrencyGroup: 'parallel-1' }),
@@ -53,7 +53,7 @@ describe('DeterministicProcessMiner', () => {
         event('goal_completed', 3),
       ]),
     ]);
-    const timestampOnly = miner.discover(goldenCohort(), [
+    const timestampOnly = await miner.discover(goldenCohort(), [
       trace('trace-timestamp', 'succeeded', [
         event('goal_created', 0),
         event('skill_attempt_started', 1),
@@ -72,8 +72,8 @@ describe('DeterministicProcessMiner', () => {
     expect(timestampOnly.discoveredPattern.parallelCandidates).toEqual([]);
   });
 
-  it('retains loops in the Process Variant activity sequence', () => {
-    const result = new DeterministicProcessMiner().discover(goldenCohort(), [
+  it('retains loops in the Process Variant activity sequence', async () => {
+    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
       trace('trace-loop', 'succeeded', [
         event('goal_created', 0),
         event('skill_attempt_started', 1),
@@ -94,8 +94,8 @@ describe('DeterministicProcessMiner', () => {
     ]);
   });
 
-  it('keeps recovery trigger/resume evidence and failed variants separate', () => {
-    const result = new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
+  it('keeps recovery trigger/resume evidence and failed variants separate', async () => {
+    const result = await new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
       goldenCohort(),
       goldenTraces(),
     );
@@ -119,8 +119,8 @@ describe('DeterministicProcessMiner', () => {
     expect(result.variants.reduce((sum, variant) => sum + variant.failureCount, 0)).toBe(1);
   });
 
-  it('records reversed ordering as contradiction evidence', () => {
-    const result = new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
+  it('records reversed ordering as contradiction evidence', async () => {
+    const result = await new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
       goldenCohort(),
       [
         trace('trace-order-a', 'succeeded', [
@@ -151,7 +151,7 @@ describe('DeterministicProcessMiner', () => {
     expect(result.discoveredPattern.contradictionRefs).toEqual(['trace-order-a', 'trace-order-b']);
   });
 
-  it('separates environment coverage and exposes frozen quality proxies', () => {
+  it('separates environment coverage and exposes frozen quality proxies', async () => {
     const traces = [
       trace('trace-server', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)]),
       trace('trace-device', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)], {
@@ -159,7 +159,7 @@ describe('DeterministicProcessMiner', () => {
         deviceClass: 'robot',
       }),
     ];
-    const result = new DeterministicProcessMiner().discover(
+    const result = await new DeterministicProcessMiner().discover(
       createCohortDefinition({
         tenantId: 'tenant-1',
         taskTypeId: 'task-type-1',
@@ -178,24 +178,24 @@ describe('DeterministicProcessMiner', () => {
     });
   });
 
-  it('fails closed across tenant, Task Type, completeness and cohort time boundaries', () => {
+  it('fails closed across tenant, Task Type, completeness and cohort time boundaries', async () => {
     const miner = new DeterministicProcessMiner();
     const source = trace('trace-scope', 'succeeded', [
       event('goal_created', 0),
       event('goal_completed', 1),
     ]);
-    expect(() => miner.discover({ ...goldenCohort(), tenantId: 'tenant-2' }, [source])).toThrow(
-      /TENANT_MISMATCH/u,
-    );
-    expect(() =>
+    await expect(
+      miner.discover({ ...goldenCohort(), tenantId: 'tenant-2' }, [source]),
+    ).rejects.toThrow(/TENANT_MISMATCH/u);
+    await expect(
       miner.discover({ ...goldenCohort(), taskTypeId: 'task-type-2' }, [source]),
-    ).toThrow(/TASK_TYPE_MISMATCH/u);
-    expect(() =>
+    ).rejects.toThrow(/TASK_TYPE_MISMATCH/u);
+    await expect(
       miner.discover({ ...goldenCohort(), minimumCompleteness: 1 }, [
         { ...source, completeness: 0.9 },
       ]),
-    ).toThrow(/COMPLETENESS_MISMATCH/u);
-    expect(() =>
+    ).rejects.toThrow(/COMPLETENESS_MISMATCH/u);
+    await expect(
       miner.discover(
         {
           ...goldenCohort(),
@@ -206,11 +206,32 @@ describe('DeterministicProcessMiner', () => {
         },
         [source],
       ),
-    ).toThrow(/TIME_RANGE_MISMATCH/u);
+    ).rejects.toThrow(/TIME_RANGE_MISMATCH/u);
   });
 
-  it('does not produce Artifact, Skill binding, schema or completion-contract authority', () => {
-    const result = new DeterministicProcessMiner().discover(goldenCohort(), [
+  it('cooperatively yields while mining a large cohort in the single runtime process', async () => {
+    const traces = Array.from({ length: 2_048 }, (_, index) =>
+      trace(`trace-cooperative-${String(index).padStart(4, '0')}`, 'succeeded', [
+        event('goal_created', 0),
+        event('plan_created', 1),
+        event('goal_completed', 2),
+      ]),
+    );
+    let eventLoopTicks = 0;
+    const timer = setInterval(() => {
+      eventLoopTicks += 1;
+    }, 0);
+    try {
+      await new DeterministicProcessMiner().discover(goldenCohort(), traces);
+    } finally {
+      clearInterval(timer);
+    }
+
+    expect(eventLoopTicks).toBeGreaterThan(2);
+  });
+
+  it('does not produce Artifact, Skill binding, schema or completion-contract authority', async () => {
+    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
       trace('trace-boundary', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)]),
     ]);
     const serialized = JSON.stringify(result.workflowPattern);

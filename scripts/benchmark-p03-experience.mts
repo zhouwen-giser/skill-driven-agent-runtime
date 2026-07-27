@@ -32,7 +32,7 @@ for (const traceCount of [1_000, 10_000]) {
   const miner = new DeterministicProcessMiner({ mandatoryThreshold: 0.8 });
   const beforeHeapBytes = process.memoryUsage().heapUsed;
   const startedAt = performance.now();
-  const result = miner.discover(
+  const result = await miner.discover(
     {
       tenantId: 'tenant-benchmark',
       taskTypeId: 'task-type-benchmark',

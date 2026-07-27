@@ -369,3 +369,24 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   `v1.2.2_clean_slate_baseline` ledger and was not reset or overwritten. Complete verification uses
   the isolated `sdar_p02_remediation_20260726` and `sdar_p02_rereview_20260726` databases; this is an
   evidence-environment distinction, not a product fallback or authority.
+
+## v1.3 P03 Experience compilation boundary (2026-07-27)
+
+- Formal v1.2.3 Episode facts contain the trusted-intranet task request but do not guarantee an
+  active Task Type. P03 first consumes the latest formal `generic_task_understanding` candidates.
+  If none exist, it preserves `task_type_missing` and uses a deterministic normalized request
+  fingerprint as a compatibility-only cohort key. The fingerprint is not a persisted Task Type
+  authority and cannot be activated or promoted.
+- P03 persists the V1 deployment partition as `sdar-v1-trusted-intranet` when the formal source has
+  no tenant field. This is isolation for the existing trusted-intranet baseline, not authentication,
+  tenant authorization or a multi-tenant security claim.
+- A 10,000-trace canonical Pattern definition exceeds the pre-existing 1 MiB JSON limit when stored
+  uncompressed. ADR-118 therefore stores a content-hashed Brotli envelope, retains a 4,096-reference
+  JSON projection and stores the complete bounded evidence set in the foreign-keyed
+  `pattern_candidate_support` table. Decode is bounded and fails closed on hash/size/schema drift.
+- Local PostgreSQL/Redis timings are reproducible acceptance measurements, not production capacity
+  or SLO claims. P13 must repeat capacity, soak and recovery measurement in the release environment.
+- The operator-managed default `/sdar` database still lacks the clean-baseline ledger marker
+  documented under P02. P03 does not overwrite it. Final P03 clean-gate evidence must therefore use a
+  dedicated freshly migrated database; failure of the default infrastructure smoke is retained as
+  an environment failure rather than hidden.

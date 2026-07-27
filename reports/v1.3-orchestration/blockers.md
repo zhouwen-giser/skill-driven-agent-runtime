@@ -70,3 +70,22 @@ immutability, cache, bounds and commit-order defects. Each exact negative record
 All findings were corrected and rerun through focused, migration and full gates without weakening
 assertions. A fourth new independent read-only reviewer accepted exact commit `14abffe` with zero
 Blocking, Major or Minor findings. P02 Handoff is `COMPLETED` with no open blocker.
+
+## P03 final evidence gate — `P03_OPERATOR_DATABASE_BASELINE_SMOKE`
+
+Severity: external evidence environment.
+
+Status: open on 2026-07-27.
+
+The remediation full gate at `1f7e043` passed format, lint, typecheck, 828 unit/contract tests,
+architecture, A2A, OpenAPI, all 19 migration checks, 100 real integration tests, 62 real E2E tests
+and production build. The final infrastructure smoke queried the protected operator-managed
+`/sdar` database and did not find `v1.2.2_clean_slate_baseline`. This predates P03 and is already
+documented under the P02 environment boundary.
+
+P03 will not overwrite/reset the operator database or redirect evidence to an unmigrated fallback.
+Minimum closure is a clean full gate against a dedicated freshly migrated database. The attempt to
+perform the required local database operation was rejected by the Codex usage limit after the user
+restored authentication; no workaround was attempted.
+
+Effect: P03 remains `IN_REVIEW`; AC-P03-028 and the final Handoff remain open, and P04 is not started.
