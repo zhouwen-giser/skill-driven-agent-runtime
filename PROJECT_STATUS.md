@@ -597,3 +597,20 @@ EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remo
 ## Current authoritative stage status (2026-07-13)
 
 EP-05 Memory, Evaluation, and Evolution is complete (100%). The independent stage audit verifies FR-EVO-001–010, FR-MEM-001–006, FR-EVAL-001–005, related FR-SKL-015/FR-LLM-007 closure, migrations through 0049, and the full local gate. The legacy bootstrap table above is retained as historical text and is superseded by this status plus `reports/EP-05-memory-evaluation-evolution/EP-05-ACCEPTANCE-AUDIT.md`. Overall V1 remains incomplete pending EP-06 Console and EP-07 project-wide acceptance.
+
+## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler (2026-07-28)
+
+SDAR v1.3 P04/G07-G08 Pattern Generalization and Plan Template Candidate Compiler is complete on
+`feature/v1.3-sequential-implementation` at commit `e4e2992`. P03 Handoff (e926445) was consumed;
+3 produced contracts (FusedPattern, GeneralizedPattern, CandidateStaticValidationResult) and 3
+consumed contracts (WorkflowPattern, CompiledArtifact, PlanTemplateArtifactDefinition) match
+`CONTRACT-LOCK.json`. The implementation fuses P03 structural facts with optional LLM semantic
+candidates (structural facts never overwritten), generalizes with 5 anti-overfitting rules, and
+compiles evidence-only Plan Template candidates with `status=candidate`, `executable=false`, 7-input
+SHA-256 fingerprint, and 8-check static validation (`passed_static` ≠ promotion). Migration 0127
+adds 5 non-authoritative child tables; the wake-only BullMQ worker does not emit events. The domain
+layer is free of `node:crypto` (hash computation moved to application layer per ADR-119). Full
+`pnpm verify` passes 7/7 steps on a clean self-managed-compose database: 841 unit/contract, 100
+integration, 62 E2E, 20 migrations through 0127, architecture, build, and smoke. Review 1 self-audit
+concludes 0 Blocking / 0 Major / 0 Minor; the final ACCEPTED verdict is
+`PENDING_USER_CONFIRMATION`. P05 Handoff is emitted. Draft PR #12 remains OPEN and unmerged.

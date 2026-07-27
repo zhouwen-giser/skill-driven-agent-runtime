@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler
+
+- Added frozen `FusedPattern`, `GeneralizedPattern`, and `CandidateStaticValidationResult` Domain
+  contracts with strict factories, content-hash helpers, and schema hashes matching
+  `CONTRACT-LOCK.json`.
+- Added `PatternFusionService` that fuses P03 structural facts with optional LLM semantic
+  candidates; structural facts are read-only and never overwritten by model output. A `NoOpSemanticModel`
+  provides a zero-LLM default path.
+- Added `PatternGeneralizationService` with five anti-overfitting rules: no single-device
+  globalization, no cross-user preference hardening, no temporary-auth hardening, no one-success
+  universal pattern, and no failure-boundary deletion.
+- Added `ArtifactCandidateGenerator` producing `CompiledArtifact` with `status=candidate`,
+  `artifactType=plan_template`, `executable=false` (domain invariant), and a 7-input SHA-256
+  fingerprint for duplicate detection.
+- Added `PlanTemplateCompiler` with step classification (action/observation/reasoning/verification/
+  recovery/human_gate), capability-only mapping (no `skill:` prefix), acyclic Skill Goal DAG,
+  parameter extraction with trust-level policy, completion contract template, and recovery branches
+  with `sideEffectReplayPolicy=forbidden`.
+- Added `CandidateStaticValidator` with 8 checks (schema, DAG, criteria coverage, capability shape,
+  parameter policy, replay safety, bounds, duplicate fingerprint). `passed_static` is explicitly not
+  a promotion signal.
+- Added migration `0127_v13_artifact_candidate_generation` with 5 non-authoritative child tables.
+- Added wake-only BullMQ worker for `sdar-compiler-pattern-generalization` and
+  `sdar-compiler-artifact-generation` queues.
+- Moved hash computation (`createHash`) from Domain to Application layer to satisfy the
+  `ARCH_ARTIFACT_DOMAIN_IMPORT_FORBIDDEN` architecture gate.
+- Full `pnpm verify` gate passes on a clean self-managed-compose database (7/7 steps, 841
+  unit/contract, 100 integration, 62 E2E, 20 migrations through 0127, architecture, build, smoke).
+- Review 1 self-audit concludes 0 Blocking / 0 Major / 0 Minor; final ACCEPTED verdict is
+  `PENDING_USER_CONFIRMATION`. P05 Handoff emitted with 3 produced and 3 consumed contracts.
+
 ## SDAR v1.3 P03 Experience Trace and Process Mining — remediation closure
 
 - Added strict frozen ExperienceTrace, event, cohort, variant, discovered-pattern and
