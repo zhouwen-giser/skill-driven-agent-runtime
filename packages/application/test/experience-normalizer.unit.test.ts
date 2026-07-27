@@ -138,6 +138,30 @@ describe('ExperienceTraceNormalizer', () => {
     expect(result.trace.trace.tenantId).toMatch(/^unscoped-[0-9a-f]{40}$/u);
     expect(result.missingFactCodes).toContain('tenant_scope_missing');
   });
+
+  it('uses a deterministic request compatibility fingerprint when formal V1 has no task type', () => {
+    const episode = fixtureEpisode({
+      task: {
+        taskId: 'task-1',
+        contextId: 'context-1',
+        tenantId: 'sdar-v1-trusted-intranet',
+        requestText: '  Inspect the current workflow  ',
+        environmentClass: 'server',
+        createdAt,
+      },
+    });
+    const first = new ExperienceTraceNormalizer().normalize(episode);
+    const second = new ExperienceTraceNormalizer().normalize(episode);
+
+    expect(first.trace.taskTypeRefs).toEqual(second.trace.taskTypeRefs);
+    expect(first.trace.taskTypeRefs).toEqual([
+      expect.stringMatching(/^request-fingerprint-[0-9a-f]{40}$/u),
+    ]);
+    expect(first.missingFactCodes).toEqual(
+      expect.arrayContaining(['task_type_missing', 'task_type_compatibility_fingerprint']),
+    );
+    expect(first.trace.trace.tenantId).toBe('sdar-v1-trusted-intranet');
+  });
 });
 
 function fixtureEpisode(overrides: Readonly<Record<string, unknown>> = {}): GoalExperienceEpisode {

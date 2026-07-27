@@ -78,13 +78,22 @@ export class ExperienceTraceNormalizer {
       optionalRecord(task?.['runtimeContext'])?.['deviceClass'],
     );
 
-    const taskTypeRefs = collectIdentifiers(snapshot, [
+    let taskTypeRefs = collectIdentifiers(snapshot, [
       'taskTypeId',
       'task_type_id',
       'taskTypeRef',
       'task_type_ref',
     ]);
-    if (taskTypeRefs.length === 0) missing.add('task_type_missing');
+    if (taskTypeRefs.length === 0) {
+      missing.add('task_type_missing');
+      const requestText = firstString(task?.['requestText'], task?.['request_text']);
+      if (requestText !== undefined) {
+        taskTypeRefs = [
+          `request-fingerprint-${digest(requestText.trim().toLocaleLowerCase('en-US'))}`,
+        ];
+        missing.add('task_type_compatibility_fingerprint');
+      }
+    }
     const capabilityRefs = collectIdentifiers(snapshot, [
       'capabilityId',
       'capability_id',

@@ -26,6 +26,7 @@ import {
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());
 const StringListSchema = z.array(z.string());
+const V1_TRUSTED_INTRANET_TENANT_ID = 'sdar-v1-trusted-intranet';
 const CorrelationSchema = z
   .object({
     correlationId: z.string(),
@@ -486,6 +487,9 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
 
   async saveIfAbsent(input: GoalExperienceEpisode): Promise<boolean> {
     const episode = createGoalExperienceEpisode(input);
+    const taskSnapshot = recordValue(episode.snapshot['task']);
+    const tenantId = stringValue(taskSnapshot?.['tenantId']) ?? V1_TRUSTED_INTRANET_TENANT_ID;
+    const userScopeId = stringValue(taskSnapshot?.['userId']);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -508,7 +512,7 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
            episode_id,goal_id,goal_version,task_id,context_id,episode_type,revision,
            terminal_outcome_ref,source_hash,episode_hash,completeness,status,
            data_classification,redaction_codes,snapshot,created_at,tenant_id,user_scope_id)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16,NULL,NULL)`,
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16,$17,$18)`,
         [
           episode.episodeId,
           episode.goalId,
@@ -526,6 +530,8 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
           JSON.stringify(episode.redactionCodes),
           JSON.stringify(episode.snapshot),
           episode.createdAt,
+          tenantId,
+          userScopeId ?? null,
         ],
       );
       for (const source of episode.sourceRefs) {
@@ -700,9 +706,28 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
           : { contextId: goal['context_id'] }
         : await oneJson(
             this.#pool,
-            `SELECT jsonb_build_object('taskId',task_id,'contextId',context_id,'goalId',goal_id,
-             'goalVersion',goal_version,'phase',phase,'createdAt',created_at,'updatedAt',updated_at) AS value
+            `SELECT jsonb_build_object(
+               'taskId',task_id,'contextId',context_id,'userId',user_id,
+               'tenantId','${V1_TRUSTED_INTRANET_TENANT_ID}',
+               'requestText',request_text,
+               'goalId',goal_id,'goalVersion',goal_version,'phase',phase,
+               'createdAt',created_at,'updatedAt',updated_at
+             ) AS value
            FROM agent_task WHERE task_id=$1`,
+            [taskId],
+          );
+    const taskUnderstanding =
+      taskId === undefined
+        ? undefined
+        : await oneJson(
+            this.#pool,
+            `SELECT jsonb_build_object(
+               'understandingId',understanding_id,'revision',revision,
+               'taskTypeCandidates',snapshot->'taskTypeCandidates',
+               'createdAt',created_at
+             ) AS value
+             FROM generic_task_understanding
+             WHERE task_id=$1 ORDER BY revision DESC LIMIT 1`,
             [taskId],
           );
     const currentPlan = plans.at(-1);
@@ -778,6 +803,14 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
 
     const sources: CognitiveSourceRef[] = [];
     addSource(sources, 'goal_contract', contract, 'goalId', 'goal-unknown', 1);
+    addSource(
+      sources,
+      'task_understanding',
+      taskUnderstanding,
+      'understandingId',
+      'understanding-unknown',
+      number(taskUnderstanding?.['revision'], 1),
+    );
     for (const plan of plans)
       addSource(
         sources,
@@ -806,6 +839,7 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
 
     return Object.freeze({
       ...(task === undefined ? {} : { task }),
+      ...(taskUnderstanding === undefined ? {} : { taskUnderstanding }),
       ...(contract === undefined ? {} : { contract }),
       ...(currentPlan === undefined ? {} : { currentPlan }),
       planRevisions: plans,
@@ -940,6 +974,16 @@ function requireString(value: unknown, field: string): string {
 
 function number(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 ? value : fallback;
+}
+
+function recordValue(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function stableId(prefix: string, value: string): string {
