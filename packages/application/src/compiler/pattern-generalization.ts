@@ -95,9 +95,12 @@ export class PatternFusionService {
 
     const fusedPatternId = stableId(
       'fused-pattern',
-      [workflowPattern.workflowPatternId, discoveredPattern.patternId, PATTERN_FUSION_VERSION].join(
-        ':',
-      ),
+      [
+        workflowPattern.workflowPatternId,
+        discoveredPattern.patternId,
+        input.domain,
+        PATTERN_FUSION_VERSION,
+      ].join(':'),
     );
 
     const envelope: Omit<FusedPattern, 'contentHash'> = {

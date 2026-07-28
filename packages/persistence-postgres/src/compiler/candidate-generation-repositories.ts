@@ -114,4 +114,18 @@ export class PostgresCandidateGenerationRepository implements CandidateGeneratio
       ],
     );
   }
+
+  async loadGeneralizedPattern(generalizedPatternId: string): Promise<GeneralizedPattern | null> {
+    const result = await this.#pool.query(
+      'SELECT content, domain FROM generalized_pattern WHERE generalized_pattern_id = $1',
+      [generalizedPatternId],
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as { content: unknown; domain: string };
+    const content =
+      typeof row.content === 'string'
+        ? (JSON.parse(row.content) as object)
+        : (row.content as object);
+    return { ...content, domain: row.domain } as unknown as GeneralizedPattern;
+  }
 }

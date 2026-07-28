@@ -184,6 +184,9 @@ import {
   type CognitiveStructuredModelStageInvoker,
   type TaskTypeDefinition,
   type PlanningCorrectionObserver,
+  PatternFusionService,
+  PatternGeneralizationService,
+  ArtifactCandidateGenerator,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -297,6 +300,7 @@ import {
   PostgresCompilationRunRepository,
   PostgresExperienceCompilationRepository,
   PostgresExperienceCompilationTriggerSource,
+  PostgresCandidateGenerationRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -968,6 +972,10 @@ export async function startServerRuntime(
               mining,
               `process-mining-worker-${randomUUID()}`,
             ),
+            candidateGenerationRepository: new PostgresCandidateGenerationRepository(pool),
+            patternFusion: new PatternFusionService(),
+            patternGeneralization: new PatternGeneralizationService(),
+            candidateGenerator: new ArtifactCandidateGenerator(),
           };
         })()
       : undefined;

@@ -62,6 +62,7 @@ for (const file of productFiles) {
     normalized.startsWith('packages/application/test/experience-') ||
     normalized === 'packages/application/test/process-miner.unit.test.ts' ||
     normalized === 'packages/application/test/candidate-generation.unit.test.ts' ||
+    normalized === 'packages/persistence-postgres/test/candidate-generation.integration.test.ts' ||
     normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
     normalized === 'packages/persistence-postgres/src/index.ts' ||
     normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||
