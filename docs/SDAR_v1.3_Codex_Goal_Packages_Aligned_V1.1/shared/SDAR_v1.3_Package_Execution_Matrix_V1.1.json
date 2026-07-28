@@ -93,8 +93,32 @@
       "P02": "COMPLETED",
       "P03": "COMPLETED"
     },
-    "next": "P05",
+    "next": "P04R",
     "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P04R",
+    "formal": false,
+    "mandatoryRemediation": true,
+    "sequence": 4.5,
+    "goals": [],
+    "remediatesGoals": [
+      "G05",
+      "G06",
+      "G07",
+      "G08"
+    ],
+    "phase": "Mandatory Semantic Alignment Remediation",
+    "dependsOn": [
+      "P03",
+      "P04"
+    ],
+    "requiredStatus": {
+      "P03": "COMPLETED",
+      "P04": "COMPLETED"
+    },
+    "next": "P05",
+    "structuralReadiness": "MANDATORY_RELEASE_GATE"
   },
   {
     "package": "P05",
@@ -110,14 +134,16 @@
       "P01",
       "P02",
       "P03",
-      "P04"
+      "P04",
+      "P04R"
     ],
     "requiredStatus": {
       "P00": "READY_FULL",
       "P01": "COMPLETED",
       "P02": "COMPLETED",
       "P03": "COMPLETED",
-      "P04": "COMPLETED"
+      "P04": "COMPLETED",
+      "P04R": "COMPLETED"
     },
     "next": "P06",
     "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"

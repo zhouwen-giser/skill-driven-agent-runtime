@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProcessVariant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "variantId",
+    "activitySequence",
+    "activityKindSequence",
+    "concurrencyGroups",
+    "branchSequence",
+    "occurrenceCount",
+    "traceRefs",
+    "successCount",
+    "failureCount"
+  ],
+  "properties": {
+    "variantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activitySequence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "activityKindSequence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "skill_goal",
+          "plan_node",
+          "provider_operation",
+          "observation",
+          "verification",
+          "reasoning",
+          "human_gate",
+          "unknown"
+        ]
+      }
+    },
+    "concurrencyGroups": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "branchSequence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "occurrenceCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "traceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "successCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failureCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

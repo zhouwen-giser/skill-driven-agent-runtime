@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "packageId": "SDAR-V1.3-P03",
-  "registryVersion": "1.1",
-  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "registryVersion": "1.2",
+  "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
   "consumedContracts": {
     "ArtifactRepository": {
       "name": "ArtifactRepository",
@@ -35,7 +35,7 @@
     },
     "ExperienceTraceEvent": {
       "name": "ExperienceTraceEvent",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P03",
       "fields": [
         "eventId",
@@ -43,6 +43,7 @@
         "occurredAt",
         "eventType",
         "actorType",
+        "activity",
         "capabilityRefs",
         "authorityRefs",
         "parentEventRefs",
@@ -50,7 +51,24 @@
         "branchRef",
         "payloadSummary"
       ],
-      "schemaHash": "8b9742001edfbbe7a6dc93971d5f08dff002f32d56a7ca124c5b54e59133a878"
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
+    },
+    "ExperienceActivityRef": {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "owner": "P03",
+      "fields": [
+        "activityKey",
+        "activityKind",
+        "objectiveSummary",
+        "sourcePlanNodeRef",
+        "sourceSkillGoalRef",
+        "sourceAttemptRef",
+        "operationRef",
+        "capabilityRefs",
+        "effectRefs"
+      ],
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
     },
     "CohortDefinition": {
       "name": "CohortDefinition",
@@ -70,11 +88,12 @@
     },
     "ProcessVariant": {
       "name": "ProcessVariant",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P03",
       "fields": [
         "variantId",
         "activitySequence",
+        "activityKindSequence",
         "concurrencyGroups",
         "branchSequence",
         "occurrenceCount",
@@ -82,7 +101,7 @@
         "successCount",
         "failureCount"
       ],
-      "schemaHash": "f8f772dfbc589945e691bb9052b0164941e62dab0f7ac68f7d8021c16010fa86"
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
     },
     "DiscoveredProcessPattern": {
       "name": "DiscoveredProcessPattern",
@@ -107,7 +126,7 @@
     },
     "WorkflowPattern": {
       "name": "WorkflowPattern",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P03",
       "fields": [
         "workflowPatternId",
@@ -119,7 +138,7 @@
         "sourceTraceRefs",
         "quality"
       ],
-      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b"
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
     }
   },
   "handoffEnvelope": {

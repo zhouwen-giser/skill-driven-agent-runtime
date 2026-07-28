@@ -131,3 +131,47 @@ interface WorkflowPattern {
   quality: PatternQuality;
 }
 ```
+
+## P04R V1.2 Contract Addendum
+
+本节替代本文件中同名 V1.1 结构；未列出的合同继续使用 V1.1。生命周期事实由 `eventType` 表示，真实工作流/业务活动身份由 `activity.activityKey` 表示，二者禁止互换。
+
+```ts
+interface ExperienceActivityRef {
+  activityKey: string;
+  activityKind:
+    | "formal_plan_node"
+    | "skill_goal"
+    | "skill_attempt"
+    | "provider_operation"
+    | "recovery"
+    | "human_gate";
+  objectiveSummary: string;
+  sourcePlanNodeRef?: string;
+  sourceSkillGoalRef?: string;
+  sourceAttemptRef?: string;
+  operationRef?: string;
+  capabilityRefs: string[];
+  effectRefs: string[];
+}
+
+interface ExperienceTraceEventV12 extends ExperienceTraceEvent {
+  activity: ExperienceActivityRef;
+}
+
+interface ProcessVariantV12 extends ProcessVariant {
+  activitySequence: string[];
+  activityKindSequence: ExperienceActivityRef["activityKind"][];
+}
+
+interface WorkflowPatternV12 extends WorkflowPattern {
+  dependencyPatterns: Array<{
+    fromActivityKey: string;
+    toActivityKey: string;
+    relation: "direct_follows" | "precedes" | "parallel" | "conditional";
+    condition?: ConditionExpression;
+  }>;
+}
+```
+
+Process Mining 必须以 `activityKey` 聚合并保留重复 Activity、`A -> A` self-loop、parallel、branch、recovery trigger、resume activity 与 recovery sequence。

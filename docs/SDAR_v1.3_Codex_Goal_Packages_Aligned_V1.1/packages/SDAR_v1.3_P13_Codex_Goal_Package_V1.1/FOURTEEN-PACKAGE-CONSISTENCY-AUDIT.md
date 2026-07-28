@@ -9,6 +9,7 @@
 | P02 | G02-G04 | Persistence / Registry / Governance |
 | P03 | G05-G06 | Experience Trace / Pattern Mining |
 | P04 | G07-G08 | Candidate / Plan Template Compiler |
+| P04R | -- | Mandatory remediation of G05-G08; no G23 |
 | P05 | G09-G10 | Replay Dataset / Validation |
 | P06 | G11-G12 | Shadow / Promotion / Revalidation |
 | P07 | G13-G14 | Retrieval / Applicability |
@@ -130,3 +131,12 @@ RELEASE_CANDIDATE_BLOCKED
 reports/goal/v1.3-final-package-consistency.json
 reports/goal/v1.3-final-package-consistency.md
 ```
+
+## P04R Final Consistency Audit
+
+- Package accounting is exactly 14 formal product packages, 1 mandatory remediation package (P04R), and 1 optional post-release package (P14).
+- P04R is sequenced `P04 -> P04R -> P05`, is not a formal product package, and creates no G23.
+- Shared Registry V1.2 is an immutable delta over untouched V1.1; P00-P02 remain frozen on V1.1.
+- P03 and P04 revised handoffs must be `COMPLETED` before P04R can be `COMPLETED`.
+- P05 must require P04R `COMPLETED` and consume WorkflowPattern, FusedPattern, GeneralizedPattern, and CandidateStaticValidationResult at V1.2.
+- P04R cross-package validation must skip execution of frozen P00-P02 self-checks while still validating their manifests and locks read-only.

@@ -1,5 +1,11 @@
 {
   "ok": true,
+  "mode": "p04r",
+  "counts": {
+    "formalProductPackages": 14,
+    "mandatoryRemediationPackages": 1,
+    "optionalPostReleasePackages": 1
+  },
   "packages": [
     {
       "package": "P00",
@@ -11,7 +17,9 @@
         "BaselineGateResult",
         "V123PrerequisiteMatrix"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": true
     },
     {
       "package": "P01",
@@ -38,7 +46,9 @@
         "ArtifactLineage",
         "ArtifactRuntimeBinding"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": true
     },
     {
       "package": "P02",
@@ -60,7 +70,9 @@
         "OperatorIdentityPort",
         "ArtifactGovernancePort"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": true
     },
     {
       "package": "P03",
@@ -73,13 +85,16 @@
       ],
       "produces": [
         "ExperienceTrace",
+        "ExperienceActivityRef",
         "ExperienceTraceEvent",
         "CohortDefinition",
         "ProcessVariant",
         "DiscoveredProcessPattern",
         "WorkflowPattern"
       ],
-      "selfCheck": true
+      "registryVersion": "1.2",
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P04",
@@ -97,7 +112,9 @@
         "GeneralizedPattern",
         "CandidateStaticValidationResult"
       ],
-      "selfCheck": true
+      "registryVersion": "1.2",
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P05",
@@ -108,6 +125,9 @@
       "consumes": [
         "CompiledArtifact",
         "ExperienceTrace",
+        "WorkflowPattern",
+        "FusedPattern",
+        "GeneralizedPattern",
         "CandidateStaticValidationResult"
       ],
       "produces": [
@@ -118,7 +138,9 @@
         "ArtifactValidationFailure",
         "ArtifactCounterexample"
       ],
-      "selfCheck": true
+      "registryVersion": "1.2",
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P06",
@@ -139,7 +161,9 @@
         "ArtifactActivationRecord",
         "ArtifactRevalidationTrigger"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P07",
@@ -163,7 +187,9 @@
         "RuntimeExecutionDecision",
         "FastGatewayPath"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P08",
@@ -184,7 +210,9 @@
         "TemplateRuntime",
         "FormalPlanHandoffPort"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P09",
@@ -204,7 +232,9 @@
         "RulePlanPatchCandidate",
         "RuleRuntime"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P10",
@@ -224,7 +254,9 @@
         "GatewayDecisionRecord",
         "GatewayFeedbackEnvelope"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P11",
@@ -251,7 +283,9 @@
         "ModelCascadeRun",
         "ModelRouteRuntime"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P12",
@@ -269,7 +303,9 @@
         "A2AArtifactProjection",
         "SseArtifactEventProjection"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
     },
     {
       "package": "P13",
@@ -284,7 +320,22 @@
       "produces": [
         "ReleaseCandidateDecision"
       ],
-      "selfCheck": true
+      "registryVersion": "1.1",
+      "selfCheck": "not_run_read_only",
+      "frozenReadOnly": false
+    },
+    {
+      "package": "P04R",
+      "goals": [],
+      "remediatesGoals": [
+        "G05",
+        "G06",
+        "G07",
+        "G08"
+      ],
+      "registryVersion": "1.2",
+      "selfCheck": true,
+      "frozenReadOnly": false
     }
   ],
   "errors": []

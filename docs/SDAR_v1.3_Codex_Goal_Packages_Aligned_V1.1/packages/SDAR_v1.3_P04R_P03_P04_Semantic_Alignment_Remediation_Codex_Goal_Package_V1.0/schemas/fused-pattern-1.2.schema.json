@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FusedPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fusedPatternId",
+    "sourceWorkflowPatternRef",
+    "sourceProcessPatternRef",
+    "sourceTraceRefs",
+    "structuralPattern",
+    "semanticCandidate",
+    "applicabilityCandidate",
+    "scopeEvidence",
+    "supportRefs",
+    "contradictionRefs",
+    "confidence",
+    "fusionVersion",
+    "contentHash"
+  ],
+  "properties": {
+    "fusedPatternId": {
+      "type": "string"
+    },
+    "sourceWorkflowPatternRef": {
+      "type": "string"
+    },
+    "sourceProcessPatternRef": {
+      "type": "string"
+    },
+    "sourceTraceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "structuralPattern": {
+      "$ref": "workflow-pattern-1.2.schema.json"
+    },
+    "semanticCandidate": {
+      "type": "object"
+    },
+    "applicabilityCandidate": {
+      "type": "object"
+    },
+    "scopeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenantCount",
+        "userCount",
+        "deviceClassCount",
+        "environmentClassCount",
+        "successCount",
+        "failureCount",
+        "hasTemporaryAuthorization",
+        "hasFailureBoundary"
+      ],
+      "properties": {
+        "tenantCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "userCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deviceClassCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "environmentClassCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failureCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hasTemporaryAuthorization": {
+          "type": "boolean"
+        },
+        "hasFailureBoundary": {
+          "type": "boolean"
+        }
+      }
+    },
+    "supportRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "contradictionRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fusionVersion": {
+      "const": "sdar-pattern-fusion/1.2"
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

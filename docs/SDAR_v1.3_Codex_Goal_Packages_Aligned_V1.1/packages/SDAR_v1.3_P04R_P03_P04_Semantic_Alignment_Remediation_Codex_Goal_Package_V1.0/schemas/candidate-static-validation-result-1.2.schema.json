@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CandidateStaticValidationResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifactRef",
+    "schemaValid",
+    "activityIdentityValid",
+    "dagValid",
+    "parallelSemanticsValid",
+    "requiredCriteriaCovered",
+    "capabilityShapeValid",
+    "capabilityCatalogAligned",
+    "parameterPolicyValid",
+    "parameterSchemaAligned",
+    "applicabilityEvaluable",
+    "lineageComplete",
+    "recoverySemanticsValid",
+    "sideEffectReplaySafe",
+    "boundsValid",
+    "errors",
+    "warnings",
+    "validatorVersion",
+    "result"
+  ],
+  "properties": {
+    "artifactRef": {
+      "type": "string"
+    },
+    "schemaValid": {
+      "type": "boolean"
+    },
+    "activityIdentityValid": {
+      "type": "boolean"
+    },
+    "dagValid": {
+      "type": "boolean"
+    },
+    "parallelSemanticsValid": {
+      "type": "boolean"
+    },
+    "requiredCriteriaCovered": {
+      "type": "boolean"
+    },
+    "capabilityShapeValid": {
+      "type": "boolean"
+    },
+    "capabilityCatalogAligned": {
+      "type": "boolean"
+    },
+    "parameterPolicyValid": {
+      "type": "boolean"
+    },
+    "parameterSchemaAligned": {
+      "type": "boolean"
+    },
+    "applicabilityEvaluable": {
+      "type": "boolean"
+    },
+    "lineageComplete": {
+      "type": "boolean"
+    },
+    "recoverySemanticsValid": {
+      "type": "boolean"
+    },
+    "sideEffectReplaySafe": {
+      "type": "boolean"
+    },
+    "boundsValid": {
+      "type": "boolean"
+    },
+    "duplicateFingerprint": {
+      "type": "string"
+    },
+    "errors": {
+      "type": "array"
+    },
+    "warnings": {
+      "type": "array"
+    },
+    "validatorVersion": {
+      "const": "sdar-candidate-static-validator/1.2"
+    },
+    "result": {
+      "enum": [
+        "passed_static",
+        "failed_static"
+      ]
+    }
+  }
+}

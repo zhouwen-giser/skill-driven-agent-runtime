@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "1.2",
+  "title": "SDAR v1.3 P04R Cross-package Interface Registry Overlay",
+  "registryKind": "immutable_delta",
+  "baseRegistry": "SDAR_v1.3_Frozen_Interface_Registry_V1.1.json",
+  "baseRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "formalPackages": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P11",
+    "P12",
+    "P13"
+  ],
+  "mandatoryRemediationPackages": [
+    "P04R"
+  ],
+  "optionalPostReleasePackages": [
+    "P14"
+  ],
+  "counts": {
+    "formalProductPackages": 14,
+    "mandatoryRemediationPackages": 1,
+    "optionalPostReleasePackages": 1
+  },
+  "sequencePatch": {
+    "after": "P04",
+    "package": "P04R",
+    "before": "P05",
+    "newAtomicGoal": false
+  },
+  "contracts": {
+    "ExperienceActivityRef": {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "owner": "P03",
+      "fields": [
+        "activityKey",
+        "activityKind",
+        "objectiveSummary",
+        "sourcePlanNodeRef",
+        "sourceSkillGoalRef",
+        "sourceAttemptRef",
+        "operationRef",
+        "capabilityRefs",
+        "effectRefs"
+      ],
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
+    },
+    "ExperienceTraceEvent": {
+      "name": "ExperienceTraceEvent",
+      "version": "1.2",
+      "owner": "P03",
+      "fields": [
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "eventType",
+        "actorType",
+        "activity",
+        "capabilityRefs",
+        "authorityRefs",
+        "parentEventRefs",
+        "concurrencyGroup",
+        "branchRef",
+        "payloadSummary"
+      ],
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
+    },
+    "ProcessVariant": {
+      "name": "ProcessVariant",
+      "version": "1.2",
+      "owner": "P03",
+      "fields": [
+        "variantId",
+        "activitySequence",
+        "activityKindSequence",
+        "concurrencyGroups",
+        "branchSequence",
+        "occurrenceCount",
+        "traceRefs",
+        "successCount",
+        "failureCount"
+      ],
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
+    },
+    "WorkflowPattern": {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "owner": "P03",
+      "fields": [
+        "workflowPatternId",
+        "taskTypeId",
+        "activityPatterns",
+        "dependencyPatterns",
+        "recoveryPatterns",
+        "sourcePatternRef",
+        "sourceTraceRefs",
+        "quality"
+      ],
+      "dependencyRelations": [
+        "direct_follows",
+        "precedes",
+        "parallel",
+        "conditional"
+      ],
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    },
+    "FusedPattern": {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "owner": "P04",
+      "fields": [
+        "fusedPatternId",
+        "sourceWorkflowPatternRef",
+        "sourceProcessPatternRef",
+        "sourceTraceRefs",
+        "structuralPattern",
+        "semanticCandidate",
+        "applicabilityCandidate",
+        "scopeEvidence",
+        "supportRefs",
+        "contradictionRefs",
+        "confidence",
+        "fusionVersion",
+        "contentHash"
+      ],
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
+    },
+    "GeneralizedPattern": {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "owner": "P04",
+      "fields": [
+        "generalizedPatternId",
+        "domain",
+        "taskTypeId",
+        "variables",
+        "invariants",
+        "requiredConditions",
+        "forbiddenConditions",
+        "applicabilityPredicates",
+        "failureBoundaries",
+        "retainedExampleRefs",
+        "counterexampleRefs",
+        "sourceFusedPatternRef",
+        "generalizerVersion",
+        "contentHash"
+      ],
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
+    },
+    "CandidateStaticValidationResult": {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "owner": "P04",
+      "fields": [
+        "artifactRef",
+        "schemaValid",
+        "activityIdentityValid",
+        "dagValid",
+        "parallelSemanticsValid",
+        "requiredCriteriaCovered",
+        "capabilityShapeValid",
+        "capabilityCatalogAligned",
+        "parameterPolicyValid",
+        "parameterSchemaAligned",
+        "applicabilityEvaluable",
+        "lineageComplete",
+        "recoverySemanticsValid",
+        "sideEffectReplaySafe",
+        "boundsValid",
+        "duplicateFingerprint",
+        "errors",
+        "warnings",
+        "validatorVersion",
+        "result"
+      ],
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
+    }
+  },
+  "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee"
+}

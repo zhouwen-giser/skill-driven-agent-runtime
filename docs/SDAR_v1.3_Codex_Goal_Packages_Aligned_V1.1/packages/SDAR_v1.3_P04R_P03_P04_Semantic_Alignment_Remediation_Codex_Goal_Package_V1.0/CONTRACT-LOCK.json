@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "targetContractRegistryVersion": "1.2",
+  "targetContractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumes": [
+    {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "sourcePackage": "P02"
+    },
+    {
+      "name": "ExperienceTraceEvent",
+      "version": "1.1",
+      "sourcePackage": "P03"
+    },
+    {
+      "name": "ProcessVariant",
+      "version": "1.1",
+      "sourcePackage": "P03"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.1",
+      "sourcePackage": "P03"
+    },
+    {
+      "name": "FusedPattern",
+      "version": "1.1",
+      "sourcePackage": "P04"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.1",
+      "sourcePackage": "P04"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.1",
+      "sourcePackage": "P04"
+    }
+  ],
+  "produces": [
+    {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0",
+      "schemaFile": "schemas/experience-activity-ref-1.2.schema.json"
+    },
+    {
+      "name": "ExperienceTraceEvent",
+      "version": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425",
+      "schemaFile": "schemas/experience-trace-event-1.2.schema.json"
+    },
+    {
+      "name": "ProcessVariant",
+      "version": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17",
+      "schemaFile": "schemas/process-variant-1.2.schema.json"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11",
+      "schemaFile": "schemas/workflow-pattern-1.2.schema.json"
+    },
+    {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11",
+      "schemaFile": "schemas/fused-pattern-1.2.schema.json"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a",
+      "schemaFile": "schemas/generalized-pattern-1.2.schema.json"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd",
+      "schemaFile": "schemas/candidate-static-validation-result-1.2.schema.json"
+    }
+  ],
+  "requiredEvents": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created"
+  ],
+  "requiredQueues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation"
+  ],
+  "forbiddenAliases": [
+    "RuntimeCandidateDecision",
+    "artifact_candidate_authority",
+    "redis_active_artifact",
+    "lifecycle_event_as_activity",
+    "synthetic_only_p03_p04_integration"
+  ]
+}

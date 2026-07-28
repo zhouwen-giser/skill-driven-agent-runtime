@@ -1,7 +1,11 @@
 # P04 冻结接口合同 V1.1
 
 共享注册表：`../../shared/SDAR_v1.3_Frozen_Interface_Registry_V1.1.json`
-注册表 SHA-256：`d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb`
+注册表：`SDAR_v1.3_Frozen_Interface_Registry_V1.2.json`（V1.1 immutable delta）
+
+注册表 SHA-256：`8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee`
+
+P04R 消费 `WorkflowPattern V1.2`，并发布 `FusedPattern V1.2`、`GeneralizedPattern V1.2`、`CandidateStaticValidationResult V1.2`。
 
 ## 消费接口
 
@@ -39,4 +43,3 @@
 - Version: `1.1`
 - Schema hash: `3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba`
 - Fields: `artifactRef`, `schemaValid`, `dagValid`, `requiredCriteriaCovered`, `capabilityShapeValid`, `parameterPolicyValid`, `sideEffectReplaySafe`, `boundsValid`, `duplicateFingerprint`, `errors`, `warnings`, `validatorVersion`, `result`
-

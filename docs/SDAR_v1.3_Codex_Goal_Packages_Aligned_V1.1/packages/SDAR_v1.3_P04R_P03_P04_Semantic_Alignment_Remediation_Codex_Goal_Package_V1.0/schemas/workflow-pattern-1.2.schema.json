@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkflowPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workflowPatternId",
+    "taskTypeId",
+    "activityPatterns",
+    "dependencyPatterns",
+    "recoveryPatterns",
+    "sourcePatternRef",
+    "sourceTraceRefs",
+    "quality"
+  ],
+  "properties": {
+    "workflowPatternId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taskTypeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activityPatterns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "activityKey",
+          "activityKind",
+          "objectiveSummary",
+          "required",
+          "supportCount",
+          "supportRate",
+          "capabilityRefs",
+          "effectRefs",
+          "lifecycleEventTypes"
+        ],
+        "properties": {
+          "activityKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "activityKind": {
+            "enum": [
+              "skill_goal",
+              "plan_node",
+              "provider_operation",
+              "observation",
+              "verification",
+              "reasoning",
+              "human_gate",
+              "unknown"
+            ]
+          },
+          "objectiveSummary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "supportCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supportRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "capabilityRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "effectRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "lifecycleEventTypes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "dependencyPatterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predecessorActivityKey",
+          "successorActivityKey",
+          "relation",
+          "supportRefs",
+          "contradictionRefs"
+        ],
+        "properties": {
+          "predecessorActivityKey": {
+            "type": "string"
+          },
+          "successorActivityKey": {
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "direct_follows",
+              "precedes",
+              "parallel",
+              "conditional"
+            ]
+          },
+          "condition": {
+            "type": "object"
+          },
+          "supportRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "contradictionRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "relation": {
+                  "const": "conditional"
+                }
+              },
+              "required": [
+                "relation"
+              ]
+            },
+            "then": {
+              "required": [
+                "condition"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "condition"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "recoveryPatterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "triggerActivityKey",
+          "activitySequence",
+          "requiredCapabilityRefs",
+          "supportRefs"
+        ],
+        "properties": {
+          "triggerActivityKey": {
+            "type": "string"
+          },
+          "resumeActivityKey": {
+            "type": "string"
+          },
+          "activitySequence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "requiredCapabilityRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportRefs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "sourcePatternRef": {
+      "type": "string"
+    },
+    "sourceTraceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supportCount",
+        "totalTraceCount",
+        "supportRate",
+        "successRate",
+        "traceCoverage",
+        "fitness",
+        "precisionProxy",
+        "environmentCoverage",
+        "contradictionRate",
+        "generalization",
+        "mandatoryThreshold"
+      ],
+      "properties": {
+        "supportCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "totalTraceCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "supportRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "successRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "traceCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fitness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "precisionProxy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "environmentCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "contradictionRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "generalization": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mandatoryThreshold": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

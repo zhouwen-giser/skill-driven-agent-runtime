@@ -4,7 +4,7 @@
 - Sequence: P03 of P00-P13
 - Atomic goals: G05, G06
 - Baseline: future v1.2.3-final lineage
-- Contract registry: 1.1 / d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb
+- Contract registry: 1.2 / 8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee
 - Interface aliases removed or mapped internally
 - Canonical tables/events/queues/flags locked
 - Standard Handoff enforced

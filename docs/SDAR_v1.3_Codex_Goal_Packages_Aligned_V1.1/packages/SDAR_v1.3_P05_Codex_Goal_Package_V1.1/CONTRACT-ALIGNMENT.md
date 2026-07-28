@@ -2,8 +2,10 @@
 
 - Package: `P05`
 - Goals: `G09, G10`
-- Registry SHA-256: `d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb`
-- Consumes: CompiledArtifact, ExperienceTrace, CandidateStaticValidationResult
+- Registry: V1.2 immutable delta over V1.1
+- Registry SHA-256: `8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee`
+- Consumes: CompiledArtifact V1.1, ExperienceTrace V1.1, WorkflowPattern V1.2, FusedPattern V1.2, GeneralizedPattern V1.2, CandidateStaticValidationResult V1.2
+- Mandatory predecessor: P04R `COMPLETED`
 - Produces: ArtifactReplayCase, ReplayDatasetManifest, ArtifactValidationRun, ArtifactValidationResult, ArtifactValidationFailure, ArtifactCounterexample
 - Next: `P06`
 

@@ -7,7 +7,9 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'
 const lock=JSON.parse(fs.readFileSync(path.join(root,'CONTRACT-LOCK.json'),'utf8'));
 if(manifest.packageId!=='SDAR-V1.3-P05') throw new Error('packageId');
 if(manifest.sequence!==5||manifest.totalFormalPackages!==14||manifest.formalPackage!==true) throw new Error('sequence');
-if(manifest.contractRegistrySha256!=='d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb'||lock.registrySha256!=='d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb') throw new Error('registry hash');
+if(manifest.contractRegistryVersion!=='1.2'||lock.registryVersion!=='1.2'||manifest.contractRegistrySha256!=='8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee'||lock.registrySha256!=='8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee') throw new Error('registry hash');
+if(!manifest.dependsOn.includes('P04R')||manifest.requiredPredecessorStatus.P04R!=='COMPLETED') throw new Error('P04R dependency');
+for(const name of ['WorkflowPattern','FusedPattern','GeneralizedPattern','CandidateStaticValidationResult']) if(lock.consumedContracts[name]?.version!=='1.2') throw new Error(`v1.2 contract ${name}`);
 if(manifest.atomicGoals.join(',')!=='G09,G10') throw new Error('goals');
 const handoff=JSON.parse(fs.readFileSync(path.join(root,'templates/STANDARD-HANDOFF.json'),'utf8'));
 const required=["schemaVersion", "packageId", "packageVersion", "sequence", "status", "repository", "baselineSha", "branch", "commits", "draftPrUrl", "contractRegistryVersion", "contractRegistrySha256", "consumedContracts", "producedContracts", "migrations", "repositoryPorts", "applicationPorts", "runtimePorts", "events", "queues", "featureFlags", "reasonCodeCatalogVersion", "evidenceRefs", "acceptanceSummary", "knownLimitations", "openBlockers", "nextPackage", "packageOutputs"];

@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.1",
   "packageId": "SDAR-V1.3-P04",
-  "registryVersion": "1.1",
-  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "registryVersion": "1.2",
+  "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
   "consumedContracts": {
     "WorkflowPattern": {
       "name": "WorkflowPattern",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P03",
       "fields": [
         "workflowPatternId",
@@ -18,7 +18,13 @@
         "sourceTraceRefs",
         "quality"
       ],
-      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b"
+      "dependencyRelations": [
+        "direct_follows",
+        "precedes",
+        "parallel",
+        "conditional"
+      ],
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
     },
     "CompiledArtifact": {
       "name": "CompiledArtifact",
@@ -64,7 +70,7 @@
   "producedContracts": {
     "FusedPattern": {
       "name": "FusedPattern",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P04",
       "fields": [
         "fusedPatternId",
@@ -74,17 +80,18 @@
         "structuralPattern",
         "semanticCandidate",
         "applicabilityCandidate",
+        "scopeEvidence",
         "supportRefs",
         "contradictionRefs",
         "confidence",
         "fusionVersion",
         "contentHash"
       ],
-      "schemaHash": "df1216e93f02a3ec0cc24d96547d5db3436500789818ec8bcee3847fcbd9d24e"
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
     },
     "GeneralizedPattern": {
       "name": "GeneralizedPattern",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P04",
       "fields": [
         "generalizedPatternId",
@@ -94,25 +101,34 @@
         "invariants",
         "requiredConditions",
         "forbiddenConditions",
+        "applicabilityPredicates",
+        "failureBoundaries",
         "retainedExampleRefs",
         "counterexampleRefs",
         "sourceFusedPatternRef",
         "generalizerVersion",
         "contentHash"
       ],
-      "schemaHash": "96f2c70c36985897ebbc700b540048314cad2e2597777e7b9b64118e227a08bd"
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
     },
     "CandidateStaticValidationResult": {
       "name": "CandidateStaticValidationResult",
-      "version": "1.1",
+      "version": "1.2",
       "owner": "P04",
       "fields": [
         "artifactRef",
         "schemaValid",
+        "activityIdentityValid",
         "dagValid",
+        "parallelSemanticsValid",
         "requiredCriteriaCovered",
         "capabilityShapeValid",
+        "capabilityCatalogAligned",
         "parameterPolicyValid",
+        "parameterSchemaAligned",
+        "applicabilityEvaluable",
+        "lineageComplete",
+        "recoverySemanticsValid",
         "sideEffectReplaySafe",
         "boundsValid",
         "duplicateFingerprint",
@@ -121,7 +137,7 @@
         "validatorVersion",
         "result"
       ],
-      "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba"
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
     }
   },
   "handoffEnvelope": {

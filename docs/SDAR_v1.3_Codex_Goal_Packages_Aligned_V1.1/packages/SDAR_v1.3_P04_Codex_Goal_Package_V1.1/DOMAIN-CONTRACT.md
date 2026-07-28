@@ -179,4 +179,32 @@ interface CandidateStaticValidationResult {
 }
 ```
 
+## P04R V1.2 Contract Addendum
+
+本节替代本文件中同名 V1.1 结构；P04 必须消费 `WorkflowPattern V1.2`。
+
+```ts
+interface FusedPatternV12 extends FusedPattern {
+  scopeEvidence: ScopeEvidence;
+}
+
+interface GeneralizedPatternV12 extends GeneralizedPattern {
+  applicabilityPredicates: ConditionExpression[];
+  failureBoundaries: FailureBoundary[];
+}
+
+interface CandidateStaticValidationResultV12
+  extends CandidateStaticValidationResult {
+  activityIdentityValid: boolean;
+  parallelSemanticsValid: boolean;
+  capabilityCatalogAligned: boolean;
+  parameterSchemaAligned: boolean;
+  applicabilityEvaluable: boolean;
+  lineageComplete: boolean;
+  recoverySemanticsValid: boolean;
+}
+```
+
+`generalizedDefinitionHash`、`applicabilityHash` 与 `requiredCapabilityShapeHash` 必须分别按其直接输入计算。DAG 通过精确 `activityKey -> nodeKey` Map 编译；找不到节点、direct/parallel 冲突或 parallel 降级必须失败。`knownCapabilityIds` 与 `knownTaskTypeCapabilities` 是静态校验的真实 Capability Catalog 输入。
+
 `passed_static` 不等于验证通过或可激活。

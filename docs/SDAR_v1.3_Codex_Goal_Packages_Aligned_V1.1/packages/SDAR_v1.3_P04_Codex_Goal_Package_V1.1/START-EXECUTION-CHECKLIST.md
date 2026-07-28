@@ -1,7 +1,7 @@
 # P04 Start Execution Checklist
 
 1. Use future `v1.2.3-final` lineage; do not bind the historical reference SHA in this package.
-2. Validate registry SHA `d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb`.
+2. Validate V1.2 registry SHA `8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee`.
 3. Validate package self-check: `node scripts/self-check.mjs`.
 4. Required merged predecessors: `P00, P01, P02, P03`.
 5. P00 status must be `READY_FULL` for every package P01-P13.

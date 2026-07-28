@@ -2,7 +2,8 @@
 
 - Package: `P04`
 - Goals: `G07, G08`
-- Registry SHA-256: `d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb`
+- Registry: V1.2 immutable delta over V1.1
+- Registry SHA-256: `8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee`
 - Consumes: WorkflowPattern, CompiledArtifact, PlanTemplateArtifactDefinition
 - Produces: FusedPattern, GeneralizedPattern, CandidateStaticValidationResult
 - Next: `P05`

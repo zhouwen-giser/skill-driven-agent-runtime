@@ -7,6 +7,7 @@
 | P02 | G02-G04 | | | | | | |
 | P03 | G05-G06 | | | | | | |
 | P04 | G07-G08 | | | | | | |
+| P04R | no new Goal | | | | | | |
 | P05 | G09-G10 | | | | | | |
 | P06 | G11-G12 | | | | | | |
 | P07 | G13-G14 | | | | | | |
@@ -19,6 +20,8 @@
 
 ## Duplicate Authority
 ## Cross-package Schema / Version
+
+Verify Shared Registry V1.2, P03/P04 revised handoffs, P05 P04R dependency, `P04 -> P04R -> P05`, counts `14 / 1 / 1`, and absence of G23.
 ## Event / Queue / Cache
 ## Feature Flags / Kill Switch
 ## Known Drifts

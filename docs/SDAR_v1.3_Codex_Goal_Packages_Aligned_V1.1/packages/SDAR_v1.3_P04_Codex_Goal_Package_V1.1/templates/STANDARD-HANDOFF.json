@@ -9,13 +9,13 @@
   "branch": "",
   "commits": {},
   "draftPrUrl": "",
-  "contractRegistryVersion": "1.1",
-  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
   "consumedContracts": [
     {
       "name": "WorkflowPattern",
-      "version": "1.1",
-      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b"
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
     },
     {
       "name": "CompiledArtifact",
@@ -31,18 +31,18 @@
   "producedContracts": [
     {
       "name": "FusedPattern",
-      "version": "1.1",
-      "schemaHash": "df1216e93f02a3ec0cc24d96547d5db3436500789818ec8bcee3847fcbd9d24e"
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
     },
     {
       "name": "GeneralizedPattern",
-      "version": "1.1",
-      "schemaHash": "96f2c70c36985897ebbc700b540048314cad2e2597777e7b9b64118e227a08bd"
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
     },
     {
       "name": "CandidateStaticValidationResult",
-      "version": "1.1",
-      "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba"
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
     }
   ],
   "migrations": [],
@@ -61,21 +61,21 @@
   },
   "knownLimitations": [],
   "openBlockers": [],
-  "nextPackage": "P05",
+  "nextPackage": "P04R",
   "packageOutputs": {
     "FusedPattern": {
-      "contractVersion": "1.1",
-      "schemaHash": "df1216e93f02a3ec0cc24d96547d5db3436500789818ec8bcee3847fcbd9d24e",
+      "contractVersion": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11",
       "refs": []
     },
     "GeneralizedPattern": {
-      "contractVersion": "1.1",
-      "schemaHash": "96f2c70c36985897ebbc700b540048314cad2e2597777e7b9b64118e227a08bd",
+      "contractVersion": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a",
       "refs": []
     },
     "CandidateStaticValidationResult": {
-      "contractVersion": "1.1",
-      "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba",
+      "contractVersion": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd",
       "refs": []
     }
   }
