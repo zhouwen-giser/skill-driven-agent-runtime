@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 export async function generateReplayArtifact(options = {}) {
   const root = process.cwd();
@@ -15,9 +16,11 @@ export async function generateReplayArtifact(options = {}) {
   );
   const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
   const application = await import(
-    resolve(root, 'dist/packages/application/src/index.js')
+    pathToFileURL(resolve(root, 'dist/packages/application/src/index.js')).href
   );
-  const domain = await import(resolve(root, 'dist/packages/domain/src/index.js'));
+  const domain = await import(
+    pathToFileURL(resolve(root, 'dist/packages/domain/src/index.js')).href
+  );
   const evaluator = {
     evaluate(testCase) {
       const candidateMetrics =

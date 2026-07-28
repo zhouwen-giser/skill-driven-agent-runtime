@@ -3,6 +3,7 @@ export * from './artifact-registry.js';
 export * from './artifact-governance.js';
 export * from './artifact-outbox-consumer.js';
 export * from './candidate-generator.js';
+export * from './candidate-generation.js';
 export * from './experience-compilation.js';
 export * from './experience-normalizer.js';
 export * from './pattern-generalization.js';

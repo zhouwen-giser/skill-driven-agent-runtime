@@ -187,6 +187,9 @@ import {
   PatternFusionService,
   PatternGeneralizationService,
   ArtifactCandidateGenerator,
+  CandidateGenerationApplicationService,
+  CandidateGenerationRunReconciler,
+  CandidateGenerationTriggerDispatcher,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -301,6 +304,7 @@ import {
   PostgresExperienceCompilationRepository,
   PostgresExperienceCompilationTriggerSource,
   PostgresCandidateGenerationRepository,
+  PostgresCandidateGenerationCatalog,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -319,6 +323,8 @@ import {
   BullMqReflectionWorker,
   BullMqCompilationQueue,
   BullMqCompilationWorker,
+  BullMqCandidateGenerationQueue,
+  BullMqCandidateGenerationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -465,6 +471,11 @@ export async function startServerRuntime(
   const experienceCompilationReady = await pool.query<{ installed: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM schema_migration WHERE version='0126_v13_experience_compilation'
+     ) AS installed`,
+  );
+  const candidateGenerationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0128_v13_candidate_generation_runtime'
      ) AS installed`,
   );
   let artifactRegistry: ArtifactRegistryService | undefined;
@@ -939,6 +950,43 @@ export async function startServerRuntime(
             clock,
             retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
           });
+          const candidateRuntime =
+            candidateGenerationReady.rows[0]?.installed === true
+              ? (() => {
+                  const candidateRuns = new PostgresCandidateGenerationRepository(pool);
+                  const candidateQueue = new BullMqCandidateGenerationQueue(options.redis);
+                  const candidateService = new CandidateGenerationApplicationService({
+                    runs: candidateRuns,
+                    catalog: new PostgresCandidateGenerationCatalog(skills),
+                    fusion: new PatternFusionService(),
+                    generalization: new PatternGeneralizationService(),
+                    generator: new ArtifactCandidateGenerator(),
+                    clock,
+                    retryPolicy: {
+                      maxAttempts: 5,
+                      baseBackoffMs: 2_000,
+                      maxBackoffMs: 120_000,
+                    },
+                  });
+                  return {
+                    candidateDispatcher: new CandidateGenerationTriggerDispatcher({
+                      source: candidateRuns,
+                      runs: candidateRuns,
+                      queue: candidateQueue,
+                    }),
+                    candidateReconciler: new CandidateGenerationRunReconciler({
+                      runs: candidateRuns,
+                      queue: candidateQueue,
+                    }),
+                    candidateQueue,
+                    candidateWorker: new BullMqCandidateGenerationWorker(
+                      options.redis,
+                      candidateService,
+                      `candidate-generation-worker-${randomUUID()}`,
+                    ),
+                  };
+                })()
+              : undefined;
           return {
             dispatcher: new ExperienceCompilationTriggerDispatcher({
               source: new PostgresExperienceCompilationTriggerSource(pool),
@@ -972,10 +1020,7 @@ export async function startServerRuntime(
               mining,
               `process-mining-worker-${randomUUID()}`,
             ),
-            candidateGenerationRepository: new PostgresCandidateGenerationRepository(pool),
-            patternFusion: new PatternFusionService(),
-            patternGeneralization: new PatternGeneralizationService(),
-            candidateGenerator: new ArtifactCandidateGenerator(),
+            ...candidateRuntime,
           };
         })()
       : undefined;
@@ -3621,6 +3666,8 @@ export async function startServerRuntime(
       .then(() => experienceCompilation?.dispatcher.dispatch() ?? 0)
       .then(() => experienceCompilation?.normalizationReconciler.requeue(clock.now()) ?? 0)
       .then(() => experienceCompilation?.miningReconciler.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.candidateDispatcher?.dispatch() ?? 0)
+      .then(() => experienceCompilation?.candidateReconciler?.requeue(clock.now()) ?? 0)
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3744,6 +3791,8 @@ export async function startServerRuntime(
       await experienceCompilation.dispatcher.dispatch(500);
       await experienceCompilation.normalizationReconciler.requeue(clock.now(), 500);
       await experienceCompilation.miningReconciler.requeue(clock.now(), 500);
+      await experienceCompilation.candidateDispatcher?.dispatch(500);
+      await experienceCompilation.candidateReconciler?.requeue(clock.now(), 500);
     }
   } catch (error: unknown) {
     process.stderr.write(
@@ -3756,6 +3805,7 @@ export async function startServerRuntime(
   reflectionWorker.start();
   experienceCompilation?.normalizationWorker.start();
   experienceCompilation?.miningWorker.start();
+  experienceCompilation?.candidateWorker?.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -4097,6 +4147,7 @@ export async function startServerRuntime(
         await reflectionWorker.close();
         await experienceCompilation?.normalizationWorker.close();
         await experienceCompilation?.miningWorker.close();
+        await experienceCompilation?.candidateWorker?.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
@@ -4106,6 +4157,7 @@ export async function startServerRuntime(
         await reflectionQueue.close();
         await experienceCompilation?.normalizationQueue.close();
         await experienceCompilation?.miningQueue.close();
+        await experienceCompilation?.candidateQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -4137,6 +4189,7 @@ export async function startServerRuntime(
     await reflectionWorker.close();
     await experienceCompilation?.normalizationWorker.close();
     await experienceCompilation?.miningWorker.close();
+    await experienceCompilation?.candidateWorker?.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
@@ -4145,6 +4198,7 @@ export async function startServerRuntime(
     await reflectionQueue.close();
     await experienceCompilation?.normalizationQueue.close();
     await experienceCompilation?.miningQueue.close();
+    await experienceCompilation?.candidateQueue?.close();
     await queue.close();
     await pool.end();
     throw error;

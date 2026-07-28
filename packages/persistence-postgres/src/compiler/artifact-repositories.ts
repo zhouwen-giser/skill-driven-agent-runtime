@@ -111,9 +111,9 @@ interface ExecutionRow extends QueryResultRow {
 }
 
 export class PostgresArtifactRepository implements ArtifactRepository {
-  readonly #pool: Pool;
+  readonly #pool: Pool | PoolClient;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool | PoolClient) {
     this.#pool = pool;
   }
 
@@ -964,9 +964,10 @@ async function writeOutbox(
 }
 
 async function inTransaction<T>(
-  pool: Pool,
+  pool: Pool | PoolClient,
   action: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
+  if ('release' in pool) return action(pool);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

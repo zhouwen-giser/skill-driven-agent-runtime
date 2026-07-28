@@ -1,320 +1,821 @@
-import { Pool } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 
+import { Pool } from 'pg';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
+  ArtifactCandidateGenerator,
+  CandidateGenerationApplicationService,
+  CandidateGenerationTriggerDispatcher,
+  DeterministicProcessMiner,
+  ExperienceNormalizationService,
+  ExperienceTraceNormalizer,
   PatternFusionService,
   PatternGeneralizationService,
-  NoOpSemanticModel,
-  ArtifactCandidateGenerator,
+  ProcessMiningService,
 } from '../../application/src/index.js';
 import {
-  type WorkflowPattern,
-  type DiscoveredProcessPattern,
-  type ActivityPattern,
-  type DependencyPattern,
-  type PatternQuality,
-  type RecoveryPattern,
+  COGNITIVE_SCHEMA_VERSION,
+  createCognitiveSourceRef,
+  createGoalExperienceEpisode,
+  createSkillUsageSpecification,
+  createSkillVersion,
+  type CognitiveSourceRef,
+  type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
-import { PostgresCandidateGenerationRepository } from '../src/compiler/candidate-generation-repositories.js';
 import {
-  createIsolatedRuntimeDatabase,
-  dropIsolatedRuntimeDatabase,
-  isolatedDatabaseUrl,
-} from '../../../apps/server/test-support/postgres.js';
-import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+  PostgresArtifactRepository,
+  PostgresCandidateGenerationCatalog,
+  PostgresCandidateGenerationRepository,
+  PostgresCompilationRunRepository,
+  PostgresConversationContextRepository,
+  PostgresExperienceCompilationRepository,
+  PostgresGoalExperienceEpisodeRepository,
+  PostgresSkillRepository,
+} from '../src/index.js';
 
-const adminUrl =
+const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
-const databaseName = 'sdar_v13_p04_candidate_e2e';
-const postgresUrl = isolatedDatabaseUrl(adminUrl, databaseName);
-
-let pool: Pool;
+const pool = new Pool({ connectionString, max: 4 });
+const tenantId = 'tenant-p04r-integration';
+const taskTypeId = 'workflow.policy-remediation';
+const capabilities = [
+  'workflow.collect',
+  'workflow.verify',
+  'workflow.remediate',
+  'workflow.recover',
+] as const;
 
 beforeAll(async () => {
-  await createIsolatedRuntimeDatabase(adminUrl, databaseName);
-  pool = new Pool({ connectionString: postgresUrl });
   await applyRuntimeMigrations(pool);
+});
+
+beforeEach(async () => {
+  await pool.query(
+    `TRUNCATE candidate_model_invocation,candidate_static_validation,candidate_fingerprint,
+       generalized_pattern,fused_pattern,candidate_generation_run,artifact_lineage,compiled_artifact,
+       pattern_candidate_support,pattern_candidate,experience_trace_source,experience_trace,
+       compilation_run,experience_job,goal_experience_episode_source,goal_experience_episode,
+       cognitive_runtime_outbox,skill_version,skill,conversation_context CASCADE`,
+  );
 });
 
 afterAll(async () => {
   await pool.end();
-  await dropIsolatedRuntimeDatabase(adminUrl, databaseName);
 });
 
-const quality: PatternQuality = {
-  support: 0.95,
-  successRate: 0.8,
-  traceCoverage: 0.9,
-  fitness: 0.85,
-  precisionProxy: 0.75,
-  environmentCoverage: 0.7,
-  contradictionRate: 0.05,
-  generalization: 0.6,
-  mandatoryThreshold: 0.8,
-};
-
-const activityPatterns: readonly ActivityPattern[] = [
-  {
-    activity: 'observe_input',
-    required: true,
-    supportRate: 1.0,
-    capabilityRefs: ['capability.observe'],
-  },
-  {
-    activity: 'verify_constraint',
-    required: true,
-    supportRate: 0.9,
-    capabilityRefs: ['capability.verify'],
-  },
-  {
-    activity: 'execute_action',
-    required: true,
-    supportRate: 0.85,
-    capabilityRefs: ['capability.execute'],
-  },
-  {
-    activity: 'recover_failure',
-    required: false,
-    supportRate: 0.2,
-    capabilityRefs: ['capability.recover'],
-  },
-];
-
-const dependencyPatterns: readonly DependencyPattern[] = [
-  {
-    predecessorActivity: 'observe_input',
-    successorActivity: 'verify_constraint',
-    relation: 'direct_follows',
-    supportRefs: ['trace-1'],
-    contradictionRefs: [],
-  },
-  {
-    predecessorActivity: 'verify_constraint',
-    successorActivity: 'execute_action',
-    relation: 'direct_follows',
-    supportRefs: ['trace-2'],
-    contradictionRefs: [],
-  },
-];
-
-const recoveryPatterns: readonly RecoveryPattern[] = [
-  {
-    triggerActivity: 'execute_action',
-    resumeActivity: 'verify_constraint',
-    activitySequence: ['recover_failure', 'verify_constraint'],
-    supportRefs: ['trace-recovery-1'],
-  },
-];
-
-const workflowPattern: WorkflowPattern = {
-  workflowPatternId: 'wp-int-test-001',
-  taskTypeId: 'task-type-int-test',
-  activityPatterns,
-  dependencyPatterns,
-  recoveryPatterns,
-  sourcePatternRef: 'dp-int-test-001',
-  sourceTraceRefs: ['trace-1', 'trace-2', 'trace-3'],
-  quality,
-};
-
-const discoveredPattern: DiscoveredProcessPattern = {
-  patternId: 'dp-int-test-001',
-  cohortFingerprint: 'cohort-int-test',
-  algorithmVersion: 'sdar-process-mining/1.1',
-  mandatoryActivities: ['observe_input', 'verify_constraint', 'execute_action'],
-  optionalActivities: ['recover_failure'],
-  orderingConstraints: [],
-  parallelCandidates: [],
-  recoveryBranches: [],
-  failureVariants: [],
-  supportRefs: ['trace-1', 'trace-2', 'trace-3'],
-  contradictionRefs: [],
-  environmentCoverage: ['test-env'],
-  quality,
-};
-
-const knownCapabilities = [
-  'capability.observe',
-  'capability.verify',
-  'capability.execute',
-  'capability.recover',
-];
-
-describe('P04 candidate generation integration', () => {
-  it('runs fusion → generalization → candidate → validation pipeline with real PostgreSQL', async () => {
-    const fusion = new PatternFusionService();
-    const fusedPattern = await fusion.fuse({
-      workflowPattern,
-      discoveredPattern,
-      domain: 'int-test-domain',
-      tenantId: 'tenant-int-test',
-      environmentClasses: ['test-env'],
-      deviceClasses: ['test-device'],
-      model: new NoOpSemanticModel(),
-      tenantScope: 'single',
-      userScope: 'single',
+describe('P04R real P03→P04→P02 candidate product chain', () => {
+  it('normalizes Formal facts, mines WorkflowPattern V1.2 and atomically saves a valid P02 Candidate', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    await contexts.save({
+      contextId: 'context-success-a',
+      userId: 'user-a',
+      createdAt: '2026-07-28T03:00:00.000Z',
+      updatedAt: '2026-07-28T03:00:00.000Z',
     });
-    expect(fusedPattern.structuralPattern.activityPatterns).toEqual(activityPatterns);
-    expect(fusedPattern.confidence).toBeGreaterThan(0);
-
-    const generalization = new PatternGeneralizationService();
-    const generalizedPattern = generalization.generalize({
-      fusedPattern,
-      knownTaskTypeCapabilities: knownCapabilities,
+    await contexts.save({
+      contextId: 'context-success-b',
+      userId: 'user-b',
+      createdAt: '2026-07-28T03:00:01.000Z',
+      updatedAt: '2026-07-28T03:00:01.000Z',
     });
-    expect(generalizedPattern.variables.length).toBeGreaterThan(0);
-
-    const repository = new PostgresCandidateGenerationRepository(pool);
-    await repository.saveGeneralizedPattern(generalizedPattern, 'tenant-int-test');
-
-    const generator = new ArtifactCandidateGenerator();
-    const candidate = generator.generate({
-      generalizedPattern,
-      fusedPattern,
-      knownCapabilityIds: knownCapabilities,
-      tenantId: 'tenant-int-test',
-      createdAt: new Date().toISOString(),
+    await contexts.save({
+      contextId: 'context-failure-recovery',
+      userId: 'user-b',
+      createdAt: '2026-07-28T03:00:02.000Z',
+      updatedAt: '2026-07-28T03:00:02.000Z',
     });
+    await saveTerminalAuthorityFixtures();
+    const episodeRepository = new PostgresGoalExperienceEpisodeRepository(pool);
+    for (const episode of [
+      formalEpisode('success-a', 'user-a', 'succeeded'),
+      formalEpisode('success-b', 'user-b', 'succeeded'),
+      formalEpisode('failure-recovery', 'user-b', 'failed'),
+    ]) {
+      await expect(episodeRepository.saveIfAbsent(episode)).resolves.toBe(true);
+    }
+    await saveCapabilityCatalog();
 
-    expect(candidate.artifact.status).toBe('candidate');
-    expect(candidate.artifact.artifactType).toBe('plan_template');
-    expect(candidate.validation.result).toBe('passed_static');
-    expect(candidate.validation.schemaValid).toBe(true);
-    expect(candidate.validation.dagValid).toBe(true);
+    const clock = { now: () => '2026-07-28T04:00:00.000Z' };
+    const compilation = new PostgresExperienceCompilationRepository(pool);
+    const compilationRuns = new PostgresCompilationRunRepository(pool);
+    const normalization = new ExperienceNormalizationService({
+      runs: compilationRuns,
+      repository: compilation,
+      normalizer: new ExperienceTraceNormalizer(),
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+    for (const episodeId of [
+      'episode-p04r-success-a',
+      'episode-p04r-success-b',
+      'episode-p04r-failure-recovery',
+    ]) {
+      await compilationRuns.createNormalizationRun(episodeId, clock.now(), 3);
+      const [run] = await normalization.claim('normalizer-p04r', 1);
+      if (run === undefined) throw new Error('P04R_NORMALIZATION_RUN_MISSING');
+      await normalization.process(run, 'normalizer-p04r');
+    }
+    const cohort = {
+      tenantId,
+      taskTypeId,
+      minimumCompleteness: 0.8,
+    } as const;
+    const traces = await compilation.listTraces(cohort);
+    expect(traces).toHaveLength(3);
+    expect(
+      traces.flatMap((trace) =>
+        trace.trace.events.flatMap((event) =>
+          event.activity === undefined || event.activity === null
+            ? []
+            : [event.activity.activityKey],
+        ),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        'skill-goal:collect-workflow-state',
+        'skill-goal:verify-policy',
+        'skill-goal:apply-safe-remediation',
+      ]),
+    );
 
-    await repository.saveFingerprint({
-      fingerprint: candidate.fingerprint,
+    const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
+    const miningRun = await compilationRuns.createProcessMiningRun(
+      cohort,
+      miner.fingerprintCohort(cohort),
+      clock.now(),
+      3,
+    );
+    const [claimedMining] = await compilationRuns.claim(
+      'process_mining',
+      'miner-p04r',
+      clock.now(),
+      120_000,
+      1,
+    );
+    if (claimedMining?.runId !== miningRun.runId) {
+      throw new Error('P04R_MINING_RUN_MISSING');
+    }
+    await new ProcessMiningService({
+      runs: compilationRuns,
+      repository: compilation,
+      miner,
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    }).process(claimedMining, 'miner-p04r');
+
+    const patternRow = await pool.query<{ pattern_id: string }>(
+      'SELECT pattern_id FROM pattern_candidate ORDER BY pattern_id LIMIT 1',
+    );
+    const sourcePatternRef = patternRow.rows[0]?.pattern_id;
+    if (sourcePatternRef === undefined) throw new Error('P04R_PATTERN_MISSING');
+
+    const candidateRuns = new PostgresCandidateGenerationRepository(pool);
+    const wakes: string[] = [];
+    await new CandidateGenerationTriggerDispatcher({
+      source: candidateRuns,
+      runs: candidateRuns,
+      queue: {
+        enqueue(runId) {
+          wakes.push(runId);
+          return Promise.resolve();
+        },
+      },
+    }).dispatch();
+    expect(wakes).toHaveLength(1);
+    const service = new CandidateGenerationApplicationService({
+      runs: candidateRuns,
+      catalog: new PostgresCandidateGenerationCatalog(new PostgresSkillRepository(pool)),
+      fusion: new PatternFusionService(),
+      generalization: new PatternGeneralizationService(),
+      generator: new ArtifactCandidateGenerator(),
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+    const [candidateRun] = await service.claim('candidate-worker-p04r', 1);
+    if (candidateRun === undefined) throw new Error('P04R_CANDIDATE_RUN_MISSING');
+    await service.process(candidateRun, 'candidate-worker-p04r');
+
+    const evidence = await pool.query<{
+      candidates: number;
+      lineage: number;
+      validations: number;
+      fingerprints: number;
+      fused: number;
+      generalized: number;
+      events: number;
+      completed_runs: number;
+      validation_result: string;
+      all_v12_gates: boolean;
+      artifact_id: string;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM compiled_artifact WHERE status='candidate') AS candidates,
+         (SELECT count(*)::integer FROM artifact_lineage) AS lineage,
+         (SELECT count(*)::integer FROM candidate_static_validation) AS validations,
+         (SELECT count(*)::integer FROM candidate_fingerprint) AS fingerprints,
+         (SELECT count(*)::integer FROM fused_pattern) AS fused,
+         (SELECT count(*)::integer FROM generalized_pattern) AS generalized,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='compiler.artifact_candidate_created') AS events,
+         (SELECT count(*)::integer FROM candidate_generation_run
+          WHERE status='completed') AS completed_runs,
+         (SELECT result FROM candidate_static_validation LIMIT 1) AS validation_result,
+         (SELECT schema_valid AND activity_identity_valid AND dag_valid
+                 AND parallel_semantics_valid AND required_criteria_covered
+                 AND capability_shape_valid AND capability_catalog_aligned
+                 AND parameter_policy_valid AND parameter_schema_aligned
+                 AND applicability_evaluable AND lineage_complete
+                 AND recovery_semantics_valid AND side_effect_replay_safe AND bounds_valid
+          FROM candidate_static_validation LIMIT 1) AS all_v12_gates,
+         (SELECT artifact_id FROM compiled_artifact LIMIT 1) AS artifact_id`,
+    );
+    expect(evidence.rows[0]).toMatchObject({
+      candidates: 1,
+      lineage: 1,
+      validations: 1,
+      fingerprints: 1,
+      fused: 1,
+      generalized: 1,
+      events: 1,
+      completed_runs: 1,
+      validation_result: 'passed_static',
+      all_v12_gates: true,
+    });
+    const artifactId = evidence.rows[0]?.artifact_id;
+    if (artifactId === undefined) throw new Error('P04R_ARTIFACT_MISSING');
+    const artifact = await new PostgresArtifactRepository(pool).getDefinition({
+      artifactId,
+      version: 1,
+    });
+    expect(artifact).toMatchObject({
+      artifactId,
       artifactType: 'plan_template',
-      domain: 'int-test-domain',
-      taskTypeId: workflowPattern.taskTypeId,
-      artifactRef: candidate.artifact.artifactId,
-      generatorVersion: 'sdar-candidate-generator/1.1',
+      status: 'candidate',
+      requiredCapabilities: expect.arrayContaining(
+        capabilities.map((capabilityId) => ({ capabilityId })),
+      ),
     });
-    await repository.saveValidation(candidate.validation);
-
-    const fp = await pool.query(
-      'SELECT fingerprint FROM candidate_fingerprint WHERE artifact_ref = $1',
-      [candidate.artifact.artifactId],
+    expect(JSON.stringify(artifact?.definition)).not.toMatch(
+      /observe_input|verify_constraint|execute_action|recover_failure/u,
     );
-    expect(fp.rows.length).toBe(1);
-    expect((fp.rows[0] as { fingerprint: string }).fingerprint).toBe(candidate.fingerprint);
-
-    const val = await pool.query(
-      'SELECT result FROM candidate_static_validation WHERE artifact_ref = $1',
-      [candidate.artifact.artifactId],
-    );
-    expect(val.rows.length).toBe(1);
-    expect((val.rows[0] as { result: string }).result).toBe('passed_static');
-  });
-
-  it('rejects duplicate candidate fingerprint (AC-P04-012)', async () => {
-    const fusion = new PatternFusionService();
-    const fusedPattern = await fusion.fuse({
-      workflowPattern,
-      discoveredPattern,
-      domain: 'dup-test-domain',
-      tenantId: 'tenant-dup-test',
-      environmentClasses: ['test-env'],
-      deviceClasses: ['test-device'],
-      model: new NoOpSemanticModel(),
+    const loadedSource = await candidateRuns.loadSource(candidateRun);
+    expect(loadedSource?.sourceUserScopeIds).toEqual(['user-a', 'user-b']);
+    expect(loadedSource?.scopeEvidence.hasTemporaryAuthorization).toBe(false);
+    if (loadedSource === undefined) throw new Error('P04R_CONFLICT_SOURCE_MISSING');
+    const conflictFused = await new PatternFusionService().fuse({
+      workflowPattern: loadedSource.workflowPattern,
+      discoveredPattern: loadedSource.discoveredPattern,
+      domain: loadedSource.domain,
+      tenantId: loadedSource.tenantId,
+      environmentClasses: loadedSource.environmentClasses,
+      deviceClasses: loadedSource.deviceClasses,
       tenantScope: 'single',
-      userScope: 'single',
+      userScope: loadedSource.userScope,
+      scopeEvidence: loadedSource.scopeEvidence,
     });
-    const generalization = new PatternGeneralizationService();
-    const generalizedPattern = generalization.generalize({
-      fusedPattern,
-      knownTaskTypeCapabilities: knownCapabilities,
+    const conflictGeneralized = new PatternGeneralizationService().generalize({
+      fusedPattern: conflictFused,
+      knownTaskTypeCapabilities: capabilities,
     });
-    const generator = new ArtifactCandidateGenerator();
-    const candidate = generator.generate({
-      generalizedPattern,
-      fusedPattern,
-      knownCapabilityIds: knownCapabilities,
-      tenantId: 'tenant-dup-test',
-      createdAt: new Date().toISOString(),
+    const conflictCandidate = new ArtifactCandidateGenerator().generate({
+      generalizedPattern: conflictGeneralized,
+      fusedPattern: conflictFused,
+      knownCapabilityIds: capabilities,
+      sourceEpisodeRefs: loadedSource.sourceEpisodeRefs,
+      sourceCorrectionRefs: loadedSource.sourceCorrectionRefs,
+      sourceUserScopeIds: loadedSource.sourceUserScopeIds,
+      tenantId: loadedSource.tenantId,
+      createdAt: clock.now(),
     });
+    await pool.query(`UPDATE fused_pattern SET content_hash=$2 WHERE fused_pattern_id=$1`, [
+      conflictFused.fusedPatternId,
+      `sha256:${'f'.repeat(64)}`,
+    ]);
+    await pool.query(
+      `UPDATE candidate_generation_run
+       SET status='leased',lease_owner='conflict-worker',lease_token='conflict-token',
+           lease_expires_at='2026-07-28T04:02:00.000Z',completed_at=NULL
+       WHERE run_id=$1`,
+      [candidateRun.runId],
+    );
+    await expect(
+      candidateRuns.completeAtomically(
+        {
+          ...candidateRun,
+          status: 'leased',
+          leaseOwner: 'conflict-worker',
+          leaseToken: 'conflict-token',
+          leaseExpiresAt: '2026-07-28T04:02:00.000Z',
+        },
+        'conflict-worker',
+        'conflict-token',
+        {
+          fusedPattern: conflictFused,
+          generalizedPattern: conflictGeneralized,
+          candidate: conflictCandidate,
+        },
+        clock.now(),
+      ),
+    ).rejects.toThrow(/FUSED_PATTERN_IMMUTABLE_CONFLICT/u);
+    const conflictState = await pool.query<{ status: string }>(
+      'SELECT status FROM candidate_generation_run WHERE run_id=$1',
+      [candidateRun.runId],
+    );
+    expect(conflictState.rows[0]?.status).toBe('leased');
+    await pool.query(
+      `UPDATE goal_experience_episode
+       SET snapshot=jsonb_set(
+         snapshot,
+         '{task,temporarySkillId}',
+         to_jsonb('temporary-skill-p04r'::text),
+         true
+       )
+       WHERE episode_id='episode-p04r-success-a'`,
+    );
+    const temporarySource = await candidateRuns.loadSource(candidateRun);
+    expect(temporarySource?.scopeEvidence.hasTemporaryAuthorization).toBe(true);
+    if (temporarySource === undefined) throw new Error('P04R_TEMPORARY_SOURCE_MISSING');
+    const temporaryFused = await new PatternFusionService().fuse({
+      workflowPattern: temporarySource.workflowPattern,
+      discoveredPattern: temporarySource.discoveredPattern,
+      domain: temporarySource.domain,
+      tenantId: temporarySource.tenantId,
+      environmentClasses: temporarySource.environmentClasses,
+      deviceClasses: temporarySource.deviceClasses,
+      tenantScope: 'single',
+      userScope: temporarySource.userScope,
+      scopeEvidence: temporarySource.scopeEvidence,
+    });
+    expect(() =>
+      new PatternGeneralizationService().generalize({
+        fusedPattern: temporaryFused,
+        knownTaskTypeCapabilities: capabilities,
+      }),
+    ).toThrow(/TEMPORARY_AUTHORIZATION_REJECTED/u);
+  }, 30_000);
 
+  it('reclaims expired wake loss, rejects stale fencing and dead-letters terminal attempts', async () => {
     const repository = new PostgresCandidateGenerationRepository(pool);
-    await repository.saveFingerprint({
-      fingerprint: candidate.fingerprint,
-      artifactType: 'plan_template',
-      domain: 'dup-test-domain',
-      taskTypeId: workflowPattern.taskTypeId,
-      artifactRef: candidate.artifact.artifactId,
-      generatorVersion: 'sdar-candidate-generator/1.1',
-    });
-
-    const existing = await repository.findExistingFingerprints(
-      'plan_template',
-      'dup-test-domain',
-      workflowPattern.taskTypeId,
+    const first = await repository.createRun(
+      tenantId,
+      'process-pattern-requeue',
+      'pattern-event-requeue',
+      '2026-07-28T05:00:00.000Z',
+      2,
     );
-    expect(existing).toContain(candidate.fingerprint);
-  });
-
-  it('worker is idempotent: same input produces same fingerprint (AC-P04-029)', async () => {
-    const fusion = new PatternFusionService();
-    const fusedPattern = await fusion.fuse({
-      workflowPattern,
-      discoveredPattern,
-      domain: 'idem-test-domain',
-      tenantId: 'tenant-idem-test',
-      environmentClasses: ['test-env'],
-      deviceClasses: ['test-device'],
-      model: new NoOpSemanticModel(),
-      tenantScope: 'single',
-      userScope: 'single',
-    });
-    const generalization = new PatternGeneralizationService();
-    const generalizedPattern = generalization.generalize({
-      fusedPattern,
-      knownTaskTypeCapabilities: knownCapabilities,
-    });
-    const generator = new ArtifactCandidateGenerator();
-    const input = {
-      generalizedPattern,
-      fusedPattern,
-      knownCapabilityIds: knownCapabilities,
-      tenantId: 'tenant-idem-test',
-      createdAt: '2026-07-28T00:00:00Z',
-    };
-    const c1 = generator.generate(input);
-    const c2 = generator.generate(input);
-    expect(c1.fingerprint).toBe(c2.fingerprint);
-    expect(c1.artifact.artifactId).toBe(c2.artifact.artifactId);
-  });
-
-  it('recovers from Redis loss: PostgreSQL remains authoritative (AC-P04-030)', async () => {
-    const repository = new PostgresCandidateGenerationRepository(pool);
-    const fusion = new PatternFusionService();
-    const fusedPattern = await fusion.fuse({
-      workflowPattern,
-      discoveredPattern,
-      domain: 'redis-loss-domain',
-      tenantId: 'tenant-redis-loss',
-      environmentClasses: ['test-env'],
-      deviceClasses: ['test-device'],
-      model: new NoOpSemanticModel(),
-      tenantScope: 'single',
-      userScope: 'single',
-    });
-    const generalization = new PatternGeneralizationService();
-    const generalizedPattern = generalization.generalize({
-      fusedPattern,
-      knownTaskTypeCapabilities: knownCapabilities,
-    });
-    await repository.saveGeneralizedPattern(generalizedPattern, 'tenant-redis-loss');
-
-    const direct = await pool.query(
-      'SELECT content FROM generalized_pattern WHERE generalized_pattern_id = $1',
-      [generalizedPattern.generalizedPatternId],
+    const [leased] = await repository.claim('worker-old', '2026-07-28T05:00:00.000Z', 1_000, 1);
+    expect(leased?.runId).toBe(first.runId);
+    const requeueable = await repository.listRequeueable('2026-07-28T05:00:02.000Z');
+    expect(requeueable.map((run) => run.runId)).toEqual([first.runId]);
+    const [reclaimed] = await repository.claim('worker-new', '2026-07-28T05:00:02.000Z', 1_000, 1);
+    expect(reclaimed).toMatchObject({ runId: first.runId, attempt: 2, leaseOwner: 'worker-new' });
+    await expect(
+      repository.fail(
+        first.runId,
+        'worker-old',
+        leased?.leaseToken ?? '',
+        'STALE',
+        'stale worker',
+        '2026-07-28T05:00:02.000Z',
+      ),
+    ).resolves.toBe(false);
+    await repository.listRequeueable('2026-07-28T05:00:04.000Z');
+    const terminal = await pool.query<{ status: string; last_error_code: string }>(
+      `SELECT status,last_error_code FROM candidate_generation_run WHERE run_id=$1`,
+      [first.runId],
     );
-    expect(direct.rows.length).toBe(1);
-
-    const refetched = await repository.loadGeneralizedPattern(
-      generalizedPattern.generalizedPatternId,
-    );
-    expect(refetched).not.toBeNull();
-    expect(refetched?.domain).toBe('redis-loss-domain');
+    expect(terminal.rows[0]).toEqual({
+      status: 'dead_letter',
+      last_error_code: 'CANDIDATE_GENERATION_LEASE_ATTEMPTS_EXHAUSTED',
+    });
   });
 });
+
+async function saveCapabilityCatalog(): Promise<void> {
+  const timestamp = '2026-07-28T03:00:00.000Z';
+  const outcome = {
+    schemaVersion: '1.0' as const,
+    skillId: 'skill.workflow-policy-remediation',
+    skillVersion: 1,
+    effects: [
+      'effect:collect-workflow-state',
+      'effect:verify-policy',
+      'effect:apply-safe-remediation',
+    ],
+    evidence: ['workflow-state', 'policy-verification', 'remediation-result'],
+    artifacts: [],
+    taskGoalPolicy: {},
+    confidencePolicy: {},
+    sideEffectPolicy: { classification: 'bounded_mutation' },
+  };
+  const skill = createSkillVersion({
+    skillId: 'skill.workflow-policy-remediation',
+    version: 1,
+    name: 'Workflow Policy Remediation',
+    summary: 'Collects state, verifies policy and applies a bounded remediation.',
+    description: 'A formal Skill declaration used by the P04R candidate catalog.',
+    capabilities: [...capabilities],
+    workflowGuidance: 'Preserve policy, verification and recovery boundaries.',
+    outputInstruction: 'Return verified remediation evidence.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [] },
+    runtimePolicy: { autoConfirmPlan: false },
+    usageSpecification: createSkillUsageSpecification({
+      apiVersion: 'sdar.io/v1alpha1',
+      visibility: { userSelectable: true, composable: true, internalOnly: false },
+      normative: {
+        constraints: ['Preserve the formal policy boundary.'],
+        forbiddenActions: [],
+        requiredConfirmations: [],
+        noApplicableSkill: 'reject',
+      },
+      adaptive: {
+        instructions: ['Prefer verified remediation.'],
+        optimizationHints: [],
+        allowPreferredProviderFallback: false,
+      },
+      contextRequirements: [],
+      modes: {
+        supported: ['guidance'],
+        defaultMode: 'guidance',
+        guidance: { summary: 'Guide remediation.', instructions: ['Verify before apply.'] },
+      },
+      taskBindings: [
+        {
+          bindingId: 'workflow-policy-remediation',
+          taskType: taskTypeId,
+          providerPolicy: {
+            selection: 'dynamic',
+            preferredProviderIds: [],
+            forbiddenProviderIds: [],
+            requiredAttributes: [],
+          },
+        },
+      ],
+      evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+    }),
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    outcomeSpecification: {
+      ...outcome,
+      specificationHash: sha(JSON.stringify(outcome)),
+    },
+    createdAt: timestamp,
+  });
+  await new PostgresSkillRepository(pool).saveVersionAndSetCurrent(skill, timestamp);
+}
+
+async function saveTerminalAuthorityFixtures(): Promise<void> {
+  for (const suffix of ['success-a', 'success-b', 'failure-recovery'] as const) {
+    const achieved = suffix !== 'failure-recovery';
+    const timestamp =
+      suffix === 'success-a'
+        ? '2026-07-28T03:00:00.000Z'
+        : suffix === 'success-b'
+          ? '2026-07-28T03:00:01.000Z'
+          : '2026-07-28T03:00:02.000Z';
+    const goalId = `goal-${suffix}`;
+    const planId = `plan-authority-${suffix}`;
+    const instanceId = `instance-authority-${suffix}`;
+    const controlId = `control-authority-${suffix}`;
+    await pool.query(
+      `INSERT INTO goal(
+         goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
+         status,created_at,updated_at)
+       VALUES($1,$2,1,$3,$4,'[]'::jsonb,$5::jsonb,$6,$7,$7)`,
+      [
+        goalId,
+        `context-${suffix}`,
+        `Formal workflow remediation ${suffix}`,
+        'Collect workflow state, verify policy, and apply a safe remediation.',
+        JSON.stringify(['The workflow policy is verified before remediation.']),
+        achieved ? 'achieved' : 'unachievable',
+        timestamp,
+      ],
+    );
+    const contractHash = sha(`contract-${suffix}`);
+    await pool.query(
+      `INSERT INTO user_goal_contract(
+         goal_id,goal_version,schema_version,contract_hash,contract_json,created_at)
+       VALUES($1,1,'1.0',$2,$3::jsonb,$4)`,
+      [
+        goalId,
+        contractHash,
+        JSON.stringify({
+          schemaVersion: '1.0',
+          goalId,
+          goalVersion: 1,
+          title: `Formal workflow remediation ${suffix}`,
+          constraints: [],
+          criteria: [
+            {
+              criterionId: `criterion-${suffix}`,
+              description: 'The workflow policy is verified before remediation.',
+              required: true,
+            },
+          ],
+        }),
+        timestamp,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO workflow_plan(
+         plan_id,goal_id,goal_version,definition_json,confirmation_status,attempt_count,
+         created_at,goal_contract_json)
+       VALUES($1,$2,1,$3::jsonb,'confirmed',1,$4,$5::jsonb)`,
+      [
+        planId,
+        goalId,
+        JSON.stringify({
+          workflowDefinitionId: `workflow-authority-${suffix}`,
+          goalId,
+          goalVersion: 1,
+        }),
+        timestamp,
+        JSON.stringify({ goalId, version: 1 }),
+      ],
+    );
+    await pool.query(
+      `INSERT INTO workflow_instance(
+         instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
+         status,input_json,result_json,errors_json,started_at,completed_at)
+       VALUES($1,$2,$3,1,$4,1,$5,'{}'::jsonb,$6::jsonb,$7::jsonb,$8,$9)`,
+      [
+        instanceId,
+        planId,
+        `workflow-authority-${suffix}`,
+        goalId,
+        achieved ? 'succeeded' : 'failed',
+        JSON.stringify(achieved ? { remediated: true } : { remediated: false }),
+        JSON.stringify(achieved ? {} : { code: 'POLICY_VERIFICATION_FAILED' }),
+        timestamp,
+        new Date(Date.parse(timestamp) + 4_000).toISOString(),
+      ],
+    );
+    await pool.query(
+      `INSERT INTO workflow_control(
+         control_id,context_id,goal_id,goal_version,status,current_plan_id,input_json,
+         skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
+         created_at,updated_at)
+       VALUES($1,$2,$3,1,$4,$5,'{}'::jsonb,'[]'::jsonb,$6,1,0,$7,$8,$9)`,
+      [
+        controlId,
+        `context-${suffix}`,
+        goalId,
+        achieved ? 'achieved' : 'unachievable',
+        planId,
+        'Execute only the confirmed formal workflow plan.',
+        instanceId,
+        timestamp,
+        new Date(Date.parse(timestamp) + 4_000).toISOString(),
+      ],
+    );
+    await pool.query(
+      `INSERT INTO runtime_terminal_outcome(
+         outcome_id,outcome_kind,goal_id,goal_version,control_id,control_status,round_index,
+         final_instance_id,summary,committed_at)
+       VALUES($1,$2,$3,1,$4,$5,0,$6,$7,$8)`,
+      [
+        `outcome-${suffix}`,
+        achieved ? 'achieved' : 'unachievable',
+        goalId,
+        controlId,
+        achieved ? 'achieved' : 'unachievable',
+        instanceId,
+        achieved
+          ? 'Formal workflow remediation achieved.'
+          : 'Formal workflow remediation exhausted after a recovery attempt.',
+        new Date(Date.parse(timestamp) + 4_000).toISOString(),
+      ],
+    );
+  }
+}
+
+function formalEpisode(
+  suffix: string,
+  userId: string,
+  outcomeStatus: 'succeeded' | 'failed',
+): GoalExperienceEpisode {
+  const createdAt = `2026-07-28T03:00:0${suffix === 'success-a' ? '0' : suffix === 'success-b' ? '1' : '2'}.000Z`;
+  const failed = outcomeStatus === 'failed';
+  const attemptPrefix = `attempt-${suffix}`;
+  const snapshot = {
+    task: {
+      taskId: `task-${suffix}`,
+      contextId: `context-${suffix}`,
+      userId,
+      tenantId,
+      taskTypeId,
+      environmentClass: suffix === 'success-b' ? 'edge' : 'server',
+      requestText: 'Collect workflow state, verify policy, and apply a safe remediation.',
+      createdAt,
+    },
+    contract: {
+      goalId: `goal-${suffix}`,
+      contractHash: sha(`contract-${suffix}`),
+      createdAt,
+    },
+    planRevisions: [
+      {
+        planId: `plan-${suffix}`,
+        revision: 1,
+        status: 'confirmed',
+        planningMetadata: {
+          parallelGroups: {
+            'policy-readiness': ['collect-workflow-state', 'verify-policy'],
+          },
+        },
+        plan: {
+          skillGoals: [
+            skillGoal('collect-workflow-state', 'Collect authoritative workflow state', [
+              'workflow.collect',
+            ]),
+            skillGoal('verify-policy', 'Verify the workflow against policy', ['workflow.verify']),
+            skillGoal('apply-safe-remediation', 'Apply the verified safe remediation', [
+              'workflow.remediate',
+            ]),
+          ],
+          dependencies: [
+            dependency('collect-workflow-state', 'apply-safe-remediation'),
+            dependency('verify-policy', 'apply-safe-remediation'),
+          ],
+        },
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ],
+    attempts: [
+      attempt(`${attemptPrefix}-collect`, 'collect-workflow-state', 'completed', createdAt),
+      attempt(
+        `${attemptPrefix}-verify`,
+        'verify-policy',
+        failed ? 'failed' : 'completed',
+        new Date(Date.parse(createdAt) + 1_000).toISOString(),
+      ),
+      ...(!failed
+        ? [
+            attempt(
+              `${attemptPrefix}-apply`,
+              'apply-safe-remediation',
+              'completed',
+              new Date(Date.parse(createdAt) + 2_000).toISOString(),
+            ),
+          ]
+        : [
+            attempt(
+              `${attemptPrefix}-verify-replacement`,
+              'verify-policy',
+              'completed',
+              new Date(Date.parse(createdAt) + 3_000).toISOString(),
+            ),
+          ]),
+    ],
+    progress: failed
+      ? [
+          {
+            progress_observation_id: `progress-${suffix}`,
+            plan_id: `plan-${suffix}`,
+            classification: 'stalled',
+            vector: {
+              effectRefs: ['effect:policy-read'],
+              capabilityRefs: ['workflow.verify'],
+            },
+            observed_at: new Date(Date.parse(createdAt) + 1_500).toISOString(),
+          },
+        ]
+      : [],
+    recovery: failed
+      ? [
+          {
+            recovery_decision_id: `recovery-${suffix}`,
+            plan_id: `plan-${suffix}`,
+            skill_goal_id: 'verify-policy',
+            attempt_id: `${attemptPrefix}-verify`,
+            action: 'replacement_attempt',
+            reason_code: 'STALLED_CHANGED_STRATEGY',
+            required_capabilities: ['workflow.recover'],
+            created_at: new Date(Date.parse(createdAt) + 2_000).toISOString(),
+          },
+        ]
+      : [],
+    eventImpacts: [],
+    interactions: [],
+    terminalOutcome: {
+      outcomeId: `outcome-${suffix}`,
+      controlStatus: failed ? 'failed' : 'completed',
+      committedAt: new Date(Date.parse(createdAt) + 4_000).toISOString(),
+    },
+    userGoalJudgment: { status: failed ? 'not_achieved' : 'achieved' },
+  };
+  return createGoalExperienceEpisode({
+    schemaVersion: COGNITIVE_SCHEMA_VERSION,
+    episodeId: `episode-p04r-${suffix}`,
+    goalId: `goal-${suffix}`,
+    goalVersion: 1,
+    contextId: `context-${suffix}`,
+    episodeType: 'terminal',
+    revision: 1,
+    terminalOutcomeRef: `runtime-terminal-outcome:outcome-${suffix}`,
+    sourceHash: sha(`source-${suffix}`),
+    episodeHash: sha(`episode-${suffix}`),
+    completeness: 0.98,
+    status: 'complete',
+    dataClassification: 'internal',
+    snapshot,
+    sourceRefs: [
+      source(`task-source-${suffix}`, 'task_request', `task-${suffix}`, createdAt),
+      source(`contract-source-${suffix}`, 'goal_contract', `goal-${suffix}`, createdAt),
+      source(`plan-source-${suffix}`, 'plan_revision', `plan-${suffix}`, createdAt),
+      source(`attempt-source-${suffix}`, 'skill_attempt', `${attemptPrefix}-collect`, createdAt),
+      source(
+        `outcome-source-${suffix}`,
+        'runtime_terminal_outcome',
+        `outcome-${suffix}`,
+        createdAt,
+      ),
+      ...(failed
+        ? [
+            source(
+              `recovery-source-${suffix}`,
+              'recovery_decision',
+              `recovery-${suffix}`,
+              createdAt,
+            ),
+          ]
+        : []),
+    ],
+    redactionCodes: [],
+    createdAt,
+  });
+}
+
+function skillGoal(
+  skillGoalId: string,
+  requiredResult: string,
+  capabilityNeeds: readonly string[],
+) {
+  return {
+    skillGoalId,
+    requiredResult,
+    capabilityNeeds,
+    coveredCriterionIds: [`criterion:${skillGoalId}`],
+    requiredEffectRefs: [`effect:${skillGoalId}`],
+    evidenceRequirements: [],
+    artifactRequirements: [],
+    assumptions: [],
+    constraints: [],
+    status: 'ready',
+  };
+}
+
+function dependency(predecessorSkillGoalId: string, successorSkillGoalId: string) {
+  return {
+    dependencyId: `dependency:${predecessorSkillGoalId}:${successorSkillGoalId}`,
+    predecessorSkillGoalId,
+    successorSkillGoalId,
+    predicate: 'required',
+  };
+}
+
+function attempt(attemptId: string, skillGoalId: string, status: string, createdAt: string) {
+  const capability =
+    skillGoalId === 'collect-workflow-state'
+      ? 'workflow.collect'
+      : skillGoalId === 'verify-policy'
+        ? 'workflow.verify'
+        : 'workflow.remediate';
+  return {
+    attempt_id: attemptId,
+    skill_goal_id: skillGoalId,
+    status,
+    capability_refs: [capability],
+    created_at: createdAt,
+    updated_at: new Date(Date.parse(createdAt) + 500).toISOString(),
+  };
+}
+
+function source(
+  sourceRefId: string,
+  sourceKind: CognitiveSourceRef['sourceKind'],
+  sourceId: string,
+  capturedAt: string,
+): CognitiveSourceRef {
+  return createCognitiveSourceRef({
+    schemaVersion: COGNITIVE_SCHEMA_VERSION,
+    sourceRefId,
+    sourceKind,
+    sourceId,
+    sourceRevision: 1,
+    authority: 'runtime_fact',
+    dataClassification: 'internal',
+    capturedAt,
+  });
+}
+
+function sha(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
