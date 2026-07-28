@@ -147,7 +147,7 @@ cannot approve, activate, promote, route or execute an Artifact.
       0 Minor, accepted.
 - [x] Run all required focused/full gates and preserve first failures, root causes and reruns.
 - [x] Publish P05 evidence, traceability/status/changelog and exact 28-field P06 Handoff.
-- [ ] Commit/push only the P05 branch and keep Draft PR #12 unmerged; do not tag or deploy.
+- [x] Commit/push only the P05 branch and keep Draft PR #12 unmerged; do not tag or deploy.
 
 ## Discoveries and Surprises
 
@@ -310,6 +310,8 @@ Current focused and infrastructure evidence:
 - Complete unit: 733/733 across 118 files; contract: 183/183 across 23 files.
 - Aggregate unit/contract: 916/916 across 141 files.
 - Architecture: 485 TypeScript source files.
+- Exact clean full verification at `55a338204a6e2b2dabbd9cf9bc5e3cf9ca74de57`: seven of
+  seven aggregate stages passed in 191,533 ms with `dirty=false`.
 - Complete formatting, Lint, TypeScript and diff checks: passed after the recorded Lint repair.
 - Production Fact Reader/Episode Builder vertical evidence: five independent holdouts, with
   execution-readiness authority/context/risk projected into immutable Episodes; aggregate
