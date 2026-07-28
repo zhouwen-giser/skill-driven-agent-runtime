@@ -710,6 +710,9 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
                'taskId',task_id,'contextId',context_id,'userId',user_id,
                'tenantId','${V1_TRUSTED_INTRANET_TENANT_ID}',
                'requestText',request_text,
+               'taskTypeId',request_metadata->>'taskTypeId',
+               'environmentClass',request_metadata->>'environmentClass',
+               'deviceClass',request_metadata->>'deviceClass',
                'goalId',goal_id,'goalVersion',goal_version,'phase',phase,
                'createdAt',created_at,'updatedAt',updated_at
              ) AS value
@@ -730,6 +733,44 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
              WHERE task_id=$1 ORDER BY revision DESC LIMIT 1`,
             [taskId],
           );
+    const executionReadiness = await oneJson(
+      this.#pool,
+      `SELECT jsonb_strip_nulls(jsonb_build_object(
+         'readinessId',readiness.readiness_id,
+         'disposition',readiness.disposition,
+         'guardAction',readiness.guard_action,
+         'guardReasonCodes',readiness.guard_reason_codes_json,
+         'contextStatus',CASE
+           WHEN NOT EXISTS(
+             SELECT 1 FROM task_availability_snapshot snapshot
+             WHERE snapshot.readiness_id=readiness.readiness_id
+           ) OR EXISTS(
+             SELECT 1 FROM task_availability_snapshot snapshot
+             WHERE snapshot.readiness_id=readiness.readiness_id
+               AND snapshot.availability='unknown'
+           ) THEN 'unknown'
+           ELSE 'known'
+         END,
+         'historicalRiskLevel',(
+           SELECT snapshot.risk_level
+           FROM task_availability_snapshot snapshot
+           WHERE snapshot.readiness_id=readiness.readiness_id
+           ORDER BY CASE snapshot.risk_level
+             WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1
+           END DESC,snapshot.node_id
+           LIMIT 1
+         ),
+         'createdAt',readiness.created_at
+       )) AS value
+       FROM task_execution_readiness readiness
+       JOIN workflow_plan plan ON plan.plan_id=readiness.workflow_plan_id
+       WHERE plan.goal_id=$1 AND plan.goal_version=$2
+       ORDER BY
+         CASE readiness.check_phase WHEN 'pre_invocation' THEN 0 ELSE 1 END,
+         readiness.created_at DESC,readiness.readiness_id DESC
+       LIMIT 1`,
+      [goalId, goalVersion],
+    );
     const currentPlan = plans.at(-1);
     const judgment = await oneJson(
       this.#pool,
@@ -825,11 +866,27 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
        ORDER BY capability`,
       [],
     );
-    const judgmentDecision = optionalJsonObject(judgment?.['decision']);
+    const disposition = executionReadiness?.['disposition'];
     const authorityDecision =
-      typeof judgmentDecision?.['authorityDecision'] === 'string' &&
-      ['allow', 'deny', 'require_confirmation'].includes(judgmentDecision['authorityDecision'])
-        ? judgmentDecision['authorityDecision']
+      disposition === 'ready'
+        ? 'allow'
+        : disposition === 'confirmation_required'
+          ? 'require_confirmation'
+          : disposition === 'revision_required' || disposition === 'blocked'
+            ? 'deny'
+            : undefined;
+    const readinessContextStatus = executionReadiness?.['contextStatus'];
+    const contextStatus =
+      readinessContextStatus === 'known' || readinessContextStatus === 'unknown'
+        ? readinessContextStatus
+        : 'unknown';
+    const riskLevel = executionReadiness?.['historicalRiskLevel'];
+    const historicalRiskLevel =
+      riskLevel === 'low' ||
+      riskLevel === 'medium' ||
+      riskLevel === 'high' ||
+      riskLevel === 'critical'
+        ? riskLevel
         : undefined;
 
     const sources: CognitiveSourceRef[] = [];
@@ -863,6 +920,14 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
         'progress-observation-unknown',
         1,
       );
+    addSource(
+      sources,
+      'workflow_outcome',
+      executionReadiness,
+      'readinessId',
+      'execution-readiness-unknown',
+      1,
+    );
     for (const item of recovery)
       addSource(sources, 'recovery_decision', item, 'recovery_decision_id', 'recovery-unknown', 1);
     for (const item of eventImpacts)
@@ -903,20 +968,24 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       worldStateSnapshot: {
         ...(task === undefined ? {} : { task }),
         ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
+        ...(executionReadiness === undefined ? {} : { executionReadiness }),
         progress,
       },
-      ...(authorityDecision === undefined ? {} : { policyDecisionSnapshot: { authorityDecision } }),
+      ...(authorityDecision === undefined
+        ? {}
+        : {
+            policyDecisionSnapshot: {
+              authorityDecision,
+              contextStatus,
+              ...(historicalRiskLevel === undefined ? {} : { historicalRiskLevel }),
+              readinessRef: executionReadiness?.['readinessId'],
+            },
+          }),
       ...(judgment === undefined ? {} : { userGoalJudgment: judgment }),
       ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
       sourceRefs: Object.freeze(sources),
     });
   }
-}
-
-function optionalJsonObject(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Readonly<Record<string, unknown>>)
-    : undefined;
 }
 
 async function oneJson(pool: Pool, sql: string, values: readonly unknown[]) {

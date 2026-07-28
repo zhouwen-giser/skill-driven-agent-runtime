@@ -167,6 +167,7 @@ function input(): PlanReplayInput {
     knownCapabilityIds: ['cap-act'],
     readyCapabilityIds: ['cap-act'],
     authorityDecision: 'allow',
+    contextStatus: 'known',
     historical: historical(),
     evaluatedAt: timestamp,
   };

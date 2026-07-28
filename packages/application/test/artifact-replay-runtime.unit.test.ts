@@ -297,6 +297,7 @@ function fixture(sourceEpisodeRef: string): ReplayValidationCaseFixture {
     knownCapabilityIds: [],
     readyCapabilityIds: [],
     authorityDecision: 'deny',
+    contextStatus: 'known',
     historical: historical(),
   };
 }

@@ -129,35 +129,50 @@ export function createReplayIdNamespaces(replayRunId: string): ReplayIdNamespace
   });
 }
 
-function assertReplayContext(context: ReplayExecutionContext): void {
-  if (context.executionMode !== 'replay') {
+function assertReplayContext(context: unknown): asserts context is ReplayExecutionContext {
+  if (typeof context !== 'object' || context === null || Array.isArray(context)) {
+    throw new Error('REPLAY_CONTEXT_INCOMPLETE');
+  }
+  const candidate = context as Readonly<Record<string, unknown>>;
+  if (candidate['executionMode'] !== 'replay') {
     throw new Error('REPLAY_EXECUTION_MODE_REQUIRED');
   }
-  if (context.namespaces.queueName !== ARTIFACT_REPLAY_QUEUE_NAME) {
+  const namespacesValue = candidate['namespaces'];
+  if (
+    typeof namespacesValue !== 'object' ||
+    namespacesValue === null ||
+    Array.isArray(namespacesValue)
+  ) {
+    throw new Error('REPLAY_CONTEXT_INCOMPLETE');
+  }
+  const namespaces = namespacesValue as Readonly<Record<string, unknown>>;
+  if (namespaces['queueName'] !== ARTIFACT_REPLAY_QUEUE_NAME) {
     throw new Error('REPLAY_QUEUE_NAMESPACE_INVALID');
   }
   const required = [
-    context.replayRunId,
-    context.validationRunId,
-    context.replayCaseId,
-    context.tenantId,
-    context.datasetId,
-    context.candidateId,
+    candidate['replayRunId'],
+    candidate['validationRunId'],
+    candidate['replayCaseId'],
+    candidate['tenantId'],
+    candidate['datasetId'],
+    candidate['candidateId'],
   ];
-  if (required.some((value) => value.trim().length === 0)) {
+  if (required.some((value) => typeof value !== 'string' || value.trim().length === 0)) {
     throw new Error('REPLAY_CONTEXT_INCOMPLETE');
   }
-  const prefix = `replay:${context.replayRunId}:`;
+  const prefix = `replay:${String(candidate['replayRunId'])}:`;
   for (const value of [
-    context.namespaces.taskId,
-    context.namespaces.goalId,
-    context.namespaces.attemptId,
-    context.namespaces.workflowId,
-    context.namespaces.idempotencyKey,
-    context.namespaces.databaseCorrelation,
-    context.namespaces.telemetryDimension,
+    namespaces['taskId'],
+    namespaces['goalId'],
+    namespaces['attemptId'],
+    namespaces['workflowId'],
+    namespaces['idempotencyKey'],
+    namespaces['databaseCorrelation'],
+    namespaces['telemetryDimension'],
   ]) {
-    if (!value.startsWith(prefix)) throw new Error('REPLAY_NAMESPACE_NOT_ISOLATED');
+    if (typeof value !== 'string' || !value.startsWith(prefix)) {
+      throw new Error('REPLAY_NAMESPACE_NOT_ISOLATED');
+    }
   }
 }
 

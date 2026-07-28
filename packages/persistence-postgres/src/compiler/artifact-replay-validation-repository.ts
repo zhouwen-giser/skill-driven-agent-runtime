@@ -36,6 +36,10 @@ const HistoricalSchema = z
     evidenceRefs: StringListSchema,
     artifactRefs: StringListSchema,
     activityRefs: StringListSchema.optional(),
+    processVariantFingerprint: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/u)
+      .optional(),
     modelCallCount: z.number().int().nonnegative(),
     tokenInput: z.number().int().nonnegative(),
     tokenOutput: z.number().int().nonnegative(),
@@ -113,12 +117,19 @@ const ReplayTraceSchema = z
       z
         .object({
           eventId: z.string().min(1).max(512),
+          sequence: z.number().int().nonnegative(),
           eventType: z.string().min(1).max(128),
           activity: z
-            .object({ activityKey: z.string().min(1).max(512) })
+            .object({
+              activityKey: z.string().min(1).max(512),
+              activityKind: z.string().min(1).max(128),
+              sourceAttemptRef: z.string().min(1).max(512).optional(),
+            })
             .loose()
             .nullable()
             .optional(),
+          concurrencyGroup: z.string().min(1).max(512).optional(),
+          branchRef: z.string().min(1).max(512).optional(),
         })
         .loose(),
     ),
@@ -528,7 +539,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       artifact.status !== 'candidate' ||
       artifact.contentHash !== run.artifactHash ||
       datasetRow.content_hash !== run.datasetHash ||
-      datasetRow.promotion_eligible !== true
+      !datasetRow.promotion_eligible
     ) {
       throw new Error('ARTIFACT_REPLAY_VALIDATION_STALE_PIN');
     }
@@ -596,7 +607,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
         pin.artifact_hash !== run.artifactHash ||
         pin.dataset_hash !== run.datasetHash ||
         pin.dataset_version !== run.datasetVersion ||
-        pin.dataset_promotion_eligible !== true ||
+        !pin.dataset_promotion_eligible ||
         result.artifactHash !== run.artifactHash ||
         result.datasetHash !== run.datasetHash
       ) {
@@ -1007,6 +1018,8 @@ function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayVali
           .flatMap((event) => (event.activity === null ? [] : [event.activity?.activityKey]))
           .filter((value): value is string => value !== undefined),
     ),
+    processVariantFingerprint:
+      replay.historical.processVariantFingerprint ?? processVariantFingerprint(trace),
   });
   const task = record(snapshot['task'], 'ARTIFACT_REPLAY_TASK_SNAPSHOT_INVALID');
   const requestFingerprint = hash({
@@ -1247,11 +1260,7 @@ function replaySnapshotFromEpisode(
           ),
         ),
       ]),
-      activityRefs: uniqueSorted(
-        trace.events.flatMap((event) =>
-          event.activity?.activityKey === undefined ? [] : [event.activity.activityKey],
-        ),
-      ),
+      activityRefs: processVariantShape(trace).activitySequence,
       modelCallCount: sumNumbers(interactions, ['modelCallCount', 'model_call_count']),
       tokenInput: sumNumbers(interactions, ['tokenInput', 'token_input']),
       tokenOutput: sumNumbers(interactions, ['tokenOutput', 'token_output']),
@@ -1287,6 +1296,11 @@ type UserGoalCompletionContractInput = Parameters<typeof createUserGoalCompletio
 
 function parseFixture(value: unknown): ReplayValidationCaseFixture {
   const fixture = StoredFixtureSchema.parse(value);
+  const {
+    activityRefs,
+    processVariantFingerprint: storedProcessVariantFingerprint,
+    ...historical
+  } = fixture.historical;
   const contract = createUserGoalCompletionContract(
     fixture.goalContract as UserGoalCompletionContractInput,
   );
@@ -1307,8 +1321,11 @@ function parseFixture(value: unknown): ReplayValidationCaseFixture {
       ? {}
       : { historicalRiskLevel: fixture.historicalRiskLevel }),
     historical: Object.freeze({
-      ...fixture.historical,
-      activityRefs: Object.freeze(fixture.historical.activityRefs ?? []),
+      ...historical,
+      activityRefs: Object.freeze(activityRefs ?? []),
+      ...(storedProcessVariantFingerprint === undefined
+        ? {}
+        : { processVariantFingerprint: storedProcessVariantFingerprint }),
     }),
     ...(acceptedPlan === undefined ? {} : { acceptedPlan }),
     ...(fixture.replayOperations === undefined
@@ -1526,6 +1543,76 @@ function normalizedText(value: unknown): string {
   return typeof value === 'string'
     ? value.toLocaleLowerCase('en-US').replace(/\s+/gu, ' ').trim()
     : canonicalJson(value);
+}
+
+function processVariantFingerprint(trace: z.infer<typeof ReplayTraceSchema>): string {
+  return hash(processVariantShape(trace));
+}
+
+function processVariantShape(trace: z.infer<typeof ReplayTraceSchema>): Readonly<{
+  activitySequence: readonly string[];
+  activityKindSequence: readonly string[];
+  concurrencyGroups: readonly (readonly string[])[];
+  branchSequence: readonly string[];
+}> {
+  const occurrences = new Map<
+    string,
+    {
+      activityKey: string;
+      activityKind: string;
+      firstSequence: number;
+      concurrencyGroup?: string;
+      branchRef?: string;
+    }
+  >();
+  for (const event of trace.events) {
+    const activity = event.activity;
+    if (activity === undefined || activity === null || activity.activityKind === 'unknown')
+      continue;
+    const occurrenceKey = `${activity.activityKey}\u001f${
+      activity.sourceAttemptRef ?? event.eventId
+    }`;
+    if (occurrences.has(occurrenceKey)) continue;
+    occurrences.set(occurrenceKey, {
+      activityKey: activity.activityKey,
+      activityKind: activity.activityKind,
+      firstSequence: event.sequence,
+      ...(event.concurrencyGroup === undefined ? {} : { concurrencyGroup: event.concurrencyGroup }),
+      ...(event.branchRef === undefined ? {} : { branchRef: event.branchRef }),
+    });
+  }
+  const ordered = [...occurrences.values()].sort(
+    (left, right) =>
+      left.firstSequence - right.firstSequence || left.activityKey.localeCompare(right.activityKey),
+  );
+  const groups = new Map<string, { firstSequence: number; activities: string[] }>();
+  for (const occurrence of ordered) {
+    if (occurrence.concurrencyGroup === undefined) continue;
+    const group = groups.get(occurrence.concurrencyGroup) ?? {
+      firstSequence: occurrence.firstSequence,
+      activities: [],
+    };
+    group.firstSequence = Math.min(group.firstSequence, occurrence.firstSequence);
+    group.activities.push(occurrence.activityKey);
+    groups.set(occurrence.concurrencyGroup, group);
+  }
+  return Object.freeze({
+    activitySequence: Object.freeze(ordered.map((occurrence) => occurrence.activityKey)),
+    activityKindSequence: Object.freeze(ordered.map((occurrence) => occurrence.activityKind)),
+    concurrencyGroups: Object.freeze(
+      [...groups.entries()]
+        .sort(
+          ([leftKey, left], [rightKey, right]) =>
+            left.firstSequence - right.firstSequence || leftKey.localeCompare(rightKey),
+        )
+        .map(([, group]) => Object.freeze([...group.activities])),
+    ),
+    branchSequence: Object.freeze(
+      ordered.flatMap((occurrence) =>
+        occurrence.branchRef === undefined ? [] : [occurrence.branchRef],
+      ),
+    ),
+  });
 }
 
 function hash(value: unknown): string {

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import { Queue, QueueEvents } from 'bullmq';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -11,8 +10,10 @@ import {
   CandidateGenerationApplicationService,
   CandidateGenerationTriggerDispatcher,
   DeterministicProcessMiner,
+  ExperienceEligibilityPolicy,
   ExperienceNormalizationService,
   ExperienceTraceNormalizer,
+  GoalExperienceEpisodeBuilder,
   PatternFusionService,
   PatternGeneralizationService,
   ProcessMiningService,
@@ -34,6 +35,7 @@ import {
   PostgresCandidateGenerationRepository,
   PostgresCompilationRunRepository,
   PostgresConversationContextRepository,
+  PostgresCognitiveRuntimeFactReader,
   PostgresExperienceCompilationRepository,
   PostgresGoalExperienceEpisodeRepository,
   PostgresSkillRepository,
@@ -47,7 +49,7 @@ import {
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const pool = new Pool({ connectionString, max: 4 });
-const tenantId = 'tenant-p04r-integration';
+const tenantId = 'sdar-v1-trusted-intranet';
 const taskTypeId = 'workflow.policy-remediation';
 const capabilities = [
   'workflow.collect',
@@ -115,6 +117,27 @@ async function insertReplayRun(
       `artifact-replay-test:${input.validationRunId}`,
     ],
   );
+}
+
+async function waitForCompletedReplayRuns(
+  validationRunIds: readonly string[],
+  expected: number,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ completed: number }>(
+      `SELECT count(*)::integer AS completed
+       FROM artifact_validation_run
+       WHERE validation_run_id=ANY($1::text[]) AND work_state='completed'`,
+      [validationRunIds],
+    );
+    if (result.rows[0]?.completed === expected) return;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 20);
+    });
+  }
+  throw new Error('P05_BULLMQ_WORKERS_TIMEOUT');
 }
 
 describe('P04R real P03→P04→P02 candidate product chain', () => {
@@ -551,16 +574,18 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
         suffix: item.suffix,
         achieved: true,
         timestamp: item.timestamp,
+        userId: `user-${item.suffix}`,
+        request: item.request,
       })),
     );
     for (const item of independent) {
-      const episode = formalEpisodeAt(
-        item.suffix,
-        `user-${item.suffix}`,
-        'succeeded',
-        item.timestamp,
-        item.request,
-      );
+      const episode = await new GoalExperienceEpisodeBuilder({
+        facts: new PostgresCognitiveRuntimeFactReader(pool),
+        episodes: episodeRepository,
+        eligibility: new ExperienceEligibilityPolicy(),
+        clock: { now: () => item.timestamp },
+        nextEpisodeId: () => `episode-p04r-${item.suffix}`,
+      }).build({ goalId: `goal-${item.suffix}`, goalVersion: 1 });
       await episodeRepository.saveIfAbsent(episode);
       await compilationRuns.createNormalizationRun(episode.episodeId, clock.now(), 3);
       const [normalizationRun] = await normalization.claim('normalizer-p05-holdout', 1);
@@ -609,6 +634,7 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_code: string | null;
       last_error_summary: string | null;
       native_episode_sources: number;
+      production_authority_sources: number;
       native_catalog_refs: number;
       native_policy_refs: number;
       counterfactual_results: number;
@@ -637,6 +663,10 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
             AND episode.snapshot ? 'contract'
             AND episode.snapshot ? 'currentPlan'
             AND episode.snapshot ? 'capabilityCatalogSnapshot') AS native_episode_sources,
+         (SELECT count(*)::integer FROM goal_experience_episode episode
+          WHERE episode.snapshot->'policyDecisionSnapshot' ? 'readinessRef'
+            AND episode.snapshot->'worldStateSnapshot' ? 'executionReadiness')
+            AS production_authority_sources,
          (SELECT count(*)::integer FROM artifact_replay_case replay
           WHERE replay.content->>'capabilityCatalogSnapshotRef'
             LIKE '%capabilityCatalogSnapshot.knownCapabilityIds') AS native_catalog_refs,
@@ -682,6 +712,7 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_code: null,
       last_error_summary: null,
       native_episode_sources: 8,
+      production_authority_sources: 5,
       native_catalog_refs: 8,
       native_policy_refs: 8,
       counterfactual_results: 3,
@@ -1066,8 +1097,6 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
     const redisConnection: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
     const queueName = `sdar-p05-postgres-workers-${String(Date.now())}`;
     const wakeQueue = new BullMqReplayValidationQueue(redisConnection, queueName);
-    const rawQueue = new Queue(queueName, { connection: redisConnection });
-    const queueEvents = new QueueEvents(queueName, { connection: redisConnection });
     const participantIds = new Set<string>();
     let firstClaimGateResolve: (() => void) | undefined;
     const firstClaimGate = new Promise<void>((resolve) => {
@@ -1096,22 +1125,13 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       for (const validationRunId of actualWorkerRunIds) {
         await wakeQueue.enqueue(validationRunId);
       }
-      const jobs = await Promise.all(
-        actualWorkerRunIds.map((validationRunId) => rawQueue.getJob(validationRunId)),
-      );
-      if (jobs.some((job) => job === undefined)) {
-        throw new Error('P05_BULLMQ_WAKE_MISSING');
-      }
-      actualWorkers.forEach((worker) => worker.start());
-      await Promise.all(
-        jobs.map((job) => {
-          if (job === undefined) throw new Error('P05_BULLMQ_WAKE_MISSING');
-          return job.waitUntilFinished(queueEvents, 30_000);
-        }),
-      );
+      actualWorkers.forEach((worker) => {
+        worker.start();
+      });
+      await waitForCompletedReplayRuns(actualWorkerRunIds, 12, 30_000);
     } finally {
       await Promise.all(actualWorkers.map((worker) => worker.close()));
-      await Promise.all([queueEvents.close(), rawQueue.close(), wakeQueue.close()]);
+      await wakeQueue.close();
     }
     const actualWorkerEvidence = await pool.query<{ completed: number }>(
       `SELECT count(*)::integer AS completed
@@ -1340,6 +1360,8 @@ async function saveTerminalAuthorityFixtures(
     suffix: string;
     achieved: boolean;
     timestamp: string;
+    userId?: string;
+    request?: string;
   }>[] = [
     { suffix: 'success-a', achieved: true, timestamp: '2026-07-28T03:00:00.000Z' },
     { suffix: 'success-b', achieved: true, timestamp: '2026-07-28T03:00:01.000Z' },
@@ -1352,10 +1374,15 @@ async function saveTerminalAuthorityFixtures(
 ): Promise<void> {
   for (const fixture of fixtures) {
     const { suffix, achieved, timestamp } = fixture;
+    const userId = fixture.userId ?? `user-${suffix}`;
+    const request =
+      fixture.request ?? 'Collect workflow state, verify policy, and apply a safe remediation.';
     const goalId = `goal-${suffix}`;
     const planId = `plan-authority-${suffix}`;
     const instanceId = `instance-authority-${suffix}`;
     const controlId = `control-authority-${suffix}`;
+    const taskId = `task-${suffix}`;
+    const replayFacts = replayValidationSnapshot(suffix, timestamp, !achieved);
     await pool.query(
       `INSERT INTO goal(
          goal_id,context_id,version,title,description,constraints_json,success_criteria_json,
@@ -1371,29 +1398,145 @@ async function saveTerminalAuthorityFixtures(
         timestamp,
       ],
     );
-    const contractHash = sha(`contract-${suffix}`);
+    const contractHash = replayFacts.acceptedPlan.contractHash;
     await pool.query(
       `INSERT INTO user_goal_contract(
          goal_id,goal_version,schema_version,contract_hash,contract_json,created_at)
        VALUES($1,1,'1.0',$2,$3::jsonb,$4)`,
+      [goalId, contractHash, JSON.stringify(replayFacts.goalContract), timestamp],
+    );
+    await pool.query(
+      `INSERT INTO user_goal_plan(
+         plan_id,goal_id,goal_version,revision,revision_kind,status,contract_hash,
+         content_hash,plan_json,created_at,updated_at)
+       VALUES($1,$2,1,1,'initial',$3,$4,$5,$6::jsonb,$7,$7)`,
       [
+        replayFacts.acceptedPlan.planId,
         goalId,
+        achieved ? 'completed' : 'failed',
         contractHash,
+        replayFacts.acceptedPlan.contentHash,
         JSON.stringify({
-          schemaVersion: '1.0',
-          goalId,
-          goalVersion: 1,
-          title: `Formal workflow remediation ${suffix}`,
-          constraints: [],
-          criteria: [
-            {
-              criterionId: `criterion-${suffix}`,
-              description: 'The workflow policy is verified before remediation.',
-              required: true,
-            },
-          ],
+          ...replayFacts.acceptedPlan,
+          status: achieved ? 'completed' : 'failed',
         }),
         timestamp,
+      ],
+    );
+    for (const [index, skillGoal] of replayFacts.acceptedPlan.skillGoals.entries()) {
+      const status =
+        !achieved && index === 2 ? 'failed' : achieved || index < 2 ? 'achieved' : 'failed';
+      await pool.query(
+        `INSERT INTO skill_goal(
+           skill_goal_id,plan_id,ordinal,status,contract_json,created_at,updated_at)
+         VALUES($1,$2,$3,$4,$5::jsonb,$6,$6)`,
+        [
+          skillGoal.skillGoalId,
+          replayFacts.acceptedPlan.planId,
+          index + 1,
+          status,
+          JSON.stringify({ ...skillGoal, status }),
+          timestamp,
+        ],
+      );
+    }
+    for (const dependency of replayFacts.acceptedPlan.dependencies) {
+      await pool.query(
+        `INSERT INTO skill_goal_dependency(
+           dependency_id,plan_id,predecessor_skill_goal_id,successor_skill_goal_id,predicate)
+         VALUES($1,$2,$3,$4,$5)`,
+        [
+          dependency.dependencyId,
+          replayFacts.acceptedPlan.planId,
+          dependency.predecessorSkillGoalId,
+          dependency.successorSkillGoalId,
+          dependency.predicate,
+        ],
+      );
+    }
+    for (const [index, skillGoal] of replayFacts.acceptedPlan.skillGoals.entries()) {
+      const attemptId = `attempt-${suffix}-${String(index + 1)}`;
+      const status = !achieved && index === 2 ? 'failed' : 'achieved';
+      await pool.query(
+        `INSERT INTO skill_attempt(
+           attempt_id,plan_id,skill_goal_id,ordinal,status,strategy_fingerprint,
+           attempt_json,created_at,updated_at)
+         VALUES($1,$2,$3,1,$4,$5,$6::jsonb,$7,$8)`,
+        [
+          attemptId,
+          replayFacts.acceptedPlan.planId,
+          skillGoal.skillGoalId,
+          status,
+          sha(`strategy-${attemptId}`),
+          JSON.stringify({
+            attemptId,
+            planId: replayFacts.acceptedPlan.planId,
+            skillGoalId: skillGoal.skillGoalId,
+            ordinal: 1,
+            status,
+            strategyFingerprint: sha(`strategy-${attemptId}`),
+            budget: { maxAttempts: 2, consumedAttempts: 1 },
+            resolvedInput: replayFacts.parameterValues,
+            createdAt: new Date(Date.parse(timestamp) + index * 1_000).toISOString(),
+            updatedAt: new Date(Date.parse(timestamp) + index * 1_000 + 500).toISOString(),
+          }),
+          new Date(Date.parse(timestamp) + index * 1_000).toISOString(),
+          new Date(Date.parse(timestamp) + index * 1_000 + 500).toISOString(),
+        ],
+      );
+    }
+    if (!achieved) {
+      const failedGoal = replayFacts.acceptedPlan.skillGoals[2];
+      if (failedGoal === undefined) throw new Error('P05_FAILED_SKILL_GOAL_MISSING');
+      await pool.query(
+        `INSERT INTO recovery_decision(
+           recovery_decision_id,plan_id,skill_goal_id,attempt_id,action,reason_code,
+           strategy_fingerprint,decision_json,created_at)
+         VALUES($1,$2,$3,$4,'replacement_attempt','STALLED_CHANGED_STRATEGY',$5,$6::jsonb,$7)`,
+        [
+          `recovery-${suffix}`,
+          replayFacts.acceptedPlan.planId,
+          failedGoal.skillGoalId,
+          `attempt-${suffix}-3`,
+          sha(`recovery-strategy-${suffix}`),
+          JSON.stringify({
+            action: 'replacement_attempt',
+            reasonCode: 'STALLED_CHANGED_STRATEGY',
+            requiredCapabilities: ['workflow.recover'],
+          }),
+          new Date(Date.parse(timestamp) + 3_000).toISOString(),
+        ],
+      );
+    }
+    await pool.query(
+      `INSERT INTO outcome_decision(
+         outcome_decision_id,level,subject_id,plan_id,status,confidence,decision_json,created_at)
+       VALUES($1,'user_goal',$2,$3,$4,$5,$6::jsonb,$7)`,
+      [
+        `outcome-decision-${suffix}`,
+        goalId,
+        replayFacts.acceptedPlan.planId,
+        achieved ? 'achieved' : 'not_achieved',
+        achieved ? 'high' : 'medium',
+        JSON.stringify({
+          outcomeDecisionId: `outcome-decision-${suffix}`,
+          level: 'user_goal',
+          subjectId: goalId,
+          status: achieved ? 'achieved' : 'not_achieved',
+          confidence: achieved ? 'high' : 'medium',
+          ruleIds: ['formal-terminal-authority'],
+          criterionRefs: replayFacts.goalContract.criteria.map(
+            (criterion) => criterion.criterionId,
+          ),
+          effectRefs: [],
+          evidenceRefs: replayFacts.historical.evidenceRefs,
+          artifactRefs: [],
+          summary: achieved
+            ? 'All formal workflow criteria were achieved.'
+            : 'The formal workflow remained unachievable after recovery.',
+          createdAt: new Date(Date.parse(timestamp) + 3_500).toISOString(),
+        }),
+        new Date(Date.parse(timestamp) + 3_500).toISOString(),
       ],
     );
     await pool.query(
@@ -1411,6 +1554,80 @@ async function saveTerminalAuthorityFixtures(
         }),
         timestamp,
         JSON.stringify({ goalId, version: 1 }),
+      ],
+    );
+    await pool.query(
+      `INSERT INTO workflow_plan_attempt(
+         plan_id,attempt,candidate_json,validation_errors_json,valid,created_at,
+         goal_contract_json)
+       VALUES($1,1,$2::jsonb,'[]'::jsonb,true,$3,$4::jsonb)`,
+      [
+        planId,
+        JSON.stringify({ workflowDefinitionId: `workflow-authority-${suffix}` }),
+        timestamp,
+        JSON.stringify({ goalId, version: 1 }),
+      ],
+    );
+    await pool.query(
+      `INSERT INTO task_execution_readiness(
+         readiness_id,workflow_plan_id,plan_attempt,check_phase,dsl_hash,disposition,
+         permitted_actions_json,guard_action,guard_reason_codes_json,confirmation_required,
+         created_at)
+       VALUES($1,$2,1,'planning',$3,$4,$5::jsonb,$6,$7::jsonb,false,$8)`,
+      [
+        `readiness-${suffix}`,
+        planId,
+        createHash('sha256').update(`dsl-${suffix}`).digest('hex'),
+        achieved ? 'ready' : 'blocked',
+        JSON.stringify(achieved ? ['execute'] : []),
+        achieved ? 'proceed' : 'abort',
+        JSON.stringify(achieved ? [] : ['POLICY_VERIFICATION_FAILED']),
+        timestamp,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO task_availability_snapshot(
+         snapshot_id,readiness_id,node_id,server_id,operation_name,
+         arguments_snapshot_json,arguments_hash,result_json,availability,risk_level,
+         reservation_mode,source_revision,checked_at,normalization_reason_codes_json)
+       VALUES($1,$2,$3,'server-authority','workflow.policy-remediation',$4::jsonb,$5,
+         $6::jsonb,$7,'medium','none','catalog-v1',$8,'[]'::jsonb)`,
+      [
+        `availability-${suffix}`,
+        `readiness-${suffix}`,
+        `node-${suffix}`,
+        JSON.stringify(replayFacts.parameterValues),
+        createHash('sha256').update(JSON.stringify(replayFacts.parameterValues)).digest('hex'),
+        JSON.stringify({ checked: true, achieved }),
+        achieved ? 'available' : 'restricted',
+        timestamp,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO agent_task(
+         task_id,context_id,user_id,phase,phase_message,goal_id,goal_version,
+         output_text,output_structured,error_code,request_text,request_metadata,plan_id,
+         created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,1,$7,$8::jsonb,$9,$10,$11::jsonb,$12,$13,$14)`,
+      [
+        taskId,
+        `context-${suffix}`,
+        userId,
+        achieved ? 'completed' : 'failed',
+        achieved ? 'Completed.' : 'Failed after recovery.',
+        goalId,
+        achieved ? 'Formal workflow remediation achieved.' : null,
+        JSON.stringify({ achieved }),
+        achieved ? null : 'POLICY_VERIFICATION_FAILED',
+        request,
+        JSON.stringify({
+          taskTypeId,
+          environmentClass: `environment-${suffix}`,
+          deviceClass: `device-${suffix}`,
+        }),
+        planId,
+        timestamp,
+        new Date(Date.parse(timestamp) + 4_000).toISOString(),
       ],
     );
     await pool.query(
@@ -1432,14 +1649,15 @@ async function saveTerminalAuthorityFixtures(
     );
     await pool.query(
       `INSERT INTO workflow_control(
-         control_id,context_id,goal_id,goal_version,status,current_plan_id,input_json,
+         control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
          skill_ids_json,planning_instruction,round_count,replan_count,final_instance_id,
          created_at,updated_at)
-       VALUES($1,$2,$3,1,$4,$5,'{}'::jsonb,'[]'::jsonb,$6,1,0,$7,$8,$9)`,
+       VALUES($1,$2,$3,1,$4,$5,$6,'{}'::jsonb,'[]'::jsonb,$7,1,0,$8,$9,$10)`,
       [
         controlId,
         `context-${suffix}`,
         goalId,
+        taskId,
         achieved ? 'achieved' : 'unachievable',
         planId,
         'Execute only the confirmed formal workflow plan.',
@@ -1450,12 +1668,13 @@ async function saveTerminalAuthorityFixtures(
     );
     await pool.query(
       `INSERT INTO runtime_terminal_outcome(
-         outcome_id,outcome_kind,goal_id,goal_version,control_id,control_status,round_index,
+         outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,round_index,
          final_instance_id,summary,committed_at)
-       VALUES($1,$2,$3,1,$4,$5,0,$6,$7,$8)`,
+       VALUES($1,$2,$3,$4,1,$5,$6,0,$7,$8,$9)`,
       [
         `outcome-${suffix}`,
         achieved ? 'achieved' : 'unachievable',
+        taskId,
         goalId,
         controlId,
         achieved ? 'achieved' : 'unachievable',

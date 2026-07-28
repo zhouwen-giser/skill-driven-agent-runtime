@@ -238,6 +238,13 @@ describe('P05 Artifact replay validator', () => {
       unsafeAllow: 1,
       falsePositive: 1,
     });
+    expect(
+      evaluator.evaluate({
+        authorityDecision: 'allow',
+        candidateDecision: 'allow',
+        candidateHasHumanGate: false,
+      }),
+    ).toMatchObject({ unknownContext: 1, unsafeAllow: 1 });
   });
 
   it('keeps counterfactual output epistemically honest about physical outcomes', () => {
@@ -262,6 +269,11 @@ describe('P05 Artifact replay validator', () => {
       historicalModelCallCount: 2,
     });
     expect(counterfactual).not.toHaveProperty('wouldHaveSucceeded');
+  });
+
+  it('does not fabricate a low historical risk when the authority snapshot omitted risk', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(input());
+    expect(evaluation.counterfactual).not.toHaveProperty('riskLevelDelta');
   });
 
   it('carries rule context and counterfactual deltas through the durable Case evaluation', () => {
@@ -342,6 +354,57 @@ describe('P05 Artifact replay validator', () => {
     expect(second.result.artifactRef).not.toBe(first.result.artifactRef);
     expect(second.result.datasetRef).not.toBe(first.result.datasetRef);
     expect(second.result.resultHash).toBe(first.result.resultHash);
+  });
+
+  it('keeps failed resultHash independent from Artifact and Dataset identifiers', () => {
+    const firstArtifact = artifact();
+    const renamedArtifact = { ...firstArtifact, artifactId: 'artifact-p05-failed-renamed' };
+    const invalidStatic = {
+      ...staticValidation(),
+      capabilityCatalogAligned: false,
+      result: 'failed_static' as const,
+    };
+    const firstEvaluation = new PlanReplayEvaluator().evaluate(
+      input({ artifact: firstArtifact, staticValidation: invalidStatic }),
+    );
+    const secondEvaluation = new PlanReplayEvaluator().evaluate(
+      input({
+        artifact: renamedArtifact,
+        staticValidation: { ...invalidStatic, artifactRef: renamedArtifact.artifactId },
+      }),
+    );
+    const engine = new ArtifactReplayValidationEngine();
+    const first = engine.validate({
+      validationRunId: 'validation-run-p05-failed',
+      artifact: firstArtifact,
+      dataset: dataset(),
+      evaluations: [firstEvaluation],
+      completedAt: at,
+    });
+    const second = engine.validate({
+      validationRunId: 'validation-run-p05-failed-renamed',
+      artifact: renamedArtifact,
+      dataset: { ...dataset(), datasetId: 'dataset-p05-failed-renamed' },
+      evaluations: [secondEvaluation],
+      completedAt: at,
+    });
+    expect(second.result.artifactRef).not.toBe(first.result.artifactRef);
+    expect(second.result.datasetRef).not.toBe(first.result.datasetRef);
+    expect(second.result.resultHash).toBe(first.result.resultHash);
+  });
+
+  it('preserves activity order and repeated occurrences in variant fingerprints', () => {
+    const first = new PlanReplayEvaluator().evaluate(
+      input({ historical: { ...historical(), activityRefs: ['A', 'B', 'A'] } }),
+    );
+    const reordered = new PlanReplayEvaluator().evaluate(
+      input({ historical: { ...historical(), activityRefs: ['A', 'A', 'B'] } }),
+    );
+    const deduplicated = new PlanReplayEvaluator().evaluate(
+      input({ historical: { ...historical(), activityRefs: ['A', 'B'] } }),
+    );
+    expect(first.variantFingerprint).not.toBe(reordered.variantFingerprint);
+    expect(first.variantFingerprint).not.toBe(deduplicated.variantFingerprint);
   });
 
   it('changes resultHash when semantic failure facts change', () => {
@@ -513,6 +576,7 @@ function input(overrides: Partial<PlanReplayInput> = {}): PlanReplayInput {
     knownCapabilityIds: ['cap-act', 'cap-observe'],
     readyCapabilityIds: ['cap-act', 'cap-observe'],
     authorityDecision: 'allow',
+    contextStatus: 'known',
     historical: historical(),
     evaluatedAt: at,
     ...overrides,

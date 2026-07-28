@@ -6,7 +6,7 @@
 
 ## Snapshot source
 
-A Case is derived only from a frozen `GoalExperienceEpisode` and its linked `ExperienceTrace`. The Episode must preserve the Goal Contract, accepted Plan revision, capability-catalog/readiness snapshot, parameters, policy decision, execution facts and terminal outcome. Catalog membership and readiness are read only from `capabilityCatalogSnapshot`; policy authority is read only from `policyDecisionSnapshot`. Plans, Skill Goals, Attempts and successful outcomes may not fabricate those authorities. A missing authoritative ref excludes the source instead of allowing current mutable runtime state to fill history.
+A Case is derived only from a frozen `GoalExperienceEpisode` and its linked `ExperienceTrace`. The Episode must preserve the Goal Contract, accepted Plan revision, capability-catalog/readiness snapshot, parameters, policy decision, execution facts and terminal outcome. Catalog membership and readiness are read only from `capabilityCatalogSnapshot`; policy authority is read only from `policyDecisionSnapshot`. Production Episodes project that policy snapshot from the PostgreSQL-authoritative `task_execution_readiness` record linked to the Goal's `workflow_plan`, with context status and historical risk projected from its `task_availability_snapshot` rows. `ready` maps to `allow`, `confirmation_required` maps to `require_confirmation`, and `revision_required` or `blocked` maps to `deny`. Missing availability is `unknown`; missing risk remains absent. Plans, Skill Goals, Attempts, successful outcomes and `outcome_decision.decision_json` may not fabricate those authorities. A missing authoritative ref excludes the source instead of allowing current mutable runtime state to fill history.
 
 ## Split policy
 

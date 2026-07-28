@@ -134,6 +134,12 @@ cannot approve, activate, promote, route or execute an Artifact.
   with authoritative native snapshot refs, independent split axes, semantic Result hashes,
   numerator/denominator metrics, durable rule/counterfactual facts, direct-cascade successors and
   four real BullMQ Workers.
+- [x] Run the third independent read-only P05 Review on `87e0db0`; close its 1 Blocking and 3 Major
+  findings by projecting policy authority from real execution-readiness facts, preserving exact
+  Process Variant shape, removing identifier-bearing failure refs from Result identity and
+  failing closed on absent context/risk.
+- [x] Prove five production Fact Reader/Episode Builder holdouts in the real
+  P03→P04→P02→P05 PostgreSQL chain; aggregate integration rerun passed 109/109.
 - [ ] Obtain the independent read-only re-review with zero Blocking/Major.
 - [ ] Run all required focused/full gates and preserve first failures/reruns.
 - [ ] Publish P05 evidence, traceability/status/changelog and exact P06 Handoff.
@@ -199,6 +205,21 @@ cannot approve, activate, promote, route or execute an Artifact.
   regression: the P05 terminal immutability trigger also guarded pre-P05 rows without Dataset pins.
   Restricting the trigger to `validation_type=replay` plus non-null `dataset_version` preserved the
   frozen P02 lifecycle; the exact rerun passed 109/109.
+- The third independent Review found that production `OutcomeDecision` has no policy-authority
+  field, failure Result identity still included identifier-bearing refs, Process Variant identity
+  sorted away order/repetition and missing context/risk defaulted optimistically. The repair reads
+  `task_execution_readiness` and `task_availability_snapshot`, hashes the same ordered activity/
+  kind/concurrency/branch shape used by P03, excludes only identity refs while retaining semantic
+  failure facts, treats absent context as `unknown` and omits an unknowable risk delta.
+- The first production-builder aggregate rerun had only the three manually seeded candidate-source
+  traces because production Episodes correctly use the trusted-intranet tenant authority while the
+  test Candidate used a synthetic tenant. Aligning the integration fixture to
+  `sdar-v1-trusted-intranet` made five independently grouped production holdouts reachable; the
+  exact rerun passed 109/109.
+- The full preflight first run preserved six Lint findings and an Architecture finding caused by a
+  PostgreSQL integration test importing BullMQ directly. Typed boundary assertions, public
+  runtime-redis queue use and PostgreSQL polling closed both; formatting, Lint, TypeScript and the
+  485-source Architecture gate now pass.
 
 ## Decision Log
 
@@ -269,9 +290,13 @@ separately classified.
 Current focused and infrastructure evidence:
 
 - P05 focused Domain/Application/PostgreSQL contract: 59/59.
+- Third-review focused replay unit regression: 42/42.
 - Complete unit/contract: 902/902 across 141 files.
 - Architecture: 483 TypeScript source files.
 - Complete formatting, Lint, TypeScript and diff checks: passed after the recorded Lint repair.
+- Production Fact Reader/Episode Builder vertical evidence: five independent holdouts, with
+  execution-readiness authority/context/risk projected into immutable Episodes; aggregate
+  integration 109/109.
 - P05 and P06 package self-checks: 25/25 each; P06 changes are dependency/Handoff alignment only.
 - Migration 0129 fresh/idempotent/rollback/reapply and rogue-ledger rejection: 22 additive
   migrations through 0129 passed.
@@ -320,6 +345,10 @@ Required machine/human evidence:
 - First independent Review: Blocking 2, Major 10, Minor 2.
 - Closure commits: `0ffe2da` (runtime, contracts, persistence and tests) and `dec89da` (named Dataset
   contract plus P06 dependency-only alignment).
+- Second independent Review: Blocking 1, Major 6; closed in `87e0db0` plus the following
+  preflight-boundary remediation.
+- Third independent Review on `87e0db0`: Blocking 1, Major 3, Minor 0. All four findings are closed
+  in the pending exact remediation commit with regression and real production-builder evidence.
 - Re-review: pending; this ExecPlan and Handoff remain `IN_PROGRESS` until it reports zero
   Blocking/Major.
 

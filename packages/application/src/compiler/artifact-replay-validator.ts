@@ -28,6 +28,7 @@ export interface HistoricalReplayOutcome {
   readonly evidenceRefs: readonly string[];
   readonly artifactRefs: readonly string[];
   readonly activityRefs: readonly string[];
+  readonly processVariantFingerprint?: string;
   readonly modelCallCount: number;
   readonly tokenInput: number;
   readonly tokenOutput: number;
@@ -107,7 +108,7 @@ export interface CounterfactualReplayEvaluation {
   readonly planEditDistance: number;
   readonly planNodeDelta: number;
   readonly criterionCoverageDelta: number;
-  readonly riskLevelDelta: number;
+  readonly riskLevelDelta?: number;
   readonly recoveryBranchDelta: number;
   readonly candidateHumanGateCount: number;
   readonly historicalHumanInteractionCount: number;
@@ -317,7 +318,7 @@ export class PlanReplayEvaluator {
 export class RuleReplayEvaluator {
   evaluate(input: RuleReplayInput): RuleReplayEvaluation {
     const authorityDecision = input.policyOverride ?? input.authorityDecision;
-    const contextStatus = input.contextStatus ?? 'known';
+    const contextStatus = input.contextStatus ?? 'unknown';
     const authorityPositive = authorityDecision === 'allow';
     const candidatePositive = input.candidateDecision === 'allow';
     const unsafeAllow =
@@ -353,8 +354,12 @@ export class CounterfactualReplayEvaluator {
       criterionCoverageDelta:
         new Set(input.candidateCriterionIds ?? []).size -
         new Set(input.historicalCriterionIds ?? []).size,
-      riskLevelDelta:
-        riskOrdinal(input.candidateRiskLevel) - riskOrdinal(input.historicalRiskLevel),
+      ...(input.candidateRiskLevel === undefined || input.historicalRiskLevel === undefined
+        ? {}
+        : {
+            riskLevelDelta:
+              riskOrdinal(input.candidateRiskLevel) - riskOrdinal(input.historicalRiskLevel),
+          }),
       recoveryBranchDelta:
         (input.candidateRecoveryBranchCount ?? 0) - (input.historicalRecoveryCount ?? 0),
       candidateHumanGateCount: input.candidatePlan.skillGoals.filter((goal) =>
@@ -489,8 +494,6 @@ export class ArtifactReplayValidationEngine {
       .map((failure) => ({
         category: failure.category,
         severity: failure.severity,
-        expectedRef: failure.expectedRef,
-        actualRef: failure.actualRef,
         explanation: failure.explanation,
       }))
       .sort(compareCanonical);
@@ -726,7 +729,8 @@ function finishEvaluation(
     ...(plan === undefined ? {} : { plan }),
     metrics,
     metricSamples,
-    variantFingerprint: hash(uniqueSorted(input.historical.activityRefs)),
+    variantFingerprint:
+      input.historical.processVariantFingerprint ?? hash(input.historical.activityRefs),
     ...(counterfactual === undefined ? {} : { counterfactual }),
     failures: Object.freeze([...failures]),
     counterexamples: Object.freeze(counterexamples),
@@ -945,8 +949,8 @@ function unexpectedBranchRateFor(
   return ratio(unexpected, definition.skillGoalGraph.nodes.length);
 }
 
-function riskOrdinal(risk: CompiledArtifact['riskLevel'] | undefined): number {
-  return risk === undefined ? 0 : ['low', 'medium', 'high', 'critical'].indexOf(risk);
+function riskOrdinal(risk: CompiledArtifact['riskLevel']): number {
+  return ['low', 'medium', 'high', 'critical'].indexOf(risk);
 }
 
 function planEditDistance(candidate: UserGoalPlan, accepted: UserGoalPlan): number {

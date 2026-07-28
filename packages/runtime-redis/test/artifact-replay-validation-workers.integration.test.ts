@@ -23,7 +23,7 @@ describe('P05 BullMQ replay-validation wake recovery', () => {
   it('rebuilds an erased Redis wake from a PostgreSQL-authoritative validation run', async () => {
     const queueName = `sdar-p05-rebuild-${String(Date.now())}`;
     const queue = new BullMqReplayValidationQueue(connection, queueName);
-    const raw = new Queue(queueName, { connection });
+    const raw = new Queue<{ readonly validationRunId: string }>(queueName, { connection });
     resources.push(raw, queue);
     await queue.enqueue('validation-run-rebuild');
     expect(await raw.getJob('validation-run-rebuild')).toBeDefined();
@@ -41,7 +41,7 @@ describe('P05 BullMQ replay-validation wake recovery', () => {
   it('deduplicates wake messages and stores only the validation run identifier', async () => {
     const queueName = `sdar-p05-deduplicate-${String(Date.now())}`;
     const queue = new BullMqReplayValidationQueue(connection, queueName);
-    const raw = new Queue(queueName, { connection });
+    const raw = new Queue<{ readonly validationRunId: string }>(queueName, { connection });
     resources.push(raw, queue);
 
     await queue.enqueue('validation-run-deduplicate');
@@ -55,7 +55,7 @@ describe('P05 BullMQ replay-validation wake recovery', () => {
   it('claims PostgreSQL work and executes the application service instead of owning results', async () => {
     const queueName = `sdar-p05-worker-${String(Date.now())}`;
     const queue = new BullMqReplayValidationQueue(connection, queueName);
-    const raw = new Queue(queueName, { connection });
+    const raw = new Queue<{ readonly validationRunId: string }>(queueName, { connection });
     const events = new QueueEvents(queueName, { connection });
     const run = runFixture('validation-run-worker', 'leased');
     const processRun = vi.fn(() => Promise.resolve());
@@ -99,7 +99,7 @@ describe('P05 BullMQ replay-validation wake recovery', () => {
   it('applies one-at-a-time worker backpressure and forwards PostgreSQL cancellation state', async () => {
     const queueName = `sdar-p05-backpressure-${String(Date.now())}`;
     const queue = new BullMqReplayValidationQueue(connection, queueName);
-    const raw = new Queue(queueName, { connection });
+    const raw = new Queue<{ readonly validationRunId: string }>(queueName, { connection });
     const events = new QueueEvents(queueName, { connection });
     const runs = Array.from({ length: 5 }, (_, index) =>
       runFixture(
