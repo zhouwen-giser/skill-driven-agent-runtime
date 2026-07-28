@@ -1,5 +1,22 @@
 # P05 Validation Metric Catalog
 
+## Executable aggregation semantics
+
+- Ratio metrics persist per-Case numerator and denominator facts. Dataset aggregation sums the
+  numerators and denominators; it never averages precomputed Case ratios.
+- `generalization_proxy` is the mean historical-outcome match across at least three independently
+  isolated promotion-holdout Cases. It is not a same-Case quality composite.
+- `variant_coverage` is covered unique accepted historical variants divided by all unique accepted
+  historical variants. A variant identity is the canonical fingerprint of its historical
+  `activityRefs`; repeated Cases do not inflate the denominator.
+- `unexpected_branch_rate` is total unexpected Candidate branches divided by total Candidate
+  branches.
+- A zero denominator follows the catalog rule `zero_when_denominator_zero`.
+- Result identity hashes the four semantic pins (`artifactHash`, `datasetHash`,
+  `validatorVersion`, `metricCatalogVersion`), aggregate metrics and semantic
+  Failure/Counterexample facts. Run, Artifact and Dataset identifiers are lineage fields, not
+  semantic hash inputs.
+
 ## 1. 结果指标
 
 ### goal_success_match

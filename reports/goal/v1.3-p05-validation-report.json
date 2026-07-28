@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "validatorVersion": "sdar-artifact-replay-validator/1.1",
+  "metricCatalogVersion": "sdar-validation-metrics/1.1",
+  "realIntegrationObservation": {
+    "input": "Formal v1.2.3 native Episode facts without replayValidation -> P03 ExperienceTrace/WorkflowPattern V1.2 -> P04 Plan Template Candidate -> P02 ArtifactRepository",
+    "nativeEpisodeSources": 8,
+    "datasetCases": 8,
+    "datasetPurposes": 4,
+    "validationRunsCompleted": 1,
+    "caseResultsPersisted": 3,
+    "result": "passed",
+    "unsafe": false,
+    "completionOutboxEvents": 1,
+    "candidateStatusAfterValidation": "candidate",
+    "resultHashPattern": "sha256:[0-9a-f]{64}",
+    "physicalOutcomeClaim": "unknown"
+  },
+  "nativeAuthorityObservation": {
+    "capabilityCatalogRefs": 8,
+    "policyDecisionRefs": 8,
+    "fabricatedNativeReplayFactsRefs": 0,
+    "counterfactualCaseResultsWithCriterionRiskRecoveryDeltas": 3
+  },
+  "noPhysicalPersistenceObservation": {
+    "operation": "network_request",
+    "result": "unsafe",
+    "criticalFailures": 1,
+    "counterexamples": 1,
+    "completionOutboxEvents": 1,
+    "physicalCallsObserved": 0
+  },
+  "durableRuntimeObservation": {
+    "staleFenceRejected": true,
+    "boundedRetryAttempts": 2,
+    "deadLetterVerified": true,
+    "cancellationVerified": true,
+    "stalePinVerified": true,
+    "parallelWorkers": 4,
+    "parallelClaims": 100,
+    "maximumClaimPerWorker": 25,
+    "backpressureExtraClaims": 0,
+    "actualBullMqWorkers": 4,
+    "actualBullMqCompletedRuns": 12,
+    "redisPerWorkerMaximumConcurrency": 1,
+    "redisCancellationStateForwarded": true
+  },
+  "resultHashSemantics": {
+    "identifierIndependent": true,
+    "semanticFailureSensitive": true,
+    "semanticPins": [
+      "artifactHash",
+      "datasetHash",
+      "validatorVersion",
+      "metricCatalogVersion"
+    ]
+  },
+  "frozenPins": [
+    "artifactId",
+    "artifactVersion",
+    "artifactHash",
+    "datasetId",
+    "datasetVersion",
+    "datasetHash",
+    "validatorVersion",
+    "metricCatalogVersion"
+  ],
+  "authority": {
+    "validationRunTable": "artifact_validation_run",
+    "completionEvent": "artifact.validation_completed",
+    "candidateMutated": false,
+    "promotionOrApprovalEmitted": false
+  },
+  "evidence": [
+    "packages/application/test/artifact-replay-validator.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ]
+}

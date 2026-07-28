@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "contract": {
+    "name": "ReplayDatasetManifest",
+    "version": "1.1",
+    "schemaHash": "132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e"
+  },
+  "splitPolicyVersion": "sdar-replay-split/1.1",
+  "purposes": [
+    "discovery",
+    "candidate_development",
+    "promotion_holdout",
+    "counterexample"
+  ],
+  "realIntegrationObservation": {
+    "sourceCases": 8,
+    "persistedCases": 8,
+    "datasetManifests": 4,
+    "distinctPurposes": 4,
+    "promotionHoldoutCaseResults": 3,
+    "sideEffectEvidenceCase": 1,
+    "directEpisodeCascadePurgedCases": 1,
+    "directEpisodeCascadeSuccessorCreated": true,
+    "tenantDeletionPurgedCases": 8,
+    "tenantDeletionTombstones": 1,
+    "datasetVersionsRetainedAfterDeletion": 10,
+    "successorDatasetVersions": 5,
+    "validationRunsRetainedAfterDeletion": 117,
+    "caseResultsRetainedAfterDeletion": 16,
+    "promotionEligibleRunsAfterDeletion": 0
+  },
+  "authority": {
+    "systemOfRecord": "PostgreSQL",
+    "tables": [
+      "artifact_replay_case",
+      "replay_dataset_manifest",
+      "replay_dataset_case"
+    ],
+    "immutableContentAndTerminalRunTriggers": true,
+    "deletionPolicy": "invalidate old Dataset/Run, create non-promotable successor Dataset version, retain terminal audit facts",
+    "redisRole": "wake-only"
+  },
+  "evidence": [
+    "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ]
+}

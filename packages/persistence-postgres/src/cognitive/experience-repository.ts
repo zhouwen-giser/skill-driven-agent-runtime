@@ -825,6 +825,12 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
        ORDER BY capability`,
       [],
     );
+    const judgmentDecision = optionalJsonObject(judgment?.['decision']);
+    const authorityDecision =
+      typeof judgmentDecision?.['authorityDecision'] === 'string' &&
+      ['allow', 'deny', 'require_confirmation'].includes(judgmentDecision['authorityDecision'])
+        ? judgmentDecision['authorityDecision']
+        : undefined;
 
     const sources: CognitiveSourceRef[] = [];
     addSource(sources, 'task_request', task, 'taskId', 'task-unknown', 1);
@@ -894,11 +900,23 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
             : [],
         ),
       },
+      worldStateSnapshot: {
+        ...(task === undefined ? {} : { task }),
+        ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
+        progress,
+      },
+      ...(authorityDecision === undefined ? {} : { policyDecisionSnapshot: { authorityDecision } }),
       ...(judgment === undefined ? {} : { userGoalJudgment: judgment }),
       ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
       sourceRefs: Object.freeze(sources),
     });
   }
+}
+
+function optionalJsonObject(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
 }
 
 async function oneJson(pool: Pool, sql: string, values: readonly unknown[]) {

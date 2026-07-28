@@ -629,3 +629,25 @@ local acceptance measurements, not production SLO claims.
 The authoritative criterion-by-criterion result is
 `reports/goal/v1.3-p04r-acceptance.json`: 47 passed, 0 failed, 0 blocked. PostgreSQL/Redis evidence
 is real; model/MCP E2E dependencies are simulated and explicitly classified.
+
+## SDAR v1.3 P05 Replay Dataset and Artifact Validation Engine Addendum
+
+| P05 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P05-001 baseline/Handoff | verified | P04R `COMPLETED`; Registry V1.2 and six consumed hashes checked; frozen P01 vocabulary deviation preserved | P05 25-file self-check; ExecPlan baseline section |
+| AC-P05-002-010 Dataset authority | verified | native frozen Episode facts; strict immutable Replay Case and four versioned purposes; tenant/goal/episode/request/near-duplicate/Environment/Device/five-minute leakage guards; deletion creates invalid successor versions and retains audits | 59/59 focused; real PostgreSQL round trip, Holdout and tenant purge |
+| AC-P05-011-015 Replay safety | verified | snapshot-only provider; isolated replay mode/IDs/queue/telemetry; eleven operations fail before boundary and real network denial persists critical `side_effect_attempt`, Counterexample and unsafe Result | Replay safety unit plus real PostgreSQL unsafe/outbox path |
+| AC-P05-016-025 replay semantics | verified | P04 static gates plus existing `validateUserGoalPlan`; criterion/evidence/artifact/policy/capability/readiness; Rule unknown/conflict/override; Counterfactual criterion/risk/recovery with physical outcome `unknown` | validator unit tests and real native-Episode Candidate replay |
+| AC-P05-026-031 metrics/evidence | verified | 29 transparent metrics execute catalog P95/min-sample rules; no opaque score; exact Case multiset; run-independent hash pins; immutable Result/Failure/Counterexample lineage | metric/validator tests and terminal DB immutability test |
+| AC-P05-032-034 durable worker | verified | P02 Validation Run authority; real idempotency/fencing/retry/dead-letter/cancel/stale pins; 4-worker/100-run bounded claims; Redis wake-only/rebuild and measured lag | migration 0129; PostgreSQL 3/3 and Redis 3/3 focused integration |
+| AC-P05-035-038 scope exclusions | verified | no Shadow, Approval, Promotion, Active Pointer, online route, Candidate mutation or Fast Gateway | architecture/contract tests and independent Review |
+| AC-P05-039 full verify | pending | exact full repository gate will run after independent Review closure | `reports/verification/summary.json` and P05 completion report |
+| AC-P05-040 reviewable commits | verified | G09/core `849019b`; G10 runtime `22b9c8d`; review closure `0ffe2da`; contract/dependency alignment `dec89da` | Git history |
+| AC-P05-041 independent Review | pending | first Review 2 Blocking/10 Major/2 Minor fully remediated; independent read-only re-review is running | `reports/goal/v1.3-p05-review.md` |
+| AC-P05-042 Draft PR | pending | branch publication follows full verify; merge/tag/deploy forbidden | P05 Handoff |
+| AC-P05-043 P06 Handoff | pending | exact immutable Validation Result/Counterexample handoff will be emitted; P06 implementation remains untouched | `reports/goal/v1.3-p05-handoff.json` |
+
+Local performance measurements are acceptance-only: Dataset construction p50/p95 is
+43.734/61.595 ms for 1,000 Cases and 477.630/535.702 ms for 10,000 Cases; Plan Replay evaluation
+p50/p95 is 0.066/0.095 ms across 2,000 Cases. Four PostgreSQL workers claimed 100 Runs in 43.385 ms
+and the BullMQ wake measurement was 18.272 ms.

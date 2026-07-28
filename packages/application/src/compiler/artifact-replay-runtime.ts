@@ -73,6 +73,9 @@ export interface ReplayValidationCaseFixture {
   readonly knownCapabilityIds: readonly string[];
   readonly readyCapabilityIds: readonly string[];
   readonly authorityDecision: ReplayAuthorityDecision;
+  readonly contextStatus?: 'known' | 'unknown' | 'conflict';
+  readonly policyOverride?: ReplayAuthorityDecision;
+  readonly historicalRiskLevel?: CompiledArtifact['riskLevel'];
   readonly historical: HistoricalReplayOutcome;
   readonly acceptedPlan?: UserGoalPlan;
   readonly replayOperations?: readonly ReplayOperation[];
@@ -244,6 +247,15 @@ export class ArtifactReplayValidationApplicationService {
             knownCapabilityIds: fixture.knownCapabilityIds,
             readyCapabilityIds: fixture.readyCapabilityIds,
             authorityDecision: fixture.authorityDecision,
+            ...(fixture.contextStatus === undefined
+              ? {}
+              : { contextStatus: fixture.contextStatus }),
+            ...(fixture.policyOverride === undefined
+              ? {}
+              : { policyOverride: fixture.policyOverride }),
+            ...(fixture.historicalRiskLevel === undefined
+              ? {}
+              : { historicalRiskLevel: fixture.historicalRiskLevel }),
             historical: fixture.historical,
             ...(fixture.acceptedPlan === undefined ? {} : { acceptedPlan: fixture.acceptedPlan }),
             evaluatedAt,

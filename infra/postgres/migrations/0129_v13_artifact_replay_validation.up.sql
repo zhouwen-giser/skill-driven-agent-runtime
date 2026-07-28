@@ -261,6 +261,11 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Rows created by the pre-P05 Artifact Authority path have no immutable Dataset pin and retain
+  -- their existing P02 lifecycle. P05 replay immutability begins only at a frozen Dataset version.
+  IF OLD.validation_type <> 'replay' OR OLD.dataset_version IS NULL THEN
+    RETURN NEW;
+  END IF;
   IF OLD.work_state IN ('completed','dead_letter','canceled')
      AND (to_jsonb(NEW) - ARRAY[
            'promotion_eligible','source_invalidated_at','source_invalidation_reason','updated_at'
@@ -300,25 +305,137 @@ CREATE TRIGGER artifact_counterexample_immutability
 BEFORE UPDATE ON artifact_counterexample
 FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
 
--- Direct source deletion invalidates promotion projections while retaining completed audit facts.
--- Application deletion paths additionally create an immutable successor Dataset version.
+-- Direct source deletion creates an immutable, non-promotable successor Dataset version before
+-- invalidating the former promotion projection. Application deletion paths use the same rule.
 CREATE FUNCTION sdar_invalidate_replay_datasets_for_case()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  affected record;
+  next_version integer;
+  successor_created_at timestamptz := clock_timestamp();
+  successor_created_at_text text;
+  remaining_case_refs jsonb;
+  remaining_source_facts jsonb;
+  successor_source_hash text;
+  successor_leakage_ref text;
+  successor_identity jsonb;
+  successor_content_hash text;
+  successor_content jsonb;
 BEGIN
-  UPDATE replay_dataset_manifest manifest
-  SET promotion_eligible=false,
-      invalidated_at=COALESCE(manifest.invalidated_at,now()),
-      invalidation_reason=COALESCE(
-        manifest.invalidation_reason,
-        'source_case_deleted'
+  successor_created_at_text :=
+    to_char(successor_created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+
+  FOR affected IN
+    SELECT manifest.*
+    FROM replay_dataset_manifest manifest
+    JOIN replay_dataset_case member
+      ON member.dataset_id=manifest.dataset_id
+     AND member.dataset_version=manifest.dataset_version
+    WHERE member.replay_case_id=OLD.replay_case_id
+      AND manifest.promotion_eligible=true
+    ORDER BY manifest.dataset_id,manifest.dataset_version
+    FOR UPDATE OF manifest
+  LOOP
+    SELECT COALESCE(MAX(manifest.dataset_version),0)::integer + 1
+    INTO next_version
+    FROM replay_dataset_manifest manifest
+    WHERE manifest.dataset_id=affected.dataset_id;
+
+    SELECT
+      COALESCE(
+        jsonb_agg(member.replay_case_id ORDER BY member.ordinal)
+          FILTER (WHERE member.replay_case_id<>OLD.replay_case_id),
+        '[]'::jsonb
+      ),
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'replayCaseId',member.replay_case_id,
+            'contentHash',replay.content_hash
+          )
+          ORDER BY member.ordinal
+        ) FILTER (WHERE member.replay_case_id<>OLD.replay_case_id),
+        '[]'::jsonb
       )
-  FROM replay_dataset_case member
-  WHERE member.replay_case_id=OLD.replay_case_id
-    AND manifest.dataset_id=member.dataset_id
-    AND manifest.dataset_version=member.dataset_version
-    AND manifest.promotion_eligible=true;
+    INTO remaining_case_refs,remaining_source_facts
+    FROM replay_dataset_case member
+    JOIN artifact_replay_case replay ON replay.replay_case_id=member.replay_case_id
+    WHERE member.dataset_id=affected.dataset_id
+      AND member.dataset_version=affected.dataset_version;
+
+    successor_source_hash :=
+      'sha256:' || encode(sha256(convert_to(remaining_source_facts::text,'UTF8')),'hex');
+    successor_leakage_ref :=
+      'replay-leakage-' ||
+      substr(
+        encode(
+          sha256(
+            convert_to(
+              affected.dataset_id || ':' || next_version::text || ':' || successor_source_hash,
+              'UTF8'
+            )
+          ),
+          'hex'
+        ),
+        1,
+        32
+      );
+    successor_identity := jsonb_build_object(
+      'datasetVersion',next_version,
+      'purpose',affected.purpose,
+      'tenantId',affected.tenant_id,
+      'taskTypeIds',affected.content->'taskTypeIds',
+      'caseRefs',remaining_case_refs,
+      'splitPolicyVersion',affected.content->>'splitPolicyVersion',
+      'sourceRange',affected.content->'sourceRange',
+      'sourceHash',successor_source_hash,
+      'leakageCheckRef',successor_leakage_ref,
+      'createdAt',successor_created_at_text
+    );
+    successor_content_hash :=
+      'sha256:' || encode(sha256(convert_to(successor_identity::text,'UTF8')),'hex');
+    successor_content :=
+      jsonb_build_object('datasetId',affected.dataset_id) ||
+      successor_identity ||
+      jsonb_build_object('contentHash',successor_content_hash);
+
+    INSERT INTO replay_dataset_manifest(
+      dataset_id,dataset_version,purpose,tenant_id,content,source_hash,content_hash,
+      leakage_check_ref,promotion_eligible,invalidated_at,invalidation_reason,created_at
+    )
+    VALUES(
+      affected.dataset_id,next_version,affected.purpose,affected.tenant_id,
+      successor_content,successor_source_hash,successor_content_hash,
+      successor_leakage_ref,false,successor_created_at,
+      'source_case_deleted:requires_resplit',successor_created_at
+    );
+
+    INSERT INTO replay_dataset_case(dataset_id,dataset_version,replay_case_id,ordinal)
+    SELECT
+      affected.dataset_id,
+      next_version,
+      member.replay_case_id,
+      row_number() OVER(ORDER BY member.ordinal)::integer - 1
+    FROM replay_dataset_case member
+    WHERE member.dataset_id=affected.dataset_id
+      AND member.dataset_version=affected.dataset_version
+      AND member.replay_case_id<>OLD.replay_case_id
+    ORDER BY member.ordinal;
+
+    UPDATE replay_dataset_manifest manifest
+    SET promotion_eligible=false,
+        invalidated_at=COALESCE(manifest.invalidated_at,successor_created_at),
+        invalidation_reason=COALESCE(
+          manifest.invalidation_reason,
+          'source_case_deleted'
+        ),
+        successor_dataset_id=affected.dataset_id,
+        successor_dataset_version=next_version
+    WHERE manifest.dataset_id=affected.dataset_id
+      AND manifest.dataset_version=affected.dataset_version;
+  END LOOP;
 
   UPDATE artifact_validation_run run
   SET promotion_eligible=false,

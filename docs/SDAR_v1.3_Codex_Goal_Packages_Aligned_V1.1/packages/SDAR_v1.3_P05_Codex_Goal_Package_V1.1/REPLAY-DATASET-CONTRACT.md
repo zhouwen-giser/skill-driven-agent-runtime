@@ -6,7 +6,7 @@
 
 ## Snapshot source
 
-A Case is derived only from a frozen `GoalExperienceEpisode` and its linked `ExperienceTrace`. The Episode must preserve the Goal Contract, accepted Plan revision, capability-catalog/readiness snapshot, parameters, policy decision, execution facts and terminal outcome. Current mutable runtime state must never fill a missing historical field.
+A Case is derived only from a frozen `GoalExperienceEpisode` and its linked `ExperienceTrace`. The Episode must preserve the Goal Contract, accepted Plan revision, capability-catalog/readiness snapshot, parameters, policy decision, execution facts and terminal outcome. Catalog membership and readiness are read only from `capabilityCatalogSnapshot`; policy authority is read only from `policyDecisionSnapshot`. Plans, Skill Goals, Attempts and successful outcomes may not fabricate those authorities. A missing authoritative ref excludes the source instead of allowing current mutable runtime state to fill history.
 
 ## Split policy
 
@@ -17,11 +17,11 @@ The builder creates the four named purposes:
 - `promotion_holdout`
 - `counterexample`
 
-Grouping is transitive and indivisible across Goal lineage, Episode and revision, accepted Plan revision, outcome, exact request, near duplicate, synthetic seed, Environment, Device and five-minute Time Window. Candidate source traces and incomplete snapshots cannot enter `promotion_holdout`. Promotion holdout requires at least three independent groups.
+Grouping is transitive and indivisible across Goal lineage, Episode and revision, accepted Plan revision, outcome, exact request, near duplicate and synthetic seed. Environment, Device and five-minute Time Window are three independent isolation axes: equality on any one axis keeps the Cases in one connected split component. Candidate source traces and incomplete snapshots cannot enter `promotion_holdout`. Promotion holdout requires at least three independent groups.
 
 ## Deletion and retention
 
-Removing a source Case invalidates every affected Dataset and Validation Run for promotion. Completed Result, Failure and Counterexample facts remain immutable audit evidence. The deletion path creates a new immutable Dataset version containing only retained Case references; that successor remains non-promotable until a full split and leakage check is rebuilt.
+Removing a source Case, including an `ON DELETE CASCADE` from its source Episode, invalidates every affected Dataset and Validation Run for promotion. The PostgreSQL trigger creates a new immutable Dataset version containing only retained Case references before the Case is removed. Completed Result, Failure and Counterexample facts remain immutable audit evidence. The successor remains non-promotable until a full split and leakage check is rebuilt.
 
 ## Safety
 

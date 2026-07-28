@@ -1,5 +1,22 @@
 # Project Status
 
+SDAR v1.3 P05/G09-G10 Replay Dataset and Artifact Validation Engine is in re-review (2026-07-29) on
+`feature/v1.3-sequential-implementation` from P04R closure `b28b183`. The strict six-contract
+Domain, four-way immutable Dataset/leakage builder, snapshot-only No-Physical boundary,
+Plan/Rule/Counterfactual evaluators, transparent 29-metric catalog, migration 0129 PostgreSQL
+authority, wake-only BullMQ worker and Server composition are committed as `849019b`, `22b9c8d`,
+`0ffe2da` and `dec89da`. The real native Formal Episode (without test-only `replayValidation`) ->
+P03 Trace/Pattern -> P04 Candidate -> P02 ArtifactRepository -> P05 Replay Validation chain passes
+with 8 Cases, 4 Dataset purposes and 3 independent Holdout results. A real denied network operation
+persists `unsafe`, a critical Failure, Counterexample and canonical `artifact.validation_completed`
+while Candidate state stays unchanged. Focused tests pass 59/59; P05 PostgreSQL and Redis suites
+pass 3/3 each; 22 migrations through 0129 pass fresh/idempotent/rollback/reapply. Deletion now
+retains terminal validation evidence, invalidates promotion eligibility and creates successor
+Dataset versions. Four PostgreSQL workers claimed 100 bounded Runs in 43.385 ms and Redis wake lag
+measured 18.272 ms. The first independent Review's 2 Blocking, 10 Major and 2 Minor findings are
+closed; independent re-review, final full verification, evidence/Handoff and Draft-PR publication
+remain before `COMPLETED`. P06 implementation has not started.
+
 SDAR v1.3 P04R mandatory remediation is `COMPLETED` (2026-07-28) on
 `feature/v1.3-sequential-implementation`. Activity Identity V1.2 now separates lifecycle facts from
 traceable workflow activities; P03 preserves repetitions, self-loops, parallel/branch/recovery

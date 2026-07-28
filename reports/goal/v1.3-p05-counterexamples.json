@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "contract": {
+    "name": "ArtifactCounterexample",
+    "version": "1.1",
+    "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3"
+  },
+  "realPassingRun": {
+    "counterexamples": 0,
+    "reason": "the independent promotion-holdout Case passed"
+  },
+  "negativeRegressionEvidence": [
+    {
+      "condition": "missing parameter plus capability/readiness gaps",
+      "failureCategories": [
+        "capability_gap",
+        "plan_invalid",
+        "readiness_gap"
+      ],
+      "counterexamples": 3
+    },
+    {
+      "condition": "authority deny with Candidate allow",
+      "failureCategory": "unsafe_allow",
+      "severity": "critical",
+      "counterexamples": 1,
+      "result": "unsafe"
+    },
+    {
+      "condition": "NoPhysical Provider denied a network request before the adapter boundary",
+      "failureCategory": "side_effect_attempt",
+      "severity": "critical",
+      "counterexamples": 1,
+      "result": "unsafe",
+      "persistence": "real PostgreSQL"
+    }
+  ],
+  "lineageFields": [
+    "artifactRef",
+    "replayCaseRef",
+    "failureRef",
+    "conditionFingerprint",
+    "sourceRefs"
+  ],
+  "evidence": [
+    "packages/application/test/artifact-replay-validator.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts",
+    "packages/domain/test/artifact-replay-validation.unit.test.ts"
+  ]
+}

@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P05 Replay Dataset and Artifact Validation Engine
+
+- Added strict immutable V1.1 contracts for Replay Cases, Dataset manifests, Validation Runs,
+  Results, Failures and Counterexamples with the frozen Registry hashes.
+- Added deterministic four-purpose Dataset construction, snapshot completeness and group/time/
+  near-duplicate/Candidate-source leakage guards plus tenant deletion and bounded retention.
+- Added a fail-closed snapshot-only Replay provider that rejects credentials, network, MCP,
+  Provider, device, external writes and formal runtime mutations before a physical boundary.
+- Added Plan Replay through the existing `validateUserGoalPlan`, Rule and Counterfactual evaluators,
+  a transparent 29-metric catalog, immutable result pins and reproducible result hashing.
+- Extended P02's canonical `artifact_validation_run` through migration 0129 and added durable
+  Case/Dataset/Result/Failure/Counterexample children, lease fencing, bounded retry, cancellation,
+  stale-pin rejection and completion Outbox without changing Candidate lifecycle state.
+- Added wake-only BullMQ dispatch/reconciliation and Server composition. Real PostgreSQL/Redis
+  integration covers the Formal P03 -> P04 -> P02 -> P05 chain, Redis loss/rebuild/deduplication
+  and tenant deletion propagation.
+- Added reproducible 1k/10k Dataset and 2k Replay performance measurements. P05 does not implement
+  Shadow, Approval, Promotion, activation, Fast Gateway or P06 behavior.
+- Closed the independent Review findings by deriving Replay fixtures from native frozen Episode
+  facts, connecting NoPhysical denial to persisted unsafe Result/Failure/Counterexample evidence,
+  emitting `artifact.validation_completed`, and executing Metric Catalog aggregation/minimum-sample
+  rules with run-independent Result hashes.
+- Replaced destructive source-deletion cascades with Dataset/Run invalidation, immutable successor
+  Dataset versions and retained terminal audit facts; added database protection for terminal Runs.
+- Added exact Case alignment, Environment/Device/five-minute split grouping, Rule unknown/conflict/
+  policy override and Counterfactual criterion/risk/recovery deltas.
+- Added real PostgreSQL fencing, retry/dead-letter, cancellation, stale-pin, four-worker bounded
+  throughput/backpressure tests and measured BullMQ queue lag. P06 changes remain dependency and
+  immutable-Handoff alignment only.
+
 ## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation
 
 - Upgraded Activity Identity, Trace Event, Process Variant and Workflow Pattern contracts to V1.2,

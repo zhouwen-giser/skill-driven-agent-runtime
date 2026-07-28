@@ -79,6 +79,9 @@ const ReplaySnapshotSchema = z
     knownCapabilityIds: StringListSchema,
     readyCapabilityIds: StringListSchema,
     authorityDecision: z.enum(['allow', 'deny', 'require_confirmation']),
+    contextStatus: z.enum(['known', 'unknown', 'conflict']).optional(),
+    policyOverride: z.enum(['allow', 'deny', 'require_confirmation']).optional(),
+    historicalRiskLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     historical: HistoricalSchema,
     acceptedPlan: z.unknown().optional(),
     worldState: z.unknown().optional(),
@@ -95,6 +98,9 @@ const StoredFixtureSchema = z
     knownCapabilityIds: StringListSchema,
     readyCapabilityIds: StringListSchema,
     authorityDecision: z.enum(['allow', 'deny', 'require_confirmation']),
+    contextStatus: z.enum(['known', 'unknown', 'conflict']).optional(),
+    policyOverride: z.enum(['allow', 'deny', 'require_confirmation']).optional(),
+    historicalRiskLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     historical: HistoricalSchema,
     acceptedPlan: z.unknown().optional(),
     replayOperations: z.array(ReplayOperationSchema).max(4_096).optional(),
@@ -1015,19 +1021,35 @@ function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayVali
     requestSnapshotRef: `${row.source_episode_id}:snapshot:task`,
     requestFingerprint,
     nearDuplicateFingerprint: hash(normalizedText(task['requestText'])),
-    goalContractSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.goalContract`,
-    capabilityCatalogSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.knownCapabilityIds`,
-    ...(replay.worldState === undefined
+    ...(replayInput.refs.goalContract === undefined
       ? {}
       : {
-          worldStateSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.worldState`,
+          goalContractSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.goalContract}`,
         }),
-    policySnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.authorityDecision`,
-    readinessSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.readyCapabilityIds`,
-    ...(acceptedPlan === undefined
+    ...(replayInput.refs.capabilityCatalog === undefined
       ? {}
       : {
-          acceptedPlanSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.acceptedPlan`,
+          capabilityCatalogSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.capabilityCatalog}`,
+        }),
+    ...(replayInput.refs.worldState === undefined
+      ? {}
+      : {
+          worldStateSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.worldState}`,
+        }),
+    ...(replayInput.refs.policy === undefined
+      ? {}
+      : {
+          policySnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.policy}`,
+        }),
+    ...(replayInput.refs.readiness === undefined
+      ? {}
+      : {
+          readinessSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.readiness}`,
+        }),
+    ...(acceptedPlan === undefined || replayInput.refs.acceptedPlan === undefined
+      ? {}
+      : {
+          acceptedPlanSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refs.acceptedPlan}`,
           acceptedPlanRevisionRef: `${acceptedPlan.planId}:r${String(acceptedPlan.revision)}`,
         }),
     executionTraceSnapshotRef: `${row.trace_id}:snapshot`,
@@ -1055,6 +1077,11 @@ function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayVali
     knownCapabilityIds: Object.freeze([...new Set(replay.knownCapabilityIds)].sort()),
     readyCapabilityIds: Object.freeze([...new Set(replay.readyCapabilityIds)].sort()),
     authorityDecision: replay.authorityDecision,
+    ...(replay.contextStatus === undefined ? {} : { contextStatus: replay.contextStatus }),
+    ...(replay.policyOverride === undefined ? {} : { policyOverride: replay.policyOverride }),
+    ...(replay.historicalRiskLevel === undefined
+      ? {}
+      : { historicalRiskLevel: replay.historicalRiskLevel }),
     historical,
     ...(acceptedPlan === undefined ? {} : { acceptedPlan }),
     ...(replay.replayOperations === undefined
@@ -1069,12 +1096,29 @@ function replaySnapshotFromEpisode(
   trace: z.infer<typeof ReplayTraceSchema>,
 ): Readonly<{
   snapshot: z.infer<typeof ReplaySnapshotSchema>;
-  refRoot: 'replayValidation' | 'nativeReplayFacts';
+  refs: Readonly<{
+    goalContract?: string;
+    capabilityCatalog?: string;
+    worldState?: string;
+    policy?: string;
+    readiness?: string;
+    acceptedPlan?: string;
+  }>;
 }> {
   if (episode['replayValidation'] !== undefined) {
+    const snapshot = ReplaySnapshotSchema.parse(episode['replayValidation']);
     return Object.freeze({
-      snapshot: ReplaySnapshotSchema.parse(episode['replayValidation']),
-      refRoot: 'replayValidation',
+      snapshot,
+      refs: Object.freeze({
+        goalContract: 'replayValidation.goalContract',
+        capabilityCatalog: 'replayValidation.knownCapabilityIds',
+        ...(snapshot.worldState === undefined ? {} : { worldState: 'replayValidation.worldState' }),
+        policy: 'replayValidation.authorityDecision',
+        readiness: 'replayValidation.readyCapabilityIds',
+        ...(snapshot.acceptedPlan === undefined
+          ? {}
+          : { acceptedPlan: 'replayValidation.acceptedPlan' }),
+      }),
     });
   }
 
@@ -1089,14 +1133,33 @@ function replaySnapshotFromEpisode(
   const planRevisions = recordList(episode['planRevisions']);
   const currentPlan = optionalRecord(episode['currentPlan']) ?? planRevisions.at(-1);
   const acceptedPlan = currentPlan?.['plan'];
-  if (acceptedPlan === undefined) {
-    throw new Error('ARTIFACT_REPLAY_NATIVE_ACCEPTED_PLAN_MISSING');
-  }
-  const plan = record(acceptedPlan, 'ARTIFACT_REPLAY_NATIVE_ACCEPTED_PLAN_INVALID');
-  const skillGoals = recordList(plan['skillGoals']);
+  const plan =
+    acceptedPlan === undefined
+      ? undefined
+      : record(acceptedPlan, 'ARTIFACT_REPLAY_NATIVE_ACCEPTED_PLAN_INVALID');
+  const skillGoals = recordList(plan?.['skillGoals']);
   const attempts = recordList(episode['attempts']);
   const recovery = recordList(episode['recovery']);
   const capabilityCatalog = optionalRecord(episode['capabilityCatalogSnapshot']);
+  const policyDecision = optionalRecord(episode['policyDecisionSnapshot']);
+  const worldState = episode['worldStateSnapshot'];
+  const catalogKnown = stringListValue(capabilityCatalog?.['knownCapabilityIds']);
+  const catalogReady = stringListValue(capabilityCatalog?.['readyCapabilityIds']);
+  const authorityDecision = policyDecision?.['authorityDecision'];
+  const policyAvailable =
+    typeof authorityDecision === 'string' &&
+    ['allow', 'deny', 'require_confirmation'].includes(authorityDecision);
+  const contextStatus = policyDecision?.['contextStatus'];
+  const validContextStatus =
+    typeof contextStatus === 'string' && ['known', 'unknown', 'conflict'].includes(contextStatus);
+  const policyOverride = policyDecision?.['policyOverride'];
+  const validPolicyOverride =
+    typeof policyOverride === 'string' &&
+    ['allow', 'deny', 'require_confirmation'].includes(policyOverride);
+  const historicalRiskLevel = policyDecision?.['historicalRiskLevel'];
+  const validHistoricalRiskLevel =
+    typeof historicalRiskLevel === 'string' &&
+    ['low', 'medium', 'high', 'critical'].includes(historicalRiskLevel);
   const successfulAttemptStatuses = new Set(['completed', 'achieved', 'succeeded']);
   const successfulSkillGoalIds = new Set(
     attempts.flatMap((attempt) =>
@@ -1105,32 +1168,15 @@ function replaySnapshotFromEpisode(
         : [],
     ),
   );
-  const capabilityRefsByGoal = new Map(
-    skillGoals.flatMap((goal) => {
-      const skillGoalId = stringValue(goal['skillGoalId']);
-      return skillGoalId.length === 0
-        ? []
-        : [[skillGoalId, stringListValue(goal['capabilityNeeds'])] as const];
-    }),
-  );
-  const knownCapabilityIds = uniqueSorted([
-    ...skillGoals.flatMap((goal) => stringListValue(goal['capabilityNeeds'])),
-    ...recovery.flatMap((item) =>
-      stringListValue(item['required_capabilities'] ?? item['requiredCapabilities']),
-    ),
-    ...stringListValue(capabilityCatalog?.['knownCapabilityIds']),
-  ]);
-  const readyCapabilityIds = uniqueSorted([
-    ...stringListValue(capabilityCatalog?.['readyCapabilityIds']),
-    ...attempts.flatMap((attempt) =>
+  const successfulCapabilityIds = new Set(
+    attempts.flatMap((attempt) =>
       successfulAttemptStatuses.has(stringValue(attempt['status']))
         ? stringListValue(attempt['capability_refs'])
         : [],
     ),
-    ...[...successfulSkillGoalIds].flatMap(
-      (skillGoalId) => capabilityRefsByGoal.get(skillGoalId) ?? [],
-    ),
-  ]);
+  );
+  const knownCapabilityIds = uniqueSorted(catalogKnown);
+  const readyCapabilityIds = uniqueSorted(catalogReady);
   const parameterValues: Record<string, unknown> = {};
   for (const attempt of attempts) {
     const attemptPayload = optionalRecord(attempt['attempt_json']);
@@ -1150,12 +1196,11 @@ function replaySnapshotFromEpisode(
     terminalStatus.length > 0
       ? ['achieved', 'completed', 'succeeded'].includes(terminalStatus)
       : trace.outcomeStatus === 'succeeded';
-  const readyCapabilitySet = new Set(readyCapabilityIds);
   const achievedGoals = skillGoals.filter(
     (goal) =>
       successfulSkillGoalIds.has(stringValue(goal['skillGoalId'])) ||
       stringListValue(goal['capabilityNeeds']).some((capabilityId) =>
-        readyCapabilitySet.has(capabilityId),
+        successfulCapabilityIds.has(capabilityId),
       ),
   );
   const progress = recordList(episode['progress']);
@@ -1180,7 +1225,10 @@ function replaySnapshotFromEpisode(
     parameterValues,
     knownCapabilityIds,
     readyCapabilityIds,
-    authorityDecision: succeeded ? 'allow' : 'deny',
+    authorityDecision: policyAvailable ? authorityDecision : 'deny',
+    ...(validContextStatus ? { contextStatus } : {}),
+    ...(validPolicyOverride ? { policyOverride } : {}),
+    ...(validHistoricalRiskLevel ? { historicalRiskLevel } : {}),
     historical: {
       succeeded,
       evidenceRefs: uniqueSorted([
@@ -1213,16 +1261,26 @@ function replaySnapshotFromEpisode(
       userPatchCount: Math.max(0, planRevisions.length - 1),
       planningLatencyMs,
     },
-    acceptedPlan,
-    worldState: {
-      task: task ?? {},
-      terminalOutcome: terminal ?? {},
-      progress,
-    },
+    ...(acceptedPlan === undefined ? {} : { acceptedPlan }),
+    ...(worldState === undefined ? {} : { worldState }),
     counterexample: !succeeded || trace.outcomeStatus === 'failed',
     ...(replayOperations.length === 0 ? {} : { replayOperations }),
   });
-  return Object.freeze({ snapshot, refRoot: 'nativeReplayFacts' });
+  return Object.freeze({
+    snapshot,
+    refs: Object.freeze({
+      goalContract: 'contract.contract',
+      ...(capabilityCatalog === undefined || !Array.isArray(capabilityCatalog['knownCapabilityIds'])
+        ? {}
+        : { capabilityCatalog: 'capabilityCatalogSnapshot.knownCapabilityIds' }),
+      ...(worldState === undefined ? {} : { worldState: 'worldStateSnapshot' }),
+      ...(policyAvailable ? { policy: 'policyDecisionSnapshot.authorityDecision' } : {}),
+      ...(capabilityCatalog === undefined || !Array.isArray(capabilityCatalog['readyCapabilityIds'])
+        ? {}
+        : { readiness: 'capabilityCatalogSnapshot.readyCapabilityIds' }),
+      ...(acceptedPlan === undefined ? {} : { acceptedPlan: 'currentPlan.plan' }),
+    }),
+  });
 }
 
 type UserGoalCompletionContractInput = Parameters<typeof createUserGoalCompletionContract>[0];
@@ -1243,6 +1301,11 @@ function parseFixture(value: unknown): ReplayValidationCaseFixture {
     knownCapabilityIds: Object.freeze([...new Set(fixture.knownCapabilityIds)].sort()),
     readyCapabilityIds: Object.freeze([...new Set(fixture.readyCapabilityIds)].sort()),
     authorityDecision: fixture.authorityDecision,
+    ...(fixture.contextStatus === undefined ? {} : { contextStatus: fixture.contextStatus }),
+    ...(fixture.policyOverride === undefined ? {} : { policyOverride: fixture.policyOverride }),
+    ...(fixture.historicalRiskLevel === undefined
+      ? {}
+      : { historicalRiskLevel: fixture.historicalRiskLevel }),
     historical: Object.freeze({
       ...fixture.historical,
       activityRefs: Object.freeze(fixture.historical.activityRefs ?? []),

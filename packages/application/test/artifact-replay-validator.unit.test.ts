@@ -264,6 +264,25 @@ describe('P05 Artifact replay validator', () => {
     expect(counterfactual).not.toHaveProperty('wouldHaveSucceeded');
   });
 
+  it('carries rule context and counterfactual deltas through the durable Case evaluation', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(
+      input({
+        contextStatus: 'conflict',
+        policyOverride: 'deny',
+        historicalRiskLevel: 'low',
+      }),
+    );
+    expect(evaluation.failures).toEqual([
+      expect.objectContaining({ category: 'unsafe_allow', severity: 'critical' }),
+    ]);
+    expect(evaluation.counterfactual).toMatchObject({
+      criterionCoverageDelta: 1,
+      riskLevelDelta: 1,
+      recoveryBranchDelta: 0,
+      physicalOutcomeClaim: 'unknown',
+    });
+  });
+
   it('aggregates immutable deterministic result pins without approval or promotion output', () => {
     const evaluation = new PlanReplayEvaluator().evaluate(input());
     const engine = new ArtifactReplayValidationEngine();
@@ -291,6 +310,65 @@ describe('P05 Artifact replay validator', () => {
     expect(first.result.validationRunId).not.toBe(second.result.validationRunId);
     expect(first.result).not.toHaveProperty('approved');
     expect(first.result).not.toHaveProperty('activated');
+  });
+
+  it('hashes frozen semantic pins rather than Artifact or Dataset identifiers', () => {
+    const firstEvaluation = new PlanReplayEvaluator().evaluate(input());
+    const renamedArtifact = { ...artifact(), artifactId: 'artifact-p05-renamed' };
+    const secondEvaluation = new PlanReplayEvaluator().evaluate(
+      input({
+        artifact: renamedArtifact,
+        staticValidation: {
+          ...staticValidation(),
+          artifactRef: renamedArtifact.artifactId,
+        },
+      }),
+    );
+    const engine = new ArtifactReplayValidationEngine();
+    const first = engine.validate({
+      validationRunId: 'validation-run-p05',
+      artifact: artifact(),
+      dataset: dataset(),
+      evaluations: [firstEvaluation],
+      completedAt: at,
+    });
+    const second = engine.validate({
+      validationRunId: 'validation-run-p05-renamed',
+      artifact: renamedArtifact,
+      dataset: { ...dataset(), datasetId: 'dataset-p05-renamed' },
+      evaluations: [secondEvaluation],
+      completedAt: at,
+    });
+    expect(second.result.artifactRef).not.toBe(first.result.artifactRef);
+    expect(second.result.datasetRef).not.toBe(first.result.datasetRef);
+    expect(second.result.resultHash).toBe(first.result.resultHash);
+  });
+
+  it('changes resultHash when semantic failure facts change', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(input({ authorityDecision: 'deny' }));
+    const changed = {
+      ...evaluation,
+      failures: evaluation.failures.map((failure) => ({
+        ...failure,
+        explanation: `${failure.explanation} Additional semantic boundary.`,
+      })),
+    };
+    const engine = new ArtifactReplayValidationEngine();
+    const first = engine.validate({
+      validationRunId: 'validation-run-p05',
+      artifact: artifact(),
+      dataset: dataset(),
+      evaluations: [evaluation],
+      completedAt: at,
+    });
+    const second = engine.validate({
+      validationRunId: 'validation-run-p05-changed-failure',
+      artifact: artifact(),
+      dataset: dataset(),
+      evaluations: [changed],
+      completedAt: at,
+    });
+    expect(second.result.resultHash).not.toBe(first.result.resultHash);
   });
 
   it('aggregates unsafe decisions as unsafe and records deterministic counterexamples', () => {
@@ -369,7 +447,35 @@ describe('P05 Artifact replay validator', () => {
     expect(insufficient.result.metrics['generalization_proxy']).toBeUndefined();
   });
 
-  it('computes branch precision and generalization from observed activities', () => {
+  it('aggregates ratio metrics from numerator and denominator facts', () => {
+    const first = new PlanReplayEvaluator().evaluate(input());
+    const second = new PlanReplayEvaluator().evaluate(
+      input({ replayCase: { ...replayCase(), replayCaseId: 'replay-case-p05-second' } }),
+    );
+    const weighted = {
+      ...first,
+      metrics: { ...first.metrics, criterion_coverage: 0.5, variant_coverage: 0 },
+      metricSamples: {
+        ...first.metricSamples,
+        criterion_coverage: { numerator: 1, denominator: 2 },
+        variant_coverage: { numerator: 0, denominator: 1 },
+      },
+    };
+    const output = new ArtifactReplayValidationEngine().validate({
+      validationRunId: 'validation-run-p05-weighted-ratios',
+      artifact: artifact(),
+      dataset: {
+        ...dataset(),
+        caseRefs: [weighted.replayCaseRef, second.replayCaseRef],
+      },
+      evaluations: [weighted, second],
+      completedAt: at,
+    });
+    expect(output.result.metrics['criterion_coverage']).toBe(0.666667);
+    expect(output.result.metrics['variant_coverage']).toBe(1);
+  });
+
+  it('computes branch precision and holdout generalization from observed outcomes', () => {
     const evaluation = new PlanReplayEvaluator().evaluate(
       input({
         historical: {
@@ -383,9 +489,7 @@ describe('P05 Artifact replay validator', () => {
       precision_proxy: 0.5,
       unexpected_branch_rate: 0.5,
     });
-    expect(evaluation.metrics['generalization_proxy']).not.toBe(
-      Number(evaluation.candidateAccepted),
-    );
+    expect(evaluation.metrics['generalization_proxy']).toBe(1);
   });
 });
 

@@ -318,6 +318,35 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - G17 does not add external authentication or tenant authorization. Trusted-intranet warnings remain
   release requirements.
 
+## v1.3 P05 bootstrap and Replay validation boundary (2026-07-28)
+
+- The frozen P01 implementation Handoff records `READY_FULL` with 9/9 acceptance and no blockers,
+  while aligned downstream manifests name the required predecessor state `COMPLETED`. P02–P04 have
+  already consumed this exact frozen Handoff on the sequential branch. P05 treats `READY_FULL` as
+  the accepted completed P01 delivery evidence for this branch, records the vocabulary deviation,
+  and does not rewrite P01 history or claim the literal strings match.
+- Shared Registry V1.2's declared SHA-256 is the canonical JSON hash with `registrySha256` omitted,
+  sorted keys and two-space indentation. It is intentionally not the raw registry file-byte hash.
+- P05 `FROZEN-INTERFACE-CONTRACT.md` contains one historical V1.1
+  `CandidateStaticValidationResult` paragraph. The P04R-updated manifest, CONTRACT-LOCK,
+  DEPENDENCY, Standard Handoff, Registry V1.2 and package self-check consistently require V1.2.
+  P05 consumes V1.2; the package checksum/contract alignment was repaired without changing the
+  frozen V1.2 contract.
+- P05 Replay cannot use current production state to complete an incomplete historical Case.
+  Incomplete Cases remain explicit, cannot enter promotion holdout and make validation
+  `needs_more_data` when required evidence is unavailable.
+- P05 produces immutable validation evidence only. It does not invoke the P02 method that couples
+  completion to Artifact lifecycle/promotion-ready behavior; ADR-121 defines the P05-specific
+  terminal transaction on the same canonical `artifact_validation_run` authority.
+- P05 freezes the Capability Catalog/readiness snapshot when the formal Episode is built. Replay
+  reads that Episode snapshot and does not substitute the current Catalog. Historical Episodes that
+  predate this snapshot remain incomplete and cannot enter promotion Holdout.
+- Source deletion creates a non-promotable successor Dataset version and retains completed
+  Validation Result/Failure/Counterexample facts as compliance evidence. A full rebuilt split is
+  required before any successor can become promotion eligible.
+- P05 throughput and queue-lag numbers are local acceptance measurements only, not production SLOs;
+  P13 must repeat capacity, soak and fault-injection measurements in the release environment.
+
 ## v1.3 P01 Runtime Artifact Domain boundary (2026-07-26)
 
 - The frozen P01 registry fixes all top-level fields but does not separately freeze every nested

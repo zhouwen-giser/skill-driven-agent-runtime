@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "contract": {
+    "name": "ArtifactReplayCase",
+    "version": "1.1",
+    "schemaHash": "ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f",
+    "fields": [
+      "replayCaseId",
+      "tenantId",
+      "requestSnapshotRef",
+      "goalContractSnapshotRef",
+      "capabilityCatalogSnapshotRef",
+      "worldStateSnapshotRef",
+      "policySnapshotRef",
+      "readinessSnapshotRef",
+      "acceptedPlanSnapshotRef",
+      "executionTraceSnapshotRef",
+      "outcomeSnapshotRef",
+      "correctionRefs",
+      "environmentClass",
+      "deviceClass",
+      "taskTypeId",
+      "sourceEpisodeRefs",
+      "goalLineageHash",
+      "snapshotCompleteness",
+      "contentHash"
+    ]
+  },
+  "builderVersion": "sdar-replay-case-builder/1.1",
+  "nativeSource": {
+    "requiredInjectedReplayValidationField": false,
+    "facts": [
+      "contract",
+      "currentPlan",
+      "attempts",
+      "capabilityCatalogSnapshot",
+      "policyDecisionSnapshot",
+      "worldStateSnapshot",
+      "terminalOutcome",
+      "ExperienceTrace"
+    ],
+    "realIntegrationEpisodeCount": 8,
+    "realCapabilityCatalogRefs": 8,
+    "realPolicyDecisionRefs": 8,
+    "fabricatedNativeReplayFactsRefs": 0
+  },
+  "requiredSnapshotCategories": [
+    "request",
+    "goal_contract",
+    "capability_catalog",
+    "world_state",
+    "policy",
+    "readiness",
+    "accepted_plan",
+    "execution_trace",
+    "outcome"
+  ],
+  "rules": {
+    "strictKeys": true,
+    "deepFrozen": true,
+    "contentHash": "canonical SHA-256 over frozen case identity",
+    "missingHistoryFilledFromCurrentState": false,
+    "incompletePromotionEligible": false,
+    "maximumRefs": 4096
+  },
+  "evidence": [
+    "packages/domain/test/artifact-replay-validation.unit.test.ts",
+    "packages/application/test/replay-dataset.unit.test.ts"
+  ]
+}

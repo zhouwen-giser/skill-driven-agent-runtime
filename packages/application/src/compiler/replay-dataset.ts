@@ -78,7 +78,9 @@ export interface ReplayLeakageIssue {
     | 'REQUEST_CROSS_SPLIT'
     | 'NEAR_DUPLICATE_CROSS_SPLIT'
     | 'SYNTHETIC_SEED_CROSS_SPLIT'
-    | 'EXECUTION_CONTEXT_WINDOW_CROSS_SPLIT'
+    | 'ENVIRONMENT_CROSS_SPLIT'
+    | 'DEVICE_CROSS_SPLIT'
+    | 'TIME_WINDOW_CROSS_SPLIT'
     | 'CANDIDATE_SOURCE_IN_HOLDOUT'
     | 'INCOMPLETE_SNAPSHOT_IN_HOLDOUT';
   readonly groupRef: string;
@@ -340,7 +342,9 @@ function groupRecords(
       ...(record.source.syntheticSeedRef === undefined
         ? []
         : [`synthetic-seed:${record.source.syntheticSeedRef}`]),
-      `execution-context:${record.source.environmentClass}:${record.source.deviceClass ?? 'none'}:${timeWindow(record.source.occurredAt)}`,
+      `environment:${record.source.environmentClass}`,
+      ...(record.source.deviceClass === undefined ? [] : [`device:${record.source.deviceClass}`]),
+      `time-window:${timeWindow(record.source.occurredAt)}`,
     ]) {
       const existing = roots.get(groupRef);
       if (existing === undefined) roots.set(groupRef, index);
@@ -497,11 +501,18 @@ function inspectLeakage(
     issues,
   );
   checkGroup(
-    'EXECUTION_CONTEXT_WINDOW_CROSS_SPLIT',
+    'ENVIRONMENT_CROSS_SPLIT',
     records,
     assignments,
-    (item) =>
-      `${item.source.environmentClass}:${item.source.deviceClass ?? 'none'}:${timeWindow(item.source.occurredAt)}`,
+    (item) => item.source.environmentClass,
+    issues,
+  );
+  checkGroup('DEVICE_CROSS_SPLIT', records, assignments, (item) => item.source.deviceClass, issues);
+  checkGroup(
+    'TIME_WINDOW_CROSS_SPLIT',
+    records,
+    assignments,
+    (item) => timeWindow(item.source.occurredAt),
     issues,
   );
   for (const record of records) {

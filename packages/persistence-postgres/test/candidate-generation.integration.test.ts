@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+import { Queue, QueueEvents } from 'bullmq';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -37,6 +38,11 @@ import {
   PostgresGoalExperienceEpisodeRepository,
   PostgresSkillRepository,
 } from '../src/index.js';
+import {
+  BullMqReplayValidationQueue,
+  BullMqReplayValidationWorker,
+  type RedisConnectionConfig,
+} from '../../runtime-redis/src/index.js';
 
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -603,6 +609,9 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_code: string | null;
       last_error_summary: string | null;
       native_episode_sources: number;
+      native_catalog_refs: number;
+      native_policy_refs: number;
+      counterfactual_results: number;
     }>(
       `SELECT
          (SELECT count(*)::integer FROM artifact_replay_case) AS cases,
@@ -628,6 +637,18 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
             AND episode.snapshot ? 'contract'
             AND episode.snapshot ? 'currentPlan'
             AND episode.snapshot ? 'capabilityCatalogSnapshot') AS native_episode_sources,
+         (SELECT count(*)::integer FROM artifact_replay_case replay
+          WHERE replay.content->>'capabilityCatalogSnapshotRef'
+            LIKE '%capabilityCatalogSnapshot.knownCapabilityIds') AS native_catalog_refs,
+         (SELECT count(*)::integer FROM artifact_replay_case replay
+          WHERE replay.content->>'policySnapshotRef'
+            LIKE '%policyDecisionSnapshot.authorityDecision') AS native_policy_refs,
+         (SELECT count(*)::integer FROM artifact_replay_case_result result
+          WHERE result.evaluation ? 'counterfactual'
+            AND result.evaluation->'counterfactual' ? 'riskLevelDelta'
+            AND result.evaluation->'counterfactual' ? 'criterionCoverageDelta'
+            AND result.evaluation->'counterfactual' ? 'recoveryBranchDelta')
+            AS counterfactual_results,
          (SELECT status FROM compiled_artifact LIMIT 1) AS candidate_status`,
     );
     if (evidence.rows[0]?.result !== 'passed') {
@@ -661,6 +682,9 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_code: null,
       last_error_summary: null,
       native_episode_sources: 8,
+      native_catalog_refs: 8,
+      native_policy_refs: 8,
+      counterfactual_results: 3,
     });
     expect(evidence.rows[0]?.result_hash).toMatch(/^sha256:[0-9a-f]{64}$/u);
 
@@ -1021,7 +1045,142 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
     );
     expect(parallelTerminal.rows[0]?.canceled).toBe(100);
 
-    await expect(replayRepository.purgeTenant(tenantId)).resolves.toBe(9);
+    const actualWorkerRunIds = Array.from(
+      { length: 12 },
+      (_, index) => `validation-run-p05-bullmq-${String(index + 1).padStart(2, '0')}`,
+    );
+    for (const validationRunId of actualWorkerRunIds) {
+      await insertReplayRun({
+        validationRunId,
+        artifactId: pin.artifact_id,
+        artifactVersion: pin.artifact_version,
+        artifactHash: pin.artifact_hash,
+        datasetId: safetyDatasetId,
+        datasetVersion: 1,
+        datasetHash: safetyDatasetHash,
+        now: '2026-07-28T05:01:09.000Z',
+        maxAttempts: 3,
+      });
+    }
+    now.value = '2026-07-28T05:01:09.000Z';
+    const redisConnection: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
+    const queueName = `sdar-p05-postgres-workers-${String(Date.now())}`;
+    const wakeQueue = new BullMqReplayValidationQueue(redisConnection, queueName);
+    const rawQueue = new Queue(queueName, { connection: redisConnection });
+    const queueEvents = new QueueEvents(queueName, { connection: redisConnection });
+    const participantIds = new Set<string>();
+    let firstClaimGateResolve: (() => void) | undefined;
+    const firstClaimGate = new Promise<void>((resolve) => {
+      firstClaimGateResolve = resolve;
+    });
+    const workerService = {
+      async claim(workerId: string, limit = 1) {
+        participantIds.add(workerId);
+        if (participantIds.size === 4) firstClaimGateResolve?.();
+        await firstClaimGate;
+        return replayService.claim(workerId, limit);
+      },
+      process: (run: Parameters<typeof replayService.process>[0], workerId: string) =>
+        replayService.process(run, workerId),
+    };
+    const actualWorkers = ['a', 'b', 'c', 'd'].map(
+      (suffix) =>
+        new BullMqReplayValidationWorker(
+          redisConnection,
+          workerService,
+          `replay-worker-p05-bullmq-${suffix}`,
+          queueName,
+        ),
+    );
+    try {
+      for (const validationRunId of actualWorkerRunIds) {
+        await wakeQueue.enqueue(validationRunId);
+      }
+      const jobs = await Promise.all(
+        actualWorkerRunIds.map((validationRunId) => rawQueue.getJob(validationRunId)),
+      );
+      if (jobs.some((job) => job === undefined)) {
+        throw new Error('P05_BULLMQ_WAKE_MISSING');
+      }
+      actualWorkers.forEach((worker) => worker.start());
+      await Promise.all(
+        jobs.map((job) => {
+          if (job === undefined) throw new Error('P05_BULLMQ_WAKE_MISSING');
+          return job.waitUntilFinished(queueEvents, 30_000);
+        }),
+      );
+    } finally {
+      await Promise.all(actualWorkers.map((worker) => worker.close()));
+      await Promise.all([queueEvents.close(), rawQueue.close(), wakeQueue.close()]);
+    }
+    const actualWorkerEvidence = await pool.query<{ completed: number }>(
+      `SELECT count(*)::integer AS completed
+       FROM artifact_validation_run
+       WHERE validation_run_id=ANY($1::text[]) AND work_state='completed'`,
+      [actualWorkerRunIds],
+    );
+    expect(participantIds.size).toBe(4);
+    expect(actualWorkerEvidence.rows[0]?.completed).toBe(12);
+    console.info(
+      JSON.stringify({
+        event: 'p05.replay_validation.actual_workers',
+        workerCount: participantIds.size,
+        completedRuns: actualWorkerEvidence.rows[0]?.completed,
+        redisAuthority: false,
+      }),
+    );
+
+    const directlyDeleted = await pool.query<{
+      replay_case_id: string;
+      dataset_id: string;
+      dataset_version: number;
+    }>(
+      `SELECT replay.replay_case_id,member.dataset_id,member.dataset_version
+       FROM artifact_replay_case replay
+       JOIN replay_dataset_case member ON member.replay_case_id=replay.replay_case_id
+       WHERE replay.primary_source_episode_id='episode-p04r-success-a'
+       LIMIT 1`,
+    );
+    const direct = directlyDeleted.rows[0];
+    if (direct === undefined) throw new Error('P05_DIRECT_CASCADE_SOURCE_MISSING');
+    await pool.query(
+      `DELETE FROM goal_experience_episode WHERE episode_id='episode-p04r-success-a'`,
+    );
+    const cascadeEvidence = await pool.query<{
+      deleted_cases: number;
+      promotion_eligible: boolean;
+      successor_dataset_id: string | null;
+      successor_dataset_version: number | null;
+      successor_eligible: boolean;
+      successor_case_refs: string[];
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM artifact_replay_case
+          WHERE replay_case_id=$1) AS deleted_cases,
+         former.promotion_eligible,
+         former.successor_dataset_id,
+         former.successor_dataset_version,
+         successor.promotion_eligible AS successor_eligible,
+         ARRAY(
+           SELECT jsonb_array_elements_text(successor.content->'caseRefs')
+         ) AS successor_case_refs
+       FROM replay_dataset_manifest former
+       JOIN replay_dataset_manifest successor
+         ON successor.dataset_id=former.successor_dataset_id
+        AND successor.dataset_version=former.successor_dataset_version
+       WHERE former.dataset_id=$2 AND former.dataset_version=$3`,
+      [direct.replay_case_id, direct.dataset_id, direct.dataset_version],
+    );
+    expect(cascadeEvidence.rows[0]).toMatchObject({
+      deleted_cases: 0,
+      promotion_eligible: false,
+      successor_dataset_id: direct.dataset_id,
+      successor_dataset_version: direct.dataset_version + 1,
+      successor_eligible: false,
+    });
+    expect(cascadeEvidence.rows[0]?.successor_case_refs).not.toContain(direct.replay_case_id);
+
+    await expect(replayRepository.purgeTenant(tenantId)).resolves.toBe(8);
     const deletionEvidence = await pool.query<{
       tombstones: number;
       cases: number;
@@ -1054,8 +1213,8 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       tombstones: 1,
       cases: 0,
       datasets: 10,
-      validation_runs: 105,
-      validation_results: 4,
+      validation_runs: 117,
+      validation_results: 16,
       invalidated_datasets: 10,
       successor_datasets: 5,
       promotion_eligible_runs: 0,
@@ -1342,7 +1501,8 @@ function formalEpisodeAt(
       userId,
       tenantId,
       taskTypeId,
-      environmentClass: suffix === 'success-b' ? 'edge' : 'server',
+      environmentClass: `environment-${suffix}`,
+      deviceClass: `device-${suffix}`,
       requestText,
       createdAt,
     },
@@ -1455,6 +1615,12 @@ function formalEpisodeAt(
       knownCapabilityIds: [...capabilities],
       readyCapabilityIds: [...capabilities],
     },
+    policyDecisionSnapshot: {
+      authorityDecision: failed ? 'deny' : 'allow',
+      contextStatus: 'known',
+      historicalRiskLevel: 'medium',
+    },
+    worldStateSnapshot: replayFacts.worldState,
   };
   return createGoalExperienceEpisode({
     schemaVersion: COGNITIVE_SCHEMA_VERSION,

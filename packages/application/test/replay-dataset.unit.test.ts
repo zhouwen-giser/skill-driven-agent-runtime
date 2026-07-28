@@ -129,16 +129,36 @@ describe('P05 Replay Dataset builder', () => {
     expect(built.leakage.passed).toBe(true);
   });
 
-  it('keeps the same device, environment and five-minute execution window in one split', () => {
+  it.each([
+    [
+      'environment',
+      {
+        environmentClass: 'shared-environment',
+      },
+    ],
+    [
+      'device',
+      {
+        deviceClass: 'shared-device',
+      },
+    ],
+    [
+      'five-minute time window',
+      {
+        occurredAt: '2026-07-01T00:04:00.000Z',
+      },
+    ],
+  ])('keeps a shared %s axis in one split independently', (_axis, shared) => {
     const sources = sourceCohort().map((source, index) =>
-      index === 0 || index === 6
+      index === 0
         ? {
             ...source,
-            environmentClass: 'shared-environment',
-            deviceClass: 'shared-device',
-            occurredAt: `2026-07-01T00:0${index === 0 ? '0' : '4'}:00.000Z`,
+            ...shared,
+            ...(!('occurredAt' in shared) ? {} : { occurredAt: '2026-07-01T00:00:00.000Z' }),
           }
-        : source,
+        : index === 6
+          ? { ...source, ...shared }
+          : source,
     );
     const cases = sources.map((source) => new ArtifactReplayCaseBuilder().build(source));
     const built = new ReplayDatasetBuilder().build({
@@ -210,8 +230,8 @@ function replaySource(
     executionTraceSnapshotRef: `execution-trace-snapshot-${key}`,
     outcomeSnapshotRef: `outcome-snapshot-${key}`,
     correctionRefs: [],
-    environmentClass: index % 2 === 0 ? 'warehouse' : 'laboratory',
-    deviceClass: index % 2 === 0 ? 'arm' : 'mobile',
+    environmentClass: `environment-${key}`,
+    deviceClass: `device-${key}`,
     taskTypeId: 'workflow.policy-remediation',
     sourceTraceRefs: [`trace-${key}`],
     counterexample: false,

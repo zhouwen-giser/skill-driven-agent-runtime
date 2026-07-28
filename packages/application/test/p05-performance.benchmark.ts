@@ -122,7 +122,9 @@ function round(value: number): number {
 
 function source(index: number): ArtifactReplaySource {
   const key = String(index + 1);
-  const occurredAt = new Date(Date.parse('2025-01-01T00:00:00.000Z') + index * 1_000).toISOString();
+  const occurredAt = new Date(
+    Date.parse('2025-01-01T00:00:00.000Z') + index * 6 * 60 * 1_000,
+  ).toISOString();
   return {
     tenantId: 'tenant-p05-benchmark',
     sourceEpisodeRef: `episode-${key}`,
@@ -141,7 +143,7 @@ function source(index: number): ArtifactReplaySource {
     executionTraceSnapshotRef: `execution-trace-${key}`,
     outcomeSnapshotRef: `outcome-${key}`,
     correctionRefs: [],
-    environmentClass: index % 2 === 0 ? 'warehouse' : 'laboratory',
+    environmentClass: `benchmark-environment-${key}`,
     deviceClass: `benchmark-device-${key}`,
     taskTypeId: 'task-benchmark',
     sourceTraceRefs: [`trace-${key}`],
