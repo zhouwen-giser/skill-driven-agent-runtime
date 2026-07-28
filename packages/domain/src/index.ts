@@ -44,6 +44,7 @@ export {
   type TemplateParameterDefinition,
 } from './compiler/index.js';
 export * from './compiler/artifact-candidate-generation.js';
+export * from './compiler/artifact-replay-validation.js';
 export * from './compiler/experience-compilation.js';
 export * from './errors.js';
 export * from './goal.js';

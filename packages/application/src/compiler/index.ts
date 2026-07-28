@@ -8,3 +8,8 @@ export * from './experience-compilation.js';
 export * from './experience-normalizer.js';
 export * from './pattern-generalization.js';
 export * from './process-miner.js';
+export * from './replay-dataset.js';
+export * from './artifact-replay-validator.js';
+export * from './artifact-replay-runtime.js';
+export * from './replay-metrics.js';
+export * from './replay-safety.js';

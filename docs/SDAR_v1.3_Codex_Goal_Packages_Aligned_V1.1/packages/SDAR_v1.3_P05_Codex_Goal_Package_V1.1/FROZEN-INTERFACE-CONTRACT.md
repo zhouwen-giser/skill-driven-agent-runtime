@@ -20,9 +20,9 @@ P05 必须在 P04R `COMPLETED` 后消费 `WorkflowPattern V1.2`、`FusedPattern 
 - Fields: `traceId`, `sourceEpisodeId`, `taskTypeRefs`, `goalFingerprint`, `capabilityFingerprint`, `environmentFingerprint`, `trace`, `completeness`, `dataClassification`, `normalizerVersion`, `sourceHash`, `createdAt`
 
 ### CandidateStaticValidationResult
-- Version: `1.1`
-- Schema hash: `3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba`
-- Fields: `artifactRef`, `schemaValid`, `dagValid`, `requiredCriteriaCovered`, `capabilityShapeValid`, `parameterPolicyValid`, `sideEffectReplaySafe`, `boundsValid`, `duplicateFingerprint`, `errors`, `warnings`, `validatorVersion`, `result`
+- Version: `1.2`
+- Schema hash: `1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd`
+- Fields: `artifactRef`, `schemaValid`, `activityIdentityValid`, `dagValid`, `parallelSemanticsValid`, `requiredCriteriaCovered`, `capabilityShapeValid`, `capabilityCatalogAligned`, `parameterPolicyValid`, `parameterSchemaAligned`, `applicabilityEvaluable`, `lineageComplete`, `recoverySemanticsValid`, `sideEffectReplaySafe`, `boundsValid`, `duplicateFingerprint`, `errors`, `warnings`, `validatorVersion`, `result`
 
 ## 生产接口
 
