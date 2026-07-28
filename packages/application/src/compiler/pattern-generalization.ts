@@ -8,8 +8,10 @@ import {
   type ApplicabilityCandidate,
   type FusedPattern,
   type GeneralizedPattern,
+  type GeneralizedFailureBoundary,
   type GeneralizedVariable,
   type Invariant,
+  type PatternScopeEvidence,
   type SemanticPatternCandidate,
   type StructuralPattern,
 } from '../../../domain/src/index.js';
@@ -32,7 +34,7 @@ export interface SemanticModelPort {
 }
 
 export class NoOpSemanticModel implements SemanticModelPort {
-  readonly modelId = 'sdar-no-op-semantic-model/1.1';
+  readonly modelId = 'sdar-no-op-semantic-model/1.2';
   readonly promptHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
   suggestSemanticCandidates(): Promise<SemanticPatternCandidate> {
@@ -61,19 +63,14 @@ export interface PatternFusionInput {
   readonly deviceClasses: readonly string[];
   readonly tenantScope: 'single' | 'multi';
   readonly userScope: 'single' | 'multi';
+  readonly scopeEvidence: PatternScopeEvidence;
   readonly model?: SemanticModelPort;
 }
 
 export class PatternFusionService {
   async fuse(input: PatternFusionInput): Promise<FusedPattern> {
     const { workflowPattern, discoveredPattern } = input;
-    const structuralPattern: StructuralPattern = Object.freeze({
-      taskTypeId: workflowPattern.taskTypeId,
-      activityPatterns: workflowPattern.activityPatterns,
-      dependencyPatterns: workflowPattern.dependencyPatterns,
-      recoveryPatterns: workflowPattern.recoveryPatterns,
-      quality: workflowPattern.quality,
-    });
+    const structuralPattern: StructuralPattern = workflowPattern;
 
     const model = input.model ?? new NoOpSemanticModel();
     const semanticCandidate = await model.suggestSemanticCandidates({
@@ -111,6 +108,7 @@ export class PatternFusionService {
       structuralPattern,
       semanticCandidate,
       applicabilityCandidate,
+      scopeEvidence: input.scopeEvidence,
       supportRefs: discoveredPattern.supportRefs,
       contradictionRefs: discoveredPattern.contradictionRefs,
       confidence,
@@ -125,7 +123,7 @@ export class PatternFusionService {
 }
 
 function computeConfidence(quality: WorkflowPattern['quality']): number {
-  const supportWeight = quality.support;
+  const supportWeight = quality.supportRate;
   const successWeight = quality.successRate;
   const coverageWeight = quality.traceCoverage;
   const contradictionPenalty = quality.contradictionRate;
@@ -147,10 +145,14 @@ export class PatternGeneralizationService {
   generalize(input: GeneralizationInput): GeneralizedPattern {
     const { fusedPattern } = input;
     const { structuralPattern } = fusedPattern;
-    const variables = extractVariables(structuralPattern);
+    assertGeneralizationSafety(fusedPattern);
+    assertCapabilityAlignment(fusedPattern, input.knownTaskTypeCapabilities);
+    const variables = extractVariables(fusedPattern.semanticCandidate);
     const invariants = extractInvariants(structuralPattern, fusedPattern.contradictionRefs);
     const requiredConditions = extractRequiredConditions(fusedPattern);
     const forbiddenConditions = extractForbiddenConditions(fusedPattern);
+    const applicabilityPredicates = extractApplicabilityPredicates(fusedPattern);
+    const failureBoundaries = extractFailureBoundaries(structuralPattern);
 
     const generalizedPatternId = stableId(
       'generalized-pattern',
@@ -165,6 +167,8 @@ export class PatternGeneralizationService {
       invariants,
       requiredConditions,
       forbiddenConditions,
+      applicabilityPredicates,
+      failureBoundaries,
       retainedExampleRefs: fusedPattern.supportRefs,
       counterexampleRefs: fusedPattern.contradictionRefs,
       sourceFusedPatternRef: fusedPattern.fusedPatternId,
@@ -178,17 +182,38 @@ export class PatternGeneralizationService {
   }
 }
 
-function extractVariables(pattern: StructuralPattern): readonly GeneralizedVariable[] {
-  const variables: GeneralizedVariable[] = [];
-  for (const activity of pattern.activityPatterns) {
-    variables.push({
-      variableName: `activity_${activity.activity}`,
-      sourceField: `activity:${activity.activity}`,
-      domainClass: 'activity_reference',
-      required: activity.required,
-    });
-  }
-  return Object.freeze(variables);
+function extractVariables(semantic: SemanticPatternCandidate): readonly GeneralizedVariable[] {
+  return Object.freeze(
+    semantic.parameterCandidates.map((candidate) => {
+      const allowedSources = candidate.allowedSources ?? (['request'] as const);
+      const trustLevel = candidate.trustLevel ?? 'candidate';
+      if (allowedSources.length === 0) {
+        throw new Error(`GENERALIZATION_PARAMETER_SOURCE_MISSING:${candidate.parameterName}`);
+      }
+      if (trustLevel === 'authoritative' && allowedSources.includes('small_model_candidate')) {
+        throw new Error(`GENERALIZATION_PARAMETER_TRUST_INVALID:${candidate.parameterName}`);
+      }
+      const defaultPolicy = candidate.defaultPolicy ?? 'none';
+      const schema = isRecord(candidate.suggestedSchema)
+        ? Object.freeze({
+            ...candidate.suggestedSchema,
+            'x-sdar-defaultPolicy': defaultPolicy,
+          })
+        : Object.freeze({
+            const: candidate.suggestedSchema,
+            'x-sdar-defaultPolicy': defaultPolicy,
+          });
+      return Object.freeze({
+        variableName: candidate.parameterName,
+        sourceField: candidate.sourceField ?? `request.${candidate.parameterName}`,
+        domainClass: candidate.domainClass ?? 'request_parameter',
+        schema,
+        allowedSources: Object.freeze([...allowedSources]),
+        trustLevel,
+        required: candidate.required ?? false,
+      });
+    }),
+  );
 }
 
 function extractInvariants(
@@ -199,11 +224,11 @@ function extractInvariants(
   for (const dep of pattern.dependencyPatterns) {
     if (dep.relation === 'direct_follows' || dep.relation === 'precedes') {
       invariants.push({
-        invariantId: `invariant_order_${dep.predecessorActivity}_${dep.successorActivity}`,
-        description: `${dep.predecessorActivity} must precede ${dep.successorActivity}`,
+        invariantId: `invariant_order_${dep.predecessorActivityKey}_${dep.successorActivityKey}`,
+        description: `${dep.predecessorActivityKey} must precede ${dep.successorActivityKey}`,
         condition: {
           type: 'atomic' as const,
-          field: `order.${dep.predecessorActivity}.${dep.successorActivity}`,
+          field: `order.${dep.predecessorActivityKey}.${dep.successorActivityKey}`,
           operator: 'eq' as const,
           value: true,
         },
@@ -231,22 +256,101 @@ function extractRequiredConditions(fusedPattern: FusedPattern): readonly Invaria
       .filter((a) => a.required)
       .map((a) => ({
         type: 'atomic' as const,
-        field: `activity.${a.activity}.present`,
+        field: `activity.${a.activityKey}.present`,
         operator: 'eq' as const,
         value: true,
       })),
   );
 }
 
-function extractForbiddenConditions(fusedPattern: FusedPattern): readonly Invariant['condition'][] {
+function extractApplicabilityPredicates(
+  fusedPattern: FusedPattern,
+): GeneralizedPattern['applicabilityPredicates'] {
+  const predicates: GeneralizedPattern['applicabilityPredicates'][number][] = [];
+  if (fusedPattern.applicabilityCandidate.environmentClasses.length > 0) {
+    predicates.push({
+      field: 'environment.class',
+      operator: 'in',
+      value: [...fusedPattern.applicabilityCandidate.environmentClasses],
+    });
+  }
+  if (fusedPattern.applicabilityCandidate.deviceClasses.length > 0) {
+    predicates.push({
+      field: 'device.class',
+      operator: 'in',
+      value: [...fusedPattern.applicabilityCandidate.deviceClasses],
+    });
+  }
+  return Object.freeze(predicates);
+}
+
+function extractFailureBoundaries(
+  structuralPattern: StructuralPattern,
+): readonly GeneralizedFailureBoundary[] {
   return Object.freeze(
-    fusedPattern.contradictionRefs.map((ref) => ({
-      type: 'atomic' as const,
-      field: `contradiction.${ref}`,
-      operator: 'neq' as const,
-      value: false,
-    })),
+    structuralPattern.recoveryPatterns.map((recovery) =>
+      Object.freeze({
+        triggerActivityKey: recovery.triggerActivityKey,
+        ...(recovery.resumeActivityKey === undefined
+          ? {}
+          : { resumeActivityKey: recovery.resumeActivityKey }),
+        activitySequence: recovery.activitySequence,
+        requiredCapabilityRefs: recovery.requiredCapabilityRefs,
+      }),
+    ),
   );
+}
+
+function assertGeneralizationSafety(fusedPattern: FusedPattern): void {
+  const scope = fusedPattern.scopeEvidence;
+  if (fusedPattern.applicabilityCandidate.deviceClasses.length > 0 && scope.deviceClassCount < 2) {
+    throw new Error('GENERALIZATION_SINGLE_DEVICE_REJECTED');
+  }
+  if (
+    fusedPattern.applicabilityCandidate.environmentClasses.length > 0 &&
+    scope.environmentClassCount < 2
+  ) {
+    throw new Error('GENERALIZATION_SINGLE_ENVIRONMENT_REJECTED');
+  }
+  if (fusedPattern.applicabilityCandidate.userScope === 'multi' && scope.userCount < 2) {
+    throw new Error('GENERALIZATION_SINGLE_USER_PREFERENCE_REJECTED');
+  }
+  if (scope.hasTemporaryAuthorization) {
+    throw new Error('GENERALIZATION_TEMPORARY_AUTHORIZATION_REJECTED');
+  }
+  if (scope.successCount === 1 && scope.failureCount === 0 && !scope.hasFailureBoundary) {
+    throw new Error('GENERALIZATION_SINGLE_SUCCESS_REJECTED');
+  }
+  if (scope.hasFailureBoundary && fusedPattern.structuralPattern.recoveryPatterns.length === 0) {
+    throw new Error('GENERALIZATION_FAILURE_BOUNDARY_LOST');
+  }
+}
+
+function assertCapabilityAlignment(
+  fusedPattern: FusedPattern,
+  knownTaskTypeCapabilities: readonly string[],
+): void {
+  const catalog = new Set(knownTaskTypeCapabilities);
+  const required = new Set([
+    ...fusedPattern.structuralPattern.activityPatterns.flatMap(
+      (activity) => activity.capabilityRefs,
+    ),
+    ...fusedPattern.semanticCandidate.capabilityMappings.map((mapping) => mapping.capabilityId),
+    ...fusedPattern.structuralPattern.recoveryPatterns.flatMap(
+      (recovery) => recovery.requiredCapabilityRefs,
+    ),
+  ]);
+  const missing = [...required].filter((capabilityId) => !catalog.has(capabilityId)).sort();
+  if (missing.length > 0) {
+    throw new Error(`GENERALIZATION_CAPABILITY_CATALOG_MISMATCH:${missing.join(',')}`);
+  }
+}
+
+function extractForbiddenConditions(fusedPattern: FusedPattern): readonly Invariant['condition'][] {
+  void fusedPattern;
+  // Contradiction references are evidence/lineage, not runtime context fields.
+  // Runtime applicability may only contain predicates the gateway can evaluate.
+  return Object.freeze([]);
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +374,10 @@ function canonicalJson(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function fusedPatternContentHash(input: Readonly<Omit<FusedPattern, 'contentHash'>>): string {
   return digest(
     canonicalJson({
@@ -280,6 +388,7 @@ function fusedPatternContentHash(input: Readonly<Omit<FusedPattern, 'contentHash
       structuralPattern: input.structuralPattern,
       semanticCandidate: input.semanticCandidate,
       applicabilityCandidate: input.applicabilityCandidate,
+      scopeEvidence: input.scopeEvidence,
       supportRefs: [...input.supportRefs].sort(),
       contradictionRefs: [...input.contradictionRefs].sort(),
       confidence: input.confidence,
@@ -300,6 +409,8 @@ function generalizedPatternContentHash(
       invariants: input.invariants,
       requiredConditions: input.requiredConditions,
       forbiddenConditions: input.forbiddenConditions,
+      applicabilityPredicates: input.applicabilityPredicates,
+      failureBoundaries: input.failureBoundaries,
       retainedExampleRefs: [...input.retainedExampleRefs].sort(),
       counterexampleRefs: [...input.counterexampleRefs].sort(),
       sourceFusedPatternRef: input.sourceFusedPatternRef,
