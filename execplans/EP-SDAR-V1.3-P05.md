@@ -140,6 +140,9 @@ cannot approve, activate, promote, route or execute an Artifact.
   failing closed on absent context/risk.
 - [x] Prove five production Fact Reader/Episode Builder holdouts in the real
   P03→P04→P02→P05 PostgreSQL chain; aggregate integration rerun passed 109/109.
+- [x] Run the fourth independent read-only Review on `5aa6bc1`; close its 1 Major by replacing
+  mutable current-Skill scans with exact task-understanding → capability-summary pins and a
+  post-execution Catalog mutation regression.
 - [ ] Obtain the independent read-only re-review with zero Blocking/Major.
 - [ ] Run all required focused/full gates and preserve first failures/reruns.
 - [ ] Publish P05 evidence, traceability/status/changelog and exact P06 Handoff.
@@ -220,6 +223,13 @@ cannot approve, activate, promote, route or execute an Artifact.
   PostgreSQL integration test importing BullMQ directly. Typed boundary assertions, public
   runtime-redis queue use and PostgreSQL polling closed both; formatting, Lint, TypeScript and the
   485-source Architecture gate now pass.
+- The fourth independent Review found that production Episodes labeled an unversioned current
+  `skill_version` scan as historical Capability Catalog authority. The repair follows the exact
+  `generic_task_understanding.sourceRefs` pin to `runtime_capability_summary` by ID, revision and
+  catalog hash, uses the same understanding revision's availability facts, and omits the snapshot
+  on any missing/mismatched authority. The regression disables the current Skill after the
+  understanding was recorded; five production Episodes still preserve 20 historically ready
+  capabilities, and aggregate integration passes 109/109.
 
 ## Decision Log
 
@@ -297,6 +307,8 @@ Current focused and infrastructure evidence:
 - Production Fact Reader/Episode Builder vertical evidence: five independent holdouts, with
   execution-readiness authority/context/risk projected into immutable Episodes; aggregate
   integration 109/109.
+- Historical Catalog mutation evidence: current enabled Skill versions `0`, immutable
+  capability-summary-backed Episode sources `5`, historically ready capabilities `20`.
 - P05 and P06 package self-checks: 25/25 each; P06 changes are dependency/Handoff alignment only.
 - Migration 0129 fresh/idempotent/rollback/reapply and rogue-ledger rejection: 22 additive
   migrations through 0129 passed.
@@ -349,6 +361,9 @@ Required machine/human evidence:
   preflight-boundary remediation.
 - Third independent Review on `87e0db0`: Blocking 1, Major 3, Minor 0. All four findings are closed
   in the pending exact remediation commit with regression and real production-builder evidence.
+- Fourth independent Review on `5aa6bc1`: Blocking 0, Major 1, Minor 0. The mutable Catalog finding
+  is closed in the pending exact capability-summary remediation commit and 109/109 integration
+  evidence.
 - Re-review: pending; this ExecPlan and Handoff remain `IN_PROGRESS` until it reports zero
   Blocking/Major.
 

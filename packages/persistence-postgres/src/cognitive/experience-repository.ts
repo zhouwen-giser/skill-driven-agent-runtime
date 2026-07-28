@@ -724,11 +724,7 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
         ? undefined
         : await oneJson(
             this.#pool,
-            `SELECT jsonb_build_object(
-               'understandingId',understanding_id,'revision',revision,
-               'taskTypeCandidates',snapshot->'taskTypeCandidates',
-               'createdAt',created_at
-             ) AS value
+            `SELECT snapshot AS value
              FROM generic_task_understanding
              WHERE task_id=$1 ORDER BY revision DESC LIMIT 1`,
             [taskId],
@@ -852,20 +848,55 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
        FROM planning_interaction_episode WHERE task_id=$1 ORDER BY revision`,
             [taskId],
           );
-    const capabilityCatalog = await manyJson(
-      this.#pool,
-      `SELECT jsonb_build_object(
-         'capabilityId',capability,
-         'ready',bool_or(version.status='enabled')
-       ) AS value
-       FROM skill_version version
-       CROSS JOIN LATERAL jsonb_array_elements_text(version.capabilities_json) capability
-       WHERE version.validation_passed=true
-         AND version.status IN ('enabled','disabled','deprecated')
-       GROUP BY capability
-       ORDER BY capability`,
-      [],
-    );
+    const capabilityCatalog =
+      taskId === undefined
+        ? []
+        : await manyJson(
+            this.#pool,
+            `WITH understanding AS (
+               SELECT snapshot
+               FROM generic_task_understanding
+               WHERE task_id=$1
+               ORDER BY revision DESC
+               LIMIT 1
+             ), authority AS (
+               SELECT source
+               FROM understanding
+               CROSS JOIN LATERAL jsonb_array_elements(
+                 COALESCE(understanding.snapshot->'sourceRefs','[]'::jsonb)
+               ) source
+               WHERE source->>'sourceKind'='capability_summary'
+                 AND source->>'authority'='runtime_fact'
+               ORDER BY source->>'sourceRefId'
+               LIMIT 1
+             )
+             SELECT jsonb_build_object(
+               'summaryId',summary.summary_id,
+               'revision',summary.revision,
+               'catalogHash',summary.catalog_hash,
+               'builtAt',summary.built_at,
+               'createdAt',summary.built_at,
+               'capabilityId',item.capability_id,
+               'ready',COALESCE((
+                 SELECT (requirement->>'available')::boolean
+                 FROM understanding
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                   COALESCE(understanding.snapshot->'capabilityRequirements','[]'::jsonb)
+                 ) requirement
+                 WHERE requirement->>'capabilityId'=item.capability_id
+                 LIMIT 1
+               ),false)
+             ) AS value
+             FROM authority
+             JOIN runtime_capability_summary summary
+               ON summary.summary_id=authority.source->>'sourceId'
+              AND summary.revision=(authority.source->>'sourceRevision')::integer
+              AND summary.catalog_hash=authority.source->>'contentHash'
+             JOIN runtime_capability_summary_item item
+               ON item.summary_id=summary.summary_id
+             ORDER BY item.capability_id`,
+            [taskId],
+          );
     const disposition = executionReadiness?.['disposition'];
     const authorityDecision =
       disposition === 'ready'
@@ -928,6 +959,7 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       'execution-readiness-unknown',
       1,
     );
+    addCapabilitySummarySource(sources, capabilityCatalog[0]);
     for (const item of recovery)
       addSource(sources, 'recovery_decision', item, 'recovery_decision_id', 'recovery-unknown', 1);
     for (const item of eventImpacts)
@@ -955,16 +987,23 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       recovery,
       eventImpacts,
       interactions,
-      capabilityCatalogSnapshot: {
-        knownCapabilityIds: capabilityCatalog.flatMap((item) =>
-          typeof item['capabilityId'] === 'string' ? [item['capabilityId']] : [],
-        ),
-        readyCapabilityIds: capabilityCatalog.flatMap((item) =>
-          item['ready'] === true && typeof item['capabilityId'] === 'string'
-            ? [item['capabilityId']]
-            : [],
-        ),
-      },
+      ...(capabilityCatalog.length === 0
+        ? {}
+        : {
+            capabilityCatalogSnapshot: {
+              summaryId: capabilityCatalog[0]?.['summaryId'],
+              revision: capabilityCatalog[0]?.['revision'],
+              catalogHash: capabilityCatalog[0]?.['catalogHash'],
+              knownCapabilityIds: capabilityCatalog.flatMap((item) =>
+                typeof item['capabilityId'] === 'string' ? [item['capabilityId']] : [],
+              ),
+              readyCapabilityIds: capabilityCatalog.flatMap((item) =>
+                item['ready'] === true && typeof item['capabilityId'] === 'string'
+                  ? [item['capabilityId']]
+                  : [],
+              ),
+            },
+          }),
       worldStateSnapshot: {
         ...(task === undefined ? {} : { task }),
         ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
@@ -1020,6 +1059,41 @@ function addSource(
       dataClassification: 'internal',
       capturedAt,
       contentHash: hash(value),
+    }),
+  );
+}
+
+function addCapabilitySummarySource(
+  target: CognitiveSourceRef[],
+  value: Readonly<Record<string, unknown>> | undefined,
+): void {
+  if (value === undefined) return;
+  const sourceId = value['summaryId'];
+  const sourceRevision = value['revision'];
+  const contentHash = value['catalogHash'];
+  if (
+    typeof sourceId !== 'string' ||
+    typeof sourceRevision !== 'number' ||
+    !Number.isSafeInteger(sourceRevision) ||
+    sourceRevision < 1 ||
+    typeof contentHash !== 'string'
+  ) {
+    throw new Error('EXPERIENCE_CAPABILITY_SUMMARY_AUTHORITY_INVALID');
+  }
+  target.push(
+    createCognitiveSourceRef({
+      schemaVersion: COGNITIVE_SCHEMA_VERSION,
+      sourceRefId: stableId(
+        'source-capability-summary',
+        `${sourceId}:${String(sourceRevision)}:${contentHash}`,
+      ),
+      sourceKind: 'capability_summary',
+      sourceId,
+      sourceRevision,
+      authority: 'runtime_fact',
+      dataClassification: 'internal',
+      capturedAt: sourceTimestamp(value),
+      contentHash,
     }),
   );
 }

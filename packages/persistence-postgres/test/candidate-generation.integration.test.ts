@@ -578,6 +578,12 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
         request: item.request,
       })),
     );
+    await saveHistoricalCapabilityAuthorities(independent);
+    await pool.query(
+      `UPDATE skill_version
+       SET status='disabled'
+       WHERE skill_id='skill.workflow-policy-remediation' AND version=1`,
+    );
     for (const item of independent) {
       const episode = await new GoalExperienceEpisodeBuilder({
         facts: new PostgresCognitiveRuntimeFactReader(pool),
@@ -635,6 +641,9 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_summary: string | null;
       native_episode_sources: number;
       production_authority_sources: number;
+      historical_catalog_sources: number;
+      historical_ready_capabilities: number;
+      current_enabled_skill_versions: number;
       native_catalog_refs: number;
       native_policy_refs: number;
       counterfactual_results: number;
@@ -667,6 +676,25 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
           WHERE episode.snapshot->'policyDecisionSnapshot' ? 'readinessRef'
             AND episode.snapshot->'worldStateSnapshot' ? 'executionReadiness')
             AS production_authority_sources,
+         (SELECT count(*)::integer FROM goal_experience_episode episode
+          WHERE episode.snapshot->'capabilityCatalogSnapshot'->>'summaryId'
+                  ='runtime-capability-summary-p05'
+            AND EXISTS(
+              SELECT 1
+              FROM goal_experience_episode_source source
+              WHERE source.episode_id=episode.episode_id
+                AND source.source_kind='capability_summary'
+                AND source.source_id='runtime-capability-summary-p05'
+            )) AS historical_catalog_sources,
+         (SELECT COALESCE(sum(jsonb_array_length(
+                   episode.snapshot->'capabilityCatalogSnapshot'->'readyCapabilityIds'
+                 )),0)::integer
+          FROM goal_experience_episode episode
+          WHERE episode.snapshot->'capabilityCatalogSnapshot'->>'summaryId'
+                  ='runtime-capability-summary-p05') AS historical_ready_capabilities,
+         (SELECT count(*)::integer
+          FROM skill_version
+          WHERE status='enabled') AS current_enabled_skill_versions,
          (SELECT count(*)::integer FROM artifact_replay_case replay
           WHERE replay.content->>'capabilityCatalogSnapshotRef'
             LIKE '%capabilityCatalogSnapshot.knownCapabilityIds') AS native_catalog_refs,
@@ -713,6 +741,9 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       last_error_summary: null,
       native_episode_sources: 8,
       production_authority_sources: 5,
+      historical_catalog_sources: 5,
+      historical_ready_capabilities: 20,
+      current_enabled_skill_versions: 0,
       native_catalog_refs: 8,
       native_policy_refs: 8,
       counterfactual_results: 3,
@@ -1683,6 +1714,130 @@ async function saveTerminalAuthorityFixtures(
           ? 'Formal workflow remediation achieved.'
           : 'Formal workflow remediation exhausted after a recovery attempt.',
         new Date(Date.parse(timestamp) + 4_000).toISOString(),
+      ],
+    );
+  }
+}
+
+async function saveHistoricalCapabilityAuthorities(
+  fixtures: readonly Readonly<{
+    suffix: string;
+    timestamp: string;
+    request: string;
+  }>[],
+): Promise<void> {
+  const summaryId = 'runtime-capability-summary-p05';
+  const catalogHash = sha('p05-historical-capability-summary');
+  const builtAt = '2026-07-28T02:59:00.000Z';
+  await pool.query(
+    `INSERT INTO runtime_capability_summary(
+       summary_id,revision,catalog_hash,generation_policy_version,status,
+       schema_version,source_refs,built_at)
+     VALUES($1,1,$2,'capability-summary-policy-v1','active','1.0','[]'::jsonb,$3)`,
+    [summaryId, catalogHash, builtAt],
+  );
+  for (const [index, capabilityId] of capabilities.entries()) {
+    await pool.query(
+      `INSERT INTO runtime_capability_summary_item(
+         summary_id,capability_id,ordinal,title,definition)
+       VALUES($1,$2,$3,$4,$5::jsonb)`,
+      [
+        summaryId,
+        capabilityId,
+        index,
+        `Historical ${capabilityId}`,
+        JSON.stringify({
+          capabilityId,
+          domain: 'workflow',
+          title: `Historical ${capabilityId}`,
+          shortDescription: `Execution-time declaration for ${capabilityId}.`,
+          public: true,
+          effects: [],
+          evidence: [],
+          artifacts: [],
+          contexts: [],
+          modes: ['guidance'],
+          taskTypes: [taskTypeId],
+          composition: [],
+          limitations: [],
+          exactSkillVersionRefs: ['skill.workflow-policy-remediation:1'],
+        }),
+      ],
+    );
+  }
+  for (const fixture of fixtures) {
+    const taskId = `task-${fixture.suffix}`;
+    const invocationId = `model-invocation-${fixture.suffix}`;
+    const understandingId = `understanding-${fixture.suffix}`;
+    const sourceRefs = [
+      {
+        schemaVersion: '1.0',
+        sourceRefId: `source-capability-summary-${fixture.suffix}`,
+        sourceKind: 'capability_summary',
+        sourceId: summaryId,
+        sourceRevision: 1,
+        authority: 'runtime_fact',
+        dataClassification: 'internal',
+        capturedAt: builtAt,
+        contentHash: catalogHash,
+      },
+    ];
+    await pool.query(
+      `INSERT INTO model_invocation(
+         invocation_id,stage,provider_id,model,operation,request_json,context_json,
+         raw_response_json,structured_result_json,duration_ms,status,created_at,task_id)
+       VALUES($1,'task_understanding','provider.p05','model.p05','structured_generation',
+         '{}'::jsonb,'{}'::jsonb,'{}'::jsonb,'{}'::jsonb,5,'succeeded',$2,$3)`,
+      [invocationId, fixture.timestamp, taskId],
+    );
+    const snapshot = {
+      schemaVersion: '1.0',
+      understandingId,
+      taskId,
+      revision: 1,
+      originalRequest: fixture.request,
+      objective: 'Collect state, verify policy, and apply a bounded remediation.',
+      taskTypeCandidates: [
+        {
+          taskTypeId,
+          version: 1,
+          confidence: 1,
+          rationale: 'Persisted execution-time Task Type authority.',
+        },
+      ],
+      capabilityRequirements: capabilities.map((capabilityId) => ({
+        capabilityId,
+        description: `Execution-time requirement for ${capabilityId}.`,
+        required: true,
+        available: true,
+      })),
+      knownConstraints: ['Verify policy before mutation.'],
+      knownDimensions: [],
+      assumptions: [],
+      missingDimensions: [],
+      confidence: 1,
+      disposition: 'contract_candidate',
+      sourceRefs,
+      modelInvocationId: invocationId,
+      policyVersion: 'task-understanding-v1',
+      stateHash: sha(`understanding-${fixture.suffix}`),
+      createdAt: fixture.timestamp,
+    };
+    await pool.query(
+      `INSERT INTO generic_task_understanding(
+         understanding_id,task_id,revision,disposition,objective,policy_version,state_hash,
+         snapshot,source_refs,created_at,model_invocation_id)
+       VALUES($1,$2,1,'contract_candidate',$3,'task-understanding-v1',$4,
+         $5::jsonb,$6::jsonb,$7,$8)`,
+      [
+        understandingId,
+        taskId,
+        snapshot.objective,
+        snapshot.stateHash,
+        JSON.stringify(snapshot),
+        JSON.stringify(sourceRefs),
+        fixture.timestamp,
+        invocationId,
       ],
     );
   }
