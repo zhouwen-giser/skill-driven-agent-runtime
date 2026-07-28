@@ -6,6 +6,7 @@ import {
   createExperienceTrace,
   type CognitiveSourceRef,
   type ExperienceTrace,
+  type ExperienceActivityRef,
   type ExperienceTraceActorType,
   type ExperienceTraceEvent,
   type ExperienceTraceEventType,
@@ -17,6 +18,7 @@ interface EventCandidate {
   readonly sourceKey: string;
   readonly eventType: ExperienceTraceEventType;
   readonly actorType: ExperienceTraceActorType;
+  readonly activity?: ExperienceActivityRef;
   readonly occurredAt: string;
   readonly capabilityRefs: readonly string[];
   readonly authorityRefs: readonly string[];
@@ -119,7 +121,18 @@ export class ExperienceTraceNormalizer {
       capabilityRefs,
       redactions,
     });
+    if (candidates.some((item) => item.activity?.activityKind === 'unknown')) {
+      missing.add('activity_identity_unknown');
+    }
     if (candidates.length === 0) missing.add('trace_events_missing');
+    const candidateSourceKeys = new Set(candidates.map((item) => item.sourceKey));
+    if (
+      candidates.some((item) =>
+        item.explicitParentKeys.some((parentKey) => !candidateSourceKeys.has(parentKey)),
+      )
+    ) {
+      missing.add('activity_parent_evidence_unresolved');
+    }
     const events = materializeEvents(candidates);
     const outcomeStatus = determineOutcomeStatus(terminal, judgment);
     const outcomeRef =
@@ -211,6 +224,11 @@ export class ExperienceTraceNormalizer {
   ): readonly EventCandidate[] {
     const candidates: EventCandidate[] = [];
     const sourceRefs = input.episode.sourceRefs;
+    const skillGoals = skillGoalsFromPlans(input.plans);
+    const recoveryBranchesByReplacementAttempt = recoveryReplacementAttemptBranches(
+      input.recovery,
+      input.attempts,
+    );
     if (input.task !== undefined) {
       candidates.push(
         candidate({
@@ -300,8 +318,16 @@ export class ExperienceTraceNormalizer {
         ...stringList(attempt['capability_refs'] ?? attempt['capabilityRefs']),
         ...stringList(attempt['required_capabilities'] ?? attempt['requiredCapabilities']),
       ]);
-      const concurrencyGroup = explicitConcurrency(attempt);
-      const branchRef = optionalIdentifier(attempt['branch_ref'] ?? attempt['branchRef']);
+      const attemptSkillGoalId = firstString(attempt['skill_goal_id'], attempt['skillGoalId']);
+      const concurrencyGroup =
+        explicitConcurrency(attempt) ??
+        (attemptSkillGoalId === undefined
+          ? undefined
+          : skillGoals.get(attemptSkillGoalId)?.parallelGroup);
+      const branchRef =
+        optionalIdentifier(attempt['branch_ref'] ?? attempt['branchRef']) ??
+        recoveryBranchesByReplacementAttempt.get(attemptId);
+      const activity = activityForAttempt(attempt, skillGoals, capabilities);
       candidates.push(
         candidate({
           sourceKey: startKey,
@@ -310,6 +336,7 @@ export class ExperienceTraceNormalizer {
           occurredAt: sourceTime(attempt, input.episode.createdAt),
           sourceKind: 'skill_attempt',
           sourceRefs,
+          activity,
           capabilityRefs: capabilities,
           explicitParentKeys: explicitParentKeys(attempt),
           payload: summary(attempt, 'skill_attempt', input.redactions),
@@ -332,6 +359,7 @@ export class ExperienceTraceNormalizer {
             ]),
             sourceKind: 'skill_attempt',
             sourceRefs,
+            activity,
             capabilityRefs: capabilities,
             explicitParentKeys: [startKey],
             payload: summary(attempt, 'skill_attempt_outcome', input.redactions),
@@ -343,61 +371,76 @@ export class ExperienceTraceNormalizer {
       }
     }
     for (const [index, item] of input.progress.entries()) {
-      const status = firstString(item['status'], item['state']) ?? '';
-      if (!/wait|block|pause/iu.test(status)) continue;
+      const status =
+        firstString(item['classification'], item['status'], item['state'])?.toLowerCase() ?? '';
+      if (!/wait|block|pause|stalled|regressing/iu.test(status)) continue;
+      const progressId = sourceId(
+        item,
+        ['progress_observation_id', 'progressObservationId'],
+        String(index),
+      );
       candidates.push(
         candidate({
-          sourceKey: `progress:${sourceId(
-            item,
-            ['progress_observation_id', 'progressObservationId'],
-            String(index),
-          )}`,
+          sourceKey: `progress:${progressId}`,
           eventType: 'workflow_waiting',
           actorType: 'runtime',
           occurredAt: sourceTime(item, input.episode.createdAt),
-          sourceKind: 'runtime_terminal_outcome',
+          sourceKind: 'workflow_outcome',
           sourceRefs,
+          activity: activityForReferencedFact(
+            item,
+            skillGoals,
+            'observation',
+            `Observe ${status || 'workflow'} progress`,
+            progressId,
+          ),
           payload: summary(item, 'progress_observation', input.redactions),
           rank: 65,
         }),
       );
     }
     for (const [index, item] of input.recovery.entries()) {
+      const recoveryId = sourceId(
+        item,
+        ['recovery_decision_id', 'recoveryDecisionId'],
+        String(index),
+      );
+      const failedAttemptId = firstString(item['attempt_id'], item['attemptId']);
       candidates.push(
         candidate({
-          sourceKey: `recovery:${sourceId(
-            item,
-            ['recovery_decision_id', 'recoveryDecisionId'],
-            String(index),
-          )}`,
+          sourceKey: `recovery:${recoveryId}`,
           eventType: 'recovery_started',
           actorType: 'runtime',
           occurredAt: sourceTime(item, input.episode.createdAt),
           sourceKind: 'recovery_decision',
           sourceRefs,
+          activity: recoveryActivity(item, skillGoals, recoveryId),
           capabilityRefs: stringList(item['required_capabilities'] ?? item['requiredCapabilities']),
-          explicitParentKeys: explicitParentKeys(item),
+          explicitParentKeys: uniqueSorted([
+            ...explicitParentKeys(item),
+            ...(failedAttemptId === undefined ? [] : [`attempt:${failedAttemptId}:completed`]),
+          ]),
           payload: summary(item, 'recovery_decision', input.redactions),
-          branchRef:
-            optionalIdentifier(item['branch_ref'] ?? item['branchRef']) ??
-            `recovery-${digest(canonicalJson(summary(item, 'recovery', input.redactions)))}`,
+          branchRef: recoveryBranchRef(item, recoveryId),
           rank: 70,
         }),
       );
     }
     for (const [index, item] of input.eventImpacts.entries()) {
+      const impactId = sourceId(
+        item,
+        ['assessment_id', 'assessmentId', 'event_id', 'eventId'],
+        String(index),
+      );
       candidates.push(
         candidate({
-          sourceKey: `business-event:${sourceId(
-            item,
-            ['assessment_id', 'assessmentId', 'event_id', 'eventId'],
-            String(index),
-          )}`,
+          sourceKey: `business-event:${impactId}`,
           eventType: 'business_event_observed',
           actorType: 'provider',
           occurredAt: sourceTime(item, input.episode.createdAt),
           sourceKind: 'business_event',
           sourceRefs,
+          activity: providerObservationActivity(item, impactId),
           payload: summary(item, 'business_event', input.redactions),
           ...optionalField(
             'branchRef',
@@ -408,14 +451,23 @@ export class ExperienceTraceNormalizer {
       );
     }
     for (const [index, item] of input.interactions.entries()) {
+      const interactionId = sourceId(item, ['episodeId', 'episode_id'], String(index));
       candidates.push(
         candidate({
-          sourceKey: `interaction:${sourceId(item, ['episodeId', 'episode_id'], String(index))}`,
+          sourceKey: `interaction:${interactionId}`,
           eventType: 'human_intervention',
           actorType: 'user',
           occurredAt: sourceTime(item, input.episode.createdAt),
           sourceKind: 'planning_correction',
           sourceRefs,
+          activity: {
+            activityKey: `human-gate:${interactionId}`,
+            activityKind: 'human_gate',
+            objectiveSummary: 'Apply confirmed human planning input',
+            operationRef: interactionId,
+            capabilityRefs: [],
+            effectRefs: [],
+          },
           payload: summary(item, 'planning_interaction', input.redactions),
           rank: 80,
         }),
@@ -452,6 +504,7 @@ function candidate(
     occurredAt: string;
     sourceKind: CognitiveSourceRef['sourceKind'];
     sourceRefs: readonly CognitiveSourceRef[];
+    activity?: ExperienceActivityRef;
     capabilityRefs?: readonly string[];
     explicitParentKeys?: readonly string[];
     concurrencyGroup?: string;
@@ -464,6 +517,7 @@ function candidate(
     sourceKey: input.sourceKey,
     eventType: input.eventType,
     actorType: input.actorType,
+    ...(input.activity === undefined ? {} : { activity: input.activity }),
     occurredAt: input.occurredAt,
     capabilityRefs: uniqueSorted(input.capabilityRefs ?? []),
     authorityRefs: uniqueSorted(
@@ -505,6 +559,7 @@ function materializeEvents(candidates: readonly EventCandidate[]): readonly Expe
       occurredAt: item.occurredAt,
       eventType: item.eventType,
       actorType: item.actorType,
+      ...(item.activity === undefined ? {} : { activity: item.activity }),
       capabilityRefs: item.capabilityRefs,
       authorityRefs: item.authorityRefs,
       parentEventRefs: uniqueSorted(
@@ -544,6 +599,7 @@ function summary(
     'attemptNumber',
     'execution_mode',
     'executionMode',
+    'classification',
   ];
   const properties = Object.fromEntries(
     allowedKeys.flatMap((key) => {
@@ -665,6 +721,407 @@ function isAttemptTerminal(attempt: Readonly<Record<string, unknown>>): boolean 
 function attemptFailed(attempt: Readonly<Record<string, unknown>>): boolean {
   const status = firstString(attempt['status'], attempt['state'])?.toLowerCase() ?? '';
   return /failed|canceled|cancelled/u.test(status);
+}
+
+interface FormalSkillGoalActivity {
+  readonly skillGoalId: string;
+  readonly objectiveSummary: string;
+  readonly sourcePlanNodeRef?: string;
+  readonly parallelGroup?: string;
+  readonly capabilityRefs: readonly string[];
+  readonly effectRefs: readonly string[];
+}
+
+function skillGoalsFromPlans(
+  plans: readonly Readonly<Record<string, unknown>>[],
+): ReadonlyMap<string, FormalSkillGoalActivity> {
+  const result = new Map<string, FormalSkillGoalActivity>();
+  for (const planRevision of plans) {
+    const plan = optionalRecord(planRevision['plan']) ?? planRevision;
+    const skillGoals = records(plan['skillGoals'] ?? plan['skill_goals']);
+    const partialOrderGroups = partialOrderParallelGroups(plan, skillGoals);
+    const declaredGroups = declaredParallelGroups(planRevision, plan);
+    for (const skillGoal of skillGoals) {
+      const skillGoalId = firstString(skillGoal['skillGoalId'], skillGoal['skill_goal_id']);
+      if (skillGoalId === undefined) continue;
+      const sourcePlanNodeRef = firstString(
+        skillGoal['planNodeRef'],
+        skillGoal['plan_node_ref'],
+        skillGoal['nodeKey'],
+        skillGoal['node_key'],
+      );
+      result.set(
+        skillGoalId,
+        Object.freeze({
+          skillGoalId,
+          objectiveSummary:
+            firstString(
+              skillGoal['requiredResult'],
+              skillGoal['required_result'],
+              skillGoal['objective'],
+              skillGoal['description'],
+            ) ?? `Satisfy formal Skill Goal ${skillGoalId}`,
+          ...(sourcePlanNodeRef === undefined ? {} : { sourcePlanNodeRef }),
+          ...optionalField(
+            'parallelGroup',
+            declaredGroups.get(skillGoalId) ?? partialOrderGroups.get(skillGoalId),
+          ),
+          capabilityRefs: collectIdentifiers(skillGoal, [
+            'capabilityNeeds',
+            'capability_needs',
+            'capabilityRefs',
+            'capability_refs',
+          ]),
+          effectRefs: collectIdentifiers(skillGoal, [
+            'requiredEffectRefs',
+            'required_effect_refs',
+            'effectRefs',
+            'effect_refs',
+          ]),
+        }),
+      );
+    }
+  }
+  return result;
+}
+
+function declaredParallelGroups(
+  planRevision: Readonly<Record<string, unknown>>,
+  plan: Readonly<Record<string, unknown>>,
+): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  for (const owner of [planRevision, plan]) {
+    const metadata = optionalRecord(owner['planningMetadata'] ?? owner['planning_metadata']);
+    const groups =
+      optionalRecord(metadata?.['parallelGroups'] ?? metadata?.['parallel_groups']) ??
+      optionalRecord(owner['parallelGroups'] ?? owner['parallel_groups']);
+    if (groups === undefined) continue;
+    for (const [declaredKey, value] of Object.entries(groups).sort(([left], [right]) =>
+      left.localeCompare(right),
+    )) {
+      const activityIds = stringList(value);
+      if (activityIds.length < 2) continue;
+      const groupKey =
+        optionalIdentifier(declaredKey) ??
+        `parallel-declared:${digest(canonicalJson(activityIds))}`;
+      for (const activityId of activityIds) result.set(activityId, groupKey);
+    }
+  }
+  return result;
+}
+
+function partialOrderParallelGroups(
+  plan: Readonly<Record<string, unknown>>,
+  skillGoals: readonly Readonly<Record<string, unknown>>[],
+): ReadonlyMap<string, string> {
+  const ids = uniqueSorted(
+    skillGoals.flatMap((skillGoal) => {
+      const id = firstString(skillGoal['skillGoalId'], skillGoal['skill_goal_id']);
+      return id === undefined ? [] : [id];
+    }),
+  );
+  const idSet = new Set(ids);
+  const outgoing = new Map(ids.map((id) => [id, [] as string[]]));
+  const indegree = new Map(ids.map((id) => [id, 0]));
+  for (const dependency of records(plan['dependencies'])) {
+    const predecessor = firstString(
+      dependency['predecessorSkillGoalId'],
+      dependency['predecessor_skill_goal_id'],
+    );
+    const successor = firstString(
+      dependency['successorSkillGoalId'],
+      dependency['successor_skill_goal_id'],
+    );
+    if (
+      predecessor === undefined ||
+      successor === undefined ||
+      predecessor === successor ||
+      !idSet.has(predecessor) ||
+      !idSet.has(successor) ||
+      outgoing.get(predecessor)?.includes(successor) === true
+    ) {
+      continue;
+    }
+    outgoing.get(predecessor)?.push(successor);
+    indegree.set(successor, (indegree.get(successor) ?? 0) + 1);
+  }
+  const groups = new Map<string, string>();
+  const remaining = new Set(ids);
+  while (remaining.size > 0) {
+    const wave = [...remaining].filter((id) => (indegree.get(id) ?? 0) === 0).sort();
+    if (wave.length === 0) return new Map();
+    if (wave.length > 1) {
+      const groupKey = `parallel-partial-order:${digest(canonicalJson(wave))}`;
+      for (const id of wave) groups.set(id, groupKey);
+    }
+    for (const id of wave) {
+      remaining.delete(id);
+      for (const successor of outgoing.get(id) ?? []) {
+        indegree.set(successor, (indegree.get(successor) ?? 0) - 1);
+      }
+    }
+  }
+  return groups;
+}
+
+function activityForAttempt(
+  attempt: Readonly<Record<string, unknown>>,
+  skillGoals: ReadonlyMap<string, FormalSkillGoalActivity>,
+  attemptCapabilities: readonly string[],
+): ExperienceActivityRef {
+  const attemptId = sourceId(attempt, ['attempt_id', 'attemptId'], 'attempt-unknown');
+  const skillGoalId = firstString(attempt['skill_goal_id'], attempt['skillGoalId']);
+  const skillGoal = skillGoalId === undefined ? undefined : skillGoals.get(skillGoalId);
+  const sourcePlanNodeRef =
+    firstString(
+      attempt['plan_node_ref'],
+      attempt['planNodeRef'],
+      attempt['node_key'],
+      attempt['nodeKey'],
+    ) ?? skillGoal?.sourcePlanNodeRef;
+  const operationRef = firstString(
+    attempt['provider_operation_ref'],
+    attempt['providerOperationRef'],
+    attempt['operation_ref'],
+    attempt['operationRef'],
+  );
+  const activityKind =
+    skillGoalId !== undefined
+      ? ('skill_goal' as const)
+      : operationRef !== undefined
+        ? ('provider_operation' as const)
+        : ('unknown' as const);
+  const activityKey =
+    skillGoalId !== undefined
+      ? `skill-goal:${skillGoalId}`
+      : operationRef !== undefined
+        ? `provider-operation:${operationRef}`
+        : `unknown-attempt:${attemptId}`;
+  return Object.freeze({
+    activityKey,
+    activityKind,
+    objectiveSummary:
+      skillGoal?.objectiveSummary ??
+      firstString(attempt['objective'], attempt['operation_name'], attempt['operationName']) ??
+      `Execute formal attempt ${attemptId}`,
+    ...(skillGoalId === undefined
+      ? {}
+      : {
+          ...(sourcePlanNodeRef === undefined ? {} : { sourcePlanNodeRef }),
+          sourceSkillGoalRef: activityKey,
+        }),
+    sourceAttemptRef: attemptId,
+    ...(operationRef === undefined ? {} : { operationRef }),
+    capabilityRefs: uniqueSorted([...attemptCapabilities, ...(skillGoal?.capabilityRefs ?? [])]),
+    effectRefs: uniqueSorted([
+      ...(skillGoal?.effectRefs ?? []),
+      ...collectIdentifiers(attempt, [
+        'effectRefs',
+        'effect_refs',
+        'requiredEffectRefs',
+        'required_effect_refs',
+      ]),
+    ]),
+  });
+}
+
+function activityForReferencedFact(
+  fact: Readonly<Record<string, unknown>>,
+  skillGoals: ReadonlyMap<string, FormalSkillGoalActivity>,
+  activityKind: ExperienceActivityRef['activityKind'],
+  fallbackObjective: string,
+  fallbackOperationRef: string,
+): ExperienceActivityRef {
+  const skillGoalId = firstString(fact['skill_goal_id'], fact['skillGoalId']);
+  const attemptId = firstString(fact['attempt_id'], fact['attemptId']);
+  const skillGoal = skillGoalId === undefined ? undefined : skillGoals.get(skillGoalId);
+  const sourcePlanNodeRef =
+    firstString(fact['plan_node_ref'], fact['planNodeRef'], fact['node_key'], fact['nodeKey']) ??
+    skillGoal?.sourcePlanNodeRef;
+  return Object.freeze({
+    activityKey:
+      skillGoalId === undefined && attemptId === undefined
+        ? `progress-observation:${fallbackOperationRef}`
+        : skillGoalId === undefined
+          ? `attempt-observation:${String(attemptId)}`
+          : `skill-goal:${skillGoalId}`,
+    activityKind: skillGoalId === undefined ? activityKind : 'skill_goal',
+    objectiveSummary: skillGoal?.objectiveSummary ?? fallbackObjective,
+    ...(skillGoalId === undefined
+      ? {}
+      : {
+          ...(sourcePlanNodeRef === undefined ? {} : { sourcePlanNodeRef }),
+          sourceSkillGoalRef: `skill-goal:${skillGoalId}`,
+        }),
+    ...(attemptId === undefined ? {} : { sourceAttemptRef: attemptId }),
+    ...(skillGoalId === undefined && attemptId === undefined
+      ? { operationRef: fallbackOperationRef }
+      : {}),
+    capabilityRefs: uniqueSorted([
+      ...(skillGoal?.capabilityRefs ?? []),
+      ...collectIdentifiers(fact, [
+        'capabilityId',
+        'capability_id',
+        'capabilityRef',
+        'capability_ref',
+        'capabilityRefs',
+        'capability_refs',
+        'requiredCapabilities',
+        'required_capabilities',
+      ]),
+    ]),
+    effectRefs: uniqueSorted([
+      ...(skillGoal?.effectRefs ?? []),
+      ...collectIdentifiers(fact, ['effectRefs', 'effect_refs']),
+    ]),
+  });
+}
+
+function recoveryActivity(
+  recovery: Readonly<Record<string, unknown>>,
+  skillGoals: ReadonlyMap<string, FormalSkillGoalActivity>,
+  recoveryId: string,
+): ExperienceActivityRef {
+  const skillGoalId = firstString(recovery['skill_goal_id'], recovery['skillGoalId']);
+  const attemptId = firstString(recovery['attempt_id'], recovery['attemptId']);
+  const skillGoal = skillGoalId === undefined ? undefined : skillGoals.get(skillGoalId);
+  const sourcePlanNodeRef =
+    firstString(
+      recovery['plan_node_ref'],
+      recovery['planNodeRef'],
+      recovery['node_key'],
+      recovery['nodeKey'],
+    ) ?? skillGoal?.sourcePlanNodeRef;
+  const action = firstString(recovery['action'], recovery['reason_code'], recovery['reasonCode']);
+  return Object.freeze({
+    activityKey: `recovery:${skillGoalId ?? recoveryId}:${action ?? 'resume'}`,
+    activityKind: 'skill_goal',
+    objectiveSummary:
+      action === undefined
+        ? `Recover formal activity ${skillGoalId ?? recoveryId}`
+        : `Recover ${skillGoalId ?? recoveryId} via ${action}`,
+    ...(skillGoalId === undefined
+      ? {}
+      : {
+          ...(sourcePlanNodeRef === undefined ? {} : { sourcePlanNodeRef }),
+          sourceSkillGoalRef: `skill-goal:${skillGoalId}`,
+        }),
+    ...(attemptId === undefined ? {} : { sourceAttemptRef: attemptId }),
+    operationRef: recoveryId,
+    capabilityRefs: uniqueSorted([
+      ...(skillGoal?.capabilityRefs ?? []),
+      ...collectIdentifiers(recovery, [
+        'required_capabilities',
+        'requiredCapabilities',
+        'capability_refs',
+        'capabilityRefs',
+      ]),
+    ]),
+    effectRefs: uniqueSorted([
+      ...(skillGoal?.effectRefs ?? []),
+      ...collectIdentifiers(recovery, ['effect_refs', 'effectRefs']),
+    ]),
+  });
+}
+
+function recoveryReplacementAttemptBranches(
+  recoveryFacts: readonly Readonly<Record<string, unknown>>[],
+  attempts: readonly Readonly<Record<string, unknown>>[],
+): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  for (const [index, recovery] of recoveryFacts.entries()) {
+    const action = firstString(recovery['action'])?.toLowerCase();
+    if (action !== 'replacement_attempt') continue;
+    const recoveryId = sourceId(
+      recovery,
+      ['recovery_decision_id', 'recoveryDecisionId'],
+      String(index),
+    );
+    const decision = optionalRecord(recovery['decision_json'] ?? recovery['decisionJson']);
+    const explicitReplacementAttemptId = firstString(
+      recovery['replacement_attempt_id'],
+      recovery['replacementAttemptId'],
+      recovery['next_attempt_id'],
+      recovery['nextAttemptId'],
+      decision?.['replacement_attempt_id'],
+      decision?.['replacementAttemptId'],
+      decision?.['next_attempt_id'],
+      decision?.['nextAttemptId'],
+    );
+    const failedAttemptId = firstString(recovery['attempt_id'], recovery['attemptId']);
+    const skillGoalId = firstString(recovery['skill_goal_id'], recovery['skillGoalId']);
+    const recoveryOccurredAt = Date.parse(sourceTime(recovery, '1970-01-01T00:00:00.000Z'));
+    const inferredReplacement = [...attempts]
+      .filter((attempt) => {
+        const attemptId = firstString(attempt['attempt_id'], attempt['attemptId']);
+        if (attemptId === undefined || attemptId === failedAttemptId) return false;
+        if (
+          skillGoalId !== undefined &&
+          firstString(attempt['skill_goal_id'], attempt['skillGoalId']) !== skillGoalId
+        ) {
+          return false;
+        }
+        return Date.parse(sourceTime(attempt, '1970-01-01T00:00:00.000Z')) >= recoveryOccurredAt;
+      })
+      .sort(
+        (left, right) =>
+          Date.parse(sourceTime(left, '1970-01-01T00:00:00.000Z')) -
+            Date.parse(sourceTime(right, '1970-01-01T00:00:00.000Z')) ||
+          sourceId(left, ['attempt_id', 'attemptId'], '').localeCompare(
+            sourceId(right, ['attempt_id', 'attemptId'], ''),
+          ),
+      )
+      .map((attempt) => firstString(attempt['attempt_id'], attempt['attemptId']))
+      .find((attemptId) => attemptId !== undefined);
+    const replacementAttemptId = explicitReplacementAttemptId ?? inferredReplacement;
+    if (replacementAttemptId !== undefined) {
+      result.set(replacementAttemptId, recoveryBranchRef(recovery, recoveryId));
+    }
+  }
+  return result;
+}
+
+function recoveryBranchRef(
+  recovery: Readonly<Record<string, unknown>>,
+  recoveryId: string,
+): string {
+  return (
+    optionalIdentifier(recovery['branch_ref'] ?? recovery['branchRef']) ?? `recovery:${recoveryId}`
+  );
+}
+
+function providerObservationActivity(
+  fact: Readonly<Record<string, unknown>>,
+  fallbackOperationRef: string,
+): ExperienceActivityRef {
+  const operationRef =
+    firstString(
+      fact['provider_operation_ref'],
+      fact['providerOperationRef'],
+      fact['operation_ref'],
+      fact['operationRef'],
+      fact['event_id'],
+      fact['eventId'],
+    ) ?? fallbackOperationRef;
+  return Object.freeze({
+    activityKey: `provider-observation:${operationRef}`,
+    activityKind: 'observation',
+    objectiveSummary:
+      firstString(
+        fact['objective'],
+        fact['classification'],
+        fact['event_type'],
+        fact['eventType'],
+      ) ?? `Observe provider operation ${operationRef}`,
+    operationRef,
+    capabilityRefs: collectIdentifiers(fact, [
+      'capability_refs',
+      'capabilityRefs',
+      'capability_id',
+      'capabilityId',
+    ]),
+    effectRefs: collectIdentifiers(fact, ['effect_refs', 'effectRefs']),
+  });
 }
 
 function explicitConcurrency(value: Readonly<Record<string, unknown>>): string | undefined {

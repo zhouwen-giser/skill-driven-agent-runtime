@@ -11,6 +11,8 @@ import {
   type DependencyPattern,
   type DiscoveredProcessPattern,
   type ExperienceTrace,
+  type ExperienceActivityKind,
+  type ExperienceTraceEvent,
   type FailureVariant,
   type OrderingConstraint,
   type ParallelCandidate,
@@ -32,11 +34,24 @@ interface RelationEvidence {
 
 interface VariantAccumulator {
   readonly activitySequence: readonly string[];
+  readonly activityKindSequence: readonly ExperienceActivityKind[];
   readonly concurrencyGroups: readonly (readonly string[])[];
   readonly branchSequence: readonly string[];
   readonly traceRefs: string[];
   successCount: number;
   failureCount: number;
+}
+
+interface MiningActivityOccurrence {
+  readonly activityKey: string;
+  readonly activityKind: ExperienceActivityKind;
+  readonly objectiveSummary: string;
+  readonly lifecycleEventTypes: readonly string[];
+  readonly capabilityRefs: readonly string[];
+  readonly effectRefs: readonly string[];
+  readonly concurrencyGroup?: string;
+  readonly branchRef?: string;
+  readonly firstSequence: number;
 }
 
 export class DeterministicProcessMiner {
@@ -56,7 +71,7 @@ export class DeterministicProcessMiner {
   fingerprintCohort(input: CohortDefinition): string {
     const cohort = createCohortDefinition(input);
     return hash({
-      contractVersion: '1.1',
+      contractVersion: '1.2',
       algorithmVersion: PROCESS_MINING_ALGORITHM_VERSION,
       cohort,
       mandatoryThreshold: this.#policy.mandatoryThreshold,
@@ -167,15 +182,23 @@ async function discoverVariants(
 ): Promise<readonly ProcessVariant[]> {
   const accumulators = new Map<string, VariantAccumulator>();
   for (const [index, trace] of traces.entries()) {
-    const activitySequence = trace.trace.events.map((event) => event.eventType);
+    const occurrences = miningActivities(trace);
+    const activitySequence = occurrences.map((activity) => activity.activityKey);
+    const activityKindSequence = occurrences.map((activity) => activity.activityKind);
     if (activitySequence.length === 0) continue;
     const concurrencyGroups = traceConcurrencyGroups(trace);
-    const branchSequence = trace.trace.events.flatMap((event) =>
-      event.branchRef === undefined ? [] : [event.branchRef],
+    const branchSequence = occurrences.flatMap((activity) =>
+      activity.branchRef === undefined ? [] : [activity.branchRef],
     );
-    const key = canonicalJson({ activitySequence, concurrencyGroups, branchSequence });
+    const key = canonicalJson({
+      activitySequence,
+      activityKindSequence,
+      concurrencyGroups,
+      branchSequence,
+    });
     const accumulator = accumulators.get(key) ?? {
       activitySequence,
+      activityKindSequence,
       concurrencyGroups,
       branchSequence,
       traceRefs: [],
@@ -195,6 +218,7 @@ async function discoverVariants(
         createProcessVariant({
           variantId: `process-variant-${digest(key)}`,
           activitySequence: value.activitySequence,
+          activityKindSequence: value.activityKindSequence,
           concurrencyGroups: value.concurrencyGroups,
           branchSequence: value.branchSequence,
           occurrenceCount: value.traceRefs.length,
@@ -206,17 +230,84 @@ async function discoverVariants(
   );
 }
 
+function miningActivities(trace: ExperienceTrace): readonly MiningActivityOccurrence[] {
+  return miningActivitiesFromEvents(trace.trace.events);
+}
+
+function miningActivitiesFromEvents(
+  events: readonly ExperienceTraceEvent[],
+): readonly MiningActivityOccurrence[] {
+  const occurrences = new Map<
+    string,
+    {
+      activityKey: string;
+      activityKind: ExperienceActivityKind;
+      objectiveSummary: string;
+      lifecycleEventTypes: string[];
+      capabilityRefs: string[];
+      effectRefs: string[];
+      concurrencyGroup?: string;
+      branchRef?: string;
+      firstSequence: number;
+    }
+  >();
+  for (const event of events) {
+    const activity = event.activity;
+    if (activity === undefined || activity === null || activity.activityKind === 'unknown')
+      continue;
+    const occurrenceKey = `${activity.activityKey}\u001f${
+      activity.sourceAttemptRef ?? event.eventId
+    }`;
+    const existing = occurrences.get(occurrenceKey);
+    if (existing === undefined) {
+      occurrences.set(occurrenceKey, {
+        activityKey: activity.activityKey,
+        activityKind: activity.activityKind,
+        objectiveSummary: activity.objectiveSummary,
+        lifecycleEventTypes: [event.eventType],
+        capabilityRefs: [...activity.capabilityRefs, ...event.capabilityRefs],
+        effectRefs: [...activity.effectRefs],
+        ...(event.concurrencyGroup === undefined
+          ? {}
+          : { concurrencyGroup: event.concurrencyGroup }),
+        ...(event.branchRef === undefined ? {} : { branchRef: event.branchRef }),
+        firstSequence: event.sequence,
+      });
+      continue;
+    }
+    existing.lifecycleEventTypes.push(event.eventType);
+    existing.capabilityRefs.push(...activity.capabilityRefs, ...event.capabilityRefs);
+    existing.effectRefs.push(...activity.effectRefs);
+  }
+  return Object.freeze(
+    [...occurrences.values()]
+      .sort(
+        (left, right) =>
+          left.firstSequence - right.firstSequence ||
+          left.activityKey.localeCompare(right.activityKey),
+      )
+      .map((activity) =>
+        Object.freeze({
+          ...activity,
+          lifecycleEventTypes: uniqueSorted(activity.lifecycleEventTypes),
+          capabilityRefs: uniqueSorted(activity.capabilityRefs),
+          effectRefs: uniqueSorted(activity.effectRefs),
+        }),
+      ),
+  );
+}
+
 function traceConcurrencyGroups(trace: ExperienceTrace): readonly (readonly string[])[] {
   const groups = new Map<string, { firstSequence: number; activities: string[] }>();
-  for (const event of trace.trace.events) {
-    if (event.concurrencyGroup === undefined) continue;
-    const group = groups.get(event.concurrencyGroup) ?? {
-      firstSequence: event.sequence,
+  for (const occurrence of miningActivities(trace)) {
+    if (occurrence.concurrencyGroup === undefined) continue;
+    const group = groups.get(occurrence.concurrencyGroup) ?? {
+      firstSequence: occurrence.firstSequence,
       activities: [],
     };
-    group.firstSequence = Math.min(group.firstSequence, event.sequence);
-    group.activities.push(event.eventType);
-    groups.set(event.concurrencyGroup, group);
+    group.firstSequence = Math.min(group.firstSequence, occurrence.firstSequence);
+    group.activities.push(occurrence.activityKey);
+    groups.set(occurrence.concurrencyGroup, group);
   }
   return Object.freeze(
     [...groups.entries()]
@@ -233,7 +324,7 @@ async function activitySupportByTrace(
 ): Promise<ReadonlyMap<string, Set<string>>> {
   const result = new Map<string, Set<string>>();
   for (const [index, trace] of traces.entries()) {
-    for (const activity of new Set(trace.trace.events.map((event) => event.eventType))) {
+    for (const activity of new Set(miningActivities(trace).map((item) => item.activityKey))) {
       const support = result.get(activity) ?? new Set<string>();
       support.add(trace.traceId);
       result.set(activity, support);
@@ -249,7 +340,7 @@ async function relationEvidence(
 ): Promise<ReadonlyMap<string, RelationEvidence>> {
   const supports = new Map<string, Set<string>>();
   for (const [index, trace] of traces.entries()) {
-    const activities = trace.trace.events.map((event) => event.eventType);
+    const activities = miningActivities(trace).map((activity) => activity.activityKey);
     const pairs =
       relation === 'direct_follows' ? directPairs(activities) : precedencePairs(activities);
     for (const [predecessor, successor] of pairs) {
@@ -277,7 +368,7 @@ function directPairs(activities: readonly string[]): readonly (readonly [string,
   for (let index = 0; index + 1 < activities.length; index += 1) {
     const predecessor = activities[index];
     const successor = activities[index + 1];
-    if (predecessor === undefined || successor === undefined || predecessor === successor) continue;
+    if (predecessor === undefined || successor === undefined) continue;
     pairs.set(relationKey(predecessor, successor), [predecessor, successor]);
   }
   return [...pairs.values()];
@@ -363,7 +454,12 @@ async function discoverParallelCandidates(
 }
 
 function hasExplicitParentOrdering(trace: ExperienceTrace, activities: readonly string[]): boolean {
-  const events = trace.trace.events.filter((event) => activities.includes(event.eventType));
+  const events = trace.trace.events.filter(
+    (event) =>
+      event.activity !== undefined &&
+      event.activity !== null &&
+      activities.includes(event.activity.activityKey),
+  );
   const eventById = new Map(events.map((event) => [event.eventId, event]));
   return events.some((event) =>
     event.parentEventRefs.some((parentRef) => eventById.has(parentRef)),
@@ -379,29 +475,45 @@ async function discoverRecoveryPatterns(
       triggerActivity: string;
       resumeActivity?: string;
       activitySequence: string[];
+      requiredCapabilityRefs: Set<string>;
       refs: Set<string>;
     }
   >();
   for (const [traceIndex, trace] of traces.entries()) {
     for (const [index, event] of trace.trace.events.entries()) {
       if (event.eventType !== 'recovery_started') continue;
-      const triggerActivity =
-        trace.trace.events[index - 1]?.eventType ?? 'recovery_trigger_unknown';
-      const resumeActivity = trace.trace.events[index + 1]?.eventType;
-      const activitySequence = trace.trace.events
-        .slice(index)
-        .map((candidate) => candidate.eventType);
+      const recoveryEvents = boundedRecoveryEvents(trace.trace.events, index);
+      const recoveryActivities = miningActivitiesFromEvents(recoveryEvents);
+      const triggerActivity = triggerActivityForRecovery(trace.trace.events, index, event);
+      if (triggerActivity === undefined) continue;
+      const recoveryActivityKey =
+        event.activity === undefined || event.activity === null
+          ? undefined
+          : event.activity.activityKey;
+      const resumeActivity = recoveryActivities.find(
+        (candidate) => candidate.activityKey !== recoveryActivityKey,
+      )?.activityKey;
+      const activitySequence = recoveryActivities.map((candidate) => candidate.activityKey);
+      if (activitySequence.length === 0) continue;
+      const requiredCapabilityRefs = new Set(
+        recoveryActivities.flatMap((candidate) => candidate.capabilityRefs),
+      );
       const key = canonicalJson({
         triggerActivity,
         ...(resumeActivity === undefined ? {} : { resumeActivity }),
         activitySequence,
+        requiredCapabilityRefs: [...requiredCapabilityRefs].sort(),
       });
       const pattern = patterns.get(key) ?? {
         triggerActivity,
         ...(resumeActivity === undefined ? {} : { resumeActivity }),
         activitySequence,
+        requiredCapabilityRefs,
         refs: new Set<string>(),
       };
+      for (const capabilityRef of requiredCapabilityRefs) {
+        pattern.requiredCapabilityRefs.add(capabilityRef);
+      }
       pattern.refs.add(trace.traceId);
       patterns.set(key, pattern);
     }
@@ -411,12 +523,58 @@ async function discoverRecoveryPatterns(
     [...patterns.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([, pattern]) => ({
-        triggerActivity: pattern.triggerActivity,
-        ...(pattern.resumeActivity === undefined ? {} : { resumeActivity: pattern.resumeActivity }),
+        triggerActivityKey: pattern.triggerActivity,
+        ...(pattern.resumeActivity === undefined
+          ? {}
+          : { resumeActivityKey: pattern.resumeActivity }),
         activitySequence: pattern.activitySequence,
+        requiredCapabilityRefs: [...pattern.requiredCapabilityRefs].sort(),
         supportRefs: [...pattern.refs].sort(),
       })),
   );
+}
+
+function triggerActivityForRecovery(
+  events: readonly ExperienceTraceEvent[],
+  recoveryIndex: number,
+  recoveryEvent: ExperienceTraceEvent,
+): string | undefined {
+  const eventById = new Map(events.slice(0, recoveryIndex).map((event) => [event.eventId, event]));
+  const explicitParentActivity = recoveryEvent.parentEventRefs
+    .map((parentRef) => eventById.get(parentRef)?.activity)
+    .find((activity) => activity !== undefined && activity !== null);
+  if (explicitParentActivity !== undefined) {
+    return explicitParentActivity.activityKey;
+  }
+  return miningActivitiesFromEvents(events.slice(0, recoveryIndex)).at(-1)?.activityKey;
+}
+
+function boundedRecoveryEvents(
+  events: readonly ExperienceTraceEvent[],
+  recoveryIndex: number,
+): readonly ExperienceTraceEvent[] {
+  const recoveryEvent = events[recoveryIndex];
+  if (recoveryEvent === undefined) return [];
+  const bounded: ExperienceTraceEvent[] = [recoveryEvent];
+  let acceptedActivity = false;
+  for (const event of events.slice(recoveryIndex + 1)) {
+    if (event.eventType === 'recovery_started') break;
+    if (recoveryEvent.branchRef !== undefined) {
+      if (event.branchRef === recoveryEvent.branchRef) {
+        bounded.push(event);
+        if (event.activity !== undefined && event.activity !== null) acceptedActivity = true;
+        continue;
+      }
+      if (event.activity !== undefined && event.activity !== null) break;
+      continue;
+    }
+    if (event.activity !== undefined && event.activity !== null) {
+      bounded.push(event);
+      acceptedActivity = true;
+    }
+    if (acceptedActivity) break;
+  }
+  return Object.freeze(bounded);
 }
 
 async function discoverFailureVariants(
@@ -429,11 +587,17 @@ async function discoverFailureVariants(
   for (const [index, trace] of traces.entries()) {
     const failureEvent = [...trace.trace.events]
       .reverse()
-      .find((event) => ['workflow_failed', 'goal_failed'].includes(event.eventType));
+      .find(
+        (event) =>
+          ['workflow_failed', 'goal_failed'].includes(event.eventType) &&
+          event.activity !== undefined &&
+          event.activity !== null &&
+          event.activity.activityKind !== 'unknown',
+      );
     if (trace.trace.outcomeStatus !== 'failed' && failureEvent === undefined) continue;
-    const activitySequence = trace.trace.events.map((event) => event.eventType);
+    const activitySequence = miningActivities(trace).map((activity) => activity.activityKey);
     const failureActivity =
-      failureEvent?.eventType ?? activitySequence.at(-1) ?? 'failure_activity_unknown';
+      failureEvent?.activity?.activityKey ?? activitySequence.at(-1) ?? 'failure_activity_unknown';
     const key = canonicalJson({ activitySequence, failureActivity });
     const failure = failures.get(key) ?? { activitySequence, failureActivity, traceRefs: [] };
     failure.traceRefs.push(trace.traceId);
@@ -471,7 +635,9 @@ function patternQuality(
       ? 0
       : mean(
           input.traces.map((trace) => {
-            const activities = new Set<string>(trace.trace.events.map((event) => event.eventType));
+            const activities = new Set<string>(
+              miningActivities(trace).map((activity) => activity.activityKey),
+            );
             return (
               input.mandatoryActivities.filter((activity) => activities.has(activity)).length /
               input.mandatoryActivities.length
@@ -482,9 +648,17 @@ function patternQuality(
     (constraint) => constraint.supportRefs.length > constraint.contradictionRefs.length,
   ).length;
   return Object.freeze({
-    support: 1,
+    supportCount: input.traces.filter((trace) => miningActivities(trace).length > 0).length,
+    totalTraceCount: input.traces.length,
+    supportRate: rounded(
+      input.traces.filter((trace) => miningActivities(trace).length > 0).length /
+        input.traces.length,
+    ),
     successRate: rounded(successCount / input.traces.length),
-    traceCoverage: 1,
+    traceCoverage: rounded(
+      input.traces.filter((trace) => miningActivities(trace).length > 0).length /
+        input.traces.length,
+    ),
     fitness: rounded(fitness),
     precisionProxy:
       input.orderingConstraints.length === 0
@@ -515,36 +689,62 @@ function toWorkflowPattern(
     ...input.discoveredPattern.optionalActivities,
   ]
     .sort()
-    .map((activity) => ({
-      activity,
-      required: input.discoveredPattern.mandatoryActivities.includes(activity),
-      supportRate: rounded(
-        requiredMapValue(input.activitySupport, activity).size / input.traces.length,
-      ),
-      capabilityRefs: uniqueSorted(
-        input.traces.flatMap((trace) =>
-          trace.trace.events
-            .filter((event) => event.eventType === activity)
-            .flatMap((event) => event.capabilityRefs),
+    .map((activityKey) => {
+      const supportingOccurrences = input.traces.flatMap((trace) =>
+        miningActivities(trace).filter((activity) => activity.activityKey === activityKey),
+      );
+      const representative = supportingOccurrences[0];
+      if (representative === undefined) throw new Error('PROCESS_MINING_ACTIVITY_METADATA_MISSING');
+      return {
+        activityKey,
+        activityKind: representative.activityKind,
+        objectiveSummary: representative.objectiveSummary,
+        required: input.discoveredPattern.mandatoryActivities.includes(activityKey),
+        supportCount: requiredMapValue(input.activitySupport, activityKey).size,
+        supportRate: rounded(
+          requiredMapValue(input.activitySupport, activityKey).size / input.traces.length,
         ),
+        capabilityRefs: uniqueSorted(
+          supportingOccurrences.flatMap((activity) => activity.capabilityRefs),
+        ),
+        effectRefs: uniqueSorted(supportingOccurrences.flatMap((activity) => activity.effectRefs)),
+        lifecycleEventTypes: uniqueSorted(
+          supportingOccurrences.flatMap((activity) => activity.lifecycleEventTypes),
+        ),
+      };
+    });
+  const parallelPairs = new Set(
+    input.discoveredPattern.parallelCandidates.flatMap((candidate) =>
+      unorderedPairs(candidate.activityRefs).map(([left, right]) =>
+        unorderedActivityPairKey(left, right),
       ),
-    }));
+    ),
+  );
   const dependencyPatterns: DependencyPattern[] = [
-    ...input.discoveredPattern.orderingConstraints.map((constraint) => ({
-      predecessorActivity: constraint.predecessorActivity,
-      successorActivity: constraint.successorActivity,
-      relation: constraint.relation,
-      supportRefs: constraint.supportRefs,
-      contradictionRefs: constraint.contradictionRefs,
-    })),
-    ...input.discoveredPattern.parallelCandidates.flatMap((candidate) =>
-      unorderedPairs(candidate.activityRefs).map(([predecessorActivity, successorActivity]) => ({
-        predecessorActivity,
-        successorActivity,
-        relation: 'parallel' as const,
-        supportRefs: candidate.supportRefs,
-        contradictionRefs: candidate.contradictionRefs,
+    ...input.discoveredPattern.orderingConstraints
+      .filter(
+        (constraint) =>
+          !parallelPairs.has(
+            unorderedActivityPairKey(constraint.predecessorActivity, constraint.successorActivity),
+          ),
+      )
+      .map((constraint) => ({
+        predecessorActivityKey: constraint.predecessorActivity,
+        successorActivityKey: constraint.successorActivity,
+        relation: constraint.relation,
+        supportRefs: constraint.supportRefs,
+        contradictionRefs: constraint.contradictionRefs,
       })),
+    ...input.discoveredPattern.parallelCandidates.flatMap((candidate) =>
+      unorderedPairs(candidate.activityRefs).map(
+        ([predecessorActivityKey, successorActivityKey]) => ({
+          predecessorActivityKey,
+          successorActivityKey,
+          relation: 'parallel' as const,
+          supportRefs: candidate.supportRefs,
+          contradictionRefs: candidate.contradictionRefs,
+        }),
+      ),
     ),
   ].sort(compareDependencies);
   return createWorkflowPattern({
@@ -611,6 +811,10 @@ function relationKey(predecessor: string, successor: string): string {
   return `${predecessor}\u001f${successor}`;
 }
 
+function unorderedActivityPairKey(left: string, right: string): string {
+  return [left, right].sort().join('\u001f');
+}
+
 function splitRelationKey(key: string): readonly [string, string] {
   const separator = key.indexOf('\u001f');
   if (separator < 1 || separator === key.length - 1) {
@@ -629,8 +833,8 @@ function compareOrdering(left: OrderingConstraint, right: OrderingConstraint): n
 
 function compareDependencies(left: DependencyPattern, right: DependencyPattern): number {
   return (
-    left.predecessorActivity.localeCompare(right.predecessorActivity) ||
-    left.successorActivity.localeCompare(right.successorActivity) ||
+    left.predecessorActivityKey.localeCompare(right.predecessorActivityKey) ||
+    left.successorActivityKey.localeCompare(right.successorActivityKey) ||
     left.relation.localeCompare(right.relation)
   );
 }

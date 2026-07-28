@@ -39,6 +39,27 @@ describe('ExperienceTraceNormalizer', () => {
         .map((event) => event.concurrencyGroup),
     ).toEqual(['parallel-a', 'parallel-a']);
     expect(
+      first.trace.trace.events
+        .filter((event) => event.eventType === 'skill_attempt_started')
+        .map((event) => event.activity?.activityKey),
+    ).toEqual(['skill-goal:skill-goal-inspect', 'skill-goal:skill-goal-verify']);
+    expect(
+      first.trace.trace.events
+        .filter((event) => event.eventType === 'skill_attempt_started')
+        .map((event) => event.activity?.sourcePlanNodeRef),
+    ).toEqual(['plan-node-inspect', 'plan-node-verify']);
+    expect(
+      first.trace.trace.events
+        .filter((event) => event.eventType === 'skill_attempt_started')
+        .map((event) => event.activity?.sourceSkillGoalRef),
+    ).toEqual(['skill-goal:skill-goal-inspect', 'skill-goal:skill-goal-verify']);
+    const inspectLifecycle = first.trace.trace.events.filter(
+      (event) => event.activity?.sourceAttemptRef === 'attempt-a',
+    );
+    expect(new Set(inspectLifecycle.map((event) => event.activity?.activityKey))).toEqual(
+      new Set(['skill-goal:skill-goal-inspect']),
+    );
+    expect(
       first.trace.trace.events.find((event) => event.eventType === 'recovery_started')?.branchRef,
     ).toBe('recovery-branch-1');
     expect(first.trace.taskTypeRefs).toEqual(['task-type-1']);
@@ -48,6 +69,7 @@ describe('ExperienceTraceNormalizer', () => {
   it('does not infer parallelism from identical timestamps without explicit evidence', () => {
     const episode = fixtureEpisode({
       attempts: [attempt('attempt-a', 'completed', {}), attempt('attempt-b', 'completed', {})],
+      planRevisions: [planRevision(false)],
     });
     const events = new ExperienceTraceNormalizer()
       .normalize(episode)
@@ -55,6 +77,105 @@ describe('ExperienceTraceNormalizer', () => {
 
     expect(events).toHaveLength(2);
     expect(events.every((event) => event.concurrencyGroup === undefined)).toBe(true);
+  });
+
+  it('maps real progress classifications to a stable observation activity', () => {
+    const episode = fixtureEpisode({
+      progress: [
+        {
+          progress_observation_id: 'progress-1',
+          plan_id: 'plan-1',
+          classification: 'stalled',
+          vector: {
+            effectRefs: ['effect-inspected'],
+            capabilityRefs: ['capability-progress-observation'],
+          },
+          observed_at: '2026-07-27T01:00:05.500Z',
+        },
+      ],
+    });
+    const event = new ExperienceTraceNormalizer()
+      .normalize(episode)
+      .trace.trace.events.find((candidate) => candidate.eventType === 'workflow_waiting');
+
+    expect(event?.activity).toMatchObject({
+      activityKey: 'progress-observation:progress-1',
+      activityKind: 'observation',
+      operationRef: 'progress-1',
+      capabilityRefs: ['capability-progress-observation'],
+      effectRefs: ['effect-inspected'],
+    });
+  });
+
+  it('links a real replacement attempt to its recovery branch without fabricated table fields', () => {
+    const episode = fixtureEpisode({
+      attempts: [
+        attempt('attempt-b', 'failed', {
+          created_at: '2026-07-27T01:00:04.000Z',
+          updated_at: '2026-07-27T01:00:05.000Z',
+        }),
+        attempt('attempt-c', 'completed', {
+          created_at: '2026-07-27T01:00:07.000Z',
+          updated_at: '2026-07-27T01:00:08.000Z',
+        }),
+      ],
+      recovery: [
+        {
+          recovery_decision_id: 'recovery-1',
+          skill_goal_id: 'skill-goal-verify',
+          attempt_id: 'attempt-b',
+          action: 'replacement_attempt',
+          reason_code: 'STALLED_CHANGED_STRATEGY',
+          created_at: '2026-07-27T01:00:06.000Z',
+        },
+      ],
+    });
+    const events = new ExperienceTraceNormalizer().normalize(episode).trace.trace.events;
+    const recovery = events.find((event) => event.eventType === 'recovery_started');
+    const replacement = events.find(
+      (event) =>
+        event.eventType === 'skill_attempt_started' &&
+        event.activity?.sourceAttemptRef === 'attempt-c',
+    );
+    const failed = events.find(
+      (event) =>
+        event.eventType === 'workflow_failed' && event.activity?.sourceAttemptRef === 'attempt-b',
+    );
+
+    expect(recovery?.branchRef).toBe('recovery:recovery-1');
+    expect(replacement?.branchRef).toBe(recovery?.branchRef);
+    expect(recovery?.parentEventRefs).toEqual([failed?.eventId]);
+  });
+
+  it('reports unresolved Activity parents and still preserves resolvable parent evidence', () => {
+    const baselineCompleteness = fixtureEpisode().completeness;
+    const result = new ExperienceTraceNormalizer().normalize(
+      fixtureEpisode({
+        attempts: [
+          attempt('attempt-a', 'completed', {}),
+          attempt('attempt-b', 'completed', {
+            parent_event_refs: ['attempt:attempt-a:completed', 'attempt:missing:completed'],
+            created_at: '2026-07-27T01:00:06.000Z',
+            updated_at: '2026-07-27T01:00:07.000Z',
+          }),
+        ],
+        recovery: [],
+      }),
+    );
+    const parent = result.trace.trace.events.find(
+      (event) =>
+        event.eventType === 'skill_attempt_completed' &&
+        event.activity?.sourceAttemptRef === 'attempt-a',
+    );
+    const child = result.trace.trace.events.find(
+      (event) =>
+        event.eventType === 'skill_attempt_started' &&
+        event.activity?.sourceAttemptRef === 'attempt-b',
+    );
+
+    expect(result.missingFactCodes).toContain('activity_parent_evidence_unresolved');
+    expect(child?.parentEventRefs).toContain(parent?.eventId);
+    expect(result.trace.completeness).toBeLessThan(baselineCompleteness);
   });
 
   it('preserves incomplete data as missing codes without fabricating facts', () => {
@@ -179,24 +300,15 @@ function fixtureEpisode(overrides: Readonly<Record<string, unknown>> = {}): Goal
       contractHash: sourceHash,
       createdAt: '2026-07-27T01:00:01.000Z',
     },
-    planRevisions: [
-      {
-        planId: 'plan-1',
-        revision: 1,
-        status: 'confirmed',
-        capabilityId: 'capability-1',
-        createdAt: '2026-07-27T01:00:02.000Z',
-        updatedAt: '2026-07-27T01:00:03.000Z',
-      },
-    ],
-    attempts: [
-      attempt('attempt-a', 'completed', { concurrency_group: 'parallel-a' }),
-      attempt('attempt-b', 'failed', { concurrency_group: 'parallel-a' }),
-    ],
+    planRevisions: [planRevision(true)],
+    attempts: [attempt('attempt-a', 'completed', {}), attempt('attempt-b', 'failed', {})],
     progress: [],
     recovery: [
       {
         recovery_decision_id: 'recovery-1',
+        skill_goal_id: 'skill-goal-verify',
+        attempt_id: 'attempt-b',
+        action: 'replacement_attempt',
         status: 'admitted',
         branch_ref: 'recovery-branch-1',
         created_at: '2026-07-27T01:00:06.000Z',
@@ -248,6 +360,48 @@ function fixtureEpisode(overrides: Readonly<Record<string, unknown>> = {}): Goal
   });
 }
 
+function planRevision(parallel: boolean): Readonly<Record<string, unknown>> {
+  return {
+    planId: 'plan-1',
+    revision: 1,
+    status: 'confirmed',
+    capabilityId: 'capability-1',
+    planningMetadata: {
+      parallelGroups: parallel ? { 'parallel-a': ['skill-goal-inspect', 'skill-goal-verify'] } : {},
+    },
+    plan: {
+      skillGoals: [
+        {
+          skillGoalId: 'skill-goal-inspect',
+          nodeKey: 'plan-node-inspect',
+          requiredResult: 'Inspect the current workflow',
+          capabilityNeeds: ['capability-1'],
+          requiredEffectRefs: ['effect-inspected'],
+        },
+        {
+          skillGoalId: 'skill-goal-verify',
+          nodeKey: 'plan-node-verify',
+          requiredResult: 'Verify the workflow outcome',
+          capabilityNeeds: ['capability-1'],
+          requiredEffectRefs: ['effect-verified'],
+        },
+      ],
+      dependencies: parallel
+        ? []
+        : [
+            {
+              dependencyId: 'dependency-inspect-verify',
+              predecessorSkillGoalId: 'skill-goal-inspect',
+              successorSkillGoalId: 'skill-goal-verify',
+              predicate: 'required',
+            },
+          ],
+    },
+    createdAt: '2026-07-27T01:00:02.000Z',
+    updatedAt: '2026-07-27T01:00:03.000Z',
+  };
+}
+
 function attempt(
   attemptId: string,
   status: string,
@@ -255,6 +409,7 @@ function attempt(
 ): Readonly<Record<string, unknown>> {
   return {
     attempt_id: attemptId,
+    skill_goal_id: attemptId === 'attempt-a' ? 'skill-goal-inspect' : 'skill-goal-verify',
     status,
     capability_refs: ['capability-1'],
     created_at: '2026-07-27T01:00:04.000Z',
@@ -271,6 +426,7 @@ function source(
     | 'plan_revision'
     | 'skill_attempt'
     | 'recovery_decision'
+    | 'workflow_outcome'
     | 'planning_correction'
     | 'runtime_terminal_outcome',
   sourceId: string,

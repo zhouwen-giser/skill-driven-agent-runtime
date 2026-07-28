@@ -36,6 +36,16 @@ describe('P03 frozen Experience compilation contracts', () => {
       occurredAt: '2026-07-27T01:00:01.000Z',
       eventType: 'goal_completed',
       actorType: 'runtime',
+      activity: {
+        activityKey: 'skill-goal:inspect',
+        activityKind: 'skill_goal',
+        objectiveSummary: 'Inspect the workflow',
+        sourcePlanNodeRef: 'inspect',
+        sourceSkillGoalRef: 'inspect',
+        sourceAttemptRef: 'attempt-1',
+        capabilityRefs: ['capability-1'],
+        effectRefs: ['effect-inspected'],
+      },
       capabilityRefs: ['capability-1'],
       authorityRefs: ['source-2'],
       parentEventRefs: ['event-1'],
@@ -164,7 +174,8 @@ describe('P03 frozen Experience compilation contracts', () => {
     expect(() =>
       createProcessVariant({
         variantId: 'variant-1',
-        activitySequence: ['goal_created'],
+        activitySequence: ['skill-goal:inspect'],
+        activityKindSequence: ['skill_goal'],
         concurrencyGroups: [],
         branchSequence: [],
         occurrenceCount: 1,
@@ -180,7 +191,8 @@ describe('P03 frozen Experience compilation contracts', () => {
     expect(
       createProcessVariant({
         variantId: 'variant-10k',
-        activitySequence: ['goal_created', 'goal_completed'],
+        activitySequence: ['skill-goal:inspect', 'skill-goal:verify'],
+        activityKindSequence: ['skill_goal', 'verification'],
         concurrencyGroups: [],
         branchSequence: [],
         occurrenceCount: tenThousandRefs.length,
@@ -197,7 +209,8 @@ describe('P03 frozen Experience compilation contracts', () => {
     expect(() =>
       createProcessVariant({
         variantId: 'variant-over-bound',
-        activitySequence: ['goal_created'],
+        activitySequence: ['skill-goal:inspect'],
+        activityKindSequence: ['skill_goal'],
         concurrencyGroups: [],
         branchSequence: [],
         occurrenceCount: overBoundRefs.length,
@@ -210,7 +223,9 @@ describe('P03 frozen Experience compilation contracts', () => {
 
   it('keeps discovered and Workflow Patterns as evidence-only contracts', () => {
     const quality = {
-      support: 1,
+      supportCount: 1,
+      totalTraceCount: 2,
+      supportRate: 0.5,
       successRate: 1,
       traceCoverage: 1,
       fitness: 1,
@@ -224,12 +239,12 @@ describe('P03 frozen Experience compilation contracts', () => {
       patternId: 'pattern-1',
       cohortFingerprint: sha('e'),
       algorithmVersion: PROCESS_MINING_ALGORITHM_VERSION,
-      mandatoryActivities: ['goal_created', 'goal_completed'],
+      mandatoryActivities: ['skill-goal:inspect', 'skill-goal:verify'],
       optionalActivities: [],
       orderingConstraints: [
         {
-          predecessorActivity: 'goal_created',
-          successorActivity: 'goal_completed',
+          predecessorActivity: 'skill-goal:inspect',
+          successorActivity: 'skill-goal:verify',
           relation: 'direct_follows',
           supportRefs: ['trace-1'],
           contradictionRefs: [],
@@ -248,10 +263,15 @@ describe('P03 frozen Experience compilation contracts', () => {
       taskTypeId: 'task-type-1',
       activityPatterns: [
         {
-          activity: 'goal_created',
+          activityKey: 'skill-goal:inspect',
+          activityKind: 'skill_goal',
+          objectiveSummary: 'Inspect the workflow',
           required: true,
+          supportCount: 1,
           supportRate: 1,
-          capabilityRefs: [],
+          capabilityRefs: ['capability-1'],
+          effectRefs: ['effect-inspected'],
+          lifecycleEventTypes: ['skill_attempt_started', 'skill_attempt_completed'],
         },
       ],
       dependencyPatterns: [],

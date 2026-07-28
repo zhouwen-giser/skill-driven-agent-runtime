@@ -159,6 +159,7 @@ import {
   createExperienceTrace,
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
   EXPERIENCE_NORMALIZER_VERSION,
+  type ExperienceActivityKind,
   type ExperienceTraceEvent,
   type ExperienceTraceEventType,
   type GoalExperienceEpisode,
@@ -4324,9 +4325,11 @@ describe('PostgreSQL protocol-domain repositories', () => {
             p03TraceEvent(episode.episodeId, 'workflow_failed', 3),
             p03TraceEvent(episode.episodeId, 'recovery_started', 4, {
               branchRef: 'recovery-p03',
+              activityKey: 'recovery:inspect:retry',
             }),
             p03TraceEvent(episode.episodeId, 'skill_attempt_started', 5, {
               branchRef: 'recovery-p03',
+              activityKey: 'skill-goal:verify',
             }),
             p03TraceEvent(episode.episodeId, 'goal_failed', 6),
           ]
@@ -4341,6 +4344,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
               ? [
                   p03TraceEvent(episode.episodeId, 'business_event_observed', 3, {
                     concurrencyGroup: 'parallel-p03',
+                    activityKey: 'provider-observation:state',
+                    activityKind: 'observation',
                   }),
                 ]
               : []),
@@ -4384,6 +4389,31 @@ describe('PostgreSQL protocol-domain repositories', () => {
       minimumCompleteness: 0.8,
     } as const;
     const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
+    const roundTrippedTraces = await compilation.listTraces(cohort);
+    expect(roundTrippedTraces).toHaveLength(3);
+    expect(
+      roundTrippedTraces.flatMap((trace) =>
+        trace.trace.events.flatMap((event) =>
+          event.activity === undefined || event.activity === null
+            ? []
+            : [event.activity.activityKey],
+        ),
+      ),
+    ).toEqual(expect.arrayContaining(['skill-goal:inspect', 'skill-goal:verify']));
+    expect(
+      roundTrippedTraces
+        .flatMap((trace) => trace.trace.events)
+        .find((event) => event.activity?.activityKey === 'skill-goal:inspect')?.activity,
+    ).toEqual({
+      activityKey: 'skill-goal:inspect',
+      activityKind: 'skill_goal',
+      objectiveSummary: 'Inspect the PostgreSQL workflow',
+      sourcePlanNodeRef: 'plan-node-p03',
+      sourceSkillGoalRef: 'skill-goal:inspect',
+      sourceAttemptRef: expect.stringContaining('skill-goal:inspect'),
+      capabilityRefs: ['capability-p03'],
+      effectRefs: ['effect:skill-goal:inspect'],
+    });
     const cohortFingerprint = miner.fingerprintCohort(cohort);
     const runs = new PostgresCompilationRunRepository(pool);
     const triggerSource = new PostgresExperienceCompilationTriggerSource(pool);
@@ -4544,11 +4574,22 @@ describe('PostgreSQL protocol-domain repositories', () => {
          'trace-p03-10k-' || value::text,$1,'["task-type-p03-10k"]'::jsonb,
          $2,$3,$4,
          jsonb_build_object(
-           'schemaVersion','1.1','tenantId','tenant-p03-10k',
+           'schemaVersion',$5::text,'tenantId','tenant-p03-10k',
            'events',jsonb_build_array(jsonb_build_object(
              'eventId','event-p03-10k-' || value::text,'sequence',0,
              'occurredAt','2026-07-27T03:30:00.000Z','eventType','goal_completed',
-             'actorType','runtime','capabilityRefs','[]'::jsonb,
+             'actorType','runtime',
+             'activity',jsonb_build_object(
+               'activityKey','skill-goal:inspect',
+               'activityKind','skill_goal',
+               'objectiveSummary','Inspect the formal PostgreSQL workflow',
+               'sourcePlanNodeRef','plan-node-p03-10k',
+               'sourceSkillGoalRef','skill-goal:inspect',
+               'sourceAttemptRef','attempt-p03-10k-' || value::text,
+               'capabilityRefs',jsonb_build_array('capability-p03-10k'),
+               'effectRefs',jsonb_build_array('effect-p03-10k')
+             ),
+             'capabilityRefs',jsonb_build_array('capability-p03-10k'),
              'authorityRefs',jsonb_build_array('source-p03-10k-' || value::text),
              'parentEventRefs','[]'::jsonb,'payloadSummary','{}'::jsonb
            )),
@@ -4562,6 +4603,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         `sha256:${'a'.repeat(64)}`,
         `sha256:${'b'.repeat(64)}`,
         `sha256:${'c'.repeat(64)}`,
+        EXPERIENCE_COMPILATION_CONTRACT_VERSION,
       ],
     );
     await pool.query(
@@ -7433,14 +7475,54 @@ function p03TraceEvent(
   optional: Readonly<{
     concurrencyGroup?: string;
     branchRef?: string;
+    activityKey?: string;
+    activityKind?: ExperienceActivityKind;
   }> = {},
 ): ExperienceTraceEvent {
+  const defaultActivityKey =
+    eventType === 'skill_attempt_started' ||
+    eventType === 'skill_attempt_completed' ||
+    eventType === 'workflow_failed'
+      ? 'skill-goal:inspect'
+      : undefined;
+  const activityKey = optional.activityKey ?? defaultActivityKey;
+  const activityKind = optional.activityKind ?? 'skill_goal';
   return {
     eventId: `event-${sourceEpisodeId}-${eventType}-${String(sequence)}`,
     sequence,
     occurredAt: new Date(Date.parse('2026-07-27T03:00:00.000Z') + sequence * 1_000).toISOString(),
     eventType,
     actorType: eventType === 'human_intervention' ? 'user' : 'runtime',
+    ...(activityKey === undefined
+      ? {}
+      : {
+          activity: {
+            activityKey,
+            activityKind,
+            objectiveSummary:
+              activityKey === 'skill-goal:verify'
+                ? 'Verify the PostgreSQL workflow'
+                : activityKind === 'observation'
+                  ? 'Observe the PostgreSQL provider state'
+                  : activityKey.startsWith('recovery:')
+                    ? 'Recover the PostgreSQL workflow'
+                    : 'Inspect the PostgreSQL workflow',
+            ...(activityKind === 'skill_goal'
+              ? {
+                  sourcePlanNodeRef: 'plan-node-p03',
+                  sourceSkillGoalRef: activityKey.startsWith('skill-goal:')
+                    ? activityKey
+                    : 'skill-goal:inspect',
+                }
+              : {}),
+            sourceAttemptRef: `${sourceEpisodeId}:${activityKey}`,
+            ...(activityKind === 'observation' || activityKey.startsWith('recovery:')
+              ? { operationRef: activityKey }
+              : {}),
+            capabilityRefs: ['capability-p03'],
+            effectRefs: [`effect:${activityKey}`],
+          },
+        }),
     capabilityRefs: eventType === 'skill_attempt_started' ? ['capability-p03'] : [],
     authorityRefs: [`source-${sourceEpisodeId}-${String(sequence)}`],
     parentEventRefs: [],

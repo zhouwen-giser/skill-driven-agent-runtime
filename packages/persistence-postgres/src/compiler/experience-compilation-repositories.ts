@@ -8,15 +8,21 @@ import { z } from 'zod';
 import {
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
   createCohortDefinition,
+  createDiscoveredProcessPattern,
   createExperienceTrace,
   createWorkflowPattern,
   type CohortDefinition,
+  type DiscoveredProcessPattern,
   type ExperienceTrace,
   type ExperienceTraceBody,
   type ExperienceTraceEvent,
   type WorkflowPattern,
 } from '../../../domain/src/index.js';
-import type { JsonObject, JsonValue } from '../../../domain/src/compiler/contracts.js';
+import type {
+  ConditionExpression,
+  JsonObject,
+  JsonValue,
+} from '../../../domain/src/compiler/contracts.js';
 import type {
   CompilationRun,
   CompilationRunRepository,
@@ -24,6 +30,7 @@ import type {
   ExperienceCompilationRepository,
   ExperienceCompilationTrigger,
   ExperienceCompilationTriggerSource,
+  PersistedProcessMiningSource,
   ProcessMiningResult,
 } from '../../../application/src/compiler/experience-compilation.js';
 import type { ExperienceTraceNormalizationReport } from '../../../application/src/compiler/experience-normalizer.js';
@@ -41,6 +48,53 @@ const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 );
 const brotliCompressAsync = promisify(brotliCompress);
 const JsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), JsonValueSchema);
+const ConditionExpressionSchema: z.ZodType = z.lazy(() =>
+  z.union([
+    z
+      .object({
+        type: z.enum(['all', 'any']),
+        children: z.array(ConditionExpressionSchema),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('not'),
+        child: ConditionExpressionSchema,
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('atomic'),
+        field: z.string(),
+        operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'contains', 'exists']),
+        value: JsonValueSchema.optional(),
+      })
+      .strict(),
+  ]),
+);
+const ActivityKindSchema = z.enum([
+  'skill_goal',
+  'plan_node',
+  'provider_operation',
+  'observation',
+  'verification',
+  'reasoning',
+  'human_gate',
+  'unknown',
+]);
+const ActivityRefSchema = z
+  .object({
+    activityKey: z.string(),
+    activityKind: ActivityKindSchema,
+    objectiveSummary: z.string(),
+    sourcePlanNodeRef: z.string().optional(),
+    sourceSkillGoalRef: z.string().optional(),
+    sourceAttemptRef: z.string().optional(),
+    operationRef: z.string().optional(),
+    capabilityRefs: z.array(z.string()),
+    effectRefs: z.array(z.string()),
+  })
+  .strict();
 const TraceEventSchema = z
   .object({
     eventId: z.string(),
@@ -64,6 +118,7 @@ const TraceEventSchema = z
       'goal_failed',
     ]),
     actorType: z.enum(['user', 'agent', 'runtime', 'provider']),
+    activity: ActivityRefSchema.nullable().optional(),
     capabilityRefs: z.array(z.string()),
     authorityRefs: z.array(z.string()),
     parentEventRefs: z.array(z.string()),
@@ -88,7 +143,9 @@ const TraceBodySchema = z
 const StringArraySchema = z.array(z.string());
 const PatternQualitySchema = z
   .object({
-    support: z.number(),
+    supportCount: z.number().int().positive(),
+    totalTraceCount: z.number().int().positive(),
+    supportRate: z.number(),
     successRate: z.number(),
     traceCoverage: z.number(),
     fitness: z.number(),
@@ -101,9 +158,10 @@ const PatternQualitySchema = z
   .strict();
 const RecoveryPatternSchema = z
   .object({
-    triggerActivity: z.string(),
-    resumeActivity: z.string().optional(),
+    triggerActivityKey: z.string(),
+    resumeActivityKey: z.string().optional(),
     activitySequence: z.array(z.string()),
+    requiredCapabilityRefs: z.array(z.string()),
     supportRefs: z.array(z.string()),
   })
   .strict();
@@ -114,23 +172,37 @@ const WorkflowPatternSchema = z
     activityPatterns: z.array(
       z
         .object({
-          activity: z.string(),
+          activityKey: z.string(),
+          activityKind: ActivityKindSchema,
+          objectiveSummary: z.string(),
           required: z.boolean(),
+          supportCount: z.number().int().positive(),
           supportRate: z.number(),
           capabilityRefs: z.array(z.string()),
+          effectRefs: z.array(z.string()),
+          lifecycleEventTypes: z.array(z.string()),
         })
         .strict(),
     ),
     dependencyPatterns: z.array(
       z
         .object({
-          predecessorActivity: z.string(),
-          successorActivity: z.string(),
-          relation: z.enum(['direct_follows', 'precedes', 'parallel']),
+          predecessorActivityKey: z.string(),
+          successorActivityKey: z.string(),
+          relation: z.enum(['direct_follows', 'precedes', 'parallel', 'conditional']),
+          condition: ConditionExpressionSchema.optional(),
           supportRefs: z.array(z.string()),
           contradictionRefs: z.array(z.string()),
         })
-        .strict(),
+        .strict()
+        .superRefine((dependency, context) => {
+          if ((dependency.relation === 'conditional') !== (dependency.condition !== undefined)) {
+            context.addIssue({
+              code: 'custom',
+              message: 'Conditional dependency condition mismatch.',
+            });
+          }
+        }),
     ),
     recoveryPatterns: z.array(RecoveryPatternSchema),
     sourcePatternRef: z.string(),
@@ -483,6 +555,29 @@ export class PostgresExperienceCompilationRepository implements ExperienceCompil
       throw new Error('EXPERIENCE_COMPILATION_WORKFLOW_PATTERN_PROJECTION_DRIFT');
     }
     return definition.workflowPattern;
+  }
+
+  async findProcessMiningSource(
+    tenantId: string,
+    sourcePatternRef: string,
+  ): Promise<PersistedProcessMiningSource | undefined> {
+    const result = await this.#pool.query<QueryResultRow & { definition: unknown }>(
+      `SELECT pattern.definition FROM pattern_candidate pattern
+       WHERE pattern.pattern_id=$2
+         AND EXISTS (
+           SELECT 1 FROM pattern_candidate_support support
+           WHERE support.pattern_id=pattern.pattern_id AND support.tenant_id=$1
+         )
+       ORDER BY pattern.created_at DESC LIMIT 1`,
+      [tenantId, sourcePatternRef],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    const definition = decodePatternDefinition(row.definition);
+    if (definition.discoveredPattern.patternId !== sourcePatternRef) {
+      throw new Error('EXPERIENCE_COMPILATION_PROCESS_PATTERN_PROJECTION_DRIFT');
+    }
+    return definition;
   }
 
   async deleteUserScope(userScopeId: string, actorId: string): Promise<number> {
@@ -948,6 +1043,32 @@ function mapTraceBody(value: unknown): ExperienceTraceBody {
       occurredAt: event.occurredAt,
       eventType: event.eventType,
       actorType: event.actorType,
+      ...(event.activity === undefined
+        ? {}
+        : {
+            activity:
+              event.activity === null
+                ? null
+                : {
+                    activityKey: event.activity.activityKey,
+                    activityKind: event.activity.activityKind,
+                    objectiveSummary: event.activity.objectiveSummary,
+                    ...(event.activity.sourcePlanNodeRef === undefined
+                      ? {}
+                      : { sourcePlanNodeRef: event.activity.sourcePlanNodeRef }),
+                    ...(event.activity.sourceSkillGoalRef === undefined
+                      ? {}
+                      : { sourceSkillGoalRef: event.activity.sourceSkillGoalRef }),
+                    ...(event.activity.sourceAttemptRef === undefined
+                      ? {}
+                      : { sourceAttemptRef: event.activity.sourceAttemptRef }),
+                    ...(event.activity.operationRef === undefined
+                      ? {}
+                      : { operationRef: event.activity.operationRef }),
+                    capabilityRefs: event.activity.capabilityRefs,
+                    effectRefs: event.activity.effectRefs,
+                  },
+          }),
       capabilityRefs: event.capabilityRefs,
       authorityRefs: event.authorityRefs,
       parentEventRefs: event.parentEventRefs,
@@ -1034,7 +1155,7 @@ async function encodePatternDefinition(
   return CompressedPatternDefinitionSchema.parse(envelope);
 }
 
-function decodePatternDefinition(value: unknown): Readonly<{ workflowPattern: WorkflowPattern }> {
+function decodePatternDefinition(value: unknown): PersistedProcessMiningSource {
   const envelope = CompressedPatternDefinitionSchema.parse(value);
   const compressed = Buffer.from(envelope.payload, 'base64');
   const decompressed = brotliDecompressSync(compressed, {
@@ -1052,16 +1173,34 @@ function decodePatternDefinition(value: unknown): Readonly<{ workflowPattern: Wo
   if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) {
     throw new Error('EXPERIENCE_COMPILATION_PATTERN_DEFINITION_INVALID');
   }
-  const workflowPattern = WorkflowPatternSchema.parse(
-    (decoded as Readonly<Record<string, unknown>>)['workflowPattern'],
+  const record = decoded as Readonly<Record<string, unknown>>;
+  const workflowPattern = WorkflowPatternSchema.parse(record['workflowPattern']);
+  const cohort = createCohortDefinition(record['cohort'] as CohortDefinition);
+  const discoveredPattern = createDiscoveredProcessPattern(
+    record['discoveredPattern'] as DiscoveredProcessPattern,
   );
   return Object.freeze({
+    cohort,
+    discoveredPattern,
     workflowPattern: createWorkflowPattern({
       ...workflowPattern,
+      dependencyPatterns: workflowPattern.dependencyPatterns.map((dependency) => ({
+        predecessorActivityKey: dependency.predecessorActivityKey,
+        successorActivityKey: dependency.successorActivityKey,
+        relation: dependency.relation,
+        ...(dependency.condition === undefined
+          ? {}
+          : { condition: dependency.condition as ConditionExpression }),
+        supportRefs: dependency.supportRefs,
+        contradictionRefs: dependency.contradictionRefs,
+      })),
       recoveryPatterns: workflowPattern.recoveryPatterns.map((pattern) => ({
-        triggerActivity: pattern.triggerActivity,
-        ...(pattern.resumeActivity === undefined ? {} : { resumeActivity: pattern.resumeActivity }),
+        triggerActivityKey: pattern.triggerActivityKey,
+        ...(pattern.resumeActivityKey === undefined
+          ? {}
+          : { resumeActivityKey: pattern.resumeActivityKey }),
         activitySequence: pattern.activitySequence,
+        requiredCapabilityRefs: pattern.requiredCapabilityRefs,
         supportRefs: pattern.supportRefs,
       })),
     }),

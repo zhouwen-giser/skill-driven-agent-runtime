@@ -53,6 +53,12 @@ export interface ProcessMiningResult {
   readonly workflowPattern: WorkflowPattern;
 }
 
+export interface PersistedProcessMiningSource {
+  readonly cohort: CohortDefinition;
+  readonly discoveredPattern: DiscoveredProcessPattern;
+  readonly workflowPattern: WorkflowPattern;
+}
+
 export interface ExperienceCompilationRepository {
   findSourceEpisode(episodeId: string): Promise<GoalExperienceEpisode | undefined>;
   findTrace(traceId: string): Promise<ExperienceTrace | undefined>;
@@ -73,6 +79,10 @@ export interface ExperienceCompilationRepository {
     tenantId: string,
     workflowPatternId: string,
   ): Promise<WorkflowPattern | undefined>;
+  findProcessMiningSource(
+    tenantId: string,
+    sourcePatternRef: string,
+  ): Promise<PersistedProcessMiningSource | undefined>;
   deleteUserScope(userScopeId: string, actorId: string): Promise<number>;
 }
 

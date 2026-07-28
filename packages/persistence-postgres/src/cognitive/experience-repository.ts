@@ -823,6 +823,15 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       );
     for (const attempt of attempts)
       addSource(sources, 'skill_attempt', attempt, 'attempt_id', 'attempt-unknown', 1);
+    for (const item of progress)
+      addSource(
+        sources,
+        'workflow_outcome',
+        item,
+        'progress_observation_id',
+        'progress-observation-unknown',
+        1,
+      );
     for (const item of recovery)
       addSource(sources, 'recovery_decision', item, 'recovery_decision_id', 'recovery-unknown', 1);
     for (const item of eventImpacts)

@@ -43,7 +43,7 @@ beforeAll(async () => {
 });
 
 describe('SDAR v1.3 P03 frozen contract', () => {
-  it('publishes all six exact 1.1 schema hashes', () => {
+  it('publishes the exact P03 V1.1/V1.2 schema hashes', () => {
     expect(EXPERIENCE_COMPILATION_SCHEMA_HASHES).toEqual(
       Object.fromEntries(
         Object.entries(lock.producedContracts).map(([name, contract]) => [
@@ -75,6 +75,7 @@ describe('SDAR v1.3 P03 frozen contract', () => {
       'occurredAt',
       'eventType',
       'actorType',
+      'activity',
       'capabilityRefs',
       'authorityRefs',
       'parentEventRefs',

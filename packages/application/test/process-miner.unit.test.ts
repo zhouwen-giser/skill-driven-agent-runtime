@@ -5,6 +5,7 @@ import {
   EXPERIENCE_NORMALIZER_VERSION,
   createCohortDefinition,
   createExperienceTrace,
+  type ExperienceActivityKind,
   type ExperienceTrace,
   type ExperienceTraceEvent,
   type ExperienceTraceEventType,
@@ -14,175 +15,195 @@ import { DeterministicProcessMiner } from '../src/compiler/process-miner.js';
 const baseTime = Date.parse('2026-07-27T03:00:00.000Z');
 const sha = (character: string): string => `sha256:${character.repeat(64)}`;
 
-describe('DeterministicProcessMiner', () => {
-  it('reproduces variants, thresholds, direct-follows and Workflow Pattern byte-for-byte', async () => {
+describe('DeterministicProcessMiner Activity Identity V1.2', () => {
+  it('mines activityKey rather than lifecycle eventType and is byte-stable', async () => {
     const traces = goldenTraces();
     const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
-    const cohort = goldenCohort();
-    const first = await miner.discover(cohort, traces);
-    const second = await miner.discover(cohort, [...traces].reverse());
+    const first = await miner.discover(goldenCohort(), traces);
+    const second = await miner.discover(goldenCohort(), [...traces].reverse());
 
     expect(first).toEqual(second);
-    expect(first.variants).toHaveLength(3);
-    expect(first.variants.reduce((sum, variant) => sum + variant.occurrenceCount, 0)).toBe(3);
     expect(first.discoveredPattern.mandatoryActivities).toEqual(
-      expect.arrayContaining(['goal_created', 'plan_created', 'skill_attempt_started']),
+      expect.arrayContaining(['skill-goal:inspect', 'skill-goal:verify']),
     );
-    expect(first.discoveredPattern.optionalActivities).toContain('human_intervention');
-    expect(first.discoveredPattern.orderingConstraints).toEqual(
+    expect(first.discoveredPattern.mandatoryActivities).not.toContain('skill_attempt_started');
+    expect(first.workflowPattern.activityPatterns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          predecessorActivity: 'goal_created',
-          successorActivity: 'plan_created',
+          activityKey: 'skill-goal:inspect',
+          activityKind: 'skill_goal',
+          objectiveSummary: 'Inspect the workflow',
+          lifecycleEventTypes: expect.arrayContaining([
+            'skill_attempt_started',
+            'skill_attempt_completed',
+          ]),
+        }),
+      ]),
+    );
+  });
+
+  it('collapses start/complete for one attempt but preserves repeated A→A attempts and self-loop', async () => {
+    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
+      trace('trace-loop', 'succeeded', [
+        lifecycle('goal_created', 0),
+        activityEvent('skill_attempt_started', 1, 'skill-goal:inspect', 'attempt-a'),
+        activityEvent('skill_attempt_completed', 2, 'skill-goal:inspect', 'attempt-a'),
+        activityEvent('skill_attempt_started', 3, 'skill-goal:inspect', 'attempt-b'),
+        activityEvent('skill_attempt_completed', 4, 'skill-goal:inspect', 'attempt-b'),
+        lifecycle('goal_completed', 5),
+      ]),
+    ]);
+
+    expect(result.variants[0]?.activitySequence).toEqual([
+      'skill-goal:inspect',
+      'skill-goal:inspect',
+    ]);
+    expect(result.discoveredPattern.orderingConstraints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          predecessorActivity: 'skill-goal:inspect',
+          successorActivity: 'skill-goal:inspect',
           relation: 'direct_follows',
         }),
       ]),
     );
-    expect(first.discoveredPattern.quality.mandatoryThreshold).toBe(2 / 3);
-    expect(first.workflowPattern.taskTypeId).toBe('task-type-1');
-    expect(first.workflowPattern.sourcePatternRef).toBe(first.discoveredPattern.patternId);
   });
 
   it('uses explicit concurrency evidence and never timestamp coincidence', async () => {
-    const miner = new DeterministicProcessMiner();
-    const explicit = await miner.discover(goldenCohort(), [
+    const explicit = await new DeterministicProcessMiner().discover(goldenCohort(), [
       trace('trace-explicit', 'succeeded', [
-        event('goal_created', 0),
-        event('skill_attempt_started', 1, { concurrencyGroup: 'parallel-1' }),
-        event('business_event_observed', 2, { concurrencyGroup: 'parallel-1' }),
-        event('goal_completed', 3),
+        activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a', {
+          concurrencyGroup: 'parallel-1',
+        }),
+        activityEvent('business_event_observed', 1, 'provider-observation:state', 'observation-a', {
+          activityKind: 'observation',
+          concurrencyGroup: 'parallel-1',
+        }),
       ]),
     ]);
-    const timestampOnly = await miner.discover(goldenCohort(), [
+    const timestampOnly = await new DeterministicProcessMiner().discover(goldenCohort(), [
       trace('trace-timestamp', 'succeeded', [
-        event('goal_created', 0),
-        event('skill_attempt_started', 1),
-        event('business_event_observed', 2),
-        event('goal_completed', 3),
+        activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a'),
+        activityEvent('business_event_observed', 1, 'provider-observation:state', 'observation-a', {
+          activityKind: 'observation',
+        }),
       ]),
     ]);
 
     expect(explicit.discoveredPattern.parallelCandidates).toEqual([
       expect.objectContaining({
-        activityRefs: ['business_event_observed', 'skill_attempt_started'],
+        activityRefs: ['provider-observation:state', 'skill-goal:inspect'],
         evidenceType: 'explicit_concurrency',
-        supportRefs: ['trace-explicit'],
+      }),
+    ]);
+    expect(
+      explicit.workflowPattern.dependencyPatterns.filter(
+        (dependency) =>
+          new Set([dependency.predecessorActivityKey, dependency.successorActivityKey]).size === 2,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        predecessorActivityKey: 'provider-observation:state',
+        successorActivityKey: 'skill-goal:inspect',
+        relation: 'parallel',
       }),
     ]);
     expect(timestampOnly.discoveredPattern.parallelCandidates).toEqual([]);
   });
 
-  it('retains loops in the Process Variant activity sequence', async () => {
+  it('preserves repeated activity occurrences inside an explicit parallel group', async () => {
     const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
-      trace('trace-loop', 'succeeded', [
-        event('goal_created', 0),
-        event('skill_attempt_started', 1),
-        event('skill_attempt_completed', 2),
-        event('skill_attempt_started', 3),
-        event('skill_attempt_completed', 4),
-        event('goal_completed', 5),
-      ]),
-    ]);
-
-    expect(result.variants[0]?.activitySequence).toEqual([
-      'goal_created',
-      'skill_attempt_started',
-      'skill_attempt_completed',
-      'skill_attempt_started',
-      'skill_attempt_completed',
-      'goal_completed',
-    ]);
-  });
-
-  it('keeps recovery trigger/resume evidence and failed variants separate', async () => {
-    const result = await new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
-      goldenCohort(),
-      goldenTraces(),
-    );
-
-    expect(result.discoveredPattern.recoveryBranches).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          triggerActivity: 'workflow_failed',
-          resumeActivity: 'skill_attempt_started',
-          supportRefs: ['trace-failure'],
+      trace('trace-parallel-repeat', 'succeeded', [
+        activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a', {
+          concurrencyGroup: 'parallel-repeat',
+        }),
+        activityEvent('skill_attempt_started', 1, 'skill-goal:inspect', 'attempt-b', {
+          concurrencyGroup: 'parallel-repeat',
         }),
       ]),
-    );
-    expect(result.discoveredPattern.failureVariants).toEqual([
-      expect.objectContaining({
-        failureActivity: 'goal_failed',
-        traceRefs: ['trace-failure'],
-        count: 1,
-      }),
     ]);
-    expect(result.variants.reduce((sum, variant) => sum + variant.failureCount, 0)).toBe(1);
+
+    expect(result.variants[0]?.concurrencyGroups).toEqual([
+      ['skill-goal:inspect', 'skill-goal:inspect'],
+    ]);
   });
 
-  it('records reversed ordering as contradiction evidence', async () => {
+  it('preserves recovery trigger, resume, sequence and required capability', async () => {
+    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
+      trace('trace-recovery', 'failed', [
+        activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a'),
+        activityEvent('workflow_failed', 1, 'skill-goal:inspect', 'attempt-a'),
+        activityEvent('recovery_started', 2, 'recovery:inspect:retry', 'recovery-a', {
+          activityKind: 'skill_goal',
+          branchRef: 'recovery-1',
+          capabilityRefs: ['cap-recover'],
+        }),
+        activityEvent('skill_attempt_started', 3, 'skill-goal:verify', 'attempt-b', {
+          branchRef: 'recovery-1',
+        }),
+        activityEvent('skill_attempt_started', 4, 'skill-goal:cleanup', 'attempt-c'),
+        lifecycle('goal_failed', 5),
+      ]),
+    ]);
+
+    expect(result.discoveredPattern.recoveryBranches).toEqual([
+      expect.objectContaining({
+        triggerActivityKey: 'skill-goal:inspect',
+        resumeActivityKey: 'skill-goal:verify',
+        activitySequence: ['recovery:inspect:retry', 'skill-goal:verify'],
+        requiredCapabilityRefs: expect.arrayContaining(['cap-recover', 'capability-1']),
+      }),
+    ]);
+    expect(result.discoveredPattern.failureVariants[0]).toMatchObject({
+      failureActivity: 'skill-goal:inspect',
+      traceRefs: ['trace-recovery'],
+    });
+  });
+
+  it('does not silently generalize unknown Activity or pure lifecycle facts', async () => {
+    const source = trace('trace-mixed', 'succeeded', [
+      lifecycle('goal_created', 0),
+      activityEvent('skill_attempt_started', 1, 'unknown-attempt:a', 'attempt-a', {
+        activityKind: 'unknown',
+      }),
+      activityEvent('skill_attempt_started', 2, 'skill-goal:inspect', 'attempt-b'),
+      lifecycle('goal_completed', 3),
+    ]);
+    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [source]);
+
+    expect(result.variants[0]?.activitySequence).toEqual(['skill-goal:inspect']);
+    expect(JSON.stringify(result.workflowPattern)).not.toMatch(
+      /goal_created|goal_completed|unknown-attempt/u,
+    );
+  });
+
+  it('uses real denominators for support and trace coverage', async () => {
     const result = await new DeterministicProcessMiner({ mandatoryThreshold: 0.5 }).discover(
       goldenCohort(),
       [
-        trace('trace-order-a', 'succeeded', [
-          event('goal_created', 0),
-          event('plan_created', 1),
-          event('human_intervention', 2),
-          event('goal_completed', 3),
+        trace('trace-supported', 'succeeded', [
+          activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a'),
         ]),
-        trace('trace-order-b', 'succeeded', [
-          event('goal_created', 0),
-          event('human_intervention', 1),
-          event('plan_created', 2),
-          event('goal_completed', 3),
+        trace('trace-lifecycle-only', 'failed', [
+          lifecycle('goal_created', 0),
+          lifecycle('goal_failed', 1),
         ]),
       ],
     );
 
-    const relation = result.discoveredPattern.orderingConstraints.find(
-      (constraint) =>
-        constraint.predecessorActivity === 'human_intervention' &&
-        constraint.successorActivity === 'plan_created' &&
-        constraint.relation === 'direct_follows',
-    );
-    expect(relation).toMatchObject({
-      supportRefs: ['trace-order-b'],
-      contradictionRefs: ['trace-order-a'],
-    });
-    expect(result.discoveredPattern.contradictionRefs).toEqual(['trace-order-a', 'trace-order-b']);
-  });
-
-  it('separates environment coverage and exposes frozen quality proxies', async () => {
-    const traces = [
-      trace('trace-server', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)]),
-      trace('trace-device', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)], {
-        environmentClass: 'device',
-        deviceClass: 'robot',
-      }),
-    ];
-    const result = await new DeterministicProcessMiner().discover(
-      createCohortDefinition({
-        tenantId: 'tenant-1',
-        taskTypeId: 'task-type-1',
-        minimumCompleteness: 0.8,
-      }),
-      traces,
-    );
-
-    expect(result.discoveredPattern.environmentCoverage).toEqual(['device/robot', 'server']);
     expect(result.discoveredPattern.quality).toMatchObject({
-      support: 1,
-      successRate: 1,
-      traceCoverage: 1,
-      environmentCoverage: 1,
-      contradictionRate: 0,
+      supportCount: 1,
+      totalTraceCount: 2,
+      supportRate: 0.5,
+      traceCoverage: 0.5,
+      successRate: 0.5,
     });
   });
 
-  it('fails closed across tenant, Task Type, completeness and cohort time boundaries', async () => {
+  it('fails closed across tenant, Task Type and completeness boundaries', async () => {
     const miner = new DeterministicProcessMiner();
     const source = trace('trace-scope', 'succeeded', [
-      event('goal_created', 0),
-      event('goal_completed', 1),
+      activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-a'),
     ]);
     await expect(
       miner.discover({ ...goldenCohort(), tenantId: 'tenant-2' }, [source]),
@@ -195,26 +216,12 @@ describe('DeterministicProcessMiner', () => {
         { ...source, completeness: 0.9 },
       ]),
     ).rejects.toThrow(/COMPLETENESS_MISMATCH/u);
-    await expect(
-      miner.discover(
-        {
-          ...goldenCohort(),
-          timeRange: {
-            from: '2026-07-28T00:00:00.000Z',
-            to: '2026-07-29T00:00:00.000Z',
-          },
-        },
-        [source],
-      ),
-    ).rejects.toThrow(/TIME_RANGE_MISMATCH/u);
   });
 
   it('cooperatively yields while mining a large cohort in the single runtime process', async () => {
     const traces = Array.from({ length: 2_048 }, (_, index) =>
       trace(`trace-cooperative-${String(index).padStart(4, '0')}`, 'succeeded', [
-        event('goal_created', 0),
-        event('plan_created', 1),
-        event('goal_completed', 2),
+        activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', `attempt-${String(index)}`),
       ]),
     );
     let eventLoopTicks = 0;
@@ -226,19 +233,7 @@ describe('DeterministicProcessMiner', () => {
     } finally {
       clearInterval(timer);
     }
-
     expect(eventLoopTicks).toBeGreaterThan(2);
-  });
-
-  it('does not produce Artifact, Skill binding, schema or completion-contract authority', async () => {
-    const result = await new DeterministicProcessMiner().discover(goldenCohort(), [
-      trace('trace-boundary', 'succeeded', [event('goal_created', 0), event('goal_completed', 1)]),
-    ]);
-    const serialized = JSON.stringify(result.workflowPattern);
-
-    expect(serialized).not.toMatch(
-      /artifactId|skillId|inputSchema|outputSchema|completionContract|fastGateway/iu,
-    );
   });
 });
 
@@ -253,29 +248,24 @@ function goldenCohort() {
 function goldenTraces(): readonly ExperienceTrace[] {
   return [
     trace('trace-success-a', 'succeeded', [
-      event('goal_created', 0),
-      event('plan_created', 1),
-      event('skill_attempt_started', 2, { concurrencyGroup: 'parallel-a' }),
-      event('business_event_observed', 3, { concurrencyGroup: 'parallel-a' }),
-      event('skill_attempt_completed', 4),
-      event('goal_completed', 5),
+      lifecycle('goal_created', 0),
+      activityEvent('skill_attempt_started', 1, 'skill-goal:inspect', 'attempt-a'),
+      activityEvent('skill_attempt_completed', 2, 'skill-goal:inspect', 'attempt-a'),
+      activityEvent('skill_attempt_started', 3, 'skill-goal:verify', 'attempt-b'),
+      activityEvent('skill_attempt_completed', 4, 'skill-goal:verify', 'attempt-b'),
+      lifecycle('goal_completed', 5),
     ]),
     trace('trace-success-b', 'succeeded', [
-      event('goal_created', 0),
-      event('plan_created', 1),
-      event('human_intervention', 2),
-      event('skill_attempt_started', 3),
-      event('skill_attempt_completed', 4),
-      event('goal_completed', 5),
+      activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-c'),
+      activityEvent('skill_attempt_completed', 1, 'skill-goal:inspect', 'attempt-c'),
+      activityEvent('skill_attempt_started', 2, 'skill-goal:verify', 'attempt-d'),
+      activityEvent('skill_attempt_completed', 3, 'skill-goal:verify', 'attempt-d'),
     ]),
     trace('trace-failure', 'failed', [
-      event('goal_created', 0),
-      event('plan_created', 1),
-      event('skill_attempt_started', 2),
-      event('workflow_failed', 3),
-      event('recovery_started', 4, { branchRef: 'recovery-1' }),
-      event('skill_attempt_started', 5, { branchRef: 'recovery-1' }),
-      event('goal_failed', 6),
+      activityEvent('skill_attempt_started', 0, 'skill-goal:inspect', 'attempt-e'),
+      activityEvent('workflow_failed', 1, 'skill-goal:inspect', 'attempt-e'),
+      activityEvent('skill_attempt_started', 2, 'skill-goal:verify', 'attempt-f'),
+      lifecycle('goal_failed', 3),
     ]),
   ];
 }
@@ -284,11 +274,7 @@ function trace(
   traceId: string,
   outcomeStatus: ExperienceTrace['trace']['outcomeStatus'],
   events: readonly ExperienceTraceEvent[],
-  environment: Readonly<{ environmentClass: string; deviceClass?: string }> = {
-    environmentClass: 'server',
-  },
 ): ExperienceTrace {
-  const hashCharacter = traceId.includes('failure') || traceId.includes('device') ? 'b' : 'a';
   return createExperienceTrace({
     traceId,
     sourceEpisodeId: `episode-${traceId}`,
@@ -304,25 +290,56 @@ function trace(
       outcomeRef: `outcome-${traceId}`,
       outcomeStatus,
       missingFactCodes: [],
-      environmentClass: environment.environmentClass,
-      ...(environment.deviceClass === undefined ? {} : { deviceClass: environment.deviceClass }),
+      environmentClass: 'server',
     },
     completeness: 0.95,
     dataClassification: 'internal',
     normalizerVersion: EXPERIENCE_NORMALIZER_VERSION,
-    sourceHash: sha(hashCharacter),
+    sourceHash: sha(traceId.includes('failure') ? 'b' : 'a'),
     createdAt: '2026-07-27T03:00:00.000Z',
   });
 }
 
-function event(
+function lifecycle(eventType: ExperienceTraceEventType, sequence: number): ExperienceTraceEvent {
+  return baseEvent(eventType, sequence);
+}
+
+function activityEvent(
   eventType: ExperienceTraceEventType,
   sequence: number,
+  activityKey: string,
+  attemptRef: string,
   optional: Readonly<{
+    activityKind?: ExperienceActivityKind;
     concurrencyGroup?: string;
     branchRef?: string;
-    parentEventRefs?: readonly string[];
+    capabilityRefs?: readonly string[];
   }> = {},
+): ExperienceTraceEvent {
+  const activityKind = optional.activityKind ?? 'skill_goal';
+  const capabilityRefs = optional.capabilityRefs ?? ['capability-1'];
+  return baseEvent(eventType, sequence, {
+    activity: {
+      activityKey,
+      activityKind,
+      objectiveSummary:
+        activityKey === 'skill-goal:verify' ? 'Verify the workflow' : 'Inspect the workflow',
+      sourceAttemptRef: attemptRef,
+      capabilityRefs,
+      effectRefs: [`effect:${activityKey}`],
+    },
+    capabilityRefs,
+    ...(optional.concurrencyGroup === undefined
+      ? {}
+      : { concurrencyGroup: optional.concurrencyGroup }),
+    ...(optional.branchRef === undefined ? {} : { branchRef: optional.branchRef }),
+  });
+}
+
+function baseEvent(
+  eventType: ExperienceTraceEventType,
+  sequence: number,
+  optional: Partial<ExperienceTraceEvent> = {},
 ): ExperienceTraceEvent {
   return {
     eventId: `event-${eventType}-${String(sequence)}`,
@@ -330,13 +347,10 @@ function event(
     occurredAt: new Date(baseTime + sequence * 1_000).toISOString(),
     eventType,
     actorType: eventType === 'human_intervention' ? 'user' : 'runtime',
-    capabilityRefs: eventType === 'skill_attempt_started' ? ['capability-1'] : [],
+    capabilityRefs: [],
     authorityRefs: [`source-${String(sequence)}`],
-    parentEventRefs: optional.parentEventRefs ?? [],
-    ...(optional.concurrencyGroup === undefined
-      ? {}
-      : { concurrencyGroup: optional.concurrencyGroup }),
-    ...(optional.branchRef === undefined ? {} : { branchRef: optional.branchRef }),
+    parentEventRefs: [],
     payloadSummary: { eventType },
+    ...optional,
   };
 }

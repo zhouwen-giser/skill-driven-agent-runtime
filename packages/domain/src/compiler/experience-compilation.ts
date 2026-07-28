@@ -1,19 +1,21 @@
 import { ArtifactDomainError, type ArtifactDomainErrorCode } from './errors.js';
-import type { JsonValue } from './contracts.js';
+import type { ConditionExpression, JsonValue } from './contracts.js';
+import { assertConditionExpression } from './validation.js';
 
-export const EXPERIENCE_COMPILATION_CONTRACT_VERSION = '1.1' as const;
-export const EXPERIENCE_NORMALIZER_VERSION = 'sdar-experience-normalizer/1.1' as const;
-export const PROCESS_MINING_ALGORITHM_VERSION = 'sdar-deterministic-process-miner/1.1' as const;
+export const EXPERIENCE_COMPILATION_CONTRACT_VERSION = '1.2' as const;
+export const EXPERIENCE_NORMALIZER_VERSION = 'sdar-experience-normalizer/1.2' as const;
+export const PROCESS_MINING_ALGORITHM_VERSION = 'sdar-deterministic-process-miner/1.2' as const;
 const DEFAULT_IDENTIFIER_COLLECTION_LIMIT = 4_096;
 const PROCESS_MINING_EVIDENCE_REFERENCE_LIMIT = 65_536;
 
 export const EXPERIENCE_COMPILATION_SCHEMA_HASHES = Object.freeze({
   ExperienceTrace: 'd929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9',
-  ExperienceTraceEvent: '8b9742001edfbbe7a6dc93971d5f08dff002f32d56a7ca124c5b54e59133a878',
+  ExperienceActivityRef: 'c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0',
+  ExperienceTraceEvent: '4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425',
   CohortDefinition: '864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90',
-  ProcessVariant: 'f8f772dfbc589945e691bb9052b0164941e62dab0f7ac68f7d8021c16010fa86',
+  ProcessVariant: 'eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17',
   DiscoveredProcessPattern: 'de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac',
-  WorkflowPattern: '5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b',
+  WorkflowPattern: 'a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11',
 } as const);
 
 export const EXPERIENCE_TRACE_EVENT_TYPES = Object.freeze([
@@ -36,6 +38,27 @@ export const EXPERIENCE_TRACE_EVENT_TYPES = Object.freeze([
 
 export type ExperienceTraceEventType = (typeof EXPERIENCE_TRACE_EVENT_TYPES)[number];
 export type ExperienceTraceActorType = 'user' | 'agent' | 'runtime' | 'provider';
+export type ExperienceActivityKind =
+  | 'skill_goal'
+  | 'plan_node'
+  | 'provider_operation'
+  | 'observation'
+  | 'verification'
+  | 'reasoning'
+  | 'human_gate'
+  | 'unknown';
+
+export interface ExperienceActivityRef {
+  readonly activityKey: string;
+  readonly activityKind: ExperienceActivityKind;
+  readonly objectiveSummary: string;
+  readonly sourcePlanNodeRef?: string;
+  readonly sourceSkillGoalRef?: string;
+  readonly sourceAttemptRef?: string;
+  readonly operationRef?: string;
+  readonly capabilityRefs: readonly string[];
+  readonly effectRefs: readonly string[];
+}
 
 export interface ExperienceTraceEvent {
   readonly eventId: string;
@@ -43,6 +66,7 @@ export interface ExperienceTraceEvent {
   readonly occurredAt: string;
   readonly eventType: ExperienceTraceEventType;
   readonly actorType: ExperienceTraceActorType;
+  readonly activity?: ExperienceActivityRef | null;
   readonly capabilityRefs: readonly string[];
   readonly authorityRefs: readonly string[];
   readonly parentEventRefs: readonly string[];
@@ -97,6 +121,7 @@ export interface CohortDefinition {
 export interface ProcessVariant {
   readonly variantId: string;
   readonly activitySequence: readonly string[];
+  readonly activityKindSequence: readonly ExperienceActivityKind[];
   readonly concurrencyGroups: readonly (readonly string[])[];
   readonly branchSequence: readonly string[];
   readonly occurrenceCount: number;
@@ -121,9 +146,10 @@ export interface ParallelCandidate {
 }
 
 export interface RecoveryPattern {
-  readonly triggerActivity: string;
-  readonly resumeActivity?: string;
+  readonly triggerActivityKey: string;
+  readonly resumeActivityKey?: string;
   readonly activitySequence: readonly string[];
+  readonly requiredCapabilityRefs: readonly string[];
   readonly supportRefs: readonly string[];
 }
 
@@ -135,7 +161,9 @@ export interface FailureVariant {
 }
 
 export interface PatternQuality {
-  readonly support: number;
+  readonly supportCount: number;
+  readonly totalTraceCount: number;
+  readonly supportRate: number;
   readonly successRate: number;
   readonly traceCoverage: number;
   readonly fitness: number;
@@ -163,16 +191,22 @@ export interface DiscoveredProcessPattern {
 }
 
 export interface ActivityPattern {
-  readonly activity: string;
+  readonly activityKey: string;
+  readonly activityKind: ExperienceActivityKind;
+  readonly objectiveSummary: string;
   readonly required: boolean;
+  readonly supportCount: number;
   readonly supportRate: number;
   readonly capabilityRefs: readonly string[];
+  readonly effectRefs: readonly string[];
+  readonly lifecycleEventTypes: readonly string[];
 }
 
 export interface DependencyPattern {
-  readonly predecessorActivity: string;
-  readonly successorActivity: string;
-  readonly relation: 'direct_follows' | 'precedes' | 'parallel';
+  readonly predecessorActivityKey: string;
+  readonly successorActivityKey: string;
+  readonly relation: 'direct_follows' | 'precedes' | 'parallel' | 'conditional';
+  readonly condition?: ConditionExpression;
   readonly supportRefs: readonly string[];
   readonly contradictionRefs: readonly string[];
 }
@@ -197,6 +231,7 @@ export function createExperienceTraceEvent(input: ExperienceTraceEvent): Experie
       'occurredAt',
       'eventType',
       'actorType',
+      'activity',
       'capabilityRefs',
       'authorityRefs',
       'parentEventRefs',
@@ -204,7 +239,7 @@ export function createExperienceTraceEvent(input: ExperienceTraceEvent): Experie
       'branchRef',
       'payloadSummary',
     ],
-    ['concurrencyGroup', 'branchRef'],
+    ['activity', 'concurrencyGroup', 'branchRef'],
     'ExperienceTraceEvent',
   );
   assertIdentifier(input.eventId, 'eventId');
@@ -222,14 +257,70 @@ export function createExperienceTraceEvent(input: ExperienceTraceEvent): Experie
     assertIdentifier(input.concurrencyGroup, 'concurrencyGroup');
   }
   if (input.branchRef !== undefined) assertIdentifier(input.branchRef, 'branchRef');
+  const activity =
+    input.activity === undefined || input.activity === null
+      ? input.activity
+      : createExperienceActivityRef(input.activity);
   const event = {
     ...input,
+    ...(activity === undefined ? {} : { activity }),
     capabilityRefs: freezeIdentifiers(input.capabilityRefs, 'capabilityRefs'),
     authorityRefs: freezeIdentifiers(input.authorityRefs, 'authorityRefs'),
     parentEventRefs: freezeIdentifiers(input.parentEventRefs, 'parentEventRefs'),
     payloadSummary: freezeJson(input.payloadSummary, 0),
   };
   return Object.freeze(event);
+}
+
+export function createExperienceActivityRef(input: ExperienceActivityRef): ExperienceActivityRef {
+  assertExactKeys(
+    input,
+    [
+      'activityKey',
+      'activityKind',
+      'objectiveSummary',
+      'sourcePlanNodeRef',
+      'sourceSkillGoalRef',
+      'sourceAttemptRef',
+      'operationRef',
+      'capabilityRefs',
+      'effectRefs',
+    ],
+    ['sourcePlanNodeRef', 'sourceSkillGoalRef', 'sourceAttemptRef', 'operationRef'],
+    'ExperienceActivityRef',
+  );
+  assertIdentifier(input.activityKey, 'activityKey');
+  if (
+    ![
+      'skill_goal',
+      'plan_node',
+      'provider_operation',
+      'observation',
+      'verification',
+      'reasoning',
+      'human_gate',
+      'unknown',
+    ].includes(input.activityKind)
+  ) {
+    invalid('EXPERIENCE_TRACE_EVENT_INVALID', 'Unknown Experience Activity kind.');
+  }
+  if (input.objectiveSummary.trim().length === 0 || input.objectiveSummary.length > 1_024) {
+    invalid('EXPERIENCE_TRACE_EVENT_INVALID', 'Activity objective summary is invalid.');
+  }
+  for (const field of [
+    'sourcePlanNodeRef',
+    'sourceSkillGoalRef',
+    'sourceAttemptRef',
+    'operationRef',
+  ] as const) {
+    if (input[field] !== undefined) assertIdentifier(input[field], field);
+  }
+  return Object.freeze({
+    ...input,
+    objectiveSummary: input.objectiveSummary.trim(),
+    capabilityRefs: freezeIdentifiers(input.capabilityRefs, 'activity.capabilityRefs', 64),
+    effectRefs: freezeIdentifiers(input.effectRefs, 'activity.effectRefs', 64),
+  });
 }
 
 export function createExperienceTrace(input: ExperienceTrace): ExperienceTrace {
@@ -337,6 +428,7 @@ export function createProcessVariant(input: ProcessVariant): ProcessVariant {
     [
       'variantId',
       'activitySequence',
+      'activityKindSequence',
       'concurrencyGroups',
       'branchSequence',
       'occurrenceCount',
@@ -350,6 +442,24 @@ export function createProcessVariant(input: ProcessVariant): ProcessVariant {
   assertIdentifier(input.variantId, 'variantId');
   if (input.activitySequence.length === 0) {
     invalid('PROCESS_VARIANT_INVALID', 'A Process Variant requires an activity sequence.');
+  }
+  if (
+    input.activityKindSequence.length !== input.activitySequence.length ||
+    input.activityKindSequence.some(
+      (kind) =>
+        ![
+          'skill_goal',
+          'plan_node',
+          'provider_operation',
+          'observation',
+          'verification',
+          'reasoning',
+          'human_gate',
+          'unknown',
+        ].includes(kind),
+    )
+  ) {
+    invalid('PROCESS_VARIANT_INVALID', 'Activity kind sequence must align with activities.');
   }
   for (const field of ['occurrenceCount', 'successCount', 'failureCount'] as const) {
     if (!Number.isSafeInteger(input[field]) || input[field] < 0) {
@@ -365,8 +475,17 @@ export function createProcessVariant(input: ProcessVariant): ProcessVariant {
   return Object.freeze({
     ...input,
     activitySequence: freezeSequence(input.activitySequence, 'activitySequence'),
+    activityKindSequence: Object.freeze([...input.activityKindSequence]),
     concurrencyGroups: Object.freeze(
-      input.concurrencyGroups.map((group) => freezeIdentifiers(group, 'concurrencyGroups')),
+      input.concurrencyGroups.map((group) => {
+        if (group.length < 2) {
+          invalid(
+            'PROCESS_VARIANT_INVALID',
+            'A concurrency group requires at least two activity occurrences.',
+          );
+        }
+        return freezeSequence(group, 'concurrencyGroups');
+      }),
     ),
     branchSequence: freezeSequence(input.branchSequence, 'branchSequence'),
     traceRefs: freezeIdentifiers(
@@ -531,9 +650,6 @@ function createOrderingConstraint(input: OrderingConstraint): OrderingConstraint
   );
   assertIdentifier(input.predecessorActivity, 'predecessorActivity');
   assertIdentifier(input.successorActivity, 'successorActivity');
-  if (input.predecessorActivity === input.successorActivity) {
-    invalid('DISCOVERED_PROCESS_PATTERN_INVALID', 'Ordering constraint cannot self-reference.');
-  }
   if (!['direct_follows', 'precedes'].includes(input.relation)) {
     invalid('DISCOVERED_PROCESS_PATTERN_INVALID', 'Unknown ordering relation.');
   }
@@ -589,15 +705,26 @@ function createParallelCandidate(input: ParallelCandidate): ParallelCandidate {
 function createRecoveryPattern(input: RecoveryPattern): RecoveryPattern {
   assertExactKeys(
     input,
-    ['triggerActivity', 'resumeActivity', 'activitySequence', 'supportRefs'],
-    ['resumeActivity'],
+    [
+      'triggerActivityKey',
+      'resumeActivityKey',
+      'activitySequence',
+      'requiredCapabilityRefs',
+      'supportRefs',
+    ],
+    ['resumeActivityKey'],
     'RecoveryPattern',
   );
-  assertIdentifier(input.triggerActivity, 'triggerActivity');
-  if (input.resumeActivity !== undefined) assertIdentifier(input.resumeActivity, 'resumeActivity');
+  assertIdentifier(input.triggerActivityKey, 'triggerActivityKey');
+  if (input.resumeActivityKey !== undefined)
+    assertIdentifier(input.resumeActivityKey, 'resumeActivityKey');
   return Object.freeze({
     ...input,
     activitySequence: freezeSequence(input.activitySequence, 'activitySequence'),
+    requiredCapabilityRefs: freezeIdentifiers(
+      input.requiredCapabilityRefs,
+      'requiredCapabilityRefs',
+    ),
     supportRefs: freezeIdentifiers(
       input.supportRefs,
       'supportRefs',
@@ -632,7 +759,9 @@ function createPatternQuality(input: PatternQuality): PatternQuality {
   assertExactKeys(
     input,
     [
-      'support',
+      'supportCount',
+      'totalTraceCount',
+      'supportRate',
       'successRate',
       'traceCoverage',
       'fitness',
@@ -646,7 +775,7 @@ function createPatternQuality(input: PatternQuality): PatternQuality {
     'PatternQuality',
   );
   for (const field of [
-    'support',
+    'supportRate',
     'successRate',
     'traceCoverage',
     'fitness',
@@ -658,35 +787,91 @@ function createPatternQuality(input: PatternQuality): PatternQuality {
   ] as const) {
     assertUnitInterval(input[field], field);
   }
+  for (const field of ['supportCount', 'totalTraceCount'] as const) {
+    if (!Number.isSafeInteger(input[field]) || input[field] < 1) {
+      invalid('DISCOVERED_PROCESS_PATTERN_INVALID', `${field} must be a positive integer.`);
+    }
+  }
+  if (input.supportCount > input.totalTraceCount) {
+    invalid('DISCOVERED_PROCESS_PATTERN_INVALID', 'Pattern support exceeds trace denominator.');
+  }
   return Object.freeze({ ...input });
 }
 
 function createActivityPattern(input: ActivityPattern): ActivityPattern {
   assertExactKeys(
     input,
-    ['activity', 'required', 'supportRate', 'capabilityRefs'],
+    [
+      'activityKey',
+      'activityKind',
+      'objectiveSummary',
+      'required',
+      'supportCount',
+      'supportRate',
+      'capabilityRefs',
+      'effectRefs',
+      'lifecycleEventTypes',
+    ],
     [],
     'ActivityPattern',
   );
-  assertIdentifier(input.activity, 'activity');
+  assertIdentifier(input.activityKey, 'activityKey');
+  if (
+    ![
+      'skill_goal',
+      'plan_node',
+      'provider_operation',
+      'observation',
+      'verification',
+      'reasoning',
+      'human_gate',
+      'unknown',
+    ].includes(input.activityKind)
+  ) {
+    invalid('WORKFLOW_PATTERN_INVALID', 'Unknown Activity Pattern kind.');
+  }
+  if (input.objectiveSummary.trim().length === 0) {
+    invalid('WORKFLOW_PATTERN_INVALID', 'Activity objective summary is required.');
+  }
+  if (!Number.isSafeInteger(input.supportCount) || input.supportCount < 1) {
+    invalid('WORKFLOW_PATTERN_INVALID', 'Activity support count must be positive.');
+  }
   assertUnitInterval(input.supportRate, 'supportRate');
   return Object.freeze({
     ...input,
     capabilityRefs: freezeIdentifiers(input.capabilityRefs, 'capabilityRefs'),
+    effectRefs: freezeIdentifiers(input.effectRefs, 'effectRefs'),
+    lifecycleEventTypes: freezeIdentifiers(input.lifecycleEventTypes, 'lifecycleEventTypes'),
   });
 }
 
 function createDependencyPattern(input: DependencyPattern): DependencyPattern {
   assertExactKeys(
     input,
-    ['predecessorActivity', 'successorActivity', 'relation', 'supportRefs', 'contradictionRefs'],
-    [],
+    [
+      'predecessorActivityKey',
+      'successorActivityKey',
+      'relation',
+      'condition',
+      'supportRefs',
+      'contradictionRefs',
+    ],
+    ['condition'],
     'DependencyPattern',
   );
-  assertIdentifier(input.predecessorActivity, 'predecessorActivity');
-  assertIdentifier(input.successorActivity, 'successorActivity');
-  if (!['direct_follows', 'precedes', 'parallel'].includes(input.relation)) {
+  assertIdentifier(input.predecessorActivityKey, 'predecessorActivityKey');
+  assertIdentifier(input.successorActivityKey, 'successorActivityKey');
+  if (!['direct_follows', 'precedes', 'parallel', 'conditional'].includes(input.relation)) {
     invalid('WORKFLOW_PATTERN_INVALID', 'Unknown dependency relation.');
+  }
+  if ((input.relation === 'conditional') !== (input.condition !== undefined)) {
+    invalid(
+      'WORKFLOW_PATTERN_INVALID',
+      'Conditional dependencies require a ConditionExpression and other relations forbid one.',
+    );
+  }
+  if (input.condition !== undefined) {
+    assertConditionExpression(input.condition, 'DependencyPattern.condition');
   }
   return Object.freeze({
     ...input,
