@@ -190,6 +190,9 @@ import {
   CandidateGenerationApplicationService,
   CandidateGenerationRunReconciler,
   CandidateGenerationTriggerDispatcher,
+  ArtifactReplayValidationApplicationService,
+  ReplayValidationRunReconciler,
+  ReplayValidationTriggerDispatcher,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -305,6 +308,7 @@ import {
   PostgresExperienceCompilationTriggerSource,
   PostgresCandidateGenerationRepository,
   PostgresCandidateGenerationCatalog,
+  PostgresArtifactReplayValidationRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -325,6 +329,8 @@ import {
   BullMqCompilationWorker,
   BullMqCandidateGenerationQueue,
   BullMqCandidateGenerationWorker,
+  BullMqReplayValidationQueue,
+  BullMqReplayValidationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -476,6 +482,11 @@ export async function startServerRuntime(
   const candidateGenerationReady = await pool.query<{ installed: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM schema_migration WHERE version='0128_v13_candidate_generation_runtime'
+     ) AS installed`,
+  );
+  const artifactReplayValidationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0129_v13_artifact_replay_validation'
      ) AS installed`,
   );
   let artifactRegistry: ArtifactRegistryService | undefined;
@@ -987,6 +998,41 @@ export async function startServerRuntime(
                   };
                 })()
               : undefined;
+          const replayValidationRuntime =
+            artifactReplayValidationReady.rows[0]?.installed === true
+              ? (() => {
+                  const replayRepository = new PostgresArtifactReplayValidationRepository(pool);
+                  const replayQueue = new BullMqReplayValidationQueue(options.redis);
+                  const replayService = new ArtifactReplayValidationApplicationService(
+                    replayRepository,
+                    clock,
+                    {
+                      maxAttempts: 5,
+                      baseBackoffMs: 2_000,
+                      maxBackoffMs: 120_000,
+                    },
+                  );
+                  return {
+                    replayValidationDispatcher: new ReplayValidationTriggerDispatcher(
+                      replayRepository,
+                      replayQueue,
+                      clock,
+                    ),
+                    replayValidationReconciler: new ReplayValidationRunReconciler(
+                      replayRepository,
+                      replayQueue,
+                    ),
+                    replayValidationQueue: replayQueue,
+                    replayValidationRetention: (retentionNow: string, limit = 1_000) =>
+                      replayRepository.purgeExpired(retentionNow, limit),
+                    replayValidationWorker: new BullMqReplayValidationWorker(
+                      options.redis,
+                      replayService,
+                      `artifact-replay-validation-worker-${randomUUID()}`,
+                    ),
+                  };
+                })()
+              : undefined;
           return {
             dispatcher: new ExperienceCompilationTriggerDispatcher({
               source: new PostgresExperienceCompilationTriggerSource(pool),
@@ -1021,6 +1067,7 @@ export async function startServerRuntime(
               `process-mining-worker-${randomUUID()}`,
             ),
             ...candidateRuntime,
+            ...replayValidationRuntime,
           };
         })()
       : undefined;
@@ -3668,6 +3715,8 @@ export async function startServerRuntime(
       .then(() => experienceCompilation?.miningReconciler.requeue(clock.now()) ?? 0)
       .then(() => experienceCompilation?.candidateDispatcher?.dispatch() ?? 0)
       .then(() => experienceCompilation?.candidateReconciler?.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.replayValidationDispatcher?.dispatch() ?? 0)
+      .then(() => experienceCompilation?.replayValidationReconciler?.requeue(clock.now()) ?? 0)
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3793,6 +3842,9 @@ export async function startServerRuntime(
       await experienceCompilation.miningReconciler.requeue(clock.now(), 500);
       await experienceCompilation.candidateDispatcher?.dispatch(500);
       await experienceCompilation.candidateReconciler?.requeue(clock.now(), 500);
+      await experienceCompilation.replayValidationDispatcher?.dispatch(500);
+      await experienceCompilation.replayValidationReconciler?.requeue(clock.now(), 500);
+      await experienceCompilation.replayValidationRetention?.(clock.now(), 1_000);
     }
   } catch (error: unknown) {
     process.stderr.write(
@@ -3806,6 +3858,7 @@ export async function startServerRuntime(
   experienceCompilation?.normalizationWorker.start();
   experienceCompilation?.miningWorker.start();
   experienceCompilation?.candidateWorker?.start();
+  experienceCompilation?.replayValidationWorker?.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -4148,6 +4201,7 @@ export async function startServerRuntime(
         await experienceCompilation?.normalizationWorker.close();
         await experienceCompilation?.miningWorker.close();
         await experienceCompilation?.candidateWorker?.close();
+        await experienceCompilation?.replayValidationWorker?.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
@@ -4158,6 +4212,7 @@ export async function startServerRuntime(
         await experienceCompilation?.normalizationQueue.close();
         await experienceCompilation?.miningQueue.close();
         await experienceCompilation?.candidateQueue?.close();
+        await experienceCompilation?.replayValidationQueue?.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -4190,6 +4245,7 @@ export async function startServerRuntime(
     await experienceCompilation?.normalizationWorker.close();
     await experienceCompilation?.miningWorker.close();
     await experienceCompilation?.candidateWorker?.close();
+    await experienceCompilation?.replayValidationWorker?.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
@@ -4199,6 +4255,7 @@ export async function startServerRuntime(
     await experienceCompilation?.normalizationQueue.close();
     await experienceCompilation?.miningQueue.close();
     await experienceCompilation?.candidateQueue?.close();
+    await experienceCompilation?.replayValidationQueue?.close();
     await queue.close();
     await pool.end();
     throw error;

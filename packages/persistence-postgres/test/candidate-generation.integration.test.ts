@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
   ArtifactCandidateGenerator,
+  ArtifactReplayValidationApplicationService,
   CandidateGenerationApplicationService,
   CandidateGenerationTriggerDispatcher,
   DeterministicProcessMiner,
@@ -14,6 +15,7 @@ import {
   PatternFusionService,
   PatternGeneralizationService,
   ProcessMiningService,
+  ReplayValidationTriggerDispatcher,
 } from '../../application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -26,6 +28,7 @@ import {
 } from '../../domain/src/index.js';
 import {
   PostgresArtifactRepository,
+  PostgresArtifactReplayValidationRepository,
   PostgresCandidateGenerationCatalog,
   PostgresCandidateGenerationRepository,
   PostgresCompilationRunRepository,
@@ -53,7 +56,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    `TRUNCATE candidate_model_invocation,candidate_static_validation,candidate_fingerprint,
+    `TRUNCATE artifact_counterexample,artifact_validation_failure,artifact_replay_case_result,
+       replay_dataset_case,replay_dataset_manifest,artifact_replay_case,
+       artifact_replay_tenant_deletion,artifact_validation_run,
+       candidate_model_invocation,candidate_static_validation,candidate_fingerprint,
        generalized_pattern,fused_pattern,candidate_generation_run,artifact_lineage,compiled_artifact,
        pattern_candidate_support,pattern_candidate,experience_trace_source,experience_trace,
        compilation_run,experience_job,goal_experience_episode_source,goal_experience_episode,
@@ -356,6 +362,279 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
     ).toThrow(/TEMPORARY_AUTHORIZATION_REJECTED/u);
   }, 30_000);
 
+  it('continues Formal facts through P03, P04 and P02 into durable P05 replay validation', async () => {
+    const contexts = new PostgresConversationContextRepository(pool);
+    const original = [
+      {
+        suffix: 'success-a',
+        userId: 'user-a',
+        achieved: true,
+        timestamp: '2026-07-28T03:00:00.000Z',
+      },
+      {
+        suffix: 'success-b',
+        userId: 'user-b',
+        achieved: true,
+        timestamp: '2026-07-28T03:00:01.000Z',
+      },
+      {
+        suffix: 'failure-recovery',
+        userId: 'user-b',
+        achieved: false,
+        timestamp: '2026-07-28T03:00:02.000Z',
+      },
+    ] as const;
+    for (const item of original) {
+      await contexts.save({
+        contextId: `context-${item.suffix}`,
+        userId: item.userId,
+        createdAt: item.timestamp,
+        updatedAt: item.timestamp,
+      });
+    }
+    await saveTerminalAuthorityFixtures(original);
+    const episodeRepository = new PostgresGoalExperienceEpisodeRepository(pool);
+    for (const item of original) {
+      await episodeRepository.saveIfAbsent(
+        formalEpisode(item.suffix, item.userId, item.achieved ? 'succeeded' : 'failed'),
+      );
+    }
+    await saveCapabilityCatalog();
+
+    const now = { value: '2026-07-28T04:00:00.000Z' };
+    const clock = { now: () => now.value };
+    const compilation = new PostgresExperienceCompilationRepository(pool);
+    const compilationRuns = new PostgresCompilationRunRepository(pool);
+    const normalization = new ExperienceNormalizationService({
+      runs: compilationRuns,
+      repository: compilation,
+      normalizer: new ExperienceTraceNormalizer(),
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+    for (const item of original) {
+      await compilationRuns.createNormalizationRun(`episode-p04r-${item.suffix}`, clock.now(), 3);
+      const [normalizationRun] = await normalization.claim('normalizer-p05', 1);
+      if (normalizationRun === undefined) throw new Error('P05_NORMALIZATION_RUN_MISSING');
+      await normalization.process(normalizationRun, 'normalizer-p05');
+    }
+    const cohort = { tenantId, taskTypeId, minimumCompleteness: 0.8 } as const;
+    const miner = new DeterministicProcessMiner({ mandatoryThreshold: 2 / 3 });
+    const miningRun = await compilationRuns.createProcessMiningRun(
+      cohort,
+      miner.fingerprintCohort(cohort),
+      clock.now(),
+      3,
+    );
+    const [claimedMining] = await compilationRuns.claim(
+      'process_mining',
+      'miner-p05',
+      clock.now(),
+      120_000,
+      1,
+    );
+    if (claimedMining?.runId !== miningRun.runId) throw new Error('P05_MINING_RUN_MISSING');
+    await new ProcessMiningService({
+      runs: compilationRuns,
+      repository: compilation,
+      miner,
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    }).process(claimedMining, 'miner-p05');
+
+    const pattern = await pool.query<{ pattern_id: string }>(
+      'SELECT pattern_id FROM pattern_candidate ORDER BY pattern_id LIMIT 1',
+    );
+    if (pattern.rows[0] === undefined) throw new Error('P05_PATTERN_MISSING');
+    const candidateRuns = new PostgresCandidateGenerationRepository(pool);
+    await new CandidateGenerationTriggerDispatcher({
+      source: candidateRuns,
+      runs: candidateRuns,
+      queue: { enqueue: () => Promise.resolve() },
+    }).dispatch();
+    const candidateService = new CandidateGenerationApplicationService({
+      runs: candidateRuns,
+      catalog: new PostgresCandidateGenerationCatalog(new PostgresSkillRepository(pool)),
+      fusion: new PatternFusionService(),
+      generalization: new PatternGeneralizationService(),
+      generator: new ArtifactCandidateGenerator(),
+      clock,
+      retryPolicy: { maxAttempts: 3, baseBackoffMs: 1_000, maxBackoffMs: 10_000 },
+    });
+    const [candidateRun] = await candidateService.claim('candidate-worker-p05', 1);
+    if (candidateRun === undefined) throw new Error('P05_CANDIDATE_RUN_MISSING');
+    await candidateService.process(candidateRun, 'candidate-worker-p05');
+
+    const independent = [
+      {
+        suffix: 'p05-holdout-a',
+        timestamp: '2026-07-28T03:10:00.000Z',
+        request: 'Inspect tenant A workflow and remediate its policy deviation.',
+      },
+      {
+        suffix: 'p05-holdout-b',
+        timestamp: '2026-07-28T03:11:00.000Z',
+        request: 'Verify tenant B workflow policy before applying remediation.',
+      },
+      {
+        suffix: 'p05-holdout-c',
+        timestamp: '2026-07-28T03:12:00.000Z',
+        request: 'Collect workflow C state and safely resolve the verified deviation.',
+      },
+      {
+        suffix: 'p05-holdout-d',
+        timestamp: '2026-07-28T03:13:00.000Z',
+        request: 'Audit workflow D policy and execute only the bounded repair.',
+      },
+    ] as const;
+    for (const item of independent) {
+      await contexts.save({
+        contextId: `context-${item.suffix}`,
+        userId: `user-${item.suffix}`,
+        createdAt: item.timestamp,
+        updatedAt: item.timestamp,
+      });
+    }
+    await saveTerminalAuthorityFixtures(
+      independent.map((item) => ({
+        suffix: item.suffix,
+        achieved: true,
+        timestamp: item.timestamp,
+      })),
+    );
+    for (const item of independent) {
+      const episode = formalEpisodeAt(
+        item.suffix,
+        `user-${item.suffix}`,
+        'succeeded',
+        item.timestamp,
+        item.request,
+      );
+      await episodeRepository.saveIfAbsent(episode);
+      await compilationRuns.createNormalizationRun(episode.episodeId, clock.now(), 3);
+      const [normalizationRun] = await normalization.claim('normalizer-p05-holdout', 1);
+      if (normalizationRun === undefined) {
+        throw new Error('P05_HOLDOUT_NORMALIZATION_RUN_MISSING');
+      }
+      await normalization.process(normalizationRun, 'normalizer-p05-holdout');
+    }
+
+    now.value = '2026-07-28T05:00:00.000Z';
+    const replayRepository = new PostgresArtifactReplayValidationRepository(pool);
+    const replayWakes: string[] = [];
+    const dispatched = await new ReplayValidationTriggerDispatcher(
+      replayRepository,
+      {
+        enqueue(validationRunId) {
+          replayWakes.push(validationRunId);
+          return Promise.resolve();
+        },
+      },
+      clock,
+    ).dispatch();
+    expect(dispatched).toBe(1);
+    expect(replayWakes).toHaveLength(1);
+    const replayService = new ArtifactReplayValidationApplicationService(replayRepository, clock, {
+      maxAttempts: 3,
+      baseBackoffMs: 1_000,
+      maxBackoffMs: 10_000,
+    });
+    const [replayRun] = await replayService.claim('replay-worker-p05', 1);
+    if (replayRun === undefined) throw new Error('P05_REPLAY_RUN_MISSING');
+    now.value = '2026-07-28T05:00:01.000Z';
+    await replayService.process(replayRun, 'replay-worker-p05');
+
+    const evidence = await pool.query<{
+      cases: number;
+      datasets: number;
+      purposes: number;
+      completed_runs: number;
+      case_results: number;
+      completion_events: number;
+      result: string;
+      work_state: string;
+      result_hash: string;
+      candidate_status: string;
+      last_error_code: string | null;
+      last_error_summary: string | null;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM artifact_replay_case) AS cases,
+         (SELECT count(*)::integer FROM replay_dataset_manifest) AS datasets,
+         (SELECT count(DISTINCT purpose)::integer FROM replay_dataset_manifest) AS purposes,
+         (SELECT count(*)::integer FROM artifact_validation_run
+          WHERE validation_type='replay' AND work_state='completed') AS completed_runs,
+         (SELECT count(*)::integer FROM artifact_replay_case_result) AS case_results,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+          WHERE event_type='compiler.artifact_validation_completed') AS completion_events,
+         (SELECT result FROM artifact_validation_run
+          WHERE validation_type='replay' LIMIT 1) AS result,
+         (SELECT work_state FROM artifact_validation_run
+          WHERE validation_type='replay' LIMIT 1) AS work_state,
+         (SELECT result_hash FROM artifact_validation_run
+          WHERE validation_type='replay' LIMIT 1) AS result_hash,
+         (SELECT last_error_code FROM artifact_validation_run
+          WHERE validation_type='replay' LIMIT 1) AS last_error_code,
+         (SELECT last_error_summary FROM artifact_validation_run
+          WHERE validation_type='replay' LIMIT 1) AS last_error_summary,
+         (SELECT status FROM compiled_artifact LIMIT 1) AS candidate_status`,
+    );
+    expect(evidence.rows[0]).toMatchObject({
+      cases: 7,
+      datasets: 4,
+      purposes: 4,
+      completed_runs: 1,
+      case_results: 1,
+      completion_events: 1,
+      result: 'passed',
+      work_state: 'completed',
+      candidate_status: 'candidate',
+      last_error_code: null,
+      last_error_summary: null,
+    });
+    expect(evidence.rows[0]?.result_hash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+
+    const holdoutLeakage = await pool.query<{ leaked: number }>(
+      `SELECT count(*)::integer AS leaked
+       FROM replay_dataset_manifest manifest
+       JOIN replay_dataset_case member
+         ON member.dataset_id=manifest.dataset_id
+        AND member.dataset_version=manifest.dataset_version
+       JOIN artifact_replay_case replay ON replay.replay_case_id=member.replay_case_id
+       WHERE manifest.purpose='promotion_holdout'
+         AND replay.content->'sourceEpisodeRefs' ?| ARRAY[
+           'episode-p04r-success-a','episode-p04r-success-b','episode-p04r-failure-recovery'
+         ]`,
+    );
+    expect(holdoutLeakage.rows[0]?.leaked).toBe(0);
+
+    await expect(replayRepository.purgeTenant(tenantId)).resolves.toBe(7);
+    const deletionEvidence = await pool.query<{
+      tombstones: number;
+      cases: number;
+      datasets: number;
+      validation_runs: number;
+      candidate_status: string;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM artifact_replay_tenant_deletion
+          WHERE tenant_id=$1) AS tombstones,
+         (SELECT count(*)::integer FROM artifact_replay_case) AS cases,
+         (SELECT count(*)::integer FROM replay_dataset_manifest) AS datasets,
+         (SELECT count(*)::integer FROM artifact_validation_run
+          WHERE validation_type='replay') AS validation_runs,
+         (SELECT status FROM compiled_artifact LIMIT 1) AS candidate_status`,
+      [tenantId],
+    );
+    expect(deletionEvidence.rows[0]).toEqual({
+      tombstones: 1,
+      cases: 0,
+      datasets: 0,
+      validation_runs: 0,
+      candidate_status: 'candidate',
+    });
+  }, 45_000);
+
   it('reclaims expired wake loss, rejects stale fencing and dead-letters terminal attempts', async () => {
     const repository = new PostgresCandidateGenerationRepository(pool);
     const first = await repository.createRun(
@@ -469,15 +748,23 @@ async function saveCapabilityCatalog(): Promise<void> {
   await new PostgresSkillRepository(pool).saveVersionAndSetCurrent(skill, timestamp);
 }
 
-async function saveTerminalAuthorityFixtures(): Promise<void> {
-  for (const suffix of ['success-a', 'success-b', 'failure-recovery'] as const) {
-    const achieved = suffix !== 'failure-recovery';
-    const timestamp =
-      suffix === 'success-a'
-        ? '2026-07-28T03:00:00.000Z'
-        : suffix === 'success-b'
-          ? '2026-07-28T03:00:01.000Z'
-          : '2026-07-28T03:00:02.000Z';
+async function saveTerminalAuthorityFixtures(
+  fixtures: readonly Readonly<{
+    suffix: string;
+    achieved: boolean;
+    timestamp: string;
+  }>[] = [
+    { suffix: 'success-a', achieved: true, timestamp: '2026-07-28T03:00:00.000Z' },
+    { suffix: 'success-b', achieved: true, timestamp: '2026-07-28T03:00:01.000Z' },
+    {
+      suffix: 'failure-recovery',
+      achieved: false,
+      timestamp: '2026-07-28T03:00:02.000Z',
+    },
+  ],
+): Promise<void> {
+  for (const fixture of fixtures) {
+    const { suffix, achieved, timestamp } = fixture;
     const goalId = `goal-${suffix}`;
     const planId = `plan-authority-${suffix}`;
     const instanceId = `instance-authority-${suffix}`;
@@ -601,6 +888,22 @@ function formalEpisode(
   outcomeStatus: 'succeeded' | 'failed',
 ): GoalExperienceEpisode {
   const createdAt = `2026-07-28T03:00:0${suffix === 'success-a' ? '0' : suffix === 'success-b' ? '1' : '2'}.000Z`;
+  return formalEpisodeAt(
+    suffix,
+    userId,
+    outcomeStatus,
+    createdAt,
+    'Collect workflow state, verify policy, and apply a safe remediation.',
+  );
+}
+
+function formalEpisodeAt(
+  suffix: string,
+  userId: string,
+  outcomeStatus: 'succeeded' | 'failed',
+  createdAt: string,
+  requestText: string,
+): GoalExperienceEpisode {
   const failed = outcomeStatus === 'failed';
   const attemptPrefix = `attempt-${suffix}`;
   const snapshot = {
@@ -611,7 +914,7 @@ function formalEpisode(
       tenantId,
       taskTypeId,
       environmentClass: suffix === 'success-b' ? 'edge' : 'server',
-      requestText: 'Collect workflow state, verify policy, and apply a safe remediation.',
+      requestText,
       createdAt,
     },
     contract: {
@@ -710,6 +1013,7 @@ function formalEpisode(
       committedAt: new Date(Date.parse(createdAt) + 4_000).toISOString(),
     },
     userGoalJudgment: { status: failed ? 'not_achieved' : 'achieved' },
+    replayValidation: replayValidationSnapshot(suffix, createdAt, failed),
   };
   return createGoalExperienceEpisode({
     schemaVersion: COGNITIVE_SCHEMA_VERSION,
@@ -751,6 +1055,104 @@ function formalEpisode(
     redactionCodes: [],
     createdAt,
   });
+}
+
+function replayValidationSnapshot(suffix: string, createdAt: string, failed: boolean) {
+  const activityKeys = [
+    'skill-goal:collect-workflow-state',
+    'skill-goal:verify-policy',
+    'skill-goal:apply-safe-remediation',
+  ];
+  const criteria = activityKeys.map((activityKey) => ({
+    criterionId: `criterion_${createHash('sha256').update(activityKey).digest('hex').slice(0, 16)}`,
+    description: `${activityKey} must be completed.`,
+    required: true,
+    expectedEffectRefs: [`effect:${activityKey.split(':').at(-1) ?? activityKey}`],
+    evidenceRequirements: [`evidence:${activityKey}`],
+    artifactRequirements: [],
+  }));
+  const goalContract = {
+    schemaVersion: '1.0' as const,
+    goalId: `goal-${suffix}`,
+    goalVersion: 1,
+    title: `Replay validation ${suffix}`,
+    description: 'Collect state, verify policy, and apply a bounded remediation.',
+    constraints: ['Verify policy before mutation.'],
+    criteria,
+    assumptions: [],
+    policy: {
+      maxSkillGoals: 16,
+      maxDagDepth: 8,
+      maxParallelReadyGoals: 4,
+      maxPlanRevisions: 4,
+      maxPlanningModelAttempts: 2,
+    },
+  };
+  const planId = `accepted-plan-${suffix}`;
+  const skillGoals = activityKeys.map((activityKey, index) => ({
+    skillGoalId: `accepted-goal-${suffix}-${String(index + 1)}`,
+    requiredResult: `${activityKey} completed`,
+    capabilityNeeds: [capabilities[index] ?? 'workflow.remediate'],
+    coveredCriterionIds: [criteria[index]?.criterionId ?? criteria[0]?.criterionId ?? 'criterion'],
+    requiredEffectRefs: criteria[index]?.expectedEffectRefs ?? [],
+    evidenceRequirements: criteria[index]?.evidenceRequirements ?? [],
+    artifactRequirements: [],
+    assumptions: [],
+    constraints: [],
+    status: 'pending' as const,
+  }));
+  const dependencies = [
+    {
+      dependencyId: `accepted-dependency-${suffix}-1`,
+      predecessorSkillGoalId: `accepted-goal-${suffix}-1`,
+      successorSkillGoalId: `accepted-goal-${suffix}-3`,
+      predicate: 'required' as const,
+    },
+    {
+      dependencyId: `accepted-dependency-${suffix}-2`,
+      predecessorSkillGoalId: `accepted-goal-${suffix}-2`,
+      successorSkillGoalId: `accepted-goal-${suffix}-3`,
+      predicate: 'required' as const,
+    },
+  ];
+  return {
+    goalContract,
+    parameterValues: { maximumRetries: 1 },
+    knownCapabilityIds: [...capabilities],
+    readyCapabilityIds: [...capabilities],
+    authorityDecision: 'allow' as const,
+    historical: {
+      succeeded: !failed,
+      evidenceRefs: activityKeys.map((activityKey) => `evidence:${activityKey}`),
+      artifactRefs: [],
+      modelCallCount: 1,
+      tokenInput: 128,
+      tokenOutput: 64,
+      estimatedCostUnits: 1,
+      humanInteractionCount: 0,
+      fallbackCount: failed ? 1 : 0,
+      userPatchCount: 0,
+      planningLatencyMs: 20,
+    },
+    acceptedPlan: {
+      schemaVersion: '1.0' as const,
+      planId,
+      goalId: `goal-${suffix}`,
+      goalVersion: 1,
+      revision: 1,
+      revisionKind: 'initial' as const,
+      status: 'validated' as const,
+      contractHash: sha(JSON.stringify(goalContract)),
+      contentHash: sha(JSON.stringify({ planId, skillGoals, dependencies })),
+      skillGoals,
+      dependencies,
+      inheritedCompletedEffectIds: [],
+      forbiddenReplayFingerprints: [],
+      createdAt,
+    },
+    worldState: { capturedAt: createdAt, environmentClass: 'server' },
+    counterexample: failed,
+  };
 }
 
 function skillGoal(

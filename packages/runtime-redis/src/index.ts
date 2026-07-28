@@ -8,3 +8,4 @@ export * from './cognitive/observation-workers.js';
 export * from './cognitive/reflection-workers.js';
 export * from './compiler/candidate-generation-workers.js';
 export * from './compiler/experience-compilation-workers.js';
+export * from './compiler/artifact-replay-validation-workers.js';
