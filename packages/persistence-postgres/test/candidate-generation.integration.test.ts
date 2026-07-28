@@ -71,6 +71,46 @@ afterAll(async () => {
   await pool.end();
 });
 
+async function insertReplayRun(
+  input: Readonly<{
+    validationRunId: string;
+    artifactId: string;
+    artifactVersion: number;
+    artifactHash: string;
+    datasetId: string;
+    datasetVersion: number;
+    datasetHash: string;
+    now: string;
+    maxAttempts: number;
+  }>,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO artifact_validation_run(
+       validation_run_id,artifact_id,artifact_version,validation_type,dataset_ref,status,
+       result,metrics,counterexample_refs,started_at,completed_at,tenant_id,dataset_version,
+       artifact_hash,dataset_hash,validator_version,metric_catalog_version,result_hash,
+       result_payload,work_state,attempt,max_attempts,available_at,lease_owner,lease_token,
+       lease_expires_at,cancel_requested_at,idempotency_key,source_event_id,last_error_code,
+       last_error_summary,created_at,updated_at)
+     VALUES($1,$2,$3,'replay',$4,'pending',NULL,'{}'::jsonb,'[]'::jsonb,$5,NULL,$6,$7,
+       $8,$9,'sdar-artifact-replay-validator/1.1','sdar-validation-metrics/1.1',
+       NULL,NULL,'pending',0,$10,$5,NULL,NULL,NULL,NULL,$11,NULL,NULL,NULL,$5,$5)`,
+    [
+      input.validationRunId,
+      input.artifactId,
+      input.artifactVersion,
+      input.datasetId,
+      input.now,
+      tenantId,
+      input.datasetVersion,
+      input.artifactHash,
+      input.datasetHash,
+      input.maxAttempts,
+      `artifact-replay-test:${input.validationRunId}`,
+    ],
+  );
+}
+
 describe('P04R real P03→P04→P02 candidate product chain', () => {
   it('normalizes Formal facts, mines WorkflowPattern V1.2 and atomically saves a valid P02 Candidate', async () => {
     const contexts = new PostgresConversationContextRepository(pool);
@@ -473,18 +513,23 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       },
       {
         suffix: 'p05-holdout-b',
-        timestamp: '2026-07-28T03:11:00.000Z',
+        timestamp: '2026-07-28T03:20:00.000Z',
         request: 'Verify tenant B workflow policy before applying remediation.',
       },
       {
         suffix: 'p05-holdout-c',
-        timestamp: '2026-07-28T03:12:00.000Z',
+        timestamp: '2026-07-28T03:30:00.000Z',
         request: 'Collect workflow C state and safely resolve the verified deviation.',
       },
       {
         suffix: 'p05-holdout-d',
-        timestamp: '2026-07-28T03:13:00.000Z',
+        timestamp: '2026-07-28T03:40:00.000Z',
         request: 'Audit workflow D policy and execute only the bounded repair.',
+      },
+      {
+        suffix: 'p05-holdout-e',
+        timestamp: '2026-07-28T03:50:00.000Z',
+        request: 'Evaluate workflow E safeguards and apply the constrained correction.',
       },
     ] as const;
     for (const item of independent) {
@@ -557,6 +602,7 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       candidate_status: string;
       last_error_code: string | null;
       last_error_summary: string | null;
+      native_episode_sources: number;
     }>(
       `SELECT
          (SELECT count(*)::integer FROM artifact_replay_case) AS cases,
@@ -566,7 +612,7 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
           WHERE validation_type='replay' AND work_state='completed') AS completed_runs,
          (SELECT count(*)::integer FROM artifact_replay_case_result) AS case_results,
          (SELECT count(*)::integer FROM cognitive_runtime_outbox
-          WHERE event_type='compiler.artifact_validation_completed') AS completion_events,
+          WHERE event_type='artifact.validation_completed') AS completion_events,
          (SELECT result FROM artifact_validation_run
           WHERE validation_type='replay' LIMIT 1) AS result,
          (SELECT work_state FROM artifact_validation_run
@@ -577,20 +623,44 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
           WHERE validation_type='replay' LIMIT 1) AS last_error_code,
          (SELECT last_error_summary FROM artifact_validation_run
           WHERE validation_type='replay' LIMIT 1) AS last_error_summary,
+         (SELECT count(*)::integer FROM goal_experience_episode episode
+          WHERE NOT (episode.snapshot ? 'replayValidation')
+            AND episode.snapshot ? 'contract'
+            AND episode.snapshot ? 'currentPlan'
+            AND episode.snapshot ? 'capabilityCatalogSnapshot') AS native_episode_sources,
          (SELECT status FROM compiled_artifact LIMIT 1) AS candidate_status`,
     );
+    if (evidence.rows[0]?.result !== 'passed') {
+      const failureDiagnostics = await pool.query<{
+        category: string;
+        explanation: string;
+        replay_case_id: string;
+      }>(
+        `SELECT failure.category,failure.content->>'explanation' AS explanation,
+                failure.replay_case_id
+         FROM artifact_validation_failure failure
+         ORDER BY failure.replay_case_id,failure.category`,
+      );
+      console.info(
+        JSON.stringify({
+          event: 'p05.replay_validation.failure_diagnostics',
+          failures: failureDiagnostics.rows,
+        }),
+      );
+    }
     expect(evidence.rows[0]).toMatchObject({
-      cases: 7,
+      cases: 8,
       datasets: 4,
       purposes: 4,
       completed_runs: 1,
-      case_results: 1,
+      case_results: 3,
       completion_events: 1,
       result: 'passed',
       work_state: 'completed',
       candidate_status: 'candidate',
       last_error_code: null,
       last_error_summary: null,
+      native_episode_sources: 8,
     });
     expect(evidence.rows[0]?.result_hash).toMatch(/^sha256:[0-9a-f]{64}$/u);
 
@@ -608,12 +678,359 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
     );
     expect(holdoutLeakage.rows[0]?.leaked).toBe(0);
 
-    await expect(replayRepository.purgeTenant(tenantId)).resolves.toBe(7);
+    const safetySeed = await pool.query<{
+      content: Record<string, unknown>;
+      fixture: Record<string, unknown>;
+      source_episode_id: string;
+      task_type_id: string;
+    }>(
+      `SELECT replay.content,replay.fixture,
+              replay.primary_source_episode_id AS source_episode_id,replay.task_type_id
+       FROM replay_dataset_manifest manifest
+       JOIN replay_dataset_case member
+         ON member.dataset_id=manifest.dataset_id
+        AND member.dataset_version=manifest.dataset_version
+       JOIN artifact_replay_case replay ON replay.replay_case_id=member.replay_case_id
+       WHERE manifest.purpose='promotion_holdout'
+       ORDER BY member.ordinal LIMIT 1`,
+    );
+    const safetySource = safetySeed.rows[0];
+    if (safetySource === undefined) throw new Error('P05_SAFETY_SOURCE_MISSING');
+    const safetyCaseId = 'replay-case-p05-side-effect';
+    const safetyCaseHash = sha('p05-side-effect-case');
+    const safetyCase = {
+      ...safetySource.content,
+      replayCaseId: safetyCaseId,
+      contentHash: safetyCaseHash,
+    };
+    const safetyFixture = {
+      ...safetySource.fixture,
+      replayOperations: [
+        { kind: 'network_request', targetRef: 'https://physical.example.invalid/mutate' },
+      ],
+    };
+    await pool.query(
+      `INSERT INTO artifact_replay_case(
+         replay_case_id,tenant_id,task_type_id,primary_source_episode_id,content,fixture,
+         content_hash,snapshot_completeness,retention_until,created_at)
+       VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,1,$8::timestamptz + interval '365 days',$8)`,
+      [
+        safetyCaseId,
+        tenantId,
+        safetySource.task_type_id,
+        safetySource.source_episode_id,
+        JSON.stringify(safetyCase),
+        JSON.stringify(safetyFixture),
+        safetyCaseHash,
+        now.value,
+      ],
+    );
+    const safetyDatasetId = 'replay-dataset-p05-side-effect';
+    const safetyDatasetHash = sha('p05-side-effect-dataset');
+    const safetyDataset = {
+      datasetId: safetyDatasetId,
+      datasetVersion: 1,
+      purpose: 'promotion_holdout',
+      tenantId,
+      taskTypeIds: [taskTypeId],
+      caseRefs: [safetyCaseId],
+      splitPolicyVersion: 'sdar-replay-split/1.1',
+      sourceRange: { from: now.value, to: now.value },
+      sourceHash: sha('p05-side-effect-source'),
+      contentHash: safetyDatasetHash,
+      leakageCheckRef: 'replay-leakage-p05-side-effect',
+      createdAt: now.value,
+    };
+    await pool.query(
+      `INSERT INTO replay_dataset_manifest(
+         dataset_id,dataset_version,purpose,tenant_id,content,source_hash,content_hash,
+         leakage_check_ref,created_at)
+       VALUES($1,1,'promotion_holdout',$2,$3::jsonb,$4,$5,$6,$7)`,
+      [
+        safetyDatasetId,
+        tenantId,
+        JSON.stringify(safetyDataset),
+        safetyDataset.sourceHash,
+        safetyDatasetHash,
+        safetyDataset.leakageCheckRef,
+        now.value,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO replay_dataset_case(dataset_id,dataset_version,replay_case_id,ordinal)
+       VALUES($1,1,$2,0)`,
+      [safetyDatasetId, safetyCaseId],
+    );
+    const candidatePin = await pool.query<{
+      artifact_id: string;
+      artifact_version: number;
+      artifact_hash: string;
+    }>(
+      `SELECT artifact_id,artifact_version,artifact_hash
+       FROM artifact_validation_run WHERE validation_type='replay' LIMIT 1`,
+    );
+    const pin = candidatePin.rows[0];
+    if (pin === undefined) throw new Error('P05_CANDIDATE_PIN_MISSING');
+    await insertReplayRun({
+      validationRunId: 'validation-run-p05-side-effect',
+      artifactId: pin.artifact_id,
+      artifactVersion: pin.artifact_version,
+      artifactHash: pin.artifact_hash,
+      datasetId: safetyDatasetId,
+      datasetVersion: 1,
+      datasetHash: safetyDatasetHash,
+      now: now.value,
+      maxAttempts: 3,
+    });
+    const [safetyRun] = await replayService.claim('replay-worker-p05-safety', 1);
+    if (safetyRun === undefined) throw new Error('P05_SAFETY_RUN_MISSING');
+    now.value = '2026-07-28T05:00:02.000Z';
+    await replayService.process(safetyRun, 'replay-worker-p05-safety');
+    const safetyEvidence = await pool.query<{
+      result: string;
+      work_state: string;
+      failures: number;
+      counterexamples: number;
+      completion_events: number;
+    }>(
+      `SELECT
+         run.result,run.work_state,
+         (SELECT count(*)::integer FROM artifact_validation_failure failure
+          WHERE failure.validation_run_id=run.validation_run_id
+            AND failure.category='side_effect_attempt'
+            AND failure.severity='critical') AS failures,
+         (SELECT count(*)::integer FROM artifact_counterexample counterexample
+          WHERE counterexample.validation_run_id=run.validation_run_id) AS counterexamples,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox event
+          WHERE event.event_type='artifact.validation_completed'
+            AND event.aggregate_id=run.validation_run_id) AS completion_events
+       FROM artifact_validation_run run WHERE run.validation_run_id=$1`,
+      ['validation-run-p05-side-effect'],
+    );
+    expect(safetyEvidence.rows[0]).toEqual({
+      result: 'unsafe',
+      work_state: 'completed',
+      failures: 1,
+      counterexamples: 1,
+      completion_events: 1,
+    });
+    await expect(
+      pool.query(
+        `UPDATE artifact_validation_run SET result='tampered'
+         WHERE validation_run_id='validation-run-p05-side-effect'`,
+      ),
+    ).rejects.toThrow(/Terminal Artifact Validation Run facts are immutable/u);
+
+    now.value = '2026-07-28T05:00:03.000Z';
+    await insertReplayRun({
+      validationRunId: 'validation-run-p05-retry',
+      artifactId: pin.artifact_id,
+      artifactVersion: pin.artifact_version,
+      artifactHash: pin.artifact_hash,
+      datasetId: safetyDatasetId,
+      datasetVersion: 1,
+      datasetHash: safetyDatasetHash,
+      now: now.value,
+      maxAttempts: 2,
+    });
+    const [retryFirst] = await replayRepository.claim(
+      'replay-worker-p05-retry-old',
+      now.value,
+      1_000,
+      1,
+    );
+    if (retryFirst?.leaseToken === undefined) throw new Error('P05_RETRY_LEASE_MISSING');
+    await expect(
+      replayRepository.fail(
+        retryFirst.validationRunId,
+        'replay-worker-p05-stale',
+        'stale-token',
+        'TRANSIENT',
+        'stale fence must not commit',
+        now.value,
+        '2026-07-28T05:00:04.000Z',
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      replayRepository.fail(
+        retryFirst.validationRunId,
+        'replay-worker-p05-retry-old',
+        retryFirst.leaseToken,
+        'TRANSIENT',
+        'bounded retry',
+        now.value,
+        '2026-07-28T05:00:04.000Z',
+      ),
+    ).resolves.toBe(true);
+    now.value = '2026-07-28T05:00:04.000Z';
+    const [retrySecond] = await replayRepository.claim(
+      'replay-worker-p05-retry-new',
+      now.value,
+      1_000,
+      1,
+    );
+    if (retrySecond?.leaseToken === undefined) throw new Error('P05_RETRY_RECLAIM_MISSING');
+    await expect(
+      replayRepository.fail(
+        retrySecond.validationRunId,
+        'replay-worker-p05-retry-new',
+        retrySecond.leaseToken,
+        'RETRY_EXHAUSTED',
+        'retry budget exhausted',
+        now.value,
+      ),
+    ).resolves.toBe(true);
+
+    await insertReplayRun({
+      validationRunId: 'validation-run-p05-cancel',
+      artifactId: pin.artifact_id,
+      artifactVersion: pin.artifact_version,
+      artifactHash: pin.artifact_hash,
+      datasetId: safetyDatasetId,
+      datasetVersion: 1,
+      datasetHash: safetyDatasetHash,
+      now: now.value,
+      maxAttempts: 3,
+    });
+    const [cancelRun] = await replayRepository.claim(
+      'replay-worker-p05-cancel',
+      now.value,
+      1_000,
+      1,
+    );
+    if (cancelRun === undefined) throw new Error('P05_CANCEL_LEASE_MISSING');
+    await expect(
+      replayRepository.requestCancellation(cancelRun.validationRunId, now.value),
+    ).resolves.toBe(true);
+    now.value = '2026-07-28T05:00:06.000Z';
+    await replayRepository.listRequeueable(now.value);
+
+    await insertReplayRun({
+      validationRunId: 'validation-run-p05-stale-pin',
+      artifactId: pin.artifact_id,
+      artifactVersion: pin.artifact_version,
+      artifactHash: sha('stale-pin'),
+      datasetId: safetyDatasetId,
+      datasetVersion: 1,
+      datasetHash: safetyDatasetHash,
+      now: now.value,
+      maxAttempts: 3,
+    });
+    const [staleRun] = await replayService.claim('replay-worker-p05-stale-pin', 1);
+    if (staleRun === undefined) throw new Error('P05_STALE_PIN_LEASE_MISSING');
+    await replayService.process(staleRun, 'replay-worker-p05-stale-pin');
+
+    const runtimeStates = await pool.query<{
+      validation_run_id: string;
+      work_state: string;
+      attempt: number;
+      last_error_code: string | null;
+    }>(
+      `SELECT validation_run_id,work_state,attempt,last_error_code
+       FROM artifact_validation_run
+       WHERE validation_run_id=ANY($1::text[])
+       ORDER BY validation_run_id`,
+      [['validation-run-p05-cancel', 'validation-run-p05-retry', 'validation-run-p05-stale-pin']],
+    );
+    expect(runtimeStates.rows).toEqual([
+      {
+        validation_run_id: 'validation-run-p05-cancel',
+        work_state: 'canceled',
+        attempt: 1,
+        last_error_code: null,
+      },
+      {
+        validation_run_id: 'validation-run-p05-retry',
+        work_state: 'dead_letter',
+        attempt: 2,
+        last_error_code: 'RETRY_EXHAUSTED',
+      },
+      {
+        validation_run_id: 'validation-run-p05-stale-pin',
+        work_state: 'dead_letter',
+        attempt: 1,
+        last_error_code: 'ARTIFACT_REPLAY_VALIDATION_STALE_PIN',
+      },
+    ]);
+
+    const batchStart = '2026-07-28T05:00:07.000Z';
+    await pool.query(
+      `INSERT INTO artifact_validation_run(
+         validation_run_id,artifact_id,artifact_version,validation_type,dataset_ref,status,
+         result,metrics,counterexample_refs,started_at,completed_at,tenant_id,dataset_version,
+         artifact_hash,dataset_hash,validator_version,metric_catalog_version,result_hash,
+         result_payload,work_state,attempt,max_attempts,available_at,lease_owner,lease_token,
+         lease_expires_at,cancel_requested_at,idempotency_key,source_event_id,last_error_code,
+         last_error_summary,created_at,updated_at)
+       SELECT
+         'validation-run-p05-parallel-' || lpad(series::text,3,'0'),
+         $1,$2,'replay',$3,'pending',NULL,'{}'::jsonb,'[]'::jsonb,$4,NULL,$5,1,$6,$7,
+         'sdar-artifact-replay-validator/1.1','sdar-validation-metrics/1.1',
+         NULL,NULL,'pending',0,3,$4,NULL,NULL,NULL,NULL,
+         'artifact-replay-test:parallel-' || lpad(series::text,3,'0'),
+         NULL,NULL,NULL,$4,$4
+       FROM generate_series(1,100) series`,
+      [
+        pin.artifact_id,
+        pin.artifact_version,
+        safetyDatasetId,
+        batchStart,
+        tenantId,
+        pin.artifact_hash,
+        safetyDatasetHash,
+      ],
+    );
+    const throughputStartedAt = performance.now();
+    const workerClaims = await Promise.all(
+      ['a', 'b', 'c', 'd'].map((worker) =>
+        replayRepository.claim(`replay-worker-p05-parallel-${worker}`, batchStart, 60_000, 25),
+      ),
+    );
+    const throughputElapsedMs = performance.now() - throughputStartedAt;
+    const claimedIds = workerClaims.flatMap((claims) =>
+      claims.map((claim) => claim.validationRunId),
+    );
+    expect(workerClaims.map((claims) => claims.length)).toEqual([25, 25, 25, 25]);
+    expect(new Set(claimedIds).size).toBe(100);
+    await expect(
+      replayRepository.claim('replay-worker-p05-backpressure', batchStart, 60_000, 1),
+    ).resolves.toEqual([]);
+    console.info(
+      JSON.stringify({
+        event: 'p05.replay_validation.postgres_throughput',
+        claimed: claimedIds.length,
+        workerCount: workerClaims.length,
+        maxBatchPerWorker: 25,
+        elapsedMs: Number(throughputElapsedMs.toFixed(3)),
+        runsPerSecond: Number((claimedIds.length / (throughputElapsedMs / 1_000)).toFixed(3)),
+        queueLagMs: 0,
+        backpressureClaimCount: 0,
+      }),
+    );
+    await pool.query(
+      `UPDATE artifact_validation_run
+       SET cancel_requested_at=$2,updated_at=$2
+       WHERE validation_run_id=ANY($1::text[])`,
+      [claimedIds, '2026-07-28T05:01:08.000Z'],
+    );
+    await replayRepository.listRequeueable('2026-07-28T05:01:08.000Z');
+    const parallelTerminal = await pool.query<{ canceled: number }>(
+      `SELECT count(*)::integer AS canceled FROM artifact_validation_run
+       WHERE validation_run_id=ANY($1::text[]) AND work_state='canceled'`,
+      [claimedIds],
+    );
+    expect(parallelTerminal.rows[0]?.canceled).toBe(100);
+
+    await expect(replayRepository.purgeTenant(tenantId)).resolves.toBe(9);
     const deletionEvidence = await pool.query<{
       tombstones: number;
       cases: number;
       datasets: number;
       validation_runs: number;
+      validation_results: number;
+      invalidated_datasets: number;
+      successor_datasets: number;
+      promotion_eligible_runs: number;
       candidate_status: string;
     }>(
       `SELECT
@@ -623,14 +1040,25 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
          (SELECT count(*)::integer FROM replay_dataset_manifest) AS datasets,
          (SELECT count(*)::integer FROM artifact_validation_run
           WHERE validation_type='replay') AS validation_runs,
+         (SELECT count(*)::integer FROM artifact_replay_case_result) AS validation_results,
+         (SELECT count(*)::integer FROM replay_dataset_manifest
+          WHERE promotion_eligible=false) AS invalidated_datasets,
+         (SELECT count(*)::integer FROM replay_dataset_manifest
+          WHERE invalidation_reason LIKE '%requires_resplit') AS successor_datasets,
+         (SELECT count(*)::integer FROM artifact_validation_run
+          WHERE validation_type='replay' AND promotion_eligible=true) AS promotion_eligible_runs,
          (SELECT status FROM compiled_artifact LIMIT 1) AS candidate_status`,
       [tenantId],
     );
     expect(deletionEvidence.rows[0]).toEqual({
       tombstones: 1,
       cases: 0,
-      datasets: 0,
-      validation_runs: 0,
+      datasets: 10,
+      validation_runs: 105,
+      validation_results: 4,
+      invalidated_datasets: 10,
+      successor_datasets: 5,
+      promotion_eligible_runs: 0,
       candidate_status: 'candidate',
     });
   }, 45_000);
@@ -906,6 +1334,7 @@ function formalEpisodeAt(
 ): GoalExperienceEpisode {
   const failed = outcomeStatus === 'failed';
   const attemptPrefix = `attempt-${suffix}`;
+  const replayFacts = replayValidationSnapshot(suffix, createdAt, failed);
   const snapshot = {
     task: {
       taskId: `task-${suffix}`,
@@ -920,7 +1349,16 @@ function formalEpisodeAt(
     contract: {
       goalId: `goal-${suffix}`,
       contractHash: sha(`contract-${suffix}`),
+      contract: replayFacts.goalContract,
       createdAt,
+    },
+    currentPlan: {
+      planId: replayFacts.acceptedPlan.planId,
+      revision: replayFacts.acceptedPlan.revision,
+      status: replayFacts.acceptedPlan.status,
+      plan: replayFacts.acceptedPlan,
+      createdAt,
+      updatedAt: createdAt,
     },
     planRevisions: [
       {
@@ -1013,7 +1451,10 @@ function formalEpisodeAt(
       committedAt: new Date(Date.parse(createdAt) + 4_000).toISOString(),
     },
     userGoalJudgment: { status: failed ? 'not_achieved' : 'achieved' },
-    replayValidation: replayValidationSnapshot(suffix, createdAt, failed),
+    capabilityCatalogSnapshot: {
+      knownCapabilityIds: [...capabilities],
+      readyCapabilityIds: [...capabilities],
+    },
   };
   return createGoalExperienceEpisode({
     schemaVersion: COGNITIVE_SCHEMA_VERSION,
@@ -1195,6 +1636,7 @@ function attempt(attemptId: string, skillGoalId: string, status: string, created
     skill_goal_id: skillGoalId,
     status,
     capability_refs: [capability],
+    resolved_input: { maximumRetries: 1 },
     created_at: createdAt,
     updated_at: new Date(Date.parse(createdAt) + 500).toISOString(),
   };

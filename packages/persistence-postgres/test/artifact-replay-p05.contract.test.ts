@@ -39,8 +39,10 @@ describe('P05 PostgreSQL replay-validation contract', () => {
       expect(migration).toContain(`CREATE TABLE ${table}`);
     }
     expect(migration).toContain('sdar_reject_artifact_replay_content_mutation');
-    expect(migration).toContain('sdar_delete_replay_datasets_for_case');
-    expect(migration).toContain('ON DELETE CASCADE');
+    expect(migration).toContain('sdar_invalidate_replay_datasets_for_case');
+    expect(migration).toContain('sdar_guard_terminal_artifact_validation_run_mutation');
+    expect(migration).toContain('promotion_eligible');
+    expect(migration).toContain('ON DELETE RESTRICT');
     expect(migration).toContain('retention_until');
   });
 
@@ -60,7 +62,7 @@ describe('P05 PostgreSQL replay-validation contract', () => {
 
   it('emits only validation completion and never mutates Candidate lifecycle state', async () => {
     const repository = await readFile(repositoryUrl, 'utf8');
-    expect(repository).toContain('compiler.artifact_validation_completed');
+    expect(repository).toContain('artifact.validation_completed');
     expect(repository).not.toContain('artifact.promotion_ready');
     expect(repository).not.toContain("SET status='awaiting_approval'");
     expect(repository).not.toContain("SET status='active'");

@@ -64,9 +64,9 @@ describe('P05 Replay Dataset builder', () => {
     ]);
     expect(built.leakage).toMatchObject({
       passed: true,
-      checkedCaseCount: 8,
+      checkedCaseCount: 10,
     });
-    expect(built.manifests.promotion_holdout.caseRefs).toHaveLength(1);
+    expect(built.manifests.promotion_holdout.caseRefs).toHaveLength(3);
     expect(Object.isFrozen(built.manifests.promotion_holdout)).toBe(true);
   });
 
@@ -129,6 +129,32 @@ describe('P05 Replay Dataset builder', () => {
     expect(built.leakage.passed).toBe(true);
   });
 
+  it('keeps the same device, environment and five-minute execution window in one split', () => {
+    const sources = sourceCohort().map((source, index) =>
+      index === 0 || index === 6
+        ? {
+            ...source,
+            environmentClass: 'shared-environment',
+            deviceClass: 'shared-device',
+            occurredAt: `2026-07-01T00:0${index === 0 ? '0' : '4'}:00.000Z`,
+          }
+        : source,
+    );
+    const cases = sources.map((source) => new ArtifactReplayCaseBuilder().build(source));
+    const built = new ReplayDatasetBuilder().build({
+      tenantId: 'tenant-p05',
+      datasetVersion: 1,
+      cases,
+      candidateSourceTraceRefs: ['trace-5'],
+      createdAt: timestamp,
+    });
+    const first = cases[0]?.replayCase?.replayCaseId;
+    const second = cases[6]?.replayCase?.replayCaseId;
+    expect(first === undefined ? undefined : built.assignments[first]).toBe(
+      second === undefined ? undefined : built.assignments[second],
+    );
+  });
+
   it('fails closed on tenant mixing', () => {
     const cases = [
       ...sourceCohort().map((source) => new ArtifactReplayCaseBuilder().build(source)),
@@ -156,6 +182,8 @@ function sourceCohort(): readonly ArtifactReplaySource[] {
     replaySource(6),
     replaySource(7),
     replaySource(8, { counterexample: true }),
+    replaySource(9),
+    replaySource(10),
   ];
 }
 

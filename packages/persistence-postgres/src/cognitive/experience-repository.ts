@@ -749,8 +749,19 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
         ? []
         : await manyJson(
             this.#pool,
-            `SELECT to_jsonb(a) AS value FROM skill_attempt a
-       WHERE plan_id=ANY($1::text[]) ORDER BY created_at,attempt_id`,
+            `SELECT to_jsonb(a) || jsonb_build_object(
+               'capability_refs',COALESCE(goal.contract_json->'capabilityNeeds','[]'::jsonb),
+               'resolved_input',COALESCE(
+                 execution.contract_json->'resolvedInput',
+                 a.attempt_json->'resolvedInput',
+                 '{}'::jsonb
+               )
+             ) AS value
+             FROM skill_attempt a
+             JOIN skill_goal goal ON goal.skill_goal_id=a.skill_goal_id
+             LEFT JOIN skill_execution_contract execution ON execution.attempt_id=a.attempt_id
+             WHERE a.plan_id=ANY($1::text[])
+             ORDER BY a.created_at,a.attempt_id`,
             [planIds],
           );
     const outcomes =
@@ -800,6 +811,20 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
        FROM planning_interaction_episode WHERE task_id=$1 ORDER BY revision`,
             [taskId],
           );
+    const capabilityCatalog = await manyJson(
+      this.#pool,
+      `SELECT jsonb_build_object(
+         'capabilityId',capability,
+         'ready',bool_or(version.status='enabled')
+       ) AS value
+       FROM skill_version version
+       CROSS JOIN LATERAL jsonb_array_elements_text(version.capabilities_json) capability
+       WHERE version.validation_passed=true
+         AND version.status IN ('enabled','disabled','deprecated')
+       GROUP BY capability
+       ORDER BY capability`,
+      [],
+    );
 
     const sources: CognitiveSourceRef[] = [];
     addSource(sources, 'task_request', task, 'taskId', 'task-unknown', 1);
@@ -859,6 +884,16 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       recovery,
       eventImpacts,
       interactions,
+      capabilityCatalogSnapshot: {
+        knownCapabilityIds: capabilityCatalog.flatMap((item) =>
+          typeof item['capabilityId'] === 'string' ? [item['capabilityId']] : [],
+        ),
+        readyCapabilityIds: capabilityCatalog.flatMap((item) =>
+          item['ready'] === true && typeof item['capabilityId'] === 'string'
+            ? [item['capabilityId']]
+            : [],
+        ),
+      },
       ...(judgment === undefined ? {} : { userGoalJudgment: judgment }),
       ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
       sourceRefs: Object.freeze(sources),

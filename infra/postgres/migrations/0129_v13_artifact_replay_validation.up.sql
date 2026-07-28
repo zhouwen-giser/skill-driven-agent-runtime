@@ -48,7 +48,20 @@ CREATE TABLE replay_dataset_manifest (
   source_hash text NOT NULL CHECK (source_hash ~ '^sha256:[0-9a-f]{64}$'),
   content_hash text NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
   leakage_check_ref text NOT NULL,
+  promotion_eligible boolean NOT NULL DEFAULT true,
+  invalidated_at timestamptz,
+  invalidation_reason text,
+  successor_dataset_id text,
+  successor_dataset_version integer,
   created_at timestamptz NOT NULL,
+  CHECK (
+    (invalidated_at IS NULL AND invalidation_reason IS NULL)
+    OR (invalidated_at IS NOT NULL AND invalidation_reason IS NOT NULL)
+  ),
+  CHECK (
+    (successor_dataset_id IS NULL AND successor_dataset_version IS NULL)
+    OR (successor_dataset_id IS NOT NULL AND successor_dataset_version IS NOT NULL)
+  ),
   PRIMARY KEY(dataset_id, dataset_version),
   UNIQUE(tenant_id, purpose, content_hash)
 );
@@ -87,6 +100,9 @@ ALTER TABLE artifact_validation_run
       AND sdar_jsonb_depth(result_payload) <= 32
     )
   ),
+  ADD COLUMN promotion_eligible boolean NOT NULL DEFAULT true,
+  ADD COLUMN source_invalidated_at timestamptz,
+  ADD COLUMN source_invalidation_reason text,
   ADD COLUMN work_state text NOT NULL DEFAULT 'completed' CHECK (
     work_state IN ('pending','leased','retry_wait','completed','dead_letter','canceled')
   ),
@@ -116,7 +132,7 @@ WHERE idempotency_key IS NULL;
 ALTER TABLE artifact_validation_run
   ADD CONSTRAINT artifact_validation_run_replay_dataset_fk
     FOREIGN KEY(dataset_ref, dataset_version)
-    REFERENCES replay_dataset_manifest(dataset_id, dataset_version) ON DELETE CASCADE,
+    REFERENCES replay_dataset_manifest(dataset_id, dataset_version) ON DELETE RESTRICT,
   ADD CONSTRAINT artifact_validation_run_lease_check CHECK (
     (work_state = 'leased') = (
       lease_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL
@@ -146,8 +162,7 @@ CREATE INDEX artifact_validation_run_expired_lease_idx
 CREATE TABLE artifact_replay_case_result (
   validation_run_id text NOT NULL
     REFERENCES artifact_validation_run(validation_run_id) ON DELETE CASCADE,
-  replay_case_id text NOT NULL
-    REFERENCES artifact_replay_case(replay_case_id) ON DELETE CASCADE,
+  replay_case_id text NOT NULL,
   evaluation jsonb NOT NULL CHECK (
     jsonb_typeof(evaluation) = 'object'
     AND octet_length(evaluation::text) <= 1048576
@@ -167,8 +182,7 @@ CREATE TABLE artifact_validation_failure (
   failure_id text PRIMARY KEY,
   validation_run_id text NOT NULL
     REFERENCES artifact_validation_run(validation_run_id) ON DELETE CASCADE,
-  replay_case_id text NOT NULL
-    REFERENCES artifact_replay_case(replay_case_id) ON DELETE CASCADE,
+  replay_case_id text NOT NULL,
   category text NOT NULL,
   severity text NOT NULL CHECK (severity IN ('info','minor','major','critical')),
   content jsonb NOT NULL CHECK (
@@ -185,8 +199,7 @@ CREATE TABLE artifact_counterexample (
   counterexample_id text PRIMARY KEY,
   artifact_id text NOT NULL,
   artifact_version integer NOT NULL,
-  replay_case_id text NOT NULL
-    REFERENCES artifact_replay_case(replay_case_id) ON DELETE CASCADE,
+  replay_case_id text NOT NULL,
   failure_id text NOT NULL
     REFERENCES artifact_validation_failure(failure_id) ON DELETE CASCADE,
   validation_run_id text NOT NULL
@@ -217,12 +230,66 @@ BEGIN
 END
 $$;
 
+CREATE FUNCTION sdar_guard_replay_dataset_manifest_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF (to_jsonb(NEW) - ARRAY[
+        'promotion_eligible','invalidated_at','invalidation_reason',
+        'successor_dataset_id','successor_dataset_version'
+      ])
+     IS DISTINCT FROM
+     (to_jsonb(OLD) - ARRAY[
+        'promotion_eligible','invalidated_at','invalidation_reason',
+        'successor_dataset_id','successor_dataset_version'
+      ])
+  THEN
+    RAISE EXCEPTION 'Replay Dataset immutable content cannot be changed'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  IF OLD.promotion_eligible = false AND NEW.promotion_eligible = true THEN
+    RAISE EXCEPTION 'Invalidated Replay Dataset cannot become promotion eligible'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE FUNCTION sdar_guard_terminal_artifact_validation_run_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.work_state IN ('completed','dead_letter','canceled')
+     AND (to_jsonb(NEW) - ARRAY[
+           'promotion_eligible','source_invalidated_at','source_invalidation_reason','updated_at'
+         ])
+         IS DISTINCT FROM
+         (to_jsonb(OLD) - ARRAY[
+           'promotion_eligible','source_invalidated_at','source_invalidation_reason','updated_at'
+         ])
+  THEN
+    RAISE EXCEPTION 'Terminal Artifact Validation Run facts are immutable'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  IF OLD.promotion_eligible = false AND NEW.promotion_eligible = true THEN
+    RAISE EXCEPTION 'Invalidated Artifact Validation Run cannot become promotion eligible'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
 CREATE TRIGGER artifact_replay_case_immutability
 BEFORE UPDATE ON artifact_replay_case
 FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
 CREATE TRIGGER replay_dataset_manifest_immutability
 BEFORE UPDATE ON replay_dataset_manifest
-FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
+FOR EACH ROW EXECUTE FUNCTION sdar_guard_replay_dataset_manifest_mutation();
+CREATE TRIGGER artifact_validation_run_terminal_immutability
+BEFORE UPDATE ON artifact_validation_run
+FOR EACH ROW EXECUTE FUNCTION sdar_guard_terminal_artifact_validation_run_mutation();
 CREATE TRIGGER artifact_replay_case_result_immutability
 BEFORE UPDATE ON artifact_replay_case_result
 FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
@@ -233,24 +300,68 @@ CREATE TRIGGER artifact_counterexample_immutability
 BEFORE UPDATE ON artifact_counterexample
 FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
 
--- Removing a source Case invalidates every immutable Dataset that contains it.
-CREATE FUNCTION sdar_delete_replay_datasets_for_case()
+-- Direct source deletion invalidates promotion projections while retaining completed audit facts.
+-- Application deletion paths additionally create an immutable successor Dataset version.
+CREATE FUNCTION sdar_invalidate_replay_datasets_for_case()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  DELETE FROM replay_dataset_manifest manifest
-  USING replay_dataset_case member
+  UPDATE replay_dataset_manifest manifest
+  SET promotion_eligible=false,
+      invalidated_at=COALESCE(manifest.invalidated_at,now()),
+      invalidation_reason=COALESCE(
+        manifest.invalidation_reason,
+        'source_case_deleted'
+      )
+  FROM replay_dataset_case member
   WHERE member.replay_case_id=OLD.replay_case_id
     AND manifest.dataset_id=member.dataset_id
-    AND manifest.dataset_version=member.dataset_version;
+    AND manifest.dataset_version=member.dataset_version
+    AND manifest.promotion_eligible=true;
+
+  UPDATE artifact_validation_run run
+  SET promotion_eligible=false,
+      source_invalidated_at=COALESCE(run.source_invalidated_at,now()),
+      source_invalidation_reason=COALESCE(
+        run.source_invalidation_reason,
+        'source_case_deleted'
+      ),
+      status=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN 'failed'
+        ELSE run.status
+      END,
+      work_state=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN 'canceled'
+        ELSE run.work_state
+      END,
+      result=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased')
+          THEN 'ARTIFACT_REPLAY_SOURCE_INVALIDATED'
+        ELSE run.result
+      END,
+      completed_at=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN now()
+        ELSE run.completed_at
+      END,
+      lease_owner=NULL,
+      lease_token=NULL,
+      lease_expires_at=NULL,
+      updated_at=now()
+  WHERE EXISTS(
+    SELECT 1
+    FROM replay_dataset_case member
+    WHERE member.replay_case_id=OLD.replay_case_id
+      AND member.dataset_id=run.dataset_ref
+      AND member.dataset_version=run.dataset_version
+  );
   RETURN OLD;
 END
 $$;
 
 CREATE TRIGGER artifact_replay_case_delete_propagation
 BEFORE DELETE ON artifact_replay_case
-FOR EACH ROW EXECUTE FUNCTION sdar_delete_replay_datasets_for_case();
+FOR EACH ROW EXECUTE FUNCTION sdar_invalidate_replay_datasets_for_case();
 
 INSERT INTO schema_migration(version)
 VALUES('0129_v13_artifact_replay_validation');

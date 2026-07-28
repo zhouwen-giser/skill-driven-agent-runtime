@@ -78,6 +78,7 @@ export interface ReplayLeakageIssue {
     | 'REQUEST_CROSS_SPLIT'
     | 'NEAR_DUPLICATE_CROSS_SPLIT'
     | 'SYNTHETIC_SEED_CROSS_SPLIT'
+    | 'EXECUTION_CONTEXT_WINDOW_CROSS_SPLIT'
     | 'CANDIDATE_SOURCE_IN_HOLDOUT'
     | 'INCOMPLETE_SNAPSHOT_IN_HOLDOUT';
   readonly groupRef: string;
@@ -339,6 +340,7 @@ function groupRecords(
       ...(record.source.syntheticSeedRef === undefined
         ? []
         : [`synthetic-seed:${record.source.syntheticSeedRef}`]),
+      `execution-context:${record.source.environmentClass}:${record.source.deviceClass ?? 'none'}:${timeWindow(record.source.occurredAt)}`,
     ]) {
       const existing = roots.get(groupRef);
       if (existing === undefined) roots.set(groupRef, index);
@@ -416,8 +418,11 @@ function assignGroups(
     const time = left.occurredAt.localeCompare(right.occurredAt);
     return time === 0 ? left.key.localeCompare(right.key) : time;
   });
-  if (eligible.length < 3) throw new Error('REPLAY_DATASET_HOLDOUT_GROUPS_INSUFFICIENT');
-  const holdoutCount = Math.max(1, Math.floor(eligible.length / 4));
+  if (eligible.length < 5) throw new Error('REPLAY_DATASET_HOLDOUT_GROUPS_INSUFFICIENT');
+  const holdoutCount = Math.max(3, Math.floor(eligible.length / 4));
+  if (eligible.length - holdoutCount < 1) {
+    throw new Error('REPLAY_DATASET_HOLDOUT_GROUPS_INSUFFICIENT');
+  }
   const holdoutStart = eligible.length - holdoutCount;
   const discoveryCount = Math.max(1, Math.floor(holdoutStart / 2));
   eligible.forEach((group, index) => {
@@ -491,6 +496,14 @@ function inspectLeakage(
     (item) => item.source.syntheticSeedRef,
     issues,
   );
+  checkGroup(
+    'EXECUTION_CONTEXT_WINDOW_CROSS_SPLIT',
+    records,
+    assignments,
+    (item) =>
+      `${item.source.environmentClass}:${item.source.deviceClass ?? 'none'}:${timeWindow(item.source.occurredAt)}`,
+    issues,
+  );
   for (const record of records) {
     const purpose = assignments[record.replayCase.replayCaseId];
     if (
@@ -529,6 +542,11 @@ function inspectLeakage(
     checkedCaseCount: records.length,
     sourceHash,
   });
+}
+
+function timeWindow(timestamp: string): string {
+  const windowMs = 5 * 60 * 1_000;
+  return String(Math.floor(Date.parse(timestamp) / windowMs));
 }
 
 function checkGroup(

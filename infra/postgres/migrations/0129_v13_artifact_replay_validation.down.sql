@@ -4,12 +4,15 @@
 BEGIN;
 
 DROP TRIGGER IF EXISTS artifact_replay_case_delete_propagation ON artifact_replay_case;
-DROP FUNCTION IF EXISTS sdar_delete_replay_datasets_for_case();
+DROP FUNCTION IF EXISTS sdar_invalidate_replay_datasets_for_case();
 DROP TRIGGER IF EXISTS artifact_counterexample_immutability ON artifact_counterexample;
 DROP TRIGGER IF EXISTS artifact_validation_failure_immutability ON artifact_validation_failure;
 DROP TRIGGER IF EXISTS artifact_replay_case_result_immutability ON artifact_replay_case_result;
 DROP TRIGGER IF EXISTS replay_dataset_manifest_immutability ON replay_dataset_manifest;
+DROP TRIGGER IF EXISTS artifact_validation_run_terminal_immutability ON artifact_validation_run;
 DROP TRIGGER IF EXISTS artifact_replay_case_immutability ON artifact_replay_case;
+DROP FUNCTION IF EXISTS sdar_guard_terminal_artifact_validation_run_mutation();
+DROP FUNCTION IF EXISTS sdar_guard_replay_dataset_manifest_mutation();
 DROP FUNCTION IF EXISTS sdar_reject_artifact_replay_content_mutation();
 
 DROP TABLE IF EXISTS artifact_counterexample;
@@ -33,6 +36,9 @@ ALTER TABLE artifact_validation_run
   DROP COLUMN IF EXISTS metric_catalog_version,
   DROP COLUMN IF EXISTS result_hash,
   DROP COLUMN IF EXISTS result_payload,
+  DROP COLUMN IF EXISTS promotion_eligible,
+  DROP COLUMN IF EXISTS source_invalidated_at,
+  DROP COLUMN IF EXISTS source_invalidation_reason,
   DROP COLUMN IF EXISTS work_state,
   DROP COLUMN IF EXISTS attempt,
   DROP COLUMN IF EXISTS max_attempts,

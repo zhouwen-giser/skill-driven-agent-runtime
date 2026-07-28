@@ -142,7 +142,7 @@ function source(index: number): ArtifactReplaySource {
     outcomeSnapshotRef: `outcome-${key}`,
     correctionRefs: [],
     environmentClass: index % 2 === 0 ? 'warehouse' : 'laboratory',
-    deviceClass: index % 2 === 0 ? 'arm' : 'mobile',
+    deviceClass: `benchmark-device-${key}`,
     taskTypeId: 'task-benchmark',
     sourceTraceRefs: [`trace-${key}`],
     counterexample: index % 100 === 0,

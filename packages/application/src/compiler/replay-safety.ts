@@ -130,6 +130,12 @@ export function createReplayIdNamespaces(replayRunId: string): ReplayIdNamespace
 }
 
 function assertReplayContext(context: ReplayExecutionContext): void {
+  if (context.executionMode !== 'replay') {
+    throw new Error('REPLAY_EXECUTION_MODE_REQUIRED');
+  }
+  if (context.namespaces.queueName !== ARTIFACT_REPLAY_QUEUE_NAME) {
+    throw new Error('REPLAY_QUEUE_NAMESPACE_INVALID');
+  }
   const required = [
     context.replayRunId,
     context.validationRunId,

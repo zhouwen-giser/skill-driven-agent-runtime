@@ -216,6 +216,28 @@ describe('P05 Artifact replay validator', () => {
         candidateHasHumanGate: false,
       }),
     ).toMatchObject({ missedConfirmation: 1 });
+    expect(
+      evaluator.evaluate({
+        authorityDecision: 'allow',
+        candidateDecision: 'allow',
+        candidateHasHumanGate: false,
+        contextStatus: 'unknown',
+      }),
+    ).toMatchObject({ unknownContext: 1, unsafeAllow: 1 });
+    expect(
+      evaluator.evaluate({
+        authorityDecision: 'allow',
+        candidateDecision: 'allow',
+        candidateHasHumanGate: false,
+        contextStatus: 'conflict',
+        policyOverride: 'deny',
+      }),
+    ).toMatchObject({
+      conflict: 1,
+      policyOverrideApplied: true,
+      unsafeAllow: 1,
+      falsePositive: 1,
+    });
   });
 
   it('keeps counterfactual output epistemically honest about physical outcomes', () => {
@@ -224,9 +246,18 @@ describe('P05 Artifact replay validator', () => {
     const counterfactual = new CounterfactualReplayEvaluator().evaluate({
       candidatePlan: evaluation.plan,
       historical: historical(),
+      candidateCriterionIds: ['criterion-result', 'criterion-extra'],
+      historicalCriterionIds: ['criterion-result'],
+      candidateRiskLevel: 'high',
+      historicalRiskLevel: 'low',
+      candidateRecoveryBranchCount: 2,
+      historicalRecoveryCount: 1,
     });
     expect(counterfactual).toMatchObject({
       planEditDistance: 2,
+      criterionCoverageDelta: 1,
+      riskLevelDelta: 2,
+      recoveryBranchDelta: 1,
       physicalOutcomeClaim: 'unknown',
       historicalModelCallCount: 2,
     });
@@ -244,7 +275,7 @@ describe('P05 Artifact replay validator', () => {
       completedAt: at,
     });
     const second = engine.validate({
-      validationRunId: 'validation-run-p05',
+      validationRunId: 'validation-run-p05-retry',
       artifact: artifact(),
       dataset: dataset(),
       evaluations: [evaluation],
@@ -257,6 +288,7 @@ describe('P05 Artifact replay validator', () => {
       datasetHash: sha('d'),
     });
     expect(first.result.resultHash).toBe(second.result.resultHash);
+    expect(first.result.validationRunId).not.toBe(second.result.validationRunId);
     expect(first.result).not.toHaveProperty('approved');
     expect(first.result).not.toHaveProperty('activated');
   });
@@ -279,16 +311,92 @@ describe('P05 Artifact replay validator', () => {
     });
   });
 
-  it('rejects an evaluation that reports any physical side effect', () => {
+  it('rejects side-effect metrics without matching critical denial evidence', () => {
     const evaluation = new PlanReplayEvaluator().evaluate(input());
     expect(() => {
       new CaseReplayContract().assertEvaluation({
         ...evaluation,
         metrics: { ...evaluation.metrics, side_effect_attempt_count: 1 },
       });
-    }).toThrow(/REPLAY_SIDE_EFFECT_ATTEMPT_PRESENT/u);
+    }).toThrow(/REPLAY_SIDE_EFFECT_EVIDENCE_MISMATCH/u);
+  });
+
+  it('rejects duplicate evaluation refs even when every ref appears in the Dataset', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(input());
+    expect(() =>
+      new ArtifactReplayValidationEngine().validate({
+        validationRunId: 'validation-run-p05',
+        artifact: artifact(),
+        dataset: {
+          ...dataset(),
+          caseRefs: ['replay-case-p05', 'replay-case-p05-other'],
+        },
+        evaluations: [evaluation, evaluation],
+        completedAt: at,
+      }),
+    ).toThrow(/REPLAY_DATASET_CASE_ALIGNMENT_INVALID/u);
+  });
+
+  it('executes metric aggregation policies including P95 and minimum holdout sample', () => {
+    const cases = [
+      evaluationFor('replay-case-p05-a', 1),
+      evaluationFor('replay-case-p05-b', 10),
+      evaluationFor('replay-case-p05-c', 100),
+    ];
+    const output = new ArtifactReplayValidationEngine().validate({
+      validationRunId: 'validation-run-p05',
+      artifact: artifact(),
+      dataset: {
+        ...dataset(),
+        purpose: 'promotion_holdout',
+        caseRefs: cases.map((item) => item.replayCaseRef),
+      },
+      evaluations: cases,
+      completedAt: at,
+    });
+    expect(output.result.result).toBe('passed');
+    expect(output.result.metrics['planning_latency_ms']).toBe(100);
+    expect(output.result.metrics['generalization_proxy']).toBeDefined();
+
+    const insufficient = new ArtifactReplayValidationEngine().validate({
+      validationRunId: 'validation-run-p05-small',
+      artifact: artifact(),
+      dataset: { ...dataset(), purpose: 'promotion_holdout' },
+      evaluations: [new PlanReplayEvaluator().evaluate(input())],
+      completedAt: at,
+    });
+    expect(insufficient.result.result).toBe('needs_more_data');
+    expect(insufficient.result.metrics['generalization_proxy']).toBeUndefined();
+  });
+
+  it('computes branch precision and generalization from observed activities', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(
+      input({
+        historical: {
+          ...historical(),
+          activityRefs: ['perform-action'],
+        },
+      }),
+    );
+    expect(evaluation.metrics).toMatchObject({
+      activity_fitness: 1,
+      precision_proxy: 0.5,
+      unexpected_branch_rate: 0.5,
+    });
+    expect(evaluation.metrics['generalization_proxy']).not.toBe(
+      Number(evaluation.candidateAccepted),
+    );
   });
 });
+
+function evaluationFor(replayCaseId: string, planningLatencyMs: number) {
+  return new PlanReplayEvaluator().evaluate(
+    input({
+      replayCase: { ...replayCase(), replayCaseId },
+      historical: { ...historical(), planningLatencyMs },
+    }),
+  );
+}
 
 function input(overrides: Partial<PlanReplayInput> = {}): PlanReplayInput {
   return {

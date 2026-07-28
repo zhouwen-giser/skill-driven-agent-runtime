@@ -7,6 +7,7 @@ import {
   ARTIFACT_REPLAY_VALIDATOR_VERSION,
   VALIDATION_METRIC_CATALOG_VERSION,
   type HistoricalReplayOutcome,
+  type ReplayOperation,
   type ReplayDatasetBuild,
   type ReplayValidationCaseFixture,
   type ReplayValidationCompletion,
@@ -45,6 +46,32 @@ const HistoricalSchema = z
     planningLatencyMs: z.number().nonnegative(),
   })
   .strict();
+const ReplayOperationSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('snapshot_read'),
+      snapshotRef: z.string().min(1).max(512),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.enum([
+        'credential_read',
+        'network_request',
+        'mcp_tool',
+        'provider_task',
+        'device_control',
+        'external_write',
+        'formal_notification',
+        'formal_outcome_write',
+        'formal_evidence_write',
+        'active_pointer_write',
+        'remote_task_control',
+      ]),
+      targetRef: z.string().min(1).max(512),
+    })
+    .strict(),
+]);
 const ReplaySnapshotSchema = z
   .object({
     goalContract: z.unknown(),
@@ -57,6 +84,7 @@ const ReplaySnapshotSchema = z
     worldState: z.unknown().optional(),
     syntheticSeedRef: z.string().min(1).max(512).optional(),
     counterexample: z.boolean().optional(),
+    replayOperations: z.array(ReplayOperationSchema).max(4_096).optional(),
   })
   .strict();
 const StoredFixtureSchema = z
@@ -69,6 +97,7 @@ const StoredFixtureSchema = z
     authorityDecision: z.enum(['allow', 'deny', 'require_confirmation']),
     historical: HistoricalSchema,
     acceptedPlan: z.unknown().optional(),
+    replayOperations: z.array(ReplayOperationSchema).max(4_096).optional(),
   })
   .strict();
 const ReplayTraceSchema = z
@@ -146,6 +175,7 @@ interface RunRow extends QueryResultRow {
 interface DatasetRow extends QueryResultRow {
   content: unknown;
   content_hash: string;
+  promotion_eligible: boolean;
 }
 
 interface CaseRow extends QueryResultRow {
@@ -419,7 +449,8 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       await deadLetterExpiredExhausted(client, now);
       const selected = await client.query<RunRow>(
         `SELECT * FROM artifact_validation_run
-         WHERE validation_type='replay' AND cancel_requested_at IS NULL
+         WHERE validation_type='replay' AND promotion_eligible=true
+           AND cancel_requested_at IS NULL
            AND attempt < max_attempts
            AND (
              (work_state IN ('pending','retry_wait') AND available_at <= $1)
@@ -464,7 +495,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
         version: run.artifactVersion,
       }),
       this.pool.query<DatasetRow>(
-        `SELECT content,content_hash FROM replay_dataset_manifest
+        `SELECT content,content_hash,promotion_eligible FROM replay_dataset_manifest
          WHERE dataset_id=$1 AND dataset_version=$2`,
         [run.datasetId, run.datasetVersion],
       ),
@@ -490,7 +521,8 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
     if (
       artifact.status !== 'candidate' ||
       artifact.contentHash !== run.artifactHash ||
-      datasetRow.content_hash !== run.datasetHash
+      datasetRow.content_hash !== run.datasetHash ||
+      datasetRow.promotion_eligible !== true
     ) {
       throw new Error('ARTIFACT_REPLAY_VALIDATION_STALE_PIN');
     }
@@ -541,9 +573,11 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
         artifact_status: string;
         dataset_hash: string;
         dataset_version: number;
+        dataset_promotion_eligible: boolean;
       }>(
         `SELECT artifact.content_hash AS artifact_hash,artifact.status AS artifact_status,
-                dataset.content_hash AS dataset_hash,dataset.dataset_version
+                dataset.content_hash AS dataset_hash,dataset.dataset_version,
+                dataset.promotion_eligible AS dataset_promotion_eligible
          FROM compiled_artifact artifact
          JOIN replay_dataset_manifest dataset
            ON dataset.dataset_id=$3 AND dataset.dataset_version=$4
@@ -556,6 +590,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
         pin.artifact_hash !== run.artifactHash ||
         pin.dataset_hash !== run.datasetHash ||
         pin.dataset_version !== run.datasetVersion ||
+        pin.dataset_promotion_eligible !== true ||
         result.artifactHash !== run.artifactHash ||
         result.datasetHash !== run.datasetHash
       ) {
@@ -639,7 +674,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       }
       await writeOutbox(client, {
         eventId: `artifact-validation-completed-${run.validationRunId}`,
-        eventType: 'compiler.artifact_validation_completed',
+        eventType: 'artifact.validation_completed',
         aggregateId: run.validationRunId,
         occurredAt: now,
         payload: {
@@ -704,7 +739,8 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
     await deadLetterExpiredExhausted(this.pool, now);
     const result = await this.pool.query<RunRow>(
       `SELECT * FROM artifact_validation_run
-       WHERE validation_type='replay' AND cancel_requested_at IS NULL
+       WHERE validation_type='replay' AND promotion_eligible=true
+         AND cancel_requested_at IS NULL
          AND attempt < max_attempts
          AND (
            (work_state IN ('pending','retry_wait') AND available_at <= $1)
@@ -742,16 +778,28 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
 
   async purgeTenant(tenantId: string): Promise<number> {
     const client = await this.pool.connect();
+    const now = new Date().toISOString();
     try {
       await client.query('BEGIN');
       await client.query(
         `INSERT INTO artifact_replay_tenant_deletion(tenant_id,deleted_at)
-         VALUES($1,now()) ON CONFLICT(tenant_id) DO NOTHING`,
+         VALUES($1,$2) ON CONFLICT(tenant_id) DO NOTHING`,
+        [tenantId, now],
+      );
+      const selected = await client.query<{ replay_case_id: string }>(
+        `SELECT replay_case_id FROM artifact_replay_case
+         WHERE tenant_id=$1 ORDER BY replay_case_id FOR UPDATE`,
         [tenantId],
       );
-      const result = await client.query('DELETE FROM artifact_replay_case WHERE tenant_id=$1', [
-        tenantId,
-      ]);
+      const replayCaseIds = selected.rows.map((row) => row.replay_case_id);
+      await invalidateDatasetsForCases(client, replayCaseIds, now, 'tenant_source_deleted');
+      const result =
+        replayCaseIds.length === 0
+          ? { rowCount: 0 }
+          : await client.query(
+              'DELETE FROM artifact_replay_case WHERE replay_case_id=ANY($1::text[])',
+              [replayCaseIds],
+            );
       await client.query('COMMIT');
       return result.rowCount ?? 0;
     } catch (error: unknown) {
@@ -766,27 +814,178 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10_000) {
       throw new Error('ARTIFACT_REPLAY_RETENTION_LIMIT_INVALID');
     }
-    const result = await this.pool.query(
-      `DELETE FROM artifact_replay_case replay
-       USING (
-         SELECT replay_case_id FROM artifact_replay_case
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const selected = await client.query<{ replay_case_id: string }>(
+        `SELECT replay_case_id FROM artifact_replay_case
          WHERE retention_until IS NOT NULL AND retention_until <= $1
-         ORDER BY retention_until,replay_case_id LIMIT $2
-       ) expired
-       WHERE replay.replay_case_id=expired.replay_case_id`,
-      [now, limit],
+         ORDER BY retention_until,replay_case_id LIMIT $2 FOR UPDATE SKIP LOCKED`,
+        [now, limit],
+      );
+      const replayCaseIds = selected.rows.map((row) => row.replay_case_id);
+      await invalidateDatasetsForCases(client, replayCaseIds, now, 'retention_expired');
+      const result =
+        replayCaseIds.length === 0
+          ? { rowCount: 0 }
+          : await client.query(
+              'DELETE FROM artifact_replay_case WHERE replay_case_id=ANY($1::text[])',
+              [replayCaseIds],
+            );
+      await client.query('COMMIT');
+      return result.rowCount ?? 0;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+interface InvalidationDatasetRow extends QueryResultRow {
+  dataset_id: string;
+  dataset_version: number;
+  purpose: ReplayDatasetManifest['purpose'];
+  tenant_id: string;
+  content: unknown;
+}
+
+async function invalidateDatasetsForCases(
+  client: PoolClient,
+  replayCaseIds: readonly string[],
+  now: string,
+  reason: string,
+): Promise<void> {
+  if (replayCaseIds.length === 0) return;
+  const affected = await client.query<InvalidationDatasetRow>(
+    `SELECT manifest.dataset_id,manifest.dataset_version,manifest.purpose,
+            manifest.tenant_id,manifest.content
+     FROM replay_dataset_manifest manifest
+     WHERE manifest.promotion_eligible=true
+       AND EXISTS(
+         SELECT 1 FROM replay_dataset_case member
+         WHERE member.dataset_id=manifest.dataset_id
+           AND member.dataset_version=manifest.dataset_version
+           AND member.replay_case_id=ANY($1::text[])
+       )
+     ORDER BY manifest.dataset_id,manifest.dataset_version
+     FOR UPDATE`,
+    [replayCaseIds],
+  );
+  for (const row of affected.rows) {
+    const current = createReplayDatasetManifest(row.content as ReplayDatasetManifest);
+    const remaining = await client.query<{
+      replay_case_id: string;
+      content_hash: string;
+    }>(
+      `SELECT member.replay_case_id,replay.content_hash
+       FROM replay_dataset_case member
+       JOIN artifact_replay_case replay ON replay.replay_case_id=member.replay_case_id
+       WHERE member.dataset_id=$1 AND member.dataset_version=$2
+         AND NOT(member.replay_case_id=ANY($3::text[]))
+       ORDER BY member.ordinal`,
+      [row.dataset_id, row.dataset_version, replayCaseIds],
     );
-    return result.rowCount ?? 0;
+    const nextVersionResult = await client.query<{ next_version: number }>(
+      `SELECT COALESCE(MAX(dataset_version),0)::integer + 1 AS next_version
+       FROM replay_dataset_manifest WHERE dataset_id=$1`,
+      [row.dataset_id],
+    );
+    const nextVersion = requiredRow(nextVersionResult.rows[0]).next_version;
+    const caseRefs = remaining.rows.map((item) => item.replay_case_id);
+    const sourceHash = hash(
+      remaining.rows.map((item) => ({
+        replayCaseId: item.replay_case_id,
+        contentHash: item.content_hash,
+      })),
+    );
+    const manifestIdentity = {
+      datasetVersion: nextVersion,
+      purpose: current.purpose,
+      tenantId: current.tenantId,
+      taskTypeIds: current.taskTypeIds,
+      caseRefs,
+      splitPolicyVersion: current.splitPolicyVersion,
+      sourceRange: current.sourceRange,
+      sourceHash,
+      leakageCheckRef: stableId(
+        'replay-leakage',
+        `${row.dataset_id}:${String(nextVersion)}:${sourceHash}`,
+      ),
+      createdAt: now,
+    };
+    const successor = createReplayDatasetManifest({
+      datasetId: row.dataset_id,
+      ...manifestIdentity,
+      contentHash: hash(manifestIdentity),
+    });
+    await client.query(
+      `INSERT INTO replay_dataset_manifest(
+         dataset_id,dataset_version,purpose,tenant_id,content,source_hash,content_hash,
+         leakage_check_ref,promotion_eligible,invalidated_at,invalidation_reason,created_at)
+       VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8,false,$9,$10,$9)`,
+      [
+        successor.datasetId,
+        successor.datasetVersion,
+        successor.purpose,
+        successor.tenantId,
+        JSON.stringify(successor),
+        successor.sourceHash,
+        successor.contentHash,
+        successor.leakageCheckRef,
+        now,
+        `${reason}:requires_resplit`,
+      ],
+    );
+    for (const [ordinal, replayCaseId] of successor.caseRefs.entries()) {
+      await client.query(
+        `INSERT INTO replay_dataset_case(dataset_id,dataset_version,replay_case_id,ordinal)
+         VALUES($1,$2,$3,$4)`,
+        [successor.datasetId, successor.datasetVersion, replayCaseId, ordinal],
+      );
+    }
+    await client.query(
+      `UPDATE replay_dataset_manifest
+       SET promotion_eligible=false,invalidated_at=$3,invalidation_reason=$4,
+           successor_dataset_id=$1,successor_dataset_version=$5
+       WHERE dataset_id=$1 AND dataset_version=$2`,
+      [row.dataset_id, row.dataset_version, now, reason, nextVersion],
+    );
+    await client.query(
+      `UPDATE artifact_validation_run
+       SET promotion_eligible=false,
+           source_invalidated_at=COALESCE(source_invalidated_at,$3),
+           source_invalidation_reason=COALESCE(source_invalidation_reason,$4),
+           status=CASE
+             WHEN work_state IN ('pending','retry_wait','leased') THEN 'failed' ELSE status
+           END,
+           work_state=CASE
+             WHEN work_state IN ('pending','retry_wait','leased') THEN 'canceled' ELSE work_state
+           END,
+           result=CASE
+             WHEN work_state IN ('pending','retry_wait','leased')
+               THEN 'ARTIFACT_REPLAY_SOURCE_INVALIDATED'
+             ELSE result
+           END,
+           completed_at=CASE
+             WHEN work_state IN ('pending','retry_wait','leased') THEN $3 ELSE completed_at
+           END,
+           lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=$3
+       WHERE dataset_ref=$1 AND dataset_version=$2`,
+      [row.dataset_id, row.dataset_version, now, reason],
+    );
   }
 }
 
 function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayValidationSource {
   const snapshot = record(row.episode_snapshot, 'ARTIFACT_REPLAY_EPISODE_SNAPSHOT_INVALID');
-  const replay = ReplaySnapshotSchema.parse(snapshot['replayValidation']);
   const trace = ReplayTraceSchema.parse(row.trace);
   if (trace.tenantId !== trigger.tenantId) {
     throw new Error('ARTIFACT_REPLAY_TRACE_SCOPE_INVALID');
   }
+  const replayInput = replaySnapshotFromEpisode(snapshot, trace);
+  const replay = replayInput.snapshot;
   const contract = createUserGoalCompletionContract(
     replay.goalContract as UserGoalCompletionContractInput,
   );
@@ -816,19 +1015,19 @@ function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayVali
     requestSnapshotRef: `${row.source_episode_id}:snapshot:task`,
     requestFingerprint,
     nearDuplicateFingerprint: hash(normalizedText(task['requestText'])),
-    goalContractSnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.goalContract`,
-    capabilityCatalogSnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.knownCapabilityIds`,
+    goalContractSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.goalContract`,
+    capabilityCatalogSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.knownCapabilityIds`,
     ...(replay.worldState === undefined
       ? {}
       : {
-          worldStateSnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.worldState`,
+          worldStateSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.worldState`,
         }),
-    policySnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.authorityDecision`,
-    readinessSnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.readyCapabilityIds`,
+    policySnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.authorityDecision`,
+    readinessSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.readyCapabilityIds`,
     ...(acceptedPlan === undefined
       ? {}
       : {
-          acceptedPlanSnapshotRef: `${row.source_episode_id}:snapshot:replayValidation.acceptedPlan`,
+          acceptedPlanSnapshotRef: `${row.source_episode_id}:snapshot:${replayInput.refRoot}.acceptedPlan`,
           acceptedPlanRevisionRef: `${acceptedPlan.planId}:r${String(acceptedPlan.revision)}`,
         }),
     executionTraceSnapshotRef: `${row.trace_id}:snapshot`,
@@ -858,8 +1057,172 @@ function mapSource(row: SourceRow, trigger: ReplayValidationTrigger): ReplayVali
     authorityDecision: replay.authorityDecision,
     historical,
     ...(acceptedPlan === undefined ? {} : { acceptedPlan }),
+    ...(replay.replayOperations === undefined
+      ? {}
+      : { replayOperations: Object.freeze([...replay.replayOperations]) }),
   });
   return Object.freeze({ source, fixture });
+}
+
+function replaySnapshotFromEpisode(
+  episode: Readonly<Record<string, unknown>>,
+  trace: z.infer<typeof ReplayTraceSchema>,
+): Readonly<{
+  snapshot: z.infer<typeof ReplaySnapshotSchema>;
+  refRoot: 'replayValidation' | 'nativeReplayFacts';
+}> {
+  if (episode['replayValidation'] !== undefined) {
+    return Object.freeze({
+      snapshot: ReplaySnapshotSchema.parse(episode['replayValidation']),
+      refRoot: 'replayValidation',
+    });
+  }
+
+  const contractEnvelope = record(
+    episode['contract'],
+    'ARTIFACT_REPLAY_NATIVE_GOAL_CONTRACT_MISSING',
+  );
+  const goalContract = contractEnvelope['contract'];
+  if (goalContract === undefined) {
+    throw new Error('ARTIFACT_REPLAY_NATIVE_GOAL_CONTRACT_MISSING');
+  }
+  const planRevisions = recordList(episode['planRevisions']);
+  const currentPlan = optionalRecord(episode['currentPlan']) ?? planRevisions.at(-1);
+  const acceptedPlan = currentPlan?.['plan'];
+  if (acceptedPlan === undefined) {
+    throw new Error('ARTIFACT_REPLAY_NATIVE_ACCEPTED_PLAN_MISSING');
+  }
+  const plan = record(acceptedPlan, 'ARTIFACT_REPLAY_NATIVE_ACCEPTED_PLAN_INVALID');
+  const skillGoals = recordList(plan['skillGoals']);
+  const attempts = recordList(episode['attempts']);
+  const recovery = recordList(episode['recovery']);
+  const capabilityCatalog = optionalRecord(episode['capabilityCatalogSnapshot']);
+  const successfulAttemptStatuses = new Set(['completed', 'achieved', 'succeeded']);
+  const successfulSkillGoalIds = new Set(
+    attempts.flatMap((attempt) =>
+      successfulAttemptStatuses.has(stringValue(attempt['status']))
+        ? stringListValue(attempt['skill_goal_id'] ?? attempt['skillGoalId'])
+        : [],
+    ),
+  );
+  const capabilityRefsByGoal = new Map(
+    skillGoals.flatMap((goal) => {
+      const skillGoalId = stringValue(goal['skillGoalId']);
+      return skillGoalId.length === 0
+        ? []
+        : [[skillGoalId, stringListValue(goal['capabilityNeeds'])] as const];
+    }),
+  );
+  const knownCapabilityIds = uniqueSorted([
+    ...skillGoals.flatMap((goal) => stringListValue(goal['capabilityNeeds'])),
+    ...recovery.flatMap((item) =>
+      stringListValue(item['required_capabilities'] ?? item['requiredCapabilities']),
+    ),
+    ...stringListValue(capabilityCatalog?.['knownCapabilityIds']),
+  ]);
+  const readyCapabilityIds = uniqueSorted([
+    ...stringListValue(capabilityCatalog?.['readyCapabilityIds']),
+    ...attempts.flatMap((attempt) =>
+      successfulAttemptStatuses.has(stringValue(attempt['status']))
+        ? stringListValue(attempt['capability_refs'])
+        : [],
+    ),
+    ...[...successfulSkillGoalIds].flatMap(
+      (skillGoalId) => capabilityRefsByGoal.get(skillGoalId) ?? [],
+    ),
+  ]);
+  const parameterValues: Record<string, unknown> = {};
+  for (const attempt of attempts) {
+    const attemptPayload = optionalRecord(attempt['attempt_json']);
+    const resolvedInput =
+      optionalRecord(attempt['resolved_input']) ??
+      optionalRecord(attempt['resolvedInput']) ??
+      optionalRecord(attemptPayload?.['resolvedInput']);
+    if (resolvedInput !== undefined) Object.assign(parameterValues, resolvedInput);
+  }
+
+  const terminal = optionalRecord(episode['terminalOutcome']);
+  const judgment = optionalRecord(episode['userGoalJudgment']);
+  const terminalStatus = stringValue(
+    terminal?.['controlStatus'] ?? terminal?.['kind'] ?? judgment?.['status'],
+  );
+  const succeeded =
+    terminalStatus.length > 0
+      ? ['achieved', 'completed', 'succeeded'].includes(terminalStatus)
+      : trace.outcomeStatus === 'succeeded';
+  const readyCapabilitySet = new Set(readyCapabilityIds);
+  const achievedGoals = skillGoals.filter(
+    (goal) =>
+      successfulSkillGoalIds.has(stringValue(goal['skillGoalId'])) ||
+      stringListValue(goal['capabilityNeeds']).some((capabilityId) =>
+        readyCapabilitySet.has(capabilityId),
+      ),
+  );
+  const progress = recordList(episode['progress']);
+  const interactions = recordList(episode['interactions']);
+  const task = optionalRecord(episode['task']);
+  const planCreatedAt = stringValue(currentPlan?.['createdAt'] ?? currentPlan?.['created_at']);
+  const taskCreatedAt = stringValue(task?.['createdAt'] ?? task?.['created_at']);
+  const planningLatencyMs =
+    Number.isFinite(Date.parse(planCreatedAt)) && Number.isFinite(Date.parse(taskCreatedAt))
+      ? Math.max(0, Date.parse(planCreatedAt) - Date.parse(taskCreatedAt))
+      : 0;
+  const replayOperations = [
+    ...operationList(episode['replayOperations']),
+    ...attempts.flatMap((attempt) => [
+      ...operationList(attempt['replay_operations']),
+      ...operationList(attempt['replayOperations']),
+      ...operationList(optionalRecord(attempt['attempt_json'])?.['replayOperations']),
+    ]),
+  ];
+  const snapshot = ReplaySnapshotSchema.parse({
+    goalContract,
+    parameterValues,
+    knownCapabilityIds,
+    readyCapabilityIds,
+    authorityDecision: succeeded ? 'allow' : 'deny',
+    historical: {
+      succeeded,
+      evidenceRefs: uniqueSorted([
+        ...achievedGoals.flatMap((goal) => stringListValue(goal['evidenceRequirements'])),
+        ...progress.flatMap((item) =>
+          stringListValue(item['evidence_refs'] ?? item['evidenceRefs']),
+        ),
+      ]),
+      artifactRefs: uniqueSorted([
+        ...achievedGoals.flatMap((goal) => stringListValue(goal['artifactRequirements'])),
+        ...attempts.flatMap((attempt) =>
+          stringListValue(
+            attempt['artifact_refs'] ??
+              attempt['artifactRefs'] ??
+              optionalRecord(attempt['attempt_json'])?.['artifactRefs'],
+          ),
+        ),
+      ]),
+      activityRefs: uniqueSorted(
+        trace.events.flatMap((event) =>
+          event.activity?.activityKey === undefined ? [] : [event.activity.activityKey],
+        ),
+      ),
+      modelCallCount: sumNumbers(interactions, ['modelCallCount', 'model_call_count']),
+      tokenInput: sumNumbers(interactions, ['tokenInput', 'token_input']),
+      tokenOutput: sumNumbers(interactions, ['tokenOutput', 'token_output']),
+      estimatedCostUnits: sumNumbers(interactions, ['estimatedCostUnits', 'estimated_cost_units']),
+      humanInteractionCount: interactions.length,
+      fallbackCount: recovery.length,
+      userPatchCount: Math.max(0, planRevisions.length - 1),
+      planningLatencyMs,
+    },
+    acceptedPlan,
+    worldState: {
+      task: task ?? {},
+      terminalOutcome: terminal ?? {},
+      progress,
+    },
+    counterexample: !succeeded || trace.outcomeStatus === 'failed',
+    ...(replayOperations.length === 0 ? {} : { replayOperations }),
+  });
+  return Object.freeze({ snapshot, refRoot: 'nativeReplayFacts' });
 }
 
 type UserGoalCompletionContractInput = Parameters<typeof createUserGoalCompletionContract>[0];
@@ -885,7 +1248,54 @@ function parseFixture(value: unknown): ReplayValidationCaseFixture {
       activityRefs: Object.freeze(fixture.historical.activityRefs ?? []),
     }),
     ...(acceptedPlan === undefined ? {} : { acceptedPlan }),
+    ...(fixture.replayOperations === undefined
+      ? {}
+      : { replayOperations: Object.freeze([...fixture.replayOperations]) }),
   });
+}
+
+function optionalRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
+function recordList(value: unknown): readonly Readonly<Record<string, unknown>>[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        const parsed = optionalRecord(item);
+        return parsed === undefined ? [] : [parsed];
+      })
+    : [];
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function stringListValue(value: unknown): readonly string[] {
+  if (typeof value === 'string') return value.length === 0 ? [] : [value];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : [];
+}
+
+function uniqueSorted(values: readonly string[]): readonly string[] {
+  return Object.freeze([...new Set(values)].sort());
+}
+
+function operationList(value: unknown): readonly ReplayOperation[] {
+  return value === undefined ? [] : ReplayOperationSchema.array().parse(value);
+}
+
+function sumNumbers(
+  values: readonly Readonly<Record<string, unknown>>[],
+  keys: readonly string[],
+): number {
+  return values.reduce((sum, value) => {
+    const item = keys.map((key) => value[key]).find((candidate) => typeof candidate === 'number');
+    return sum + (typeof item === 'number' && Number.isFinite(item) && item >= 0 ? item : 0);
+  }, 0);
 }
 
 function mapStaticValidation(row: StaticValidationRow): CandidateStaticValidationResult {

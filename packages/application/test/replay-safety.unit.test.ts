@@ -97,6 +97,24 @@ describe('P05 No-Physical Replay boundary', () => {
       }),
     ).rejects.toThrow(/NAMESPACE_NOT_ISOLATED/u);
   });
+
+  it('rejects a non-replay execution mode and a queue namespace substitution', async () => {
+    await expect(
+      new ReplayNoPhysicalProvider(snapshotStore).execute(
+        { ...context(), executionMode: 'live' } as unknown as ReplayExecutionContext,
+        { kind: 'snapshot_read', snapshotRef: 'policy-snapshot-1' },
+      ),
+    ).rejects.toThrow(/REPLAY_EXECUTION_MODE_REQUIRED/u);
+    await expect(
+      new ReplayNoPhysicalProvider(snapshotStore).execute(
+        {
+          ...context(),
+          namespaces: { ...context().namespaces, queueName: 'sdar-general-runtime' },
+        } as unknown as ReplayExecutionContext,
+        { kind: 'snapshot_read', snapshotRef: 'policy-snapshot-1' },
+      ),
+    ).rejects.toThrow(/REPLAY_QUEUE_NAMESPACE_INVALID/u);
+  });
 });
 
 function context(): ReplayExecutionContext {

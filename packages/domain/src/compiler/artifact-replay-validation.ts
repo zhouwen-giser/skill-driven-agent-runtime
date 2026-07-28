@@ -236,7 +236,10 @@ export function createReplayDatasetManifest(input: ReplayDatasetManifest): Repla
   }
   assertIdentifier(input.tenantId, 'tenantId', code);
   const taskTypeIds = freezeRefs(input.taskTypeIds, 'taskTypeIds', code, true);
-  const caseRefs = freezeRefs(input.caseRefs, 'caseRefs', code, true);
+  // A source-deletion successor is an immutable, non-promotable Dataset version and may
+  // intentionally contain no remaining Cases. Dataset construction still requires every
+  // active purpose to be non-empty before it can become promotion eligible.
+  const caseRefs = freezeRefs(input.caseRefs, 'caseRefs', code);
   assertIdentifier(input.splitPolicyVersion, 'splitPolicyVersion', code);
   assertExactKeys(input.sourceRange, ['from', 'to'], code);
   assertTimestamp(input.sourceRange.from, 'sourceRange.from', code);

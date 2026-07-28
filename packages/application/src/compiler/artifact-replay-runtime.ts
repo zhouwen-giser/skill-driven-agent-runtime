@@ -1,5 +1,6 @@
 import type {
   ArtifactReplayCase,
+  ArtifactValidationFailure,
   ArtifactValidationResult,
   CandidateStaticValidationResult,
   CompiledArtifact,
@@ -10,9 +11,16 @@ import type {
 import {
   ArtifactReplayValidationEngine,
   PlanReplayEvaluator,
+  appendReplaySafetyFailures,
   type HistoricalReplayOutcome,
   type ReplayAuthorityDecision,
 } from './artifact-replay-validator.js';
+import {
+  ReplayNoPhysicalProvider,
+  ReplaySideEffectDeniedError,
+  createReplayIdNamespaces,
+  type ReplayOperation,
+} from './replay-safety.js';
 import {
   ArtifactReplayCaseBuilder,
   ReplayDatasetBuilder,
@@ -67,6 +75,7 @@ export interface ReplayValidationCaseFixture {
   readonly authorityDecision: ReplayAuthorityDecision;
   readonly historical: HistoricalReplayOutcome;
   readonly acceptedPlan?: UserGoalPlan;
+  readonly replayOperations?: readonly ReplayOperation[];
 }
 
 export interface ReplayValidationSource {
@@ -189,6 +198,9 @@ export class ArtifactReplayValidationApplicationService {
       baseBackoffMs: number;
       maxBackoffMs: number;
     }>,
+    private readonly noPhysicalProvider: ReplayNoPhysicalProvider = new ReplayNoPhysicalProvider({
+      load: () => Promise.resolve(undefined),
+    }),
     private readonly evaluator: PlanReplayEvaluator = new PlanReplayEvaluator(),
     private readonly engine: ArtifactReplayValidationEngine = new ArtifactReplayValidationEngine(),
   ) {}
@@ -214,26 +226,57 @@ export class ArtifactReplayValidationApplicationService {
         throw codedError('ARTIFACT_REPLAY_VALIDATION_STALE_PIN');
       }
       const evaluatedAt = this.clock.now();
-      const caseEvaluations = work.cases.map((replayCase) => {
-        const fixture = work.fixtures[replayCase.replayCaseId];
-        if (fixture === undefined) {
-          throw codedError(`ARTIFACT_REPLAY_VALIDATION_FIXTURE_MISSING:${replayCase.replayCaseId}`);
-        }
-        return this.evaluator.evaluate({
-          validationRunId: run.validationRunId,
-          replayCase,
-          artifact: work.artifact,
-          staticValidation: work.staticValidation,
-          goalContract: fixture.goalContract,
-          parameterValues: fixture.parameterValues,
-          knownCapabilityIds: fixture.knownCapabilityIds,
-          readyCapabilityIds: fixture.readyCapabilityIds,
-          authorityDecision: fixture.authorityDecision,
-          historical: fixture.historical,
-          ...(fixture.acceptedPlan === undefined ? {} : { acceptedPlan: fixture.acceptedPlan }),
-          evaluatedAt,
-        });
-      });
+      const caseEvaluations = await Promise.all(
+        work.cases.map(async (replayCase) => {
+          const fixture = work.fixtures[replayCase.replayCaseId];
+          if (fixture === undefined) {
+            throw codedError(
+              `ARTIFACT_REPLAY_VALIDATION_FIXTURE_MISSING:${replayCase.replayCaseId}`,
+            );
+          }
+          const evaluation = this.evaluator.evaluate({
+            validationRunId: run.validationRunId,
+            replayCase,
+            artifact: work.artifact,
+            staticValidation: work.staticValidation,
+            goalContract: fixture.goalContract,
+            parameterValues: fixture.parameterValues,
+            knownCapabilityIds: fixture.knownCapabilityIds,
+            readyCapabilityIds: fixture.readyCapabilityIds,
+            authorityDecision: fixture.authorityDecision,
+            historical: fixture.historical,
+            ...(fixture.acceptedPlan === undefined ? {} : { acceptedPlan: fixture.acceptedPlan }),
+            evaluatedAt,
+          });
+          const safetyFailures: ArtifactValidationFailure[] = [];
+          for (const operation of fixture.replayOperations ?? []) {
+            try {
+              await this.noPhysicalProvider.execute(
+                {
+                  executionMode: 'replay',
+                  replayRunId: run.validationRunId,
+                  validationRunId: run.validationRunId,
+                  replayCaseId: replayCase.replayCaseId,
+                  tenantId: run.tenantId,
+                  datasetId: run.datasetId,
+                  candidateId: `${run.artifactId}:v${String(run.artifactVersion)}`,
+                  namespaces: createReplayIdNamespaces(run.validationRunId),
+                },
+                operation,
+              );
+            } catch (error: unknown) {
+              if (!(error instanceof ReplaySideEffectDeniedError)) throw error;
+              safetyFailures.push(error.failure);
+            }
+          }
+          return appendReplaySafetyFailures(evaluation, {
+            artifact: work.artifact,
+            replayCase,
+            failures: safetyFailures,
+            evaluatedAt,
+          });
+        }),
+      );
       const validated = this.engine.validate({
         validationRunId: run.validationRunId,
         artifact: work.artifact,

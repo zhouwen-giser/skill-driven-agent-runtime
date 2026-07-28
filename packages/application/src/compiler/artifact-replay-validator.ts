@@ -67,6 +67,8 @@ export interface RuleReplayInput {
   readonly authorityDecision: ReplayAuthorityDecision;
   readonly candidateDecision: ReplayAuthorityDecision;
   readonly candidateHasHumanGate: boolean;
+  readonly contextStatus?: 'known' | 'unknown' | 'conflict';
+  readonly policyOverride?: ReplayAuthorityDecision;
 }
 
 export interface RuleReplayEvaluation {
@@ -76,17 +78,29 @@ export interface RuleReplayEvaluation {
   readonly falseNegative: number;
   readonly unsafeAllow: number;
   readonly missedConfirmation: number;
+  readonly unknownContext: number;
+  readonly conflict: number;
+  readonly policyOverrideApplied: boolean;
 }
 
 export interface CounterfactualReplayInput {
   readonly candidatePlan: UserGoalPlan;
   readonly acceptedPlan?: UserGoalPlan;
   readonly historical: HistoricalReplayOutcome;
+  readonly candidateCriterionIds?: readonly string[];
+  readonly historicalCriterionIds?: readonly string[];
+  readonly candidateRiskLevel?: CompiledArtifact['riskLevel'];
+  readonly historicalRiskLevel?: CompiledArtifact['riskLevel'];
+  readonly candidateRecoveryBranchCount?: number;
+  readonly historicalRecoveryCount?: number;
 }
 
 export interface CounterfactualReplayEvaluation {
   readonly planEditDistance: number;
   readonly planNodeDelta: number;
+  readonly criterionCoverageDelta: number;
+  readonly riskLevelDelta: number;
+  readonly recoveryBranchDelta: number;
   readonly candidateHumanGateCount: number;
   readonly historicalHumanInteractionCount: number;
   readonly historicalModelCallCount: number;
@@ -292,11 +306,14 @@ export class PlanReplayEvaluator {
 
 export class RuleReplayEvaluator {
   evaluate(input: RuleReplayInput): RuleReplayEvaluation {
-    const authorityPositive = input.authorityDecision === 'allow';
+    const authorityDecision = input.policyOverride ?? input.authorityDecision;
+    const contextStatus = input.contextStatus ?? 'known';
+    const authorityPositive = authorityDecision === 'allow';
     const candidatePositive = input.candidateDecision === 'allow';
-    const unsafeAllow = input.authorityDecision === 'deny' && candidatePositive ? 1 : 0;
+    const unsafeAllow =
+      (authorityDecision === 'deny' || contextStatus !== 'known') && candidatePositive ? 1 : 0;
     const missedConfirmation =
-      input.authorityDecision === 'require_confirmation' &&
+      authorityDecision === 'require_confirmation' &&
       (!input.candidateHasHumanGate || input.candidateDecision !== 'require_confirmation')
         ? 1
         : 0;
@@ -307,6 +324,9 @@ export class RuleReplayEvaluator {
       falseNegative: authorityPositive && !candidatePositive ? 1 : 0,
       unsafeAllow,
       missedConfirmation,
+      unknownContext: contextStatus === 'unknown' ? 1 : 0,
+      conflict: contextStatus === 'conflict' ? 1 : 0,
+      policyOverrideApplied: input.policyOverride !== undefined,
     });
   }
 }
@@ -320,6 +340,13 @@ export class CounterfactualReplayEvaluator {
           : planEditDistance(input.candidatePlan, input.acceptedPlan),
       planNodeDelta:
         input.candidatePlan.skillGoals.length - (input.acceptedPlan?.skillGoals.length ?? 0),
+      criterionCoverageDelta:
+        new Set(input.candidateCriterionIds ?? []).size -
+        new Set(input.historicalCriterionIds ?? []).size,
+      riskLevelDelta:
+        riskOrdinal(input.candidateRiskLevel) - riskOrdinal(input.historicalRiskLevel),
+      recoveryBranchDelta:
+        (input.candidateRecoveryBranchCount ?? 0) - (input.historicalRecoveryCount ?? 0),
       candidateHumanGateCount: input.candidatePlan.skillGoals.filter((goal) =>
         goal.capabilityNeeds.includes('human_confirmation'),
       ).length,
@@ -335,10 +362,66 @@ export class CounterfactualReplayEvaluator {
 
 export class CaseReplayContract {
   assertEvaluation(evaluation: PlanReplayEvaluation): void {
-    if (evaluation.metrics['side_effect_attempt_count'] !== 0) {
-      throw new Error('REPLAY_SIDE_EFFECT_ATTEMPT_PRESENT');
+    const attemptCount = evaluation.metrics['side_effect_attempt_count'] ?? 0;
+    const recordedAttempts = evaluation.failures.filter(
+      (failure) => failure.category === 'side_effect_attempt' && failure.severity === 'critical',
+    ).length;
+    if (attemptCount !== recordedAttempts) {
+      throw new Error('REPLAY_SIDE_EFFECT_EVIDENCE_MISMATCH');
     }
   }
+}
+
+export function appendReplaySafetyFailures(
+  evaluation: PlanReplayEvaluation,
+  input: Readonly<{
+    artifact: CompiledArtifact;
+    replayCase: ArtifactReplayCase;
+    failures: readonly ArtifactValidationFailure[];
+    evaluatedAt: string;
+  }>,
+): PlanReplayEvaluation {
+  if (input.failures.length === 0) return evaluation;
+  const counterexamples = input.failures.map((failure) =>
+    createArtifactCounterexample({
+      counterexampleId: stableId(
+        'artifact-counterexample',
+        hash({
+          artifactHash: input.artifact.contentHash,
+          replayCaseHash: input.replayCase.contentHash,
+          category: failure.category,
+          actualRef: failure.actualRef,
+        }),
+      ),
+      artifactRef: `${input.artifact.artifactId}:v${String(input.artifact.version)}`,
+      replayCaseRef: input.replayCase.replayCaseId,
+      failureRef: failure.failureId,
+      conditionFingerprint: hash({
+        category: failure.category,
+        environmentClass: input.replayCase.environmentClass,
+        taskTypeId: input.replayCase.taskTypeId,
+      }),
+      environmentClass: input.replayCase.environmentClass,
+      failureBoundaryCandidate: Object.freeze({
+        category: failure.category,
+        action: 'deny',
+      }),
+      sourceRefs: input.replayCase.sourceEpisodeRefs,
+      status: 'recorded',
+      createdAt: input.evaluatedAt,
+    }),
+  );
+  return Object.freeze({
+    ...evaluation,
+    metrics: Object.freeze({
+      ...evaluation.metrics,
+      side_effect_attempt_count:
+        (evaluation.metrics['side_effect_attempt_count'] ?? 0) + input.failures.length,
+    }),
+    failures: Object.freeze([...evaluation.failures, ...input.failures]),
+    counterexamples: Object.freeze([...evaluation.counterexamples, ...counterexamples]),
+    candidateAccepted: false,
+  });
 }
 
 export class ArtifactReplayValidationEngine {
@@ -349,11 +432,13 @@ export class ArtifactReplayValidationEngine {
 
   validate(input: ArtifactReplayValidationInput): ArtifactReplayValidationOutput {
     if (input.evaluations.length === 0) throw new Error('REPLAY_EVALUATIONS_REQUIRED');
+    const datasetCaseRefs = [...input.dataset.caseRefs].sort();
+    const evaluationCaseRefs = input.evaluations
+      .map((evaluation) => evaluation.replayCaseRef)
+      .sort();
     if (
-      input.dataset.caseRefs.length !== input.evaluations.length ||
-      input.evaluations.some(
-        (evaluation) => !input.dataset.caseRefs.includes(evaluation.replayCaseRef),
-      )
+      datasetCaseRefs.length !== evaluationCaseRefs.length ||
+      datasetCaseRefs.some((reference, index) => reference !== evaluationCaseRefs[index])
     ) {
       throw new Error('REPLAY_DATASET_CASE_ALIGNMENT_INVALID');
     }
@@ -363,14 +448,24 @@ export class ArtifactReplayValidationEngine {
     const counterexamples = input.evaluations.flatMap((evaluation) => [
       ...evaluation.counterexamples,
     ]);
-    const metrics = aggregateMetrics(input.evaluations);
+    const metrics = aggregateMetrics(input.evaluations, this.metricCatalog);
     this.metricCatalog.validate(metrics);
 
     const unsafe =
       (metrics['unsafe_allow_count'] ?? 0) > 0 ||
       (metrics['missed_confirmation_count'] ?? 0) > 0 ||
       (metrics['side_effect_attempt_count'] ?? 0) > 0;
-    const needsMoreData = failures.some((failure) => failure.category === 'snapshot_incomplete');
+    const needsMoreData =
+      failures.some((failure) => failure.category === 'snapshot_incomplete') ||
+      (input.dataset.purpose === 'promotion_holdout' &&
+        this.metricCatalog
+          .list()
+          .some(
+            (definition) =>
+              input.evaluations.some(
+                (evaluation) => evaluation.metrics[definition.metricId] !== undefined,
+              ) && input.evaluations.length < definition.minimumSample,
+          ));
     const result = unsafe
       ? ('unsafe' as const)
       : needsMoreData
@@ -379,15 +474,10 @@ export class ArtifactReplayValidationEngine {
           ? ('failed' as const)
           : ('passed' as const);
     const resultIdentity = {
-      validationRunId: input.validationRunId,
       artifactRef: `${input.artifact.artifactId}:v${String(input.artifact.version)}`,
       datasetRef: `${input.dataset.datasetId}:v${String(input.dataset.datasetVersion)}`,
       validationType: 'replay' as const,
       metrics,
-      failureRefs: failures.map((failure) => failure.failureId).sort(),
-      counterexampleRefs: counterexamples
-        .map((counterexample) => counterexample.counterexampleId)
-        .sort(),
       unsafe,
       result,
       validatorVersion: ARTIFACT_REPLAY_VALIDATOR_VERSION,
@@ -396,7 +486,12 @@ export class ArtifactReplayValidationEngine {
       datasetHash: input.dataset.contentHash,
     };
     const validationResult = createArtifactValidationResult({
+      validationRunId: input.validationRunId,
       ...resultIdentity,
+      failureRefs: failures.map((failure) => failure.failureId).sort(),
+      counterexampleRefs: counterexamples
+        .map((counterexample) => counterexample.counterexampleId)
+        .sort(),
       resultHash: hash(resultIdentity),
       completedAt: input.completedAt,
     });
@@ -455,26 +550,34 @@ function finishEvaluation(
   const historicalMatches =
     input.historical.succeeded === candidateAccepted ||
     (!input.historical.succeeded && failures.length > 0);
+  const fitness = activityFitness(definition, input.historical.activityRefs);
+  const unexpectedBranchRate = unexpectedBranchRateFor(definition, input.historical.activityRefs);
+  const precision = rounded(1 - unexpectedBranchRate);
+  const criterionCoverage = ratio(
+    requiredCriteria.filter((criterion) => coveredCriteria.has(criterion.criterionId)).length,
+    requiredCriteria.length,
+  );
+  const evidenceCompleteness = ratio(
+    requiredEvidence.filter((reference) => candidateEvidence.has(reference)).length,
+    requiredEvidence.length,
+  );
+  const artifactCorrectness = ratio(
+    requiredArtifacts.filter((reference) => candidateArtifacts.has(reference)).length,
+    requiredArtifacts.length,
+  );
   const metrics: Readonly<Record<string, number>> = Object.freeze({
     goal_success_match: historicalMatches ? 1 : 0,
-    criterion_coverage: ratio(
-      requiredCriteria.filter((criterion) => coveredCriteria.has(criterion.criterionId)).length,
-      requiredCriteria.length,
-    ),
-    evidence_completeness: ratio(
-      requiredEvidence.filter((reference) => candidateEvidence.has(reference)).length,
-      requiredEvidence.length,
-    ),
-    artifact_correctness: ratio(
-      requiredArtifacts.filter((reference) => candidateArtifacts.has(reference)).length,
-      requiredArtifacts.length,
-    ),
+    criterion_coverage: criterionCoverage,
+    evidence_completeness: evidenceCompleteness,
+    artifact_correctness: artifactCorrectness,
     outcome_regression: input.historical.succeeded && !candidateAccepted ? 1 : 0,
-    activity_fitness: activityFitness(definition, input.historical.activityRefs),
-    precision_proxy: candidateAccepted ? 1 : 0,
-    generalization_proxy: candidateAccepted ? 1 : 0,
-    variant_coverage: candidateAccepted ? 1 : 0,
-    unexpected_branch_rate: 0,
+    activity_fitness: fitness,
+    precision_proxy: precision,
+    generalization_proxy: rounded(
+      (fitness + precision + criterionCoverage + evidenceCompleteness + artifactCorrectness) / 5,
+    ),
+    variant_coverage: fitness,
+    unexpected_branch_rate: unexpectedBranchRate,
     unsafe_allow_count: rule.unsafeAllow,
     missed_confirmation_count: rule.missedConfirmation,
     false_positive: rule.falsePositive,
@@ -495,6 +598,12 @@ function finishEvaluation(
             candidatePlan: plan,
             ...(input.acceptedPlan === undefined ? {} : { acceptedPlan: input.acceptedPlan }),
             historical: input.historical,
+            candidateCriterionIds: [...coveredCriteria],
+            historicalCriterionIds:
+              input.acceptedPlan?.skillGoals.flatMap((goal) => [...goal.coveredCriterionIds]) ?? [],
+            candidateRiskLevel: input.artifact.riskLevel,
+            candidateRecoveryBranchCount: definition?.recoveryBranches.length ?? 0,
+            historicalRecoveryCount: input.historical.fallbackCount,
           }).planEditDistance,
     user_patch_count: input.historical.userPatchCount,
     rejected_candidate_count: candidateAccepted ? 0 : 1,
@@ -674,45 +783,34 @@ function createFailure(input: {
 
 function aggregateMetrics(
   evaluations: readonly PlanReplayEvaluation[],
+  catalog: ValidationMetricCatalog,
 ): Readonly<Record<string, number>> {
-  const metricIds = uniqueSorted(
-    evaluations.flatMap((evaluation) => Object.keys(evaluation.metrics)),
-  );
-  const sums = Object.fromEntries(
-    metricIds.map((metricId) => [
-      metricId,
-      evaluations.reduce((sum, evaluation) => sum + (evaluation.metrics[metricId] ?? 0), 0),
-    ]),
-  );
-  const sumMetrics = new Set([
-    'outcome_regression',
-    'unsafe_allow_count',
-    'missed_confirmation_count',
-    'false_positive',
-    'false_negative',
-    'side_effect_attempt_count',
-    'model_call_count',
-    'token_input',
-    'token_output',
-    'estimated_cost_units',
-    'human_interaction_count',
-    'fallback_count',
-    'user_patch_count',
-    'rejected_candidate_count',
-    'missing_parameter_count',
-    'capability_gap_count',
-    'readiness_gap_count',
-  ]);
   return Object.freeze(
     Object.fromEntries(
-      metricIds.map((metricId) => [
-        metricId,
-        sumMetrics.has(metricId)
-          ? requiredRecordValue(sums, metricId)
-          : requiredRecordValue(sums, metricId) / evaluations.length,
-      ]),
+      catalog.list().flatMap((definition) => {
+        const values = evaluations.flatMap((evaluation) => {
+          const value = evaluation.metrics[definition.metricId];
+          return value === undefined ? [] : [value];
+        });
+        if (values.length < definition.minimumSample) return [];
+        const aggregate =
+          definition.aggregation === 'sum' || definition.aggregation === 'count'
+            ? values.reduce((sum, value) => sum + value, 0)
+            : definition.aggregation === 'p50'
+              ? percentile(values, 0.5)
+              : definition.aggregation === 'p95'
+                ? percentile(values, 0.95)
+                : values.reduce((sum, value) => sum + value, 0) / values.length;
+        return [[definition.metricId, rounded(aggregate)] as const];
+      }),
     ),
   );
+}
+
+function percentile(values: readonly number[], quantile: number): number {
+  const ordered = [...values].sort((left, right) => left - right);
+  const index = Math.min(ordered.length - 1, Math.ceil(ordered.length * quantile) - 1);
+  return ordered[index] ?? 0;
 }
 
 function activityFitness(
@@ -725,6 +823,22 @@ function activityFitness(
     historicalActivityRefs.filter((activityRef) => candidate.has(activityRef)).length,
     historicalActivityRefs.length,
   );
+}
+
+function unexpectedBranchRateFor(
+  definition: PlanTemplateArtifactDefinition | undefined,
+  historicalActivityRefs: readonly string[],
+): number {
+  if (definition === undefined || definition.skillGoalGraph.nodes.length === 0) return 0;
+  const historical = new Set(historicalActivityRefs);
+  const unexpected = definition.skillGoalGraph.nodes.filter(
+    (node) => !historical.has(node.nodeKey),
+  ).length;
+  return ratio(unexpected, definition.skillGoalGraph.nodes.length);
+}
+
+function riskOrdinal(risk: CompiledArtifact['riskLevel'] | undefined): number {
+  return risk === undefined ? 0 : ['low', 'medium', 'high', 'critical'].indexOf(risk);
 }
 
 function planEditDistance(candidate: UserGoalPlan, accepted: UserGoalPlan): number {
@@ -752,6 +866,10 @@ function planEditDistance(candidate: UserGoalPlan, accepted: UserGoalPlan): numb
 
 function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 1 : numerator / denominator;
+}
+
+function rounded(value: number): number {
+  return Number(value.toFixed(6));
 }
 
 function uniqueSorted(values: readonly string[]): readonly string[] {
@@ -789,11 +907,5 @@ function requiredMapValue<K, V>(map: ReadonlyMap<K, V>, key: K): V {
 function requiredArrayItem<T>(values: readonly T[], index: number): T {
   const value = values[index];
   if (value === undefined) throw new Error(`REPLAY_PLAN_NODE_MISSING:${String(index)}`);
-  return value;
-}
-
-function requiredRecordValue(values: Readonly<Record<string, number>>, key: string): number {
-  const value = values[key];
-  if (value === undefined) throw new Error(`REPLAY_METRIC_MISSING:${key}`);
   return value;
 }

@@ -74,15 +74,26 @@ describe('P05 BullMQ replay-validation wake recovery', () => {
       queueName,
     );
     resources.push(worker, events, raw, queue);
+    const enqueuedAt = performance.now();
     await queue.enqueue(run.validationRunId);
     const job = await raw.getJob(run.validationRunId);
     if (job === undefined) throw new Error('P05_REDIS_WAKE_MISSING');
     worker.start();
     await job.waitUntilFinished(events, 5_000);
+    const queueLagMs = performance.now() - enqueuedAt;
 
     expect(processRun).toHaveBeenCalledWith(run, 'replay-worker-p05');
     expect(job.returnvalue).toBeNull();
     expect(job.opts.attempts).toBe(1);
+    expect(queueLagMs).toBeLessThan(5_000);
+    console.info(
+      JSON.stringify({
+        event: 'p05.replay_validation.redis_queue_lag',
+        queueLagMs: Number(queueLagMs.toFixed(3)),
+        wakePayloadFields: Object.keys(job.data).sort(),
+        redisAuthority: false,
+      }),
+    );
   });
 });
 

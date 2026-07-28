@@ -224,8 +224,9 @@ function sourceCohort(): readonly ReplayValidationSource[] {
     source(3),
     source(4),
     source(5),
-    source(6, { counterexample: true }),
-    source(7, {}, false),
+    source(6),
+    source(7, { counterexample: true }),
+    source(8, {}, false),
   ];
 }
 
@@ -256,6 +257,7 @@ function source(
       outcomeSnapshotRef: `outcome-${key}`,
       correctionRefs: [],
       environmentClass: 'test',
+      deviceClass: `device-${key}`,
       taskTypeId: 'task-p05',
       sourceTraceRefs: [`trace-${key}`],
       counterexample: false,
