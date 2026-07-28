@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P05",
+  "packageVersion": "1.1",
+  "sequence": 5,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "14eb9785399ba632351b1c2bd7446dfee956c07d",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "g09ReplayDataset": "849019b93782b8f1c9957673450e442cbe535e36",
+    "g10ReplayValidation": "22b9c8d57e962bf803af93f343f52803c675560a",
+    "replaySemanticsClosure": "0ffe2da90d99e90d2aa8f05b1aa4bf2558847205",
+    "contractDependencyAlignment": "dec89da95542b1f8ef4e50d9ff4fbd794078c241",
+    "independentReviewClosure": "87e0db01b45ef64f9ac5d4c7619f5e614b23be2d",
+    "productionReplayAuthority": "5aa6bc155511c840ae4352d8dd599f085339af6b",
+    "historicalCapabilityAuthority": "14eb9785399ba632351b1c2bd7446dfee956c07d",
+    "fullVerification": "P05_VERIFIED_HEAD"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "ExperienceTrace",
+      "version": "1.1",
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    },
+    {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ArtifactReplayCase",
+      "version": "1.1",
+      "schemaHash": "ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f"
+    },
+    {
+      "name": "ReplayDatasetManifest",
+      "version": "1.1",
+      "schemaHash": "132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e"
+    },
+    {
+      "name": "ArtifactValidationRun",
+      "version": "1.1",
+      "schemaHash": "c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a"
+    },
+    {
+      "name": "ArtifactValidationResult",
+      "version": "1.1",
+      "schemaHash": "0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b"
+    },
+    {
+      "name": "ArtifactValidationFailure",
+      "version": "1.1",
+      "schemaHash": "e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182"
+    },
+    {
+      "name": "ArtifactCounterexample",
+      "version": "1.1",
+      "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3"
+    }
+  ],
+  "migrations": [
+    "0129_v13_artifact_replay_validation"
+  ],
+  "repositoryPorts": [
+    "CognitiveRuntimeFactReader",
+    "ReplayValidationRepository",
+    "ArtifactRepository"
+  ],
+  "applicationPorts": [
+    "ArtifactReplayCaseBuilder",
+    "ReplayDatasetBuilder",
+    "ArtifactReplayValidationEngine",
+    "ArtifactReplayValidationApplicationService",
+    "ReplayValidationTriggerDispatcher",
+    "ReplayValidationRunReconciler"
+  ],
+  "runtimePorts": [
+    "BullMqReplayValidationWorker"
+  ],
+  "events": [
+    "artifact.validation_completed"
+  ],
+  "queues": [
+    "sdar-artifact-replay"
+  ],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p05-acceptance.json",
+    "reports/goal/v1.3-p05-replay-case-schema.json",
+    "reports/goal/v1.3-p05-dataset-manifest.json",
+    "reports/goal/v1.3-p05-leakage-report.json",
+    "reports/goal/v1.3-p05-metric-catalog.json",
+    "reports/goal/v1.3-p05-validation-report.json",
+    "reports/goal/v1.3-p05-counterexamples.json",
+    "reports/goal/v1.3-p05-safety-report.json",
+    "reports/goal/v1.3-p05-completion.md",
+    "reports/goal/v1.3-p05-review.md",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P05.md",
+    "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+    "adr/ADR-121-p05-artifact-replay-validation-boundary.md"
+  ],
+  "acceptanceSummary": {
+    "passed": 43,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "P05 validates non-executable Candidates only; Shadow, Approval, Promotion, Activation and Fast Gateway belong to later packages.",
+    "Redis is wake-only; PostgreSQL is the Run, Dataset and validation-evidence authority.",
+    "Local performance measurements are acceptance evidence, not a production SLO."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P06",
+  "packageOutputs": {
+    "ArtifactReplayCase": {
+      "contractVersion": "1.1",
+      "schemaHash": "ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f",
+      "refs": [
+        "packages/domain/src/compiler/artifact-replay-validation.ts",
+        "packages/application/src/compiler/replay-dataset.ts",
+        "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts"
+      ]
+    },
+    "ReplayDatasetManifest": {
+      "contractVersion": "1.1",
+      "schemaHash": "132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e",
+      "refs": [
+        "packages/domain/src/compiler/artifact-replay-validation.ts",
+        "packages/application/src/compiler/replay-dataset.ts",
+        "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql"
+      ]
+    },
+    "ArtifactValidationRun": {
+      "contractVersion": "1.1",
+      "schemaHash": "c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a",
+      "refs": [
+        "packages/application/src/compiler/artifact-replay-runtime.ts",
+        "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "packages/runtime-redis/src/compiler/artifact-replay-validation-workers.ts"
+      ]
+    },
+    "ArtifactValidationResult": {
+      "contractVersion": "1.1",
+      "schemaHash": "0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b",
+      "refs": [
+        "packages/domain/src/compiler/artifact-replay-validation.ts",
+        "packages/application/src/compiler/artifact-replay-validator.ts",
+        "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts"
+      ]
+    },
+    "ArtifactValidationFailure": {
+      "contractVersion": "1.1",
+      "schemaHash": "e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182",
+      "refs": [
+        "packages/domain/src/compiler/artifact-replay-validation.ts",
+        "packages/application/src/compiler/artifact-replay-validator.ts",
+        "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts"
+      ]
+    },
+    "ArtifactCounterexample": {
+      "contractVersion": "1.1",
+      "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3",
+      "refs": [
+        "packages/domain/src/compiler/artifact-replay-validation.ts",
+        "packages/application/src/compiler/artifact-replay-validator.ts",
+        "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts"
+      ]
+    }
+  }
+}

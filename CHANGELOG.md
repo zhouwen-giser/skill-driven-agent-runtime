@@ -31,6 +31,12 @@ All notable changes to this project are documented here. The format follows Keep
 - Added real PostgreSQL fencing, retry/dead-letter, cancellation, stale-pin, four-worker bounded
   throughput/backpressure tests and measured BullMQ queue lag. P06 changes remain dependency and
   immutable-Handoff alignment only.
+- Pinned production Replay inputs to the exact historical Task Understanding and Capability
+  Summary revision/catalog hash instead of mutable current Skill rows; the regression disables all
+  current Skills and still reconstructs five valid historical Episodes.
+- Closed five independent read-only Review rounds at `14eb978` with 0 Blocking, 0 Major and
+  0 Minor. All 43 acceptance criteria and the complete repository verification gate pass; the
+  Candidate remains non-executable and P06 implementation has not started.
 
 ## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation
 

@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P05 — Replay Dataset and Artifact Validation Engine
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 Branch: `feature/v1.3-sequential-implementation`
 
@@ -117,36 +117,37 @@ cannot approve, activate, promote, route or execute an Artifact.
 - [x] 2026-07-28 locate P05 by parsed `manifest.json.packageId=SDAR-V1.3-P05`.
 - [x] 2026-07-28 read all 24 P05 package files and run only the P05 package self-check: passed.
 - [x] 2026-07-28 validate P04R `COMPLETED`, Registry V1.2 canonical hash semantics and consumed
-  contract locks; record the frozen P01 status-vocabulary deviation.
+      contract locks; record the frozen P01 status-vocabulary deviation.
 - [x] 2026-07-28 read SRS replay/evolution clauses, architecture/domain/DoD/traceability, relevant
-  ADRs and current Replay/P02 Validation implementation.
+      ADRs and current Replay/P02 Validation implementation.
 - [x] Implement G09 Domain contracts, Dataset builder/leakage/safety and focused tests.
 - [x] Add migration 0129 and PostgreSQL Dataset/Case repositories with deletion propagation.
 - [x] Commit reviewable G09/core increment as `849019b`.
 - [x] Implement G10 replay evaluators, metrics, immutable result/failure/counterexample and tests.
 - [x] Connect durable validation service, Redis wake-only worker and Server composition.
 - [x] Add and execute the real PostgreSQL P03→P04→P02→P05 vertical test, tenant deletion, pure-local
-  recovery tests and real Redis wake/rebuild/deduplication tests: integration 108/108.
+      recovery tests and real Redis wake/rebuild/deduplication tests: integration 108/108.
 - [x] Commit reviewable G10 durable-runtime increment as `22b9c8d`.
 - [x] Run the first independent read-only P05 Review; close its 2 Blocking, 10 Major and 2 Minor
-  findings in `0ffe2da` plus the named Dataset contract in `dec89da`.
+      findings in `0ffe2da` plus the named Dataset contract in `dec89da`.
 - [x] Run the second independent read-only P05 Review; close its 1 Blocking and 6 Major findings
-  with authoritative native snapshot refs, independent split axes, semantic Result hashes,
-  numerator/denominator metrics, durable rule/counterfactual facts, direct-cascade successors and
-  four real BullMQ Workers.
+      with authoritative native snapshot refs, independent split axes, semantic Result hashes,
+      numerator/denominator metrics, durable rule/counterfactual facts, direct-cascade successors and
+      four real BullMQ Workers.
 - [x] Run the third independent read-only P05 Review on `87e0db0`; close its 1 Blocking and 3 Major
-  findings by projecting policy authority from real execution-readiness facts, preserving exact
-  Process Variant shape, removing identifier-bearing failure refs from Result identity and
-  failing closed on absent context/risk.
+      findings by projecting policy authority from real execution-readiness facts, preserving exact
+      Process Variant shape, removing identifier-bearing failure refs from Result identity and
+      failing closed on absent context/risk.
 - [x] Prove five production Fact Reader/Episode Builder holdouts in the real
-  P03→P04→P02→P05 PostgreSQL chain; aggregate integration rerun passed 109/109.
+      P03→P04→P02→P05 PostgreSQL chain; aggregate integration rerun passed 109/109.
 - [x] Run the fourth independent read-only Review on `5aa6bc1`; close its 1 Major by replacing
-  mutable current-Skill scans with exact task-understanding → capability-summary pins and a
-  post-execution Catalog mutation regression.
-- [ ] Obtain the independent read-only re-review with zero Blocking/Major.
-- [ ] Run all required focused/full gates and preserve first failures/reruns.
-- [ ] Publish P05 evidence, traceability/status/changelog and exact P06 Handoff.
-- [ ] Commit/push only the P05 branch and keep the Draft PR unmerged; do not tag or deploy.
+      mutable current-Skill scans with exact task-understanding → capability-summary pins and a
+      post-execution Catalog mutation regression.
+- [x] Obtain the fifth independent read-only re-review at `14eb978`: 0 Blocking / 0 Major /
+      0 Minor, accepted.
+- [x] Run all required focused/full gates and preserve first failures, root causes and reruns.
+- [x] Publish P05 evidence, traceability/status/changelog and exact 28-field P06 Handoff.
+- [ ] Commit/push only the P05 branch and keep Draft PR #12 unmerged; do not tag or deploy.
 
 ## Discoveries and Surprises
 
@@ -230,6 +231,11 @@ cannot approve, activate, promote, route or execute an Artifact.
   on any missing/mismatched authority. The regression disables the current Skill after the
   understanding was recorded; five production Episodes still preserve 20 historically ready
   capabilities, and aggregate integration passes 109/109.
+- The first aggregate `pnpm verify` after review closure passed every product/test gate but failed
+  the final infrastructure smoke because the persistent default `/sdar` database predated the
+  v1.2.2 baseline marker. The default database was not reset. A dedicated
+  `sdar_v122_p05_full_verify` database was created, reset/seeded under the repository guard and
+  used with operator-managed PostgreSQL/Redis; smoke and the complete gate then passed.
 
 ## Decision Log
 
@@ -300,9 +306,10 @@ separately classified.
 Current focused and infrastructure evidence:
 
 - P05 focused Domain/Application/PostgreSQL contract: 59/59.
-- Third-review focused replay unit regression: 42/42.
-- Complete unit/contract: 902/902 across 141 files.
-- Architecture: 483 TypeScript source files.
+- Final focused replay unit regression: 42/42.
+- Complete unit: 733/733 across 118 files; contract: 183/183 across 23 files.
+- Aggregate unit/contract: 916/916 across 141 files.
+- Architecture: 485 TypeScript source files.
 - Complete formatting, Lint, TypeScript and diff checks: passed after the recorded Lint repair.
 - Production Fact Reader/Episode Builder vertical evidence: five independent holdouts, with
   execution-readiness authority/context/risk projected into immutable Episodes; aggregate
@@ -360,14 +367,14 @@ Required machine/human evidence:
 - Second independent Review: Blocking 1, Major 6; closed in `87e0db0` plus the following
   preflight-boundary remediation.
 - Third independent Review on `87e0db0`: Blocking 1, Major 3, Minor 0. All four findings are closed
-  in the pending exact remediation commit with regression and real production-builder evidence.
+  in `5aa6bc1` with regression and real production-builder evidence.
 - Fourth independent Review on `5aa6bc1`: Blocking 0, Major 1, Minor 0. The mutable Catalog finding
-  is closed in the pending exact capability-summary remediation commit and 109/109 integration
-  evidence.
-- Re-review: pending; this ExecPlan and Handoff remain `IN_PROGRESS` until it reports zero
-  Blocking/Major.
+  is closed in `14eb978` with exact capability-summary authority and 109/109 integration evidence.
+- Fifth independent read-only Review on exact
+  `14eb9785399ba632351b1c2bd7446dfee956c07d`: Blocking 0, Major 0, Minor 0; `ACCEPTED`.
 
 ## Outcomes and Retrospective
 
-Implementation and first-review remediation are complete. Independent re-review, exact full
-verification, final evidence commit and Draft publication remain.
+P05 is complete. G09/G10 implementation, five review rounds, all 43 acceptance items, full
+verification and the immutable P06 Handoff are closed. P05 did not implement P06, change Candidate
+definitions, approve/promote/activate an Artifact, merge the Draft PR, tag, release or deploy.

@@ -23,6 +23,18 @@
     "fabricatedNativeReplayFactsRefs": 0,
     "counterfactualCaseResultsWithCriterionRiskRecoveryDeltas": 3
   },
+  "productionFactReaderObservation": {
+    "authority": "generic_task_understanding sourceRef -> runtime_capability_summary",
+    "exactPins": [
+      "capabilitySummaryId",
+      "revision",
+      "catalogHash"
+    ],
+    "currentEnabledSkillVersionsAfterHistoricalFacts": 0,
+    "historicalSummaryBackedEpisodes": 5,
+    "historicallyReadyCapabilities": 20,
+    "missingOrMismatchedAuthorityPolicy": "omit capabilityCatalogSnapshot"
+  },
   "noPhysicalPersistenceObservation": {
     "operation": "network_request",
     "result": "unsafe",
