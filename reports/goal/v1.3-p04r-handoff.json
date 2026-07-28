@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "packageClass": "mandatory_remediation",
+  "formalPackage": false,
+  "mandatoryReleaseGate": true,
+  "newAtomicGoal": false,
+  "remediatesGoals": [
+    "G05",
+    "G06",
+    "G07",
+    "G08"
+  ],
+  "status": "COMPLETED",
+  "baselineSha": "5b8e4c781a56882fb73553836116354dee80e616",
+  "completionSha": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "p03HandoffRef": "reports/goal/v1.3-p03-handoff.json",
+  "p04HandoffRef": "reports/goal/v1.3-p04-handoff.json",
+  "producedContracts": [
+    {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
+    },
+    {
+      "name": "ExperienceTraceEvent",
+      "version": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
+    },
+    {
+      "name": "ProcessVariant",
+      "version": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    },
+    {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
+    }
+  ],
+  "migrations": [
+    "0128_v13_candidate_generation_runtime"
+  ],
+  "repositoryPorts": [
+    "ExperienceCompilationRepository",
+    "CandidateGenerationRepository",
+    "CandidateGenerationRunRepository",
+    "ArtifactRepository"
+  ],
+  "applicationPorts": [
+    "ExperienceTraceNormalizer",
+    "DeterministicProcessMiner",
+    "PatternFusionService",
+    "PatternGeneralizationService",
+    "PlanTemplateCompiler",
+    "CandidateStaticValidator",
+    "CandidateGenerationApplicationService"
+  ],
+  "runtimePorts": [
+    "BullMqCompilationWorker",
+    "CandidateGenerationWorker"
+  ],
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation"
+  ],
+  "evidenceRefs": [
+    "reports/goal/v1.3-p04r-acceptance.json",
+    "reports/goal/v1.3-p04r-activity-identity-schema.json",
+    "reports/goal/v1.3-p04r-process-mining-semantics.json",
+    "reports/goal/v1.3-p04r-quality-metric-report.json",
+    "reports/goal/v1.3-p04r-p03-real-golden-output.json",
+    "reports/goal/v1.3-p04r-generalization-safety-report.json",
+    "reports/goal/v1.3-p04r-capability-fingerprint-report.json",
+    "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json",
+    "reports/goal/v1.3-p04r-lineage-recovery-report.json",
+    "reports/goal/v1.3-p04r-runtime-path-report.json",
+    "reports/goal/v1.3-p04r-p03-p04-integration-report.json",
+    "reports/goal/v1.3-p04r-registry-migration-report.json",
+    "reports/goal/v1.3-p04r-full-verify-report.json",
+    "reports/goal/v1.3-p04r-p03-review.md",
+    "reports/goal/v1.3-p04r-p04-review.md",
+    "reports/goal/v1.3-p04r-cross-package-review.md",
+    "reports/goal/v1.3-p04r-completion.md",
+    "reports/goal/v1.3-p04r-review.md",
+    "reports/goal/v1.3-p03-completion.md",
+    "reports/goal/v1.3-p03-review.md",
+    "reports/goal/v1.3-p04-completion.md",
+    "reports/goal/v1.3-p04-review.md",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P04R.md",
+    "docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/audit/cross-package-validation.json"
+  ],
+  "openBlockers": [],
+  "nextPackage": "P05"
+}

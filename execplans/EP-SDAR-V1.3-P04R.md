@@ -1,6 +1,6 @@
 # EP-SDAR-V1.3-P04R — P03/P04 Semantic Alignment Remediation
 
-Status: COMPLETION_EVIDENCE_PENDING
+Status: COMPLETED
 
 Branch: `feature/v1.3-sequential-implementation`
 
@@ -89,7 +89,7 @@ Outbox, with P03, P04 and P04R handoffs closed as `COMPLETED`. P05 implementatio
 - [x] Align cross-package contracts and complete independent read-only Review C with 0 Blocking /
   0 Major.
 - [x] Run every required focused and full gate, including a complete passing `pnpm verify`.
-- [ ] Publish revised P03/P04 and final P04R evidence/handoffs, then commit the evidence-only result.
+- [x] Publish revised P03/P04 and final P04R evidence/handoffs, then commit the evidence-only result.
 
 ## Changed Files
 
@@ -169,7 +169,7 @@ Final results:
 8. `pnpm verify:migrations` - 21 migrations through 0128 passed.
 9. `pnpm verify:architecture` - 468 TypeScript sources passed.
 10. `pnpm build` - TypeScript and Console production build passed.
-11. `pnpm verify` - all seven aggregate stages passed in 222,978 ms.
+11. `pnpm verify` - all seven aggregate stages passed in 220,389 ms.
 
 The first aggregate run stopped at a Windows ESM absolute-path import in Cognitive Replay; the
 verification helper now uses `pathToFileURL`. The next run reached infra smoke but the smoke-only
@@ -204,8 +204,8 @@ does not implement P05 replay, approval, activation or execution.
 ## P04R Handoff
 
 All 47 acceptance criteria, Registry V1.2 hash, three accepted reviews and the complete full gate are
-closed. Final evidence/Handoff commit remains. `nextPackage` is P05, but this plan stops before P05
-implementation.
+closed. The required P04R evidence and Handoff are emitted with `status=COMPLETED`. `nextPackage` is
+P05, and this P04R plan stops at that package boundary.
 
 ## Discoveries and Surprises
 
@@ -257,5 +257,6 @@ update traceability/status/changelog, and record exact commands/results/commit S
 
 ## Outcomes and Retrospective
 
-Implementation, independent reviews and full verification are complete. Pending only the final
-evidence/Handoff commit and a clean committed-worktree check.
+Implementation, independent reviews, full verification, revised P03/P04 handoffs and all P04R
+evidence are complete. The closure commit contains documentation/evidence only; the exact clean
+implementation verification remains `de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187`.

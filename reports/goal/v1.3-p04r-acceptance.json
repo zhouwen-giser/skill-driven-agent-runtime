@@ -1,0 +1,246 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "criteriaCount": 47,
+  "passedCount": 47,
+  "failedCount": 0,
+  "blockedCount": 0,
+  "criteria": [
+    {
+      "id": "AC-P04R-001",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-002",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-003",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-004",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-activity-identity-schema.json"
+    },
+    {
+      "id": "AC-P04R-005",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-activity-identity-schema.json"
+    },
+    {
+      "id": "AC-P04R-006",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-activity-identity-schema.json"
+    },
+    {
+      "id": "AC-P04R-007",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-activity-identity-schema.json"
+    },
+    {
+      "id": "AC-P04R-008",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-process-mining-semantics.json"
+    },
+    {
+      "id": "AC-P04R-009",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-process-mining-semantics.json"
+    },
+    {
+      "id": "AC-P04R-010",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-process-mining-semantics.json"
+    },
+    {
+      "id": "AC-P04R-011",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-process-mining-semantics.json"
+    },
+    {
+      "id": "AC-P04R-012",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-process-mining-semantics.json"
+    },
+    {
+      "id": "AC-P04R-013",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-lineage-recovery-report.json"
+    },
+    {
+      "id": "AC-P04R-014",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-quality-metric-report.json"
+    },
+    {
+      "id": "AC-P04R-015",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-p03-real-golden-output.json"
+    },
+    {
+      "id": "AC-P04R-016",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-p03-review.md"
+    },
+    {
+      "id": "AC-P04R-017",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p03-handoff.json"
+    },
+    {
+      "id": "AC-P04R-018",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-p03-p04-integration-report.json"
+    },
+    {
+      "id": "AC-P04R-019",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-generalization-safety-report.json"
+    },
+    {
+      "id": "AC-P04R-020",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-generalization-safety-report.json"
+    },
+    {
+      "id": "AC-P04R-021",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-generalization-safety-report.json"
+    },
+    {
+      "id": "AC-P04R-022",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-capability-fingerprint-report.json"
+    },
+    {
+      "id": "AC-P04R-023",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-capability-fingerprint-report.json"
+    },
+    {
+      "id": "AC-P04R-024",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-capability-fingerprint-report.json"
+    },
+    {
+      "id": "AC-P04R-025",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json"
+    },
+    {
+      "id": "AC-P04R-026",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json"
+    },
+    {
+      "id": "AC-P04R-027",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json"
+    },
+    {
+      "id": "AC-P04R-028",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json"
+    },
+    {
+      "id": "AC-P04R-029",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-lineage-recovery-report.json"
+    },
+    {
+      "id": "AC-P04R-030",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-lineage-recovery-report.json"
+    },
+    {
+      "id": "AC-P04R-031",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-032",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-033",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-034",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-035",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-036",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-037",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-p03-p04-integration-report.json"
+    },
+    {
+      "id": "AC-P04R-038",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-runtime-path-report.json"
+    },
+    {
+      "id": "AC-P04R-039",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-full-verify-report.json"
+    },
+    {
+      "id": "AC-P04R-040",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-p04-review.md"
+    },
+    {
+      "id": "AC-P04R-041",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04-handoff.json"
+    },
+    {
+      "id": "AC-P04R-042",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-043",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-044",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-cross-package-review.md"
+    },
+    {
+      "id": "AC-P04R-045",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-registry-migration-report.json"
+    },
+    {
+      "id": "AC-P04R-046",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-handoff.json"
+    },
+    {
+      "id": "AC-P04R-047",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p04r-completion.md"
+    }
+  ]
+}

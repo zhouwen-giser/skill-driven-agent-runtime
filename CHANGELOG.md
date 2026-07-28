@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation
+
+- Upgraded Activity Identity, Trace Event, Process Variant and Workflow Pattern contracts to V1.2,
+  separating lifecycle `eventType` from formal `activityKey` and preserving repeated, self-loop,
+  explicit parallel, branch and recovery semantics with cohort-derived quality.
+- Added fail-closed P04 generalization safety, live Capability Catalog validation, three independent
+  fingerprints and exact DAG/parallel/conditional compilation without losing parameters,
+  applicability, lineage or recovery data.
+- Added Static Validator V1.2 and a durable Candidate generation application/runtime path through
+  PostgreSQL, P02 `ArtifactRepository.saveCandidate`, transactional validation/lineage/Outbox and a
+  completed run; Redis stores run-ID wakes only.
+- Added migration 0128, real Formal-fact P03→P04→P02 PostgreSQL integration and real Redis
+  loss/restart/fencing/dead-letter coverage.
+- Published Shared Interface Registry V1.2 and aligned P03/P04/P05 locks, P13 audit, the execution
+  matrix and P04R-aware aggregate validation without changing P00-P02 authority or adding G23.
+- Independent Reviews A/B/C closed with 0 Blocking and 0 Major findings. P03, P04 and P04R Handoffs
+  are `COMPLETED`; 47/47 P04R criteria and the exact clean `pnpm verify` gate pass.
+
 ## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler
 
 - Added frozen `FusedPattern`, `GeneralizedPattern`, and `CandidateStaticValidationResult` Domain

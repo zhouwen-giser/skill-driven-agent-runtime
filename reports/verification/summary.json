@@ -1,79 +1,79 @@
 {
   "schemaVersion": 1,
   "status": "passed",
-  "commit": "5b8e4c781a56882fb73553836116354dee80e616",
-  "dirty": true,
+  "commit": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+  "dirty": false,
   "environment": {
     "node": "v22.14.0",
     "platform": "win32",
     "architecture": "x64",
     "infrastructureMode": "self-managed-compose"
   },
-  "startedAt": "2026-07-28T14:16:10.304Z",
-  "finishedAt": "2026-07-28T14:19:53.282Z",
-  "durationMs": 222978,
+  "startedAt": "2026-07-28T14:29:18.693Z",
+  "finishedAt": "2026-07-28T14:32:59.082Z",
+  "durationMs": 220389,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-07-28T14:16:10.304Z",
-      "finishedAt": "2026-07-28T14:17:34.653Z",
-      "durationMs": 84349,
+      "startedAt": "2026-07-28T14:29:18.693Z",
+      "finishedAt": "2026-07-28T14:30:42.663Z",
+      "durationMs": 83970,
       "exitCode": 0
     },
     {
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-07-28T14:17:34.654Z",
-      "finishedAt": "2026-07-28T14:17:35.301Z",
-      "durationMs": 647,
+      "startedAt": "2026-07-28T14:30:42.663Z",
+      "finishedAt": "2026-07-28T14:30:43.332Z",
+      "durationMs": 669,
       "exitCode": 0
     },
     {
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-07-28T14:17:35.301Z",
-      "finishedAt": "2026-07-28T14:17:49.062Z",
-      "durationMs": 13761,
+      "startedAt": "2026-07-28T14:30:43.332Z",
+      "finishedAt": "2026-07-28T14:30:56.902Z",
+      "durationMs": 13570,
       "exitCode": 0
     },
     {
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
       "status": "passed",
-      "startedAt": "2026-07-28T14:17:49.062Z",
-      "finishedAt": "2026-07-28T14:18:42.576Z",
-      "durationMs": 53514,
+      "startedAt": "2026-07-28T14:30:56.902Z",
+      "finishedAt": "2026-07-28T14:31:49.554Z",
+      "durationMs": 52652,
       "exitCode": 0
     },
     {
       "name": "postgres-redis-model-mcp-e2e",
       "command": "pnpm test:e2e",
       "status": "passed",
-      "startedAt": "2026-07-28T14:18:42.576Z",
-      "finishedAt": "2026-07-28T14:19:24.399Z",
-      "durationMs": 41823,
+      "startedAt": "2026-07-28T14:31:49.554Z",
+      "finishedAt": "2026-07-28T14:32:30.881Z",
+      "durationMs": 41327,
       "exitCode": 0
     },
     {
       "name": "infrastructure-smoke",
       "command": "pnpm smoke:infra",
       "status": "passed",
-      "startedAt": "2026-07-28T14:19:24.399Z",
-      "finishedAt": "2026-07-28T14:19:32.867Z",
-      "durationMs": 8468,
+      "startedAt": "2026-07-28T14:32:30.881Z",
+      "finishedAt": "2026-07-28T14:32:39.275Z",
+      "durationMs": 8394,
       "exitCode": 0
     },
     {
       "name": "server-console-smoke",
       "command": "pnpm smoke:server",
       "status": "passed",
-      "startedAt": "2026-07-28T14:19:32.867Z",
-      "finishedAt": "2026-07-28T14:19:53.282Z",
-      "durationMs": 20415,
+      "startedAt": "2026-07-28T14:32:39.275Z",
+      "finishedAt": "2026-07-28T14:32:59.082Z",
+      "durationMs": 19807,
       "exitCode": 0
     }
   ]

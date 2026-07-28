@@ -1,5 +1,18 @@
 # Project Status
 
+SDAR v1.3 P04R mandatory remediation is `COMPLETED` (2026-07-28) on
+`feature/v1.3-sequential-implementation`. Activity Identity V1.2 now separates lifecycle facts from
+traceable workflow activities; P03 preserves repetitions, self-loops, parallel/branch/recovery
+semantics and real quality metrics; P04 executes bounded generalization, exact DAG/parallel/
+conditional compilation, live Capability Catalog checks, distinct fingerprints and Static
+Validator V1.2. The durable real path reaches P02 `ArtifactRepository.saveCandidate`, lineage,
+validation, transactional Outbox and a completed PostgreSQL run while Redis remains wake-only.
+Independent Reviews A/B/C each have 0 Blocking and 0 Major findings. Revised P03 and P04 Handoffs
+and the P04R Handoff are `COMPLETED`; all 47 P04R criteria pass. Shared Registry V1.2 hash is
+`8aa828fa...7d60dee`, package accounting is 14/1/1, and the clean exact implementation commit
+`de25f4c` passes 848 unit/contract, 104 real integration, 62 E2E, 21 migrations, 468-source
+architecture, production build and both smokes in 220,389 ms. P04R itself did not implement P05.
+
 SDAR v1.3 P03/G05-G06 Experience Trace normalization and deterministic process mining is in
 remediation (2026-07-27) on `feature/v1.3-sequential-implementation`. G05 `22cf9a3` and G06
 `119fe43` were followed by a rejected independent review with 2 Blocking, 4 Major and 2 Minor

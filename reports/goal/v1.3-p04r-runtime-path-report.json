@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "real_postgresql_and_redis_integration",
+  "path": [
+    "P03 WorkflowPattern V1.2",
+    "PostgreSQL durable candidate generation run",
+    "fusion",
+    "generalization",
+    "duplicate lookup",
+    "candidate generation",
+    "static validation",
+    "P02 ArtifactRepository.saveCandidate",
+    "lineage and validation persistence",
+    "Outbox compiler.artifact_candidate_created",
+    "completed PostgreSQL run"
+  ],
+  "authority": {
+    "candidate": "P02 ArtifactRepository/PostgreSQL",
+    "run": "PostgreSQL candidate_generation_run",
+    "redis": "run-id wake only"
+  },
+  "worker": {
+    "wakeShellOnly": false,
+    "claimsDurableRun": true,
+    "leaseAndFencing": true,
+    "boundedRetry": true,
+    "deadLetter": true,
+    "serverCompositionReachable": true
+  },
+  "resilience": {
+    "redisLossRecoverable": true,
+    "expiredLeaseReclaimable": true,
+    "staleFenceRejected": true,
+    "terminalAttemptDeadLettered": true
+  },
+  "implementationRefs": [
+    "packages/application/src/compiler/candidate-generation.ts",
+    "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+    "packages/runtime-redis/src/compiler/candidate-generation-workers.ts",
+    "apps/server/src/composition/compiler-runtime.ts"
+  ],
+  "testRefs": [
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts",
+    "packages/runtime-redis/test/candidate-generation-workers.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-031",
+    "AC-P04R-032",
+    "AC-P04R-033",
+    "AC-P04R-034",
+    "AC-P04R-035",
+    "AC-P04R-036",
+    "AC-P04R-038"
+  ]
+}

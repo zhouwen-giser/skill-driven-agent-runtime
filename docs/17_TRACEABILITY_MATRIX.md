@@ -609,3 +609,23 @@ local acceptance measurements, not production SLO claims.
 | AC-P04-036 independent review         | self-audit passed   | Review 1 self-audit concludes 0 Blocking / 0 Major / 0 Minor at `e4e2992`; pending user confirmation                       | `reports/goal/v1.3-p04-review.md`                                                                  |
 | AC-P04-037 Draft PR                   | verified            | Draft PR #12 OPEN, isDraft=true, unmerged                                                                                 | Git/GitHub state                                                                                   |
 | AC-P04-038 P05 Handoff                | verified            | 28-field envelope, 3 produced contracts, 3 consumed contracts, migration 0127                                             | `reports/goal/v1.3-p04-handoff.json`                                                               |
+
+## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation Addendum
+
+| P04R acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P04R-001–003 frozen authority and package order | verified | P00-P02 and Registry V1.1 remain unchanged; `P04 -> P04R -> P05`; no G23; P05 lock requires P04R `COMPLETED` | `v1.3-p04r-registry-migration-report.json`; independent Review C |
+| AC-P04R-004–009 Activity Identity V1.2 | verified | strict `ExperienceActivityRef`/`ExperienceTraceEvent`; lifecycle `eventType` separated from traceable `activityKey`; unknown/pure lifecycle excluded | Domain/normalizer/miner tests; `v1.3-p04r-activity-identity-schema.json` |
+| AC-P04R-010–015 P03 mining semantics and golden output | verified | activity-key variants preserve repetition, A→A, explicit parallel, branch and full recovery; cohort-derived quality; real WorkflowPattern V1.2 | miner unit, PostgreSQL integration, `v1.3-p04r-{process-mining-semantics,quality-metric-report,p03-real-golden-output}.json` |
+| AC-P04R-016–017 P03 Review/Handoff | verified | independent Review A has 0 Blocking / 0 Major; revised P03 Handoff is `COMPLETED` | `v1.3-p04r-p03-review.md`; `v1.3-p03-{review,completion}.md`; `v1.3-p03-handoff.json` |
+| AC-P04R-018–024 fusion, safety, Capability and fingerprint | verified | real P03 V1.2 input; scope evidence; five fail-closed anti-overfitting gates; model cannot overwrite structural facts; live Catalog gates; three semantically distinct hashes | candidate unit and real PostgreSQL vertical; `v1.3-p04r-{generalization-safety,capability-fingerprint}.json` |
+| AC-P04R-025–030 compiler and Static Validator V1.2 | verified | exact activity map fails on missing nodes; parallel is not Optional; bounded Condition AST; parameter/source/trust and runtime applicability preserved; complete lineage/recovery; 14 static gates | candidate unit/contract tests; `v1.3-p04r-{dag-parameter-applicability,lineage-recovery}.json` |
+| AC-P04R-031–038 durable Candidate product path | verified | reachable application service and worker; PostgreSQL run/P02 Candidate authority; Redis wake-only; duplicate suppression; transactional Outbox; loss/restart/fencing/dead-letter | real PostgreSQL/Redis tests; `v1.3-p04r-{runtime-path,p03-p04-integration-report}.json` |
+| AC-P04R-039 full gate | verified | exact clean implementation commit `de25f4c`; all required commands and seven aggregate stages passed | 848 unit/contract, 104 real integration, 62 E2E, 21 migrations, 468-source architecture; `v1.3-p04r-full-verify-report.json` |
+| AC-P04R-040–041 P04 Review/Handoff | verified | independent Review B has 0 Blocking / 0 Major after remediation; revised P04 Handoff is `COMPLETED` | `v1.3-p04r-p04-review.md`; `v1.3-p04-{review,completion}.md`; `v1.3-p04-handoff.json` |
+| AC-P04R-042–045 cross-package alignment | verified | Registry V1.2 and seven real Schema hashes; P05 lock, P13 audit, matrix and P04R-aware validator aligned; accounting 14/1/1 | Review C; package self-check; `validate-all.mjs --p04r`; registry migration report |
+| AC-P04R-046–047 final Handoff and scope stop | verified | complete P04R Handoff/evidence with no blockers; P05 product implementation was not part of P04R | `v1.3-p04r-{acceptance,completion,review}.json/.md`; `v1.3-p04r-handoff.json` |
+
+The authoritative criterion-by-criterion result is
+`reports/goal/v1.3-p04r-acceptance.json`: 47 passed, 0 failed, 0 blocked. PostgreSQL/Redis evidence
+is real; model/MCP E2E dependencies are simulated and explicitly classified.

@@ -3,22 +3,18 @@
   "packageId": "SDAR-V1.3-P03",
   "packageVersion": "1.1",
   "sequence": 3,
-  "status": "READY_FOR_REVIEW_CONFIRMATION",
+  "status": "COMPLETED",
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
-  "baselineSha": "e926445b645b6425d246eb019e05f06a7c7c5f8e",
+  "baselineSha": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
   "branch": "feature/v1.3-sequential-implementation",
   "commits": {
-    "preImplementationHead": "5689bc7c3a602a7343bee56aafc94951c7568341",
-    "g05": "22cf9a37d5049e590d60ad194a8146b056312a6e",
-    "g06": "119fe43c230225b8c9caaec95fc50a41b91d0afa",
-    "initialEvidence": "5802c3e7321b59823d09a8596f6276b0ed18983e",
-    "formalSourceCompatibility": "8adececbe7bf3bd599b942d547e80b1744b3bc79",
-    "review1Remediation": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
-    "review2Remediation": "e926445b645b6425d246eb019e05f06a7c7c5f8e"
+    "v11Completion": "e926445b645b6425d246eb019e05f06a7c7c5f8e",
+    "p04rActivityIdentityAndMining": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
+    "p04rVerifiedHead": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
   },
   "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
-  "contractRegistryVersion": "1.1",
-  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
   "consumedContracts": [
     {
       "name": "ArtifactRepository",
@@ -33,9 +29,14 @@
       "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
     },
     {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
+    },
+    {
       "name": "ExperienceTraceEvent",
-      "version": "1.1",
-      "schemaHash": "8b9742001edfbbe7a6dc93971d5f08dff002f32d56a7ca124c5b54e59133a878"
+      "version": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
     },
     {
       "name": "CohortDefinition",
@@ -44,8 +45,8 @@
     },
     {
       "name": "ProcessVariant",
-      "version": "1.1",
-      "schemaHash": "f8f772dfbc589945e691bb9052b0164941e62dab0f7ac68f7d8021c16010fa86"
+      "version": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
     },
     {
       "name": "DiscoveredProcessPattern",
@@ -54,24 +55,25 @@
     },
     {
       "name": "WorkflowPattern",
-      "version": "1.1",
-      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b"
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
     }
   ],
-  "migrations": ["0126_v13_experience_compilation"],
+  "migrations": [
+    "0126_v13_experience_compilation"
+  ],
   "repositoryPorts": [
     "ExperienceCompilationRepository",
     "CompilationRunRepository",
-    "ExperienceCompilationTriggerSource"
+    "WorkflowPatternReadRepository"
   ],
   "applicationPorts": [
-    "ExperienceCompilationTriggerDispatcher",
-    "ProcessMiningService",
-    "DeterministicProcessMiner"
+    "ExperienceTraceNormalizer",
+    "DeterministicProcessMiner",
+    "ExperienceCompilationService"
   ],
   "runtimePorts": [
-    "BullMqCompilationWorker",
-    "CompilationRunReconciler"
+    "BullMqCompilationWorker"
   ],
   "events": [
     "experience.trace_created",
@@ -86,68 +88,50 @@
   "evidenceRefs": [
     "reports/goal/v1.3-p03-completion.md",
     "reports/goal/v1.3-p03-review.md",
-    "reports/goal/v1.3-p03-source-map.json",
-    "reports/goal/v1.3-p03-trace-schema.json",
     "reports/goal/v1.3-p03-golden-dataset.json",
     "reports/goal/v1.3-p03-mining-report.json",
     "reports/verification/summary.json",
-    "execplans/EP-SDAR-V1.3-P03.md",
-    "adr/ADR-118-experience-trace-process-mining-authority.md",
-    "infra/postgres/migrations/0126_v13_experience_compilation.up.sql"
+    "execplans/EP-SDAR-V1.3-P04R.md",
+    "adr/ADR-120-p04r-workflow-pattern-conditional-dependencies.md"
   ],
   "acceptanceSummary": {
-    "passed": 4,
+    "passed": 32,
     "failed": 0,
     "blocked": 0
   },
   "knownLimitations": [
-    "Review 3 self-audit concludes 0 Blocking / 0 Major / 0 Minor at e926445; the final ACCEPTED verdict requires user confirmation of the self-audit record before P03 can transition to COMPLETED.",
-    "Performance measurements (10k-trace query 432 ms, persistence 565 ms, worker 16,428 runs/s, queue lag 18.6 ms) are local acceptance evidence, not production SLO or capacity claims.",
-    "P03 produces evidence-only WorkflowPattern candidates and does not implement downstream P04+ artifact generation, gateway routing, or online request execution.",
-    "Running tasks are not recovered or automatically retried after a process failure; queued tasks use BullMQ/Redis and require a healthy runtime to drain."
+    "Review A retained three non-blocking Minor findings in reports/goal/v1.3-p03-review.md.",
+    "Local performance measurements are acceptance evidence, not a production SLO.",
+    "P03 produces evidence-only WorkflowPattern and does not create or execute an Artifact."
   ],
   "openBlockers": [],
   "nextPackage": "P04",
   "packageOutputs": {
-    "ExperienceTrace": {
-      "contractVersion": "1.1",
-      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9",
+    "ExperienceActivityRef": {
+      "contractVersion": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0",
       "refs": [
-        "packages/application/src/compiler/experience-normalizer.ts",
-        "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts"
+        "packages/domain/src/compiler/experience-compilation.ts",
+        "packages/application/src/compiler/experience-normalizer.ts"
       ]
     },
     "ExperienceTraceEvent": {
-      "contractVersion": "1.1",
-      "schemaHash": "8b9742001edfbbe7a6dc93971d5f08dff002f32d56a7ca124c5b54e59133a878",
+      "contractVersion": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425",
       "refs": [
         "packages/application/src/compiler/experience-normalizer.ts"
       ]
     },
-    "CohortDefinition": {
-      "contractVersion": "1.1",
-      "schemaHash": "864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90",
-      "refs": [
-        "packages/application/src/compiler/process-miner.ts"
-      ]
-    },
     "ProcessVariant": {
-      "contractVersion": "1.1",
-      "schemaHash": "f8f772dfbc589945e691bb9052b0164941e62dab0f7ac68f7d8021c16010fa86",
-      "refs": [
-        "packages/application/src/compiler/process-miner.ts"
-      ]
-    },
-    "DiscoveredProcessPattern": {
-      "contractVersion": "1.1",
-      "schemaHash": "de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac",
+      "contractVersion": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17",
       "refs": [
         "packages/application/src/compiler/process-miner.ts"
       ]
     },
     "WorkflowPattern": {
-      "contractVersion": "1.1",
-      "schemaHash": "5ff2cbf281b8c298e1ae972879c4c7ffc7264eb5e5358912c4c46de94080f99b",
+      "contractVersion": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11",
       "refs": [
         "packages/application/src/compiler/process-miner.ts",
         "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts"
