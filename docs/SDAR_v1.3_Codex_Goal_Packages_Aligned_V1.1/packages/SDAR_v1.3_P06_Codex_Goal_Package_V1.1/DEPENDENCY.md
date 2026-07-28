@@ -1,5 +1,15 @@
 # P06 Dependency Contract
 
+## P05 completion boundary
+
+P06 starts only after `reports/goal/v1.3-p05-handoff.json` is `COMPLETED`. It consumes
+`ArtifactValidationResult V1.1` (`0a9b4fe3...14fd64b`) and `ArtifactCounterexample V1.1`
+(`ef317932...d46f3`) from Shared Interface Registry V1.2
+(`8aa828fa...7d60dee`). P06 may reference immutable P05 result, failure, counterexample, metric,
+artifact-hash and dataset-hash evidence; it must not recompute or mutate P05 validation results.
+This dependency alignment does not implement Shadow, Promotion, Approval, Activation, or
+Revalidation.
+
 ## 必需前置
 
 - P00 = READY_FULL；
