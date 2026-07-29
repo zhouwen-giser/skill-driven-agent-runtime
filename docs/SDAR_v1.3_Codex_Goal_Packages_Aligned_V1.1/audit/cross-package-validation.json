@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "mode": "p04r",
+  "mode": "full",
   "counts": {
     "formalProductPackages": 14,
     "mandatoryRemediationPackages": 1,
@@ -18,8 +18,8 @@
         "V123PrerequisiteMatrix"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
-      "frozenReadOnly": true
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P01",
@@ -47,8 +47,8 @@
         "ArtifactRuntimeBinding"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
-      "frozenReadOnly": true
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P02",
@@ -71,8 +71,8 @@
         "ArtifactGovernancePort"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
-      "frozenReadOnly": true
+      "selfCheck": true,
+      "frozenReadOnly": false
     },
     {
       "package": "P03",
@@ -161,8 +161,8 @@
         "ArtifactActivationRecord",
         "ArtifactRevalidationTrigger"
       ],
-      "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "registryVersion": "1.2",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -188,7 +188,7 @@
         "FastGatewayPath"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -211,7 +211,7 @@
         "FormalPlanHandoffPort"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -233,7 +233,7 @@
         "RuleRuntime"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -255,7 +255,7 @@
         "GatewayFeedbackEnvelope"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -284,7 +284,7 @@
         "ModelRouteRuntime"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -304,7 +304,7 @@
         "SseArtifactEventProjection"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {
@@ -321,7 +321,7 @@
         "ReleaseCandidateDecision"
       ],
       "registryVersion": "1.1",
-      "selfCheck": "not_run_read_only",
+      "selfCheck": true,
       "frozenReadOnly": false
     },
     {

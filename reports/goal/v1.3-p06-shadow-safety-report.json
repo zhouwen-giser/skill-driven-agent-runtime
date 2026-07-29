@@ -1,0 +1,1 @@
+{"status":"passed","invariants":["closed_operation_allowlist","no_physical_outcome","stale_fail_closed","unsafe_deprecates_pointer"],"evidence":"packages/application/test/artifact-shadow-runtime.unit.test.ts"}

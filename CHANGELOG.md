@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P06 Shadow, Promotion and Governance
+
+- Added six frozen P06 governance contracts and a pure Domain canonical
+  SHA-256 primitive that preserves the compiler-domain runtime boundary.
+- Added migration 0130 and PostgreSQL-authoritative Shadow lifecycle,
+  promotion evidence/policy/package, approval/activation, revalidation,
+  critical deprecation and rollback projection records.
+- Added non-blocking current-state-pinned Shadow orchestration and wake-only
+  BullMQ workers; prohibited operations produce durable unsafe evidence rather
+  than physical actions.
+- Bound promotion coverage to immutable P05 replay/P06 formal evidence,
+  persisted P02 activation validation summary IDs, and atomically cleared P02
+  parent leases at Shadow terminalization.
+- Added real P05 -> P06 -> P02 PostgreSQL integration, safety-source failure,
+  P02 parent lease and active-definition regressions. Independent review closed
+  with no Blocking/Major/Minor findings; final isolated `pnpm verify` passed.
+
 ## SDAR v1.3 P05 Replay Dataset and Artifact Validation Engine
 
 - Added strict immutable V1.1 contracts for Replay Cases, Dataset manifests, Validation Runs,

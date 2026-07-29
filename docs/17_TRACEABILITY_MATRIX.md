@@ -651,3 +651,14 @@ Local performance measurements are acceptance-only: Dataset construction p50/p95
 42.359/71.759 ms for 1,000 Cases and 390.805/434.458 ms for 10,000 Cases; Plan Replay evaluation
 p50/p95 is 0.068/0.092 ms across 2,000 Cases. Four PostgreSQL workers claimed 100 Runs in 43.385 ms
 and the BullMQ wake measurement was 18.272 ms.
+
+## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
+
+| P06 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P06-001–005 Shadow safety | verified | immutable Run/Result, explicit enrollment, three current-state pin checks, closed operation allowlist, unknown physical outcome and PostgreSQL-authoritative leases | Domain/Application focused tests; real unsafe Shadow integration |
+| AC-P06-006 Promotion policy | verified | durable P05/P06 evidence reconstruction, complete policy/hash persistence and anti-generalization gates | policy unit regressions and P05→P06 integration |
+| AC-P06-007–008 Approval/activation | verified | trusted operator, exact package/approval binding, CAS Pointer/audit/Outbox and persisted validation summary | application governance tests and active Artifact round trip |
+| AC-P06-009–011 Revalidation | verified | trigger-bound P02 run, wake-only Redis, critical pointer removal, missing-source dead-letter and no automatic reactivation | integration safety-trigger and worker contract tests |
+| AC-P06-012 P07 exclusion | verified | no Fast Gateway, retrieval, online selection or Artifact execution | architecture gate and Server composition review |
+| AC-P06-013 full closure | verified | independent review has 0 Blocking/Major/Minor; P07 handoff emitted | `reports/goal/v1.3-p06-completion.md`, `reports/goal/v1.3-p06-review.md`, `reports/verification/summary.json` |

@@ -1,0 +1,1 @@
+{"status":"passed","rejections":["single_device","single_user_preference","temporary_authorization","single_success","unsafe"],"evidence":"packages/application/test/artifact-shadow-runtime.unit.test.ts"}

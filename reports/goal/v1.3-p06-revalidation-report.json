@@ -1,0 +1,1 @@
+{"status":"passed","invariants":["trigger_binds_validation_run","critical_pointer_removal","missing_source_dead_letter","no_automatic_reactivation"],"evidence":"packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"}

@@ -1,5 +1,20 @@
 # Project Status
 
+SDAR v1.3 P06/G11-G12 Shadow, Promotion and Governance is `COMPLETED`
+(2026-07-29) on `feature/v1.3-sequential-implementation`. Implementation commit
+`70647a0` adds six immutable V1.1 governance contracts, migration 0130,
+PostgreSQL-authoritative Shadow/Promotion/Approval/Activation/Revalidation
+projections, wake-only BullMQ workers, Server composition and trusted operator
+management operations. P06 derives promotion coverage from durable P05/P06
+facts, preserves P02 authority, rejects unsafe/single-device/single-user/
+temporary-authorization evidence, removes the active pointer on critical safety
+incidents and never implements P07 retrieval or execution. An independent
+read-only review closed at 0 Blocking / 0 Major / 0 Minor. The final isolated
+`pnpm verify` passes 941 unit/contract, 110 integration, 62 E2E, 23 migrations,
+architecture/protocol/build and both smokes; its seven-stage report is in
+`reports/verification/summary.json`. `v1.3-p06-handoff.json` is `COMPLETED`.
+
+
 SDAR v1.3 P05/G09-G10 Replay Dataset and Artifact Validation Engine is `COMPLETED` (2026-07-29) on
 `feature/v1.3-sequential-implementation` from P04R closure `b28b183`. The strict six-contract
 Domain, four-way immutable Dataset/leakage builder, snapshot-only No-Physical boundary,

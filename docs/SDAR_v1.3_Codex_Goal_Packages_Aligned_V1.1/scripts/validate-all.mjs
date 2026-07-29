@@ -24,7 +24,10 @@ const formalPackages = [
   'P13',
 ];
 const frozenPackages = new Set(['P00', 'P01', 'P02']);
-const v12Packages = new Set(['P03', 'P04', 'P05']);
+// P06 consumes the V1.2 overlay as locked by its manifest. Its own contracts
+// remain in the immutable V1.1 base registry; the overlay changes the P03–P05
+// inputs on which its evidence chain depends.
+const v12Packages = new Set(['P03', 'P04', 'P05', 'P06']);
 const selfChecksInP04rMode = new Set(['P03', 'P04', 'P04R', 'P05']);
 
 const baseRegistry = readJson(
@@ -33,9 +36,7 @@ const baseRegistry = readJson(
 const deltaRegistry = readJson(
   path.join(root, 'shared/SDAR_v1.3_Frozen_Interface_Registry_V1.2.json'),
 );
-const matrix = readJson(
-  path.join(root, 'shared/SDAR_v1.3_Package_Execution_Matrix_V1.1.json'),
-);
+const matrix = readJson(path.join(root, 'shared/SDAR_v1.3_Package_Execution_Matrix_V1.1.json'));
 const mergedContracts = {
   ...baseRegistry.contracts,
   ...deltaRegistry.contracts,
@@ -58,9 +59,7 @@ for (const packageId of formalPackages) {
   if (!directory) continue;
   const manifest = readJson(path.join(directory, 'manifest.json'));
   const lock = readJson(path.join(directory, 'CONTRACT-LOCK.json'));
-  const expectedRegistry = v12Packages.has(packageId)
-    ? deltaRegistry
-    : baseRegistry;
+  const expectedRegistry = v12Packages.has(packageId) ? deltaRegistry : baseRegistry;
   const lockRegistryHash = lock.registrySha256;
 
   if (
@@ -83,11 +82,7 @@ for (const packageId of formalPackages) {
       continue;
     }
     const owner = mergedContracts[name].owner;
-    if (
-      owner !== 'shared' &&
-      owner !== 'P00' &&
-      !produced.has(name)
-    ) {
+    if (owner !== 'shared' && owner !== 'P00' && !produced.has(name)) {
       report.errors.push(`${packageId} consumes before produced ${name}`);
     }
   }
@@ -156,12 +151,9 @@ function verifyRegistryHash(registry, label) {
 
 function verifyBundleShape() {
   if (
-    JSON.stringify(deltaRegistry.formalPackages) !==
-      JSON.stringify(formalPackages) ||
-    JSON.stringify(deltaRegistry.mandatoryRemediationPackages) !==
-      JSON.stringify(['P04R']) ||
-    JSON.stringify(deltaRegistry.optionalPostReleasePackages) !==
-      JSON.stringify(['P14'])
+    JSON.stringify(deltaRegistry.formalPackages) !== JSON.stringify(formalPackages) ||
+    JSON.stringify(deltaRegistry.mandatoryRemediationPackages) !== JSON.stringify(['P04R']) ||
+    JSON.stringify(deltaRegistry.optionalPostReleasePackages) !== JSON.stringify(['P14'])
   ) {
     report.errors.push('package class membership');
   }
@@ -183,13 +175,11 @@ function verifyBundleShape() {
 }
 
 function findPackageDirectory(packageId) {
-  const matches = fs
-    .readdirSync(packagesRoot)
-    .filter((entry) => {
-      const manifestPath = path.join(packagesRoot, entry, 'manifest.json');
-      if (!fs.existsSync(manifestPath)) return false;
-      return readJson(manifestPath).packageId === `SDAR-V1.3-${packageId}`;
-    });
+  const matches = fs.readdirSync(packagesRoot).filter((entry) => {
+    const manifestPath = path.join(packagesRoot, entry, 'manifest.json');
+    if (!fs.existsSync(manifestPath)) return false;
+    return readJson(manifestPath).packageId === `SDAR-V1.3-${packageId}`;
+  });
   if (matches.length !== 1) {
     report.errors.push(`${packageId} directory count`);
     return undefined;
@@ -201,18 +191,12 @@ function runSelfCheck(packageId, directory) {
   if (p04rMode && !selfChecksInP04rMode.has(packageId)) {
     return 'not_run_read_only';
   }
-  const run = spawnSync(
-    'node',
-    [path.join(directory, 'scripts/self-check.mjs')],
-    {
-      cwd: directory,
-      encoding: 'utf8',
-    },
-  );
+  const run = spawnSync('node', [path.join(directory, 'scripts/self-check.mjs')], {
+    cwd: directory,
+    encoding: 'utf8',
+  });
   if (run.status !== 0) {
-    report.errors.push(
-      `${packageId} selfcheck: ${run.stderr || run.stdout}`,
-    );
+    report.errors.push(`${packageId} selfcheck: ${run.stderr || run.stdout}`);
     return false;
   }
   return true;
