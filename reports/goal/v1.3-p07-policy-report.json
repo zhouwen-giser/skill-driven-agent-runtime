@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "policy": {
+    "terminalDecisions": ["allow", "deny", "require_confirmation"],
+    "overrides": ["out-of-distribution", "critical uncertainty", "kill switch"],
+    "featureFlags": ["SDAR_V13_ARTIFACT_MODE", "SDAR_V13_TEMPLATE_ENABLED", "SDAR_V13_RULE_ENABLED", "SDAR_V13_FAST_GATEWAY_ENABLED", "SDAR_V13_CASE_ENABLED", "SDAR_V13_MODEL_CASCADE_ENABLED", "SDAR_V13_TENANT_ALLOWLIST"],
+    "gating": "mode, tenant allowlist and artifact-type flags are evaluated before ranking; policy/kill switch are final hard gates"
+  },
+  "reasonCodeCatalog": "artifact-retrieval/1.1",
+  "noFastGatewayExecution": true
+}

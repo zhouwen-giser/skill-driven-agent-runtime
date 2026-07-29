@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "sources": {
+    "exact": "explicit artifact reference, task type or exact pattern",
+    "structured": "structured hints are matched against request context",
+    "semantic": "a versioned/thresholded score supplied to the internal selection service; it is a projection input, not authority"
+  },
+  "progressiveLoading": ["L0: active index narrows candidates", "L1: immutable definition is loaded only for L0 candidates", "L2: applicability, dependency, capability and policy gates execute before selection"],
+  "authority": ["P02 PostgreSQL status and active pointer are rechecked", "memory, Redis, pgvector and FTS never authorize an Artifact"],
+  "scope": ["internal service only", "no HTTP route", "no Fast Gateway", "no Goal, Plan, Attempt, Skill or MCP invocation"],
+  "tests": ["11 P07 unit cases", "3 PostgreSQL integration cases", "954 final unit/contract suite cases"]
+}

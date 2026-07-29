@@ -652,6 +652,25 @@ Local performance measurements are acceptance-only: Dataset construction p50/p95
 p50/p95 is 0.068/0.092 ms across 2,000 Cases. Four PostgreSQL workers claimed 100 Runs in 43.385 ms
 and the BullMQ wake measurement was 18.272 ms.
 
+## SDAR v1.3 P07 Active Artifact Retrieval and Applicability Addendum
+
+| P07 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P07-001 frozen predecessor authority | verified | P00 READY_FULL and P01-P06 Handoffs are read-only; P02 retains Artifact/pointer/audit authority and P06 retains lifecycle/revalidation authority | P07 ExecPlan; P06 Handoff; package self-check |
+| AC-P07-002-007 active index authority | verified | PostgreSQL active pointer filters L0; P02 immutable definition is re-read; cache/Redis/pgvector/FTS/memory are non-authoritative and rebuildable | `v1.3-p07-index-schema.json`; P07 unit and PostgreSQL integration |
+| AC-P07-008-016 retrieval/ranking | verified | exact, structured and thresholded semantic projection inputs; L0/L1/L2 loading; stable tie-break and explicit ambiguity; score is never an eligibility grant | `v1.3-p07-retrieval-report.json`; `v1.3-p07-ranking-report.json`; focused unit tests |
+| AC-P07-017-025 applicability/parameters | verified | restricted AST required/forbidden/optional semantics, source/trust/confidence bindings, critical-model-default and preference isolation gates | `v1.3-p07-applicability-schema.json`; `v1.3-p07-parameter-binding-report.json` |
+| AC-P07-026-031 dependencies/readiness | verified | complete snapshot plus persisted validator/promotion version evidence; current known capabilities, Skill candidates and Provider readiness; mismatch schedules P06/P02 durable revalidation | `v1.3-p07-dependency-report.json`; `v1.3-p07-capability-readiness-report.json`; global dataset-pin PostgreSQL regression |
+| AC-P07-032-037 policy/audit | verified | policy/OOD/uncertainty/kill switch override ranking; flags fail closed; P02 match audit and decision child preserve reason and snapshot hashes | `v1.3-p07-policy-report.json`; `v1.3-p07-security-report.json` |
+| AC-P07-038-042 excluded execution | verified | no Fast Gateway, public request mutation, Template Runtime, Goal/Plan/Attempt or Skill/MCP call | architecture gate; `v1.3-p07-completion.md` |
+| AC-P07-043 full verification | verified | seven aggregate stages passed at `26b60c2` in 220,114 ms | `reports/verification/summary.json` |
+| AC-P07-044-048 evidence/review/handoff | verified | all 48 acceptance items passed; independent review final verdict 0/0/0; standard P08 Handoff complete; Draft PR remains unmerged | `v1.3-p07-{acceptance,completion,review,handoff}.json/.md` |
+
+The authoritative criterion-by-criterion result is
+`reports/goal/v1.3-p07-acceptance.json`: 48 passed, 0 failed, 0 blocked.
+The 25-sample local PostgreSQL acceptance measurement is p50 9.0485 ms and
+p95 10.6000 ms; it is not a production SLO.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |

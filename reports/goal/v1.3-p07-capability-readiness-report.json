@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "readiness": {
+    "inputs": ["knownCapabilityIds", "current Skill candidate references", "current provider readiness"],
+    "rejections": ["public Agent Card disclosure", "historical success", "missing capability", "unavailable Skill candidate", "restricted/unavailable provider"],
+    "behavior": "invalid readiness is a hard gate and returns fallback/confirmation rather than an executable action"
+  },
+  "contracts": ["CapabilityReadinessResult@1.1#d1715f16e6faddabc1967207e4abd5b2c94f6fa92d2c7e51024e747b9d475fa4"]
+}

@@ -1,5 +1,18 @@
 # Project Status
 
+SDAR v1.3 P07/G13-G14 Active Artifact Retrieval and Applicability is
+`COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
+Implementation commits `a53798b`, `d2a37fd` and `26b60c2` add the frozen V1.1
+retrieval/applicability contracts, P02 PostgreSQL active-index projection,
+deterministic hard-gated selection, trusted parameter binding, durable audit,
+version-evidence dependency checks and P06-atomic revalidation requests.
+P07 keeps Redis/semantic/memory projections non-authoritative and adds no public
+route, Fast Gateway, template execution, Goal/Plan/Attempt or Skill/MCP call.
+The independent read-only review closed at 0 Blocking / 0 Major / 0 Minor. The
+final operator-managed `pnpm verify` passes 954 unit/contract, 113 integration,
+62 E2E, 24 migrations, architecture/protocol/build and both smokes in 220,114
+ms; `v1.3-p07-handoff.json` is `COMPLETED`. P08 has not started.
+
 SDAR v1.3 P06/G11-G12 Shadow, Promotion and Governance is `COMPLETED`
 (2026-07-29) on `feature/v1.3-sequential-implementation`. Implementation commit
 `70647a0` adds six immutable V1.1 governance contracts, migration 0130,

@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P07 Active Artifact Retrieval and Applicability
+
+- Added nine frozen V1.1 P07 contracts for active-index entries, matches,
+  applicability, parameter binding, dependencies, readiness and the
+  non-executable runtime decision handoff.
+- Added P02 PostgreSQL active-pointer Level-0 projection and immutable
+  definition reloads, deterministic exact/structured/semantic retrieval and
+  stable score ordering that cannot override hard safety gates.
+- Added restricted AST applicability, source/trust/confidence parameter
+  binding, current capability/Skill/provider checks, policy/OOD/kill-switch
+  gates, durable match/decision audit and migration 0131.
+- Added dependency evidence validation and a P06-atomic revalidation request
+  that preserves global P05 dataset ID/version/hash pins; Redis remains
+  rebuildable wake/cache state only.
+- Added focused P07 unit/contract/PostgreSQL integration coverage, a global
+  evidence-pin regression, independent read-only review closure and passed
+  full verification. No P08 public gateway or execution path was implemented.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance
 
 - Added six frozen P06 governance contracts and a pure Domain canonical

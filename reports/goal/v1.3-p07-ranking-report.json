@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "ranking": {
+    "scorePurpose": "presentation order only",
+    "components": ["intent", "structured conditions", "parameter coverage", "capability shape", "environment similarity", "validation confidence", "recent reliability", "risk penalty"],
+    "tieBreak": ["totalScore descending", "artifactKey ascending", "artifactVersion descending", "artifactRef ascending"],
+    "ambiguity": "near-score candidates return an explicit ambiguous/adaptation decision; no random selection"
+  },
+  "hardGatesOutsideScore": ["active status", "tenant and authorization", "feature flags", "required/forbidden conditions", "required parameters", "dependency", "capability/readiness", "policy and kill switch"],
+  "contracts": ["ArtifactMatchScore@1.1#73ddec591cef1fc8e4b4d25d5cf20e7f64523e1ca66a24ca86db32ba8ed18bc5", "ArtifactMatch@1.1#7334e4ba7c70f3744b81bb14bef308ca5abd32c6b99f7f05bf0d210b2d7267d7"]
+}
