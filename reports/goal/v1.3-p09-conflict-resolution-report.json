@@ -1,0 +1,34 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "resolverVersion": "p09-resolver.1",
+  "order": [
+    "policy deny",
+    "rule deny",
+    "policy/rule confirmation",
+    "action severity",
+    "specificity",
+    "explicit priority",
+    "artifact version",
+    "stable rule id"
+  ],
+  "compatibleCombination": {
+    "sameAction": true,
+    "sameSpecificity": true,
+    "uniqueConflictGroups": true,
+    "parameterNamesMustBeDisjoint": true,
+    "planPatchTargetsMustBeDisjoint": true
+  },
+  "ambiguousConflict": "fallback with no selected Rule",
+  "rankingCanOverrideSafety": false,
+  "tests": [
+    "deny overrides advice",
+    "confirmation overrides advice",
+    "specificity and priority",
+    "stable tie-break",
+    "compatible advice",
+    "conflicting plan patch",
+    "1k deterministic set"
+  ],
+  "evidence": "packages/domain/test/decision-rule-runtime-p09.unit.test.ts"
+}

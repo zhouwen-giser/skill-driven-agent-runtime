@@ -686,6 +686,22 @@ The authoritative P08 result is `reports/goal/v1.3-p08-acceptance.json`: 48
 passed, 0 failed and 0 blocked. The final isolated `pnpm verify` completed in
 254,312 ms and is not a production latency SLO.
 
+## SDAR v1.3 P09 Decision Rule and Policy Runtime Addendum
+
+| P09 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P09-001-005 authority/context | verified | P00-P08 Handoffs/ancestry and frozen hashes checked; immutable context pins Rule/pointer/tenant/Goal/Plan and all current fact references | P09 ExecPlan; contract test; `v1.3-p09-rule-dsl-schema.json` |
+| AC-P09-006-013 DSL/evaluation | verified | strict typed DSL, recursive bounds, 18 operators, explicit three-valued logic and stable pure Domain hashes; forbidden true denies | 41 Domain focused tests; `v1.3-p09-{operator-catalog,evaluation-report}.json` |
+| AC-P09-014-022 policy/conflicts | verified | missing/stale auth denies; policy/kill switch override; deterministic deny/confirmation/specificity/priority/version/ID order; bounded combination and ambiguity fallback | Application/Domain tests; `v1.3-p09-{policy-authority,conflict-resolution-report}.json` |
+| AC-P09-023-034 plan safety/idempotency | verified | low-risk confirmation-bound suggestions; only constraint/confirmation patches; existing Validator/P08 planning authority and Goal/Plan/Rule rechecks; exact replay/CAS | P09 focused tests; `v1.3-p09-plan-patch-report.json` |
+| AC-P09-035-044 execution/usage scope | verified | no Attempt/Workflow/Skill/MCP/Outcome/pointer/public route; P02 execution/feedback/Outbox authority; reference-only Outcome and P06-only drift signal | architecture/contract gates; real PostgreSQL test; `v1.3-p09-{usage-drift,security-report}.json` |
+| AC-P09-045-050 closure | verified | clean exact-commit seven-stage full verify; 50/50 acceptance; final read-only review 0/0/0; Draft PR #13 unmerged; standard P10 Handoff complete | `reports/verification/summary.json`; `v1.3-p09-{full-verify-report,acceptance,review,handoff}.json/.md` |
+
+The authoritative P09 result is `reports/goal/v1.3-p09-acceptance.json`: 50
+passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3244647` completed in
+272,326 ms with 1014 Unit/Contract, 114 Integration and 62 E2E tests. Local
+conflict-resolution performance is acceptance-only and not a production SLO.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |

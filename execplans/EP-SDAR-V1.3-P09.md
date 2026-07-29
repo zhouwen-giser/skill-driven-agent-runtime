@@ -86,10 +86,11 @@ Outcome, changes the active pointer, or implements the Fast Gateway.
       found a Domain `node:crypto` Major; the second found missing recursive
       JSON resource bounds; both were repaired. The final verdict is
       0 Blocking / 0 Major / 0 Minor.
-- [ ] Run implementation gate, generate all P09 evidence, perform an
-      independent read-only review and close every blocking/major finding.
-- [ ] Run the complete `pnpm verify`, finalize Completion/Handoff/traceability,
-      commit and push P09 before reading P10.
+- [x] 2026-07-30 Run the implementation gate, generate every required P09
+      evidence artifact and close every blocking/major review finding.
+- [x] 2026-07-30 Run clean exact-commit `pnpm verify`, finalize
+      Completion/Handoff/traceability, create unmerged Draft PR #13 and prepare
+      the closure commit/push before reading P10.
 
 ## Discoveries and Surprises
 
@@ -193,9 +194,10 @@ the verified implementation.
 
 ## Outcomes and Retrospective
 
-Implementation and final read-only review are complete. Focused verification
-passes (52 Unit, 4 Contract, 114 real Integration, typecheck, lint, format and
-architecture); the full Docker-backed verification and evidence closure remain
-pending. Completion still requires 50/50 acceptance, a passing clean full verification,
-committed/pushed evidence and a standard P10 Handoff. P10 must not be read or
-started before that push.
+P09 is complete. The frozen implementation is `3244647`. Focused verification
+passes (52 Unit, 4 Contract and the 114-test real Integration suite); clean
+exact-commit `pnpm verify` passes all seven stages in 272,326 ms. Three
+read-only review rounds close at 0 Blocking / 0 Major / 0 Minor, all 50
+acceptance criteria pass, and Draft PR #13 is open and unmerged. The standard
+P10 Handoff contains no blockers. P10 remains unread and unstarted until the
+closure commit is pushed.

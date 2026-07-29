@@ -1,14 +1,17 @@
 # Project Status
 
-SDAR v1.3 P09/G16 Decision Rule and Policy Runtime is `IN_PROGRESS`
-(2026-07-30) on `feature/v1.3-sequential-implementation`. Bootstrap validated
-the clean `830f775` P08-complete baseline, all P00-P08 Handoffs and ancestor
-commits, the canonical V1.1 registry and consumed contract hashes, and the
-P09 package self-check (29/29). The active ExecPlan is
-`execplans/EP-SDAR-V1.3-P09.md`. Implementation is restricted to deterministic
-active-rule evaluation, conflict/policy/authorization gates, bounded formal
-planning handoff, P02 usage evidence and P06 revalidation signals; no P10,
-Fast Gateway, public request route or direct Skill/MCP execution has started.
+SDAR v1.3 P09/G16 Decision Rule and Policy Runtime is `COMPLETED`
+(2026-07-30) on `feature/v1.3-sequential-implementation`. Implementation commit
+`3244647` adds the frozen V1.1 strict Rule DSL, typed three-valued evaluator,
+stable conflict resolver, policy/authorization/current-state rechecks,
+confirmation-bound parameter suggestions and conservative patches through the
+existing Validator/P08 planning authority. P02 core execution, feedback and
+Outbox rows remain usage authority; drift only signals P06. The final
+read-only review has 0 Blocking / 0 Major / 0 Minor. Clean exact-commit
+`pnpm verify` passed in 272,326 ms with 1014 Unit/Contract, 114 real
+Integration, 62 E2E, 24 migrations, architecture/build and both smoke stages.
+Draft PR #13 is open and unmerged. `v1.3-p09-handoff.json` is `COMPLETED`;
+P10 has not started.
 
 SDAR v1.3 P08/G15 Plan Template Runtime and Formal Planner Handoff is
 `COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
