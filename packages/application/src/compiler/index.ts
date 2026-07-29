@@ -9,6 +9,7 @@ export * from './experience-compilation.js';
 export * from './experience-normalizer.js';
 export * from './fast-gateway.js';
 export * from './fast-gateway-adapters.js';
+export * from './gateway-feedback-analysis.js';
 export * from './pattern-generalization.js';
 export * from './process-miner.js';
 export * from './replay-dataset.js';
