@@ -1,5 +1,53 @@
 export * from './conversation-context.js';
 export * from './cognitive/index.js';
+export {
+  ARTIFACT_CONTRACT_SCHEMA_HASHES,
+  ARTIFACT_CONTRACT_VERSION,
+  ARTIFACT_DATA_LIMITS,
+  ARTIFACT_STATUS_TRANSITIONS,
+  COMPILED_ARTIFACT_STATUSES,
+  COMPILED_ARTIFACT_TYPES,
+  ArtifactDomainError,
+  canTransitionArtifactStatus,
+  canonicalizeArtifactData,
+  createArtifactLineage,
+  createArtifactRuntimeBinding,
+  createCompiledArtifact,
+  createConditionExpression,
+  transitionCompiledArtifact,
+  type ArtifactActivationEvidence,
+  type ArtifactApplicability,
+  type ArtifactDependencySnapshot,
+  type ArtifactDomainErrorCode,
+  type ArtifactLineage,
+  type ArtifactRiskLevel,
+  type ArtifactRuntimeBinding,
+  type ArtifactScope,
+  type CaseArtifactDefinition,
+  type CompiledArtifact,
+  type CompiledArtifactDefinition,
+  type CompiledArtifactStatus,
+  type CompiledArtifactType,
+  type CompletionContractTemplate,
+  type ConditionExpression,
+  type CriterionTemplate,
+  type DecisionOutput,
+  type DecisionRuleArtifactDefinition,
+  type GoalPatternTemplate,
+  type IntentRouteArtifactDefinition,
+  type ModelRouteArtifactDefinition,
+  type PlanTemplateArtifactDefinition,
+  type RecoveryBranchTemplate,
+  type SkillGoalDependencyTemplate,
+  type SkillGoalGraphTemplate,
+  type SkillGoalNodeTemplate,
+  type TemplateParameterDefinition,
+} from './compiler/index.js';
+export * from './compiler/artifact-retrieval.js';
+export * from './compiler/artifact-candidate-generation.js';
+export * from './compiler/artifact-replay-validation.js';
+export * from './compiler/artifact-shadow-governance.js';
+export * from './compiler/experience-compilation.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-cancellation.js';

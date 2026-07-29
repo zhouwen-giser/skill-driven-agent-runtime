@@ -113,6 +113,7 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       gates pass.
 - [x] The release report explicitly states Experience is advisory, no Python sidecar exists and the
       cognitive runtime never automatically publishes a Skill.
-- [ ] PR #9 was externally merged under the repository-owner identity after the authorized Ready
+- [x] PR #9 was externally merged under the repository-owner identity after the authorized Ready
       transition. No Codex Merge call or tag occurred. The timeline does not prove native auto-merge,
-      and the required unmerged protected-review state cannot be claimed.
+      and the required unmerged protected-review state cannot be claimed; on 2026-07-26 the repository
+      owner explicitly accepted this external-merge deviation as the v1.2.3 release disposition.

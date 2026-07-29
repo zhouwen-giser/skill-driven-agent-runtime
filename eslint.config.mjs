@@ -2,7 +2,16 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', '**/dist/**', 'node_modules/**', 'coverage/**', 'source/**'] },
+  {
+    ignores: [
+      'dist/**',
+      '**/dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'source/**',
+      'docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/**',
+    ],
+  },
   eslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

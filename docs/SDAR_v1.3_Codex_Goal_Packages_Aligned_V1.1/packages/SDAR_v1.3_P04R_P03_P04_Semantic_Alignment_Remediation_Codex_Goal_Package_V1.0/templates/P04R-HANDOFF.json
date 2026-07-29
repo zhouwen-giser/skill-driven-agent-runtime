@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "packageClass": "mandatory_remediation",
+  "formalPackage": false,
+  "mandatoryReleaseGate": true,
+  "newAtomicGoal": false,
+  "remediatesGoals": [
+    "G05",
+    "G06",
+    "G07",
+    "G08"
+  ],
+  "status": "",
+  "baselineSha": "",
+  "completionSha": "",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "",
+  "p03HandoffRef": "",
+  "p04HandoffRef": "",
+  "producedContracts": [],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "evidenceRefs": [],
+  "openBlockers": [],
+  "nextPackage": "P05"
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_real_postgresql_integration",
+  "capabilityCatalog": {
+    "generalizationInput": "knownTaskTypeCapabilities",
+    "staticValidationInput": "knownCapabilityIds",
+    "sourceOfTruth": "PostgresCandidateGenerationCatalog over P02/Skill catalog authority",
+    "missingCapabilityBehavior": "fail closed",
+    "exactSkillProviderMcpBindingAllowed": false
+  },
+  "fingerprints": {
+    "generalizedDefinitionHash": "canonical hash of domain, task type, variables, invariants, conditions, applicability predicates and failure boundaries",
+    "applicabilityHash": "canonical hash of the compiled applicability definition only",
+    "requiredCapabilityShapeHash": "canonical hash of per-node required capability shape plus recovery capability shape"
+  },
+  "forbiddenSubstitutions": {
+    "planDefinitionHashAsApplicabilityHash": false,
+    "fullCatalogHashAsRequiredCapabilityShapeHash": false
+  },
+  "implementationRefs": [
+    "packages/application/src/compiler/pattern-generalization.ts",
+    "packages/application/src/compiler/candidate-generator.ts",
+    "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts"
+  ],
+  "testRefs": [
+    "packages/application/test/candidate-generation.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-022",
+    "AC-P04R-023",
+    "AC-P04R-024"
+  ]
+}

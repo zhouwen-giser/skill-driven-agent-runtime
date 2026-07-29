@@ -46,6 +46,36 @@ paths:
       operationId: listBusinessEventIncidents
       parameters: [{ $ref: '#/components/parameters/BoundedListLimit' }]
       responses: { '200': { description: Deduplicated continuity and cross-Goal incidents } }
+  /api/v1/artifacts/promotion/approvals:
+    post:
+      operationId: recordArtifactPromotionApproval
+      description: Records a trusted human approval bound to an exact P06 Promotion Package hash. Worker and LLM identities are rejected.
+      responses:
+        '201':
+          {
+            description: Immutable ArtifactApprovalRecord persisted with validation and promotion hashes,
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/promotions/activate:
+    post:
+      operationId: activateApprovedArtifactPromotion
+      description: Activates an approved P06 package with a single PostgreSQL CAS transaction; this is not a Fast Gateway route.
+      responses:
+        '201': { description: Immutable ArtifactActivationRecord and transactional outbox event }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/revalidations:
+    post:
+      operationId: requestArtifactRevalidation
+      description: Creates a P02-authoritative revalidation run and records the associated P06 trigger. It cannot reactivate an Artifact or invoke a Fast Gateway path.
+      responses:
+        '202':
+          {
+            description: Artifact removed from future active projection and queued for fresh validation evidence,
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
   /api/v1/tasks:
     get:
       operationId: listTasks
@@ -336,7 +366,12 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/knowledge/{kind}/{knowledgeId}/promote:
     parameters:
-      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - {
+          name: kind,
+          in: path,
+          required: true,
+          schema: { $ref: '#/components/schemas/KnowledgeKind' },
+        }
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: promoteKnowledge
@@ -357,7 +392,12 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
   /api/v1/knowledge/{kind}/{knowledgeId}/reject:
     parameters:
-      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - {
+          name: kind,
+          in: path,
+          required: true,
+          schema: { $ref: '#/components/schemas/KnowledgeKind' },
+        }
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: rejectKnowledge
@@ -378,7 +418,12 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
   /api/v1/knowledge/{kind}/{knowledgeId}/revalidate:
     parameters:
-      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - {
+          name: kind,
+          in: path,
+          required: true,
+          schema: { $ref: '#/components/schemas/KnowledgeKind' },
+        }
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: revalidateKnowledge
@@ -399,7 +444,12 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
   /api/v1/knowledge/{kind}/{knowledgeId}/deprecate:
     parameters:
-      - { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/KnowledgeKind' } }
+      - {
+          name: kind,
+          in: path,
+          required: true,
+          schema: { $ref: '#/components/schemas/KnowledgeKind' },
+        }
       - { name: knowledgeId, in: path, required: true, schema: { type: string, minLength: 1 } }
     post:
       operationId: deprecateKnowledge
@@ -2200,11 +2250,9 @@ components:
         capabilityId: { type: string }
         title: { type: string, minLength: 1, maxLength: 512 }
         summary: { type: string, minLength: 1, maxLength: 4096 }
-        applicableConditions:
-          { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        applicableConditions: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
         effects: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
-        evidenceRequirements:
-          { type: array, minItems: 1, maxItems: 64, items: { type: string } }
+        evidenceRequirements: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
         artifacts: { type: array, minItems: 1, maxItems: 64, items: { type: string } }
         prerequisites: { type: array, maxItems: 64, items: { type: string } }
         dependencies: { type: array, maxItems: 64, items: { type: string } }
@@ -2230,12 +2278,7 @@ components:
             type: object
             additionalProperties: false
             required:
-              [
-                exactSkillVersionRef,
-                mappingBasis,
-                requiresCurrentReadiness,
-                compatibilityStatus,
-              ]
+              [exactSkillVersionRef, mappingBasis, requiresCurrentReadiness, compatibilityStatus]
             properties:
               exactSkillVersionRef: { type: string }
               mappingBasis: { const: declared_capability }
@@ -2291,8 +2334,7 @@ components:
         authoringProposal:
           type: object
           additionalProperties: false
-          required:
-            [proposalId, status, reviewMode, publishAllowed, capabilityId, title, summary]
+          required: [proposalId, status, reviewMode, publishAllowed, capabilityId, title, summary]
           properties:
             proposalId: { type: string }
             status: { const: proposed }

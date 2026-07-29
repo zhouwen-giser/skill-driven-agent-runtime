@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P00",
+  "packageVersion": "1.1",
+  "sequence": 0,
+  "sequenceLabel": "P00",
+  "totalFormalPackages": 14,
+  "formalPackage": true,
+  "atomicGoals": [
+    "G00"
+  ],
+  "phase": "Foundation Gate",
+  "model": {
+    "name": "GPT-5.6 Sol",
+    "reasoning": "medium",
+    "implementationAgents": 1,
+    "readOnlyReviewRequired": true
+  },
+  "baselinePolicy": "execution-time latest origin/main descended from completed and frozen v1.2.3-final",
+  "dependsOn": [],
+  "requiredPredecessorStatus": {},
+  "consumesContracts": [],
+  "producesContracts": [
+    "BaselineGateResult",
+    "V123PrerequisiteMatrix"
+  ],
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "handoffSchemaVersion": "1.1",
+  "allowedCompletionStatuses": [
+    "READY_FULL",
+    "BLOCKED_BASELINE"
+  ],
+  "nextPackage": "P01",
+  "autoMergeAuthorized": false,
+  "autoTagAuthorized": false
+}

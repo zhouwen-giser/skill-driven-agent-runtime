@@ -1,4 +1,5 @@
 export * from './ports.js';
+export * from './compiler/index.js';
 export * from './cognitive/index.js';
 export * from './correction-diff-recorder.js';
 export * from './result-processor.js';

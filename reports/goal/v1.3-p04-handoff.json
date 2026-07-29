@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P04",
+  "packageVersion": "1.1",
+  "sequence": 4,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "9689a6642c0406d122da0308088fbbd32deea324",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "v11Completion": "e4e2992667b2731c2366420d8ea2ee70bb01524c",
+    "p04rCompilerSemantics": "9af979c020bca0766867876ee2a1e31e918f020a",
+    "p04rCandidateRuntime": "9689a6642c0406d122da0308088fbbd32deea324",
+    "p04rVerifiedHead": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    },
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "PlanTemplateArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
+    }
+  ],
+  "migrations": [
+    "0127_v13_artifact_candidate_generation",
+    "0128_v13_candidate_generation_runtime"
+  ],
+  "repositoryPorts": [
+    "CandidateGenerationRepository",
+    "CandidateGenerationRunRepository",
+    "ArtifactRepository"
+  ],
+  "applicationPorts": [
+    "PatternFusionService",
+    "PatternGeneralizationService",
+    "PlanTemplateCompiler",
+    "CandidateStaticValidator",
+    "CandidateGenerationApplicationService"
+  ],
+  "runtimePorts": [
+    "CandidateGenerationWorker"
+  ],
+  "events": [
+    "compiler.artifact_candidate_created"
+  ],
+  "queues": [
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation"
+  ],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p04-completion.md",
+    "reports/goal/v1.3-p04-review.md",
+    "reports/goal/v1.3-p04-golden-candidates.json",
+    "reports/goal/v1.3-p04-static-validation-report.json",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P04R.md",
+    "infra/postgres/migrations/0128_v13_candidate_generation_runtime.up.sql"
+  ],
+  "acceptanceSummary": {
+    "passed": 38,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "Review B retained two non-blocking Minor findings in reports/goal/v1.3-p04-review.md.",
+    "Candidate status is non-executable; P04 does not approve, activate, replay or execute it.",
+    "Redis is a wake channel only; PostgreSQL and P02 remain the run and Candidate authorities."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P04R",
+  "packageOutputs": {
+    "FusedPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11",
+      "refs": [
+        "packages/domain/src/compiler/artifact-candidate-generation.ts",
+        "packages/application/src/compiler/pattern-generalization.ts"
+      ]
+    },
+    "GeneralizedPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a",
+      "refs": [
+        "packages/domain/src/compiler/artifact-candidate-generation.ts",
+        "packages/application/src/compiler/pattern-generalization.ts"
+      ]
+    },
+    "CandidateStaticValidationResult": {
+      "contractVersion": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd",
+      "refs": [
+        "packages/domain/src/compiler/artifact-candidate-generation.ts",
+        "packages/application/src/compiler/candidate-generator.ts",
+        "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts"
+      ]
+    }
+  }
+}

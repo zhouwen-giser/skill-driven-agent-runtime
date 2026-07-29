@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GeneralizedPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generalizedPatternId",
+    "domain",
+    "taskTypeId",
+    "variables",
+    "invariants",
+    "requiredConditions",
+    "forbiddenConditions",
+    "applicabilityPredicates",
+    "failureBoundaries",
+    "retainedExampleRefs",
+    "counterexampleRefs",
+    "sourceFusedPatternRef",
+    "generalizerVersion",
+    "contentHash"
+  ],
+  "properties": {
+    "generalizedPatternId": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "taskTypeId": {
+      "type": "string"
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "variableName",
+          "sourceField",
+          "domainClass",
+          "schema",
+          "allowedSources",
+          "trustLevel",
+          "required"
+        ],
+        "properties": {
+          "variableName": {
+            "type": "string"
+          },
+          "sourceField": {
+            "type": "string"
+          },
+          "domainClass": {
+            "type": "string"
+          },
+          "schema": {},
+          "allowedSources": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "user_confirmed",
+                "request",
+                "world_state",
+                "runtime_context",
+                "small_model_candidate"
+              ]
+            }
+          },
+          "trustLevel": {
+            "enum": [
+              "authoritative",
+              "trusted",
+              "candidate"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "invariants": {
+      "type": "array"
+    },
+    "requiredConditions": {
+      "type": "array"
+    },
+    "forbiddenConditions": {
+      "type": "array"
+    },
+    "applicabilityPredicates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "operator"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "pattern": "^(request|goal|world|runtime|authorization|policy|capability|readiness|environment|device)\\."
+          },
+          "operator": {
+            "enum": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "contains",
+              "exists"
+            ]
+          },
+          "value": {}
+        }
+      }
+    },
+    "failureBoundaries": {
+      "type": "array"
+    },
+    "retainedExampleRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "counterexampleRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "sourceFusedPatternRef": {
+      "type": "string"
+    },
+    "generalizerVersion": {
+      "const": "sdar-pattern-generalizer/1.2"
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

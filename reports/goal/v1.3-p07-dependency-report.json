@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "validation": {
+    "snapshot": ["catalog", "policy", "task type", "schema", "compiler", "skill/capability shape"],
+    "persistentEvidence": ["latest passed validator/revalidation evidence", "latest promotion-eligible promotion-policy evidence"],
+    "mismatch": "fallback plus a P06 atomic dependency revalidation request"
+  },
+  "durability": "P06/P02 scheduler writes Run, Trigger and Outbox atomically. Tenant artifacts use the current eligible holdout; global artifacts pin the exact ID, version and hash from their last eligible passed P05 replay.",
+  "contracts": ["DependencyValidationResult@1.1#1a8a8c2c0f3001fdda76864c4029b3bb30193ecf4487e02b361c1ec1d6485470"],
+  "tests": ["global exact evidence pin regression", "dependency mismatch unit regression", "PostgreSQL durable revalidation integration"]
+}

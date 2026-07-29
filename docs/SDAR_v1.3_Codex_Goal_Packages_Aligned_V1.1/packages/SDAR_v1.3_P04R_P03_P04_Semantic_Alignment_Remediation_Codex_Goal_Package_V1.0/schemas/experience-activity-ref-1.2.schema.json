@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExperienceActivityRef",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "activityKey",
+    "activityKind",
+    "objectiveSummary",
+    "capabilityRefs",
+    "effectRefs"
+  ],
+  "properties": {
+    "activityKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "activityKind": {
+      "enum": [
+        "skill_goal",
+        "plan_node",
+        "provider_operation",
+        "observation",
+        "verification",
+        "reasoning",
+        "human_gate",
+        "unknown"
+      ]
+    },
+    "objectiveSummary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "sourcePlanNodeRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sourceSkillGoalRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sourceAttemptRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "operationRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "capabilityRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": {
+        "type": "string"
+      }
+    },
+    "effectRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

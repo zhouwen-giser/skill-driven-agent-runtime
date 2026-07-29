@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P06",
+  "packageVersion": "1.1",
+  "sequence": 6,
+  "sequenceLabel": "P06",
+  "totalFormalPackages": 14,
+  "formalPackage": true,
+  "atomicGoals": [
+    "G11",
+    "G12"
+  ],
+  "phase": "Validation Governance",
+  "model": {
+    "name": "GPT-5.6 Sol",
+    "reasoning": "medium",
+    "implementationAgents": 1,
+    "readOnlyReviewRequired": true
+  },
+  "baselinePolicy": "execution-time latest origin/main descended from completed and frozen v1.2.3-final",
+  "dependsOn": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05"
+  ],
+  "requiredPredecessorStatus": {
+    "P00": "READY_FULL",
+    "P01": "COMPLETED",
+    "P02": "COMPLETED",
+    "P03": "COMPLETED",
+    "P04": "COMPLETED",
+    "P05": "COMPLETED"
+  },
+  "consumesContracts": [
+    "ArtifactValidationResult",
+    "ArtifactCounterexample",
+    "ArtifactGovernancePort"
+  ],
+  "producesContracts": [
+    "ArtifactShadowRun",
+    "ArtifactShadowResult",
+    "ArtifactPromotionPackage",
+    "ArtifactApprovalRecord",
+    "ArtifactActivationRecord",
+    "ArtifactRevalidationTrigger"
+  ],
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "handoffSchemaVersion": "1.1",
+  "allowedCompletionStatuses": [
+    "COMPLETED",
+    "BLOCKED"
+  ],
+  "nextPackage": "P07",
+  "autoMergeAuthorized": false,
+  "autoTagAuthorized": false
+}

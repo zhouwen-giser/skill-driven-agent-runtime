@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_real_postgresql_integration",
+  "algorithmVersion": "sdar-deterministic-process-miner/1.2",
+  "identitySource": "ExperienceTraceEvent.activity.activityKey",
+  "excludedSources": [
+    "eventType-only lifecycle facts",
+    "activityKind=unknown"
+  ],
+  "preservedSemantics": {
+    "repeatedActivity": true,
+    "selfLoopAtoA": true,
+    "parallelEvidence": [
+      "explicit_concurrency",
+      "partial_order",
+      "dependency_independence"
+    ],
+    "branchRef": true,
+    "recoveryTrigger": true,
+    "recoveryResume": true,
+    "recoverySequence": true,
+    "recoveryCapabilityRefs": true
+  },
+  "failureBehavior": {
+    "unknownActivity": "excluded and completeness lowered",
+    "pureLifecycleEvent": "excluded from process nodes",
+    "parallelOrderConflict": "not generalized as concurrent"
+  },
+  "implementationRefs": [
+    "packages/application/src/compiler/process-miner.ts",
+    "packages/domain/src/compiler/experience-compilation.ts"
+  ],
+  "testRefs": [
+    "packages/application/test/process-miner.unit.test.ts",
+    "packages/persistence-postgres/test/repositories.integration.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-010",
+    "AC-P04R-011",
+    "AC-P04R-012",
+    "AC-P04R-013"
+  ]
+}

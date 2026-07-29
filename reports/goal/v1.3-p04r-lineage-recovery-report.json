@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_real_postgresql_integration",
+  "lineage": {
+    "sourceEpisodeRefs": true,
+    "sourceCorrectionRefs": true,
+    "sourceWorkflowPatternRef": true,
+    "sourceProcessPatternRef": true,
+    "sourceTraceRefs": true,
+    "sourceFusedPatternRef": true,
+    "sourceGeneralizedPatternRef": true,
+    "persistedByP02ArtifactRepository": true
+  },
+  "recovery": {
+    "triggerActivityKey": true,
+    "resumeActivityKey": true,
+    "activitySequence": true,
+    "requiredCapabilityRefs": true,
+    "planPatchTemplate": true,
+    "sideEffectReplayPolicy": "forbidden",
+    "unknownActivityFailsValidation": true
+  },
+  "implementationRefs": [
+    "packages/domain/src/compiler/artifact-candidate-generation.ts",
+    "packages/application/src/compiler/candidate-generator.ts",
+    "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts"
+  ],
+  "testRefs": [
+    "packages/application/test/candidate-generation.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-029",
+    "AC-P04R-030"
+  ]
+}

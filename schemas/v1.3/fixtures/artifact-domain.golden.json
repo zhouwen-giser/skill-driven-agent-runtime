@@ -1,0 +1,473 @@
+{
+  "artifacts": [
+    {
+      "artifactId": "artifact.intent.inspect.1",
+      "artifactKey": "intent.inspect",
+      "version": 1,
+      "artifactType": "intent_route",
+      "name": "Inspect intent route",
+      "description": "Routes a confirmed inspection intent to a plan template.",
+      "scope": {
+        "domain": "operations",
+        "taskTypeIds": ["task_type.inspect"]
+      },
+      "definition": {
+        "taskTypeId": "task_type.inspect",
+        "semanticExamples": ["Inspect the declared device."],
+        "exactPatterns": [
+          {
+            "pattern": "inspect device",
+            "flags": ["case_insensitive", "whole_input"]
+          }
+        ],
+        "structuredHints": [
+          {
+            "field": "request.kind",
+            "operator": "eq",
+            "value": "inspection"
+          }
+        ],
+        "nextPath": "plan_template"
+      },
+      "applicability": {
+        "requiredConditions": [
+          {
+            "type": "atomic",
+            "field": "goal.confirmed",
+            "operator": "eq",
+            "value": true
+          }
+        ],
+        "optionalConditions": [],
+        "forbiddenConditions": [],
+        "requiredParameters": ["deviceId"],
+        "allowedEnvironmentClasses": ["trusted_intranet"],
+        "excludedEnvironmentClasses": ["public_internet"],
+        "minimumIntentScore": 0.8,
+        "minimumConditionScore": 1,
+        "maximumUncertainty": 0.2,
+        "outOfDistributionPolicy": "fallback_reasoning"
+      },
+      "requiredCapabilities": [
+        {
+          "capabilityId": "capability.inspect",
+          "minimumVersion": "1.0"
+        }
+      ],
+      "requiredPolicies": [
+        {
+          "policyId": "policy.read_only",
+          "version": "1.0"
+        }
+      ],
+      "dependencySnapshot": {
+        "capabilityCatalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyVersionRefs": ["policy.read_only@1.0"],
+        "taskTypeVersionRefs": ["task_type.inspect@1"],
+        "schemaVersionRefs": ["artifact.contract@1.1"],
+        "requiredSkillVersionRefs": [],
+        "compilerVersion": "compiler.1.0"
+      },
+      "riskLevel": "low",
+      "status": "candidate",
+      "lineageRef": "lineage.intent.inspect.1",
+      "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "createdAt": "2026-07-26T00:00:00.000Z"
+    },
+    {
+      "artifactId": "artifact.plan.inspect.1",
+      "artifactKey": "plan.inspect",
+      "version": 1,
+      "artifactType": "plan_template",
+      "name": "Inspection plan template",
+      "description": "Builds a bounded inspection plan.",
+      "scope": {
+        "domain": "operations",
+        "taskTypeIds": ["task_type.inspect"]
+      },
+      "definition": {
+        "goalPattern": {
+          "objectiveTemplate": "Inspect {{deviceId}}.",
+          "criterionTemplates": [
+            {
+              "criterionTemplateId": "criterion.observed",
+              "statementTemplate": "Structured state was observed.",
+              "required": true
+            }
+          ]
+        },
+        "parameterSchema": {
+          "type": "object",
+          "required": ["deviceId"],
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            }
+          }
+        },
+        "parameterBindings": [
+          {
+            "parameterName": "deviceId",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "allowedSources": "user_confirmed",
+            "trustLevel": "authoritative",
+            "defaultPolicy": "none"
+          }
+        ],
+        "skillGoalGraph": {
+          "nodes": [
+            {
+              "nodeKey": "observe",
+              "nodeType": "observation",
+              "objectiveTemplate": "Observe {{deviceId}}.",
+              "requiredCapabilities": ["capability.inspect"],
+              "requiredEffectRefs": ["effect.observed"],
+              "coveredCriterionTemplateIds": ["criterion.observed"],
+              "evidenceRequirements": ["evidence.structured_state"],
+              "artifactRequirements": [],
+              "inputTemplate": {
+                "deviceId": "{{deviceId}}"
+              },
+              "assumptionsAllowed": [],
+              "constraints": ["No side effects."]
+            },
+            {
+              "nodeKey": "verify",
+              "nodeType": "verification",
+              "objectiveTemplate": "Verify inspection evidence.",
+              "requiredCapabilities": [],
+              "requiredEffectRefs": [],
+              "coveredCriterionTemplateIds": ["criterion.observed"],
+              "evidenceRequirements": ["evidence.structured_state"],
+              "artifactRequirements": [],
+              "inputTemplate": {},
+              "assumptionsAllowed": [],
+              "constraints": []
+            }
+          ],
+          "dependencies": [
+            {
+              "dependencyKey": "dependency.observe.verify",
+              "predecessorNodeKey": "observe",
+              "successorNodeKey": "verify",
+              "predicate": "required"
+            }
+          ]
+        },
+        "completionContractTemplate": {
+          "titleTemplate": "Inspection complete",
+          "descriptionTemplate": "The declared device was inspected and verified.",
+          "criteria": [
+            {
+              "criterionTemplateId": "criterion.observed",
+              "statementTemplate": "Structured state was observed.",
+              "required": true
+            }
+          ],
+          "evidenceRequirements": ["evidence.structured_state"],
+          "artifactRequirements": []
+        },
+        "recoveryBranches": [
+          {
+            "trigger": {
+              "type": "atomic",
+              "field": "observation.available",
+              "operator": "eq",
+              "value": false
+            },
+            "requiredCapabilities": [],
+            "planPatchTemplate": {
+              "action": "request_confirmation"
+            },
+            "maximumApplications": 1,
+            "sideEffectReplayPolicy": "forbidden"
+          }
+        ]
+      },
+      "applicability": {
+        "requiredConditions": [],
+        "optionalConditions": [],
+        "forbiddenConditions": [],
+        "requiredParameters": ["deviceId"],
+        "allowedEnvironmentClasses": ["trusted_intranet"],
+        "excludedEnvironmentClasses": [],
+        "minimumIntentScore": 0.8,
+        "minimumConditionScore": 0.8,
+        "maximumUncertainty": 0.2,
+        "outOfDistributionPolicy": "require_confirmation"
+      },
+      "requiredCapabilities": [
+        {
+          "capabilityId": "capability.inspect"
+        }
+      ],
+      "requiredPolicies": [
+        {
+          "policyId": "policy.read_only",
+          "version": "1.0"
+        }
+      ],
+      "dependencySnapshot": {
+        "capabilityCatalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyVersionRefs": ["policy.read_only@1.0"],
+        "taskTypeVersionRefs": ["task_type.inspect@1"],
+        "schemaVersionRefs": ["artifact.contract@1.1"],
+        "requiredSkillVersionRefs": ["skill.inspect@1"],
+        "compilerVersion": "compiler.1.0"
+      },
+      "riskLevel": "low",
+      "status": "awaiting_approval",
+      "lineageRef": "lineage.plan.inspect.1",
+      "validationSummaryRef": "validation.plan.inspect.1",
+      "contentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "createdAt": "2026-07-26T00:00:00.000Z"
+    },
+    {
+      "artifactId": "artifact.rule.confirm.1",
+      "artifactKey": "rule.confirm",
+      "version": 1,
+      "artifactType": "decision_rule",
+      "name": "Confirmation decision rule",
+      "description": "Requires confirmation when uncertainty is high.",
+      "scope": {
+        "domain": "operations",
+        "taskTypeIds": []
+      },
+      "definition": {
+        "category": "confirmation",
+        "condition": {
+          "type": "atomic",
+          "field": "decision.uncertainty",
+          "operator": "gt",
+          "value": 0.2
+        },
+        "decision": {
+          "decisionType": "require_confirmation",
+          "parameters": {
+            "reason": "uncertainty"
+          },
+          "explanationCode": "confirmation.high_uncertainty"
+        },
+        "priority": 100,
+        "conflictGroup": "confirmation",
+        "conflictPolicy": "deny_overrides"
+      },
+      "applicability": {
+        "requiredConditions": [],
+        "optionalConditions": [],
+        "forbiddenConditions": [],
+        "requiredParameters": [],
+        "allowedEnvironmentClasses": [],
+        "excludedEnvironmentClasses": [],
+        "minimumIntentScore": 0,
+        "minimumConditionScore": 1,
+        "maximumUncertainty": 1,
+        "outOfDistributionPolicy": "require_confirmation"
+      },
+      "requiredCapabilities": [],
+      "requiredPolicies": [],
+      "dependencySnapshot": {
+        "capabilityCatalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyVersionRefs": [],
+        "taskTypeVersionRefs": [],
+        "schemaVersionRefs": ["artifact.contract@1.1"],
+        "requiredSkillVersionRefs": [],
+        "compilerVersion": "compiler.1.0"
+      },
+      "riskLevel": "medium",
+      "status": "validating",
+      "lineageRef": "lineage.rule.confirm.1",
+      "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "createdAt": "2026-07-26T00:00:00.000Z"
+    },
+    {
+      "artifactId": "artifact.case.inspect.1",
+      "artifactKey": "case.inspect",
+      "version": 1,
+      "artifactType": "case_template",
+      "name": "Inspection recovery case",
+      "description": "Reuses a bounded inspection recovery pattern.",
+      "scope": {
+        "domain": "operations",
+        "taskTypeIds": ["task_type.inspect"]
+      },
+      "definition": {
+        "problemFingerprint": {
+          "taskTypeId": "task_type.inspect",
+          "goalFeatureHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "entityClasses": ["device"],
+          "environmentClasses": ["trusted_intranet"],
+          "eventTypes": ["inspection.unavailable"],
+          "failureTypes": ["provider.unavailable"],
+          "capabilityState": ["capability.inspect.unavailable"],
+          "constraints": [
+            {
+              "field": "sideEffects.allowed",
+              "operator": "eq",
+              "value": false
+            }
+          ],
+          "riskLevel": "low"
+        },
+        "solutionPattern": {
+          "recoveryPlanTemplate": {
+            "action": "request_confirmation"
+          },
+          "decisionSuggestions": [
+            {
+              "decisionType": "require_confirmation",
+              "parameters": {},
+              "explanationCode": "inspection.provider_unavailable"
+            }
+          ]
+        },
+        "adaptationRules": [
+          {
+            "condition": {
+              "type": "atomic",
+              "field": "input.deviceId",
+              "operator": "exists"
+            },
+            "action": "bind_parameters",
+            "template": {
+              "deviceId": "{{input.deviceId}}"
+            }
+          }
+        ],
+        "applicability": {
+          "contextRequirements": [],
+          "minimumSimilarity": 0.9
+        },
+        "failureBoundaries": [
+          {
+            "condition": {
+              "type": "atomic",
+              "field": "risk.level",
+              "operator": "in",
+              "value": ["high", "critical"]
+            },
+            "action": "deny",
+            "reasonCode": "case.risk_out_of_bounds"
+          }
+        ],
+        "priorOutcomeSummary": {
+          "successRate": 0.9,
+          "sampleCount": 10,
+          "limitations": ["Trusted intranet only."]
+        }
+      },
+      "applicability": {
+        "requiredConditions": [],
+        "optionalConditions": [],
+        "forbiddenConditions": [],
+        "requiredParameters": ["deviceId"],
+        "allowedEnvironmentClasses": ["trusted_intranet"],
+        "excludedEnvironmentClasses": [],
+        "minimumIntentScore": 0,
+        "minimumConditionScore": 0.9,
+        "maximumUncertainty": 0.1,
+        "outOfDistributionPolicy": "deny"
+      },
+      "requiredCapabilities": [],
+      "requiredPolicies": [],
+      "dependencySnapshot": {
+        "capabilityCatalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyVersionRefs": [],
+        "taskTypeVersionRefs": ["task_type.inspect@1"],
+        "schemaVersionRefs": ["artifact.contract@1.1"],
+        "requiredSkillVersionRefs": [],
+        "compilerVersion": "compiler.1.0"
+      },
+      "riskLevel": "low",
+      "status": "candidate",
+      "lineageRef": "lineage.case.inspect.1",
+      "contentHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "createdAt": "2026-07-26T00:00:00.000Z"
+    },
+    {
+      "artifactId": "artifact.model.route.1",
+      "artifactKey": "model.route",
+      "version": 1,
+      "artifactType": "model_route",
+      "name": "Bounded model route",
+      "description": "Selects a bounded reasoning route.",
+      "scope": {
+        "domain": "operations",
+        "taskTypeIds": []
+      },
+      "definition": {
+        "conditions": [
+          {
+            "type": "atomic",
+            "field": "task.complexity",
+            "operator": "gte",
+            "value": 0.8
+          }
+        ],
+        "route": "cloud_reasoning",
+        "budget": {
+          "maxTokens": 4096,
+          "maxLatencyMs": 30000,
+          "maxCostUnits": 10
+        },
+        "fallbackRoutes": ["cloud_medium", "human"]
+      },
+      "applicability": {
+        "requiredConditions": [],
+        "optionalConditions": [],
+        "forbiddenConditions": [],
+        "requiredParameters": [],
+        "allowedEnvironmentClasses": ["trusted_intranet"],
+        "excludedEnvironmentClasses": [],
+        "minimumIntentScore": 0,
+        "minimumConditionScore": 0.8,
+        "maximumUncertainty": 0.2,
+        "outOfDistributionPolicy": "fallback_reasoning"
+      },
+      "requiredCapabilities": [],
+      "requiredPolicies": [
+        {
+          "policyId": "policy.model_budget",
+          "version": "1.0"
+        }
+      ],
+      "dependencySnapshot": {
+        "capabilityCatalogHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyVersionRefs": ["policy.model_budget@1.0"],
+        "taskTypeVersionRefs": [],
+        "schemaVersionRefs": ["artifact.contract@1.1"],
+        "requiredSkillVersionRefs": [],
+        "compilerVersion": "compiler.1.0"
+      },
+      "riskLevel": "medium",
+      "status": "candidate",
+      "lineageRef": "lineage.model.route.1",
+      "contentHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "createdAt": "2026-07-26T00:00:00.000Z"
+    }
+  ],
+  "lineage": {
+    "lineageId": "lineage.plan.inspect.1",
+    "artifactId": "artifact.plan.inspect.1",
+    "artifactVersion": 1,
+    "sourceEpisodeRefs": ["episode.inspect.1"],
+    "sourceKnowledgeRefs": ["knowledge.inspect.1"],
+    "sourceCorrectionRefs": [],
+    "sourcePatternRefs": ["pattern.inspect.1"],
+    "generationMethods": ["workflow_induction", "human_authored"],
+    "validationRunRefs": ["validation.plan.inspect.1"],
+    "supersedesArtifactRefs": []
+  },
+  "runtimeBinding": {
+    "bindingId": "binding.plan.inspect.1",
+    "artifactId": "artifact.plan.inspect.1",
+    "artifactVersion": 1,
+    "runtimeType": "template_plan_builder",
+    "compilerVersion": "compiler.1.0",
+    "compiledPayloadHash": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "compiledAt": "2026-07-26T00:01:00.000Z"
+  }
+}

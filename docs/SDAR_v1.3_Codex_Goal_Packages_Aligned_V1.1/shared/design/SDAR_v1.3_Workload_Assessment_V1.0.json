@@ -1,0 +1,953 @@
+{
+  "title": "SDAR v1.3 Codex Implementation Package Design",
+  "version": "1.0",
+  "baseline_repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "observed_main_commit": "10d9cb385a7d4ef87b69f2856d315573faafca9c",
+  "goals": [
+    {
+      "id": "G00",
+      "phase": "P0",
+      "release": "core",
+      "name": "仓库基线与 v1.2.3 完成性门禁",
+      "deps": "无",
+      "days": [
+        3,
+        5
+      ],
+      "owner": "架构/Runtime Lead",
+      "paths": "`package.json`、`CHANGELOG.md`、`PROJECT_STATUS.md`、`execplans/`、`docs/`、`reports/`、`scripts/`",
+      "deliverables": "基线报告、v1.2.3 依赖核验、符号地图、迁移序列、Master ExecPlan、Goal Sync State",
+      "tasks": [
+        "从执行时最新 `origin/main` 开始，记录 HEAD、工作树、Node/pnpm/PostgreSQL/Redis 基线。",
+        "验证 v1.2.3 必需对象是否真实存在：GoalExperienceEpisode、Observer、Reflector、Task Type、Capability Pattern、Promotion、Retriever、Experience Injection。",
+        "验证 v1.2.3 Runtime Fact、Outbox、Outcome、PlanningInteraction 和 Memory Projection 是否可供 v1.3 读取。",
+        "检查现有 Migration 最后一号、Architecture Gate、OpenAPI、Acceptance Map、A2A TCK、SBOM 和 Sources Lock。",
+        "创建 `execplans/EP-SDAR-V1.3.md`、`reports/goal/sync-state.json` 和需求到 Goal 的追踪矩阵。",
+        "若 v1.2.3 依赖缺失，输出阻断报告；继续所有只依赖 G00/G01 的设计与 Skeleton 工作，但不得伪造 Experience Compiler 可用。"
+      ],
+      "tests": [
+        "运行当前 `pnpm verify`。",
+        "执行必需符号、表和事件存在性检查。",
+        "校验最新 main 包含约定最低祖先。"
+      ],
+      "accept": [
+        "基线验证通过或形成精确阻断清单。",
+        "所有后续 Goal 的依赖和代码落点可解析。",
+        "未把 v1.2.3 未实现能力假定为已完成。"
+      ],
+      "forbid": [
+        "不得在本 Goal 编写产品功能。",
+        "不得修改或绕过 v1.2.3 权威。"
+      ]
+    },
+    {
+      "id": "G01",
+      "phase": "P1",
+      "release": "core",
+      "name": "Runtime Artifact Domain、Schema 与架构门禁",
+      "deps": "G00",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Domain/Architecture Engineer",
+      "paths": "`packages/domain/src/compiler/`、`schemas/v1.3/`、`scripts/check-architecture.mjs`、ADR",
+      "deliverables": "Artifact Domain、状态机、Condition DSL、Lineage、Validation、Execution/Feedback Schema、Golden Fixtures",
+      "tasks": [
+        "定义 `CompiledArtifact`、Artifact Type、Status、Applicability、Dependency Snapshot 和 Runtime Binding。",
+        "定义 Intent Route、Plan Template、Decision Rule、Case、Model Route 的结构化 Definition。",
+        "定义 ConditionExpression、DecisionOutput、Parameter Binding、Failure Boundary 和 Risk Level。",
+        "定义 Artifact Lineage、Validation Result、Approval、Execution、Feedback、Match Decision。",
+        "冻结状态机：discovered→candidate→validating→awaiting_approval→active→revalidating→deprecated/archived/rejected。",
+        "增加架构规则：Artifact Domain 不依赖 MCP SDK、Provider Adapter、Console 或 LangGraph 实现。",
+        "增加规则：Artifact 不得直接调用 Skill/MCP，不得写 Outcome，不得修改 Skill/Policy。"
+      ],
+      "tests": [
+        "Domain Factory/Invariant 单元测试。",
+        "JSON Schema/Zod/AJV Contract Test。",
+        "状态迁移正反测试。",
+        "Canonical Hash Property Test。",
+        "Reverse Dependency Gate。"
+      ],
+      "accept": [
+        "所有 Artifact 类型有严格、版本化、可验证 Schema。",
+        "架构门禁能阻止直接 Tool/Skill 调用。",
+        "Schema Golden Fixture 与 TypeScript Domain 一致。"
+      ],
+      "forbid": [
+        "不得用无约束 `unknown` 作为 Active Artifact 核心 Definition。",
+        "不得实现在线执行。"
+      ]
+    },
+    {
+      "id": "G02",
+      "phase": "P1",
+      "release": "core",
+      "name": "Artifact PostgreSQL 持久化与 Repository",
+      "deps": "G01",
+      "days": [
+        10,
+        14
+      ],
+      "owner": "Persistence Engineer",
+      "paths": "`infra/postgres/migrations/`、`packages/persistence-postgres/src/compiler/`、Repository Tests",
+      "deliverables": "M1 Migration、Repository、CAS、Active Pointer、Lineage、Validation/Approval/Execution/Feedback 表",
+      "tasks": [
+        "按执行时迁移序列新增 `compiled_artifact`、`artifact_active_pointer`、`artifact_lineage`。",
+        "新增 `artifact_validation_run`、`artifact_approval`、`artifact_execution`、`artifact_feedback`、`artifact_match_log`。",
+        "新增 `experience_trace`、`pattern_candidate`，为 Plan Template/Decision Rule 提供专表或严格 JSONB 约束。",
+        "实现 Candidate 保存、不可变版本、CAS 状态迁移、Active Pointer 原子切换和 Deprecated。",
+        "实现 Validation、Approval、Execution 和 Feedback Repository。",
+        "建立必要的唯一约束、索引、数据范围检查、JSON 大小/深度限制。",
+        "提供 Redis 丢失后可从 PostgreSQL 重建的查询。"
+      ],
+      "tests": [
+        "空库迁移、rollback/reapply、重复迁移。",
+        "Repository Round-trip。",
+        "CAS/双激活 Race。",
+        "Active Pointer 与 Artifact Version 一致性。",
+        "大 JSON/非法状态拒绝。"
+      ],
+      "accept": [
+        "PostgreSQL 是唯一持久化权威。",
+        "同一 Artifact Key 同时最多一个 Active Version。",
+        "所有投影可从权威表重建。"
+      ],
+      "forbid": [
+        "不得将 Artifact Definition 放入 MemoryService 作为权威。",
+        "不得依赖 Redis 保证一致性。"
+      ]
+    },
+    {
+      "id": "G03",
+      "phase": "P1",
+      "release": "core",
+      "name": "Artifact Registry、Active Index、Outbox 与 Feature Flags",
+      "deps": "G02",
+      "days": [
+        8,
+        11
+      ],
+      "owner": "Application/Runtime Engineer",
+      "paths": "`packages/application/src/compiler/`、`packages/runtime-redis/`、`apps/server/src/runtime.ts`",
+      "deliverables": "ArtifactRegistryService、Active Index、Outbox、Cache Invalidation、Feature Flags、Management Read Ports",
+      "tasks": [
+        "实现 ArtifactRegistryService：创建 Candidate、读取 Version、查询 Active Index、废弃和依赖失效。",
+        "实现 Active Artifact Index 的 Level-0/Level-1 Progressive Projection。",
+        "实现 Artifact 事务事件 Outbox 与 at-least-once Consumer。",
+        "实现缓存键：Artifact Version、Active Pointer Version、Catalog Hash、Policy Hash、Tenant Scope。",
+        "实现 `off|shadow|advisory|active` 注入模式和 Template/Rule/Case/Model Cascade 独立 Feature Flag。",
+        "实现启动时 Registry/Cache 重建和一致性扫描。",
+        "提供只读 Management Query Port，写操作暂不开放激活。"
+      ],
+      "tests": [
+        "Active Index Cache Miss/Hit。",
+        "Outbox 重复消费幂等。",
+        "Cache 失效与重建。",
+        "Feature Flag 完全关闭时 v1.2.3 行为不变。"
+      ],
+      "accept": [
+        "Registry 可独立运行但不会影响正式任务。",
+        "Feature Flag off 时不存在额外模型调用或计划写入。",
+        "Active Index 与 PostgreSQL Pointer 一致。"
+      ],
+      "forbid": [
+        "不得在此 Goal 接入 User Request 入口。",
+        "不得自动激活 Candidate。"
+      ]
+    },
+    {
+      "id": "G04",
+      "phase": "P1",
+      "release": "core",
+      "name": "操作员身份、审批与审计安全基线",
+      "deps": "G02、G03",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Security/API Engineer",
+      "paths": "`packages/management-api/`、`apps/server/`、审计 Repository、OpenAPI",
+      "deliverables": "Operator Identity Port、Artifact Approval API Guard、审计、Idempotency/CAS、授权测试",
+      "tasks": [
+        "为 Artifact validate/approve/activate/deprecate/revalidate 写操作建立操作员身份和权限 Port。",
+        "在现有 trusted-intranet 模式上增加可替换的认证/授权边界，不将请求体 actorId 当作可信身份。",
+        "所有写操作要求 reason、idempotencyKey、expectedVersion、actor 和审计记录。",
+        "高风险 Artifact 激活要求显式权限与审批证据 Hash。",
+        "建立 Approval 与 Activation 分离：批准不等于激活。",
+        "为开发环境提供受控的 Local Operator Adapter；生产未配置身份提供者时写操作 fail closed。"
+      ],
+      "tests": [
+        "未认证/未授权写操作拒绝。",
+        "actor 伪造无效。",
+        "重复 idempotencyKey 幂等。",
+        "过期 expectedVersion 冲突。",
+        "高风险审批权限。"
+      ],
+      "accept": [
+        "生产激活路径不存在匿名写操作。",
+        "审批、激活、废弃均可审计和重放。",
+        "读取 API 可按现有部署策略单独配置。"
+      ],
+      "forbid": [
+        "不得继续以 `trusted-intranet-only-no-auth` 作为 Artifact 激活的充分条件。",
+        "不得将人工审批编码为布尔字段而无证据。"
+      ]
+    },
+    {
+      "id": "G05",
+      "phase": "P2",
+      "release": "core",
+      "name": "Experience Trace Normalization",
+      "deps": "G00、G01、v1.2.3 Episode 可用",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Experience/Domain Engineer",
+      "paths": "`packages/application/src/compiler/experience-trace/`、`packages/persistence-postgres/`、Worker",
+      "deliverables": "ExperienceTraceBuilder、Normalization Policy、Trace Repository、Redaction、Cohort Fingerprint",
+      "tasks": [
+        "将 GoalExperienceEpisode、PlanningInteraction、Skill Attempt、Workflow、Outcome、Recovery、Business Event 和 Artifact Feedback 转为统一 Trace。",
+        "保留顺序、并行、分支、Authority Ref、用户修订、反例和环境类别。",
+        "抽象设备实例、地点、临时时间、PII、Credential 和大 Tool Result。",
+        "生成 Goal、Capability、Environment、Task Type Fingerprint。",
+        "记录 Completeness、Data Classification、Normalizer Version 和 Source Hash。",
+        "实现异步、幂等、可重放 Worker 与 Dead Letter。"
+      ],
+      "tests": [
+        "相同 Episode 生成相同 Trace Hash。",
+        "并行/分支顺序保持。",
+        "PII/Credential Redaction。",
+        "不完整 Episode 不进入 Mining。",
+        "Redis 丢失后重建。"
+      ],
+      "accept": [
+        "Trace 足以支持流程发现且不泄露私有思维链。",
+        "Source Episode 可追溯。",
+        "Normalization 不阻断在线任务。"
+      ],
+      "forbid": [
+        "不得以自由文本摘要替代事件顺序。",
+        "不得删除失败和人工修订。"
+      ]
+    },
+    {
+      "id": "G06",
+      "phase": "P2",
+      "release": "core",
+      "name": "Process Variant 与 Workflow Pattern Mining",
+      "deps": "G05",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "Mining/Algorithm Engineer",
+      "paths": "`packages/application/src/compiler/mining/`、离线 Benchmark、可选 `research/`",
+      "deliverables": "Variant Miner、Precedence/Concurrency Matrix、Mandatory/Optional/Recovery Pattern、质量指标",
+      "tasks": [
+        "首版实现 TypeScript 确定性流程发现：Trace Variant、Direct-Follows、Precedence、Frequency、Mandatory/Optional。",
+        "识别并行候选、循环、Recovery Branch 和异常变体。",
+        "计算基础 Fitness、Precision、Variant Coverage 和 Environment Coverage。",
+        "支持按 Tenant、Task Type、Goal Fingerprint、Capability Fingerprint 建立 Cohort。",
+        "引入领域硬规则，过滤业务上不允许的模式。",
+        "可建立 PM4Py 离线对照 Harness，但不得让 Python 成为生产权威。"
+      ],
+      "tests": [
+        "已知 Trace 集发现正确 Variant。",
+        "并行与顺序不混淆。",
+        "低频异常不被当成主流程。",
+        "领域禁止路径被剔除。",
+        "TypeScript 与离线基线差异报告。"
+      ],
+      "accept": [
+        "输出结构化 DiscoveredProcessPattern。",
+        "Mining 结果包含支持、反例和环境覆盖。",
+        "算法版本可重放。"
+      ],
+      "forbid": [
+        "首版不要求完整 Petri Net/BPMN 引擎。",
+        "不得直接生成 Active Template。"
+      ]
+    },
+    {
+      "id": "G07",
+      "phase": "P2",
+      "release": "core",
+      "name": "Pattern Generalization 与 Artifact Candidate Generator",
+      "deps": "G06、G01",
+      "days": [
+        10,
+        15
+      ],
+      "owner": "AI/Compiler Engineer",
+      "paths": "`packages/application/src/compiler/generalization/`、Model Stage、Candidate Repository",
+      "deliverables": "Pattern Fusion、Generalizer、Plan/Rule/Case/Route Candidate、Static Validator",
+      "tasks": [
+        "融合 Process Mining 结构、v1.2.3 Task Type/Capability Pattern 和模型语义候选。",
+        "抽象实例 ID 为变量、Domain/Device/Environment Class，保留 Invariant 和 Negative Condition。",
+        "生成 Workflow→Plan Template、Condition→Rule、Exception→Case、Cost→Model Route Candidate。",
+        "保存 Source Trace、Support/Contradiction、Generator/Model Version、Assumption、Unknown、Explanation。",
+        "实现静态校验、Fingerprint 去重、Candidate Lineage 和低置信度隔离。",
+        "模型只参与命名、变量抽象和 Negative Example，不决定上线。"
+      ],
+      "tests": [
+        "同类实例正确泛化。",
+        "不同完成标准不错误合并。",
+        "单一用户偏好不全局化。",
+        "非法/不完整 Candidate 拒绝。",
+        "模型无效输出 no-op。"
+      ],
+      "accept": [
+        "Candidate 默认为不可运行。",
+        "所有字段可追溯到 Trace/Knowledge。",
+        "反例和 Unknown 不被省略。"
+      ],
+      "forbid": [
+        "不得由模型直接创建 Approval/Active 状态。",
+        "不得将一次成功固化为全局模式。"
+      ]
+    },
+    {
+      "id": "G08",
+      "phase": "P2",
+      "release": "core",
+      "name": "Plan Template Compiler",
+      "deps": "G07、v1.2.3 Plan/Contract Validator",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "Goal Planning/Compiler Engineer",
+      "paths": "`packages/application/src/compiler/plan-template/`、Domain、Schema、Tests",
+      "deliverables": "Step Classifier、Capability Mapper、Skill Goal DAG Template、Parameter/Contract/Recovery Template",
+      "tasks": [
+        "分类 Action、Observation、Reasoning、Verification、Recovery、Human Gate。",
+        "将历史 Skill/Node 映射为 Capability Requirement，不绑定 Provider。",
+        "生成 Skill Goal Node、Dependency、Criterion Coverage、Effect/Evidence/Artifact Requirement。",
+        "生成参数 Schema、可信来源、默认策略和缺失字段处理。",
+        "生成 Completion Contract Template 和有界 Recovery Branch。",
+        "对 Candidate 执行 DAG、Bounds、Coverage、Side-effect Replay 和 Capability Shape 校验。",
+        "保存 Compiler Version、Catalog Hash、Policy Snapshot 和 Content Hash。"
+      ],
+      "tests": [
+        "DAG 无环/覆盖/边界。",
+        "不同设备 Skill 可实例化同一模板。",
+        "关键参数不得模型默认。",
+        "Recovery 不重放副作用。",
+        "Template Golden Fixture。"
+      ],
+      "accept": [
+        "Template 能生成严格 UserGoalPlan Candidate。",
+        "模板不选择精确 Skill。",
+        "所有 Candidate 通过既有 Validator 才进入 Replay。"
+      ],
+      "forbid": [
+        "不得生成第二套 Workflow Runtime。",
+        "不得直接生成 MCP 调用。"
+      ]
+    },
+    {
+      "id": "G09",
+      "phase": "P3",
+      "release": "core",
+      "name": "Replay Dataset 与 Fixture Builder",
+      "deps": "G05、G08",
+      "days": [
+        10,
+        14
+      ],
+      "owner": "Evaluation/Data Engineer",
+      "paths": "`packages/application/src/compiler/replay/`、`tests/replay/`、Dataset Manifest",
+      "deliverables": "ReplayCase、Dataset Split、Counterexample Set、No-Physical Provider Harness",
+      "tasks": [
+        "从 Episode/Trace 构建 request、contract、catalog、world、policy、accepted plan、outcome 快照。",
+        "严格划分 discovery、candidate_development、promotion_holdout、counterexample 数据。",
+        "实现数据版本、来源 Hash、Tenant 隔离和删除传播。",
+        "实现 No-Physical Provider，禁止 Replay 调用真实 MCP 副作用。",
+        "提供 Plan、Rule、Case 和 Counterfactual Replay Fixture。",
+        "建立 Dataset Coverage 报告。"
+      ],
+      "tests": [
+        "数据集之间无 Source 泄漏。",
+        "删除 Episode 传播。",
+        "Replay 不产生真实副作用。",
+        "Snapshot Version 可重放。"
+      ],
+      "accept": [
+        "每个 Promotion Run 绑定不可变 Dataset Version。",
+        "发现集与晋升 Holdout 分离。",
+        "Counterexample 可独立查询。"
+      ],
+      "forbid": [
+        "不得使用生产凭据。",
+        "不得把运行时最新状态替换历史快照。"
+      ]
+    },
+    {
+      "id": "G10",
+      "phase": "P3",
+      "release": "core",
+      "name": "Replay 与流程一致性验证引擎",
+      "deps": "G08、G09",
+      "days": [
+        10,
+        15
+      ],
+      "owner": "Evaluation/Runtime Engineer",
+      "paths": "`packages/application/src/compiler/validation/`、Validation Repository、Reports",
+      "deliverables": "Static/Plan/Rule/Counterfactual Replay、Fitness/Precision/Generalization、Validation Report",
+      "tasks": [
+        "实现 Artifact Static Validation 和依赖快照检查。",
+        "实现 Plan Replay：实例化→Plan Validator→Coverage/Cost/Plan Diff。",
+        "实现 Rule Replay：与权威决策比较，计算 FP/FN/Unsafe Allow/Missed Confirmation。",
+        "实现 Counterfactual Replay，不执行真实副作用。",
+        "计算 Success、Coverage、Fitness、Precision、Generalization、Latency/Token 节省。",
+        "输出不可变 Validation Result、Failure、Counterexample 和 Recommendation。"
+      ],
+      "tests": [
+        "相同 Dataset/Artifact 结果可重放。",
+        "Holdout 不被训练逻辑修改。",
+        "Unsafe Allow 强制 unsafe。",
+        "基础 Planner 不退化门禁。"
+      ],
+      "accept": [
+        "Candidate 不通过 Replay 不可批准。",
+        "验证报告能解释失败案例。",
+        "所有指标定义和版本冻结。"
+      ],
+      "forbid": [
+        "不得只以成功率晋升。",
+        "不得让模型自评替代权威 Outcome。"
+      ]
+    },
+    {
+      "id": "G11",
+      "phase": "P3",
+      "release": "core",
+      "name": "Shadow Engine",
+      "deps": "G03、G08、G10",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Runtime/Evaluation Engineer",
+      "paths": "`packages/application/src/compiler/shadow/`、Runtime Hooks、Shadow Reports",
+      "deliverables": "Shadow Decision/Plan、Baseline Comparison、严格副作用隔离、Shadow Metrics",
+      "tasks": [
+        "在正式 v1.2.3 路径旁路运行 Candidate Artifact。",
+        "Shadow 只生成 Decision/Plan，不创建正式 Attempt、Plan、通知或 MCP 调用。",
+        "比较正式 Plan 与 Candidate 的 Coverage、Risk、Cost、Latency、User Patch 和 Outcome。",
+        "实现过期 Candidate/Goal Version 丢弃。",
+        "保存 Shadow Result 与正式 Outcome 的关联。",
+        "建立 Shadow Capacity/Backpressure。"
+      ],
+      "tests": [
+        "Shadow 无正式数据库副作用。",
+        "Shadow 不发布通知/MCP。",
+        "过期版本丢弃。",
+        "正式路径失败不由 Shadow 覆盖。"
+      ],
+      "accept": [
+        "Shadow 可安全在真实流量上运行。",
+        "结果可用于 Promotion。",
+        "Feature Flag off 时零开销或有界最小开销。"
+      ],
+      "forbid": [
+        "不得让 Shadow 结果进入正式终态。",
+        "不得共享正式幂等键执行副作用。"
+      ]
+    },
+    {
+      "id": "G12",
+      "phase": "P3",
+      "release": "core",
+      "name": "Artifact Approval、Promotion 与 Revalidation",
+      "deps": "G04、G10、G11",
+      "days": [
+        10,
+        14
+      ],
+      "owner": "Governance/Runtime Engineer",
+      "paths": "`packages/application/src/compiler/promotion/`、Management API、Persistence、Outbox",
+      "deliverables": "Promotion Policy、Approval、Activation、Revalidation Trigger、Deprecation、Active Projection",
+      "tasks": [
+        "聚合 Replay、Shadow、Counterexample、Risk Review 和依赖快照。",
+        "实现 Candidate→Validating→Awaiting Approval→Active 的 CAS 状态机。",
+        "批准与激活分离；激活事务校验审批 Hash、验证摘要和依赖有效性。",
+        "实现运行失败、Catalog/Policy/Task Type/Schema 变化触发 Revalidating。",
+        "Revalidating Artifact 从 Fast Index 移除，但保留 Shadow。",
+        "实现人工修订 Candidate 新版本和 Lineage。"
+      ],
+      "tests": [
+        "无审批不能激活。",
+        "审批针对旧 Validation Hash 时拒绝。",
+        "双激活 Race。",
+        "依赖变化自动 revalidating。",
+        "废弃后缓存失效。"
+      ],
+      "accept": [
+        "只有 Active Artifact 进入 Fast Gateway。",
+        "高风险永不自动激活。",
+        "所有状态迁移有审计与 Outbox。"
+      ],
+      "forbid": [
+        "不得由 LLM 或 Worker 自行批准。",
+        "不得自动发布 Skill。"
+      ]
+    },
+    {
+      "id": "G13",
+      "phase": "P4",
+      "release": "core",
+      "name": "Artifact Index、Semantic Retrieval 与候选排序",
+      "deps": "G03、G12",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Retrieval Engineer",
+      "paths": "`packages/application/src/compiler/retrieval/`、PostgreSQL/pgvector/FTS、Cache",
+      "deliverables": "Active Index、Exact/Structured/Semantic Retrieval、RRF/Ranking、Tenant/Version Filter",
+      "tasks": [
+        "实现 Exact Pattern、Task Type、Domain、Tenant、Risk 和 Status 过滤。",
+        "实现 Semantic Embedding 检索，复用现有 Embedding/Memory 基础设施但读取 Artifact 权威定义。",
+        "实现 Level-0 Index→Level-1 Applicability→Level-2 Definition 渐进加载。",
+        "实现候选排序、近分歧义和确定性 Tie-break。",
+        "缓存绑定 Active Pointer、Catalog Hash、Policy Hash、Tenant。",
+        "记录 Match Candidate 和检索解释。"
+      ],
+      "tests": [
+        "非 Active/跨租户不返回。",
+        "Exact 优先、语义阈值和歧义回退。",
+        "缓存失效。",
+        "检索 P95。"
+      ],
+      "accept": [
+        "只返回当前有效 Active Artifact。",
+        "Top Candidates 可解释。",
+        "语义匹配不能绕过硬条件。"
+      ],
+      "forbid": [
+        "不得把 Memory 搜索结果直接当 Active Artifact。",
+        "不得随机选取同分候选。"
+      ]
+    },
+    {
+      "id": "G14",
+      "phase": "P4",
+      "release": "core",
+      "name": "Applicability、参数绑定与依赖有效性",
+      "deps": "G13、Capability Summary/Readiness/Policy Ports",
+      "days": [
+        10,
+        14
+      ],
+      "owner": "Runtime Policy Engineer",
+      "paths": "`packages/application/src/compiler/applicability/`、Parameter Binding、Dependency Guard",
+      "deliverables": "ApplicabilityEvaluator、ParameterBinder、Capability/Readiness/Policy Guard、OOD",
+      "tasks": [
+        "执行 Required/Optional/Forbidden Condition。",
+        "按权威优先级绑定参数并保存 Source/Confidence。",
+        "关键目标、范围、标准、安全授权不可由模型默认。",
+        "校验 Capability Summary、Exact Skill Candidate 和 Provider Readiness。",
+        "校验 Dependency Snapshot：Catalog、Policy、Task Type、Schema、Compiler Version。",
+        "识别 Environment OOD 和 Uncertainty，输出 eligible/adapt/fallback/confirm/deny。"
+      ],
+      "tests": [
+        "Forbidden Condition、缺参数、Capability Gap、Readiness Failure、Policy Deny。",
+        "Catalog/Policy Hash 失配。",
+        "未知高风险字段回退。",
+        "Parameter Source 优先级。"
+      ],
+      "accept": [
+        "硬条件失败时不能进入 Fast Path。",
+        "历史成功不替代 Readiness。",
+        "每个决定有 Reason Code。"
+      ],
+      "forbid": [
+        "不得用总评分覆盖硬拒绝条件。",
+        "不得静默填充授权。"
+      ]
+    },
+    {
+      "id": "G15",
+      "phase": "P4",
+      "release": "core",
+      "name": "Plan Template Runtime 与 v1.2.x Handoff",
+      "deps": "G08、G12、G14",
+      "days": [
+        12,
+        17
+      ],
+      "owner": "Goal Runtime Integration Engineer",
+      "paths": "`packages/application/src/compiler/runtime/`、v1.2.3 Planning Session、Plan Handoff",
+      "deliverables": "Template Instantiation、Plan Candidate、Validator Bridge、Review/Auto-confirm Policy、Execution Record",
+      "tasks": [
+        "实例化 Active Template、Confirmed Contract 和可信参数。",
+        "生成 v1.2.3 UserGoalPlan Candidate，并复用完整 Plan Validator。",
+        "向 Interactive Planning 展示 Artifact 来源、版本、验证摘要和参数绑定。",
+        "实现 shadow/advisory/active 三种 Handoff。",
+        "在 Goal Version Lock 下幂等提交 Confirmed Candidate。",
+        "记录 Artifact Execution selected/compiled/submitted/fallback。",
+        "运行前 Readiness/Policy 再检查。"
+      ],
+      "tests": [
+        "Template Candidate 与基础 Planner Contract 兼容。",
+        "未确认不执行。",
+        "Goal Patch/Version Race。",
+        "执行前 Readiness 变化回退。",
+        "Artifact completed 不提交 User Goal terminal。"
+      ],
+      "accept": [
+        "Template 只缩短规划，不改变执行权威。",
+        "Fallback 能无损进入 v1.2.3。",
+        "同一 Candidate 不重复提交。"
+      ],
+      "forbid": [
+        "不得直接调用 Skill/MCP。",
+        "不得跳过 Interactive/Auto-confirm Policy。"
+      ]
+    },
+    {
+      "id": "G16",
+      "phase": "P4",
+      "release": "core",
+      "name": "Decision Rule Runtime 与 Safety Policy Bridge",
+      "deps": "G07、G10、G12、G14",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "Rule/Policy Engineer",
+      "paths": "`packages/application/src/compiler/rules/`、可选 ZEN Adapter、现有 Policy Port",
+      "deliverables": "Condition Evaluator、Decision Table、Conflict Resolver、Rule Trace、Safety Policy Bridge",
+      "tasks": [
+        "实现首版确定性 Condition DSL 和 Decision Table Runtime。",
+        "实现 risk/routing/confirmation/recovery/degradation/model_selection Decision。",
+        "实现 Rule Priority、Conflict Group、more-specific/deny-overrides/human-required。",
+        "业务 Rule 输出 Candidate Decision，再经过现有 Safety Policy。",
+        "建立 Rule Replay 指标和在线 Decision Trace。",
+        "评估 ZEN 依赖；若引入，锁定版本、许可证和行为 Contract；否则保留自研 Adapter Port。",
+        "OPA 仅作为可选 Policy Adapter，不成为计划引擎。"
+      ],
+      "tests": [
+        "Condition Operator、Conflict Witness、Priority。",
+        "Safety deny 覆盖业务 allow。",
+        "Rule Timeout/Invalid Definition fail closed。",
+        "Replay FP/FN。"
+      ],
+      "accept": [
+        "Rule 运行无模型、无副作用、可解释。",
+        "安全 Policy 始终拥有最终 allow/deny/confirm 权威。",
+        "规则冲突不随机解决。"
+      ],
+      "forbid": [
+        "不得从经验自动激活安全 Policy。",
+        "不得让 Rule 直接执行动作。"
+      ]
+    },
+    {
+      "id": "G17",
+      "phase": "P4",
+      "release": "core",
+      "name": "Fast Gateway 编排与 Cognitive Fallback",
+      "deps": "G13、G14、G15、G16",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "Runtime Lead",
+      "paths": "`packages/application/src/compiler/fast-gateway/`、`plan-preparation-processor`、A2A Task Entry",
+      "deliverables": "Request Normalizer、Gateway Orchestrator、Decision Log、Fallback Context、Feature Modes",
+      "tasks": [
+        "在 User Request 入口前置 Fast Gateway，但保持 Feature Flag off 的原行为。",
+        "实现 Request Normalization、Exact/Semantic Candidate、Applicability、Capability、Readiness、Rule/Policy 流程。",
+        "输出 compiled_fast/template_adapt/small_model/cognitive/human/denied。",
+        "实现歧义、低置信度和所有硬失败的 Cognitive Fallback。",
+        "将 attempted Artifact、missing condition 和 observed fact 传给 v1.2.3，避免重复理解。",
+        "记录 Match Log、Decision Snapshot 和 Runtime Correlation。",
+        "达到 P95 目标且不牺牲检查。"
+      ],
+      "tests": [
+        "off/shadow/advisory/active 全模式。",
+        "无候选/歧义/OOD/Policy deny。",
+        "Fallback 保留上下文。",
+        "Fast Gateway P95<200ms 基准。",
+        "A2A 状态不增加私有枚举。"
+      ],
+      "accept": [
+        "不确定必回退。",
+        "低风险 Active Template 才可产生 Candidate。",
+        "v1.2.3 基础链不回归。"
+      ],
+      "forbid": [
+        "不得以 Match Score 单独允许执行。",
+        "不得吞掉 Fallback 原因。"
+      ]
+    },
+    {
+      "id": "G18",
+      "phase": "P4",
+      "release": "core",
+      "name": "Artifact Execution Feedback、监控与自动 Revalidation Signal",
+      "deps": "G12、G15、G16、G17",
+      "days": [
+        8,
+        12
+      ],
+      "owner": "Telemetry/Runtime Engineer",
+      "paths": "`packages/application/src/compiler/feedback/`、Telemetry、Repositories、Workers",
+      "deliverables": "Execution/Feedback、Rolling Metrics、Revalidation Signal、Artifact Health",
+      "tasks": [
+        "关联 Artifact Execution、Generated Plan、Task/Goal Outcome、用户 Patch、Policy Deny 和 Fallback。",
+        "计算 rolling success、fallback、correction、latency/cost saving、OOD 和 safety failure。",
+        "触发 Revalidation Signal，不直接改变 Active Artifact。",
+        "实现 Artifact Health、Usage、Benefit 和 Failure Dashboard Projection。",
+        "将反馈写回 v1.2.3 Experience Source。",
+        "支持版本和 Tenant 维度统计。"
+      ],
+      "tests": [
+        "Outcome 延迟关联。",
+        "重复反馈幂等。",
+        "阈值触发一次 Revalidation Signal。",
+        "安全失败立即隔离自动路径。"
+      ],
+      "accept": [
+        "Artifact 可持续监控和退化。",
+        "执行反馈形成经验闭环。",
+        "统计不改变 Outcome Authority。"
+      ],
+      "forbid": [
+        "不得以单次普通失败自动删除制品。",
+        "不得由指标 Worker 直接重新激活。"
+      ]
+    },
+    {
+      "id": "G19",
+      "phase": "P5",
+      "release": "extended",
+      "name": "Case Runtime 与 CBR",
+      "deps": "G07、G09、G12、G14、G18",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "CBR/Recovery Engineer",
+      "paths": "`packages/application/src/compiler/case-runtime/`、Case Index、Recovery Integration",
+      "deliverables": "Problem Fingerprint、Hybrid Retrieval、Case Adaptation、Failure Boundary、Recovery Candidate",
+      "tasks": [
+        "实现同 Tenant/Task Type 的 Structured+Semantic Case Retrieval。",
+        "构建 Task/Environment/Failure/Capability/Constraint Fingerprint。",
+        "实现 Similarity、Constraint、Outcome、Risk Ranking。",
+        "Case 只生成 Plan Patch/Recovery Plan/Parameter Candidate。",
+        "复用 v1.2.2 Recovery Authority 和 Validator。",
+        "保存 retrieved/adapted/accepted/rejected/success/failure/out_of_scope/unsafe。",
+        "失败补充 Failure Boundary Candidate。"
+      ],
+      "tests": [
+        "文本相似但条件不符被拒绝。",
+        "跨租户拒绝。",
+        "高风险恢复需要人工。",
+        "Case 不直接执行。"
+      ],
+      "accept": [
+        "特殊恢复可复用且不取代 Template/Planner。",
+        "所有 Case 有 Episode/Outcome Lineage。"
+      ],
+      "forbid": [
+        "v1.3.0 Core Release 不以本 Goal 为阻断。",
+        "不得跨域自动迁移案例。"
+      ]
+    },
+    {
+      "id": "G20",
+      "phase": "P5",
+      "release": "extended",
+      "name": "Model Cascade 与成本路由",
+      "deps": "G17、G18、现有 Model Runtime",
+      "days": [
+        10,
+        15
+      ],
+      "owner": "Model Runtime Engineer",
+      "paths": "`packages/application/src/compiler/model-cascade/`、Model Runtime、Budget Repository",
+      "deliverables": "Complexity Features、Budget、Route Decision、Fallback Chain、Cost/Quality Feedback",
+      "tasks": [
+        "实现 none/local_small/cloud_medium/cloud_reasoning/human 路由 Port。",
+        "路由权威顺序：Safety/Tenant Policy→Task Budget→Route Artifact→Cost Stats→Model Confidence。",
+        "实现 Task/Goal/Tenant/Runtime 并发预算。",
+        "首版先支持 Compiled→Strong Reasoning→Human；小模型 Provider 可选。",
+        "记录每次升级原因，防止循环。",
+        "离线生成 Route Candidate，仍需 Replay/Shadow/人工批准。"
+      ],
+      "tests": [
+        "预算耗尽、Provider 不可用、循环防护。",
+        "模型自信度不能越权。",
+        "Route Feedback。"
+      ],
+      "accept": [
+        "模型成本可观测且有界。",
+        "大模型从默认变成兜底。"
+      ],
+      "forbid": [
+        "v1.3.0 Core Release 不以自动路由优化为阻断。",
+        "不得让 Route Artifact 绕过 Policy。"
+      ]
+    },
+    {
+      "id": "G21",
+      "phase": "P6",
+      "release": "core",
+      "name": "Management API、Console、A2A 与运维",
+      "deps": "G03、G04、G10～G18；扩展 UI 可等待 G19/G20",
+      "days": [
+        12,
+        18
+      ],
+      "owner": "Full-stack/API Engineer",
+      "paths": "`packages/management-api/`、`apps/console/`、`packages/a2a-adapter/`、OpenAPI",
+      "deliverables": "Artifact/Compiler/Validation/Execution API、Governance Console、A2A Projection、Runbook",
+      "tasks": [
+        "实现 Artifact list/detail/lineage/validation/approve/activate/deprecate/revalidate。",
+        "实现 Compiler Trace/Pattern/Run/Candidate API。",
+        "实现 Execution/Match/Feedback 查询。",
+        "Console 展示 Lineage、Definition Diff、Replay、Shadow、Counterexample、Approval、Health。",
+        "Interactive Planning 显示 Template 来源和验证摘要。",
+        "A2A 公开 Card 不暴露 Artifact；可信内部仅展示 compiledPath 可用性摘要。",
+        "实现 Dead Letter、Replay Trigger、Cache Rebuild 和运维 Runbook。"
+      ],
+      "tests": [
+        "OpenAPI Contract。",
+        "认证/授权/CAS/幂等。",
+        "Console Diff/状态。",
+        "Public/Internal 隔离。",
+        "A2A TCK。"
+      ],
+      "accept": [
+        "操作员可安全管理 Artifact 生命周期。",
+        "公开协议不泄露内部规则/案例。",
+        "运维操作可审计。"
+      ],
+      "forbid": [
+        "Console 不得直接修改 Active Definition。",
+        "不得从 UI 直接执行物理动作。"
+      ]
+    },
+    {
+      "id": "G22",
+      "phase": "P7",
+      "release": "core",
+      "name": "Hardening、性能、安全、灰度与发布",
+      "deps": "G00～G18、G21；Full Release 另含 G19/G20",
+      "days": [
+        15,
+        22
+      ],
+      "owner": "全团队/Release Lead",
+      "paths": "全仓库、CI、scripts、infra、reports、SBOM、THIRD_PARTY_NOTICES",
+      "deliverables": "Full Verify、Chaos/Performance/Security、Release Report、SBOM、Sources Lock、Draft PR",
+      "tasks": [
+        "完成 Unit/Contract/Integration/E2E/Replay/Shadow/A2A TCK。",
+        "完成 Redis 清空、Worker Crash、PostgreSQL Restart、Cache Stale、Duplicate Event、CAS Race。",
+        "完成 Prompt Injection、PII、Tenant Isolation、匿名激活、Path/Schema/JSON 攻击测试。",
+        "验证 Fast Gateway、Template Plan、Rule Runtime 性能目标。",
+        "按 off→shadow→advisory→active low-risk 灰度。",
+        "更新 Architecture、Storage、OpenAPI、Traceability、Acceptance、Runbook、SBOM、Sources Lock。",
+        "生成 Core 与 Full Scope 两类 Release Report。",
+        "不自动 Merge，不创建 Tag。"
+      ],
+      "tests": [
+        "`pnpm verify` 全绿。",
+        "独立数据库完整门禁。",
+        "性能与容量报告。",
+        "安全与许可证报告。",
+        "真实 v1.2.3 Fallback E2E。"
+      ],
+      "accept": [
+        "v1.3.0 Core 所有门禁通过。",
+        "高风险自动执行为零。",
+        "Fast Path 失败 100% 可回退或明确失败。",
+        "工作树干净，Draft PR 可审查。"
+      ],
+      "forbid": [
+        "不得用 Mock 作为最终线上集成证据。",
+        "不得隐藏失败尝试或降低门禁。"
+      ]
+    }
+  ],
+  "workload_person_days": {
+    "core": {
+      "low": 206,
+      "high": 303
+    },
+    "extended": {
+      "low": 22,
+      "high": 33
+    },
+    "full": {
+      "low": 228,
+      "high": 336
+    },
+    "core_with_20_percent_contingency": {
+      "low": 247,
+      "high": 364
+    },
+    "full_with_20_percent_contingency": {
+      "low": 274,
+      "high": 403
+    },
+    "possible_v123_prerequisite_gap": {
+      "low": 110,
+      "high": 148
+    },
+    "full_if_v123_gap_exists": {
+      "low": 338,
+      "high": 484
+    }
+  },
+  "calendar_weeks": {
+    "recommended_team": "5 cross-functional engineers + 0.5 shared architecture/security",
+    "core": {
+      "low": 18,
+      "high": 24
+    },
+    "full": {
+      "low": 21,
+      "high": 28
+    },
+    "additional_if_v123_gap_exists": {
+      "low": 8,
+      "high": 12
+    }
+  },
+  "release_scope": {
+    "core": [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08",
+      "G09",
+      "G10",
+      "G11",
+      "G12",
+      "G13",
+      "G14",
+      "G15",
+      "G16",
+      "G17",
+      "G18",
+      "G21",
+      "G22"
+    ],
+    "extended": [
+      "G19",
+      "G20"
+    ]
+  }
+}

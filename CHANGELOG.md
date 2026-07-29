@@ -2,6 +2,229 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P07 Active Artifact Retrieval and Applicability
+
+- Added nine frozen V1.1 P07 contracts for active-index entries, matches,
+  applicability, parameter binding, dependencies, readiness and the
+  non-executable runtime decision handoff.
+- Added P02 PostgreSQL active-pointer Level-0 projection and immutable
+  definition reloads, deterministic exact/structured/semantic retrieval and
+  stable score ordering that cannot override hard safety gates.
+- Added restricted AST applicability, source/trust/confidence parameter
+  binding, current capability/Skill/provider checks, policy/OOD/kill-switch
+  gates, durable match/decision audit and migration 0131.
+- Added dependency evidence validation and a P06-atomic revalidation request
+  that preserves global P05 dataset ID/version/hash pins; Redis remains
+  rebuildable wake/cache state only.
+- Added focused P07 unit/contract/PostgreSQL integration coverage, a global
+  evidence-pin regression, independent read-only review closure and passed
+  full verification. No P08 public gateway or execution path was implemented.
+
+## SDAR v1.3 P06 Shadow, Promotion and Governance
+
+- Added six frozen P06 governance contracts and a pure Domain canonical
+  SHA-256 primitive that preserves the compiler-domain runtime boundary.
+- Added migration 0130 and PostgreSQL-authoritative Shadow lifecycle,
+  promotion evidence/policy/package, approval/activation, revalidation,
+  critical deprecation and rollback projection records.
+- Added non-blocking current-state-pinned Shadow orchestration and wake-only
+  BullMQ workers; prohibited operations produce durable unsafe evidence rather
+  than physical actions.
+- Bound promotion coverage to immutable P05 replay/P06 formal evidence,
+  persisted P02 activation validation summary IDs, and atomically cleared P02
+  parent leases at Shadow terminalization.
+- Added real P05 -> P06 -> P02 PostgreSQL integration, safety-source failure,
+  P02 parent lease and active-definition regressions. Independent review closed
+  with no Blocking/Major/Minor findings; final isolated `pnpm verify` passed.
+
+## SDAR v1.3 P05 Replay Dataset and Artifact Validation Engine
+
+- Added strict immutable V1.1 contracts for Replay Cases, Dataset manifests, Validation Runs,
+  Results, Failures and Counterexamples with the frozen Registry hashes.
+- Added deterministic four-purpose Dataset construction, snapshot completeness and group/time/
+  near-duplicate/Candidate-source leakage guards plus tenant deletion and bounded retention.
+- Added a fail-closed snapshot-only Replay provider that rejects credentials, network, MCP,
+  Provider, device, external writes and formal runtime mutations before a physical boundary.
+- Added Plan Replay through the existing `validateUserGoalPlan`, Rule and Counterfactual evaluators,
+  a transparent 29-metric catalog, immutable result pins and reproducible result hashing.
+- Extended P02's canonical `artifact_validation_run` through migration 0129 and added durable
+  Case/Dataset/Result/Failure/Counterexample children, lease fencing, bounded retry, cancellation,
+  stale-pin rejection and completion Outbox without changing Candidate lifecycle state.
+- Added wake-only BullMQ dispatch/reconciliation and Server composition. Real PostgreSQL/Redis
+  integration covers the Formal P03 -> P04 -> P02 -> P05 chain, Redis loss/rebuild/deduplication
+  and tenant deletion propagation.
+- Added reproducible 1k/10k Dataset and 2k Replay performance measurements. P05 does not implement
+  Shadow, Approval, Promotion, activation, Fast Gateway or P06 behavior.
+- Closed the independent Review findings by deriving Replay fixtures from native frozen Episode
+  facts, connecting NoPhysical denial to persisted unsafe Result/Failure/Counterexample evidence,
+  emitting `artifact.validation_completed`, and executing Metric Catalog aggregation/minimum-sample
+  rules with run-independent Result hashes.
+- Replaced destructive source-deletion cascades with Dataset/Run invalidation, immutable successor
+  Dataset versions and retained terminal audit facts; added database protection for terminal Runs.
+- Added exact Case alignment, Environment/Device/five-minute split grouping, Rule unknown/conflict/
+  policy override and Counterfactual criterion/risk/recovery deltas.
+- Added real PostgreSQL fencing, retry/dead-letter, cancellation, stale-pin, four-worker bounded
+  throughput/backpressure tests and measured BullMQ queue lag. P06 changes remain dependency and
+  immutable-Handoff alignment only.
+- Pinned production Replay inputs to the exact historical Task Understanding and Capability
+  Summary revision/catalog hash instead of mutable current Skill rows; the regression disables all
+  current Skills and still reconstructs five valid historical Episodes.
+- Closed five independent read-only Review rounds at `14eb978` with 0 Blocking, 0 Major and
+  0 Minor. All 43 acceptance criteria and the complete repository verification gate pass; the
+  Candidate remains non-executable and P06 implementation has not started.
+
+## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation
+
+- Upgraded Activity Identity, Trace Event, Process Variant and Workflow Pattern contracts to V1.2,
+  separating lifecycle `eventType` from formal `activityKey` and preserving repeated, self-loop,
+  explicit parallel, branch and recovery semantics with cohort-derived quality.
+- Added fail-closed P04 generalization safety, live Capability Catalog validation, three independent
+  fingerprints and exact DAG/parallel/conditional compilation without losing parameters,
+  applicability, lineage or recovery data.
+- Added Static Validator V1.2 and a durable Candidate generation application/runtime path through
+  PostgreSQL, P02 `ArtifactRepository.saveCandidate`, transactional validation/lineage/Outbox and a
+  completed run; Redis stores run-ID wakes only.
+- Added migration 0128, real Formal-fact P03→P04→P02 PostgreSQL integration and real Redis
+  loss/restart/fencing/dead-letter coverage.
+- Published Shared Interface Registry V1.2 and aligned P03/P04/P05 locks, P13 audit, the execution
+  matrix and P04R-aware aggregate validation without changing P00-P02 authority or adding G23.
+- Independent Reviews A/B/C closed with 0 Blocking and 0 Major findings. P03, P04 and P04R Handoffs
+  are `COMPLETED`; 47/47 P04R criteria and the exact clean `pnpm verify` gate pass.
+
+## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler
+
+- Added frozen `FusedPattern`, `GeneralizedPattern`, and `CandidateStaticValidationResult` Domain
+  contracts with strict factories, content-hash helpers, and schema hashes matching
+  `CONTRACT-LOCK.json`.
+- Added `PatternFusionService` that fuses P03 structural facts with optional LLM semantic
+  candidates; structural facts are read-only and never overwritten by model output. A `NoOpSemanticModel`
+  provides a zero-LLM default path.
+- Added `PatternGeneralizationService` with five anti-overfitting rules: no single-device
+  globalization, no cross-user preference hardening, no temporary-auth hardening, no one-success
+  universal pattern, and no failure-boundary deletion.
+- Added `ArtifactCandidateGenerator` producing `CompiledArtifact` with `status=candidate`,
+  `artifactType=plan_template`, `executable=false` (domain invariant), and a 7-input SHA-256
+  fingerprint for duplicate detection.
+- Added `PlanTemplateCompiler` with step classification (action/observation/reasoning/verification/
+  recovery/human_gate), capability-only mapping (no `skill:` prefix), acyclic Skill Goal DAG,
+  parameter extraction with trust-level policy, completion contract template, and recovery branches
+  with `sideEffectReplayPolicy=forbidden`.
+- Added `CandidateStaticValidator` with 8 checks (schema, DAG, criteria coverage, capability shape,
+  parameter policy, replay safety, bounds, duplicate fingerprint). `passed_static` is explicitly not
+  a promotion signal.
+- Added migration `0127_v13_artifact_candidate_generation` with 5 non-authoritative child tables.
+- Added wake-only BullMQ worker for `sdar-compiler-pattern-generalization` and
+  `sdar-compiler-artifact-generation` queues.
+- Moved hash computation (`createHash`) from Domain to Application layer to satisfy the
+  `ARCH_ARTIFACT_DOMAIN_IMPORT_FORBIDDEN` architecture gate.
+- Full `pnpm verify` gate passes on a clean self-managed-compose database (7/7 steps, 841
+  unit/contract, 100 integration, 62 E2E, 20 migrations through 0127, architecture, build, smoke).
+- Review 1 self-audit concludes 0 Blocking / 0 Major / 0 Minor; final ACCEPTED verdict is
+  `PENDING_USER_CONFIRMATION`. P05 Handoff emitted with 3 produced and 3 consumed contracts.
+
+## SDAR v1.3 P03 Experience Trace and Process Mining — remediation closure
+
+- Added strict frozen ExperienceTrace, event, cohort, variant, discovered-pattern and
+  WorkflowPattern Domain contracts with deterministic, redacted formal Episode normalization.
+- Added migration 0126 projections and PostgreSQL-authoritative compiler runs with lease fencing,
+  bounded retry/dead letter, source-event lineage, deletion propagation and tenant isolation.
+- Added deterministic TypeScript process mining for variants, direct-follows, precedence, explicit
+  parallel evidence, recovery/failure separation and frozen quality metrics without a Python
+  sidecar, model authority, Skill binding or Artifact creation.
+- Connected the product Server lifecycle to source-event dispatch, wake-only BullMQ workers and
+  PostgreSQL reconcilers so Redis loss cannot lose durable work.
+- Closed the first independent review's 2 Blocking, 4 Major and 2 Minor findings: formal Source
+  compatibility, real 10k PostgreSQL persistence, content-hashed Brotli Pattern envelopes,
+  terminal-attempt crash recovery, strict nested schemas, real Redis rebuild, tenant-scoped reads
+  and quantitative DB/worker/queue evidence.
+- Remediation tests pass 828 unit/contract, 100 integration and 62 E2E plus migration, architecture,
+  A2A/OpenAPI and build gates. Final operator infrastructure smoke and independent re-review remain
+  open; P03 is not yet marked complete and P04 has not started.
+- The second independent review closed all original findings but rejected `1f7e043` with three new
+  Major findings: timestamp-colliding/unbounded mining triggers, synchronous event-loop work and
+  missing formal Task Source attribution.
+- Working-tree remediation batches up to 1,000 source events per cohort, uses event-set identity plus
+  a cohort advisory lock and 60-second durable rate window, limits mining concurrency to one, yields
+  every 128 traces, compresses with asynchronous Brotli and restores `task_request` authority refs.
+  Static regression passes 829 unit/contract tests; real integration and another review are pending.
+
+## SDAR v1.3 P02 Artifact Persistence, Registry and Governance — complete
+
+- Added migration 0125 with the ten exact frozen Artifact authority tables, replayable rollback,
+  bounded JSON depth/size, immutable versions and a unique CAS Active Pointer.
+- Added lossless P01 Artifact/Lineage/Runtime Binding persistence, projection-drift detection,
+  validation, approval, execution and feedback repositories.
+- Added transactional activation with validation/approval evidence, idempotent PostgreSQL audit,
+  pointer locking/CAS and Outbox publication in one commit boundary.
+- Added the frozen Artifact Registry, rebuildable Level-0/Level-1 and version projections, canonical
+  event/queue/feature-flag vocabularies and durable at-least-once Outbox cursor.
+- Added fail-closed production identity, RBAC, tenant scope, reason/idempotency/expected-version
+  governance, separate approval/activation, revalidation, deprecation, rollback and bounded kill
+  switch foundations.
+- Added frozen-contract, migration, JSON-bound, immutable-round-trip, no-approval, concurrent
+  activation, idempotency, rollback, execution/feedback, cache and Outbox tests. The working-tree
+  full gate passes.
+- The first independent review rejected `591cbe4` with 4 Blocking, 6 Major and 1 Minor finding.
+  Remediation prevents stale revalidation evidence and cross-tenant governance, preserves monotonic
+  Pointer CAS after deprecate/kill switch, delivers late Outbox events, enforces immutable
+  projections and bounded canonical JSON, assigns per-run/approval/feedback event revisions,
+  keyset-rebuilds all Active entries and removes mutable Set surfaces.
+- Added explicit regressions for different-body idempotency conflicts, two validation/approval
+  cycles, kill-switch ABA, tenant denial, two feedback rows, late events, 501-entry rebuild, exact
+  table columns, complete JSON boundaries and startup composition. The remediated working-tree full
+  gate passes 795 unit/contract, 89 real integration and 62 real E2E tests.
+- The second independent review rejected first-remediation commit `ee52158` with 1 Blocking and
+  2 Major findings. The projection consumer now uses database-monotonic insertion sequence plus its
+  private CAS cursor, never marks shared Outbox rows published, refreshes version cache across the
+  full validation/approval lifecycle, and checks immutable Lineage creation time.
+- Added real Server-startup regression with mixed handled/unhandled Outbox events, lifecycle cache
+  transitions and database-rejected Lineage mutation. Focused verification passes; the
+  second-remediation working-tree full gate passes 795 unit/contract, 91 integration and 62 E2E
+  tests, and exact commit `e740fa1` passes the same gate with `dirty=false`.
+- The third independent review rejected `e740fa1` with one Blocking finding: IDENTITY allocation can
+  be observed out of transaction commit order. Relevant-event cursor allocation now acquires a
+  transaction-scoped advisory lock before assigning `max + 1`, with a concurrent PostgreSQL
+  regression proving the second producer waits and remains readable after cursor advance. Focused
+  type/lint/contract, 18-migration replay and 8/8 real integration scenarios pass. The complete
+  working-tree gate passes 795 unit/contract, 92 integration and 62 E2E tests plus all build/smoke
+  stages.
+- Exact implementation commit `14abffe` passes the same full gate with `dirty=false`. A fourth new
+  independent read-only reviewer accepts with zero Blocking/Major/Minor findings; P02 emits its
+  exact 28-field `COMPLETED` Handoff for P03.
+
+## SDAR v1.3 P00 foundation gate — complete
+
+- Added the frozen fifteen-package execution bundle and persistent serial-orchestration state.
+- Verified the execution baseline SHA, all package contracts and a clean full local gate without
+  changing the protected operator database.
+- Added a reproducible P00 actual-contract/Handoff evidence validator and immutable P00 verification
+  report.
+- Recorded explicit repository-owner acceptance of the audited v1.2.3 external-merge deviation across
+  all three authoritative records without claiming native auto-merge or the absent unmerged state.
+- Re-ran the complete clean gate at `6e27d70` and obtained a fresh independent `READY_FULL` review.
+- Restored authenticated publication, pushed the integration branch and created Draft PR #12 without
+  merge, tag, release or deployment.
+
+## SDAR v1.3 P01 Runtime Artifact Domain — complete
+
+- Added all 15 frozen P01 Artifact Domain contracts and registry-pinned hashes, including five
+  definition kinds, applicability, dependency snapshots, lineage and rebuildable runtime bindings.
+- Added immutable factories, bounded declarative JSON/conditions, deterministic canonicalization and
+  lifecycle transitions requiring validation plus approval evidence before activation.
+- Added strict Zod and draft-2020-12 JSON Schema contracts, a five-definition golden fixture and
+  cross-validator negative tests.
+- Aligned PlanTemplate nested fields with the exact shared-design/P04 consumer contracts and added
+  SDAR AJV keywords for recursive depth, condition complexity and keyed uniqueness.
+- Closed the first independent review's activation and enum findings with direct-construction
+  evidence enforcement, nested enum guards and exhaustive lifecycle/cross-validator regressions.
+- Added an architecture gate that prevents Artifact Domain dependencies on database, application,
+  Skill/MCP/Provider execution, Console, queue, LangGraph, Zod or AJV.
+- The first independent review rejected readiness; remediation passes 20/20 focused tests and the
+  post-remediation full gate passes 785 unit/contract, 84 real integration, 62 real E2E, architecture,
+  A2A, migration, Replay, build and smoke. A new independent re-review accepts with zero
+  blocking/major findings. Completion commit `8ac5f5e` passes the same full gate with `dirty=false`;
+  the standard Handoff is `READY_FULL` with zero blockers.
+
 ## [1.2.3] - Unreleased
 
 ### Added

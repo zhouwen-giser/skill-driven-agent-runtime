@@ -1,0 +1,224 @@
+[
+  {
+    "id": "F01",
+    "severity": "blocking",
+    "packages": [
+      "P00",
+      "P01",
+      "P02"
+    ],
+    "issue": "Manifest/Handoff schemas inconsistent and missing atomic goal metadata",
+    "fix": "Standardized manifest V1.1 and HandoffEnvelope V1.1."
+  },
+  {
+    "id": "F02",
+    "severity": "blocking",
+    "packages": [
+      "P01"
+    ],
+    "issue": "CompiledArtifact core fields and all artifact definitions were incomplete",
+    "fix": "Added exact P01 domain contract aligned to design compendium."
+  },
+  {
+    "id": "F03",
+    "severity": "blocking",
+    "packages": [
+      "P02"
+    ],
+    "issue": "Noncanonical artifact_version/artifact_validation names and overlap between G04 and G12",
+    "fix": "Removed aliases; froze canonical tables; G04 owns identity/audit baseline while P06 owns promotion lifecycle."
+  },
+  {
+    "id": "F04",
+    "severity": "major",
+    "packages": [
+      "P03"
+    ],
+    "issue": "ExperienceTrace source field and process pattern names differed from database/design contract",
+    "fix": "Aligned to sourceEpisodeId/taskTypeRefs/cohortFingerprint/supportRefs/contradictionRefs."
+  },
+  {
+    "id": "F05",
+    "severity": "blocking",
+    "packages": [
+      "P04"
+    ],
+    "issue": "ArtifactCandidate was modeled as a competing authority instead of CompiledArtifact(status=candidate)",
+    "fix": "Candidate generator now produces canonical CompiledArtifact and typed definition."
+  },
+  {
+    "id": "F06",
+    "severity": "major",
+    "packages": [
+      "P05"
+    ],
+    "issue": "Validation records used overlapping names and did not consistently bind artifact/dataset/validator hashes",
+    "fix": "Aligned ArtifactValidationRun/Result/Failure/Counterexample and canonical artifact_validation_run table."
+  },
+  {
+    "id": "F07",
+    "severity": "major",
+    "packages": [
+      "P06"
+    ],
+    "issue": "Approval/activation/revalidation event aliases and record fields differed from P02 persistence",
+    "fix": "Aligned record fields and event names; activation remains P02 Active Pointer transaction."
+  },
+  {
+    "id": "F08",
+    "severity": "blocking",
+    "packages": [
+      "P07"
+    ],
+    "issue": "RuntimeCandidateDecision conflicted with canonical RuntimeExecutionDecision",
+    "fix": "Renamed and aligned exact canonical fields and FastGatewayPath."
+  },
+  {
+    "id": "F09",
+    "severity": "blocking",
+    "packages": [
+      "P08"
+    ],
+    "issue": "PlanTemplateRuntime/MaterializedPlanCandidate aliases did not match canonical TemplateRuntime/UserGoalPlanCandidate port",
+    "fix": "Aligned canonical port and retained materialization only as internal implementation detail."
+  },
+  {
+    "id": "F10",
+    "severity": "blocking",
+    "packages": [
+      "P09"
+    ],
+    "issue": "DecisionRuleRuntime/RuleEvaluationContext/RuleDecision aliases conflicted with RuleRuntime contract",
+    "fix": "Aligned RuleRuntime, RuleDecisionContext and RuleDecisionResult."
+  },
+  {
+    "id": "F11",
+    "severity": "blocking",
+    "packages": [
+      "P10"
+    ],
+    "issue": "Gateway route enum differed from FastGatewayPath and core port did not expose canonical RuntimeRequestContext → RuntimeExecutionDecision",
+    "fix": "Aligned canonical FastGateway port; operational stage data moved to GatewayDecisionRecord."
+  },
+  {
+    "id": "F12",
+    "severity": "major",
+    "packages": [
+      "P11"
+    ],
+    "issue": "CaseRuntime method signatures and ModelRoute core fields differed from design contract",
+    "fix": "Aligned retrieve/adapt ports and canonical route/budget/fallback fields."
+  },
+  {
+    "id": "F13",
+    "severity": "major",
+    "packages": [
+      "P12"
+    ],
+    "issue": "Management API paths lacked a frozen canonical core and A2A exposure boundary was distributed",
+    "fix": "Froze /api/v1 core routes, exposure allowlist, RBAC, A2A/SSE contracts."
+  },
+  {
+    "id": "F14",
+    "severity": "major",
+    "packages": [
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "issue": "Event, queue and feature flag names were not centrally locked",
+    "fix": "Added canonical registry and per-package contract lock."
+  },
+  {
+    "id": "F15",
+    "severity": "major",
+    "packages": [
+      "P08",
+      "P09",
+      "P10",
+      "P11"
+    ],
+    "issue": "Runtime packages proposed duplicate detail tables that could compete with artifact_execution/artifact_feedback",
+    "fix": "Core execution/feedback authority fixed to canonical tables; type-specific data is decision_snapshot/impact or non-authoritative child projection."
+  },
+  {
+    "id": "F16",
+    "severity": "blocking",
+    "packages": [
+      "P00"
+    ],
+    "issue": "P00 still allowed READY_FOUNDATION_ONLY although user requires first execution only after v1.2.3 final",
+    "fix": "P00 V1.1 only allows READY_FULL or BLOCKED_BASELINE."
+  },
+  {
+    "id": "F17",
+    "severity": "minor",
+    "packages": [
+      "P00",
+      "P01",
+      "P02"
+    ],
+    "issue": "Package depth and self-check coverage were weaker than later packages",
+    "fix": "Added execution checklist, contract locks, standardized evidence and self-check."
+  },
+  {
+    "id": "F18",
+    "severity": "major",
+    "packages": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12",
+      "P13"
+    ],
+    "issue": "No machine-checkable cross-package field alignment existed",
+    "fix": "Added registry schema hashes, package locks and validate-all script."
+  },
+  {
+    "id": "F19",
+    "severity": "minor",
+    "packages": [
+      "P13"
+    ],
+    "issue": "Final audit did not have machine-readable consumption of package contract hashes",
+    "fix": "P13 now consumes registry and all package locks."
+  },
+  {
+    "id": "F20",
+    "severity": "major",
+    "packages": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12",
+      "P13"
+    ],
+    "issue": "P14 could be mistaken for a fifteenth formal package",
+    "fix": "P14 excluded; master manifest states formal set is P00-P13."
+  }
+]

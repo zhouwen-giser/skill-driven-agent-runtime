@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P01",
+  "packageVersion": "1.1",
+  "sequence": 1,
+  "status": "",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "",
+  "branch": "",
+  "commits": {},
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {
+      "name": "BaselineGateResult",
+      "version": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "CompiledArtifactType",
+      "version": "1.1",
+      "schemaHash": "2dc5bd1322559c8ae0f5dabe945e69c01b6cb69ad379ceaa0f633f2e88072cea"
+    },
+    {
+      "name": "CompiledArtifactStatus",
+      "version": "1.1",
+      "schemaHash": "266a7448640bf17113b431919c1fb6113b022e1b9d8a932b9443404f620c8ba5"
+    },
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "ArtifactApplicability",
+      "version": "1.1",
+      "schemaHash": "4af9af86a57212d4120637a0c97484890eb6c34e729fd7d90d6d893c32bf47c8"
+    },
+    {
+      "name": "ArtifactDependencySnapshot",
+      "version": "1.1",
+      "schemaHash": "ab5eb452c0299802016cf8771536a2796cf656c8117a67d0a8c6158aca2e127a"
+    },
+    {
+      "name": "ConditionExpression",
+      "version": "1.1",
+      "schemaHash": "db033c6d65b1123fefd8185a8424eb6e227d8fea5978c599c48a7c835db5607e"
+    },
+    {
+      "name": "IntentRouteArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "7a95d4c0620a5623725cb5672d22433a47981f8b239997a3e872a597378b8f7a"
+    },
+    {
+      "name": "PlanTemplateArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04"
+    },
+    {
+      "name": "SkillGoalNodeTemplate",
+      "version": "1.1",
+      "schemaHash": "f8deaf1d8882195927d9c5070262fd14c8e894e084eaafc29e193dff8f3cb0a7"
+    },
+    {
+      "name": "DecisionRuleArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "5710c7a6e2aa4b76f19449776af894cf039140f3f35a88fc14525ecbef920e85"
+    },
+    {
+      "name": "DecisionOutput",
+      "version": "1.1",
+      "schemaHash": "e1b890a30d853179f36092c01e1404c5b811f1cc54a63b98bf3eef9045877dc9"
+    },
+    {
+      "name": "CaseArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5"
+    },
+    {
+      "name": "ModelRouteArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678"
+    },
+    {
+      "name": "ArtifactLineage",
+      "version": "1.1",
+      "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57"
+    },
+    {
+      "name": "ArtifactRuntimeBinding",
+      "version": "1.1",
+      "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [],
+  "acceptanceSummary": {
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [],
+  "openBlockers": [],
+  "nextPackage": "P02",
+  "packageOutputs": {
+    "CompiledArtifactType": {
+      "contractVersion": "1.1",
+      "schemaHash": "2dc5bd1322559c8ae0f5dabe945e69c01b6cb69ad379ceaa0f633f2e88072cea",
+      "refs": []
+    },
+    "CompiledArtifactStatus": {
+      "contractVersion": "1.1",
+      "schemaHash": "266a7448640bf17113b431919c1fb6113b022e1b9d8a932b9443404f620c8ba5",
+      "refs": []
+    },
+    "CompiledArtifact": {
+      "contractVersion": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf",
+      "refs": []
+    },
+    "ArtifactApplicability": {
+      "contractVersion": "1.1",
+      "schemaHash": "4af9af86a57212d4120637a0c97484890eb6c34e729fd7d90d6d893c32bf47c8",
+      "refs": []
+    },
+    "ArtifactDependencySnapshot": {
+      "contractVersion": "1.1",
+      "schemaHash": "ab5eb452c0299802016cf8771536a2796cf656c8117a67d0a8c6158aca2e127a",
+      "refs": []
+    },
+    "ConditionExpression": {
+      "contractVersion": "1.1",
+      "schemaHash": "db033c6d65b1123fefd8185a8424eb6e227d8fea5978c599c48a7c835db5607e",
+      "refs": []
+    },
+    "IntentRouteArtifactDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "7a95d4c0620a5623725cb5672d22433a47981f8b239997a3e872a597378b8f7a",
+      "refs": []
+    },
+    "PlanTemplateArtifactDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04",
+      "refs": []
+    },
+    "SkillGoalNodeTemplate": {
+      "contractVersion": "1.1",
+      "schemaHash": "f8deaf1d8882195927d9c5070262fd14c8e894e084eaafc29e193dff8f3cb0a7",
+      "refs": []
+    },
+    "DecisionRuleArtifactDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "5710c7a6e2aa4b76f19449776af894cf039140f3f35a88fc14525ecbef920e85",
+      "refs": []
+    },
+    "DecisionOutput": {
+      "contractVersion": "1.1",
+      "schemaHash": "e1b890a30d853179f36092c01e1404c5b811f1cc54a63b98bf3eef9045877dc9",
+      "refs": []
+    },
+    "CaseArtifactDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5",
+      "refs": []
+    },
+    "ModelRouteArtifactDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678",
+      "refs": []
+    },
+    "ArtifactLineage": {
+      "contractVersion": "1.1",
+      "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57",
+      "refs": []
+    },
+    "ArtifactRuntimeBinding": {
+      "contractVersion": "1.1",
+      "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337",
+      "refs": []
+    }
+  }
+}

@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 
 import {
@@ -165,6 +165,16 @@ import {
   EvaluationAnalyticsService,
   ImplicitFeedbackService,
   InMemoryTaskStateNotifier,
+  ArtifactRegistryService,
+  InMemoryArtifactActiveIndexProjection,
+  ArtifactOutboxConsumer,
+  ArtifactRegistryProjectionEventHandler,
+  CompilationRunReconciler,
+  DeterministicProcessMiner,
+  ExperienceCompilationTriggerDispatcher,
+  ExperienceNormalizationService,
+  ExperienceTraceNormalizer,
+  ProcessMiningService,
   type RegisterSkillVersionInput,
   type StructuredModelProvider,
   type SkillSelectionDecider,
@@ -174,6 +184,22 @@ import {
   type CognitiveStructuredModelStageInvoker,
   type TaskTypeDefinition,
   type PlanningCorrectionObserver,
+  PatternFusionService,
+  PatternGeneralizationService,
+  ArtifactCandidateGenerator,
+  CandidateGenerationApplicationService,
+  CandidateGenerationRunReconciler,
+  CandidateGenerationTriggerDispatcher,
+  ArtifactReplayValidationApplicationService,
+  ReplayValidationRunReconciler,
+  ReplayValidationTriggerDispatcher,
+  ArtifactShadowApplicationService,
+  ArtifactRevalidationApplicationService,
+  parseArtifactFeatureFlags,
+  ArtifactPromotionGovernanceService,
+  type OperatorIdentityPort,
+  type ArtifactShadowCurrentStateReader,
+  type ArtifactShadowEnrollment,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -282,6 +308,15 @@ import {
   PostgresWorkflowContinuationRepository,
   PostgresTaskAvailabilityEvidenceRepository,
   PostgresUserGoalRuntimeRepository,
+  PostgresArtifactRepository,
+  PostgresArtifactOutboxConsumerRepository,
+  PostgresCompilationRunRepository,
+  PostgresExperienceCompilationRepository,
+  PostgresExperienceCompilationTriggerSource,
+  PostgresCandidateGenerationRepository,
+  PostgresCandidateGenerationCatalog,
+  PostgresArtifactReplayValidationRepository,
+  PostgresArtifactShadowGovernanceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -298,6 +333,16 @@ import {
   BullMqObservationWorker,
   BullMqReflectionQueue,
   BullMqReflectionWorker,
+  BullMqCompilationQueue,
+  BullMqCompilationWorker,
+  BullMqCandidateGenerationQueue,
+  BullMqCandidateGenerationWorker,
+  BullMqReplayValidationQueue,
+  BullMqReplayValidationWorker,
+  BullMqArtifactShadowQueue,
+  BullMqArtifactShadowWorker,
+  BullMqArtifactRevalidationQueue,
+  BullMqArtifactRevalidationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -314,6 +359,10 @@ export interface ServerRuntimeOptions {
   readonly managementPort?: number;
   /** Optional non-breaking bearer guard for cognitive management writes only. */
   readonly cognitiveManagementBearerToken?: string;
+  /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
+  readonly artifactOperatorIdentity?: OperatorIdentityPort;
+  /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
+  readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -377,6 +426,12 @@ export interface ServerRuntimeHandle {
   readonly a2a: A2AHttpEndpointHandle;
   readonly management: ManagementHttpEndpointHandle;
   readonly planningKnowledge: PlanningKnowledgeRetriever;
+  /** Present once the P02 migration is installed; rebuilt from PostgreSQL during startup. */
+  readonly artifactRegistry?: ArtifactRegistryService;
+  /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
+  enrollArtifactShadow(
+    input: ArtifactShadowEnrollment,
+  ): ReturnType<ArtifactShadowApplicationService['enroll']>;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -433,6 +488,49 @@ export async function startServerRuntime(
     await applyRuntimeMigrations(pool);
   } else if (options.frozenMcpTasks !== undefined) {
     await assertV122RuntimeReady(pool);
+  }
+  const artifactAuthorityReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0125_v13_artifact_authority'
+     ) AS installed`,
+  );
+  const experienceCompilationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0126_v13_experience_compilation'
+     ) AS installed`,
+  );
+  const candidateGenerationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0128_v13_candidate_generation_runtime'
+     ) AS installed`,
+  );
+  const artifactReplayValidationReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0129_v13_artifact_replay_validation'
+     ) AS installed`,
+  );
+  const artifactShadowGovernanceReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0130_v13_artifact_shadow_governance'
+     ) AS installed`,
+  );
+  let artifactRegistry: ArtifactRegistryService | undefined;
+  let artifactOutboxConsumer: ArtifactOutboxConsumer | undefined;
+  if (artifactAuthorityReady.rows[0]?.installed === true) {
+    artifactRegistry = new ArtifactRegistryService({
+      repository: new PostgresArtifactRepository(pool),
+      projection: new InMemoryArtifactActiveIndexProjection(),
+    });
+    await artifactRegistry.rebuildProjection();
+    artifactOutboxConsumer = new ArtifactOutboxConsumer({
+      consumerName: 'artifact-active-index',
+      repository: new PostgresArtifactOutboxConsumerRepository(pool),
+      handler: new ArtifactRegistryProjectionEventHandler(artifactRegistry),
+      clock: { now: () => new Date().toISOString() },
+    });
+    while ((await artifactOutboxConsumer.consume(500)) === 500) {
+      // Bounded page drain; each event is acknowledged transactionally after projection rebuild.
+    }
   }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
@@ -867,6 +965,213 @@ export async function startServerRuntime(
     experienceReflector,
     `reflection-worker-${randomUUID()}`,
   );
+  const experienceCompilation =
+    experienceCompilationReady.rows[0]?.installed === true
+      ? (() => {
+          const repository = new PostgresExperienceCompilationRepository(pool);
+          const runs = new PostgresCompilationRunRepository(pool);
+          const miner = new DeterministicProcessMiner();
+          const normalizationQueue = new BullMqCompilationQueue(options.redis, 'normalization');
+          const miningQueue = new BullMqCompilationQueue(options.redis, 'process_mining');
+          const normalization = new ExperienceNormalizationService({
+            runs,
+            repository,
+            normalizer: new ExperienceTraceNormalizer(),
+            clock,
+            retryPolicy: { maxAttempts: 5, baseBackoffMs: 1_000, maxBackoffMs: 60_000 },
+          });
+          const mining = new ProcessMiningService({
+            runs,
+            repository,
+            miner,
+            clock,
+            retryPolicy: { maxAttempts: 5, baseBackoffMs: 2_000, maxBackoffMs: 120_000 },
+          });
+          const candidateRuntime =
+            candidateGenerationReady.rows[0]?.installed === true
+              ? (() => {
+                  const candidateRuns = new PostgresCandidateGenerationRepository(pool);
+                  const candidateQueue = new BullMqCandidateGenerationQueue(options.redis);
+                  const candidateService = new CandidateGenerationApplicationService({
+                    runs: candidateRuns,
+                    catalog: new PostgresCandidateGenerationCatalog(skills),
+                    fusion: new PatternFusionService(),
+                    generalization: new PatternGeneralizationService(),
+                    generator: new ArtifactCandidateGenerator(),
+                    clock,
+                    retryPolicy: {
+                      maxAttempts: 5,
+                      baseBackoffMs: 2_000,
+                      maxBackoffMs: 120_000,
+                    },
+                  });
+                  return {
+                    candidateDispatcher: new CandidateGenerationTriggerDispatcher({
+                      source: candidateRuns,
+                      runs: candidateRuns,
+                      queue: candidateQueue,
+                    }),
+                    candidateReconciler: new CandidateGenerationRunReconciler({
+                      runs: candidateRuns,
+                      queue: candidateQueue,
+                    }),
+                    candidateQueue,
+                    candidateWorker: new BullMqCandidateGenerationWorker(
+                      options.redis,
+                      candidateService,
+                      `candidate-generation-worker-${randomUUID()}`,
+                    ),
+                  };
+                })()
+              : undefined;
+          const replayValidationRuntime =
+            artifactReplayValidationReady.rows[0]?.installed === true
+              ? (() => {
+                  const replayRepository = new PostgresArtifactReplayValidationRepository(pool);
+                  const replayQueue = new BullMqReplayValidationQueue(options.redis);
+                  const replayService = new ArtifactReplayValidationApplicationService(
+                    replayRepository,
+                    clock,
+                    {
+                      maxAttempts: 5,
+                      baseBackoffMs: 2_000,
+                      maxBackoffMs: 120_000,
+                    },
+                  );
+                  return {
+                    replayValidationDispatcher: new ReplayValidationTriggerDispatcher(
+                      replayRepository,
+                      replayQueue,
+                      clock,
+                    ),
+                    replayValidationReconciler: new ReplayValidationRunReconciler(
+                      replayRepository,
+                      replayQueue,
+                    ),
+                    replayValidationQueue: replayQueue,
+                    replayValidationRetention: (retentionNow: string, limit = 1_000) =>
+                      replayRepository.purgeExpired(retentionNow, limit),
+                    replayValidationWorker: new BullMqReplayValidationWorker(
+                      options.redis,
+                      replayService,
+                      `artifact-replay-validation-worker-${randomUUID()}`,
+                    ),
+                  };
+                })()
+              : undefined;
+          return {
+            dispatcher: new ExperienceCompilationTriggerDispatcher({
+              source: new PostgresExperienceCompilationTriggerSource(pool),
+              runs,
+              normalizationQueue,
+              miningQueue,
+              miner,
+              clock,
+            }),
+            normalizationReconciler: new CompilationRunReconciler({
+              runs,
+              queue: normalizationQueue,
+              runType: 'normalization',
+            }),
+            miningReconciler: new CompilationRunReconciler({
+              runs,
+              queue: miningQueue,
+              runType: 'process_mining',
+            }),
+            normalizationQueue,
+            miningQueue,
+            normalizationWorker: new BullMqCompilationWorker(
+              options.redis,
+              'normalization',
+              normalization,
+              `experience-normalization-worker-${randomUUID()}`,
+            ),
+            miningWorker: new BullMqCompilationWorker(
+              options.redis,
+              'process_mining',
+              mining,
+              `process-mining-worker-${randomUUID()}`,
+            ),
+            ...candidateRuntime,
+            ...replayValidationRuntime,
+          };
+        })()
+      : undefined;
+  // P06 is a low-priority formal-runtime sidecar. The returned handle accepts only an
+  // exact formal correlation; it never selects/retrieves candidates or exposes P07.
+  const artifactShadowRuntime =
+    artifactShadowGovernanceReady.rows[0]?.installed === true
+      ? (() => {
+          const repository = new PostgresArtifactShadowGovernanceRepository(pool);
+          const queue = new BullMqArtifactShadowQueue(options.redis);
+          const revalidationQueue = new BullMqArtifactRevalidationQueue(options.redis);
+          const flags = parseArtifactFeatureFlags(process.env);
+          const service = new ArtifactShadowApplicationService(
+            repository,
+            queue,
+            clock,
+            {
+              artifactMode: flags.artifactMode,
+              tenantAllowlist: flags.tenantAllowlist,
+              degraded: false,
+              maximumQueueDepth: 1_000,
+              samplingRate: 1,
+            },
+            undefined,
+            options.artifactShadowStateReader,
+          );
+          const revalidation =
+            experienceCompilation?.replayValidationQueue === undefined
+              ? undefined
+              : new ArtifactRevalidationApplicationService(
+                  repository,
+                  experienceCompilation.replayValidationQueue,
+                );
+          return {
+            repository,
+            service,
+            queue,
+            revalidationQueue,
+            revalidation,
+            worker: new BullMqArtifactShadowWorker(
+              options.redis,
+              service,
+              `artifact-shadow-worker-${randomUUID()}`,
+            ),
+            ...(revalidation === undefined
+              ? {}
+              : {
+                  revalidationWorker: new BullMqArtifactRevalidationWorker(
+                    options.redis,
+                    revalidation,
+                  ),
+                }),
+          };
+        })()
+      : undefined;
+  const artifactPromotionGovernance =
+    artifactShadowGovernanceReady.rows[0]?.installed === true &&
+    options.artifactOperatorIdentity !== undefined
+      ? (() => {
+          return new ArtifactPromotionGovernanceService({
+            identity: options.artifactOperatorIdentity,
+            audit: cognitiveManagementActions,
+            store: new PostgresArtifactShadowGovernanceRepository(pool),
+            ...(artifactShadowRuntime?.revalidationQueue === undefined
+              ? {}
+              : { revalidationWake: artifactShadowRuntime.revalidationQueue }),
+          });
+        })()
+      : undefined;
+  const requeueArtifactRevalidations = async (limit = 100): Promise<number> => {
+    if (artifactShadowRuntime?.revalidation === undefined) return 0;
+    const triggerIds =
+      await artifactShadowRuntime.repository.listPendingRevalidationTriggers(limit);
+    for (const triggerId of triggerIds) {
+      await artifactShadowRuntime.revalidationQueue.enqueue(triggerId);
+    }
+    return triggerIds.length;
+  };
   const taskUnderstanding =
     options.taskUnderstanding === undefined
       ? undefined
@@ -3506,6 +3811,16 @@ export async function startServerRuntime(
       .then(() => experienceReconciler.requeue(clock.now()))
       .then(() => observationReconciler.requeue(clock.now()))
       .then(() => reflectionReconciler.requeue(clock.now()))
+      .then(() => experienceCompilation?.dispatcher.dispatch() ?? 0)
+      .then(() => experienceCompilation?.normalizationReconciler.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.miningReconciler.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.candidateDispatcher?.dispatch() ?? 0)
+      .then(() => experienceCompilation?.candidateReconciler?.requeue(clock.now()) ?? 0)
+      .then(() => experienceCompilation?.replayValidationDispatcher?.dispatch() ?? 0)
+      .then(() => experienceCompilation?.replayValidationReconciler?.requeue(clock.now()) ?? 0)
+      .then(() => artifactShadowRuntime?.service.requeue(100) ?? 0)
+      .then(() => requeueArtifactRevalidations(100))
+      .then(() => artifactOutboxConsumer?.consume(500) ?? 0)
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3625,6 +3940,21 @@ export async function startServerRuntime(
   });
   try {
     await cognitiveRuntimeReconciler.rebuild();
+    if (experienceCompilation !== undefined) {
+      await experienceCompilation.dispatcher.dispatch(500);
+      await experienceCompilation.normalizationReconciler.requeue(clock.now(), 500);
+      await experienceCompilation.miningReconciler.requeue(clock.now(), 500);
+      await experienceCompilation.candidateDispatcher?.dispatch(500);
+      await experienceCompilation.candidateReconciler?.requeue(clock.now(), 500);
+      await experienceCompilation.replayValidationDispatcher?.dispatch(500);
+      await experienceCompilation.replayValidationReconciler?.requeue(clock.now(), 500);
+      await experienceCompilation.replayValidationRetention?.(clock.now(), 1_000);
+      await artifactShadowRuntime?.service.requeue(500);
+      await requeueArtifactRevalidations(500);
+      while ((await artifactOutboxConsumer?.consume(500)) === 500) {
+        // Drain ordered P02/P06 lifecycle events so ephemeral registry projections cannot retain stale actives.
+      }
+    }
   } catch (error: unknown) {
     process.stderr.write(
       `${JSON.stringify({ event: 'experience_startup_reconcile.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3634,6 +3964,12 @@ export async function startServerRuntime(
   experienceWorker.start();
   observationWorker.start();
   reflectionWorker.start();
+  experienceCompilation?.normalizationWorker.start();
+  experienceCompilation?.miningWorker.start();
+  experienceCompilation?.candidateWorker?.start();
+  experienceCompilation?.replayValidationWorker?.start();
+  artifactShadowRuntime?.worker.start();
+  artifactShadowRuntime?.revalidationWorker?.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3690,6 +4026,9 @@ export async function startServerRuntime(
         capabilityPatterns: capabilityPatternInduction,
         knowledgePromotion,
         cognitiveManagementAudit: cognitiveManagementActionRepository,
+        ...(artifactPromotionGovernance === undefined
+          ? {}
+          : { artifactPromotion: artifactPromotionGovernance }),
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -3878,6 +4217,12 @@ export async function startServerRuntime(
       a2a,
       management: startedManagement,
       planningKnowledge,
+      ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
+      enrollArtifactShadow(input: ArtifactShadowEnrollment) {
+        // The formal runtime must provide an exact already-selected artifact and
+        // formal fact correlation. P06 does not perform retrieval or selection.
+        return artifactShadowRuntime?.service.enroll(input) ?? Promise.resolve(undefined);
+      },
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },
@@ -3972,6 +4317,12 @@ export async function startServerRuntime(
         await experienceWorker.close();
         await observationWorker.close();
         await reflectionWorker.close();
+        await experienceCompilation?.normalizationWorker.close();
+        await experienceCompilation?.miningWorker.close();
+        await experienceCompilation?.candidateWorker?.close();
+        await experienceCompilation?.replayValidationWorker?.close();
+        await artifactShadowRuntime?.worker.close();
+        await artifactShadowRuntime?.revalidationWorker?.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
@@ -3979,6 +4330,12 @@ export async function startServerRuntime(
         await experienceQueue.close();
         await observationQueue.close();
         await reflectionQueue.close();
+        await experienceCompilation?.normalizationQueue.close();
+        await experienceCompilation?.miningQueue.close();
+        await experienceCompilation?.candidateQueue?.close();
+        await experienceCompilation?.replayValidationQueue?.close();
+        await artifactShadowRuntime?.queue.close();
+        await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -4008,12 +4365,24 @@ export async function startServerRuntime(
     await experienceWorker.close();
     await observationWorker.close();
     await reflectionWorker.close();
+    await experienceCompilation?.normalizationWorker.close();
+    await experienceCompilation?.miningWorker.close();
+    await experienceCompilation?.candidateWorker?.close();
+    await experienceCompilation?.replayValidationWorker?.close();
+    await artifactShadowRuntime?.worker.close();
+    await artifactShadowRuntime?.revalidationWorker?.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
     await experienceQueue.close();
     await observationQueue.close();
     await reflectionQueue.close();
+    await experienceCompilation?.normalizationQueue.close();
+    await experienceCompilation?.miningQueue.close();
+    await experienceCompilation?.candidateQueue?.close();
+    await experienceCompilation?.replayValidationQueue?.close();
+    await artifactShadowRuntime?.queue.close();
+    await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
     await pool.end();
     throw error;
@@ -4092,51 +4461,61 @@ class RemoteMcpTaskAdmissionUncertainError extends Error {
 }
 
 export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
-  const schemaState = await pool.query<{
-    migration_table: string | null;
-    public_table_count: number;
-  }>(
-    `SELECT to_regclass('public.schema_migration')::text AS migration_table,
-            (SELECT count(*)::integer
-             FROM information_schema.tables
-             WHERE table_schema='public' AND table_type='BASE TABLE') AS public_table_count`,
-  );
-  const state = schemaState.rows[0];
-  if (state?.migration_table !== null && state?.migration_table !== undefined) {
-    const versions = await pool.query<{ version: string }>(
-      `SELECT version
-       FROM public.schema_migration
-       ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
+  const client = await pool.connect();
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtextextended('sdar-runtime-migrations',0))`);
+    const schemaState = await client.query<{
+      migration_table: string | null;
+      public_table_count: number;
+    }>(
+      `SELECT to_regclass('public.schema_migration')::text AS migration_table,
+              (SELECT count(*)::integer
+               FROM information_schema.tables
+               WHERE table_schema='public' AND table_type='BASE TABLE') AS public_table_count`,
     );
-    await applyPostV122Migrations(
-      pool,
-      versions.rows.map((row) => row.version),
-    );
-    return;
-  }
-  if ((state?.public_table_count ?? 0) !== 0) throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
+    const state = schemaState.rows[0];
+    if (state?.migration_table !== null && state?.migration_table !== undefined) {
+      const versions = await client.query<{ version: string }>(
+        `SELECT version
+         FROM public.schema_migration
+         ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
+      );
+      await applyPostV122Migrations(
+        client,
+        versions.rows.map((row) => row.version),
+      );
+      return;
+    }
+    if ((state?.public_table_count ?? 0) !== 0)
+      throw new Error('SDAR_V122_CLEAN_DATABASE_REQUIRED');
 
-  const baseline = await readFile(
-    resolve(process.cwd(), 'infra', 'postgres', 'baseline', '0001_sdar_v1_2_2_baseline.sql'),
-    'utf8',
-  );
-  await pool.query(baseline);
-  const seed = await readFile(
-    resolve(process.cwd(), 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql'),
-    'utf8',
-  );
-  await pool.query(seed);
-  await assertV122RuntimeReady(pool);
-  await applyPostV122Migrations(pool, ['v1.2.2_clean_slate_baseline']);
+    const baseline = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'baseline', '0001_sdar_v1_2_2_baseline.sql'),
+      'utf8',
+    );
+    await client.query(baseline);
+    const seed = await readFile(
+      resolve(process.cwd(), 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql'),
+      'utf8',
+    );
+    await client.query(seed);
+    await assertV122RuntimeReady(client);
+    await applyPostV122Migrations(client, ['v1.2.2_clean_slate_baseline']);
+  } finally {
+    await client
+      .query(`SELECT pg_advisory_unlock(hashtextextended('sdar-runtime-migrations',0))`)
+      .catch(() => undefined);
+    client.release();
+  }
 }
 
 async function applyPostV122Migrations(
-  pool: Pool,
+  pool: Pick<PoolClient, 'query'>,
   appliedVersions: readonly string[],
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
   const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v123_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',
@@ -4153,7 +4532,7 @@ async function applyPostV122Migrations(
   }
 }
 
-async function assertV122RuntimeReady(pool: Pool): Promise<void> {
+async function assertV122RuntimeReady(pool: Pick<PoolClient, 'query'>): Promise<void> {
   const result = await pool.query<{ ready: boolean }>(
     `SELECT EXISTS (
        SELECT 1

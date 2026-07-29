@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P03",
+  "goal": "G06",
+  "generatedAt": "2026-07-27T13:10:00.000Z",
+  "algorithm": {
+    "name": "sdar-deterministic-process-miner",
+    "version": "sdar-deterministic-process-miner/1.1",
+    "implementation": "packages/application/src/compiler/process-miner.ts",
+    "runtime": "Node.js/TypeScript",
+    "modelAuthority": false,
+    "pythonSidecar": false,
+    "pm4pyComparison": {
+      "performed": false,
+      "reason": "optional research comparison was unnecessary for the deterministic TypeScript acceptance gate"
+    }
+  },
+  "cohortPolicy": {
+    "required": ["tenantId", "taskTypeId", "minimumCompleteness"],
+    "optional": [
+      "goalFingerprint",
+      "capabilityFingerprint",
+      "environmentClass",
+      "deviceClass",
+      "timeRange"
+    ],
+    "versionInputs": [
+      "contract version",
+      "algorithm version",
+      "canonical cohort",
+      "mandatory threshold"
+    ],
+    "mismatchPolicy": "fail closed"
+  },
+  "discoveryPolicy": {
+    "variant": "exact ordered activities, explicit concurrency groups and branch sequence; loops are preserved",
+    "directFollows": "adjacent distinct activities per trace",
+    "precedence": "predecessor last occurrence strictly before successor first occurrence",
+    "mandatory": "trace support rate greater than or equal to the configured threshold",
+    "optional": "observed activity below the configured mandatory threshold",
+    "parallel": "explicit concurrency evidence only; timestamps never establish parallelism",
+    "recovery": "recovery_started retains preceding trigger, following resume activity and suffix sequence",
+    "failure": "failed outcomes or explicit failure events form separate failure variants",
+    "contradiction": "observed reverse ordering or explicit parent ordering against a parallel candidate",
+    "workflowPatternAuthority": "evidence-only; no Skill binding, Artifact candidate, schema, completion contract or online routing authority"
+  },
+  "qualityMetrics": {
+    "support": "selected cohort support; 1 for a pattern built from the complete selected cohort",
+    "successRate": "succeeded trace count divided by cohort trace count",
+    "traceCoverage": "selected trace coverage; 1 after exact cohort validation",
+    "fitness": "mean fraction of mandatory activities present per trace",
+    "precisionProxy": "constraints with strictly more support than contradictions divided by retained constraints",
+    "environmentCoverage": "distinct environment/device classes divided by trace count, capped at 1",
+    "contradictionRate": "distinct contradiction trace count divided by trace count",
+    "generalization": "log2(trace count + 1)/4 capped at 1, multiplied by one minus contradiction rate",
+    "mandatoryThreshold": "frozen configured threshold"
+  },
+  "boundedResources": {
+    "ordinaryIdentifierCollectionLimit": 4096,
+    "processMiningEvidenceReferenceLimit": 65536,
+    "benchmarkMaximumTraceCount": 10000,
+    "largeCohortRegression": "10,000 traces and all support references persisted to PostgreSQL; the canonical definition is Brotli-compressed below the 1 MiB authority limit, the indexed JSON projection is capped at 4,096 references, and 65,537 references are rejected",
+    "patternDefinitionEnvelope": {
+      "encoding": "br+base64",
+      "integrity": "SHA-256 over canonical uncompressed JSON",
+      "maximumUncompressedBytes": 67108864,
+      "maximumEncodedPayloadCharacters": 1000000,
+      "fullSupportAuthority": "pattern_candidate_support",
+      "indexedProjectionLimit": 4096
+    },
+    "durableRetry": {
+      "bounded": true,
+      "leaseFencing": true,
+      "deadLetter": true
+    }
+  },
+  "performance": {
+    "classification": "single-run local deterministic benchmark; not production capacity evidence",
+    "command": "pnpm exec tsx scripts/benchmark-p03-experience.mts",
+    "environment": {
+      "node": "v22.23.1",
+      "platform": "linux",
+      "architecture": "x64"
+    },
+    "normalization": {
+      "samples": 1000,
+      "p50Ms": 0.245,
+      "p95Ms": 0.461,
+      "maximumMs": 13.174
+    },
+    "mining": [
+      {
+        "traceCount": 1000,
+        "elapsedMs": 66.115,
+        "tracesPerSecond": 15125.26,
+        "heapDeltaBytes": 5707976,
+        "variantCount": 6,
+        "orderingConstraintCount": 50,
+        "parallelCandidateCount": 1,
+        "recoveryPatternCount": 1,
+        "failureVariantCount": 2,
+        "definitionBytes": 889715,
+        "gzipBytes": 48953,
+        "base64GzipBytes": 65272,
+        "brotliBytes": 5186,
+        "base64BrotliBytes": 6916
+      },
+      {
+        "traceCount": 10000,
+        "elapsedMs": 581.242,
+        "tracesPerSecond": 17204.528,
+        "heapDeltaBytes": 30961912,
+        "variantCount": 6,
+        "orderingConstraintCount": 50,
+        "parallelCandidateCount": 1,
+        "recoveryPatternCount": 1,
+        "failureVariantCount": 2,
+        "definitionBytes": 9107632,
+        "gzipBytes": 1023823,
+        "base64GzipBytes": 1365100,
+        "brotliBytes": 52999,
+        "base64BrotliBytes": 70668
+      }
+    ],
+    "databaseQuery": {
+      "classification": "10,000-row PostgreSQL cohort query measured inside the clean full gate",
+      "traceCount": 10000,
+      "queryElapsedMs": 416.045,
+      "patternPersistenceElapsedMs": 528.616,
+      "evidence": "10 integration files and 100 tests passed against operator-managed PostgreSQL/Redis"
+    },
+    "workerThroughput": {
+      "classification": "bounded local BullMQ worker measurement; not a production capacity claim",
+      "processedRuns": 100,
+      "claimBatches": 10,
+      "elapsedMs": 5.358,
+      "runsPerSecond": 18664.325
+    },
+    "queueLag": {
+      "classification": "single local BullMQ wake measurement; not a production latency claim",
+      "processedRuns": 1,
+      "queueLagMs": 17.084,
+      "runsPerSecond": 58.533,
+      "recoveryEvidence": "real Redis job obliteration followed by PostgreSQL-authoritative reconciler rebuild and duplicate-wake deduplication"
+    }
+  },
+  "persistence": {
+    "traceAuthority": "experience_trace",
+    "patternAuthority": "pattern_candidate",
+    "supportEvidence": "pattern_candidate_support",
+    "runAuthority": "compilation_run",
+    "outboxEvent": "compiler.pattern_discovered",
+    "queue": "sdar-compiler-process-mining",
+    "definitionEnvelope": "br+base64 with canonical SHA-256 integrity and bounded decode",
+    "supportProjection": "first 4,096 references in pattern_candidate JSON; complete support/contradiction set in pattern_candidate_support",
+    "repeatMining": "same pattern/event not duplicated",
+    "deletionPropagation": true,
+    "tenantIsolation": true
+  },
+  "verification": [
+    {
+      "command": "pnpm exec vitest run packages/domain/test/experience-compilation.unit.test.ts packages/application/test/experience-normalizer.unit.test.ts packages/application/test/experience-compilation.unit.test.ts packages/application/test/process-miner.unit.test.ts packages/persistence-postgres/test/experience-p03.contract.test.ts",
+      "result": "5 files passed; P03 deterministic contract/unit suite passed"
+    },
+    {
+      "command": "pnpm test:integration",
+      "result": "10 files passed; 100 tests passed; includes formal Server vertical, 10k PostgreSQL persistence and real Redis recovery"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "passed"
+    },
+    {
+      "command": "pnpm lint",
+      "result": "passed"
+    },
+    {
+      "command": "node scripts/check-artifact-architecture.mjs",
+      "result": "passed"
+    }
+  ],
+  "implementationCommits": {
+    "G06": "119fe43",
+    "formalSourceCompatibility": "8adecec",
+    "reviewRemediation": "1f7e043"
+  }
+}

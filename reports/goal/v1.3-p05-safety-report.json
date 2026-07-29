@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "status": "passed",
+  "executionMode": "replay",
+  "allowedOrigins": [
+    "historical_snapshot",
+    "frozen_fixture",
+    "synthetic_scenario"
+  ],
+  "deniedBeforeBoundary": [
+    "credential_read",
+    "network_request",
+    "mcp_tool",
+    "provider_task",
+    "device_control",
+    "external_write",
+    "formal_notification",
+    "formal_outcome_write",
+    "formal_evidence_write",
+    "active_pointer_write",
+    "remote_task_control"
+  ],
+  "deniedOperationCount": 11,
+  "failure": {
+    "category": "side_effect_attempt",
+    "severity": "critical",
+    "forcesUnsafe": true
+  },
+  "isolatedNamespaces": [
+    "taskId",
+    "goalId",
+    "attemptId",
+    "workflowId",
+    "idempotencyKey",
+    "databaseCorrelation",
+    "telemetryDimension",
+    "queueName"
+  ],
+  "queueName": "sdar-artifact-replay",
+  "physicalCallsObserved": 0,
+  "realPostgreSQLObservation": {
+    "operation": "network_request",
+    "result": "unsafe",
+    "criticalFailuresPersisted": 1,
+    "counterexamplesPersisted": 1,
+    "outboxEvent": "artifact.validation_completed"
+  },
+  "evidence": [
+    "packages/application/test/replay-safety.unit.test.ts",
+    "packages/application/src/compiler/replay-safety.ts"
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExperienceTraceEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "sequence",
+    "occurredAt",
+    "eventType",
+    "actorType",
+    "capabilityRefs",
+    "authorityRefs",
+    "parentEventRefs",
+    "payloadSummary"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "eventType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actorType": {
+      "enum": [
+        "user",
+        "agent",
+        "runtime",
+        "provider"
+      ]
+    },
+    "activity": {
+      "anyOf": [
+        {
+          "$ref": "experience-activity-ref-1.2.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capabilityRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "authorityRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "parentEventRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "concurrencyGroup": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branchRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payloadSummary": {}
+  }
+}

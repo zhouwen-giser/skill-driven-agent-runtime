@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_contract_tests",
+  "dag": {
+    "mapping": "exact activityKey -> nodeKey Map",
+    "missingActivityBehavior": "fail closed",
+    "silentContinueAllowed": false,
+    "cycleValidation": true
+  },
+  "parallel": {
+    "compiledAs": "parallel-group constraint",
+    "optionalEdgeFallbackAllowed": false,
+    "orderedPathConflictRejected": true
+  },
+  "conditional": {
+    "conditionExpressionPreserved": true,
+    "arbitraryCodeAllowed": false
+  },
+  "parameters": {
+    "schemaPreserved": true,
+    "rangeAndEnumPreserved": true,
+    "sourceFieldPreserved": true,
+    "allowedSourcesPreserved": true,
+    "trustLevelPreserved": true
+  },
+  "applicability": {
+    "runtimeEvaluableFieldsOnly": true,
+    "evidenceReferencesUsedAsRuntimeFields": false
+  },
+  "implementationRef": "packages/application/src/compiler/candidate-generator.ts",
+  "testRef": "packages/application/test/candidate-generation.unit.test.ts",
+  "acceptanceRefs": [
+    "AC-P04R-025",
+    "AC-P04R-026",
+    "AC-P04R-027",
+    "AC-P04R-028"
+  ]
+}

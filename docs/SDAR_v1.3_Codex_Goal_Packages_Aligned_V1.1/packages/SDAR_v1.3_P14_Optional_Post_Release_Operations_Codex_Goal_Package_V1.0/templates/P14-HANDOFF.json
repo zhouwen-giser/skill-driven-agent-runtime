@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "formalPackage": false,
+  "formalPackageCount": 14,
+  "extensionGoal": "X01",
+  "releaseSha": "",
+  "deploymentRef": "",
+  "decision": "",
+  "baselineRef": "",
+  "sloRef": "",
+  "alertMatrixRef": "",
+  "incidentRunbookRef": "",
+  "rollbackRunbookRef": "",
+  "recoveryDrillRef": "",
+  "driftReviewRef": "",
+  "feedbackQualityRef": "",
+  "costCapacityRef": "",
+  "improvementBacklogRef": "",
+  "nextVersionRecommendationRef": "",
+  "productionActionsAuthorized": false,
+  "openBlockers": []
+}

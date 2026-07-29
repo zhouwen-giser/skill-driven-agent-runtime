@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P03",
+  "packageVersion": "1.1",
+  "sequence": 3,
+  "status": "",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "",
+  "branch": "",
+  "commits": {},
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ExperienceTrace",
+      "version": "1.1",
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
+    },
+    {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
+    },
+    {
+      "name": "ExperienceTraceEvent",
+      "version": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
+    },
+    {
+      "name": "CohortDefinition",
+      "version": "1.1",
+      "schemaHash": "864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90"
+    },
+    {
+      "name": "ProcessVariant",
+      "version": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
+    },
+    {
+      "name": "DiscoveredProcessPattern",
+      "version": "1.1",
+      "schemaHash": "de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [],
+  "acceptanceSummary": {
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [],
+  "openBlockers": [],
+  "nextPackage": "P04",
+  "packageOutputs": {
+    "ExperienceTrace": {
+      "contractVersion": "1.1",
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9",
+      "refs": []
+    },
+    "ExperienceTraceEvent": {
+      "contractVersion": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425",
+      "refs": []
+    },
+    "ExperienceActivityRef": {
+      "contractVersion": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0",
+      "refs": []
+    },
+    "CohortDefinition": {
+      "contractVersion": "1.1",
+      "schemaHash": "864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90",
+      "refs": []
+    },
+    "ProcessVariant": {
+      "contractVersion": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17",
+      "refs": []
+    },
+    "DiscoveredProcessPattern": {
+      "contractVersion": "1.1",
+      "schemaHash": "de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac",
+      "refs": []
+    },
+    "WorkflowPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11",
+      "refs": []
+    }
+  }
+}

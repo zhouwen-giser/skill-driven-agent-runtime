@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P02",
+  "goals": ["G02", "G03", "G04"],
+  "status": "passed",
+  "verificationCommit": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+  "dirty": false,
+  "startedAt": "2026-07-26T18:58:00.267Z",
+  "finishedAt": "2026-07-26T19:00:50.923Z",
+  "durationMs": 170656,
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux/x64",
+    "infrastructureMode": "operator-managed",
+    "database": "sdar_p02_commitorder_20260726",
+    "operatorDatabaseModified": false
+  },
+  "results": {
+    "unitAndContract": {
+      "passed": 795,
+      "failed": 0,
+      "testFiles": 128
+    },
+    "focusedArtifactContract": {
+      "passed": 4,
+      "failed": 0,
+      "testFiles": 1
+    },
+    "focusedArtifactIntegration": {
+      "passed": 8,
+      "failed": 0,
+      "testFiles": 1
+    },
+    "realIntegration": {
+      "passed": 92,
+      "failed": 0,
+      "testFiles": 9
+    },
+    "realE2E": {
+      "passed": 62,
+      "failed": 0,
+      "testFiles": 2
+    },
+    "architectureSourceFiles": 447,
+    "artifactDomainFiles": 6,
+    "artifactSchemaFiles": 2,
+    "a2aMust": {
+      "passed": 74,
+      "failed": 0,
+      "skippedNonMust": 161
+    },
+    "managementOpenApiOperations": 152,
+    "postBaselineMigrations": 18,
+    "cognitiveReplay": "passed; zero physical Provider calls",
+    "productionBuild": "passed",
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed"
+  },
+  "commands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm exec vitest run packages/persistence-postgres/test/artifact-p02.contract.test.ts",
+    "SDAR_TEST_POSTGRES_URL=<isolated-db> pnpm exec vitest run packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+    "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P02_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+    "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/scripts/validate-all.mjs",
+    "SDAR_POSTGRES_URL=<isolated-db> SDAR_REUSE_EXISTING_INFRA=true pnpm verify"
+  ],
+  "retainedFailedAttempts": [
+    {
+      "classification": "implementation",
+      "result": "closed",
+      "summary": "Three independent reviews rejected earlier commits. All 6 Blocking, 8 Major and 1 Minor findings were remediated and a fourth new reviewer accepted with zero findings."
+    },
+    {
+      "classification": "test-expectation",
+      "result": "closed",
+      "summary": "A lifecycle regression retained an obsolete Approval expectation; it was corrected to distinguish handled lifecycle events from unhandled execution/feedback without weakening assertions."
+    },
+    {
+      "classification": "environment",
+      "result": "closed",
+      "summary": "The operator /sdar ledger was intentionally untouched. Fresh verification used exact isolated databases created through the healthy Compose PostgreSQL service because the host had no standalone psql."
+    },
+    {
+      "classification": "tooling",
+      "result": "closed",
+      "summary": "Configured Prettier has no SQL parser. Supported files and the full repository format gate passed."
+    }
+  ],
+  "cleanCommitVerificationPending": false
+}

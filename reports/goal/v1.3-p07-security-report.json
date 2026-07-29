@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "controls": [
+    "Tenant-scoped artifacts are rejected when tenant context is missing or mismatched.",
+    "Selection authorization is an explicit fail-closed port.",
+    "Artifact feature flags and tenant allowlist gate before candidate ranking.",
+    "Parameter bindings preserve source, trust and confidence; critical model defaults are rejected.",
+    "Restricted AST conditions execute no generated source.",
+    "P07 emits audit data and a durable P06 revalidation request; it has no lifecycle-status write or physical execution capability."
+  ],
+  "audit": "P02 artifact_match_log plus runtime_candidate_decision child record preserve matcher/policy snapshot hashes and stable reason codes",
+  "scopeExclusions": ["public request path", "Fast Gateway", "Template Runtime", "Goal/Plan/Attempt creation", "Skill/MCP/Provider execution"]
+}

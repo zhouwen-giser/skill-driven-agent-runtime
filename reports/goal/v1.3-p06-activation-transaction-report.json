@@ -1,0 +1,1 @@
+{"status":"passed","atomicWrites":["validation_summary_id","approval","active_pointer","activation_record","outbox"],"evidence":"packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"}

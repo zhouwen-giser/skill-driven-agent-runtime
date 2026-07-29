@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "binding": {
+    "recordedPerBinding": ["value", "source", "trust", "confidence"],
+    "priority": "trusted request/context values before permitted tenant/user-scoped low-risk preferences; model candidates are last and never fill critical parameters",
+    "conflict": "conflicting sources produce confirmation or rejection",
+    "missingRequired": "non-eligible/fallback"
+  },
+  "regressions": ["critical model defaults rejected", "unscoped or high-risk user preference rejected", "uncertainty requires confirmation"],
+  "contracts": ["ParameterBindingResult@1.1#13eaeb0cad67bd18fc3b83d9bf2315d6c72213602260c5f5898c419b4c9891a5"]
+}

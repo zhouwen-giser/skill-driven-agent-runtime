@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P01",
+  "goal": "G01",
+  "status": "passed",
+  "verificationCommit": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+  "dirty": false,
+  "startedAt": "2026-07-26T16:19:25.460Z",
+  "finishedAt": "2026-07-26T16:22:20.333Z",
+  "durationMs": 174873,
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux/x64",
+    "infrastructureMode": "operator-managed",
+    "database": "isolated clean-baseline gate database",
+    "operatorDatabaseModified": false
+  },
+  "results": {
+    "unitAndContract": {
+      "passed": 785,
+      "failed": 0,
+      "testFiles": 126
+    },
+    "focusedArtifact": {
+      "passed": 20,
+      "failed": 0,
+      "testFiles": 2
+    },
+    "realIntegration": {
+      "passed": 84,
+      "failed": 0,
+      "testFiles": 8
+    },
+    "realE2E": {
+      "passed": 62,
+      "failed": 0,
+      "testFiles": 2
+    },
+    "architectureSourceFiles": 435,
+    "artifactDomainFiles": 6,
+    "artifactSchemaFiles": 2,
+    "a2aMust": {
+      "passed": 74,
+      "failed": 0,
+      "skippedNonMust": 161
+    },
+    "managementOpenApiOperations": 152,
+    "postBaselineMigrations": 17,
+    "cognitiveReplay": "passed; zero physical Provider calls",
+    "productionBuild": "passed",
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed"
+  },
+  "commands": [
+    "pnpm exec vitest run packages/domain/test/artifact-domain.unit.test.ts packages/json-schema-adapter/test/artifact-domain-schema.contract.test.ts",
+    "node scripts/check-artifact-architecture.mjs",
+    "pnpm format:check",
+    "pnpm lint",
+    "pnpm typecheck",
+    "pnpm test:unit",
+    "pnpm test:contract",
+    "SDAR_POSTGRES_URL=<isolated-gate-db> SDAR_REUSE_EXISTING_INFRA=true pnpm verify"
+  ],
+  "retainedFailedAttempts": [
+    {
+      "classification": "implementation",
+      "result": "closed",
+      "summary": "The first bootstrap exposed 25 strict lint findings in new files; all were corrected without changing contract assertions."
+    },
+    {
+      "classification": "environment",
+      "result": "closed",
+      "summary": "A first smoke used the intentionally retained legacy operator ledger; a second inherited an expired port override. The passing run explicitly used the existing clean-baseline isolation database on the healthy compose port."
+    },
+    {
+      "classification": "environment",
+      "result": "closed",
+      "summary": "The first post-remediation run inside the filesystem sandbox produced 83 EPERM failures because local listening and child-process spawning were denied. The same exact gate passed outside that sandbox."
+    }
+  ],
+  "cleanCommitVerificationPending": false
+}

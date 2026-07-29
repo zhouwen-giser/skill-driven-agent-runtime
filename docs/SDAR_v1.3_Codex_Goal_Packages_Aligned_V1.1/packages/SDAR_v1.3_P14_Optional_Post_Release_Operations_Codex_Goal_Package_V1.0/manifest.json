@@ -1,0 +1,48 @@
+{
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "title": "Optional Post-release Operations and Continuous Improvement",
+  "version": "1.0",
+  "sequenceLabel": "P14",
+  "formalPackage": false,
+  "formalPackageCount": 14,
+  "extensionGoal": "X01",
+  "phase": "Post-release Operations",
+  "model": {
+    "name": "GPT-5.6 Sol",
+    "reasoning": "medium",
+    "implementationAgents": 1,
+    "readOnlyReviewAgents": [
+      "operations"
+    ]
+  },
+  "baseline": "released SDAR v1.3 after P13 RELEASE_CANDIDATE_READY and explicit release authorization",
+  "dependsOn": [
+    "P13 RELEASE_CANDIDATE_READY",
+    "Explicit release authorization",
+    "Actual deployment manifest",
+    "Named operations and rollback owners"
+  ],
+  "allowedDecisions": [
+    "POST_RELEASE_OPERATIONS_READY",
+    "POST_RELEASE_OPERATIONS_BLOCKED"
+  ],
+  "requiredOutputs": [
+    "Post-release Baseline",
+    "Monitoring Inventory",
+    "SLO and Error Budget",
+    "Alert and Incident Runbooks",
+    "Rollback and Recovery Drills",
+    "Drift and Feedback Review",
+    "Cost and Capacity Review",
+    "Continuous Improvement Backlog"
+  ],
+  "forbidden": [
+    "Counting P14 as a formal v1.3 package",
+    "Creating G23",
+    "Changing P13 release decision",
+    "Automatic production changes",
+    "Automatic rollback deployment or feature flag changes",
+    "Automatic artifact approval activation mutation",
+    "Changing P00-P13 package boundaries"
+  ]
+}

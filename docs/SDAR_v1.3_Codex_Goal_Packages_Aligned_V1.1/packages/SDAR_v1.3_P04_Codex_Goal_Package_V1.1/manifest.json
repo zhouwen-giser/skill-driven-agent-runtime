@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P04",
+  "packageVersion": "1.1",
+  "sequence": 4,
+  "sequenceLabel": "P04",
+  "totalFormalPackages": 14,
+  "formalPackage": true,
+  "atomicGoals": [
+    "G07",
+    "G08"
+  ],
+  "phase": "Offline Compiler",
+  "model": {
+    "name": "GPT-5.6 Sol",
+    "reasoning": "medium",
+    "implementationAgents": 1,
+    "readOnlyReviewRequired": true
+  },
+  "baselinePolicy": "execution-time latest origin/main descended from completed and frozen v1.2.3-final",
+  "dependsOn": [
+    "P00",
+    "P01",
+    "P02",
+    "P03"
+  ],
+  "requiredPredecessorStatus": {
+    "P00": "READY_FULL",
+    "P01": "COMPLETED",
+    "P02": "COMPLETED",
+    "P03": "COMPLETED"
+  },
+  "consumesContracts": [
+    "WorkflowPattern",
+    "CompiledArtifact",
+    "PlanTemplateArtifactDefinition"
+  ],
+  "producesContracts": [
+    "FusedPattern",
+    "GeneralizedPattern",
+    "CandidateStaticValidationResult"
+  ],
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "handoffSchemaVersion": "1.1",
+  "allowedCompletionStatuses": [
+    "COMPLETED",
+    "BLOCKED"
+  ],
+  "nextPackage": "P04R",
+  "autoMergeAuthorized": false,
+  "autoTagAuthorized": false
+}

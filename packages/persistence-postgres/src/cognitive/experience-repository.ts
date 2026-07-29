@@ -26,6 +26,7 @@ import {
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());
 const StringListSchema = z.array(z.string());
+const V1_TRUSTED_INTRANET_TENANT_ID = 'sdar-v1-trusted-intranet';
 const CorrelationSchema = z
   .object({
     correlationId: z.string(),
@@ -486,6 +487,9 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
 
   async saveIfAbsent(input: GoalExperienceEpisode): Promise<boolean> {
     const episode = createGoalExperienceEpisode(input);
+    const taskSnapshot = recordValue(episode.snapshot['task']);
+    const tenantId = stringValue(taskSnapshot?.['tenantId']) ?? V1_TRUSTED_INTRANET_TENANT_ID;
+    const userScopeId = stringValue(taskSnapshot?.['userId']);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -508,7 +512,7 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
            episode_id,goal_id,goal_version,task_id,context_id,episode_type,revision,
            terminal_outcome_ref,source_hash,episode_hash,completeness,status,
            data_classification,redaction_codes,snapshot,created_at,tenant_id,user_scope_id)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16,NULL,NULL)`,
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16,$17,$18)`,
         [
           episode.episodeId,
           episode.goalId,
@@ -526,6 +530,8 @@ export class PostgresGoalExperienceEpisodeRepository implements GoalExperienceEp
           JSON.stringify(episode.redactionCodes),
           JSON.stringify(episode.snapshot),
           episode.createdAt,
+          tenantId,
+          userScopeId ?? null,
         ],
       );
       for (const source of episode.sourceRefs) {
@@ -700,11 +706,67 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
           : { contextId: goal['context_id'] }
         : await oneJson(
             this.#pool,
-            `SELECT jsonb_build_object('taskId',task_id,'contextId',context_id,'goalId',goal_id,
-             'goalVersion',goal_version,'phase',phase,'createdAt',created_at,'updatedAt',updated_at) AS value
+            `SELECT jsonb_build_object(
+               'taskId',task_id,'contextId',context_id,'userId',user_id,
+               'tenantId','${V1_TRUSTED_INTRANET_TENANT_ID}',
+               'requestText',request_text,
+               'taskTypeId',request_metadata->>'taskTypeId',
+               'environmentClass',request_metadata->>'environmentClass',
+               'deviceClass',request_metadata->>'deviceClass',
+               'goalId',goal_id,'goalVersion',goal_version,'phase',phase,
+               'createdAt',created_at,'updatedAt',updated_at
+             ) AS value
            FROM agent_task WHERE task_id=$1`,
             [taskId],
           );
+    const taskUnderstanding =
+      taskId === undefined
+        ? undefined
+        : await oneJson(
+            this.#pool,
+            `SELECT snapshot AS value
+             FROM generic_task_understanding
+             WHERE task_id=$1 ORDER BY revision DESC LIMIT 1`,
+            [taskId],
+          );
+    const executionReadiness = await oneJson(
+      this.#pool,
+      `SELECT jsonb_strip_nulls(jsonb_build_object(
+         'readinessId',readiness.readiness_id,
+         'disposition',readiness.disposition,
+         'guardAction',readiness.guard_action,
+         'guardReasonCodes',readiness.guard_reason_codes_json,
+         'contextStatus',CASE
+           WHEN NOT EXISTS(
+             SELECT 1 FROM task_availability_snapshot snapshot
+             WHERE snapshot.readiness_id=readiness.readiness_id
+           ) OR EXISTS(
+             SELECT 1 FROM task_availability_snapshot snapshot
+             WHERE snapshot.readiness_id=readiness.readiness_id
+               AND snapshot.availability='unknown'
+           ) THEN 'unknown'
+           ELSE 'known'
+         END,
+         'historicalRiskLevel',(
+           SELECT snapshot.risk_level
+           FROM task_availability_snapshot snapshot
+           WHERE snapshot.readiness_id=readiness.readiness_id
+           ORDER BY CASE snapshot.risk_level
+             WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1
+           END DESC,snapshot.node_id
+           LIMIT 1
+         ),
+         'createdAt',readiness.created_at
+       )) AS value
+       FROM task_execution_readiness readiness
+       JOIN workflow_plan plan ON plan.plan_id=readiness.workflow_plan_id
+       WHERE plan.goal_id=$1 AND plan.goal_version=$2
+       ORDER BY
+         CASE readiness.check_phase WHEN 'pre_invocation' THEN 0 ELSE 1 END,
+         readiness.created_at DESC,readiness.readiness_id DESC
+       LIMIT 1`,
+      [goalId, goalVersion],
+    );
     const currentPlan = plans.at(-1);
     const judgment = await oneJson(
       this.#pool,
@@ -724,8 +786,19 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
         ? []
         : await manyJson(
             this.#pool,
-            `SELECT to_jsonb(a) AS value FROM skill_attempt a
-       WHERE plan_id=ANY($1::text[]) ORDER BY created_at,attempt_id`,
+            `SELECT to_jsonb(a) || jsonb_build_object(
+               'capability_refs',COALESCE(goal.contract_json->'capabilityNeeds','[]'::jsonb),
+               'resolved_input',COALESCE(
+                 execution.contract_json->'resolvedInput',
+                 a.attempt_json->'resolvedInput',
+                 '{}'::jsonb
+               )
+             ) AS value
+             FROM skill_attempt a
+             JOIN skill_goal goal ON goal.skill_goal_id=a.skill_goal_id
+             LEFT JOIN skill_execution_contract execution ON execution.attempt_id=a.attempt_id
+             WHERE a.plan_id=ANY($1::text[])
+             ORDER BY a.created_at,a.attempt_id`,
             [planIds],
           );
     const outcomes =
@@ -775,9 +848,89 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
        FROM planning_interaction_episode WHERE task_id=$1 ORDER BY revision`,
             [taskId],
           );
+    const capabilityCatalog =
+      taskId === undefined
+        ? []
+        : await manyJson(
+            this.#pool,
+            `WITH understanding AS (
+               SELECT snapshot
+               FROM generic_task_understanding
+               WHERE task_id=$1
+               ORDER BY revision DESC
+               LIMIT 1
+             ), authority AS (
+               SELECT source
+               FROM understanding
+               CROSS JOIN LATERAL jsonb_array_elements(
+                 COALESCE(understanding.snapshot->'sourceRefs','[]'::jsonb)
+               ) source
+               WHERE source->>'sourceKind'='capability_summary'
+                 AND source->>'authority'='runtime_fact'
+               ORDER BY source->>'sourceRefId'
+               LIMIT 1
+             )
+             SELECT jsonb_build_object(
+               'summaryId',summary.summary_id,
+               'revision',summary.revision,
+               'catalogHash',summary.catalog_hash,
+               'builtAt',summary.built_at,
+               'createdAt',summary.built_at,
+               'capabilityId',item.capability_id,
+               'ready',COALESCE((
+                 SELECT (requirement->>'available')::boolean
+                 FROM understanding
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                   COALESCE(understanding.snapshot->'capabilityRequirements','[]'::jsonb)
+                 ) requirement
+                 WHERE requirement->>'capabilityId'=item.capability_id
+                 LIMIT 1
+               ),false)
+             ) AS value
+             FROM authority
+             JOIN runtime_capability_summary summary
+               ON summary.summary_id=authority.source->>'sourceId'
+              AND summary.revision=(authority.source->>'sourceRevision')::integer
+              AND summary.catalog_hash=authority.source->>'contentHash'
+             JOIN runtime_capability_summary_item item
+               ON item.summary_id=summary.summary_id
+             ORDER BY item.capability_id`,
+            [taskId],
+          );
+    const disposition = executionReadiness?.['disposition'];
+    const authorityDecision =
+      disposition === 'ready'
+        ? 'allow'
+        : disposition === 'confirmation_required'
+          ? 'require_confirmation'
+          : disposition === 'revision_required' || disposition === 'blocked'
+            ? 'deny'
+            : undefined;
+    const readinessContextStatus = executionReadiness?.['contextStatus'];
+    const contextStatus =
+      readinessContextStatus === 'known' || readinessContextStatus === 'unknown'
+        ? readinessContextStatus
+        : 'unknown';
+    const riskLevel = executionReadiness?.['historicalRiskLevel'];
+    const historicalRiskLevel =
+      riskLevel === 'low' ||
+      riskLevel === 'medium' ||
+      riskLevel === 'high' ||
+      riskLevel === 'critical'
+        ? riskLevel
+        : undefined;
 
     const sources: CognitiveSourceRef[] = [];
+    addSource(sources, 'task_request', task, 'taskId', 'task-unknown', 1);
     addSource(sources, 'goal_contract', contract, 'goalId', 'goal-unknown', 1);
+    addSource(
+      sources,
+      'task_understanding',
+      taskUnderstanding,
+      'understandingId',
+      'understanding-unknown',
+      number(taskUnderstanding?.['revision'], 1),
+    );
     for (const plan of plans)
       addSource(
         sources,
@@ -789,6 +942,24 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       );
     for (const attempt of attempts)
       addSource(sources, 'skill_attempt', attempt, 'attempt_id', 'attempt-unknown', 1);
+    for (const item of progress)
+      addSource(
+        sources,
+        'workflow_outcome',
+        item,
+        'progress_observation_id',
+        'progress-observation-unknown',
+        1,
+      );
+    addSource(
+      sources,
+      'workflow_outcome',
+      executionReadiness,
+      'readinessId',
+      'execution-readiness-unknown',
+      1,
+    );
+    addCapabilitySummarySource(sources, capabilityCatalog[0]);
     for (const item of recovery)
       addSource(sources, 'recovery_decision', item, 'recovery_decision_id', 'recovery-unknown', 1);
     for (const item of eventImpacts)
@@ -806,6 +977,7 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
 
     return Object.freeze({
       ...(task === undefined ? {} : { task }),
+      ...(taskUnderstanding === undefined ? {} : { taskUnderstanding }),
       ...(contract === undefined ? {} : { contract }),
       ...(currentPlan === undefined ? {} : { currentPlan }),
       planRevisions: plans,
@@ -815,6 +987,39 @@ export class PostgresCognitiveRuntimeFactReader implements CognitiveRuntimeFactR
       recovery,
       eventImpacts,
       interactions,
+      ...(capabilityCatalog.length === 0
+        ? {}
+        : {
+            capabilityCatalogSnapshot: {
+              summaryId: capabilityCatalog[0]?.['summaryId'],
+              revision: capabilityCatalog[0]?.['revision'],
+              catalogHash: capabilityCatalog[0]?.['catalogHash'],
+              knownCapabilityIds: capabilityCatalog.flatMap((item) =>
+                typeof item['capabilityId'] === 'string' ? [item['capabilityId']] : [],
+              ),
+              readyCapabilityIds: capabilityCatalog.flatMap((item) =>
+                item['ready'] === true && typeof item['capabilityId'] === 'string'
+                  ? [item['capabilityId']]
+                  : [],
+              ),
+            },
+          }),
+      worldStateSnapshot: {
+        ...(task === undefined ? {} : { task }),
+        ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
+        ...(executionReadiness === undefined ? {} : { executionReadiness }),
+        progress,
+      },
+      ...(authorityDecision === undefined
+        ? {}
+        : {
+            policyDecisionSnapshot: {
+              authorityDecision,
+              contextStatus,
+              ...(historicalRiskLevel === undefined ? {} : { historicalRiskLevel }),
+              readinessRef: executionReadiness?.['readinessId'],
+            },
+          }),
       ...(judgment === undefined ? {} : { userGoalJudgment: judgment }),
       ...(terminal === undefined ? {} : { terminalOutcome: terminal }),
       sourceRefs: Object.freeze(sources),
@@ -854,6 +1059,41 @@ function addSource(
       dataClassification: 'internal',
       capturedAt,
       contentHash: hash(value),
+    }),
+  );
+}
+
+function addCapabilitySummarySource(
+  target: CognitiveSourceRef[],
+  value: Readonly<Record<string, unknown>> | undefined,
+): void {
+  if (value === undefined) return;
+  const sourceId = value['summaryId'];
+  const sourceRevision = value['revision'];
+  const contentHash = value['catalogHash'];
+  if (
+    typeof sourceId !== 'string' ||
+    typeof sourceRevision !== 'number' ||
+    !Number.isSafeInteger(sourceRevision) ||
+    sourceRevision < 1 ||
+    typeof contentHash !== 'string'
+  ) {
+    throw new Error('EXPERIENCE_CAPABILITY_SUMMARY_AUTHORITY_INVALID');
+  }
+  target.push(
+    createCognitiveSourceRef({
+      schemaVersion: COGNITIVE_SCHEMA_VERSION,
+      sourceRefId: stableId(
+        'source-capability-summary',
+        `${sourceId}:${String(sourceRevision)}:${contentHash}`,
+      ),
+      sourceKind: 'capability_summary',
+      sourceId,
+      sourceRevision,
+      authority: 'runtime_fact',
+      dataClassification: 'internal',
+      capturedAt: sourceTimestamp(value),
+      contentHash,
     }),
   );
 }
@@ -940,6 +1180,16 @@ function requireString(value: unknown, field: string): string {
 
 function number(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 ? value : fallback;
+}
+
+function recordValue(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function stableId(prefix: string, value: string): string {

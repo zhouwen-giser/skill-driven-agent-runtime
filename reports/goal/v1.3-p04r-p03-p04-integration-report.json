@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "real_postgresql_and_redis_integration",
+  "scenario": "Formal v1.2.3 Facts -> P03 ExperienceTrace -> P03 WorkflowPattern V1.2 -> P04 Plan Template Candidate -> P02 ArtifactRepository -> Static Validation -> Outbox",
+  "fixture": {
+    "formalEpisodes": 3,
+    "realActivityKeys": [
+      "skill-goal:collect-workflow-state",
+      "skill-goal:verify-policy",
+      "skill-goal:apply-safe-remediation"
+    ],
+    "syntheticPlaceholderActivityNamesUsed": false
+  },
+  "persistedAssertions": {
+    "candidate": 1,
+    "lineage": 1,
+    "staticValidation": 1,
+    "fingerprint": 1,
+    "fusedPattern": 1,
+    "generalizedPattern": 1,
+    "candidateOutboxEvent": 1,
+    "completedRun": 1,
+    "validationResult": "passed_static",
+    "allV12ValidationGates": true
+  },
+  "transactionalAssertions": {
+    "immutableFusedPatternConflictRollsBack": true,
+    "duplicateDoesNotCreateSecondCandidate": true
+  },
+  "testRef": "packages/persistence-postgres/test/candidate-generation.integration.test.ts",
+  "command": "pnpm test:integration",
+  "result": "12 files / 104 tests passed",
+  "verifiedCommit": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+  "acceptanceRefs": [
+    "AC-P04R-037"
+  ]
+}

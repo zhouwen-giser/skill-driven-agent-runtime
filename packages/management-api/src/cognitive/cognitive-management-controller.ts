@@ -12,16 +12,7 @@ import type {
 export interface CognitiveManagementAuthorizationRequest {
   readonly authorization: string | undefined;
   readonly actorId: string;
-  readonly operation:
-    | 'goal_session_action'
-    | 'planning_session_action'
-    | 'capability_rebuild'
-    | 'capability_card_rebuild'
-    | 'experience_dead_letter_replay'
-    | 'knowledge_promote'
-    | 'knowledge_reject'
-    | 'knowledge_revalidate'
-    | 'knowledge_deprecate';
+  readonly operation: CognitiveManagementOperation;
 }
 
 export interface CognitiveManagementAuthorizer {
@@ -91,6 +82,15 @@ export class CognitiveManagementController {
 
   get authorizationMode(): CognitiveManagementAuthorizer['mode'] {
     return this.#authorizer.mode;
+  }
+
+  /** Authorizes a write whose domain service owns its own P02/P06 audit transaction. */
+  authorize(
+    authorization: string | undefined,
+    actorId: string,
+    operation: CognitiveManagementOperation,
+  ): Promise<void> {
+    return this.#authorizer.authorize({ authorization, actorId, operation });
   }
 
   async executeWrite<T>(

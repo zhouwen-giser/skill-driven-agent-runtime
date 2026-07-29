@@ -317,3 +317,105 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   follow the configured legal retention boundary and are not silently physically erased.
 - G17 does not add external authentication or tenant authorization. Trusted-intranet warnings remain
   release requirements.
+
+## v1.3 P05 bootstrap and Replay validation boundary (2026-07-28)
+
+- The frozen P01 implementation Handoff records `READY_FULL` with 9/9 acceptance and no blockers,
+  while aligned downstream manifests name the required predecessor state `COMPLETED`. P02–P04 have
+  already consumed this exact frozen Handoff on the sequential branch. P05 treats `READY_FULL` as
+  the accepted completed P01 delivery evidence for this branch, records the vocabulary deviation,
+  and does not rewrite P01 history or claim the literal strings match.
+- Shared Registry V1.2's declared SHA-256 is the canonical JSON hash with `registrySha256` omitted,
+  sorted keys and two-space indentation. It is intentionally not the raw registry file-byte hash.
+- P05 `FROZEN-INTERFACE-CONTRACT.md` contains one historical V1.1
+  `CandidateStaticValidationResult` paragraph. The P04R-updated manifest, CONTRACT-LOCK,
+  DEPENDENCY, Standard Handoff, Registry V1.2 and package self-check consistently require V1.2.
+  P05 consumes V1.2; the package checksum/contract alignment was repaired without changing the
+  frozen V1.2 contract.
+- P05 Replay cannot use current production state to complete an incomplete historical Case.
+  Incomplete Cases remain explicit, cannot enter promotion holdout and make validation
+  `needs_more_data` when required evidence is unavailable.
+- P05 produces immutable validation evidence only. It does not invoke the P02 method that couples
+  completion to Artifact lifecycle/promotion-ready behavior; ADR-121 defines the P05-specific
+  terminal transaction on the same canonical `artifact_validation_run` authority.
+- P05 freezes the Capability Catalog/readiness snapshot when the formal Episode is built. Replay
+  reads that Episode snapshot and does not substitute the current Catalog. Historical Episodes that
+  predate this snapshot remain incomplete and cannot enter promotion Holdout.
+- Source deletion creates a non-promotable successor Dataset version and retains completed
+  Validation Result/Failure/Counterexample facts as compliance evidence. A full rebuilt split is
+  required before any successor can become promotion eligible.
+- P05 throughput and queue-lag numbers are local acceptance measurements only, not production SLOs;
+  P13 must repeat capacity, soak and fault-injection measurements in the release environment.
+
+## v1.3 P01 Runtime Artifact Domain boundary (2026-07-26)
+
+- The frozen P01 registry fixes all top-level fields but does not separately freeze every nested
+  helper type used by plan templates and cases. ADR-116 adopts the exact shared-design/P04 Plan
+  Template nested shapes and the smallest bounded pure-data shapes for the remaining helpers; later
+  packages must version any incompatible nested-field change instead of silently widening these
+  definitions.
+- JSON Schema uses five SDAR extension keywords implemented by the isolated AJV adapter for recursive
+  JSON depth, expression depth, condition-node count, keyed uniqueness and Plan DAG/cross-reference
+  semantics. Consumers that validate the portable schema must use the SDAR adapter or implement these
+  documented keywords; generic validators that ignore annotation-like extensions do not prove the
+  complete Domain acceptance boundary.
+- The documented lifecycle arrow is treated as the primary promotion/revalidation spine, with an
+  explicit Domain transition table for rejection, deprecation, and archival. Activation requires
+  validation plus recorded approval; P01 deliberately does not implement an active-pointer write.
+- `requiredSkillVersionRefs` is implemented as a required array because it is an exact frozen
+  `ArtifactDependencySnapshot` field. An artifact with no direct version dependency uses an empty
+  array; omission is schema-invalid.
+- P01 provides only domain and schema contracts. It makes no persistence, compilation quality,
+  online routing, Skill execution, MCP/Provider interoperability, API, Console, or rollout claim.
+
+## v1.3 P02 Artifact authority boundary (2026-07-27)
+
+- The frozen relational columns do not enumerate every P01 top-level Artifact and Lineage field.
+  ADR-117 therefore stores the complete validated P01 aggregate in the bounded
+  `compiled_artifact.definition` envelope and treats the other frozen columns/tables as checked,
+  indexed projections. Projection drift fails closed.
+- `cognitive_runtime_outbox.aggregate_version` is the event aggregate revision. Activation and
+  deprecation use the Active Pointer revision so the same immutable Artifact version can be
+  reactivated by a governed rollback without colliding with prior events; payloads retain the exact
+  Artifact version.
+- P02 provides an in-process rebuildable projection and performs a real PostgreSQL rebuild/Outbox
+  drain during server startup. The projection reads only lifecycle/dependency events in generated
+  database cursor order and advances its own durable CAS cursor. Relevant-event transactions acquire
+  one advisory lock before assigning `max + 1`, retain it through commit and therefore cannot expose
+  a higher cursor before a lower value becomes visible; rollback safely reuses the uncommitted
+  maximum. The projection deliberately never claims shared `published_at`; execution, feedback and
+  future-package events remain globally unpublished for their actual dispatcher/consumer. Delivery
+  authority does not depend on client-provided `occurred_at`, so a late event remains consumable.
+  Later retrieval/runtime packages may add Redis/FTS/vector projection adapters, but Redis cannot
+  become Artifact or Active Pointer authority.
+- The non-production identity adapter accepts only an explicitly constructed operator context.
+  Production construction requires an external identity provider and fails closed without one. P02
+  adds no public authentication/API endpoint and does not change the trusted-intranet V1 baseline.
+- G04 establishes governance mechanics only. Full promotion/revalidation policy and Shadow evidence
+  remain P06; online retrieval/routing remain P07/P10. P02 performs no User Request, Skill, MCP,
+  Provider, A2A or LangGraph execution.
+- The operator-managed default `/sdar` database observed during remediation predates the
+  `v1.2.2_clean_slate_baseline` ledger and was not reset or overwritten. Complete verification uses
+  the isolated `sdar_p02_remediation_20260726` and `sdar_p02_rereview_20260726` databases; this is an
+  evidence-environment distinction, not a product fallback or authority.
+
+## v1.3 P03 Experience compilation boundary (2026-07-27)
+
+- Formal v1.2.3 Episode facts contain the trusted-intranet task request but do not guarantee an
+  active Task Type. P03 first consumes the latest formal `generic_task_understanding` candidates.
+  If none exist, it preserves `task_type_missing` and uses a deterministic normalized request
+  fingerprint as a compatibility-only cohort key. The fingerprint is not a persisted Task Type
+  authority and cannot be activated or promoted.
+- P03 persists the V1 deployment partition as `sdar-v1-trusted-intranet` when the formal source has
+  no tenant field. This is isolation for the existing trusted-intranet baseline, not authentication,
+  tenant authorization or a multi-tenant security claim.
+- A 10,000-trace canonical Pattern definition exceeds the pre-existing 1 MiB JSON limit when stored
+  uncompressed. ADR-118 therefore stores a content-hashed Brotli envelope, retains a 4,096-reference
+  JSON projection and stores the complete bounded evidence set in the foreign-keyed
+  `pattern_candidate_support` table. Decode is bounded and fails closed on hash/size/schema drift.
+- Local PostgreSQL/Redis timings are reproducible acceptance measurements, not production capacity
+  or SLO claims. P13 must repeat capacity, soak and recovery measurement in the release environment.
+- The operator-managed default `/sdar` database still lacks the clean-baseline ledger marker
+  documented under P02. P03 does not overwrite it. Final P03 clean-gate evidence must therefore use a
+  dedicated freshly migrated database; failure of the default infrastructure smoke is retained as
+  an environment failure rather than hidden.

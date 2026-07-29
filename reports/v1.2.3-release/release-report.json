@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "release": "v1.2.3",
-  "status": "release_gates_passed_external_owner_authenticated_merge_deviation",
+  "status": "release_gates_passed_external_merge_deviation_owner_accepted",
   "verificationCommit": "7e505412bc50917a71c4a724ef15f659c6d5c296",
   "verificationReport": "reports/verification/summary.json",
   "verificationDirty": false,
@@ -14,7 +14,14 @@
     "nativeAutoMergeProven": false,
     "rootCause": "unverified",
     "requiredUnmergedStateSatisfied": false,
-    "correctiveDraftPullRequest": 11
+    "correctiveDraftPullRequest": 11,
+    "ownerAcceptance": {
+      "status": "accepted",
+      "acceptedAt": "2026-07-26T21:52:41+08:00",
+      "acceptedBy": "repository_owner",
+      "scope": "external_merge_deviation",
+      "evidence": "reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md"
+    }
   },
   "acceptance": [
     { "id": "AC-G17-01", "status": "passed", "classification": ["real PostgreSQL", "real Redis", "real HTTP", "mock Model", "mock MCP"] },
@@ -25,7 +32,7 @@
     { "id": "AC-G17-06", "status": "passed", "classification": ["static source/license/SBOM audit"] },
     { "id": "AC-G17-07", "status": "passed", "classification": ["official frozen A2A HTTP+JSON MUST TCK", "static OpenAPI drift gate"] },
     { "id": "AC-G17-08", "status": "passed", "classification": ["release boundary audit"] },
-    { "id": "AC-G17-09", "status": "failed_external_merge", "classification": ["git/GitHub publication audit"] }
+    { "id": "AC-G17-09", "status": "accepted_deviation", "classification": ["git/GitHub publication audit", "explicit repository-owner acceptance"] }
   ],
   "metrics": {
     "unitAndContract": { "passed": 765, "total": 765 },

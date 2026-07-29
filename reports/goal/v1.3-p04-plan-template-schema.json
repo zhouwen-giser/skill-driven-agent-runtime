@@ -1,0 +1,46 @@
+{
+  "packageId": "SDAR-V1.3-P04",
+  "schemaVersion": "1.1",
+  "generatedAt": "2026-07-28T00:00:00Z",
+  "planTemplateArtifactDefinition": {
+    "definitionType": "PlanTemplateArtifactDefinition",
+    "fields": {
+      "goalPattern": {
+        "objectiveTemplate": "string",
+        "criterionTemplates": "CriterionTemplate[]"
+      },
+      "parameterSchema": "JsonValue (JSON Schema object)",
+      "parameterBindings": "TemplateParameterDefinition[]",
+      "skillGoalGraph": {
+        "nodes": "SkillGoalNodeTemplate[]",
+        "dependencies": "SkillGoalDependencyTemplate[]"
+      },
+      "completionContractTemplate": "CompletionContractTemplate",
+      "recoveryBranches": "RecoveryBranchTemplate[]"
+    },
+    "stepClassification": {
+      "nodeTypes": ["action", "observation", "reasoning", "verification", "recovery", "human_gate"],
+      "inference": "activity name keyword matching (verify/check → verification, recover/retry → recovery, observe/sense → observation, reason/decide → reasoning, approve/gate → human_gate, default → action)"
+    },
+    "capabilityMapping": {
+      "rule": "map to Capability IDs, not exact Skill IDs",
+      "forbidden": "skill: prefixed capability bindings"
+    },
+    "dagConstraints": {
+      "acyclic": true,
+      "noDanglingReferences": true,
+      "maxNodes": 256,
+      "maxParameters": 128,
+      "maxRecoveryBranches": 32
+    },
+    "parameterPolicy": {
+      "allowedSources": ["request", "world_state", "episode_memory", "operator_provided"],
+      "trustLevels": ["candidate", "authoritative"],
+      "forbiddenCombination": "trustLevel=authoritative with allowedSources=small_model_candidate"
+    },
+    "recoveryPolicy": {
+      "sideEffectReplayPolicy": "forbidden (default)",
+      "maxApplications": 1
+    }
+  }
+}

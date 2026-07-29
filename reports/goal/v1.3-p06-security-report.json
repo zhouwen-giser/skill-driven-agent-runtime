@@ -1,0 +1,1 @@
+{"status":"passed","invariants":["trusted_operator_approval","critical_kill_switch_permission","tenant_scope","worker_cannot_approve"],"evidence":"packages/application/test/artifact-promotion-governance.unit.test.ts"}

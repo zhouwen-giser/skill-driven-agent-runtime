@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P04",
+  "packageVersion": "1.1",
+  "sequence": 4,
+  "status": "",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "",
+  "branch": "",
+  "commits": {},
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    },
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "PlanTemplateArtifactDefinition",
+      "version": "1.1",
+      "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "FusedPattern",
+      "version": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11"
+    },
+    {
+      "name": "GeneralizedPattern",
+      "version": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a"
+    },
+    {
+      "name": "CandidateStaticValidationResult",
+      "version": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [],
+  "acceptanceSummary": {
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [],
+  "openBlockers": [],
+  "nextPackage": "P04R",
+  "packageOutputs": {
+    "FusedPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11",
+      "refs": []
+    },
+    "GeneralizedPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a",
+      "refs": []
+    },
+    "CandidateStaticValidationResult": {
+      "contractVersion": "1.2",
+      "schemaHash": "1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd",
+      "refs": []
+    }
+  }
+}

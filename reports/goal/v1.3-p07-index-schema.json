@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "authority": "PostgreSQL P02 artifact_active_pointer plus compiled_artifact",
+  "levelZero": {
+    "source": "ArtifactRepository.findActiveIndex",
+    "fields": ["artifactRef", "artifactKey", "artifactVersion", "artifactType", "tenantId", "domain", "taskTypeIds", "riskLevel", "status", "exactPatterns", "structuredHints", "embeddingRef", "activePointerVersion", "contentHash"],
+    "invariants": ["active pointer only", "tenant filter before definition load", "definition is re-read from P02 before decision"]
+  },
+  "projection": {
+    "cache": "ArtifactRegistryService active-index projection",
+    "authoritative": false,
+    "rebuild": "rebuild from PostgreSQL active pointer and immutable definition projection",
+    "redis": "wake/cache only; not an Artifact or Match authority"
+  },
+  "contracts": ["ArtifactIndexEntry@1.1#dd7bc4378007ad394fa1905aebc529b30f24fc279857ba67605f29036afe9bf0"],
+  "evidence": ["packages/application/test/artifact-retrieval.unit.test.ts", "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"]
+}

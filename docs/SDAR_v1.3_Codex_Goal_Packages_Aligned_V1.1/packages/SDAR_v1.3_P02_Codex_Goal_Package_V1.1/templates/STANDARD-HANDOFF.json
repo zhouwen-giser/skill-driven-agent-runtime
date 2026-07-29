@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P02",
+  "packageVersion": "1.1",
+  "sequence": 2,
+  "status": "",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "",
+  "branch": "",
+  "commits": {},
+  "draftPrUrl": "",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "ArtifactLineage",
+      "version": "1.1",
+      "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57"
+    },
+    {
+      "name": "ArtifactRuntimeBinding",
+      "version": "1.1",
+      "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53"
+    },
+    {
+      "name": "ArtifactValidationRepository",
+      "version": "1.1",
+      "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9"
+    },
+    {
+      "name": "ArtifactExecutionRepository",
+      "version": "1.1",
+      "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650"
+    },
+    {
+      "name": "ArtifactRegistryService",
+      "version": "1.1",
+      "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5"
+    },
+    {
+      "name": "OperatorIdentityPort",
+      "version": "1.1",
+      "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75"
+    },
+    {
+      "name": "ArtifactGovernancePort",
+      "version": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [],
+  "acceptanceSummary": {
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [],
+  "openBlockers": [],
+  "nextPackage": "P03",
+  "packageOutputs": {
+    "ArtifactRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53",
+      "refs": []
+    },
+    "ArtifactValidationRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9",
+      "refs": []
+    },
+    "ArtifactExecutionRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650",
+      "refs": []
+    },
+    "ArtifactRegistryService": {
+      "contractVersion": "1.1",
+      "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5",
+      "refs": []
+    },
+    "OperatorIdentityPort": {
+      "contractVersion": "1.1",
+      "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75",
+      "refs": []
+    },
+    "ArtifactGovernancePort": {
+      "contractVersion": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf",
+      "refs": []
+    }
+  }
+}

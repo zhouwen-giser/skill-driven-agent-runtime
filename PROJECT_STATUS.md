@@ -1,5 +1,126 @@
 # Project Status
 
+SDAR v1.3 P07/G13-G14 Active Artifact Retrieval and Applicability is
+`COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
+Implementation commits `a53798b`, `d2a37fd` and `26b60c2` add the frozen V1.1
+retrieval/applicability contracts, P02 PostgreSQL active-index projection,
+deterministic hard-gated selection, trusted parameter binding, durable audit,
+version-evidence dependency checks and P06-atomic revalidation requests.
+P07 keeps Redis/semantic/memory projections non-authoritative and adds no public
+route, Fast Gateway, template execution, Goal/Plan/Attempt or Skill/MCP call.
+The independent read-only review closed at 0 Blocking / 0 Major / 0 Minor. The
+final operator-managed `pnpm verify` passes 954 unit/contract, 113 integration,
+62 E2E, 24 migrations, architecture/protocol/build and both smokes in 220,114
+ms; `v1.3-p07-handoff.json` is `COMPLETED`. P08 has not started.
+
+SDAR v1.3 P06/G11-G12 Shadow, Promotion and Governance is `COMPLETED`
+(2026-07-29) on `feature/v1.3-sequential-implementation`. Implementation commit
+`70647a0` adds six immutable V1.1 governance contracts, migration 0130,
+PostgreSQL-authoritative Shadow/Promotion/Approval/Activation/Revalidation
+projections, wake-only BullMQ workers, Server composition and trusted operator
+management operations. P06 derives promotion coverage from durable P05/P06
+facts, preserves P02 authority, rejects unsafe/single-device/single-user/
+temporary-authorization evidence, removes the active pointer on critical safety
+incidents and never implements P07 retrieval or execution. An independent
+read-only review closed at 0 Blocking / 0 Major / 0 Minor. The final isolated
+`pnpm verify` passes 941 unit/contract, 110 integration, 62 E2E, 23 migrations,
+architecture/protocol/build and both smokes; its seven-stage report is in
+`reports/verification/summary.json`. `v1.3-p06-handoff.json` is `COMPLETED`.
+
+
+SDAR v1.3 P05/G09-G10 Replay Dataset and Artifact Validation Engine is `COMPLETED` (2026-07-29) on
+`feature/v1.3-sequential-implementation` from P04R closure `b28b183`. The strict six-contract
+Domain, four-way immutable Dataset/leakage builder, snapshot-only No-Physical boundary,
+Plan/Rule/Counterfactual evaluators, transparent 29-metric catalog, migration 0129 PostgreSQL
+authority, wake-only BullMQ worker and Server composition are committed through accepted
+implementation head `14eb978`. The real native Formal Episode (without test-only `replayValidation`) ->
+P03 Trace/Pattern -> P04 Candidate -> P02 ArtifactRepository -> P05 Replay Validation chain passes
+with 8 Cases, 4 Dataset purposes and 3 independent Holdout results. A real denied network operation
+persists `unsafe`, a critical Failure, Counterexample and canonical `artifact.validation_completed`
+while Candidate state stays unchanged. Five production Fact Reader/Episode Builder outputs remain
+bound to their historical Capability Summary after all current Skills are disabled. Focused replay
+tests pass 42/42; 22 migrations through 0129 pass fresh/idempotent/rollback/reapply. Deletion
+retains terminal validation evidence, invalidates promotion eligibility and creates successor
+Dataset versions. Four PostgreSQL workers claimed 100 bounded Runs in 43.385 ms and Redis wake lag
+measured 18.272 ms. Five independent read-only Review rounds closed every earlier finding; the
+accepted implementation has 0 Blocking / 0 Major / 0 Minor. The full gate passes 916 unit/contract,
+109 real PostgreSQL/Redis integration, 62 E2E, architecture, migration, build and both smoke stages.
+All 43 P05 acceptance items pass; the 28-field P06 Handoff is complete. Draft PR #12 remains open
+and unmerged. P06 implementation has not started.
+
+SDAR v1.3 P04R mandatory remediation is `COMPLETED` (2026-07-28) on
+`feature/v1.3-sequential-implementation`. Activity Identity V1.2 now separates lifecycle facts from
+traceable workflow activities; P03 preserves repetitions, self-loops, parallel/branch/recovery
+semantics and real quality metrics; P04 executes bounded generalization, exact DAG/parallel/
+conditional compilation, live Capability Catalog checks, distinct fingerprints and Static
+Validator V1.2. The durable real path reaches P02 `ArtifactRepository.saveCandidate`, lineage,
+validation, transactional Outbox and a completed PostgreSQL run while Redis remains wake-only.
+Independent Reviews A/B/C each have 0 Blocking and 0 Major findings. Revised P03 and P04 Handoffs
+and the P04R Handoff are `COMPLETED`; all 47 P04R criteria pass. Shared Registry V1.2 hash is
+`8aa828fa...7d60dee`, package accounting is 14/1/1, and the clean exact implementation commit
+`de25f4c` passes 848 unit/contract, 104 real integration, 62 E2E, 21 migrations, 468-source
+architecture, production build and both smokes in 220,389 ms. P04R itself did not implement P05.
+
+SDAR v1.3 P03/G05-G06 Experience Trace normalization and deterministic process mining is in
+remediation (2026-07-27) on `feature/v1.3-sequential-implementation`. G05 `22cf9a3` and G06
+`119fe43` were followed by a rejected independent review with 2 Blocking, 4 Major and 2 Minor
+findings. Compatibility commit `8adecec` and remediation `1f7e043` connect the formal
+Episode→durable run→BullMQ→Trace→Pattern product path, persist 10,000-trace evidence within the
+existing 1 MiB authority boundary, reclaim terminal expired leases, enforce strict nested contracts,
+provide tenant-scoped WorkflowPattern reads and prove real Redis reconstruction. The remediation
+gate passes 828 unit/contract, 100 real integration, 62 real E2E, 459-source architecture, A2A
+74/74, 152 OpenAPI operations, all 19 migrations and production build. Its final infrastructure
+smoke remains environment-blocked because the protected operator `/sdar` database lacks the
+documented clean-baseline ledger marker. A second independent review closed every original finding
+but rejected `1f7e043` with three new Major findings: timestamp-colliding/unbounded mining triggers,
+event-loop blocking and missing Task Source attribution. Working-tree remediation adds
+cohort-batched event identity with advisory-lock/60-second rate control, cooperative async mining,
+async Brotli, single mining concurrency and formal `task_request` lineage; 829 unit/contract tests
+and architecture pass. Real integration, a dedicated migrated-database full gate and another fresh
+review must close before P03 can become `COMPLETED` or P04 can be read.
+
+SDAR v1.3 P02/G02-G04 Artifact Persistence, Registry and Governance is complete as `COMPLETED`
+(2026-07-27) on `feature/v1.3-sequential-implementation`. Three independent reviews rejected earlier
+commits with a combined 6 Blocking, 8 Major and 1 Minor finding; every finding is closed. A fourth
+new independent read-only reviewer accepted exact implementation commit
+`14abffe75ed1e7108bfe59f7ceeeafed43a0ac45` with zero findings and authorized the Handoff.
+PostgreSQL is the sole Artifact/Approval/Pointer authority; versions and Lineage are immutable,
+current Validation/Approval and tenant evidence are bound transactionally, Pointer tombstones
+prevent CAS ABA, and relevant Outbox cursor order is serialized through commit without claiming
+shared publication. Registry rebuild, full lifecycle cache invalidation, real mixed-event startup,
+complete JSON bounds, repeated event aggregates and 501-row paging are covered. The exact
+`dirty=false` gate passes 795 unit/contract, 92 real integration, 62 real E2E, 447-source
+architecture, A2A 74/74, 152 OpenAPI operations, 18 migrations, Replay with zero physical calls,
+production build and both smokes in 170,656 ms. The operator `/sdar` database remained untouched;
+verification used isolated databases. P03 may consume the six frozen P02 contracts after the
+evidence/cursor commits are pushed to Draft PR #12.
+
+SDAR v1.3 P01/G01 Runtime Artifact Domain is complete as `READY_FULL` after a rejected first
+independent review and accepted remediation re-review
+(2026-07-26) on `feature/v1.3-sequential-implementation`. The first review found downstream
+PlanTemplate incompatibility, Domain/Zod/AJV drift, a direct-activation bypass and missing nested enum
+guards. Exact shared-design/P04 nested shapes, AJV recursive-bound keywords, direct activation
+evidence and expanded regressions now pass 20/20 focused tests. The post-remediation complete gate
+passes 785/785 unit+contract, 84/84 real integration, 62/62 real E2E, 435-source architecture, A2A
+74/74, 152 OpenAPI operations, 17 migrations, Replay with zero physical Provider calls, production
+build and both smoke tests. A new independent read-only re-review accepts the remediated tree with
+zero blocking/major findings; its documentation-only minor item is closed. The meaningful completion
+commit `8ac5f5e` passes the same full gate with `dirty=false`; final Handoff has 9/9 accepted, zero
+failed/blocked and zero open blockers. P02 may now consume the 15 frozen P01 contracts.
+
+SDAR v1.3 P00 foundation gate is complete as `READY_FULL` (2026-07-26) on
+`feature/v1.3-sequential-implementation` from exact `origin/main@v1.2.3-final`
+`856f909d22c33e6e20d7e0a1cffc2f54c03b4477`. All fifteen package self-checks and the aggregate
+cross-package validator pass with frozen registry SHA-256 `d7b1d971...a7ff4cbb`. The repository owner
+explicitly accepted the audited external v1.2.3 merge deviation and all three authoritative records
+now agree without claiming native auto-merge or the absent unmerged state. A complete clean recovery
+gate at `6e27d70` passes 765 unit/contract, 84 real integration, 62 real E2E,
+architecture, A2A, OpenAPI, Replay, 17 migrations, production builds and both smoke stages against a
+dedicated clean-slate database. Fresh independent read-only review accepts the exact `READY_FULL`
+contracts with zero baseline blockers and no product/P01 scope drift. The branch is pushed through
+`cbd9069`; Draft PR #12 targets `main` and remains Draft. No merge, tag, release or deployment was
+performed.
+
 SDAR v1.2.3 G00–G17 are complete (2026-07-26). Clean `pnpm verify` on `7e50541` passes 765
 Unit+Contract, 84 real Integration, 62 real E2E, Replay, 17 migrations, A2A MUST 74/74, 152 OpenAPI,
 425-source architecture, production builds and both smoke stages with `dirty=false`. G17 adds unified
@@ -537,3 +658,20 @@ EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remo
 ## Current authoritative stage status (2026-07-13)
 
 EP-05 Memory, Evaluation, and Evolution is complete (100%). The independent stage audit verifies FR-EVO-001–010, FR-MEM-001–006, FR-EVAL-001–005, related FR-SKL-015/FR-LLM-007 closure, migrations through 0049, and the full local gate. The legacy bootstrap table above is retained as historical text and is superseded by this status plus `reports/EP-05-memory-evaluation-evolution/EP-05-ACCEPTANCE-AUDIT.md`. Overall V1 remains incomplete pending EP-06 Console and EP-07 project-wide acceptance.
+
+## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler (2026-07-28)
+
+SDAR v1.3 P04/G07-G08 Pattern Generalization and Plan Template Candidate Compiler is complete on
+`feature/v1.3-sequential-implementation` at commit `e4e2992`. P03 Handoff (e926445) was consumed;
+3 produced contracts (FusedPattern, GeneralizedPattern, CandidateStaticValidationResult) and 3
+consumed contracts (WorkflowPattern, CompiledArtifact, PlanTemplateArtifactDefinition) match
+`CONTRACT-LOCK.json`. The implementation fuses P03 structural facts with optional LLM semantic
+candidates (structural facts never overwritten), generalizes with 5 anti-overfitting rules, and
+compiles evidence-only Plan Template candidates with `status=candidate`, `executable=false`, 7-input
+SHA-256 fingerprint, and 8-check static validation (`passed_static` ≠ promotion). Migration 0127
+adds 5 non-authoritative child tables; the wake-only BullMQ worker does not emit events. The domain
+layer is free of `node:crypto` (hash computation moved to application layer per ADR-119). Full
+`pnpm verify` passes 7/7 steps on a clean self-managed-compose database: 841 unit/contract, 100
+integration, 62 E2E, 20 migrations through 0127, architecture, build, and smoke. Review 1 self-audit
+concludes 0 Blocking / 0 Major / 0 Minor; the final ACCEPTED verdict is
+`PENDING_USER_CONFIRMATION`. P05 Handoff is emitted. Draft PR #12 remains OPEN and unmerged.

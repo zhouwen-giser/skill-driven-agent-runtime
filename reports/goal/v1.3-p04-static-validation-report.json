@@ -1,0 +1,60 @@
+{
+  "packageId": "SDAR-V1.3-P04",
+  "schemaVersion": "1.1",
+  "generatedAt": "2026-07-28T00:00:00Z",
+  "staticValidationReport": {
+    "validatorVersion": "sdar-candidate-static-validator/1.1",
+    "checks": [
+      {
+        "name": "schemaValid",
+        "description": "Validates PlanTemplateArtifactDefinition has all required fields and status=candidate"
+      },
+      {
+        "name": "dagValid",
+        "description": "Validates Skill Goal DAG is acyclic with no dangling predecessor/successor references"
+      },
+      {
+        "name": "requiredCriteriaCovered",
+        "description": "Validates every required CriterionTemplate is covered by at least one node's coveredCriterionTemplateIds"
+      },
+      {
+        "name": "capabilityShapeValid",
+        "description": "Validates no node binds an exact Skill ID (skill: prefix forbidden)"
+      },
+      {
+        "name": "parameterPolicyValid",
+        "description": "Validates no parameter has trustLevel=authoritative with allowedSources=small_model_candidate"
+      },
+      {
+        "name": "sideEffectReplaySafe",
+        "description": "Validates recovery branches with explicitly_safe replay do not allow multiple applications"
+      },
+      {
+        "name": "boundsValid",
+        "description": "Validates node count <= 256, parameter count <= 128, recovery branch count <= 32"
+      },
+      {
+        "name": "duplicateFingerprint",
+        "description": "Checks candidate fingerprint against existing fingerprints for duplicate detection"
+      }
+    ],
+    "goldenCandidateResult": {
+      "result": "passed_static",
+      "schemaValid": true,
+      "dagValid": true,
+      "requiredCriteriaCovered": true,
+      "capabilityShapeValid": true,
+      "parameterPolicyValid": true,
+      "sideEffectReplaySafe": true,
+      "boundsValid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "duplicateDetectionResult": {
+      "result": "failed_static",
+      "duplicateFingerprint": "present",
+      "errors": [{"code": "DUPLICATE_FINGERPRINT", "message": "A candidate with the same fingerprint already exists"}]
+    },
+    "importantNote": "passed_static is explicitly not a validation pass, approval or promotion signal; it is recorded as evidence only"
+  }
+}

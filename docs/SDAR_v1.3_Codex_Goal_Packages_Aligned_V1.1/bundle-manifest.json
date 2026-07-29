@@ -1,0 +1,121 @@
+{
+  "bundleId": "SDAR-V1.3-CODEX-GOAL-PACKAGES-ALIGNED",
+  "version": "1.1",
+  "formalPackages": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P11",
+    "P12",
+    "P13"
+  ],
+  "formalPackageCount": 14,
+  "atomicGoals": [
+    "G00",
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06",
+    "G07",
+    "G08",
+    "G09",
+    "G10",
+    "G11",
+    "G12",
+    "G13",
+    "G14",
+    "G15",
+    "G16",
+    "G17",
+    "G18",
+    "G19",
+    "G20",
+    "G21",
+    "G22"
+  ],
+  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "validation": "passed",
+  "p14Included": false,
+  "packages": [
+    {
+      "package": "P00",
+      "zip": "zips/SDAR_v1.3_P00_Codex_Goal_Package_V1.1.zip",
+      "sha256": "d2a3010d2c299597e59650bfc1ea0cf19f70e02352f4b841d48063cc110dd51e"
+    },
+    {
+      "package": "P01",
+      "zip": "zips/SDAR_v1.3_P01_Codex_Goal_Package_V1.1.zip",
+      "sha256": "7589b3963a5178910349d0b1cb9da3986aa5c206587af014ea27ed27fc90c11c"
+    },
+    {
+      "package": "P02",
+      "zip": "zips/SDAR_v1.3_P02_Codex_Goal_Package_V1.1.zip",
+      "sha256": "7d304ff3c6bb4f63e67b87b4003d9edd4bdd3847ca377adaf9749e53d3c8c5fd"
+    },
+    {
+      "package": "P03",
+      "zip": "zips/SDAR_v1.3_P03_Codex_Goal_Package_V1.1.zip",
+      "sha256": "01c338c2159aa0a1f2806b2ad2f889536b16f7b71f8155f56e1f2c0a19981dbb"
+    },
+    {
+      "package": "P04",
+      "zip": "zips/SDAR_v1.3_P04_Codex_Goal_Package_V1.1.zip",
+      "sha256": "baa27b69d2a42cd0dc8211354f77962d7d0db5d6a8f6baa01bda9c0985b37746"
+    },
+    {
+      "package": "P05",
+      "zip": "zips/SDAR_v1.3_P05_Codex_Goal_Package_V1.1.zip",
+      "sha256": "d89bcb042e61dcbc2f04bc5c35542845c29205a9c006c6bfab24d38e0916d53e"
+    },
+    {
+      "package": "P06",
+      "zip": "zips/SDAR_v1.3_P06_Codex_Goal_Package_V1.1.zip",
+      "sha256": "6f4baebe6084a0d33d63f195404b868b6351b3fe39097fc7799b2d6c4efd2e29"
+    },
+    {
+      "package": "P07",
+      "zip": "zips/SDAR_v1.3_P07_Codex_Goal_Package_V1.1.zip",
+      "sha256": "e7756dbe354cfbf22c53b2c15b8c306a69313165ede9daf50458d9ac69753454"
+    },
+    {
+      "package": "P08",
+      "zip": "zips/SDAR_v1.3_P08_Codex_Goal_Package_V1.1.zip",
+      "sha256": "93df8306f8c44daae3819087efcf95255d3f20956f72c9ff3e8811c0b326bf14"
+    },
+    {
+      "package": "P09",
+      "zip": "zips/SDAR_v1.3_P09_Codex_Goal_Package_V1.1.zip",
+      "sha256": "3d39de573416f43fb5bb4e2f60490d56d5aad84573747fdbe3602db7e3b689ce"
+    },
+    {
+      "package": "P10",
+      "zip": "zips/SDAR_v1.3_P10_Codex_Goal_Package_V1.1.zip",
+      "sha256": "0526980f91e0f6c79b89fdd8509d89d439559e0087b67befd4d21c263250327b"
+    },
+    {
+      "package": "P11",
+      "zip": "zips/SDAR_v1.3_P11_Codex_Goal_Package_V1.1.zip",
+      "sha256": "8da2ceec302c6f7191b99067fa90dde7bebafc05f3a332b7531c55a7ddeb25c7"
+    },
+    {
+      "package": "P12",
+      "zip": "zips/SDAR_v1.3_P12_Codex_Goal_Package_V1.1.zip",
+      "sha256": "6d21c1175eefb826357ca18161dd5b768fee6c3180c37da34ad48daa6971c5c7"
+    },
+    {
+      "package": "P13",
+      "zip": "zips/SDAR_v1.3_P13_Codex_Goal_Package_V1.1.zip",
+      "sha256": "6949040160a604b053f60e8aaa842db354952214ce58c98d103b86b1437eaae0"
+    }
+  ]
+}

@@ -1,0 +1,486 @@
+-- 0129_v13_artifact_replay_validation.up.sql
+-- P05: immutable replay datasets and PostgreSQL-authoritative validation work.
+
+BEGIN;
+
+CREATE TABLE artifact_replay_case (
+  replay_case_id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  task_type_id text NOT NULL,
+  primary_source_episode_id text NOT NULL
+    REFERENCES goal_experience_episode(episode_id) ON DELETE CASCADE,
+  content jsonb NOT NULL CHECK (
+    jsonb_typeof(content) = 'object'
+    AND octet_length(content::text) <= 1048576
+    AND sdar_jsonb_depth(content) <= 32
+  ),
+  fixture jsonb NOT NULL CHECK (
+    jsonb_typeof(fixture) = 'object'
+    AND octet_length(fixture::text) <= 1048576
+    AND sdar_jsonb_depth(fixture) <= 32
+  ),
+  content_hash text NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
+  snapshot_completeness numeric(7,6) NOT NULL CHECK (snapshot_completeness BETWEEN 0 AND 1),
+  retention_until timestamptz,
+  created_at timestamptz NOT NULL,
+  UNIQUE (tenant_id, primary_source_episode_id, content_hash)
+);
+CREATE INDEX artifact_replay_case_scope_idx
+  ON artifact_replay_case(tenant_id, task_type_id, created_at, replay_case_id);
+
+CREATE TABLE artifact_replay_tenant_deletion (
+  tenant_id text PRIMARY KEY,
+  deleted_at timestamptz NOT NULL
+);
+
+CREATE TABLE replay_dataset_manifest (
+  dataset_id text NOT NULL,
+  dataset_version integer NOT NULL CHECK (dataset_version >= 1),
+  purpose text NOT NULL CHECK (
+    purpose IN ('discovery','candidate_development','promotion_holdout','counterexample')
+  ),
+  tenant_id text NOT NULL,
+  content jsonb NOT NULL CHECK (
+    jsonb_typeof(content) = 'object'
+    AND octet_length(content::text) <= 1048576
+    AND sdar_jsonb_depth(content) <= 32
+  ),
+  source_hash text NOT NULL CHECK (source_hash ~ '^sha256:[0-9a-f]{64}$'),
+  content_hash text NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
+  leakage_check_ref text NOT NULL,
+  promotion_eligible boolean NOT NULL DEFAULT true,
+  invalidated_at timestamptz,
+  invalidation_reason text,
+  successor_dataset_id text,
+  successor_dataset_version integer,
+  created_at timestamptz NOT NULL,
+  CHECK (
+    (invalidated_at IS NULL AND invalidation_reason IS NULL)
+    OR (invalidated_at IS NOT NULL AND invalidation_reason IS NOT NULL)
+  ),
+  CHECK (
+    (successor_dataset_id IS NULL AND successor_dataset_version IS NULL)
+    OR (successor_dataset_id IS NOT NULL AND successor_dataset_version IS NOT NULL)
+  ),
+  PRIMARY KEY(dataset_id, dataset_version),
+  UNIQUE(tenant_id, purpose, content_hash)
+);
+CREATE INDEX replay_dataset_manifest_scope_idx
+  ON replay_dataset_manifest(tenant_id, purpose, created_at, dataset_id);
+
+CREATE TABLE replay_dataset_case (
+  dataset_id text NOT NULL,
+  dataset_version integer NOT NULL,
+  replay_case_id text NOT NULL REFERENCES artifact_replay_case(replay_case_id) ON DELETE CASCADE,
+  ordinal integer NOT NULL CHECK (ordinal >= 0),
+  PRIMARY KEY(dataset_id, dataset_version, replay_case_id),
+  UNIQUE(dataset_id, dataset_version, ordinal),
+  FOREIGN KEY(dataset_id, dataset_version)
+    REFERENCES replay_dataset_manifest(dataset_id, dataset_version) ON DELETE CASCADE
+);
+
+ALTER TABLE artifact_validation_run
+  ADD COLUMN tenant_id text,
+  ADD COLUMN dataset_version integer,
+  ADD COLUMN artifact_hash text CHECK (
+    artifact_hash IS NULL OR artifact_hash ~ '^sha256:[0-9a-f]{64}$'
+  ),
+  ADD COLUMN dataset_hash text CHECK (
+    dataset_hash IS NULL OR dataset_hash ~ '^sha256:[0-9a-f]{64}$'
+  ),
+  ADD COLUMN validator_version text,
+  ADD COLUMN metric_catalog_version text,
+  ADD COLUMN result_hash text CHECK (
+    result_hash IS NULL OR result_hash ~ '^sha256:[0-9a-f]{64}$'
+  ),
+  ADD COLUMN result_payload jsonb CHECK (
+    result_payload IS NULL OR (
+      jsonb_typeof(result_payload) = 'object'
+      AND octet_length(result_payload::text) <= 1048576
+      AND sdar_jsonb_depth(result_payload) <= 32
+    )
+  ),
+  ADD COLUMN promotion_eligible boolean NOT NULL DEFAULT true,
+  ADD COLUMN source_invalidated_at timestamptz,
+  ADD COLUMN source_invalidation_reason text,
+  ADD COLUMN work_state text NOT NULL DEFAULT 'completed' CHECK (
+    work_state IN ('pending','leased','retry_wait','completed','dead_letter','canceled')
+  ),
+  ADD COLUMN attempt integer NOT NULL DEFAULT 0 CHECK (attempt >= 0),
+  ADD COLUMN max_attempts integer NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 1 AND 32),
+  ADD COLUMN available_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN lease_owner text,
+  ADD COLUMN lease_token text,
+  ADD COLUMN lease_expires_at timestamptz,
+  ADD COLUMN cancel_requested_at timestamptz,
+  ADD COLUMN idempotency_key text,
+  ADD COLUMN source_event_id text,
+  ADD COLUMN last_error_code text,
+  ADD COLUMN last_error_summary text CHECK (
+    last_error_summary IS NULL OR length(last_error_summary) BETWEEN 1 AND 2048
+  ),
+  ADD COLUMN created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE artifact_validation_run
+SET idempotency_key = 'legacy:' || validation_run_id,
+    available_at = started_at,
+    created_at = started_at,
+    updated_at = COALESCE(completed_at, started_at)
+WHERE idempotency_key IS NULL;
+
+ALTER TABLE artifact_validation_run
+  ADD CONSTRAINT artifact_validation_run_replay_dataset_fk
+    FOREIGN KEY(dataset_ref, dataset_version)
+    REFERENCES replay_dataset_manifest(dataset_id, dataset_version) ON DELETE RESTRICT,
+  ADD CONSTRAINT artifact_validation_run_lease_check CHECK (
+    (work_state = 'leased') = (
+      lease_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL
+    )
+  ),
+  ADD CONSTRAINT artifact_validation_run_replay_pin_check CHECK (
+    dataset_version IS NULL OR (
+      tenant_id IS NOT NULL
+      AND artifact_hash IS NOT NULL
+      AND dataset_hash IS NOT NULL
+      AND validator_version IS NOT NULL
+      AND metric_catalog_version IS NOT NULL
+      AND idempotency_key IS NOT NULL
+    )
+  );
+
+CREATE UNIQUE INDEX artifact_validation_run_idempotency_idx
+  ON artifact_validation_run(idempotency_key);
+CREATE UNIQUE INDEX artifact_validation_run_source_event_idx
+  ON artifact_validation_run(source_event_id) WHERE source_event_id IS NOT NULL;
+CREATE INDEX artifact_validation_run_work_idx
+  ON artifact_validation_run(work_state, available_at, validation_run_id);
+CREATE INDEX artifact_validation_run_expired_lease_idx
+  ON artifact_validation_run(lease_expires_at, validation_run_id)
+  WHERE work_state='leased';
+
+CREATE TABLE artifact_replay_case_result (
+  validation_run_id text NOT NULL
+    REFERENCES artifact_validation_run(validation_run_id) ON DELETE CASCADE,
+  replay_case_id text NOT NULL,
+  evaluation jsonb NOT NULL CHECK (
+    jsonb_typeof(evaluation) = 'object'
+    AND octet_length(evaluation::text) <= 1048576
+    AND sdar_jsonb_depth(evaluation) <= 32
+  ),
+  metrics jsonb NOT NULL CHECK (
+    jsonb_typeof(metrics) = 'object'
+    AND octet_length(metrics::text) <= 262144
+    AND sdar_jsonb_depth(metrics) <= 16
+  ),
+  result_hash text NOT NULL CHECK (result_hash ~ '^sha256:[0-9a-f]{64}$'),
+  created_at timestamptz NOT NULL,
+  PRIMARY KEY(validation_run_id, replay_case_id)
+);
+
+CREATE TABLE artifact_validation_failure (
+  failure_id text PRIMARY KEY,
+  validation_run_id text NOT NULL
+    REFERENCES artifact_validation_run(validation_run_id) ON DELETE CASCADE,
+  replay_case_id text NOT NULL,
+  category text NOT NULL,
+  severity text NOT NULL CHECK (severity IN ('info','minor','major','critical')),
+  content jsonb NOT NULL CHECK (
+    jsonb_typeof(content) = 'object'
+    AND octet_length(content::text) <= 262144
+    AND sdar_jsonb_depth(content) <= 16
+  ),
+  created_at timestamptz NOT NULL
+);
+CREATE INDEX artifact_validation_failure_run_idx
+  ON artifact_validation_failure(validation_run_id, severity, failure_id);
+
+CREATE TABLE artifact_counterexample (
+  counterexample_id text PRIMARY KEY,
+  artifact_id text NOT NULL,
+  artifact_version integer NOT NULL,
+  replay_case_id text NOT NULL,
+  failure_id text NOT NULL
+    REFERENCES artifact_validation_failure(failure_id) ON DELETE CASCADE,
+  validation_run_id text NOT NULL
+    REFERENCES artifact_validation_run(validation_run_id) ON DELETE CASCADE,
+  content jsonb NOT NULL CHECK (
+    jsonb_typeof(content) = 'object'
+    AND octet_length(content::text) <= 262144
+    AND sdar_jsonb_depth(content) <= 16
+  ),
+  condition_fingerprint text NOT NULL CHECK (
+    condition_fingerprint ~ '^sha256:[0-9a-f]{64}$'
+  ),
+  status text NOT NULL CHECK (status IN ('recorded','reviewed','superseded')),
+  created_at timestamptz NOT NULL,
+  FOREIGN KEY(artifact_id, artifact_version)
+    REFERENCES compiled_artifact(artifact_id, version)
+);
+CREATE INDEX artifact_counterexample_lineage_idx
+  ON artifact_counterexample(artifact_id, artifact_version, replay_case_id);
+
+CREATE FUNCTION sdar_reject_artifact_replay_content_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'Replay Case, Dataset, Result, Failure and Counterexample content is immutable'
+    USING ERRCODE = 'integrity_constraint_violation';
+END
+$$;
+
+CREATE FUNCTION sdar_guard_replay_dataset_manifest_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF (to_jsonb(NEW) - ARRAY[
+        'promotion_eligible','invalidated_at','invalidation_reason',
+        'successor_dataset_id','successor_dataset_version'
+      ])
+     IS DISTINCT FROM
+     (to_jsonb(OLD) - ARRAY[
+        'promotion_eligible','invalidated_at','invalidation_reason',
+        'successor_dataset_id','successor_dataset_version'
+      ])
+  THEN
+    RAISE EXCEPTION 'Replay Dataset immutable content cannot be changed'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  IF OLD.promotion_eligible = false AND NEW.promotion_eligible = true THEN
+    RAISE EXCEPTION 'Invalidated Replay Dataset cannot become promotion eligible'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE FUNCTION sdar_guard_terminal_artifact_validation_run_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Rows created by the pre-P05 Artifact Authority path have no immutable Dataset pin and retain
+  -- their existing P02 lifecycle. P05 replay immutability begins only at a frozen Dataset version.
+  IF OLD.validation_type <> 'replay' OR OLD.dataset_version IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF OLD.work_state IN ('completed','dead_letter','canceled')
+     AND (to_jsonb(NEW) - ARRAY[
+           'promotion_eligible','source_invalidated_at','source_invalidation_reason','updated_at'
+         ])
+         IS DISTINCT FROM
+         (to_jsonb(OLD) - ARRAY[
+           'promotion_eligible','source_invalidated_at','source_invalidation_reason','updated_at'
+         ])
+  THEN
+    RAISE EXCEPTION 'Terminal Artifact Validation Run facts are immutable'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  IF OLD.promotion_eligible = false AND NEW.promotion_eligible = true THEN
+    RAISE EXCEPTION 'Invalidated Artifact Validation Run cannot become promotion eligible'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER artifact_replay_case_immutability
+BEFORE UPDATE ON artifact_replay_case
+FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
+CREATE TRIGGER replay_dataset_manifest_immutability
+BEFORE UPDATE ON replay_dataset_manifest
+FOR EACH ROW EXECUTE FUNCTION sdar_guard_replay_dataset_manifest_mutation();
+CREATE TRIGGER artifact_validation_run_terminal_immutability
+BEFORE UPDATE ON artifact_validation_run
+FOR EACH ROW EXECUTE FUNCTION sdar_guard_terminal_artifact_validation_run_mutation();
+CREATE TRIGGER artifact_replay_case_result_immutability
+BEFORE UPDATE ON artifact_replay_case_result
+FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
+CREATE TRIGGER artifact_validation_failure_immutability
+BEFORE UPDATE ON artifact_validation_failure
+FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
+CREATE TRIGGER artifact_counterexample_immutability
+BEFORE UPDATE ON artifact_counterexample
+FOR EACH ROW EXECUTE FUNCTION sdar_reject_artifact_replay_content_mutation();
+
+-- Direct source deletion creates an immutable, non-promotable successor Dataset version before
+-- invalidating the former promotion projection. Application deletion paths use the same rule.
+CREATE FUNCTION sdar_invalidate_replay_datasets_for_case()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  affected record;
+  next_version integer;
+  successor_created_at timestamptz := clock_timestamp();
+  successor_created_at_text text;
+  remaining_case_refs jsonb;
+  remaining_source_facts jsonb;
+  successor_source_hash text;
+  successor_leakage_ref text;
+  successor_identity jsonb;
+  successor_content_hash text;
+  successor_content jsonb;
+BEGIN
+  successor_created_at_text :=
+    to_char(successor_created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+
+  FOR affected IN
+    SELECT manifest.*
+    FROM replay_dataset_manifest manifest
+    JOIN replay_dataset_case member
+      ON member.dataset_id=manifest.dataset_id
+     AND member.dataset_version=manifest.dataset_version
+    WHERE member.replay_case_id=OLD.replay_case_id
+      AND manifest.promotion_eligible=true
+    ORDER BY manifest.dataset_id,manifest.dataset_version
+    FOR UPDATE OF manifest
+  LOOP
+    SELECT COALESCE(MAX(manifest.dataset_version),0)::integer + 1
+    INTO next_version
+    FROM replay_dataset_manifest manifest
+    WHERE manifest.dataset_id=affected.dataset_id;
+
+    SELECT
+      COALESCE(
+        jsonb_agg(member.replay_case_id ORDER BY member.ordinal)
+          FILTER (WHERE member.replay_case_id<>OLD.replay_case_id),
+        '[]'::jsonb
+      ),
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'replayCaseId',member.replay_case_id,
+            'contentHash',replay.content_hash
+          )
+          ORDER BY member.ordinal
+        ) FILTER (WHERE member.replay_case_id<>OLD.replay_case_id),
+        '[]'::jsonb
+      )
+    INTO remaining_case_refs,remaining_source_facts
+    FROM replay_dataset_case member
+    JOIN artifact_replay_case replay ON replay.replay_case_id=member.replay_case_id
+    WHERE member.dataset_id=affected.dataset_id
+      AND member.dataset_version=affected.dataset_version;
+
+    successor_source_hash :=
+      'sha256:' || encode(sha256(convert_to(remaining_source_facts::text,'UTF8')),'hex');
+    successor_leakage_ref :=
+      'replay-leakage-' ||
+      substr(
+        encode(
+          sha256(
+            convert_to(
+              affected.dataset_id || ':' || next_version::text || ':' || successor_source_hash,
+              'UTF8'
+            )
+          ),
+          'hex'
+        ),
+        1,
+        32
+      );
+    successor_identity := jsonb_build_object(
+      'datasetVersion',next_version,
+      'purpose',affected.purpose,
+      'tenantId',affected.tenant_id,
+      'taskTypeIds',affected.content->'taskTypeIds',
+      'caseRefs',remaining_case_refs,
+      'splitPolicyVersion',affected.content->>'splitPolicyVersion',
+      'sourceRange',affected.content->'sourceRange',
+      'sourceHash',successor_source_hash,
+      'leakageCheckRef',successor_leakage_ref,
+      'createdAt',successor_created_at_text
+    );
+    successor_content_hash :=
+      'sha256:' || encode(sha256(convert_to(successor_identity::text,'UTF8')),'hex');
+    successor_content :=
+      jsonb_build_object('datasetId',affected.dataset_id) ||
+      successor_identity ||
+      jsonb_build_object('contentHash',successor_content_hash);
+
+    INSERT INTO replay_dataset_manifest(
+      dataset_id,dataset_version,purpose,tenant_id,content,source_hash,content_hash,
+      leakage_check_ref,promotion_eligible,invalidated_at,invalidation_reason,created_at
+    )
+    VALUES(
+      affected.dataset_id,next_version,affected.purpose,affected.tenant_id,
+      successor_content,successor_source_hash,successor_content_hash,
+      successor_leakage_ref,false,successor_created_at,
+      'source_case_deleted:requires_resplit',successor_created_at
+    );
+
+    INSERT INTO replay_dataset_case(dataset_id,dataset_version,replay_case_id,ordinal)
+    SELECT
+      affected.dataset_id,
+      next_version,
+      member.replay_case_id,
+      row_number() OVER(ORDER BY member.ordinal)::integer - 1
+    FROM replay_dataset_case member
+    WHERE member.dataset_id=affected.dataset_id
+      AND member.dataset_version=affected.dataset_version
+      AND member.replay_case_id<>OLD.replay_case_id
+    ORDER BY member.ordinal;
+
+    UPDATE replay_dataset_manifest manifest
+    SET promotion_eligible=false,
+        invalidated_at=COALESCE(manifest.invalidated_at,successor_created_at),
+        invalidation_reason=COALESCE(
+          manifest.invalidation_reason,
+          'source_case_deleted'
+        ),
+        successor_dataset_id=affected.dataset_id,
+        successor_dataset_version=next_version
+    WHERE manifest.dataset_id=affected.dataset_id
+      AND manifest.dataset_version=affected.dataset_version;
+  END LOOP;
+
+  UPDATE artifact_validation_run run
+  SET promotion_eligible=false,
+      source_invalidated_at=COALESCE(run.source_invalidated_at,now()),
+      source_invalidation_reason=COALESCE(
+        run.source_invalidation_reason,
+        'source_case_deleted'
+      ),
+      status=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN 'failed'
+        ELSE run.status
+      END,
+      work_state=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN 'canceled'
+        ELSE run.work_state
+      END,
+      result=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased')
+          THEN 'ARTIFACT_REPLAY_SOURCE_INVALIDATED'
+        ELSE run.result
+      END,
+      completed_at=CASE
+        WHEN run.work_state IN ('pending','retry_wait','leased') THEN now()
+        ELSE run.completed_at
+      END,
+      lease_owner=NULL,
+      lease_token=NULL,
+      lease_expires_at=NULL,
+      updated_at=now()
+  WHERE EXISTS(
+    SELECT 1
+    FROM replay_dataset_case member
+    WHERE member.replay_case_id=OLD.replay_case_id
+      AND member.dataset_id=run.dataset_ref
+      AND member.dataset_version=run.dataset_version
+  );
+  RETURN OLD;
+END
+$$;
+
+CREATE TRIGGER artifact_replay_case_delete_propagation
+BEFORE DELETE ON artifact_replay_case
+FOR EACH ROW EXECUTE FUNCTION sdar_invalidate_replay_datasets_for_case();
+
+INSERT INTO schema_migration(version)
+VALUES('0129_v13_artifact_replay_validation');
+
+COMMIT;

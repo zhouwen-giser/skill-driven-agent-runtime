@@ -1,0 +1,427 @@
+[
+  {
+    "package": "P00",
+    "formal": true,
+    "sequence": 0,
+    "goals": [
+      "G00"
+    ],
+    "phase": "Foundation Gate",
+    "dependsOn": [],
+    "requiredStatus": {},
+    "next": "P01",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P01",
+    "formal": true,
+    "sequence": 1,
+    "goals": [
+      "G01"
+    ],
+    "phase": "Foundation Domain",
+    "dependsOn": [
+      "P00"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL"
+    },
+    "next": "P02",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P02",
+    "formal": true,
+    "sequence": 2,
+    "goals": [
+      "G02",
+      "G03",
+      "G04"
+    ],
+    "phase": "Foundation Persistence Governance",
+    "dependsOn": [
+      "P00",
+      "P01"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED"
+    },
+    "next": "P03",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P03",
+    "formal": true,
+    "sequence": 3,
+    "goals": [
+      "G05",
+      "G06"
+    ],
+    "phase": "Offline Compiler",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED"
+    },
+    "next": "P04",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P04",
+    "formal": true,
+    "sequence": 4,
+    "goals": [
+      "G07",
+      "G08"
+    ],
+    "phase": "Offline Compiler",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED"
+    },
+    "next": "P04R",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P04R",
+    "formal": false,
+    "mandatoryRemediation": true,
+    "sequence": 4.5,
+    "goals": [],
+    "remediatesGoals": [
+      "G05",
+      "G06",
+      "G07",
+      "G08"
+    ],
+    "phase": "Mandatory Semantic Alignment Remediation",
+    "dependsOn": [
+      "P03",
+      "P04"
+    ],
+    "requiredStatus": {
+      "P03": "COMPLETED",
+      "P04": "COMPLETED"
+    },
+    "next": "P05",
+    "structuralReadiness": "MANDATORY_RELEASE_GATE"
+  },
+  {
+    "package": "P05",
+    "formal": true,
+    "sequence": 5,
+    "goals": [
+      "G09",
+      "G10"
+    ],
+    "phase": "Validation",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P04R"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P04R": "COMPLETED"
+    },
+    "next": "P06",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P06",
+    "formal": true,
+    "sequence": 6,
+    "goals": [
+      "G11",
+      "G12"
+    ],
+    "phase": "Validation Governance",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED"
+    },
+    "next": "P07",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P07",
+    "formal": true,
+    "sequence": 7,
+    "goals": [
+      "G13",
+      "G14"
+    ],
+    "phase": "Online Runtime Foundation",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED"
+    },
+    "next": "P08",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P08",
+    "formal": true,
+    "sequence": 8,
+    "goals": [
+      "G15"
+    ],
+    "phase": "Online Runtime",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED"
+    },
+    "next": "P09",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P09",
+    "formal": true,
+    "sequence": 9,
+    "goals": [
+      "G16"
+    ],
+    "phase": "Online Runtime",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED",
+      "P08": "COMPLETED"
+    },
+    "next": "P10",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P10",
+    "formal": true,
+    "sequence": 10,
+    "goals": [
+      "G17",
+      "G18"
+    ],
+    "phase": "Online Runtime Integration",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED",
+      "P08": "COMPLETED",
+      "P09": "COMPLETED"
+    },
+    "next": "P11",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P11",
+    "formal": true,
+    "sequence": 11,
+    "goals": [
+      "G19",
+      "G20"
+    ],
+    "phase": "Extended Runtime",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED",
+      "P08": "COMPLETED",
+      "P09": "COMPLETED",
+      "P10": "COMPLETED"
+    },
+    "next": "P12",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P12",
+    "formal": true,
+    "sequence": 12,
+    "goals": [
+      "G21"
+    ],
+    "phase": "Productization",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED",
+      "P08": "COMPLETED",
+      "P09": "COMPLETED",
+      "P10": "COMPLETED",
+      "P11": "COMPLETED"
+    },
+    "next": "P13",
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  },
+  {
+    "package": "P13",
+    "formal": true,
+    "sequence": 13,
+    "goals": [
+      "G22"
+    ],
+    "phase": "Hardening Release",
+    "dependsOn": [
+      "P00",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "requiredStatus": {
+      "P00": "READY_FULL",
+      "P01": "COMPLETED",
+      "P02": "COMPLETED",
+      "P03": "COMPLETED",
+      "P04": "COMPLETED",
+      "P05": "COMPLETED",
+      "P06": "COMPLETED",
+      "P07": "COMPLETED",
+      "P08": "COMPLETED",
+      "P09": "COMPLETED",
+      "P10": "COMPLETED",
+      "P11": "COMPLETED",
+      "P12": "COMPLETED"
+    },
+    "next": null,
+    "structuralReadiness": "READY_FOR_SEQUENTIAL_SUBMISSION"
+  }
+]

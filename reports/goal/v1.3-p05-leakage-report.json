@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "splitPolicyVersion": "sdar-replay-split/1.1",
+  "status": "passed",
+  "checks": {
+    "tenantIsolation": "passed",
+    "goalLineageIsolation": "passed",
+    "episodeRevisionIsolation": "passed",
+    "acceptedPlanRevisionIsolation": "passed",
+    "outcomeIsolation": "passed",
+    "requestFingerprintIsolation": "passed",
+    "nearDuplicateIsolation": "passed",
+    "syntheticSeedIsolation": "passed",
+    "environmentIsolation": "passed",
+    "deviceIsolation": "passed",
+    "fiveMinuteTimeWindowIsolation": "passed",
+    "timeOrderedHoldout": "passed",
+    "candidateSourceTraceExcludedFromHoldout": "passed",
+    "incompleteSnapshotExcludedFromHoldout": "passed"
+  },
+  "realIntegrationObservation": {
+    "checkedCases": 8,
+    "promotionHoldoutIndependentGroups": 3,
+    "candidateSourceEpisodes": [
+      "episode-p04r-success-a",
+      "episode-p04r-success-b",
+      "episode-p04r-failure-recovery"
+    ],
+    "candidateSourceCasesInPromotionHoldout": 0
+  },
+  "evidence": [
+    "packages/application/test/replay-dataset.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P00",
+  "packageVersion": "1.1",
+  "sequence": 0,
+  "status": "READY_FULL",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+    "completion": "09205a15b5c6df7be28c7eca7c1e418474b6a033"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [],
+  "producedContracts": [
+    {
+      "name": "BaselineGateResult",
+      "version": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135"
+    },
+    {
+      "name": "V123PrerequisiteMatrix",
+      "version": "1.1",
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c"
+    }
+  ],
+  "migrations": [],
+  "repositoryPorts": [],
+  "applicationPorts": [],
+  "runtimePorts": [],
+  "events": [],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p00-baseline-report.md",
+    "reports/goal/v1.3-p00-architecture-dependency-map.md",
+    "reports/goal/v1.3-p00-prerequisite-matrix.json",
+    "reports/goal/v1.3-p00-actual-contract.json",
+    "reports/goal/v1.3-p00-completion.md",
+    "reports/goal/v1.3-p00-review.md",
+    "reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md",
+    "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json"
+  ],
+  "acceptanceSummary": {
+    "passed": 6,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "Production-scale soak beyond the single-instance 1-10 active-task target is unverified.",
+    "External production Provider interoperability and authentication/tenant authorization are unverified and outside the trusted-intranet V1 baseline.",
+    "The accepted external v1.2.3 merge deviation does not prove native auto-merge or that the required unmerged protected-review state existed."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P01",
+  "packageOutputs": {
+    "BaselineGateResult": {
+      "contractVersion": "1.1",
+      "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+      "refs": [
+        "reports/goal/v1.3-p00-actual-contract.json",
+        "reports/goal/v1.3-p00-baseline-report.md"
+      ]
+    },
+    "V123PrerequisiteMatrix": {
+      "contractVersion": "1.1",
+      "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c",
+      "refs": [
+        "reports/goal/v1.3-p00-prerequisite-matrix.json"
+      ]
+    }
+  }
+}

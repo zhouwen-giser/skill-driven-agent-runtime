@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "patchId": "SDAR-V1.3-BUNDLE-P04R",
+  "insert": {
+    "packageId": "SDAR-V1.3-P04R",
+    "after": "P04",
+    "before": "P05",
+    "packageClass": "mandatory_remediation",
+    "formalPackage": false,
+    "mandatoryReleaseGate": true,
+    "newAtomicGoal": false,
+    "remediatesGoals": [
+      "G05",
+      "G06",
+      "G07",
+      "G08"
+    ]
+  },
+  "counts": {
+    "formalProductPackages": 14,
+    "mandatoryRemediationPackages": 1,
+    "optionalPostReleasePackages": 1
+  },
+  "requiredUpdates": [
+    "insert P04R between P04 and P05",
+    "P05 requires P04R COMPLETED",
+    "P05 consumes V1.2 remediation contracts",
+    "P13 audits P04R without creating G23",
+    "validate-all separates formal/remediation/optional",
+    "publish Shared Interface Registry V1.2"
+  ]
+}

@@ -494,20 +494,190 @@ operations. Exact commands, classifications and retained failures are in
 
 ## SDAR v1.2.3 G17 and Master Addendum
 
-| Acceptance       | Status                 | Implementation / evidence                                                                   |
-| ---------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
-| AC-G17-01        | verified               | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
-| AC-G17-02        | verified               | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
-| AC-G17-03        | verified               | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
-| AC-G17-04        | verified               | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
-| AC-G17-05        | verified               | executable `FeatureRolloutPolicy` and frozen default flags                                  |
-| AC-G17-06        | verified               | sources/license/NOTICE/SBOM full gate                                                       |
-| AC-G17-07        | verified               | A2A MUST 74/74 and OpenAPI 152/152                                                          |
-| AC-G17-08        | verified               | explicit advisory/authority/Python/Skill-publication declarations                           |
-| AC-G17-09        | failed: external merge | owner-authenticated external merge of PR #9 after Ready; no Codex Merge call and no tag     |
-| AC-MASTER-01..04 | verified               | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
-| AC-MASTER-05     | failed: external merge | required unmerged PR state no longer exists; evidence and no-tag state remain               |
+| Acceptance       | Status             | Implementation / evidence                                                                   |
+| ---------------- | ------------------ | ------------------------------------------------------------------------------------------- |
+| AC-G17-01        | verified           | clean `pnpm verify` at `7e50541`, `dirty=false`, all seven steps pass                       |
+| AC-G17-02        | verified           | unified cognitive startup reconciler plus existing lease/outbox/attempts=1/restart evidence |
+| AC-G17-03        | verified           | scoped retrieval/deletion, injection/redaction and Card allowlist suites                    |
+| AC-G17-04        | verified           | P95/concurrency/queue-budget/retention metrics in v1.2.3 release report                     |
+| AC-G17-05        | verified           | executable `FeatureRolloutPolicy` and frozen default flags                                  |
+| AC-G17-06        | verified           | sources/license/NOTICE/SBOM full gate                                                       |
+| AC-G17-07        | verified           | A2A MUST 74/74 and OpenAPI 152/152                                                          |
+| AC-G17-08        | verified           | explicit advisory/authority/Python/Skill-publication declarations                           |
+| AC-G17-09        | accepted deviation | owner explicitly accepted the audited external merge after Ready; no Codex Merge call/tag   |
+| AC-MASTER-01..04 | verified           | G00–G17 implementation complete; both loops replayable; v1.2.2 regression suite green       |
+| AC-MASTER-05     | accepted deviation | required unmerged state is absent but explicitly owner-accepted; evidence/no-tag remain     |
 
 Exact real/simulated/unverified classification is in
 `reports/v1.2.3-release/release-report.{md,json}` and exact commands/failures are in
 `reports/goal/g17-completion.md`.
+
+## SDAR v1.3 P00 Foundation Gate Addendum
+
+| Acceptance                       | Status               | Implementation / evidence                                                                                                                                               |
+| -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P00 v1.2.2 execution authority   | verified             | `UserGoalPlanController` remains sole terminal owner; architecture gate and 62 real-path E2E pass                                                                       |
+| P00 Experience closed loop       | verified             | Episode, Observer, typed Extractors, Reflector, Promotion and Active retrieval paths mapped in `v1.3-p00-prerequisite-matrix.json`                                      |
+| P00 Planner Experience injection | verified             | advisory decorator retains base validator, confirmation and Goal-version authority; focused unit and E2E regression pass                                                |
+| P00 Replay/Shadow isolation      | verified             | deterministic Replay verifier passes with zero physical Provider/MCP/device calls                                                                                       |
+| P00 frozen baseline              | remediation accepted | `origin/main == v1.2.3-final == 856f909d...b4477`; owner acceptance closes the external-merge deviation without claiming native auto-merge or the absent unmerged state |
+| P00 full gate                    | verified             | clean recovery commit `6e27d70...fe334`, `dirty=false`; 765 unit/contract, 84 real integration, 62 real E2E, migrations/build/smoke pass                                |
+| P00 contract handoff             | verified             | fresh independent review accepts exact contract/Handoff with zero blockers; branch pushed and Draft PR #12 records the published handoff                                |
+
+Exact P00 evidence is in `reports/goal/v1.3-p00-{baseline-report,architecture-dependency-map,completion}.md`,
+`reports/goal/v1.3-p00-{prerequisite-matrix,actual-contract,handoff}.json` and
+`reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json`.
+
+## SDAR v1.3 P01 Runtime Artifact Domain Addendum
+
+| G01 acceptance                    | Status                | Implementation                                                                                                              | Tests / evidence                                                                 |
+| --------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| G01 frozen Artifact types         | verified              | `COMPILED_ARTIFACT_TYPES`; exact five values and registry hashes in Domain                                                  | enum/hash unit; golden fixture contains all five kinds                           |
+| G01 complete lifecycle vocabulary | verified              | `COMPILED_ARTIFACT_STATUSES`; immutable `ARTIFACT_STATUS_TRANSITIONS`                                                       | exhaustive declared/undeclared transition-table unit coverage                    |
+| G01 guarded transitions           | verified              | transition and direct factory construction require validation summary plus explicit approval/validation evidence for Active | activation-without-evidence and direct-active bypass regressions                 |
+| G01 exact immutable aggregate     | verified              | `createCompiledArtifact`; exact fields, definition/type pairing, deep freeze                                                | five factories, unknown-field, mismatch and mutation regressions                 |
+| G01 bounded active data           | verified              | bounded `JsonValue`, `ConditionExpression`, graph and nested definition validators                                          | executable-like value, invalid condition, cycle and canonical JSON coverage      |
+| G01 schema agreement              | verified              | strict Zod plus draft-2020-12 JSON Schema, SDAR AJV bound/Plan keywords and golden fixture                                  | cross-validator 12/12; depth, graph, duplicate, boolean and OOD parity           |
+| G01 lineage/runtime binding       | verified              | immutable lineage factory; rebuildable Runtime Binding factory                                                              | identity/version/hash and immutability unit coverage                             |
+| G01 Domain dependency isolation   | verified              | `scripts/check-artifact-architecture.mjs`; ADR-116 authority map                                                            | 435-source architecture gate; six Domain/two schema files inspected              |
+| G01 full repository regression    | verified clean commit | complete isolated `pnpm verify` on `8ac5f5e`                                                                                | `dirty=false`; 785 unit/contract, 84 integration, 62 E2E, A2A 74/74, build/smoke |
+
+Exact evidence is in `reports/goal/v1.3-p01-completion.md` and
+`reports/v1.3-orchestration/p01-verification-summary.{json,md}` and
+`reports/goal/v1.3-p01-review.md`. The first independent review rejected readiness and its findings
+are remediated with a passing full gate; the new independent re-review accepts with zero
+blocking/major findings. Completion commit `8ac5f5e` passes the same complete gate with
+`dirty=false`; P01 is `READY_FULL`.
+
+## SDAR v1.3 P02 Artifact Authority Addendum
+
+| G02-G04 acceptance                 | Status                | Implementation                                                                                      | Tests / evidence                                                                                   |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Ten canonical PostgreSQL tables    | verified              | migration 0125; no alias authority; exact columns and JSON bounds                                   | fresh/idempotent/rollback/reapply plus frozen contract                                             |
+| Immutable Artifact versions        | verified              | bounded P01 envelope, immutable Artifact/Lineage triggers and exact projections                     | full round-trip, direct-SQL reject and drift fail-closed                                           |
+| Active Pointer and CAS             | verified              | row/advisory lock and monotonically versioned Pointer tombstone                                     | concurrent single winner, kill-switch ABA and current-revision activation                          |
+| Validation and Approval separation | verified              | current summary hash and latest matching Approval are bound                                         | pending/old evidence reject, fresh Approval and two cycles                                         |
+| Atomic activation evidence         | verified              | status, validation, approval, Pointer, audit and Outbox share one transaction                       | completed audit and `artifact.activated` evidence                                                  |
+| Registry/projection rebuild        | verified              | startup rebuild, keyset paging, non-authoritative cache and all-lifecycle invalidation              | lifecycle cache, 501-entry rebuild and real Server startup                                         |
+| Outbox reliability                 | verified              | relevant-event lock precedes commit-ordered private cursor allocation; shared publication untouched | late timestamp, real concurrent blocking, mixed startup and repeated events                        |
+| Operator security baseline         | verified              | fail-closed identity, immutable permissions, tenant binding and full command hash                   | cross-scope deny, different-payload conflict and expected versions                                 |
+| Frozen P02 contract                | verified              | six hashes/methods, ten tables, 23 events, 8 queues and 7 flags                                     | `artifact-p02.contract.test.ts`                                                                    |
+| Full repository regression         | verified clean commit | isolated `pnpm verify` on `14abffe`, `dirty=false`                                                  | 795 unit/contract, 92 integration, 62 E2E, 18 migrations, architecture/protocol/build/smoke passes |
+
+The first three rejected reviews and fourth accepted review are preserved in
+`reports/goal/v1.3-p02-review.md`. P02 is `COMPLETED`, 7/7 accepted with zero open blocker; immutable
+clean-commit evidence and the exact Handoff are linked above.
+
+## SDAR v1.3 P03 Experience Trace and Process Mining Addendum
+
+| P03 acceptance                        | Status              | Implementation                                                                                                            | Tests / evidence                                                                                   |
+| ------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| AC-P03-001–002 baseline/Handoff       | verified            | P00/P01/P02 exact commits are ancestors; frozen registry/package self-checks pass                                         | P03 21-file self-check and aggregate package validator                                             |
+| AC-P03-003,005–008 strict safe Trace  | verified            | exact Domain factories, deterministic Episode normalizer, explicit missing codes and bounded redaction                    | Domain/normalizer unit and strict nested negative integration                                      |
+| AC-P03-004 formal Source attribution  | remediation         | formal Task projection plus `task_request` SourceRef; no document/live-provider substitute                                | focused tests pass; Server vertical authorityRef integration rerun pending                         |
+| AC-P03-009–010 scope/authority        | verified            | source-derived trusted-intranet tenant, scoped reads/deletion; PostgreSQL canonical Trace/Pattern tables                  | tenant isolation, cross-tenant read denial, deletion and immutable persistence integration         |
+| AC-P03-011 bounded/idempotent workers | remediation         | event-set batch identity, cohort advisory lock, 60-second rate window and bounded/single mining worker                    | focused tests pass; same-timestamp/coalescing PostgreSQL rerun pending                             |
+| AC-P03-012 Redis recovery             | verified            | PostgreSQL-authoritative requeueable state and wake-only BullMQ                                                           | real Redis obliterate/rebuild/duplicate-wake integration                                           |
+| AC-P03-013–022 deterministic mining   | verified            | exact cohort/version, variants, ordering, explicit parallel, recovery/failure and frozen quality                          | golden unit set, repeat mining and 10,000-trace PostgreSQL persistence                             |
+| AC-P03-023–025,027 scope exclusions   | verified            | evidence-only WorkflowPattern; no Skill/Artifact/template/rule/gateway/Python                                             | architecture gate across 459 TypeScript sources and product-composition integration                |
+| AC-P03-026 non-blocking mining        | remediation         | cooperative 128-trace slices, asynchronous Brotli and mining concurrency one                                              | event-loop-yield unit passes; real Server integration rerun pending                                |
+| AC-P03-028 full verify                | environment blocked | implementation stages pass on `1f7e043`; default operator `/sdar` lacks clean-baseline ledger marker at final infra smoke | 828 unit/contract, 100 integration, 62 E2E, 19 migrations, build; final dedicated-DB rerun pending |
+| AC-P03-029 separate commits           | verified            | G05 `22cf9a3`, G06 `119fe43`, compatibility `8adecec`, review remediation `1f7e043`                                       | commit history and four machine-readable P03 reports                                               |
+| AC-P03-030 independent review         | failed              | first review rejected `5802c3e`; second review rejected `1f7e043` with three new Major findings                           | exact negative findings preserved in `reports/goal/v1.3-p03-review.md`                             |
+| AC-P03-031 Draft-only publication     | verified so far     | Draft PR #12 remains unmerged; no tag/release/deploy                                                                      | Git/GitHub state                                                                                   |
+| AC-P03-032 exact P04 Handoff          | pending             | exact 28-field Handoff will be emitted only after gate and review closure                                                 | `reports/goal/v1.3-p03-handoff.json` pending                                                       |
+
+Performance evidence is classified in `reports/goal/v1.3-p03-mining-report.json`: the clean-gate
+10,000-row query measured 416.045 ms and Pattern persistence 528.616 ms; the local BullMQ sample
+processed 100 runs in 5.358 ms, with a separate one-wake queue-lag sample of 17.084 ms. These are
+local acceptance measurements, not production SLO claims.
+
+## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler Addendum
+
+| P04 acceptance                       | Status            | Implementation                                                                                                                                                           | Tests / evidence                                                                              |
+| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| AC-P04-001 baseline/Handoff          | verified          | P03 Handoff consumed (`v1.3-p03-handoff.json`, e926445); P01/P02 contracts available in domain layer                                                                     | P03 28-field Handoff and CONTRACT-LOCK hashes                                                 |
+| AC-P04-002–008 fusion/generalization | verified          | `FusedPattern` 12 fields; `PatternFusionService` structural facts read-only; `GeneralizedPattern` variables/invariants; 5 anti-overfitting rules; contradiction retained | 12 unit tests; `v1.3-p04-generalization-schema.json`                                          |
+| AC-P04-009–013 candidate identity    | verified          | `status=candidate`, `executable=false` (domain invariant), 7-input SHA-256 fingerprint, duplicate detection, 4-ref lineage                                               | candidate-generation unit tests; `v1.3-p04-candidate-schema.json`                             |
+| AC-P04-014–022 plan template schema  | verified          | step classification (6 types), capability-only mapping, acyclic DAG, parameter trust policy, bounded (256/128/32)                                                        | candidate-generation unit tests; `v1.3-p04-plan-template-schema.json`                         |
+| AC-P04-023–025 completion/recovery   | verified          | completion contract template with criteria/evidence; recovery branches `sideEffectReplayPolicy=forbidden`                                                                | candidate-generation unit tests                                                               |
+| AC-P04-026–027 static validation     | verified          | 8 checks (schema/DAG/criteria/capability/parameter/replay/bounds/duplicate); `passed_static` ≠ promotion                                                                 | candidate-generation unit tests; `v1.3-p04-static-validation-report.json`                     |
+| AC-P04-028–030 persistence/worker    | verified          | `PostgresCandidateGenerationRepository` + migration 0127; wake-only BullMQ worker (concurrency 1)                                                                        | migration 0127 applied/rolled back in verify; architecture gate                               |
+| AC-P04-031–033 scope exclusions      | verified          | no replay/approval/activation/gateway/runtime/Skill-MCP; no formal Goal/Plan/Attempt                                                                                     | architecture gate; forbidden-alias check in Handoff                                           |
+| AC-P04-034 full verify               | verified          | 7/7 steps pass on clean self-managed-compose database at `e4e2992`                                                                                                       | `reports/verification/summary.json` status=passed, 841 unit/contract, 100 integration, 62 E2E |
+| AC-P04-035 commits/evidence          | verified          | G07+G08 implementation `e4e2992`; 5 evidence files + completion report + review                                                                                          | commit history and `reports/goal/v1.3-p04-*.json`                                             |
+| AC-P04-036 independent review        | self-audit passed | Review 1 self-audit concludes 0 Blocking / 0 Major / 0 Minor at `e4e2992`; pending user confirmation                                                                     | `reports/goal/v1.3-p04-review.md`                                                             |
+| AC-P04-037 Draft PR                  | verified          | Draft PR #12 OPEN, isDraft=true, unmerged                                                                                                                                | Git/GitHub state                                                                              |
+| AC-P04-038 P05 Handoff               | verified          | 28-field envelope, 3 produced contracts, 3 consumed contracts, migration 0127                                                                                            | `reports/goal/v1.3-p04-handoff.json`                                                          |
+
+## SDAR v1.3 P04R P03/P04 Semantic Alignment Remediation Addendum
+
+| P04R acceptance                                            | Status   | Implementation                                                                                                                                                                                     | Tests / evidence                                                                                                             |
+| ---------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| AC-P04R-001–003 frozen authority and package order         | verified | P00-P02 and Registry V1.1 remain unchanged; `P04 -> P04R -> P05`; no G23; P05 lock requires P04R `COMPLETED`                                                                                       | `v1.3-p04r-registry-migration-report.json`; independent Review C                                                             |
+| AC-P04R-004–009 Activity Identity V1.2                     | verified | strict `ExperienceActivityRef`/`ExperienceTraceEvent`; lifecycle `eventType` separated from traceable `activityKey`; unknown/pure lifecycle excluded                                               | Domain/normalizer/miner tests; `v1.3-p04r-activity-identity-schema.json`                                                     |
+| AC-P04R-010–015 P03 mining semantics and golden output     | verified | activity-key variants preserve repetition, A→A, explicit parallel, branch and full recovery; cohort-derived quality; real WorkflowPattern V1.2                                                     | miner unit, PostgreSQL integration, `v1.3-p04r-{process-mining-semantics,quality-metric-report,p03-real-golden-output}.json` |
+| AC-P04R-016–017 P03 Review/Handoff                         | verified | independent Review A has 0 Blocking / 0 Major; revised P03 Handoff is `COMPLETED`                                                                                                                  | `v1.3-p04r-p03-review.md`; `v1.3-p03-{review,completion}.md`; `v1.3-p03-handoff.json`                                        |
+| AC-P04R-018–024 fusion, safety, Capability and fingerprint | verified | real P03 V1.2 input; scope evidence; five fail-closed anti-overfitting gates; model cannot overwrite structural facts; live Catalog gates; three semantically distinct hashes                      | candidate unit and real PostgreSQL vertical; `v1.3-p04r-{generalization-safety,capability-fingerprint}.json`                 |
+| AC-P04R-025–030 compiler and Static Validator V1.2         | verified | exact activity map fails on missing nodes; parallel is not Optional; bounded Condition AST; parameter/source/trust and runtime applicability preserved; complete lineage/recovery; 14 static gates | candidate unit/contract tests; `v1.3-p04r-{dag-parameter-applicability,lineage-recovery}.json`                               |
+| AC-P04R-031–038 durable Candidate product path             | verified | reachable application service and worker; PostgreSQL run/P02 Candidate authority; Redis wake-only; duplicate suppression; transactional Outbox; loss/restart/fencing/dead-letter                   | real PostgreSQL/Redis tests; `v1.3-p04r-{runtime-path,p03-p04-integration-report}.json`                                      |
+| AC-P04R-039 full gate                                      | verified | exact clean implementation commit `de25f4c`; all required commands and seven aggregate stages passed                                                                                               | 848 unit/contract, 104 real integration, 62 E2E, 21 migrations, 468-source architecture; `v1.3-p04r-full-verify-report.json` |
+| AC-P04R-040–041 P04 Review/Handoff                         | verified | independent Review B has 0 Blocking / 0 Major after remediation; revised P04 Handoff is `COMPLETED`                                                                                                | `v1.3-p04r-p04-review.md`; `v1.3-p04-{review,completion}.md`; `v1.3-p04-handoff.json`                                        |
+| AC-P04R-042–045 cross-package alignment                    | verified | Registry V1.2 and seven real Schema hashes; P05 lock, P13 audit, matrix and P04R-aware validator aligned; accounting 14/1/1                                                                        | Review C; package self-check; `validate-all.mjs --p04r`; registry migration report                                           |
+| AC-P04R-046–047 final Handoff and scope stop               | verified | complete P04R Handoff/evidence with no blockers; P05 product implementation was not part of P04R                                                                                                   | `v1.3-p04r-{acceptance,completion,review}.json/.md`; `v1.3-p04r-handoff.json`                                                |
+
+The authoritative criterion-by-criterion result is
+`reports/goal/v1.3-p04r-acceptance.json`: 47 passed, 0 failed, 0 blocked. PostgreSQL/Redis evidence
+is real; model/MCP E2E dependencies are simulated and explicitly classified.
+
+## SDAR v1.3 P05 Replay Dataset and Artifact Validation Engine Addendum
+
+| P05 acceptance                   | Status   | Implementation                                                                                                                                                                                                                                  | Tests / evidence                                                                                                                               |
+| -------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-P05-001 baseline/Handoff      | verified | P04R `COMPLETED`; Registry V1.2 and six consumed hashes checked; frozen P01 vocabulary deviation preserved                                                                                                                                      | P05 25-file self-check; ExecPlan baseline section                                                                                              |
+| AC-P05-002-010 Dataset authority | verified | native frozen Episode facts; strict immutable Replay Case and four versioned purposes; tenant/goal/episode/request/near-duplicate/Environment/Device/five-minute leakage guards; deletion creates invalid successor versions and retains audits | 59/59 focused; real PostgreSQL round trip, Holdout and tenant purge                                                                            |
+| AC-P05-011-015 Replay safety     | verified | snapshot-only provider; isolated replay mode/IDs/queue/telemetry; eleven operations fail before boundary and real network denial persists critical `side_effect_attempt`, Counterexample and unsafe Result                                      | Replay safety unit plus real PostgreSQL unsafe/outbox path                                                                                     |
+| AC-P05-016-025 replay semantics  | verified | P04 static gates plus existing `validateUserGoalPlan`; criterion/evidence/artifact/policy/capability/readiness; Rule unknown/conflict/override; Counterfactual criterion/risk/recovery with physical outcome `unknown`                          | validator unit tests and real native-Episode Candidate replay                                                                                  |
+| AC-P05-026-031 metrics/evidence  | verified | 29 transparent metrics execute catalog P95/min-sample rules; no opaque score; exact Case multiset; run-independent hash pins; immutable Result/Failure/Counterexample lineage                                                                   | metric/validator tests and terminal DB immutability test                                                                                       |
+| AC-P05-032-034 durable worker    | verified | P02 Validation Run authority; real idempotency/fencing/retry/dead-letter/cancel/stale pins; 4-worker/100-run bounded claims; Redis wake-only/rebuild and measured lag                                                                           | migration 0129; PostgreSQL 3/3 and Redis 3/3 focused integration                                                                               |
+| AC-P05-035-038 scope exclusions  | verified | no Shadow, Approval, Promotion, Active Pointer, online route, Candidate mutation or Fast Gateway                                                                                                                                                | architecture/contract tests and independent Review                                                                                             |
+| AC-P05-039 full verify           | verified | all required commands and seven aggregate stages pass on the accepted implementation/evidence tree                                                                                                                                              | 916 unit/contract, 109 integration, 62 E2E, 22 migrations, 485-source architecture, build and both smokes; `reports/verification/summary.json` |
+| AC-P05-040 reviewable commits    | verified | G09/core `849019b`; G10 runtime `22b9c8d`; review closures `0ffe2da`, `87e0db0`, `5aa6bc1`, `14eb978`; contract/dependency alignment `dec89da`                                                                                                  | Git history and P05 completion report                                                                                                          |
+| AC-P05-041 independent Review    | verified | five read-only rounds closed 4 Blocking, 20 Major and 2 Minor findings; exact `14eb978` verdict is 0 Blocking / 0 Major / 0 Minor                                                                                                               | `reports/goal/v1.3-p05-review.md`                                                                                                              |
+| AC-P05-042 Draft PR              | verified | Draft PR #12 remains OPEN and unmerged; no tag, release or deployment                                                                                                                                                                           | P05 Handoff and GitHub Draft state                                                                                                             |
+| AC-P05-043 P06 Handoff           | verified | exact 28-field envelope exposes immutable Result/Counterexample contracts; P06 implementation remains untouched                                                                                                                                 | `reports/goal/v1.3-p05-handoff.json`                                                                                                           |
+
+Local performance measurements are acceptance-only: Dataset construction p50/p95 is
+42.359/71.759 ms for 1,000 Cases and 390.805/434.458 ms for 10,000 Cases; Plan Replay evaluation
+p50/p95 is 0.068/0.092 ms across 2,000 Cases. Four PostgreSQL workers claimed 100 Runs in 43.385 ms
+and the BullMQ wake measurement was 18.272 ms.
+
+## SDAR v1.3 P07 Active Artifact Retrieval and Applicability Addendum
+
+| P07 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P07-001 frozen predecessor authority | verified | P00 READY_FULL and P01-P06 Handoffs are read-only; P02 retains Artifact/pointer/audit authority and P06 retains lifecycle/revalidation authority | P07 ExecPlan; P06 Handoff; package self-check |
+| AC-P07-002-007 active index authority | verified | PostgreSQL active pointer filters L0; P02 immutable definition is re-read; cache/Redis/pgvector/FTS/memory are non-authoritative and rebuildable | `v1.3-p07-index-schema.json`; P07 unit and PostgreSQL integration |
+| AC-P07-008-016 retrieval/ranking | verified | exact, structured and thresholded semantic projection inputs; L0/L1/L2 loading; stable tie-break and explicit ambiguity; score is never an eligibility grant | `v1.3-p07-retrieval-report.json`; `v1.3-p07-ranking-report.json`; focused unit tests |
+| AC-P07-017-025 applicability/parameters | verified | restricted AST required/forbidden/optional semantics, source/trust/confidence bindings, critical-model-default and preference isolation gates | `v1.3-p07-applicability-schema.json`; `v1.3-p07-parameter-binding-report.json` |
+| AC-P07-026-031 dependencies/readiness | verified | complete snapshot plus persisted validator/promotion version evidence; current known capabilities, Skill candidates and Provider readiness; mismatch schedules P06/P02 durable revalidation | `v1.3-p07-dependency-report.json`; `v1.3-p07-capability-readiness-report.json`; global dataset-pin PostgreSQL regression |
+| AC-P07-032-037 policy/audit | verified | policy/OOD/uncertainty/kill switch override ranking; flags fail closed; P02 match audit and decision child preserve reason and snapshot hashes | `v1.3-p07-policy-report.json`; `v1.3-p07-security-report.json` |
+| AC-P07-038-042 excluded execution | verified | no Fast Gateway, public request mutation, Template Runtime, Goal/Plan/Attempt or Skill/MCP call | architecture gate; `v1.3-p07-completion.md` |
+| AC-P07-043 full verification | verified | seven aggregate stages passed at `26b60c2` in 220,114 ms | `reports/verification/summary.json` |
+| AC-P07-044-048 evidence/review/handoff | verified | all 48 acceptance items passed; independent review final verdict 0/0/0; standard P08 Handoff complete; Draft PR remains unmerged | `v1.3-p07-{acceptance,completion,review,handoff}.json/.md` |
+
+The authoritative criterion-by-criterion result is
+`reports/goal/v1.3-p07-acceptance.json`: 48 passed, 0 failed, 0 blocked.
+The 25-sample local PostgreSQL acceptance measurement is p50 9.0485 ms and
+p95 10.6000 ms; it is not a production SLO.
+
+## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
+
+| P06 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P06-001–005 Shadow safety | verified | immutable Run/Result, explicit enrollment, three current-state pin checks, closed operation allowlist, unknown physical outcome and PostgreSQL-authoritative leases | Domain/Application focused tests; real unsafe Shadow integration |
+| AC-P06-006 Promotion policy | verified | durable P05/P06 evidence reconstruction, complete policy/hash persistence and anti-generalization gates | policy unit regressions and P05→P06 integration |
+| AC-P06-007–008 Approval/activation | verified | trusted operator, exact package/approval binding, CAS Pointer/audit/Outbox and persisted validation summary | application governance tests and active Artifact round trip |
+| AC-P06-009–011 Revalidation | verified | trigger-bound P02 run, wake-only Redis, critical pointer removal, missing-source dead-letter and no automatic reactivation | integration safety-trigger and worker contract tests |
+| AC-P06-012 P07 exclusion | verified | no Fast Gateway, retrieval, online selection or Artifact execution | architecture gate and Server composition review |
+| AC-P06-013 full closure | verified | independent review has 0 Blocking/Major/Minor; P07 handoff emitted | `reports/goal/v1.3-p06-completion.md`, `reports/goal/v1.3-p06-review.md`, `reports/verification/summary.json` |
