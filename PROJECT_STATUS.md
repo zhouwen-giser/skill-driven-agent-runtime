@@ -1,5 +1,20 @@
 # Project Status
 
+SDAR v1.3 P08/G15 Plan Template Runtime and Formal Planner Handoff is
+`COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
+Implementation commit `3883786` adds frozen V1.1 P08 contract values,
+materialization from a P07-selected active template, source/trust/schema
+parameter guards, lossless candidate graph/recovery data, double current-state
+rechecks and stable idempotency. It reuses the existing Validator, interactive
+planning session, confirmation, Goal lock and UserGoalPlan authority; P02
+execution/feedback stores usage correlation only. Server composition requires a
+deployment-owned state reader and exposes no route, Fast Gateway or direct
+Skill/MCP/Provider call. The final read-only review has 0 Blocking / 0 Major /
+0 Minor. `pnpm verify` passed in 254,312 ms with 958 unit/contract, real
+integration, 62 E2E, migration, architecture/protocol/build and isolated
+infrastructure/server smoke stages. `v1.3-p08-handoff.json` is `COMPLETED`;
+P09 has not started.
+
 SDAR v1.3 P07/G13-G14 Active Artifact Retrieval and Applicability is
 `COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
 Implementation commits `a53798b`, `d2a37fd` and `26b60c2` add the frozen V1.1

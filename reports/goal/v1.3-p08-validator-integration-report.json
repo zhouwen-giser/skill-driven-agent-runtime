@@ -1,0 +1,11 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "validator": "UserGoalPlanCandidateValidator",
+  "planningSession": "InteractivePlanningSessionService.startWithMaterializedCandidate",
+  "formalAuthority": "ConfirmedPlanHandoff -> UserGoalPlanningService.commitCandidate",
+  "secondValidator": false,
+  "evidence": [
+    "packages/application/test/interactive-planning.unit.test.ts",
+    "packages/application/test/template-runtime-p08.unit.test.ts"
+  ]
+}

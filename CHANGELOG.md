@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P08 Plan Template Runtime and Formal Planner Handoff
+
+- Added frozen V1.1 P08 Domain contracts for template instantiation, immutable
+  Goal context, materialized candidate graph, result and formal handoff facts.
+- Added a fail-closed P07-to-P08 materializer with active pointer/hash/version,
+  Goal/policy/catalog/readiness/kill-switch double rechecks; parameter source,
+  trust and schema checks; DAG, criteria, parallel, conditional and recovery
+  preservation; and bounded adaptation evidence.
+- Reused the existing validator, interactive planning session, confirmation,
+  Goal lock and UserGoalPlan handoff through a narrow materialized-candidate
+  session seam. P08 never creates a second plan authority or executes a Skill,
+  Provider, MCP operation or Workflow.
+- Recorded P08 usage/handoff correlation through P02 Artifact execution and
+  feedback authority. Added focused regressions for success, stale discard,
+  forbidden parameter source and formal-session confirmation.
+- Made infrastructure/server smoke checks create and drop an isolated database
+  so complete verification does not depend on or reset an operator's historical
+  local database.
+
 ## SDAR v1.3 P07 Active Artifact Retrieval and Applicability
 
 - Added nine frozen V1.1 P07 contracts for active-index entries, matches,

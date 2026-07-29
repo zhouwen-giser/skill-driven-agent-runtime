@@ -671,6 +671,21 @@ The authoritative criterion-by-criterion result is
 The 25-sample local PostgreSQL acceptance measurement is p50 9.0485 ms and
 p95 10.6000 ms; it is not a production SLO.
 
+## SDAR v1.3 P08 Plan Template Runtime and Formal Planner Handoff Addendum
+
+| P08 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P08-001-008 authority and recheck | verified | active P02 template/pointer/hash/version plus Goal/policy/catalog/readiness/kill-switch are checked before materialization and again before session admission | `template-runtime-p08.unit.test.ts`; `v1.3-p08-{runtime-schema,security}.json` |
+| AC-P08-009-012 parameters | verified | only P07 bindings are rendered; template source/trust/schema rules reject promotion, forbidden source and missing required values | P08 focused unit regression; `v1.3-p08-adaptation-report.json` |
+| AC-P08-013-023 graph/completion/adaptation | verified | candidate preserves node facts, conditional edges, parallel groups and recovery; Goal required criteria/evidence/artifacts are never weakened | `v1.3-p08-materialized-plan-schema.json`; P01/P04 contracts and P08 focused tests |
+| AC-P08-024-035 formal handoff/no execution | verified | existing Validator, Interactive Planning Session, ConfirmedPlanHandoff and Goal lock remain authority; no public or execution path exists | `interactive-planning.unit.test.ts`; architecture gate; P08 review |
+| AC-P08-036-042 usage/security/boundaries | verified | P02 ArtifactExecution/Feedback stores correlation only; internal Server composition requires a state reader and has no HTTP/A2A/Gateway route | `v1.3-p08-{usage-outcome,security}.json`; Server composition review |
+| AC-P08-043-048 closure | verified | 48/48 acceptance, code-freeze review 0/0/0, standard P09 handoff and unmerged Draft PR branch | `v1.3-p08-{acceptance,completion,review,handoff}.json/.md`; `reports/verification/summary.json` |
+
+The authoritative P08 result is `reports/goal/v1.3-p08-acceptance.json`: 48
+passed, 0 failed and 0 blocked. The final isolated `pnpm verify` completed in
+254,312 ms and is not a production latency SLO.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |

@@ -1,0 +1,13 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "controls": [
+    "active plan_template plus active pointer/hash/version check",
+    "P07 snapshot and binding consistency check",
+    "template allowed source and non-promoted trust check",
+    "schema check before rendering",
+    "current policy/catalog/readiness/kill-switch recheck twice",
+    "no direct Skill, Provider, MCP, Workflow or public route"
+  ],
+  "negativeRegression": "forbidden request-source binding returns TEMPLATE_PARAMETER_SOURCE_FORBIDDEN",
+  "architectureEvidence": "pnpm verify:architecture passed in final pnpm verify"
+}

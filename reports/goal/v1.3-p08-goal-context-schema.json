@@ -1,0 +1,13 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "contract": "GoalContextSnapshot",
+  "version": "1.1",
+  "schemaHash": "8b7c4d0307be2e7786ddcd4187eff7f428f89788564415196c8d9d98a60a809d",
+  "implementation": "goalContextSnapshot in packages/application/src/compiler/template-runtime.ts",
+  "immutableFields": [
+    "goalContractRef", "goalVersion", "objective", "requiredCriterionRefs",
+    "optionalCriterionRefs", "evidenceRequirementRefs", "artifactRequirementRefs",
+    "targetScope", "constraints", "authorizationRefs", "riskLevel", "contentHash"
+  ],
+  "sourceAuthority": "existing Goal and UserGoalCompletionContract supplied by TemplateRuntimeStateReader"
+}
