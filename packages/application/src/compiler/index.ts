@@ -11,5 +11,7 @@ export * from './process-miner.js';
 export * from './replay-dataset.js';
 export * from './artifact-replay-validator.js';
 export * from './artifact-replay-runtime.js';
+export * from './artifact-shadow-runtime.js';
+export * from './artifact-promotion-governance.js';
 export * from './replay-metrics.js';
 export * from './replay-safety.js';

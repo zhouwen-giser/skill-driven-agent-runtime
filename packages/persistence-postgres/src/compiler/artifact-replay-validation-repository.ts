@@ -466,7 +466,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       await deadLetterExpiredExhausted(client, now);
       const selected = await client.query<RunRow>(
         `SELECT * FROM artifact_validation_run
-         WHERE validation_type='replay' AND promotion_eligible=true
+         WHERE validation_type IN ('replay','revalidation') AND promotion_eligible=true
            AND cancel_requested_at IS NULL
            AND attempt < max_attempts
            AND (
@@ -536,7 +536,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       return undefined;
     }
     if (
-      artifact.status !== 'candidate' ||
+      !['candidate', 'revalidating', 'deprecated'].includes(artifact.status) ||
       artifact.contentHash !== run.artifactHash ||
       datasetRow.content_hash !== run.datasetHash ||
       !datasetRow.promotion_eligible
@@ -603,7 +603,8 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
       );
       const pin = pins.rows[0];
       if (
-        pin?.artifact_status !== 'candidate' ||
+        pin === undefined ||
+        !['candidate', 'revalidating', 'deprecated'].includes(pin.artifact_status) ||
         pin.artifact_hash !== run.artifactHash ||
         pin.dataset_hash !== run.datasetHash ||
         pin.dataset_version !== run.datasetVersion ||
@@ -756,7 +757,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
     await deadLetterExpiredExhausted(this.pool, now);
     const result = await this.pool.query<RunRow>(
       `SELECT * FROM artifact_validation_run
-       WHERE validation_type='replay' AND promotion_eligible=true
+       WHERE validation_type IN ('replay','revalidation') AND promotion_eligible=true
          AND cancel_requested_at IS NULL
          AND attempt < max_attempts
          AND (
@@ -786,7 +787,7 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
            END,
            updated_at=$2
        WHERE validation_run_id=$1
-         AND validation_type='replay'
+          AND validation_type IN ('replay','revalidation')
          AND work_state IN ('pending','retry_wait','leased')`,
       [runId, now],
     );
@@ -1441,10 +1442,10 @@ async function terminalizeCanceled(
     `UPDATE artifact_validation_run
      SET status='failed',work_state='canceled',result='ARTIFACT_REPLAY_VALIDATION_CANCELED',
          completed_at=$1,lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=$1
-     WHERE validation_type='replay' AND cancel_requested_at IS NOT NULL
+     WHERE validation_type IN ('replay','revalidation') AND cancel_requested_at IS NOT NULL
        AND work_state IN ('pending','retry_wait')
         OR (
-          validation_type='replay' AND cancel_requested_at IS NOT NULL
+          validation_type IN ('replay','revalidation') AND cancel_requested_at IS NOT NULL
           AND work_state='leased' AND lease_expires_at <= $1
         )`,
     [now],
@@ -1467,7 +1468,7 @@ async function deadLetterExpiredExhausted(
            last_error_summary,'Worker lease expired after the terminal permitted attempt.'
          ),
          updated_at=$1
-     WHERE validation_type='replay' AND work_state='leased'
+     WHERE validation_type IN ('replay','revalidation') AND work_state='leased'
        AND lease_expires_at <= $1 AND attempt >= max_attempts`,
     [now],
   );

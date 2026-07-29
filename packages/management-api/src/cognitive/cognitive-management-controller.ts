@@ -84,6 +84,15 @@ export class CognitiveManagementController {
     return this.#authorizer.mode;
   }
 
+  /** Authorizes a write whose domain service owns its own P02/P06 audit transaction. */
+  authorize(
+    authorization: string | undefined,
+    actorId: string,
+    operation: CognitiveManagementOperation,
+  ): Promise<void> {
+    return this.#authorizer.authorize({ authorization, actorId, operation });
+  }
+
   async executeWrite<T>(
     input: Readonly<{
       actorId: string;

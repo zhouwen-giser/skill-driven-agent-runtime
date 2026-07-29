@@ -65,6 +65,7 @@ import type {
   KnowledgePromotionService,
   CognitiveManagementActionGate,
   CognitiveManagementActionRepository,
+  ArtifactPromotionGovernanceService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -514,6 +515,88 @@ const CognitiveRebuildSchema = z
     reason: z.string().trim().min(1).max(2048),
   })
   .strict();
+const ArtifactOperatorContextSchema = z
+  .object({
+    operatorId: z.string().trim().min(1).max(256).optional(),
+    tenantId: z.string().trim().min(1).max(256).optional(),
+    permissions: z
+      .array(
+        z.enum([
+          'artifact.validate',
+          'artifact.approve',
+          'artifact.activate',
+          'artifact.revalidate',
+          'artifact.deprecate',
+          'artifact.rollback',
+          'artifact.kill_switch',
+        ]),
+      )
+      .optional(),
+  })
+  .strict();
+const ArtifactApprovalSchema = z
+  .object({
+    approvalId: z.string().trim().min(1).max(512),
+    artifactId: z.string().trim().min(1).max(512),
+    artifactVersion: z.number().int().positive(),
+    promotionPackageId: z.string().trim().min(1).max(512),
+    promotionPackageHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    validationSummaryHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    decision: z.enum(['approved', 'rejected']),
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(4096),
+    context: ArtifactOperatorContextSchema,
+  })
+  .strict();
+const ArtifactActivationSchema = z
+  .object({
+    activationId: z.string().trim().min(1).max(512),
+    artifactId: z.string().trim().min(1).max(512),
+    artifactVersion: z.number().int().positive(),
+    artifactKey: z.string().trim().min(1).max(512),
+    approvalId: z.string().trim().min(1).max(512),
+    approvalHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    promotionPackageHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    expectedVersion: z.number().int().positive(),
+    expectedLockVersion: z.number().int().nonnegative(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(4096),
+    context: ArtifactOperatorContextSchema,
+  })
+  .strict();
+const ArtifactRevalidationSchema = z
+  .object({
+    triggerId: z.string().trim().min(1).max(512),
+    triggerType: z.enum([
+      'capability_catalog_changed',
+      'skill_changed',
+      'policy_changed',
+      'task_type_changed',
+      'schema_changed',
+      'compiler_changed',
+      'validator_changed',
+      'provider_profile_changed',
+      'performance_drift',
+      'correction_received',
+      'fallback_drift',
+      'new_counterexample',
+      'safety_incident',
+      'long_inactivity',
+      'operator_request',
+    ]),
+    sourceRefs: z.array(z.string().trim().min(1).max(512)).min(1).max(1_000),
+    severity: z.enum(['normal', 'urgent', 'critical']),
+    artifactId: z.string().trim().min(1).max(512),
+    artifactVersion: z.number().int().positive(),
+    validationRunId: z.string().trim().min(1).max(512),
+    datasetRef: z.string().trim().min(1).max(512),
+    expectedVersion: z.number().int().positive(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(4096),
+    context: ArtifactOperatorContextSchema,
+  })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -667,6 +750,11 @@ export interface ManagementOperations {
   readonly userGoalRuntime?: Readonly<{
     current(goalId: string, goalVersion: number): Promise<unknown>;
   }>;
+  /** Optional P06-only human promotion surface. It deliberately exposes no P07 routing. */
+  readonly artifactPromotion?: Pick<
+    ArtifactPromotionGovernanceService,
+    'recordApproval' | 'activate' | 'requestRevalidation'
+  >;
 }
 
 export interface ManagementHttpEndpointHandle {
@@ -724,6 +812,101 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+  app.post(
+    '/api/v1/artifacts/promotion/approvals',
+    asyncRoute(async (request, response) => {
+      const service = options.operations.artifactPromotion;
+      if (service === undefined)
+        throw new HttpInputError(
+          'ARTIFACT_PROMOTION_UNAVAILABLE',
+          'P06 artifact promotion is unavailable.',
+        );
+      const input = ArtifactApprovalSchema.parse(request.body);
+      // Bearer/trusted-intranet authorization is checked here; the P06 service then requires a
+      // deployment-owned OperatorIdentityPort and artifact.approve permission.
+      await cognitiveManagement.authorize(
+        request.header('authorization'),
+        input.context.operatorId ?? 'external-operator',
+        'artifact_record_approval',
+      );
+      response.status(201).json(
+        await service.recordApproval({
+          ...input,
+          context: artifactOperatorContext(input.context),
+          occurredAt: new Date().toISOString(),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/artifacts/promotions/activate',
+    asyncRoute(async (request, response) => {
+      const service = options.operations.artifactPromotion;
+      if (service === undefined)
+        throw new HttpInputError(
+          'ARTIFACT_PROMOTION_UNAVAILABLE',
+          'P06 artifact promotion is unavailable.',
+        );
+      const input = ArtifactActivationSchema.parse(request.body);
+      await cognitiveManagement.authorize(
+        request.header('authorization'),
+        input.context.operatorId ?? 'external-operator',
+        'artifact_activate',
+      );
+      response.status(201).json(
+        await service.activate({
+          ...input,
+          context: artifactOperatorContext(input.context),
+          occurredAt: new Date().toISOString(),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/artifacts/revalidations',
+    asyncRoute(async (request, response) => {
+      const service = options.operations.artifactPromotion;
+      if (service === undefined)
+        throw new HttpInputError(
+          'ARTIFACT_PROMOTION_UNAVAILABLE',
+          'P06 artifact promotion is unavailable.',
+        );
+      const input = ArtifactRevalidationSchema.parse(request.body);
+      await cognitiveManagement.authorize(
+        request.header('authorization'),
+        input.context.operatorId ?? 'external-operator',
+        'artifact_request_revalidation',
+      );
+      const occurredAt = new Date().toISOString();
+      await service.requestRevalidation(
+        {
+          triggerId: input.triggerId,
+          artifactRef: `${input.artifactId}:${String(input.artifactVersion)}`,
+          triggerType: input.triggerType,
+          sourceRefs: input.sourceRefs,
+          severity: input.severity,
+          createdAt: occurredAt,
+        },
+        {
+          artifactId: input.artifactId,
+          version: input.artifactVersion,
+          validationRunId: input.validationRunId,
+          validationType: 'revalidation',
+          datasetRef: input.datasetRef,
+          context: artifactOperatorContext(input.context),
+          expectedVersion: input.expectedVersion,
+          idempotencyKey: input.idempotencyKey,
+          reason: input.reason,
+          occurredAt,
+        },
+      );
+      response.status(202).json({
+        triggerId: input.triggerId,
+        validationRunId: input.validationRunId,
+        status: 'revalidating',
+      });
+    }),
+  );
   app.get(
     '/api/v1/business-events/providers/:serverId/health',
     asyncRoute((request, response) => {
@@ -2988,6 +3171,14 @@ function asyncRoute(
   handler: (request: Request, response: Response) => Promise<void>,
 ): (request: Request, response: Response, next: NextFunction) => void {
   return (request, response, next) => void handler(request, response).catch(next);
+}
+
+function artifactOperatorContext(value: z.infer<typeof ArtifactOperatorContextSchema>) {
+  return {
+    ...(value.operatorId === undefined ? {} : { operatorId: value.operatorId }),
+    ...(value.tenantId === undefined ? {} : { tenantId: value.tenantId }),
+    ...(value.permissions === undefined ? {} : { permissions: value.permissions }),
+  };
 }
 
 function pathValue(request: Request, name: string): string {

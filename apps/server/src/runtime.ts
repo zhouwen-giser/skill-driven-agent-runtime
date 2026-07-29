@@ -193,6 +193,13 @@ import {
   ArtifactReplayValidationApplicationService,
   ReplayValidationRunReconciler,
   ReplayValidationTriggerDispatcher,
+  ArtifactShadowApplicationService,
+  ArtifactRevalidationApplicationService,
+  parseArtifactFeatureFlags,
+  ArtifactPromotionGovernanceService,
+  type OperatorIdentityPort,
+  type ArtifactShadowCurrentStateReader,
+  type ArtifactShadowEnrollment,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -309,6 +316,7 @@ import {
   PostgresCandidateGenerationRepository,
   PostgresCandidateGenerationCatalog,
   PostgresArtifactReplayValidationRepository,
+  PostgresArtifactShadowGovernanceRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -331,6 +339,10 @@ import {
   BullMqCandidateGenerationWorker,
   BullMqReplayValidationQueue,
   BullMqReplayValidationWorker,
+  BullMqArtifactShadowQueue,
+  BullMqArtifactShadowWorker,
+  BullMqArtifactRevalidationQueue,
+  BullMqArtifactRevalidationWorker,
   ContextSerialExecutor,
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
@@ -347,6 +359,10 @@ export interface ServerRuntimeOptions {
   readonly managementPort?: number;
   /** Optional non-breaking bearer guard for cognitive management writes only. */
   readonly cognitiveManagementBearerToken?: string;
+  /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
+  readonly artifactOperatorIdentity?: OperatorIdentityPort;
+  /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
+  readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -412,6 +428,10 @@ export interface ServerRuntimeHandle {
   readonly planningKnowledge: PlanningKnowledgeRetriever;
   /** Present once the P02 migration is installed; rebuilt from PostgreSQL during startup. */
   readonly artifactRegistry?: ArtifactRegistryService;
+  /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
+  enrollArtifactShadow(
+    input: ArtifactShadowEnrollment,
+  ): ReturnType<ArtifactShadowApplicationService['enroll']>;
   requestInput(taskId: string, reason: string): Promise<void>;
   listSkillDrafts(contextId: string): ReturnType<PostgresSkillDraftRepository['listByContextId']>;
   registerSkill(input: RegisterSkillVersionInput): Promise<SkillVersion>;
@@ -489,20 +509,26 @@ export async function startServerRuntime(
        SELECT 1 FROM schema_migration WHERE version='0129_v13_artifact_replay_validation'
      ) AS installed`,
   );
+  const artifactShadowGovernanceReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0130_v13_artifact_shadow_governance'
+     ) AS installed`,
+  );
   let artifactRegistry: ArtifactRegistryService | undefined;
+  let artifactOutboxConsumer: ArtifactOutboxConsumer | undefined;
   if (artifactAuthorityReady.rows[0]?.installed === true) {
     artifactRegistry = new ArtifactRegistryService({
       repository: new PostgresArtifactRepository(pool),
       projection: new InMemoryArtifactActiveIndexProjection(),
     });
     await artifactRegistry.rebuildProjection();
-    const artifactOutbox = new ArtifactOutboxConsumer({
+    artifactOutboxConsumer = new ArtifactOutboxConsumer({
       consumerName: 'artifact-active-index',
       repository: new PostgresArtifactOutboxConsumerRepository(pool),
       handler: new ArtifactRegistryProjectionEventHandler(artifactRegistry),
       clock: { now: () => new Date().toISOString() },
     });
-    while ((await artifactOutbox.consume(500)) === 500) {
+    while ((await artifactOutboxConsumer.consume(500)) === 500) {
       // Bounded page drain; each event is acknowledged transactionally after projection rebuild.
     }
   }
@@ -1071,6 +1097,81 @@ export async function startServerRuntime(
           };
         })()
       : undefined;
+  // P06 is a low-priority formal-runtime sidecar. The returned handle accepts only an
+  // exact formal correlation; it never selects/retrieves candidates or exposes P07.
+  const artifactShadowRuntime =
+    artifactShadowGovernanceReady.rows[0]?.installed === true
+      ? (() => {
+          const repository = new PostgresArtifactShadowGovernanceRepository(pool);
+          const queue = new BullMqArtifactShadowQueue(options.redis);
+          const revalidationQueue = new BullMqArtifactRevalidationQueue(options.redis);
+          const flags = parseArtifactFeatureFlags(process.env);
+          const service = new ArtifactShadowApplicationService(
+            repository,
+            queue,
+            clock,
+            {
+              artifactMode: flags.artifactMode,
+              tenantAllowlist: flags.tenantAllowlist,
+              degraded: false,
+              maximumQueueDepth: 1_000,
+              samplingRate: 1,
+            },
+            undefined,
+            options.artifactShadowStateReader,
+          );
+          const revalidation =
+            experienceCompilation?.replayValidationQueue === undefined
+              ? undefined
+              : new ArtifactRevalidationApplicationService(
+                  repository,
+                  experienceCompilation.replayValidationQueue,
+                );
+          return {
+            repository,
+            service,
+            queue,
+            revalidationQueue,
+            revalidation,
+            worker: new BullMqArtifactShadowWorker(
+              options.redis,
+              service,
+              `artifact-shadow-worker-${randomUUID()}`,
+            ),
+            ...(revalidation === undefined
+              ? {}
+              : {
+                  revalidationWorker: new BullMqArtifactRevalidationWorker(
+                    options.redis,
+                    revalidation,
+                  ),
+                }),
+          };
+        })()
+      : undefined;
+  const artifactPromotionGovernance =
+    artifactShadowGovernanceReady.rows[0]?.installed === true &&
+    options.artifactOperatorIdentity !== undefined
+      ? (() => {
+          return new ArtifactPromotionGovernanceService({
+            identity: options.artifactOperatorIdentity,
+            audit: cognitiveManagementActions,
+            store: new PostgresArtifactShadowGovernanceRepository(pool),
+            ...(artifactShadowRuntime?.revalidationQueue === undefined
+              ? {}
+              : { revalidationWake: artifactShadowRuntime.revalidationQueue }),
+          });
+        })()
+      : undefined;
+  const requeueArtifactRevalidations = async (limit = 100): Promise<number> => {
+    if (artifactShadowRuntime?.revalidation === undefined) return 0;
+    const triggerIds =
+      await artifactShadowRuntime.repository.listPendingRevalidationTriggers(limit);
+    for (const triggerId of triggerIds) {
+      await artifactShadowRuntime.revalidationQueue.enqueue(triggerId);
+    }
+    return triggerIds.length;
+  };
   const taskUnderstanding =
     options.taskUnderstanding === undefined
       ? undefined
@@ -3717,6 +3818,9 @@ export async function startServerRuntime(
       .then(() => experienceCompilation?.candidateReconciler?.requeue(clock.now()) ?? 0)
       .then(() => experienceCompilation?.replayValidationDispatcher?.dispatch() ?? 0)
       .then(() => experienceCompilation?.replayValidationReconciler?.requeue(clock.now()) ?? 0)
+      .then(() => artifactShadowRuntime?.service.requeue(100) ?? 0)
+      .then(() => requeueArtifactRevalidations(100))
+      .then(() => artifactOutboxConsumer?.consume(500) ?? 0)
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'experience_dispatch.failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -3845,6 +3949,11 @@ export async function startServerRuntime(
       await experienceCompilation.replayValidationDispatcher?.dispatch(500);
       await experienceCompilation.replayValidationReconciler?.requeue(clock.now(), 500);
       await experienceCompilation.replayValidationRetention?.(clock.now(), 1_000);
+      await artifactShadowRuntime?.service.requeue(500);
+      await requeueArtifactRevalidations(500);
+      while ((await artifactOutboxConsumer?.consume(500)) === 500) {
+        // Drain ordered P02/P06 lifecycle events so ephemeral registry projections cannot retain stale actives.
+      }
     }
   } catch (error: unknown) {
     process.stderr.write(
@@ -3859,6 +3968,8 @@ export async function startServerRuntime(
   experienceCompilation?.miningWorker.start();
   experienceCompilation?.candidateWorker?.start();
   experienceCompilation?.replayValidationWorker?.start();
+  artifactShadowRuntime?.worker.start();
+  artifactShadowRuntime?.revalidationWorker?.start();
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
@@ -3915,6 +4026,9 @@ export async function startServerRuntime(
         capabilityPatterns: capabilityPatternInduction,
         knowledgePromotion,
         cognitiveManagementAudit: cognitiveManagementActionRepository,
+        ...(artifactPromotionGovernance === undefined
+          ? {}
+          : { artifactPromotion: artifactPromotionGovernance }),
         goals: goalService,
         goalPatches,
         goalCancellations,
@@ -4104,6 +4218,11 @@ export async function startServerRuntime(
       management: startedManagement,
       planningKnowledge,
       ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
+      enrollArtifactShadow(input: ArtifactShadowEnrollment) {
+        // The formal runtime must provide an exact already-selected artifact and
+        // formal fact correlation. P06 does not perform retrieval or selection.
+        return artifactShadowRuntime?.service.enroll(input) ?? Promise.resolve(undefined);
+      },
       async requestInput(taskId: string, reason: string): Promise<void> {
         await service.requestInput(taskId, reason);
       },
@@ -4202,6 +4321,8 @@ export async function startServerRuntime(
         await experienceCompilation?.miningWorker.close();
         await experienceCompilation?.candidateWorker?.close();
         await experienceCompilation?.replayValidationWorker?.close();
+        await artifactShadowRuntime?.worker.close();
+        await artifactShadowRuntime?.revalidationWorker?.close();
         await worker.close();
         await remoteTaskQueue?.close();
         await remoteTaskContinuationQueue?.close();
@@ -4213,6 +4334,8 @@ export async function startServerRuntime(
         await experienceCompilation?.miningQueue.close();
         await experienceCompilation?.candidateQueue?.close();
         await experienceCompilation?.replayValidationQueue?.close();
+        await artifactShadowRuntime?.queue.close();
+        await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await pool.end();
@@ -4246,6 +4369,8 @@ export async function startServerRuntime(
     await experienceCompilation?.miningWorker.close();
     await experienceCompilation?.candidateWorker?.close();
     await experienceCompilation?.replayValidationWorker?.close();
+    await artifactShadowRuntime?.worker.close();
+    await artifactShadowRuntime?.revalidationWorker?.close();
     await worker.close();
     await remoteTaskQueue?.close();
     await remoteTaskContinuationQueue?.close();
@@ -4256,6 +4381,8 @@ export async function startServerRuntime(
     await experienceCompilation?.miningQueue.close();
     await experienceCompilation?.candidateQueue?.close();
     await experienceCompilation?.replayValidationQueue?.close();
+    await artifactShadowRuntime?.queue.close();
+    await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
     await pool.end();
     throw error;
