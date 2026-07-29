@@ -960,6 +960,8 @@ export class PostgresArtifactShadowGovernanceRepository implements ArtifactShado
         validationRunId: string;
         validationType: 'revalidation';
         datasetRef: string;
+        datasetVersion?: number;
+        datasetHash?: string;
         expectedVersion: number;
         idempotencyKey: string;
         occurredAt: string;
@@ -999,13 +1001,23 @@ export class PostgresArtifactShadowGovernanceRepository implements ArtifactShado
         `SELECT dataset_version,content_hash,tenant_id
          FROM replay_dataset_manifest
          WHERE dataset_id=$1 AND promotion_eligible=true AND invalidated_at IS NULL
+           AND ($2::integer IS NULL OR dataset_version=$2)
+           AND ($3::text IS NULL OR content_hash=$3)
          ORDER BY dataset_version DESC LIMIT 1 FOR SHARE`,
-        [input.command.datasetRef],
+        [
+          input.command.datasetRef,
+          input.command.datasetVersion ?? null,
+          input.command.datasetHash ?? null,
+        ],
       );
       const datasetRow = required(dataset.rows[0], 'ARTIFACT_REVALIDATION_DATASET_INVALID');
-      if (artifact.tenant_id === null || datasetRow.tenant_id !== artifact.tenant_id) {
+      if (artifact.tenant_id !== null && datasetRow.tenant_id !== artifact.tenant_id) {
         throw coded('ARTIFACT_REVALIDATION_TENANT_DATASET_MISMATCH');
       }
+      // A global Artifact has no tenant-owned lifecycle scope. Its P07
+      // revalidation nevertheless needs a concrete P05 dataset scope for
+      // replay pinning, retention and worker processing.
+      const validationTenantId = artifact.tenant_id ?? datasetRow.tenant_id;
       const transitioned = await client.query(
         `UPDATE compiled_artifact SET status='revalidating',validation_summary_id=NULL
          WHERE artifact_id=$1 AND version=$2 AND status='active'`,
@@ -1030,7 +1042,7 @@ export class PostgresArtifactShadowGovernanceRepository implements ArtifactShado
           artifact.version,
           input.command.datasetRef,
           input.command.occurredAt,
-          artifact.tenant_id,
+          validationTenantId,
           datasetRow.dataset_version,
           artifact.content_hash,
           datasetRow.content_hash,
@@ -1130,6 +1142,86 @@ export class PostgresArtifactShadowGovernanceRepository implements ArtifactShado
           validationRunId: input.command.validationRunId,
         },
       });
+    });
+  }
+
+  /**
+   * P07 can request dependency revalidation, but it is never allowed to write
+   * an orphan trigger or mutate Artifact lifecycle state itself. This P06/P02
+   * authority chooses a current promotion-eligible replay dataset and delegates
+   * to the same atomic validation-run/trigger/outbox transaction used by an
+   * operator request.
+   */
+  async scheduleDependencyRevalidation(trigger: ArtifactRevalidationTrigger): Promise<void> {
+    const value = createArtifactRevalidationTrigger(trigger);
+    const existing = await this.#pool.query<{ trigger_id: string }>(
+      `SELECT trigger_id FROM artifact_revalidation_trigger WHERE trigger_id=$1`,
+      [value.triggerId],
+    );
+    if (existing.rows[0] !== undefined) return;
+    const [artifactId, versionText] = value.artifactRef.split(':');
+    const version = Number(versionText);
+    if (artifactId === undefined || !Number.isSafeInteger(version) || version < 1) {
+      throw coded('ARTIFACT_REVALIDATION_SIGNAL_REF_INVALID');
+    }
+    const artifact = await this.#pool.query<{ tenant_id: string | null }>(
+      `SELECT tenant_id FROM compiled_artifact
+       WHERE artifact_id=$1 AND version=$2 AND status='active'`,
+      [artifactId, version],
+    );
+    if (artifact.rows[0] === undefined) throw coded('ARTIFACT_REVALIDATION_STATE_INVALID');
+    const tenantId = artifact.rows[0].tenant_id;
+    const dataset =
+      tenantId === null
+        ? await this.#pool.query<{
+            dataset_id: string;
+            dataset_version: number;
+            content_hash: string;
+          }>(
+            `SELECT validation.dataset_ref AS dataset_id,validation.dataset_version,dataset.content_hash
+             FROM artifact_validation_run validation
+             JOIN replay_dataset_manifest dataset
+               ON dataset.dataset_id=validation.dataset_ref
+              AND dataset.dataset_version=validation.dataset_version
+             WHERE validation.artifact_id=$1 AND validation.artifact_version=$2
+               AND validation.validation_type='replay' AND validation.status='passed'
+               AND validation.tenant_id IS NOT NULL AND validation.dataset_version IS NOT NULL
+               AND validation.promotion_eligible=true
+               AND dataset.purpose='promotion_holdout' AND dataset.promotion_eligible=true
+               AND dataset.invalidated_at IS NULL
+             ORDER BY validation.completed_at DESC NULLS LAST,validation.validation_run_id DESC
+             LIMIT 1`,
+            [artifactId, version],
+          )
+        : await this.#pool.query<{
+            dataset_id: string;
+            dataset_version: number;
+            content_hash: string;
+          }>(
+            `SELECT dataset_id,dataset_version,content_hash FROM replay_dataset_manifest
+             WHERE tenant_id=$1 AND purpose='promotion_holdout'
+               AND promotion_eligible=true AND invalidated_at IS NULL
+             ORDER BY dataset_version DESC,created_at DESC,dataset_id DESC LIMIT 1`,
+            [tenantId],
+          );
+    const datasetSource = dataset.rows[0];
+    if (datasetSource === undefined) throw coded('ARTIFACT_REVALIDATION_DATASET_INVALID');
+    await this.requestRevalidationAtomically({
+      trigger: value,
+      command: {
+        artifactId,
+        version,
+        validationRunId: `dependency-revalidation-${value.triggerId}`,
+        validationType: 'revalidation',
+        datasetRef: datasetSource.dataset_id,
+        datasetVersion: datasetSource.dataset_version,
+        datasetHash: datasetSource.content_hash,
+        expectedVersion: version,
+        idempotencyKey: `p07-dependency:${value.triggerId}`,
+        occurredAt: value.createdAt,
+      },
+      actorId: 'system:artifact-retrieval',
+      ...(tenantId === null ? {} : { tenantId }),
     });
   }
 

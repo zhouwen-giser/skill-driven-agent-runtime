@@ -43,6 +43,7 @@ export {
   type SkillGoalNodeTemplate,
   type TemplateParameterDefinition,
 } from './compiler/index.js';
+export * from './compiler/artifact-retrieval.js';
 export * from './compiler/artifact-candidate-generation.js';
 export * from './compiler/artifact-replay-validation.js';
 export * from './compiler/artifact-shadow-governance.js';

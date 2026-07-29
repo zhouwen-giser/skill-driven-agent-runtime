@@ -35,6 +35,7 @@ import {
   type CompiledArtifactStatus,
   type CompiledArtifactType,
 } from '../../../domain/src/index.js';
+import type { StructuredHint } from '../../../domain/src/compiler/contracts.js';
 
 interface StoredArtifactEnvelope {
   readonly schemaVersion: '1.0';
@@ -167,11 +168,13 @@ export class PostgresArtifactRepository implements ArtifactRepository {
             artifactType: row.artifact_type,
             ...(row.tenant_id === null ? {} : { tenantId: row.tenant_id }),
             domain: row.domain,
+            taskTypeIds: Object.freeze([...envelope.artifact.scope.taskTypeIds]),
             riskLevel: row.risk_level,
             contentHash: row.content_hash,
             dependencySnapshot: Object.freeze({ ...row.dependency_snapshot }),
             pointerLockVersion: row.lock_version,
             activatedAt: iso(row.activated_at),
+            ...levelZeroRetrievalProjection(envelope.artifact),
           });
         }),
       ),
@@ -1041,6 +1044,33 @@ function assertEnvelopeProjection(row: ArtifactRow, envelope: StoredArtifactEnve
 
 function canonicalProjection(value: unknown): string {
   return canonicalizeArtifactData(value as Parameters<typeof canonicalizeArtifactData>[0]);
+}
+
+/**
+ * The active-pointer query remains PostgreSQL-authoritative. This projection
+ * deliberately returns only the immutable fields needed to narrow P07's
+ * Level-0 candidate set; P07 must still re-read the complete Artifact before
+ * applicability, parameters, capability readiness, or execution selection.
+ */
+function levelZeroRetrievalProjection(artifact: CompiledArtifact): Readonly<{
+  exactPatterns: readonly string[];
+  structuredHints: readonly StructuredHint[];
+  embeddingRef?: string;
+}> {
+  const definition = artifact.definition;
+  if (!('exactPatterns' in definition)) {
+    return Object.freeze({ exactPatterns: Object.freeze([]), structuredHints: Object.freeze([]) });
+  }
+  const semanticExamples = 'semanticExamples' in definition ? definition.semanticExamples : [];
+  return Object.freeze({
+    exactPatterns: Object.freeze(definition.exactPatterns.map((pattern) => pattern.pattern)),
+    structuredHints: Object.freeze(
+      definition.structuredHints.map((hint) => Object.freeze({ ...hint })),
+    ),
+    ...(semanticExamples.length === 0
+      ? {}
+      : { embeddingRef: `artifact:${artifact.artifactId}:${String(artifact.version)}` }),
+  });
 }
 
 function validationSummaryFromRow(row: ValidationRow): ValidationSummary {

@@ -7,6 +7,7 @@ import type {
   CompiledArtifactStatus,
   CompiledArtifactType,
 } from '../../../domain/src/index.js';
+import type { StructuredHint } from '../../../domain/src/compiler/contracts.js';
 
 export const ARTIFACT_PERSISTENCE_CONTRACT_VERSION = '1.1' as const;
 
@@ -43,11 +44,21 @@ export interface ArtifactIndexEntry {
   readonly artifactType: CompiledArtifactType;
   readonly tenantId?: string;
   readonly domain: string;
+  readonly taskTypeIds?: readonly string[];
   readonly riskLevel: CompiledArtifact['riskLevel'];
   readonly contentHash: string;
   readonly dependencySnapshot: CompiledArtifact['dependencySnapshot'];
   readonly pointerLockVersion: number;
   readonly activatedAt: string;
+  /**
+   * Non-authoritative Level-0 selection fields projected from the immutable
+   * Artifact envelope. They deliberately omit parameter schemas, conditions,
+   * and runtime bindings; those require a Level-1 authoritative definition
+   * read after this projection has narrowed the candidate set.
+   */
+  readonly exactPatterns?: readonly string[];
+  readonly structuredHints?: readonly StructuredHint[];
+  readonly embeddingRef?: string;
 }
 
 export interface ArtifactActivationInput extends ArtifactRef {

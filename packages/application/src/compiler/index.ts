@@ -13,5 +13,7 @@ export * from './artifact-replay-validator.js';
 export * from './artifact-replay-runtime.js';
 export * from './artifact-shadow-runtime.js';
 export * from './artifact-promotion-governance.js';
+export * from './artifact-retrieval.js';
+export * from './artifact-retrieval-cache.js';
 export * from './replay-metrics.js';
 export * from './replay-safety.js';
