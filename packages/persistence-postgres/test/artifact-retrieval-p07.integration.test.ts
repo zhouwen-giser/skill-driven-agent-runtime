@@ -242,6 +242,9 @@ describe('P07 P06 Active -> P02 Repository -> retrieval audit integration', () =
 
 async function seedP06ActiveArtifact(scopeTenantId: string | undefined): Promise<CompiledArtifact> {
   const source = fixture.artifacts[1];
+  if (source === undefined) {
+    throw new Error('P07 golden fixture must include the structured candidate artifact');
+  }
   const candidate = {
     artifact: {
       ...structuredClone(source),
