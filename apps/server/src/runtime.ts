@@ -197,9 +197,11 @@ import {
   ArtifactRevalidationApplicationService,
   parseArtifactFeatureFlags,
   ArtifactPromotionGovernanceService,
+  TemplateRuntimeService,
   type OperatorIdentityPort,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
+  type TemplateRuntimeStateReader,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -317,6 +319,7 @@ import {
   PostgresCandidateGenerationCatalog,
   PostgresArtifactReplayValidationRepository,
   PostgresArtifactShadowGovernanceRepository,
+  PostgresArtifactExecutionRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -363,6 +366,11 @@ export interface ServerRuntimeOptions {
   readonly artifactOperatorIdentity?: OperatorIdentityPort;
   /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
   readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
+  /**
+   * Deployment-owned P08 current-fact reader. The template runtime has no
+   * public endpoint and remains unavailable until this reader is supplied.
+   */
+  readonly templateRuntimeStateReader?: TemplateRuntimeStateReader;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -428,6 +436,8 @@ export interface ServerRuntimeHandle {
   readonly planningKnowledge: PlanningKnowledgeRetriever;
   /** Present once the P02 migration is installed; rebuilt from PostgreSQL during startup. */
   readonly artifactRegistry?: ArtifactRegistryService;
+  /** Internal P08 composition root; it accepts only already selected P07 facts. */
+  readonly templateRuntime?: TemplateRuntimeService;
   /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
   enrollArtifactShadow(
     input: ArtifactShadowEnrollment,
@@ -2396,6 +2406,18 @@ export async function startServerRuntime(
           goalSessions: interactiveGoalSessions,
           planningSessions: interactivePlanningSessions,
         });
+  const templateRuntime =
+    artifactAuthorityReady.rows[0]?.installed === true &&
+    interactivePlanningSessions !== undefined &&
+    options.templateRuntimeStateReader !== undefined
+      ? new TemplateRuntimeService({
+          artifacts: new PostgresArtifactRepository(pool),
+          executions: new PostgresArtifactExecutionRepository(pool),
+          states: options.templateRuntimeStateReader,
+          planning: interactivePlanningSessions,
+          clock,
+        })
+      : undefined;
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -4218,6 +4240,7 @@ export async function startServerRuntime(
       management: startedManagement,
       planningKnowledge,
       ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
+      ...(templateRuntime === undefined ? {} : { templateRuntime }),
       enrollArtifactShadow(input: ArtifactShadowEnrollment) {
         // The formal runtime must provide an exact already-selected artifact and
         // formal fact correlation. P06 does not perform retrieval or selection.

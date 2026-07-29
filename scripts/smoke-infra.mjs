@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { createConnection } from 'node:net';
 import process from 'node:process';
+import { URL } from 'node:url';
 
 import pg from 'pg';
 
@@ -11,10 +12,22 @@ const postgresUrl =
   process.env.SDAR_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const redisHost = process.env.SDAR_REDIS_HOST ?? '127.0.0.1';
 const redisPort = Number(process.env.SDAR_REDIS_PORT ?? 56379);
+const reuseDatabase = process.env.SDAR_SMOKE_REUSE_DATABASE === 'true';
+const temporaryDatabase = `sdar_infra_smoke_${String(process.pid)}_${String(Date.now())}`;
+const smokePostgresUrl = reuseDatabase ? postgresUrl : withDatabase(postgresUrl, temporaryDatabase);
+const adminPostgresUrl = withDatabase(postgresUrl, 'postgres');
 
 startInfrastructure();
-const pool = new Pool({ connectionString: postgresUrl });
+const admin = reuseDatabase ? undefined : new Pool({ connectionString: adminPostgresUrl });
+const pool = new Pool({ connectionString: smokePostgresUrl });
 try {
+  if (admin !== undefined) {
+    await admin.query(`CREATE DATABASE ${quotedIdentifier(temporaryDatabase)}`);
+    const { applyRuntimeMigrations } = await import(
+      new URL('../dist/apps/server/src/runtime.js', import.meta.url).href
+    );
+    await applyRuntimeMigrations(pool);
+  }
   const extension = await pool.query(
     "SELECT extversion FROM pg_extension WHERE extname = 'vector'",
   );
@@ -53,7 +66,23 @@ try {
   );
 } finally {
   await pool.end();
+  if (admin !== undefined) {
+    await admin
+      .query(`DROP DATABASE IF EXISTS ${quotedIdentifier(temporaryDatabase)}`)
+      .finally(() => admin.end());
+  }
   stopInfrastructure();
+}
+
+function withDatabase(connectionString, database) {
+  const url = new URL(connectionString);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+function quotedIdentifier(value) {
+  if (!/^[a-z0-9_]+$/u.test(value)) throw new Error('INFRA_SMOKE_DATABASE_NAME_INVALID');
+  return `"${value}"`;
 }
 
 function redisCommand(parts) {

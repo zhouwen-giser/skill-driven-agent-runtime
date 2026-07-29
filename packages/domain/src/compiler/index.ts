@@ -7,4 +7,5 @@ export * from './errors.js';
 export * from './experience-compilation.js';
 export * from './factory.js';
 export * from './lifecycle.js';
+export * from './template-runtime.js';
 export * from './validation.js';

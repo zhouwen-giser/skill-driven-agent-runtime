@@ -148,6 +148,31 @@ describe('InteractivePlanningSessionService', () => {
     expect(committed).toEqual(new Set(['user-goal-plan.1']));
   });
 
+  it('admits a P08 materialized candidate through the same confirmation and handoff authority', async () => {
+    const repository = new MemoryInteractivePlanningRepository();
+    const committed = new Set<string>();
+    const service = planningSessions(repository, committed, 'auto_validated');
+    const started = await service.startWithMaterializedCandidate({
+      ...startInput(goal()),
+      contract: contract(),
+      plan: plan(),
+      requiresManualConfirmation: true,
+      planningMetadata: { priorities: {}, parallelGroups: { parallel_1: ['skill-goal.a'] } },
+    });
+
+    expect(started.session.state).toBe('plan_review');
+    expect(committed).toEqual(new Set());
+    await service.applyAction({
+      sessionId: started.session.sessionId,
+      expectedVersion: 1,
+      idempotencyKey: 'planning-action.accept.p08',
+      actorId: 'user.interactive-plan',
+      action: 'accept',
+      payload: {},
+    });
+    expect(committed).toEqual(new Set(['user-goal-plan.1']));
+  });
+
   it('recovers a confirmed candidate after restart and replays only the idempotent handoff', async () => {
     const repository = new MemoryInteractivePlanningRepository();
     const committed = new Set<string>();

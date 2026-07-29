@@ -3,20 +3,33 @@ import { Buffer } from 'node:buffer';
 import { get, request } from 'node:http';
 import process from 'node:process';
 import { setTimeout } from 'node:timers/promises';
+import { URL } from 'node:url';
+
+import pg from 'pg';
 
 import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
 
 run(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'], 120_000);
 startInfrastructure();
-const server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
-  cwd: process.cwd(),
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    SDAR_MASTER_KEY_BASE64: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
-  },
-});
+const { Pool } = pg;
+const postgresUrl =
+  process.env.SDAR_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const reuseDatabase = process.env.SDAR_SMOKE_REUSE_DATABASE === 'true';
+const temporaryDatabase = `sdar_server_smoke_${String(process.pid)}_${String(Date.now())}`;
+const smokePostgresUrl = reuseDatabase ? postgresUrl : withDatabase(postgresUrl, temporaryDatabase);
+const admin = reuseDatabase ? undefined : new Pool({ connectionString: withDatabase(postgresUrl, 'postgres') });
+let server;
 try {
+  if (admin !== undefined) await admin.query(`CREATE DATABASE ${quotedIdentifier(temporaryDatabase)}`);
+  server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      SDAR_POSTGRES_URL: smokePostgresUrl,
+      SDAR_MASTER_KEY_BASE64: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+    },
+  });
   const management = await waitForJson('http://127.0.0.1:9998/api/v1/health');
   if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
     throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
@@ -92,8 +105,27 @@ try {
     'Server build smoke passed: Agent Card, Console bundle, and trusted-intranet management API are reachable.\n',
   );
 } finally {
-  server.kill();
+  server?.kill();
+  if (admin !== undefined) {
+    await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [
+      temporaryDatabase,
+    ]);
+    await admin
+      .query(`DROP DATABASE IF EXISTS ${quotedIdentifier(temporaryDatabase)}`)
+      .finally(() => admin.end());
+  }
   stopInfrastructure();
+}
+
+function withDatabase(connectionString, database) {
+  const url = new URL(connectionString);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+function quotedIdentifier(value) {
+  if (!/^[a-z0-9_]+$/u.test(value)) throw new Error('SERVER_SMOKE_DATABASE_NAME_INVALID');
+  return `"${value}"`;
 }
 
 function run(command, args, timeout, ignoreFailure = false) {

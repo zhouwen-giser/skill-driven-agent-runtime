@@ -42,6 +42,22 @@ export {
   type SkillGoalGraphTemplate,
   type SkillGoalNodeTemplate,
   type TemplateParameterDefinition,
+  TEMPLATE_RUNTIME_CONTRACT_VERSION,
+  TEMPLATE_RUNTIME_SCHEMA_HASHES,
+  type FormalPlanHandoffDisposition,
+  type FormalPlanHandoffPort,
+  type FormalPlanHandoffResult,
+  type GoalContextSnapshot,
+  type MaterializedCompletionContract,
+  type MaterializedDependency,
+  type MaterializedPlanCandidate,
+  type MaterializedRecoveryBranch,
+  type MaterializedSkillGoalNode,
+  type TemplateInstantiationDisposition,
+  type TemplateInstantiationInput,
+  type TemplateInstantiationResult,
+  type TemplateRuntime,
+  type UserGoalPlanCandidate,
 } from './compiler/index.js';
 export * from './compiler/artifact-retrieval.js';
 export * from './compiler/artifact-candidate-generation.js';
