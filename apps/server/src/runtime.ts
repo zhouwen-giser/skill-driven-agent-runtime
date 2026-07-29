@@ -197,7 +197,17 @@ import {
   ArtifactRevalidationApplicationService,
   parseArtifactFeatureFlags,
   ArtifactPromotionGovernanceService,
+  FastGatewayService,
+  P02GatewayArtifactFeedbackAdapter,
   TemplateRuntimeService,
+  type FastGatewayOptions,
+  type GatewayCancellationPort,
+  type GatewayDriftSignalPort,
+  type GatewayFallbackPort,
+  type GatewayPrecheckPort,
+  type GatewayRetrievalPort,
+  type GatewayRulePort,
+  type GatewayTemplatePort,
   type OperatorIdentityPort,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
@@ -214,6 +224,7 @@ import {
   type CognitiveInjectionMode,
   type GoalExecutionContract,
   type McpInvocationOutcome,
+  type RuntimeRequestContext,
   type SkillUsageSelectionContext,
   type SkillVersion,
   type WorkflowBudgetLimits,
@@ -320,6 +331,8 @@ import {
   PostgresArtifactReplayValidationRepository,
   PostgresArtifactShadowGovernanceRepository,
   PostgresArtifactExecutionRepository,
+  PostgresFastGatewayRepository,
+  PostgresRuleUsageRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -371,6 +384,26 @@ export interface ServerRuntimeOptions {
    * public endpoint and remains unavailable until this reader is supplied.
    */
   readonly templateRuntimeStateReader?: TemplateRuntimeStateReader;
+  /**
+   * Deployment-owned P10 adapters. PostgreSQL Gateway persistence and
+   * idempotency are composed here; trusted auth/policy/current-state facts and
+   * the existing P07/P09/P08 adapters remain explicit ports.
+   */
+  readonly fastGateway?: Readonly<{
+    contexts: Readonly<{
+      create(
+        input: Readonly<{ task: AgentTask; requestText: string }>,
+      ): Promise<RuntimeRequestContext>;
+    }>;
+    precheck: GatewayPrecheckPort;
+    retrieval: GatewayRetrievalPort;
+    rule: GatewayRulePort;
+    template: GatewayTemplatePort;
+    fallback: GatewayFallbackPort;
+    cancellation: GatewayCancellationPort;
+    drift: GatewayDriftSignalPort;
+    options?: Partial<FastGatewayOptions>;
+  }>;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -438,6 +471,9 @@ export interface ServerRuntimeHandle {
   readonly artifactRegistry?: ArtifactRegistryService;
   /** Internal P08 composition root; it accepts only already selected P07 facts. */
   readonly templateRuntime?: TemplateRuntimeService;
+  /** Present only when P10 is explicitly enabled and all deployment ports exist. */
+  readonly fastGateway?: FastGatewayService;
+  gatewayEvidence(taskId: string): ReturnType<PostgresFastGatewayRepository['findByTaskId']>;
   /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
   enrollArtifactShadow(
     input: ArtifactShadowEnrollment,
@@ -1388,12 +1424,17 @@ export async function startServerRuntime(
     nextCorrectionId: () => `planning-correction-${randomUUID()}`,
   });
   planningCorrectionRef.current = planningCorrections;
+  const fastGatewayRepository = new PostgresFastGatewayRepository(pool);
   const deletionPropagation = new DeletionPropagationService({
     targets: [
       {
         name: 'planning_preferences',
         deleteUserScope: (userId, actorId) =>
           planningCorrections.deleteUserScopedProjection(userId, actorId),
+      },
+      {
+        name: 'fast_gateway_evidence',
+        deleteUserScope: (userId) => fastGatewayRepository.deleteActorScope(userId),
       },
     ],
   });
@@ -2418,6 +2459,38 @@ export async function startServerRuntime(
           clock,
         })
       : undefined;
+  const artifactFlags = parseArtifactFeatureFlags(process.env);
+  const fastGateway =
+    artifactAuthorityReady.rows[0]?.installed === true &&
+    artifactFlags.artifactMode === 'active' &&
+    artifactFlags.fastGatewayEnabled &&
+    options.fastGateway !== undefined
+      ? new FastGatewayService({
+          precheck: options.fastGateway.precheck,
+          retrieval: options.fastGateway.retrieval,
+          rule: options.fastGateway.rule,
+          template: options.fastGateway.template,
+          fallback: options.fastGateway.fallback,
+          cancellation: options.fastGateway.cancellation,
+          persistence: fastGatewayRepository,
+          drift: options.fastGateway.drift,
+          artifactFeedback: new P02GatewayArtifactFeedbackAdapter(
+            new PostgresRuleUsageRepository(pool),
+          ),
+          clock: {
+            now: () => clock.now(),
+            nowMs: () => Date.parse(clock.now()),
+          },
+          ids: {
+            nextGatewayDecisionId: () => `gateway-decision-${randomUUID()}`,
+            nextFeedbackId: () => `gateway-feedback-${randomUUID()}`,
+          },
+          ...(options.fastGateway.options === undefined
+            ? {}
+            : { options: options.fastGateway.options }),
+        })
+      : undefined;
+  const fastGatewayContexts = options.fastGateway?.contexts;
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -3342,6 +3415,28 @@ export async function startServerRuntime(
       ? {}
       : { planningSessions: interactivePlanningSessions }),
     ...(interactiveActions === undefined ? {} : { interactiveActions }),
+    ...(fastGateway === undefined || fastGatewayContexts === undefined
+      ? {}
+      : {
+          fastGateway: {
+            async evaluate(input: Readonly<{ task: AgentTask; requestText: string }>) {
+              const gatewayContext = await fastGatewayContexts.create(input);
+              const result = await fastGateway.evaluateDetailed(gatewayContext);
+              return {
+                decision: result.decision,
+                formalHandoffCommitted:
+                  result.record.formalHandoffRef !== undefined &&
+                  (result.decision.path === 'compiled_fast' ||
+                    result.decision.path === 'template_adapt'),
+                ...(result.formalInteractionRef === undefined
+                  ? {}
+                  : {
+                      interactionQuestion: `Continue formal interaction ${result.formalInteractionRef}.`,
+                    }),
+              };
+            },
+          },
+        }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -4241,6 +4336,10 @@ export async function startServerRuntime(
       planningKnowledge,
       ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
       ...(templateRuntime === undefined ? {} : { templateRuntime }),
+      ...(fastGateway === undefined ? {} : { fastGateway }),
+      gatewayEvidence(taskId: string) {
+        return fastGatewayRepository.findByTaskId(taskId);
+      },
       enrollArtifactShadow(input: ArtifactShadowEnrollment) {
         // The formal runtime must provide an exact already-selected artifact and
         // formal fact correlation. P06 does not perform retrieval or selection.

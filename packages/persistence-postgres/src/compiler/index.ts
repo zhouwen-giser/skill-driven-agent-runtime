@@ -7,3 +7,4 @@ export * from './artifact-shadow-governance-repository.js';
 export * from './artifact-retrieval-repository.js';
 export * from './experience-compilation-repositories.js';
 export * from './decision-rule-runtime-repository.js';
+export * from './fast-gateway-repository.js';

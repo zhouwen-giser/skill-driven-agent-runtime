@@ -220,6 +220,8 @@ export interface RuleDecisionRequest {
   readonly taskId: string;
   readonly idempotencyKey: string;
   readonly formalHandoff?: RuleFormalHandoffContext;
+  /** P10 supplies this only on the request path; P09 remains usable standalone. */
+  readonly commitGuard?: Readonly<{ mayCommitFormalAuthority(): boolean }>;
 }
 
 export interface RuleDecision {
@@ -401,7 +403,19 @@ export class DecisionRuleRuntimeService implements RuleRuntime {
             reasonCodes: unique([...decision.reasonCodes, 'RULE_PLAN_PATCH_PROPOSED']),
           };
           if (input.formalHandoff !== undefined) {
+            if (input.commitGuard?.mayCommitFormalAuthority() === false) {
+              throw new RuleRuntimeApplicationError(
+                'RULE_FORMAL_HANDOFF_FAILED',
+                'Gateway deadline or cancellation expired before formal Rule handoff.',
+              );
+            }
             const current = await this.#recheckForHandoff(selected);
+            if (input.commitGuard?.mayCommitFormalAuthority() === false) {
+              throw new RuleRuntimeApplicationError(
+                'RULE_FORMAL_HANDOFF_FAILED',
+                'Gateway deadline or cancellation expired during Rule recheck.',
+              );
+            }
             formalHandoff = await this.submitRulePlanPatchToFormalAuthority({
               handoff: input.formalHandoff,
               current,

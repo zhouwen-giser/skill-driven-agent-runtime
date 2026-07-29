@@ -1,5 +1,15 @@
 # Project Status
 
+SDAR v1.3 P10/G17-G18 Fast Gateway and Artifact Runtime Feedback is
+`IN_PROGRESS` (2026-07-30) on `feature/v1.3-sequential-implementation` from
+clean P09 closure `a8a0d28`. The P10 package self-check passes and every frozen
+P00-P09 Handoff has been accepted as read-only input. Architecture mapping
+places a feature-gated thin orchestrator at the existing Task preparation
+entry; P07/P09/P08 retain retrieval, Rule and Template/formal-handoff
+authority, P02 retains durable Artifact usage/feedback authority, P06 retains
+activation/kill-switch/revalidation authority, and Redis remains
+non-authoritative. P11 has not been read or started.
+
 SDAR v1.3 P09/G16 Decision Rule and Policy Runtime is `COMPLETED`
 (2026-07-30) on `feature/v1.3-sequential-implementation`. Implementation commit
 `3244647` adds the frozen V1.1 strict Rule DSL, typed three-valued evaluator,

@@ -29,6 +29,83 @@ function skillAttempt() {
 }
 
 describe('PlanPreparationProcessor LLM decisions', () => {
+  it('keeps the original planning path when P10 returns cognitive fallback', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await processorWith(tasks, false, 'none', undefined, undefined, {
+      evaluate: () =>
+        Promise.resolve({
+          decision: gatewayDecision('cognitive_runtime'),
+          formalHandoffCommitted: false,
+        }),
+    }).process(initialJob);
+    expect(tasks.value).toMatchObject({ phase: 'awaiting_plan_confirmation' });
+    expect(tasks.goalFormulations).toBe(1);
+  });
+
+  it('stops denied P10 requests without entering cognitive fallback', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await expect(
+      processorWith(tasks, false, 'none', undefined, undefined, {
+        evaluate: () =>
+          Promise.resolve({
+            decision: gatewayDecision('denied'),
+            formalHandoffCommitted: false,
+          }),
+      }).process(initialJob),
+    ).rejects.toMatchObject({ code: 'GATEWAY_DENIED' });
+    expect(tasks.value).toMatchObject({ phase: 'failed' });
+    expect(tasks.goalFormulations).toBe(0);
+  });
+
+  it('uses existing formal interaction for P10 confirmation', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await processorWith(tasks, false, 'none', undefined, undefined, {
+      evaluate: () =>
+        Promise.resolve({
+          decision: gatewayDecision('human_input'),
+          formalHandoffCommitted: false,
+          interactionQuestion: 'Approve the selected Artifact route?',
+        }),
+    }).process(initialJob);
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_user_input',
+      phaseMessage: 'Approve the selected Artifact route?',
+    });
+    expect(tasks.goalFormulations).toBe(0);
+  });
+
+  it('returns only after a selected fast path reports a formal commit', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await processorWith(tasks, false, 'none', undefined, undefined, {
+      evaluate: () =>
+        Promise.resolve({
+          decision: gatewayDecision('template_adapt'),
+          formalHandoffCommitted: true,
+        }),
+    }).process(initialJob);
+    expect(tasks.goalFormulations).toBe(0);
+    expect(tasks.value).toMatchObject({ phase: 'context_loading' });
+  });
+
+  it('fails closed when a fast path lacks a formal handoff commit', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    await expect(
+      processorWith(tasks, false, 'none', undefined, undefined, {
+        evaluate: () =>
+          Promise.resolve({
+            decision: gatewayDecision('compiled_fast'),
+            formalHandoffCommitted: false,
+          }),
+      }).process(initialJob),
+    ).rejects.toMatchObject({ code: 'GATEWAY_FORMAL_HANDOFF_INCOMPLETE' });
+    expect(tasks.goalFormulations).toBe(0);
+  });
+
   it('routes an ambiguous task through Understanding and stops at its blocking question', async () => {
     const tasks = new MemoryTasks();
     tasks.value = { ...task(), requestText: 'Help me with this.' };
@@ -281,6 +358,7 @@ function processorWith(
   prior: 'none' | 'active' | 'terminal' = 'none',
   submitRemoteInput?: (inputRequestId: string, inputResponses: unknown) => Promise<void>,
   taskUnderstanding?: PlanPreparationProcessorDependencies['taskUnderstanding'],
+  fastGateway?: PlanPreparationProcessorDependencies['fastGateway'],
 ) {
   let event = 0;
   let attemptStatus: 'queued' | 'running' | 'completed' | 'failed' = 'queued';
@@ -552,6 +630,7 @@ function processorWith(
       ? {}
       : { remoteTaskInput: { submitAnswer: submitRemoteInput } }),
     ...(taskUnderstanding === undefined ? {} : { taskUnderstanding }),
+    ...(fastGateway === undefined ? {} : { fastGateway }),
     taskPlanning: {
       prepare: (input) => {
         tasks.planningInput = input;
@@ -566,6 +645,30 @@ function processorWith(
       },
     },
   });
+}
+
+function gatewayDecision(
+  path:
+    | 'compiled_fast'
+    | 'template_adapt'
+    | 'case_adapt'
+    | 'small_model'
+    | 'cognitive_runtime'
+    | 'human_input'
+    | 'denied',
+) {
+  return {
+    decisionId: 'gateway-runtime-decision-1',
+    requestId: 'request-1',
+    path,
+    parameterBindings: {},
+    missingParameters: [],
+    requiredConfirmations: path === 'human_input' ? ['GATEWAY_POLICY_CONFIRM'] : [],
+    reasonCodes: path === 'denied' ? ['GATEWAY_DENIED'] : [],
+    matcherSnapshotHash: `sha256:${'a'.repeat(64)}`,
+    policySnapshotHash: `sha256:${'b'.repeat(64)}`,
+    createdAt: timestamp,
+  };
 }
 
 function existingGoal(status: 'active' | 'achieved') {

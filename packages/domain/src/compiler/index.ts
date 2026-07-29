@@ -6,6 +6,7 @@ export * from './contracts.js';
 export * from './decision-rule-runtime.js';
 export * from './errors.js';
 export * from './experience-compilation.js';
+export * from './fast-gateway.js';
 export * from './factory.js';
 export * from './lifecycle.js';
 export * from './template-runtime.js';

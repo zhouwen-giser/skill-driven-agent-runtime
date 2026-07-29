@@ -66,6 +66,8 @@ export interface TemplateRuntimeRequest {
   readonly goalSessionId: string;
   readonly confirmedContractCandidateId: string;
   readonly sourceRefs: readonly CognitiveSourceRef[];
+  /** Optional P10 guard; P08 never owns the deadline or cancellation authority. */
+  readonly commitGuard?: Readonly<{ mayCommitFormalAuthority(): boolean }>;
 }
 
 export interface TemplateRuntimeOutcome {
@@ -113,6 +115,7 @@ export class TemplateRuntimeService {
     let executionId: string | undefined;
     try {
       assertP07Eligibility(request);
+      assertGatewayCommitAllowed(request);
       const before = await this.#readCurrent(request.input);
       const active = await this.#readActiveTemplate(request.input);
       assertCurrentAgainstInput(request, before.state, active.artifact, active.pointerLockVersion);
@@ -146,6 +149,7 @@ export class TemplateRuntimeService {
       });
 
       const beforeHandoff = await this.#readCurrent(request.input);
+      assertGatewayCommitAllowed(request);
       if (before.snapshotHash !== beforeHandoff.snapshotHash) {
         await this.#recordUsageFeedback(
           execution.artifactExecutionId,
@@ -170,6 +174,7 @@ export class TemplateRuntimeService {
         active.artifact,
         active.pointerLockVersion,
       );
+      assertGatewayCommitAllowed(request);
 
       const session = await this.#planning.startWithMaterializedCandidate({
         taskId: request.taskId,
@@ -327,6 +332,12 @@ export class TemplateRuntimeService {
       impact,
       createdAt: this.#clock.now(),
     });
+  }
+}
+
+function assertGatewayCommitAllowed(request: TemplateRuntimeRequest): void {
+  if (request.commitGuard?.mayCommitFormalAuthority() === false) {
+    throw new Error('TEMPLATE_GATEWAY_COMMIT_EXPIRED');
   }
 }
 
