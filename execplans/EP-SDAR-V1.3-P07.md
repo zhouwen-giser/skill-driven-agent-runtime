@@ -59,7 +59,7 @@ Goals, Plans, Attempts, Skill/MCP calls, or a Fast Gateway.
   - [x] Complete independent read-only review and close every Blocking/Major.
   - [x] Run the complete isolated verification gate and publish the reports and
         standard P08 Handoff without starting P08.
-  - [ ] Commit final evidence and push the current branch.
+  - [x] Commit final evidence and push the current branch.
 
 ## Discoveries and Surprises
 
@@ -135,4 +135,5 @@ The implementation references will be recorded in the Handoff's
   migration/architecture/protocol/build and both smoke stages. The first gate
   failures are retained in the P07 Completion Report; the final reports and
   standard Handoff are complete. P08 has not been started and is excluded from
-  this plan. Only the documentation commit and branch push remain.
+  this plan. Evidence was committed as `e2398a9` and pushed to
+  `origin/feature/v1.3-sequential-implementation`; P08 remains unstarted.
