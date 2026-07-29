@@ -1,5 +1,15 @@
 # Project Status
 
+SDAR v1.3 P09/G16 Decision Rule and Policy Runtime is `IN_PROGRESS`
+(2026-07-30) on `feature/v1.3-sequential-implementation`. Bootstrap validated
+the clean `830f775` P08-complete baseline, all P00-P08 Handoffs and ancestor
+commits, the canonical V1.1 registry and consumed contract hashes, and the
+P09 package self-check (29/29). The active ExecPlan is
+`execplans/EP-SDAR-V1.3-P09.md`. Implementation is restricted to deterministic
+active-rule evaluation, conflict/policy/authorization gates, bounded formal
+planning handoff, P02 usage evidence and P06 revalidation signals; no P10,
+Fast Gateway, public request route or direct Skill/MCP execution has started.
+
 SDAR v1.3 P08/G15 Plan Template Runtime and Formal Planner Handoff is
 `COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
 Implementation commit `3883786` adds frozen V1.1 P08 contract values,
@@ -41,7 +51,6 @@ read-only review closed at 0 Blocking / 0 Major / 0 Minor. The final isolated
 `pnpm verify` passes 941 unit/contract, 110 integration, 62 E2E, 23 migrations,
 architecture/protocol/build and both smokes; its seven-stage report is in
 `reports/verification/summary.json`. `v1.3-p06-handoff.json` is `COMPLETED`.
-
 
 SDAR v1.3 P05/G09-G10 Replay Dataset and Artifact Validation Engine is `COMPLETED` (2026-07-29) on
 `feature/v1.3-sequential-implementation` from P04R closure `b28b183`. The strict six-contract

@@ -3,6 +3,7 @@ export * from './artifact-replay-validation.js';
 export * from './artifact-shadow-governance.js';
 export * from './artifact-retrieval.js';
 export * from './contracts.js';
+export * from './decision-rule-runtime.js';
 export * from './errors.js';
 export * from './experience-compilation.js';
 export * from './factory.js';

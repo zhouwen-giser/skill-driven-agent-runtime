@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P09 Decision Rule and Policy Runtime
+
+- Added frozen V1.1 P09 decision context, condition result, decision result,
+  conflict resolution, bounded plan patch and runtime contracts with a strict
+  portable Rule DSL, typed operator catalog, three-valued logic and pure stable
+  hashing.
+- Added fail-closed active Rule evaluation with Rule/pointer/tenant/Goal/Plan,
+  policy, authorization, catalog, readiness and kill-switch double rechecks;
+  policy and authorization always override Rule advice.
+- Added deterministic deny/confirmation/specificity/priority/version/stable-ID
+  conflict handling, low-risk confirmation-bound parameter suggestions and
+  conservative plan patches admitted only through the existing validator and
+  P08 interactive planning authority.
+- Reused P02 `artifact_execution`, `artifact_feedback` and Outbox authority
+  through an exact-replay/idempotency adapter; formal Outcome remains
+  reference-only and drift only signals P06 revalidation.
+- Added focused Unit/Contract and real PostgreSQL integration coverage for
+  bounds, injection, stale state, cross-tenant/auth failures, concurrency,
+  replay conflicts, formal handoff and 1k-rule deterministic resolution. P09
+  adds no public route, Fast Gateway or direct Skill/MCP/Workflow execution.
+
 ## SDAR v1.3 P08 Plan Template Runtime and Formal Planner Handoff
 
 - Added frozen V1.1 P08 Domain contracts for template instantiation, immutable
