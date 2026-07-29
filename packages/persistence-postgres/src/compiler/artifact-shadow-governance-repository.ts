@@ -1220,7 +1220,7 @@ export class PostgresArtifactShadowGovernanceRepository implements ArtifactShado
         idempotencyKey: `p07-dependency:${value.triggerId}`,
         occurredAt: value.createdAt,
       },
-      actorId: 'system:artifact-retrieval',
+      actorId: 'system:artifact-dependency-check',
       ...(tenantId === null ? {} : { tenantId }),
     });
   }
