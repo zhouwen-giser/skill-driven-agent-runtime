@@ -1039,45 +1039,36 @@ function compareProfiles(left: ModelProfile, right: ModelProfile): number {
 }
 
 function assertSafeAdaptation(name: string, value: JsonValue): void {
-  const normalized = name.toLowerCase();
-  if (
-    normalized.includes('credential') ||
-    normalized.includes('secret') ||
-    normalized.includes('token') ||
-    normalized.includes('api_key') ||
-    normalized.includes('historical') ||
-    normalized.endsWith('instance_id')
-  ) {
-    throw new CaseRuntimeApplicationError('CASE_CREDENTIAL_OR_HISTORICAL_ID_REJECTED');
-  }
-  if (isPiiField(normalized)) {
-    throw new CaseRuntimeApplicationError('CASE_PII_REJECTED');
-  }
+  assertSafeAdaptationField(name);
   scanValue(value, 0);
 }
 
-function isPiiField(normalized: string): boolean {
-  const tokens = normalized.split(/[^a-z0-9]+/u).filter((token) => token.length > 0);
+function assertSafeAdaptationField(name: string): void {
+  const normalized = name.toLowerCase();
+  const compact = normalized.replace(/[^a-z0-9]/gu, '');
   if (
-    tokens.some((token) =>
-      [
-        'pii',
-        'email',
-        'phone',
-        'mobile',
-        'contact',
-        'address',
-        'passport',
-        'ssn',
-        'biometric',
-      ].includes(token),
-    )
-  )
-    return true;
+    compact.includes('credential') ||
+    compact.includes('secret') ||
+    compact.includes('token') ||
+    compact.includes('apikey') ||
+    compact.includes('historical') ||
+    compact.endsWith('instanceid')
+  ) {
+    throw new CaseRuntimeApplicationError('CASE_CREDENTIAL_OR_HISTORICAL_ID_REJECTED');
+  }
+  if (isPiiField(compact)) {
+    throw new CaseRuntimeApplicationError('CASE_PII_REJECTED');
+  }
+}
+
+function isPiiField(compact: string): boolean {
   return (
-    /(^|_)(first|last|full|legal)_?name($|_)/u.test(normalized) ||
-    /(^|_)(user|person|customer|account|subject|national)_?id($|_)/u.test(normalized) ||
-    /(^|_)(birth_?date|date_?of_?birth|dob|ip_?address)($|_)/u.test(normalized)
+    ['pii', 'email', 'phone', 'mobile', 'contact', 'address', 'passport', 'ssn', 'biometric'].some(
+      (marker) => compact.includes(marker),
+    ) ||
+    /(?:first|last|full|legal)name/u.test(compact) ||
+    /(?:user|person|customer|account|subject|national)id/u.test(compact) ||
+    /(?:birthdate|dateofbirth|dob|ipaddress)/u.test(compact)
   );
 }
 
@@ -1092,7 +1083,7 @@ function scanValue(value: JsonValue, depth: number): void {
     for (const key of Object.keys(record)) {
       const item: JsonValue | undefined = record[key];
       if (item === undefined) continue;
-      assertSafeAdaptation(key, item);
+      assertSafeAdaptationField(key);
       scanValue(item, depth + 1);
     }
   }

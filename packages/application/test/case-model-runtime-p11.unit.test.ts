@@ -88,14 +88,37 @@ describe('P11 Case Runtime', () => {
     );
   });
 
-  it('rejects PII fields, including nested trusted bindings', async () => {
+  it.each(['personal_email', 'personalEmail', 'userId'])(
+    'rejects nested trusted PII binding field %s',
+    async (piiField) => {
+      const service = new CaseRuntimeService({
+        artifacts: artifactReader(),
+        bindings: {
+          read: () =>
+            Promise.resolve({
+              room: {
+                value: { occupant: { [piiField]: 'person@example.test' } },
+                trust: 'authoritative',
+              },
+            }),
+        },
+        evidence: caseEvidence(),
+        clock: clock(),
+      });
+      await expect(service.adapt(adaptationRequest())).rejects.toMatchObject({
+        code: 'CASE_PII_REJECTED',
+      });
+    },
+  );
+
+  it('rejects camelCase credential and historical instance fields', async () => {
     const service = new CaseRuntimeService({
       artifacts: artifactReader(),
       bindings: {
         read: () =>
           Promise.resolve({
             room: {
-              value: { occupant: { personal_email: 'person@example.test' } },
+              value: { apiKey: 'secret', historicalInstanceId: 'instance-7' },
               trust: 'authoritative',
             },
           }),
@@ -104,7 +127,7 @@ describe('P11 Case Runtime', () => {
       clock: clock(),
     });
     await expect(service.adapt(adaptationRequest())).rejects.toMatchObject({
-      code: 'CASE_PII_REJECTED',
+      code: 'CASE_CREDENTIAL_OR_HISTORICAL_ID_REJECTED',
     });
   });
 });
