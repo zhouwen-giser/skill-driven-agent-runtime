@@ -35,8 +35,17 @@ import {
 import { TaskReferenceLinks } from './RelatedLinks.js';
 import { CapabilityCardDetails } from './CapabilitiesPanel.js';
 import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
+import { ArtifactPanel } from './ArtifactPanel.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders a real API-backed Artifact registry with semantic status and no fixture data', () => {
+    const markup = renderToStaticMarkup(<ArtifactPanel />);
+    expect(markup).toContain('Artifact Registry');
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('Loading Artifact registry.');
+    expect(markup).not.toContain('artifact-fixture');
+    expect(markup).not.toContain('credential');
+  });
   it('renders governed Experience and Task Type controls without direct authority mutations', () => {
     const markup = renderToStaticMarkup(<CognitiveGovernancePanel />);
     expect(markup).toContain('EXPERIENCE GOVERNANCE');

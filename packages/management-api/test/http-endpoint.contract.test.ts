@@ -11,6 +11,11 @@ import {
   type RemoteTaskBinding,
   type SkillExecutionView,
 } from '../../domain/src/index.js';
+import {
+  ArtifactManagementCommandService,
+  ArtifactManagementQueryService,
+  type ArtifactGovernancePort,
+} from '../../application/src/index.js';
 
 import {
   BearerCognitiveManagementAuthorizer,
@@ -93,6 +98,123 @@ describe('management HTTP API contract', () => {
       },
       outboxRecorded: true,
     });
+  });
+
+  it('exposes P12 tenant-scoped queries and rejects actor spoofing in command JSON', async () => {
+    const approval = vi.fn(() => Promise.resolve());
+    const repository = {
+      listArtifacts: () =>
+        Promise.resolve({
+          items: [{ artifact_id: 'artifact-a', artifact_key: 'key-a', credential: 'secret' }],
+        }),
+      getArtifact: () =>
+        Promise.resolve({ artifact_id: 'artifact-a', version: 1, content_hash: 'sha256:test' }),
+      getArtifactView: () => Promise.resolve({ items: [] }),
+      getRuntimeView: () => Promise.resolve({ items: [] }),
+      getRuntimeDetail: () => Promise.resolve(undefined),
+      listEvents: () =>
+        Promise.resolve([
+          {
+            sequence: 7,
+            eventId: 'event-a',
+            eventType: 'artifact.activated',
+            tenantId: 'tenant-a',
+            payload: { artifactId: 'artifact-a', credential: 'secret' },
+            occurredAt: '2026-07-30T00:00:00.000Z',
+          },
+        ]),
+      recordReadAudit: () => Promise.resolve(),
+    };
+    const governance: ArtifactGovernancePort = {
+      requestValidation: vi.fn(() => Promise.resolve()),
+      recordApproval: approval,
+      activate: vi.fn(() => Promise.resolve()),
+      requestRevalidation: vi.fn(() => Promise.resolve()),
+      deprecate: vi.fn(() => Promise.resolve()),
+      rollback: vi.fn(() => Promise.resolve()),
+      killSwitch: vi.fn(() => Promise.resolve()),
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      artifactManagement: {
+        queries: new ArtifactManagementQueryService({
+          repository,
+          clock: { now: () => '2026-07-30T00:00:00.000Z' },
+        }),
+        commands: new ArtifactManagementCommandService({
+          governance,
+          clock: { now: () => '2026-07-30T00:00:00.000Z' },
+        }),
+        principalResolver: {
+          resolve: () =>
+            Promise.resolve({
+              actorId: 'authenticated-approver',
+              tenantId: 'tenant-a',
+              roles: new Set(['approver']),
+              kind: 'human',
+              requestId: 'request-a',
+            }),
+        },
+      },
+    });
+
+    const list = await fetch(`${endpoint.baseUrl}/api/v1/artifacts`);
+    expect(list.status).toBe(200);
+    await expect(list.json()).resolves.toEqual({
+      items: [{ artifact_id: 'artifact-a', artifact_key: 'key-a', credential: '[redacted]' }],
+    });
+
+    const commandBody = {
+      version: 1,
+      expectedVersion: 1,
+      idempotencyKey: 'approval-a',
+      reason: 'Reviewed.',
+      approvalId: 'approval-a',
+      validationSummaryHash: `sha256:${'a'.repeat(64)}`,
+    };
+    const accepted = await fetch(
+      `${endpoint.baseUrl}/api/v1/artifacts/artifact-a/commands/approve`,
+      jsonPost(commandBody),
+    );
+    expect(accepted.status).toBe(202);
+    expect(approval).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({ operatorId: 'authenticated-approver' }),
+      }),
+    );
+    const spoofed = await fetch(
+      `${endpoint.baseUrl}/api/v1/artifacts/artifact-a/commands/approve`,
+      jsonPost({
+        ...commandBody,
+        context: { operatorId: 'attacker', permissions: ['artifact.activate'] },
+      }),
+    );
+    expect(spoofed.status).toBe(400);
+    const tenantSpoofed = await fetch(
+      `${endpoint.baseUrl}/api/v1/artifacts/artifact-a/commands/approve`,
+      jsonPost({
+        ...commandBody,
+        scope: { artifactKey: 'key-a', tenantId: 'tenant-b' },
+      }),
+    );
+    expect(tenantSpoofed.status).toBe(400);
+    const legacy = await fetch(
+      `${endpoint.baseUrl}/api/v1/artifacts/promotion/approvals`,
+      jsonPost({ context: { operatorId: 'body-actor' } }),
+    );
+    expect(legacy.status).toBe(400);
+    await expect(legacy.json()).resolves.toMatchObject({
+      error: { code: 'ARTIFACT_LEGACY_COMMAND_DISABLED' },
+    });
+
+    const events = await fetch(`${endpoint.baseUrl}/api/v1/artifact-events`, {
+      headers: { 'Last-Event-ID': '0' },
+    });
+    expect(events.status).toBe(200);
+    const body = await events.text();
+    expect(body).toContain('id: 7');
+    expect(body).toContain('[redacted]');
+    expect(body).not.toContain('"credential":"secret"');
   });
 
   it('projects secret-free P11 Case and Model Route runtime evidence', async () => {

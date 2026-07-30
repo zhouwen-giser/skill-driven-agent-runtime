@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { createServer, type Server as HttpServer } from 'node:http';
 
-import { type AgentSkill } from '@a2a-js/sdk';
+import { AgentCard, type AgentSkill } from '@a2a-js/sdk';
 import { ClientFactory, type Client } from '@a2a-js/sdk/client';
 import { DefaultRequestHandler, type AgentExecutor, type TaskStore } from '@a2a-js/sdk/server';
 import { UserBuilder, agentCardHandler, restHandler } from '@a2a-js/sdk/server/express';
@@ -9,6 +9,7 @@ import express from 'express';
 
 import type { EnabledSkillCapabilityProvider } from '../../application/src/index.js';
 import type { PublicCapabilityCardSnapshot } from '../../domain/src/index.js';
+import type { A2AArtifactProjection } from '../../domain/src/index.js';
 import { A2AAgentCardBuilder } from './capability-card-projection.js';
 import { buildAgentCard } from './compatibility.js';
 
@@ -19,6 +20,9 @@ export interface A2AHttpEndpointOptions {
   readonly skillProvider?: EnabledSkillCapabilityProvider;
   readonly capabilityCardProvider?: Readonly<{
     findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
+  }>;
+  readonly artifactProjectionProvider?: Readonly<{
+    projectPublic(): Promise<A2AArtifactProjection>;
   }>;
   readonly host?: string;
   readonly port?: number;
@@ -48,12 +52,43 @@ export async function startA2AHttpEndpoint(
   const loadSkills = async () => options.skillProvider?.listEnabled() ?? options.skills ?? [];
   const cardBuilder = new A2AAgentCardBuilder();
   const loadCard = async () => {
-    if (options.capabilityCardProvider === undefined) {
-      return buildAgentCard(await loadSkills(), `${baseUrl}/a2a`);
-    }
-    const snapshot = await options.capabilityCardProvider.findActive();
-    if (snapshot === undefined) throw new Error('A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE');
-    return cardBuilder.buildFromSnapshot(snapshot, `${baseUrl}/a2a`);
+    const capabilityProvider = options.capabilityCardProvider;
+    const base =
+      capabilityProvider === undefined
+        ? buildAgentCard(await loadSkills(), `${baseUrl}/a2a`)
+        : await (async () => {
+            const snapshot = await capabilityProvider.findActive();
+            if (snapshot === undefined)
+              throw new Error('A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE');
+            return cardBuilder.buildFromSnapshot(snapshot, `${baseUrl}/a2a`);
+          })();
+    if (options.artifactProjectionProvider === undefined) return base;
+    const projection = await options.artifactProjectionProvider.projectPublic();
+    const json = AgentCard.toJSON(base) as Record<string, unknown>;
+    const capabilities =
+      typeof json['capabilities'] === 'object' && json['capabilities'] !== null
+        ? (json['capabilities'] as Record<string, unknown>)
+        : {};
+    const rawExtensions: unknown = capabilities['extensions'];
+    const extensions: readonly unknown[] = Array.isArray(rawExtensions)
+      ? (rawExtensions as unknown[])
+      : [];
+    return AgentCard.fromJSON({
+      ...json,
+      capabilities: {
+        ...capabilities,
+        extensions: [
+          ...extensions,
+          {
+            uri: 'urn:sdar:artifact-evidence:v1.1',
+            description:
+              'Safe evidence that planning may use validated, policy-governed experience.',
+            required: false,
+            params: projection,
+          },
+        ],
+      },
+    });
   };
   const card = await loadCard();
   const handler = new DefaultRequestHandler(card, options.taskStore, options.executor);

@@ -1,0 +1,1 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","environment":"local Docker PostgreSQL; acceptance baseline, not production SLO","artifactListMs":{"1000":3.165,"10000":1.246,"100000":1.091},"concurrentOperators":32,"concurrentOperatorsMs":68.939,"a2aProjectionIterations":10000,"a2aTenThousandMs":53.671,"command":"vitest artifact-management-p12-performance.integration.test.ts"}

@@ -2,6 +2,7 @@ export * from './artifact-candidate-generation.js';
 export * from './artifact-replay-validation.js';
 export * from './artifact-shadow-governance.js';
 export * from './case-model-runtime.js';
+export * from './artifact-management.js';
 export * from './artifact-retrieval.js';
 export * from './contracts.js';
 export * from './decision-rule-runtime.js';

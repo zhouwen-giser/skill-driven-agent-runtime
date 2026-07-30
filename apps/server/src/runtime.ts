@@ -194,9 +194,14 @@ import {
   ReplayValidationRunReconciler,
   ReplayValidationTriggerDispatcher,
   ArtifactShadowApplicationService,
+  ArtifactPromotionApplicationService,
   ArtifactRevalidationApplicationService,
   parseArtifactFeatureFlags,
   ArtifactPromotionGovernanceService,
+  DefaultArtifactGovernanceService,
+  ArtifactManagementQueryService,
+  ArtifactManagementCommandService,
+  A2AArtifactProjectionService,
   FastGatewayService,
   P02GatewayArtifactFeedbackAdapter,
   TemplateRuntimeService,
@@ -210,6 +215,7 @@ import {
   type GatewayTemplatePort,
   type GatewayArtifactAdapterRegistry,
   type OperatorIdentityPort,
+  type ManagementPrincipalResolver,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
   type TemplateRuntimeStateReader,
@@ -335,6 +341,8 @@ import {
   PostgresFastGatewayRepository,
   PostgresCaseModelRuntimeRepository,
   PostgresRuleUsageRepository,
+  PostgresArtifactGovernanceStore,
+  PostgresArtifactManagementQueryRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -379,6 +387,8 @@ export interface ServerRuntimeOptions {
   readonly cognitiveManagementBearerToken?: string;
   /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
   readonly artifactOperatorIdentity?: OperatorIdentityPort;
+  /** Required to expose P12 management endpoints; identity is never read from request JSON. */
+  readonly artifactManagementPrincipalResolver?: ManagementPrincipalResolver;
   /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
   readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
   /**
@@ -562,6 +572,11 @@ export async function startServerRuntime(
   const artifactShadowGovernanceReady = await pool.query<{ installed: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM schema_migration WHERE version='0130_v13_artifact_shadow_governance'
+     ) AS installed`,
+  );
+  const artifactManagementReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0134_v13_artifact_management_projection'
      ) AS installed`,
   );
   let artifactRegistry: ArtifactRegistryService | undefined;
@@ -1213,6 +1228,46 @@ export async function startServerRuntime(
           });
         })()
       : undefined;
+  const artifactManagement =
+    artifactManagementReady.rows[0]?.installed === true &&
+    options.artifactOperatorIdentity !== undefined &&
+    options.artifactManagementPrincipalResolver !== undefined
+      ? (() => {
+          const repository = new PostgresArtifactManagementQueryRepository(pool);
+          const governance = new DefaultArtifactGovernanceService({
+            identity: options.artifactOperatorIdentity,
+            repository: new PostgresArtifactRepository(pool),
+            store: new PostgresArtifactGovernanceStore(pool),
+            audit: cognitiveManagementActions,
+          });
+          return {
+            queries: new ArtifactManagementQueryService({ repository, clock }),
+            commands: new ArtifactManagementCommandService({
+              governance,
+              audit: cognitiveManagementActions,
+              authorizationQueries: repository,
+              ...(artifactShadowRuntime === undefined
+                ? {}
+                : {
+                    promotionPackages: new ArtifactPromotionApplicationService(
+                      artifactShadowRuntime.repository,
+                      {
+                        version: 'promotion-policy/1.2',
+                        minimumIndependentGoals: 2,
+                        minimumHoldoutCases: 1,
+                        minimumShadowRuns: 2,
+                        minimumEnvironmentClasses: 2,
+                        minimumDeviceClasses: 2,
+                      },
+                    ),
+                  }),
+              clock,
+            }),
+            principalResolver: options.artifactManagementPrincipalResolver,
+          };
+        })()
+      : undefined;
+  const a2aArtifactProjection = new A2AArtifactProjectionService();
   const requeueArtifactRevalidations = async (limit = 100): Promise<number> => {
     if (artifactShadowRuntime?.revalidation === undefined) return 0;
     const triggerIds =
@@ -4303,6 +4358,7 @@ export async function startServerRuntime(
               options.cognitiveManagementBearerToken,
             ),
           }),
+      ...(artifactManagement === undefined ? {} : { artifactManagement }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({
@@ -4336,6 +4392,30 @@ export async function startServerRuntime(
           }));
         },
       },
+      ...(artifactManagement === undefined
+        ? {}
+        : {
+            artifactProjectionProvider: {
+              projectPublic: () =>
+                Promise.resolve(
+                  a2aArtifactProjection.project({
+                    capabilities: [
+                      'experience-informed-planning',
+                      'validated-planning-templates',
+                      'policy-governed-fast-paths',
+                      'interactive-confirmation',
+                    ],
+                    inputRequired: true,
+                    confirmation: true,
+                    formalTaskState: 'unchanged',
+                    evidence: {
+                      artifactEnhancement: true,
+                      formalAuthority: 'existing-runtime',
+                    },
+                  }),
+                ),
+            },
+          }),
       capabilityCardProvider: capabilityCards,
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),

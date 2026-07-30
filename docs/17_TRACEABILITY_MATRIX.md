@@ -745,3 +745,17 @@ Local performance evidence is acceptance-only and not a production SLO.
 | AC-P06-009–011 Revalidation | verified | trigger-bound P02 run, wake-only Redis, critical pointer removal, missing-source dead-letter and no automatic reactivation | integration safety-trigger and worker contract tests |
 | AC-P06-012 P07 exclusion | verified | no Fast Gateway, retrieval, online selection or Artifact execution | architecture gate and Server composition review |
 | AC-P06-013 full closure | verified | independent review has 0 Blocking/Major/Minor; P07 handoff emitted | `reports/goal/v1.3-p06-completion.md`, `reports/goal/v1.3-p06-review.md`, `reports/verification/summary.json` |
+
+## SDAR v1.3 P12 Management API, Console and A2A Addendum
+
+| P12 acceptance | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| AC-P12-001-006 authority/identity | verified | optional P12 composition; resolver-owned principal; query/command ports only | ADR-122; architecture; Unit/Contract |
+| AC-P12-007-013 RBAC/tenant/governance | verified | centralized roles, SQL tenant scope, 404 IDOR, CAS/idempotency/reason and existing command ledger | Unit; PostgreSQL Integration; Server E2E |
+| AC-P12-014-024 API/evidence | verified | list/detail/12 evidence views/3 runtime views, exact JSONB task filter, cursor binding, OpenAPI 164 operations | Management Contract; OpenAPI report |
+| AC-P12-025-031 Console | verified | real API registry/detail/evidence/runtime/commands and explicit loading/empty/error/permission/stale states | Console and accessibility reports |
+| AC-P12-032-038 A2A | verified | feature-gated allowlist extension; formal Task/input-required unchanged | A2A Contract; applicable MUST TCK 74/74 |
+| AC-P12-039-045 SSE/security | verified | formal Outbox sequence, event mapping, tenant joins, resume/overflow/redaction and feature-off compatibility | Integration/E2E; SSE/security reports |
+| AC-P12-046-054 closure | verified | no predecessor reimplementation or auto-promotion; full verify, review, 54/54 and P13 handoff | completion/review/acceptance/handoff |
+
+The authoritative P12 result is `reports/goal/v1.3-p12-acceptance.json`: 54 passed, 0 failed and 0 blocked.

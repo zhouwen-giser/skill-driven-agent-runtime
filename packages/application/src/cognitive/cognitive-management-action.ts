@@ -16,7 +16,8 @@ export type CognitiveManagementOperation =
   | 'artifact_request_revalidation'
   | 'artifact_deprecate'
   | 'artifact_rollback'
-  | 'artifact_kill_switch';
+  | 'artifact_kill_switch'
+  | 'artifact_build_promotion_package';
 
 export interface CognitiveManagementActionClaim {
   readonly actionId: string;

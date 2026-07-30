@@ -1,0 +1,1 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","publicCapabilities":["experience-informed-planning","validated-planning-templates","policy-governed-fast-paths","interactive-confirmation"],"neverPublic":["candidate definition","internal rule","model route","credential","secret","private experience","source pattern","private reasoning","PII"],"featureOff":"no P12 A2A extension"}

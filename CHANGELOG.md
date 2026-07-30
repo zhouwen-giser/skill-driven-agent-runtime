@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P12 Management API, Console and A2A Integration
+
+- Added optional authenticated RBAC/tenant Artifact registry, evidence, runtime and governance APIs
+  over P02-P11 authority ports, with IDOR concealment and append-only read audit.
+- Added the real Console Artifact workspace, runtime timeline, evidence views, confirmation and
+  stale-version guidance, plus complete OpenAPI descriptions.
+- Added feature-gated safe A2A evidence and bounded resumable SSE from the PostgreSQL Outbox,
+  including event mapping, authoritative tenant derivation, ordered sequence and redaction.
+- Extended the existing cognitive management ledger for promotion-package commands and added real
+  PostgreSQL/Server/A2A/performance evidence.
+
 ## SDAR v1.3 P11 Case Template and Model Route Runtime
 
 - Added ten frozen V1.1 Case/Model Route contracts with exact registry hashes,

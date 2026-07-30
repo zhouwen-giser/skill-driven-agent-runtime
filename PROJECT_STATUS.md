@@ -727,3 +727,12 @@ layer is free of `node:crypto` (hash computation moved to application layer per 
 integration, 62 E2E, 20 migrations through 0127, architecture, build, and smoke. Review 1 self-audit
 concludes 0 Blocking / 0 Major / 0 Minor; the final ACCEPTED verdict is
 `PENDING_USER_CONFIRMATION`. P05 Handoff is emitted. Draft PR #12 remains OPEN and unmerged.
+
+## SDAR v1.3 P12 Management API, Console and A2A Integration (2026-07-30)
+
+P12/G21 is complete on `feature/v1.3-sequential-implementation`. Optional authenticated Management
+composition exposes tenant-scoped Artifact/evidence/runtime queries and audited governance commands
+without changing P02-P11 authorities. The Console uses the real API; A2A adds only a feature-gated
+safe extension; SSE is a bounded resumable PostgreSQL Outbox projection. Independent review
+findings covering runtime SQL, event aliases/tenant derivation, IDOR, filters, feature-off,
+promotion audit and redaction were repaired and regression tested.

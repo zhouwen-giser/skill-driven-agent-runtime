@@ -19,12 +19,14 @@ import { SystemPanel } from './SystemPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 import { CapabilitiesPanel } from './CapabilitiesPanel.js';
 import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
+import { ArtifactPanel } from './ArtifactPanel.js';
 
 type Section =
   | 'overview'
   | 'skills'
   | 'capabilities'
   | 'cognitive-governance'
+  | 'artifacts'
   | 'mcp'
   | 'workflows'
   | 'tasks'
@@ -44,6 +46,7 @@ const navigation: readonly {
   { id: 'skills', label: 'Skills', note: 'Lifecycle' },
   { id: 'capabilities', label: 'Capabilities', note: 'Public Card' },
   { id: 'cognitive-governance', label: 'Cognitive Governance', note: 'Experience' },
+  { id: 'artifacts', label: 'Artifacts', note: 'Governance' },
   { id: 'workflows', label: 'Workflows', note: 'DAG' },
   { id: 'mcp', label: 'MCP Servers', note: 'Tools' },
   { id: 'business-events', label: 'Business Events', note: 'Inbox' },
@@ -191,6 +194,7 @@ function SectionView({
     );
   if (section === 'capabilities') return <CapabilitiesPanel />;
   if (section === 'cognitive-governance') return <CognitiveGovernancePanel />;
+  if (section === 'artifacts') return <ArtifactPanel />;
   if (section === 'mcp')
     return (
       <McpPanel
@@ -348,6 +352,7 @@ export function Lookup({
     | 'system'
     | 'business-events'
     | 'cognitive-governance'
+    | 'artifacts'
   >;
 }) {
   const config = useMemo(
