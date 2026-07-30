@@ -616,6 +616,15 @@ paths:
       operationId: listTaskRuntimeEvents
       responses:
         '200': { description: Ordered displayable Task lifecycle events }
+  /api/v1/tasks/{taskId}/gateway-evidence:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTaskGatewayEvidence
+      description: Returns the bounded, read-only P10 Gateway route, stage, reason, formal handoff, fallback, and Outbox correlation projection. It does not expose request text, credentials, private reasoning, or a second Task/Goal/Plan authority.
+      responses:
+        '200': { description: PostgreSQL-authoritative Gateway decision evidence }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/skill-executions:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
