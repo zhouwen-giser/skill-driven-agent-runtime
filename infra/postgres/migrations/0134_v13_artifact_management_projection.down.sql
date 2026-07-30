@@ -18,9 +18,9 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   IF NEW.event_type IN (
-    'artifact.validation_started','artifact.validation_completed',
-    'artifact.approval_recorded','artifact.activated','artifact.revalidating',
-    'artifact.deprecated'
+    'artifact.validation_started','artifact.validation_completed','artifact.shadow_started',
+    'artifact.shadow_completed','artifact.promotion_ready','artifact.approval_recorded',
+    'artifact.activated','artifact.revalidating','artifact.deprecated'
   )
      OR NEW.payload ? 'dependencyRef'
   THEN

@@ -22,7 +22,7 @@ AS $$
 BEGIN
   IF NEW.event_type IN (
     'compiler.artifact_candidate_created','artifact.validation_started',
-    'artifact.validation_completed','artifact.shadow_completed','artifact.promotion_ready',
+    'artifact.validation_completed','artifact.shadow_started','artifact.shadow_completed','artifact.promotion_ready',
     'artifact.approval_recorded','artifact.activated','artifact.revalidating',
     'artifact.deprecated','gateway.route_selected','gateway.confirmation_required',
     'gateway.fallback_started','gateway.formal_handoff','artifact.rule_evaluated',
@@ -48,7 +48,7 @@ WITH unsequenced AS (
   WHERE outbox_sequence IS NULL
     AND event_type IN (
       'compiler.artifact_candidate_created','artifact.validation_started',
-      'artifact.validation_completed','artifact.shadow_completed','artifact.promotion_ready',
+      'artifact.validation_completed','artifact.shadow_started','artifact.shadow_completed','artifact.promotion_ready',
       'artifact.approval_recorded','artifact.activated','artifact.revalidating',
       'artifact.deprecated','gateway.route_selected','gateway.confirmation_required',
       'gateway.fallback_started','gateway.formal_handoff','artifact.rule_evaluated',
