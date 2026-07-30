@@ -367,14 +367,14 @@ describe('P10 FastGatewayService', () => {
   });
 
   it('reports bounded Gateway latency at 1, 10, 100 and 1000 concurrent requests', async () => {
-    const results: Array<{
+    const results: {
       concurrency: number;
       p50Ms: number;
       p95Ms: number;
       p99Ms: number;
       elapsedMs: number;
       errorRate: number;
-    }> = [];
+    }[] = [];
     for (const concurrency of [1, 10, 100, 1000]) {
       const harness = createHarness({
         retrieval: noMatch(),
