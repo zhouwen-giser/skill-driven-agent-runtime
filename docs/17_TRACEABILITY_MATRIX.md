@@ -719,6 +719,17 @@ passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3361ff8` completed in
 263,433 ms with 1,069 Unit/Contract, 119 Integration, 63 E2E and 25 migrations.
 Local latency/concurrency evidence is explicitly not a production capacity SLO.
 
+## SDAR v1.3 P11 Case Template and Model Route Runtime Addendum
+
+| P11 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P11-001-005 baseline/registry/current state | implemented, verification pending | frozen predecessor Handoffs; type-keyed registry seam; P10 precheck/retrieval/deadline order unchanged; Case/Route active and current-state readers | Domain/adapter contracts; Gateway ordering regression; P11 ExecPlan |
+| AC-P11-006-018 Case safety/formal authority | implemented, verification pending | tenant/task similarity ranks only after hard gates; known failure/OOD falls back or confirms; trusted parameter-only adaptation rejects credential/historical IDs; candidate always rechecked and submitted through P08 | Case Unit/Contract tests; real immutable Case PostgreSQL integration |
+| AC-P11-019-028 Profile/route hard gates | implemented, verification pending | existing Provider Registry plus live readiness produce secret-free profiles; unknown/disabled/capacity/classification/residency/capability/schema gates precede deterministic selection | Profile/route Unit tests; exact hash contract; real Gateway/provider E2E |
+| AC-P11-029-041 bounded Cascade/usage | implemented, verification pending | serial bounded profiles, one attempt per step, max invocations/tokens/cost/deadline, cancellation/late/stale discard, external validator and existing credential/provider/model-invocation authority | Cascade Unit/Contract; 0133 Integration; real encrypted-credential E2E |
+| AC-P11-042-045 authority/privacy | implemented, verification pending | immutable type child evidence and Outbox only; no approval/activation/Outcome/Skill/MCP/Workflow authority; bounded Management/OpenAPI/Console client projection omits secrets/prompts | architecture, secret scan, Management contract and 157-operation OpenAPI gate |
+| AC-P11-046-051 closure | pending | clean exact-commit full verify, read-only review, evidence/Completion/Handoff and push remain | `execplans/EP-SDAR-V1.3-P11.md` |
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |

@@ -102,6 +102,7 @@ export * from './compiler/artifact-replay-validation.js';
 export * from './compiler/artifact-shadow-governance.js';
 export * from './compiler/experience-compilation.js';
 export * from './compiler/fast-gateway.js';
+export * from './compiler/case-model-runtime.js';
 export * from './errors.js';
 export * from './goal.js';
 export * from './goal-cancellation.js';

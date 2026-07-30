@@ -23,6 +23,16 @@ export async function managementRequest<T>(path: string, init?: RequestInit): Pr
   return payload as T;
 }
 
+export interface ArtifactRuntimeEvidence {
+  readonly requestRef: string;
+  readonly case?: unknown;
+  readonly modelRoute?: unknown;
+}
+
+export function getArtifactRuntimeEvidence(requestRef: string): Promise<ArtifactRuntimeEvidence> {
+  return managementRequest(`/api/v1/artifacts/runtime-evidence/${encodeURIComponent(requestRef)}`);
+}
+
 export function setManagementBearerToken(token: string): void {
   const storage = browserSessionStorage();
   if (storage === undefined) return;

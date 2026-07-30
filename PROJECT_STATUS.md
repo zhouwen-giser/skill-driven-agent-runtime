@@ -1,5 +1,13 @@
 # Project Status
 
+SDAR v1.3 P11/G19-G20 Case Template and Model Route Runtime is `IN_PROGRESS`
+(2026-07-30) on `feature/v1.3-sequential-implementation`. Bootstrap is closed
+from clean P10 closure `2cb2dce`: the manifest-located P11 package self-check,
+frozen contract lock and P00-P10 Handoff chain pass. Implementation is limited
+to type-keyed Gateway adapters, Case-to-P08 candidate handoff, bounded provider
+route/cascade execution and PostgreSQL evidence; P10 ordering and all existing
+formal/provider/credential authorities remain frozen.
+
 SDAR v1.3 P10/G17-G18 Fast Gateway and Artifact Runtime Feedback is
 `COMPLETED` (2026-07-30) on `feature/v1.3-sequential-implementation`.
 Implementation commits `a27e49c`, `211b88b`, `3d7c722` and `13d4b54` add the

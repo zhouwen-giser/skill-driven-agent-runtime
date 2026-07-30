@@ -625,6 +625,15 @@ paths:
         '200': { description: PostgreSQL-authoritative Gateway decision evidence }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/runtime-evidence/{requestRef}:
+    parameters: [{ name: requestRef, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getArtifactRuntimeEvidence
+      description: Returns bounded, read-only P11 Case match/adaptation and Model Route/Cascade evidence. Credentials, secrets, complete sensitive prompts, and private reasoning are never projected.
+      responses:
+        '200': { description: PostgreSQL-authoritative P11 runtime evidence }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/skill-executions:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:

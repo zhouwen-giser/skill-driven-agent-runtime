@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P11 Case Template and Model Route Runtime
+
+- Added ten frozen V1.1 Case/Model Route contracts with exact registry hashes,
+  immutable values, stable reason codes and deterministic decision/profile
+  snapshot hashes.
+- Added a type-keyed Fast Gateway adapter registry without changing P10
+  authority ordering. Case retrieval/adaptation preserves tenant, failure,
+  scope, sensitive-data and current-state gates and submits candidates only
+  through the existing P08 formal handoff port.
+- Added Provider Registry/readiness-owned secret-free Model Profiles, hard
+  capability/classification/residency/schema/capacity gates and a bounded
+  serial Cascade with stale, cancellation, deadline, token, cost and output
+  validation checks.
+- Reused the existing encrypted credential authority, provider transport and
+  model invocation audit. Migration 0133 persists immutable Case, Route and
+  Cascade evidence with transactional `model_route.selected` and
+  `model_cascade.escalated` Outbox facts; P02 Artifact rows remain unchanged.
+- Added bounded Management API/OpenAPI/Console-client evidence projection with
+  no credentials or sensitive prompt content, plus Unit/Contract, real
+  PostgreSQL Integration and Gateway-to-provider E2E coverage.
+
 ## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback
 
 - Added frozen V1.1 request, Gateway, decision-record and feedback contracts

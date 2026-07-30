@@ -95,6 +95,38 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('projects secret-free P11 Case and Model Route runtime evidence', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        caseModelRuntimeEvidence: {
+          findRuntimeEvidenceByRequest: (requestRef) =>
+            Promise.resolve({
+              requestRef,
+              case: {
+                taskTypeId: 'inspect-device',
+                matches: [{ caseRef: 'case-1:1', score: 0.9 }],
+              },
+              modelRoute: {
+                artifactRef: 'route-1:1',
+                decision: { selectedProfileRefs: ['profile-1'] },
+                cascades: [{ run: { status: 'completed', totalCostUnits: 0.1 } }],
+              },
+            }),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/artifacts/runtime-evidence/request-1`);
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({
+      requestRef: 'request-1',
+      case: { taskTypeId: 'inspect-device' },
+      modelRoute: { artifactRef: 'route-1:1' },
+    });
+    expect(JSON.stringify(payload)).not.toMatch(/credential|secret|authorization|rawPrompt/iu);
+  });
+
   it('projects Business Event health, cursors, Inbox, impact and incidents without credentials', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({

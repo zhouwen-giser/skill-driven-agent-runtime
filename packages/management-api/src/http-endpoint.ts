@@ -740,6 +740,10 @@ export interface ManagementOperations {
   readonly gatewayEvidence?: Readonly<{
     findByTaskId(taskId: string): Promise<unknown>;
   }>;
+  /** Optional P11 secret-free Case/Model Route runtime evidence. */
+  readonly caseModelRuntimeEvidence?: Readonly<{
+    findRuntimeEvidenceByRequest(requestRef: string): Promise<unknown>;
+  }>;
   readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
   readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
   readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
@@ -1316,6 +1320,24 @@ export async function startManagementHttpEndpoint(
       );
       if (evidence === undefined) {
         response.status(404).json({ code: 'GATEWAY_EVIDENCE_NOT_FOUND' });
+        return;
+      }
+      response.json(evidence);
+    }),
+  );
+  app.get(
+    '/api/v1/artifacts/runtime-evidence/:requestRef',
+    asyncRoute(async (request, response) => {
+      if (options.operations.caseModelRuntimeEvidence === undefined) {
+        response.status(503).json({ code: 'ARTIFACT_RUNTIME_EVIDENCE_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const evidence =
+        await options.operations.caseModelRuntimeEvidence.findRuntimeEvidenceByRequest(
+          pathValue(request, 'requestRef'),
+        );
+      if (evidence === undefined) {
+        response.status(404).json({ code: 'ARTIFACT_RUNTIME_EVIDENCE_NOT_FOUND' });
         return;
       }
       response.json(evidence);

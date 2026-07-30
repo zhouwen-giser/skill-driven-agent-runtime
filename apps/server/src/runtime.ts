@@ -208,6 +208,7 @@ import {
   type GatewayRetrievalPort,
   type GatewayRulePort,
   type GatewayTemplatePort,
+  type GatewayArtifactAdapterRegistry,
   type OperatorIdentityPort,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
@@ -332,6 +333,7 @@ import {
   PostgresArtifactShadowGovernanceRepository,
   PostgresArtifactExecutionRepository,
   PostgresFastGatewayRepository,
+  PostgresCaseModelRuntimeRepository,
   PostgresRuleUsageRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
@@ -402,6 +404,8 @@ export interface ServerRuntimeOptions {
     fallback: GatewayFallbackPort;
     cancellation: GatewayCancellationPort;
     drift: GatewayDriftSignalPort;
+    /** P11 type-keyed adapters; ignored unless their feature flags are enabled. */
+    adapters?: GatewayArtifactAdapterRegistry;
     options?: Partial<FastGatewayOptions>;
   }>;
   readonly skillAuthoringModel?: StructuredModelProvider;
@@ -1425,6 +1429,7 @@ export async function startServerRuntime(
   });
   planningCorrectionRef.current = planningCorrections;
   const fastGatewayRepository = new PostgresFastGatewayRepository(pool);
+  const caseModelRuntimeRepository = new PostgresCaseModelRuntimeRepository(pool);
   const deletionPropagation = new DeletionPropagationService({
     targets: [
       {
@@ -2477,6 +2482,10 @@ export async function startServerRuntime(
           artifactFeedback: new P02GatewayArtifactFeedbackAdapter(
             new PostgresRuleUsageRepository(pool),
           ),
+          ...(options.fastGateway.adapters === undefined ||
+          (!artifactFlags.caseEnabled && !artifactFlags.modelCascadeEnabled)
+            ? {}
+            : { adapters: options.fastGateway.adapters }),
           clock: {
             now: () => clock.now(),
             nowMs: () => Date.parse(clock.now()),
@@ -4157,6 +4166,7 @@ export async function startServerRuntime(
         evaluationAnalytics,
         runtimeEvents: events,
         gatewayEvidence: fastGatewayRepository,
+        caseModelRuntimeEvidence: caseModelRuntimeRepository,
         skillExecutions: skillExecutionRepository,
         runtimeTerminalOutcomes,
         memories,

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   FastGatewayService,
   type ArtifactRetrievalResult,
+  type GatewayArtifactAdapterRegistry,
   type GatewayDecisionPersistence,
   type GatewayDriftSignalPort,
   type GatewayPrecheckResult,
@@ -69,6 +70,28 @@ describe('P10 FastGatewayService', () => {
     expect(result.record.reasonCodes).toContain('GATEWAY_ARTIFACT_NO_MATCH');
     expect(harness.calls.rule).toBe(0);
     expect(harness.calls.template).toBe(0);
+  });
+
+  it('delegates P11 artifact types through the registry without changing P10 ordering', async () => {
+    const adapter = {
+      execute: vi.fn(() =>
+        Promise.resolve({ disposition: 'completed' as const, resultRef: 'output-1' }),
+      ),
+    };
+    const harness = createHarness({
+      retrieval: selected('model_route', 'small_model'),
+      adapters: { find: (artifactType) => (artifactType === 'model_route' ? adapter : undefined) },
+    });
+    const result = await harness.service.evaluateDetailed(context());
+    expect(result.decision.path).toBe('small_model');
+    expect(adapter.execute).toHaveBeenCalledOnce();
+    expect(harness.calls.precheck).toEqual([
+      'authentication',
+      'tenant',
+      'authorization',
+      'runtime_state',
+    ]);
+    expect(harness.calls.fallback).toBe(0);
   });
 
   it('delegates a plan template to P08 and preserves formal refs', async () => {
@@ -528,6 +551,7 @@ function createHarness(
       >[3],
     ) => Promise<Readonly<{ fallbackRef: string }>>;
     cancelled?: boolean;
+    adapters?: GatewayArtifactAdapterRegistry;
     options?: ConstructorParameters<typeof FastGatewayService>[0]['options'];
   }> = {},
 ) {
@@ -620,6 +644,7 @@ function createHarness(
     artifactFeedback: {
       record: () => Promise.resolve(),
     },
+    ...(input.adapters === undefined ? {} : { adapters: input.adapters }),
     clock: {
       now: () => '2026-07-30T00:00:00.000Z',
       nowMs: () => Date.parse('2026-07-30T00:00:00.000Z'),

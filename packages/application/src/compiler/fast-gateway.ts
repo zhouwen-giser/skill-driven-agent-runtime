@@ -11,6 +11,7 @@ import {
   type GatewayStage,
   type GatewayStageResult,
   type JsonValue,
+  type CompiledArtifactType,
   type RuntimeExecutionDecision,
   type RuntimeRequestContext,
 } from '../../../domain/src/index.js';
@@ -93,6 +94,42 @@ export interface GatewayTemplatePort {
     retrieval: ArtifactRetrievalResult,
     execution: GatewayStageExecution,
   ): Promise<GatewayTemplateOutcome>;
+}
+
+export type GatewayArtifactAdapterOutcome =
+  | Readonly<{ disposition: 'completed'; resultRef: string }>
+  | Readonly<{
+      disposition: 'formal_handoff';
+      resultRef: string;
+      formalHandoffRef: string;
+      formalGoalRef?: string;
+      formalPlanRef?: string;
+    }>
+  | Readonly<{
+      disposition: 'requires_confirmation';
+      resultRef: string;
+      interactionRef: string;
+      formalHandoffRef?: string;
+    }>
+  | Readonly<{
+      disposition: 'deny' | 'fallback' | 'discarded_stale' | 'failed';
+      resultRef: string;
+    }>;
+
+/**
+ * Generic extension boundary. P11+ algorithms live in adapters; P10 retains
+ * prechecks, retrieval, deadlines, cancellation, persistence and fallback.
+ */
+export interface GatewayArtifactAdapter {
+  execute(
+    input: RuntimeRequestContext,
+    retrieval: ArtifactRetrievalResult,
+    execution: GatewayStageExecution,
+  ): Promise<GatewayArtifactAdapterOutcome>;
+}
+
+export interface GatewayArtifactAdapterRegistry {
+  find(artifactType: CompiledArtifactType): GatewayArtifactAdapter | undefined;
 }
 
 export interface GatewayFallbackPort {
@@ -200,6 +237,7 @@ export class FastGatewayService implements FastGateway {
   readonly #persistence: GatewayDecisionPersistence;
   readonly #drift: GatewayDriftSignalPort;
   readonly #artifactFeedback: GatewayArtifactFeedbackPort;
+  readonly #adapters: GatewayArtifactAdapterRegistry | undefined;
   readonly #clock: Readonly<{ now(): string; nowMs(): number }>;
   readonly #ids: Readonly<{
     nextGatewayDecisionId(): string;
@@ -225,6 +263,7 @@ export class FastGatewayService implements FastGateway {
       persistence: GatewayDecisionPersistence;
       drift: GatewayDriftSignalPort;
       artifactFeedback: GatewayArtifactFeedbackPort;
+      adapters?: GatewayArtifactAdapterRegistry;
       clock: Readonly<{ now(): string; nowMs(): number }>;
       ids: Readonly<{
         nextGatewayDecisionId(): string;
@@ -241,6 +280,7 @@ export class FastGatewayService implements FastGateway {
     this.#persistence = dependencies.persistence;
     this.#drift = dependencies.drift;
     this.#artifactFeedback = dependencies.artifactFeedback;
+    this.#adapters = dependencies.adapters;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
     this.#options = validateOptions(dependencies.options);
@@ -444,6 +484,19 @@ export class FastGatewayService implements FastGateway {
       if (selected?.artifactType === 'plan_template') {
         return await this.#runTemplate(context, requestHash, precheck, stages, retrieval);
       }
+      if (selected !== undefined) {
+        const adapter = this.#adapters?.find(selected.artifactType);
+        if (adapter !== undefined) {
+          return await this.#runRegisteredAdapter(
+            context,
+            requestHash,
+            precheck,
+            stages,
+            retrieval,
+            adapter,
+          );
+        }
+      }
       return await this.#completeFallback(
         context,
         requestHash,
@@ -455,6 +508,83 @@ export class FastGatewayService implements FastGateway {
     } finally {
       this.#inFlight -= 1;
     }
+  }
+
+  async #runRegisteredAdapter(
+    context: RuntimeRequestContext,
+    requestHash: string,
+    precheck: GatewayPrecheckResult,
+    stages: GatewayStageResult[],
+    retrieval: ArtifactRetrievalResult,
+    adapter: GatewayArtifactAdapter,
+  ): Promise<FastGatewayEvaluation> {
+    // The frozen P10 stage catalog has no extension stage. P11 adapters use
+    // the existing bounded template-class slot while retaining their own
+    // type-specific durable step evidence.
+    const run = await this.#runAdapterStage(context, 'template', (execution) =>
+      adapter.execute(context, retrieval, execution),
+    );
+    stages.push(run.stage);
+    if (run.status !== 'succeeded') {
+      return this.#completeFallback(context, requestHash, precheck, stages, run.reasonCodes);
+    }
+    const outcome = run.value;
+    if (outcome.disposition === 'deny') {
+      return this.#completeDenied(
+        context,
+        requestHash,
+        precheck,
+        stages,
+        ['GATEWAY_DENIED'],
+        retrieval.decision,
+      );
+    }
+    if (outcome.disposition === 'requires_confirmation') {
+      return this.#completeInteraction(
+        context,
+        requestHash,
+        precheck,
+        stages,
+        ['GATEWAY_INTERACTION_REQUIRED'],
+        retrieval.decision,
+        outcome.interactionRef,
+        outcome.formalHandoffRef,
+      );
+    }
+    if (
+      outcome.disposition === 'fallback' ||
+      outcome.disposition === 'discarded_stale' ||
+      outcome.disposition === 'failed'
+    ) {
+      return this.#completeFallback(
+        context,
+        requestHash,
+        precheck,
+        stages,
+        [
+          outcome.disposition === 'discarded_stale'
+            ? 'GATEWAY_DISCARDED_STALE'
+            : 'GATEWAY_COGNITIVE_FALLBACK',
+        ],
+        retrieval.decision,
+      );
+    }
+    if (outcome.disposition === 'formal_handoff') {
+      return this.#completeSuccess(
+        context,
+        requestHash,
+        precheck,
+        stages,
+        retrieval.decision,
+        ['GATEWAY_FORMAL_HANDOFF_SUBMITTED'],
+        outcome.formalHandoffRef,
+        outcome.formalGoalRef,
+        outcome.formalPlanRef,
+      );
+    }
+    return this.#persist(context, requestHash, precheck, stages, retrieval.decision, [
+      'GATEWAY_ARTIFACT_MATCH',
+    ]);
   }
 
   async #runRule(
