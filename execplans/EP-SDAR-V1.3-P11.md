@@ -61,9 +61,10 @@ execution authority.
 - [x] Implement Model Profile, route selection and bounded cascade.
 - [x] Add PostgreSQL authority, Outbox, management projections and composition.
 - [x] Add focused Unit/Contract/Integration/E2E/security/performance tests.
-- [ ] Freeze implementation and perform an independent read-only review.
-- [ ] Close Blocking/Major findings and run clean exact-commit `pnpm verify`.
-- [ ] Generate P11 evidence, Completion/Handoff, commit and push before P12.
+- [x] Freeze implementation and perform independent read-only review phases.
+- [x] Close all Blocking/Major findings and run clean exact-commit `pnpm verify`.
+- [x] Generate P11 evidence and COMPLETED Completion/Handoff.
+- [ ] Commit and push the closure before reading or implementing P12.
 
 ## Implementation Steps
 
@@ -105,6 +106,12 @@ execution authority.
 - Once isolated, E2E exposed PostgreSQL `23503`: the fixture supplied a Task ID
   without creating the authoritative Task row. The provider adapter correctly
   refused an orphan invocation; the fixture now omits the optional Task link.
+- The first read-only review found that the per-step timeout was passed through
+  but not enforced and that Case adaptation did not reject PII. `c62334a`
+  added active abort and recursive privacy gates.
+- The second read-only review found camelCase privacy-name bypasses and repeated
+  nested scanning. `dc636e6` canonicalizes field names and performs one
+  depth-bounded pass. The final review has 0 Blocking / 0 Major / 0 Minor.
 
 ## Decision Log
 
@@ -132,4 +139,9 @@ performance, acceptance, review, full verify, Completion and the standard
 
 ## Outcomes and Retrospective
 
-Pending implementation, review and exact-commit verification.
+P11 is complete at accepted implementation `dc636e6`. Clean `pnpm verify`
+passed in 275,223 ms with 1,097 Unit/Contract, 122 real PostgreSQL/Redis
+Integration, 64 E2E and 26 migrations. All 51 acceptance criteria pass. The
+final read-only review has 0 Blocking / 0 Major / 0 Minor. P11 introduced no
+second Planner, Policy, Artifact, provider credential, Workflow or Outcome
+authority. Closure commit and push are the only remaining P11 operations.

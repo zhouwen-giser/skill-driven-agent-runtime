@@ -1,0 +1,12 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "verified",
+  "contracts": [
+    {"name":"ModelRouteContext","version":"1.1","schemaHash":"346e0917e77a181b332581bfdb94943742dc0dfec035938e50ba3ac225b93aa2"},
+    {"name":"ModelRouteDecision","version":"1.1","schemaHash":"9785cd514c16f49982012f3943441defe246c33dfcf3429a3504885187b7d1fd"},
+    {"name":"ModelRouteRuntime","version":"1.1","schemaHash":"386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"}
+  ],
+  "selectionOrder": ["quality desc", "latency asc", "cost asc", "health desc", "profileId asc"],
+  "decisionHash": "canonical route, reasons, bounded budget, fallback routes and order-preserving selected profile refs",
+  "verification": "same frozen input/profile snapshot produces the same decision hash"
+}

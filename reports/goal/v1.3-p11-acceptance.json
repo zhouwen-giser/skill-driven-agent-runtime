@@ -1,0 +1,34 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "summary": {"passed":51,"failed":0,"blocked":0},
+  "criteria": {
+    "AC-P11-001":"passed","AC-P11-002":"passed","AC-P11-003":"passed",
+    "AC-P11-004":"passed","AC-P11-005":"passed","AC-P11-006":"passed",
+    "AC-P11-007":"passed","AC-P11-008":"passed","AC-P11-009":"passed",
+    "AC-P11-010":"passed","AC-P11-011":"passed","AC-P11-012":"passed",
+    "AC-P11-013":"passed","AC-P11-014":"passed","AC-P11-015":"passed",
+    "AC-P11-016":"passed","AC-P11-017":"passed","AC-P11-018":"passed",
+    "AC-P11-019":"passed","AC-P11-020":"passed","AC-P11-021":"passed",
+    "AC-P11-022":"passed","AC-P11-023":"passed","AC-P11-024":"passed",
+    "AC-P11-025":"passed","AC-P11-026":"passed","AC-P11-027":"passed",
+    "AC-P11-028":"passed","AC-P11-029":"passed","AC-P11-030":"passed",
+    "AC-P11-031":"passed","AC-P11-032":"passed","AC-P11-033":"passed",
+    "AC-P11-034":"passed","AC-P11-035":"passed","AC-P11-036":"passed",
+    "AC-P11-037":"passed","AC-P11-038":"passed","AC-P11-039":"passed",
+    "AC-P11-040":"passed","AC-P11-041":"passed","AC-P11-042":"passed",
+    "AC-P11-043":"passed","AC-P11-044":"passed","AC-P11-045":"passed",
+    "AC-P11-046":"passed","AC-P11-047":"passed","AC-P11-048":"passed",
+    "AC-P11-049":"passed","AC-P11-050":"passed","AC-P11-051":"passed"
+  },
+  "evidence": [
+    "reports/goal/v1.3-p11-completion.md",
+    "reports/goal/v1.3-p11-review.md",
+    "reports/goal/v1.3-p11-full-verify-report.json",
+    "reports/verification/summary.json",
+    "packages/application/test/case-model-runtime-p11.unit.test.ts",
+    "packages/application/test/case-model-runtime-p11.contract.test.ts",
+    "packages/persistence-postgres/test/case-model-runtime-p11.integration.test.ts",
+    "packages/persistence-postgres/test/case-model-runtime-p11.e2e.test.ts"
+  ]
+}

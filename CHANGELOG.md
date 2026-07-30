@@ -22,6 +22,12 @@ All notable changes to this project are documented here. The format follows Keep
 - Added bounded Management API/OpenAPI/Console-client evidence projection with
   no credentials or sensitive prompt content, plus Unit/Contract, real
   PostgreSQL Integration and Gateway-to-provider E2E coverage.
+- Closed review findings by actively aborting per-step Provider timeouts and
+  recursively rejecting PII, credential and historical instance fields across
+  snake_case and camelCase with one depth-bounded scan.
+- Final clean verification passes 1,097 Unit/Contract, 122 Integration, 64 E2E
+  and 26 migrations; independent review closes at 0 Blocking / 0 Major /
+  0 Minor and all 51 acceptance criteria pass.
 
 ## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback
 
