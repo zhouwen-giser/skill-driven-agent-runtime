@@ -2483,7 +2483,6 @@ export async function startServerRuntime(
           },
           ids: {
             nextGatewayDecisionId: () => `gateway-decision-${randomUUID()}`,
-            nextFeedbackId: () => `gateway-feedback-${randomUUID()}`,
           },
           ...(options.fastGateway.options === undefined
             ? {}

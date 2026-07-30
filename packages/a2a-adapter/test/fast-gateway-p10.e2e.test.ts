@@ -60,11 +60,11 @@ beforeAll(async () => {
           },
         },
         precheck: {
-          evaluate: () =>
+          authenticate: () => Promise.resolve(true),
+          authorizeTenant: () => Promise.resolve(true),
+          authorizeRequest: () => Promise.resolve(true),
+          readRuntimeState: () =>
             Promise.resolve({
-              authenticated: true,
-              tenantAuthorized: true,
-              authorized: true,
               featureEnabled: true,
               killSwitchActive: false,
               policyDecision: 'deny',

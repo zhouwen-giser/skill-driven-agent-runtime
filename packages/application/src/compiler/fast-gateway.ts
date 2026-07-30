@@ -27,7 +27,17 @@ export interface GatewayPrecheckResult {
 }
 
 export interface GatewayPrecheckPort {
-  evaluate(input: RuntimeRequestContext): Promise<GatewayPrecheckResult>;
+  authenticate(input: RuntimeRequestContext): Promise<boolean>;
+  authorizeTenant(input: RuntimeRequestContext): Promise<boolean>;
+  authorizeRequest(input: RuntimeRequestContext): Promise<boolean>;
+  readRuntimeState(
+    input: RuntimeRequestContext,
+  ): Promise<
+    Pick<
+      GatewayPrecheckResult,
+      'featureEnabled' | 'killSwitchActive' | 'policyDecision' | 'runtimeSnapshotHash'
+    >
+  >;
 }
 
 export interface GatewayRetrievalPort {
@@ -188,7 +198,6 @@ export class FastGatewayService implements FastGateway {
   readonly #clock: Readonly<{ now(): string; nowMs(): number }>;
   readonly #ids: Readonly<{
     nextGatewayDecisionId(): string;
-    nextFeedbackId(): string;
   }>;
   readonly #options: FastGatewayOptions;
   readonly #bulkheads: Readonly<Record<'retrieval' | 'rule' | 'template', AdapterBulkhead>>;
@@ -213,7 +222,6 @@ export class FastGatewayService implements FastGateway {
       clock: Readonly<{ now(): string; nowMs(): number }>;
       ids: Readonly<{
         nextGatewayDecisionId(): string;
-        nextFeedbackId(): string;
       }>;
       options?: Partial<FastGatewayOptions>;
     }>,
@@ -297,11 +305,10 @@ export class FastGatewayService implements FastGateway {
   }
 
   async recordFeedback(
-    input: Omit<GatewayFeedbackEnvelope, 'feedbackId' | 'createdAt'>,
+    input: Omit<GatewayFeedbackEnvelope, 'createdAt'>,
   ): Promise<GatewayFeedbackEnvelope> {
     const feedback = createGatewayFeedbackEnvelope({
       ...input,
-      feedbackId: this.#ids.nextFeedbackId(),
       createdAt: this.#clock.now(),
     });
     await this.#persistence.appendFeedback(feedback);
@@ -324,9 +331,9 @@ export class FastGatewayService implements FastGateway {
     requestHash: string,
   ): Promise<FastGatewayEvaluation> {
     const precheckStartedAt = this.#clock.now();
-    const precheck = await this.#precheck.evaluate(context);
-    assertHash(precheck.runtimeSnapshotHash, 'runtimeSnapshotHash');
-    const precheckReasons = precheckReasonCodes(precheck);
+    const checked = await this.#runPrecheck(context);
+    const precheck = checked.result;
+    const precheckReasons = checked.reasonCodes;
     const precheckStage = stageResult(
       'precheck',
       'succeeded',
@@ -684,6 +691,76 @@ export class FastGatewayService implements FastGateway {
     }
   }
 
+  async #runPrecheck(context: RuntimeRequestContext): Promise<
+    Readonly<{
+      result: GatewayPrecheckResult;
+      reasonCodes: readonly GatewayReasonCode[];
+    }>
+  > {
+    const snapshotHash = hashRuntimeRequestContext(context);
+    const authenticated = await this.#precheck.authenticate(context);
+    if (!authenticated || (await this.#requestStopped(context))) {
+      return precheckResult(
+        {
+          authenticated,
+          tenantAuthorized: false,
+          authorized: false,
+          featureEnabled: false,
+          killSwitchActive: false,
+          policyDecision: 'allow',
+          runtimeSnapshotHash: snapshotHash,
+        },
+        [authenticated ? 'GATEWAY_AUTHENTICATED' : 'GATEWAY_AUTH_FAILED'],
+      );
+    }
+    const tenantAuthorized = await this.#precheck.authorizeTenant(context);
+    if (!tenantAuthorized || (await this.#requestStopped(context))) {
+      return precheckResult(
+        {
+          authenticated,
+          tenantAuthorized,
+          authorized: false,
+          featureEnabled: false,
+          killSwitchActive: false,
+          policyDecision: 'allow',
+          runtimeSnapshotHash: snapshotHash,
+        },
+        ['GATEWAY_AUTHENTICATED', 'GATEWAY_TENANT_DENIED'],
+      );
+    }
+    const authorized = await this.#precheck.authorizeRequest(context);
+    if (!authorized || (await this.#requestStopped(context))) {
+      return precheckResult(
+        {
+          authenticated,
+          tenantAuthorized,
+          authorized,
+          featureEnabled: false,
+          killSwitchActive: false,
+          policyDecision: 'allow',
+          runtimeSnapshotHash: snapshotHash,
+        },
+        ['GATEWAY_AUTHENTICATED', 'GATEWAY_TENANT_AUTHORIZED', 'GATEWAY_TENANT_DENIED'],
+      );
+    }
+    const state = await this.#precheck.readRuntimeState(context);
+    assertHash(state.runtimeSnapshotHash, 'runtimeSnapshotHash');
+    const result: GatewayPrecheckResult = {
+      authenticated,
+      tenantAuthorized,
+      authorized,
+      ...state,
+    };
+    return precheckResult(result, precheckReasonCodes(result));
+  }
+
+  async #requestStopped(context: RuntimeRequestContext): Promise<boolean> {
+    return (
+      this.#clock.nowMs() >= Date.parse(context.deadlineAt) ||
+      (await this.#cancellation.isCancelled(context.cancellationRef))
+    );
+  }
+
   async #completeDenied(
     context: RuntimeRequestContext,
     requestHash: string,
@@ -908,6 +985,19 @@ function precheckReasonCodes(input: GatewayPrecheckResult): readonly GatewayReas
     ...(input.policyDecision === 'deny' ? ['GATEWAY_POLICY_DENY' as const] : []),
     ...(input.policyDecision === 'require_confirmation' ? ['GATEWAY_POLICY_CONFIRM' as const] : []),
   ]);
+}
+
+function precheckResult(
+  result: GatewayPrecheckResult,
+  reasonCodes: readonly GatewayReasonCode[],
+): Readonly<{
+  result: GatewayPrecheckResult;
+  reasonCodes: readonly GatewayReasonCode[];
+}> {
+  return Object.freeze({
+    result: Object.freeze(result),
+    reasonCodes: uniqueReasons(reasonCodes),
+  });
 }
 
 function decisionFrom(
