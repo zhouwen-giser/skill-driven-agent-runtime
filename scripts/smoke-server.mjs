@@ -17,10 +17,14 @@ const postgresUrl =
 const reuseDatabase = process.env.SDAR_SMOKE_REUSE_DATABASE === 'true';
 const temporaryDatabase = `sdar_server_smoke_${String(process.pid)}_${String(Date.now())}`;
 const smokePostgresUrl = reuseDatabase ? postgresUrl : withDatabase(postgresUrl, temporaryDatabase);
-const admin = reuseDatabase ? undefined : new Pool({ connectionString: withDatabase(postgresUrl, 'postgres') });
+const admin = reuseDatabase
+  ? undefined
+  : new Pool({ connectionString: withDatabase(postgresUrl, 'postgres') });
+const artifactManagementToken = 'p13-artifact-management-smoke-token';
 let server;
 try {
-  if (admin !== undefined) await admin.query(`CREATE DATABASE ${quotedIdentifier(temporaryDatabase)}`);
+  if (admin !== undefined)
+    await admin.query(`CREATE DATABASE ${quotedIdentifier(temporaryDatabase)}`);
   server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
     cwd: process.cwd(),
     stdio: 'inherit',
@@ -28,11 +32,27 @@ try {
       ...process.env,
       SDAR_POSTGRES_URL: smokePostgresUrl,
       SDAR_MASTER_KEY_BASE64: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+      SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: artifactManagementToken,
+      SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'p13-smoke-viewer',
+      SDAR_ARTIFACT_MANAGEMENT_KIND: 'human',
+      SDAR_ARTIFACT_MANAGEMENT_ROLES: 'viewer',
     },
   });
   const management = await waitForJson('http://127.0.0.1:9998/api/v1/health');
   if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
     throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
+  }
+  const artifactListUrl = 'http://127.0.0.1:9998/api/v1/artifacts';
+  if ((await getStatus(artifactListUrl)) !== 401) {
+    throw new Error('SERVER_SMOKE_ARTIFACT_AUTHENTICATION_NOT_ENFORCED');
+  }
+  if (
+    (await getStatus(artifactListUrl, {
+      authorization: `Bearer ${artifactManagementToken}`,
+      'x-request-id': 'p13-standard-main-smoke',
+    })) !== 200
+  ) {
+    throw new Error('SERVER_SMOKE_ARTIFACT_AUTHENTICATED_QUERY_FAILED');
   }
   const consoleHtml = await requestBody('http://127.0.0.1:9998/console/');
   const consoleScript = consoleHtml.match(/src="(\/console\/assets\/[^"]+\.js)"/u)?.[1];
@@ -102,7 +122,7 @@ try {
     throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
   }
   process.stdout.write(
-    'Server build smoke passed: Agent Card, Console bundle, and trusted-intranet management API are reachable.\n',
+    'Server build smoke passed: Agent Card, Console bundle, trusted-intranet management API, and configured Artifact bearer identity are reachable.\n',
   );
 } finally {
   server?.kill();
@@ -163,6 +183,16 @@ function requestBody(url) {
       });
     });
     request.once('error', reject);
+  });
+}
+
+function getStatus(url, headers = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const outgoing = get(url, { headers }, (response) => {
+      response.resume();
+      response.on('end', () => resolvePromise(response.statusCode));
+    });
+    outgoing.once('error', reject);
   });
 }
 

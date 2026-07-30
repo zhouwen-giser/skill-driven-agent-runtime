@@ -1,5 +1,5 @@
 schema_version: 1
-updated_at: 2026-07-23
+updated_at: 2026-07-30
 sources:
   - name: Gemini CLI Auto Memory
     repository: https://github.com/google-gemini/gemini-cli
@@ -50,6 +50,55 @@ sources:
     pin: "npm:ajv@8.20.0#sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="
     allowed: 'JSON Schema validation behind json-schema adapter'
     forbidden: 'remote schema loading, custom executable keywords, domain type leakage'
+  - name: Fast URI
+    repository: https://github.com/fastify/fast-uri
+    license: 'BSD-3-Clause; LICENSE sha256 b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786; no NOTICE at pin'
+    use: transitive_dependency_security_override
+    pin: "npm:fast-uri@3.1.4#tag:v3.1.4#commit:6aeece669e4166b2446a89f17c07a3b15dfb7ed4#sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
+    allowed: 'Ajv transitive RFC 3986 URI parsing at the existing JSON Schema adapter boundary'
+    forbidden: 'direct product-network authority, unpinned downgrade to vulnerable 3.1.3 or earlier'
+  - name: PostgreSQL 17 Alpine base image
+    repository: https://github.com/docker-library/postgres
+    license: 'PostgreSQL License for PostgreSQL; Alpine and bundled packages retain their individual licenses'
+    use: container_build_base
+    pin: "oci:postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4"
+    allowed: 'digest-pinned base for the repository-owned PostgreSQL plus pgvector standalone container'
+    forbidden: 'mutable tag-only pulls, domain ownership, a second PostgreSQL authority'
+  - name: Dockerfile frontend 1.24.0
+    repository: https://github.com/moby/buildkit
+    license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64 at embedded revision; no root NOTICE'
+    use: container_build_tool
+    pin: "oci:docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89#linux-amd64:sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd#version:1.24.0#revision:dd2170e156c9633da1b2d1a58a6188e3f7d36fa4"
+    allowed: 'build-only Dockerfile parsing and ADD --checksum support for the repository-owned PostgreSQL image'
+    forbidden: 'mutable parser directive, application runtime or development dependency, bundled release artifact'
+  - name: pgvector hardened local PostgreSQL image
+    repository: https://github.com/pgvector/pgvector
+    license: 'PostgreSQL License; LICENSE sha256 6bba9ebeb73e27477463b05e5ef1bf303bccbddb3db9bbc95905d351604d6a87; local image also contains PostgreSQL under its PostgreSQL License'
+    use: modified_local_standalone_container
+    pin: "tag:v0.8.5#commit:159b79aaad5983fb7459c1e3df2897fbb2d11788#archive-sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44#apk-build-base:0.5-r3#dockerfile:infra/postgres/Dockerfile.pgvector-hardened#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
+    allowed: 'compile pgvector into the pinned PostgreSQL base for the compose-local standalone database service'
+    forbidden: 'unchecksummed source fetch, silent node/runtime embedding, publishing the observed local image digest as a remote registry guarantee'
+  - name: su-exec
+    repository: https://github.com/ncopa/su-exec
+    license: 'MIT; LICENSE blob f623b904e42568d5d8d96c8dee6740c9d456d407; content sha256 a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 retained in image; no root NOTICE at pin'
+    use: container_runtime_dependency
+    pin: "apk:su-exec@0.3-r0#tag:v0.3#tag-object:91277f44a686618f16b6ebcb1abe701e626ccb74#commit:89c016e6e08749d583efdeda04b9f73e1218e253#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
+    allowed: 'drop privileges in the repository-owned PostgreSQL container entrypoint after removing gosu'
+    forbidden: 'host installation, application runtime dependency, unreviewed package-version drift on rebuild'
+  - name: Redis 8 Alpine Docker Official Image
+    repository: https://github.com/redis/redis
+    license: 'AGPL-3.0-or-later option selected for Redis 8.8.1; LICENSE.txt blob 4657905cf699d1d5ac96a07d0969bc79e27c4eec; Alpine and bundled packages retain their individual licenses; Redis trademark rules apply'
+    use: unmodified_external_standalone_container
+    pin: "tag:8.8.1#commit:77b6c308396c9700672390a210143a8496fb4b10#oci:redis:8.8.1-alpine3.23@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb"
+    allowed: 'ephemeral BullMQ queue, cache and wake-up state behind runtime-redis'
+    forbidden: 'system-of-record authority, any Redis image redistribution without AGPL notice and Corresponding Source, modified network service without section 13 compliance, mutable tag-only pull'
+  - name: Trivy release scanner
+    repository: https://github.com/aquasecurity/trivy
+    license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; NOTICE blob 3fe97bf7d4b08dfdc5c8f3feab223403d651fec9'
+    use: temporary_release_evidence_tool
+    pin: "tag:v0.70.0#commit:8a3177aedf7ee0864920eb1852eef031cd3742b8#asset:trivy_0.70.0_windows-64bit.zip#sha256:eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825#checksums-sha256:c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9"
+    allowed: 'temporary P13 container vulnerability and inventory evidence generation after official checksum verification'
+    forbidden: 'runtime or development dependency, committed scanner binary, mutable latest download, GitHub Action integration, affected March 2026 releases'
   - name: LangGraph.js
     repository: https://github.com/langchain-ai/langgraphjs
     license: 'MIT'

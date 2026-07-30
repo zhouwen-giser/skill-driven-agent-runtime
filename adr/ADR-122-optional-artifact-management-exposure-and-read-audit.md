@@ -32,6 +32,20 @@ The legacy no-auth surface remains available only when P12 is off; P12 itself is
 tenant bounded. Governance evidence stays in the existing ledger while sensitive reads gain a
 separate non-authoritative access trail. SSE disconnection has no domain effect.
 
+## P13 deployment-composition addendum
+
+P13 closes the standard Server composition gap without changing the P12 ports. When
+`SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN`, actor ID and roles are configured, the composition root
+constructs one deployment-owned identity object and exposes immutable
+`ManagementPrincipalResolver` and `ExternalOperatorIdentityProvider` views over it. The exact
+`Bearer` header is compared by a timing-safe SHA-256 digest. Actor, optional tenant, human/service
+kind and roles come only from validated environment configuration; the request body cannot extend
+the fixed role-to-permission mapping. Without the complete credential configuration the standard
+Server does not compose the Artifact management surface.
+
+Credential distribution, rotation and revocation remain deployment responsibilities. This adapter
+does not convert the trusted-intranet baseline into a general Internet authentication system.
+
 ## Rejected alternatives
 
 - Request-body actor/tenant: spoofable.

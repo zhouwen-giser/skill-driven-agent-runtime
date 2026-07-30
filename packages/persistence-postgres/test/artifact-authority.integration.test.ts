@@ -684,15 +684,27 @@ describe('P02 PostgreSQL Artifact authority', () => {
        )`,
     );
 
-    const runtime = await startServerRuntime({
-      postgresUrl: connectionString,
-      redis: { host: '127.0.0.1', port: 56379 },
-      masterKeyBase64: randomBytes(32).toString('base64'),
-      queueName: `artifact-startup-${randomUUID()}`,
-      applyMigrations: false,
-      a2aPort: 0,
-      managementPort: 0,
-    });
+    const runtime = await (async () => {
+      const previousRegistry = process.env['SDAR_V13_REGISTRY_ENABLED'];
+      process.env['SDAR_V13_REGISTRY_ENABLED'] = 'true';
+      try {
+        return await startServerRuntime({
+          postgresUrl: connectionString,
+          redis: { host: '127.0.0.1', port: 56379 },
+          masterKeyBase64: randomBytes(32).toString('base64'),
+          queueName: `artifact-startup-${randomUUID()}`,
+          applyMigrations: false,
+          a2aPort: 0,
+          managementPort: 0,
+        });
+      } finally {
+        if (previousRegistry === undefined) {
+          Reflect.deleteProperty(process.env, 'SDAR_V13_REGISTRY_ENABLED');
+        } else {
+          process.env['SDAR_V13_REGISTRY_ENABLED'] = previousRegistry;
+        }
+      }
+    })();
     try {
       await expect(runtime.artifactRegistry?.queryActiveIndex({})).resolves.toEqual([
         expect.objectContaining({

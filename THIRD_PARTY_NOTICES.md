@@ -20,8 +20,16 @@ These exact commits are excluded design/algorithm references, not packaged runti
 
 ## External services
 
-- pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
-- Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
+- sdar/postgres-pgvector 17.10-0.8.5-alpine3.23 — modified local standalone container built from digest-pinned PostgreSQL 17.10 Alpine and checksum-pinned pgvector v0.8.5. PostgreSQL and pgvector use the PostgreSQL License; su-exec 0.3-r0 is MIT and its license text is retained in the image. The P13 observed reproducible local image ID is sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762.
+- Redis 8.8.1-alpine3.23 — AGPL-3.0-or-later option selected; unmodified standalone container pinned to sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb. Redis trademark rules remain applicable. Redistribution of either a modified or unmodified image requires the AGPL notice and Corresponding Source; a modified network service must also satisfy section 13.
+
+## Container build tool
+
+- docker/dockerfile frontend 1.24.0 — Apache-2.0, LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64 and no root NOTICE; immutable index sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 (BuildKit revision dd2170e156c9633da1b2d1a58a6188e3f7d36fa4). It is used only to parse the hardened Dockerfile and is neither bundled nor an SDAR runtime/development dependency.
+
+## Release evidence tool
+
+- aquasecurity/trivy v0.70.0 commit 8a3177aedf7ee0864920eb1852eef031cd3742b8 — Apache-2.0 with NOTICE blob 3fe97bf7d4b08dfdc5c8f3feab223403d651fec9. The temporary Windows scanner asset was verified against the official release checksum as sha256:eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825 after review of the March 2026 GHSA-69fq-xp46-6x23 supply-chain incident. It is not bundled and is not an SDAR runtime or development dependency.
 
 ## npm packages (286)
 
@@ -155,7 +163,7 @@ These exact commits are excluded design/algorithm references, not packaged runti
 | `fast-deep-equal@3.1.3` | MIT | `fast-deep-equal@3.1.3/LICENSE` |
 | `fast-json-stable-stringify@2.1.0` | MIT | `fast-json-stable-stringify@2.1.0/LICENSE` |
 | `fast-levenshtein@2.0.6` | MIT | `fast-levenshtein@2.0.6/LICENSE.md` |
-| `fast-uri@3.1.3` | BSD-3-Clause | `fast-uri@3.1.3/LICENSE` |
+| `fast-uri@3.1.4` | BSD-3-Clause | `fast-uri@3.1.4/LICENSE` |
 | `fdir@6.5.0` | MIT | `fdir@6.5.0/LICENSE` |
 | `file-entry-cache@8.0.0` | MIT | `file-entry-cache@8.0.0/LICENSE` |
 | `finalhandler@2.1.1` | MIT | `finalhandler@2.1.1/LICENSE` |

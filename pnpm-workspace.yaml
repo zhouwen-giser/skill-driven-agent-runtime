@@ -10,3 +10,6 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - eslint@10.7.0
   - bullmq@5.80.1
+
+overrides:
+  fast-uri: 3.1.4

@@ -26,6 +26,7 @@ import {
 } from '../../domain/src/index.js';
 
 let artifact: CompiledArtifact;
+let modelRouteArtifact: CompiledArtifact;
 
 beforeAll(async () => {
   const fixture = JSON.parse(
@@ -38,6 +39,18 @@ beforeAll(async () => {
   if (source === undefined) throw new Error('P07 fixture plan artifact missing.');
   artifact = createCompiledArtifact(
     { ...source, status: 'active' },
+    { validationPassed: true, approvalRecorded: true },
+  );
+  const modelRouteSource = fixture.artifacts.find(
+    (candidate) => candidate.artifactType === 'model_route',
+  );
+  if (modelRouteSource === undefined) throw new Error('P07 fixture model route missing.');
+  modelRouteArtifact = createCompiledArtifact(
+    {
+      ...modelRouteSource,
+      status: 'active',
+      validationSummaryRef: 'validation-summary-model-route',
+    },
     { validationPassed: true, approvalRecorded: true },
   );
 });
@@ -207,6 +220,105 @@ describe('P07 Artifact retrieval and applicability', () => {
     expect(globallyDisabled.decision.reasonCodes).toEqual(
       expect.arrayContaining(['KILL_SWITCH_ACTIVE', 'DECISION_FALLBACK']),
     );
+
+    const gatewayDisabled = await serviceFor(
+      artifact,
+      new AuditRecorder(),
+      new SignalRecorder(),
+      true,
+      { ...activeFeatureFlags(), fastGatewayEnabled: false },
+    ).retrieve(request());
+    expect(gatewayDisabled.decision.path).toBe('cognitive_runtime');
+  });
+
+  it('fails closed before authoritative definition reads when retrieval or the Artifact allowlist is off', async () => {
+    let indexReads = 0;
+    let definitionReads = 0;
+    const repository: ArtifactRepository = {
+      findActiveIndex: () => {
+        indexReads += 1;
+        return Promise.resolve([indexEntry(artifact)]);
+      },
+      getDefinition: () => {
+        definitionReads += 1;
+        return Promise.resolve(artifact);
+      },
+      saveCandidate: () => Promise.resolve(),
+      activate: () => Promise.resolve(),
+      deprecate: () => Promise.resolve(),
+    };
+    const retrieveWith = (featureFlags: ArtifactFeatureFlags) =>
+      new ArtifactRetrievalService({
+        repository,
+        audit: new AuditRecorder(),
+        decisionAudit: new DecisionRecorder(),
+        revalidation: new SignalRecorder(),
+        validationDependencies: { load: matchingValidationDependencies },
+        authorization: { isAuthorized: () => Promise.resolve(true) },
+        featureFlags: () => featureFlags,
+        nextDecisionId: () => 'gated-decision',
+        nextMatchId: () => 'gated-match',
+        nextTriggerId: () => 'gated-trigger',
+      }).retrieve(request());
+
+    await expect(
+      retrieveWith({ ...activeFeatureFlags(), retrievalEnabled: false }),
+    ).resolves.toMatchObject({ decision: { path: 'cognitive_runtime' } });
+    expect(indexReads).toBe(0);
+    expect(definitionReads).toBe(0);
+
+    await expect(
+      retrieveWith({
+        ...activeFeatureFlags(),
+        artifactAllowlist: new Set(['artifact.other:1']),
+      }),
+    ).resolves.toMatchObject({ matches: [], decision: { path: 'cognitive_runtime' } });
+    expect(indexReads).toBe(1);
+    expect(definitionReads).toBe(0);
+
+    await expect(retrieveWith(activeFeatureFlags())).resolves.toMatchObject({
+      decision: {
+        path: 'compiled_fast',
+        selectedArtifactRef: `${artifact.artifactId}:${String(artifact.version)}`,
+      },
+    });
+    expect(definitionReads).toBe(1);
+  });
+
+  it('requires the independent model-route switch in addition to model cascade', async () => {
+    const artifactRef = `${modelRouteArtifact.artifactId}:${String(modelRouteArtifact.version)}`;
+    const modelRequest = {
+      ...request(),
+      explicitArtifactRef: artifactRef,
+      taskTypeIds: [],
+      structuredContext: {
+        ...request().structuredContext,
+        'task.complexity': 0.9,
+      },
+      currentDependencySnapshot: modelRouteArtifact.dependencySnapshot,
+    };
+    const flags = {
+      ...activeFeatureFlags(),
+      artifactAllowlist: new Set([artifactRef]),
+    };
+    const disabled = await serviceFor(
+      modelRouteArtifact,
+      new AuditRecorder(),
+      new SignalRecorder(),
+      true,
+      { ...flags, modelRouteEnabled: false },
+    ).retrieve(modelRequest);
+    expect(disabled.matches).toEqual([]);
+
+    const enabled = await serviceFor(
+      modelRouteArtifact,
+      new AuditRecorder(),
+      new SignalRecorder(),
+      true,
+      flags,
+    ).retrieve(modelRequest);
+    expect(enabled.matches).toHaveLength(1);
+    expect(enabled.decision.selectedArtifactRef).toBe(artifactRef);
   });
 
   it('loads an immutable definition only after the Level-0 active index narrows candidates', async () => {
@@ -492,12 +604,19 @@ function serviceFor(
 function activeFeatureFlags(): ArtifactFeatureFlags {
   return {
     artifactMode: 'active' as const,
+    compilerEnabled: true,
+    registryEnabled: true,
+    shadowEnabled: true,
+    promotionEnabled: true,
+    retrievalEnabled: true,
+    modelRouteEnabled: true,
     templateEnabled: true,
     ruleEnabled: true,
     fastGatewayEnabled: true,
     caseEnabled: true,
     modelCascadeEnabled: true,
     tenantAllowlist: new Set<string>(),
+    artifactAllowlist: new Set([`${artifact.artifactId}:${String(artifact.version)}`]),
   };
 }
 

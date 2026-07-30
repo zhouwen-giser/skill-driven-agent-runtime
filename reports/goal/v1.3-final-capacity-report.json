@@ -1,0 +1,1057 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P13",
+  "reportId": "v1.3-final-capacity-report",
+  "status": "passed",
+  "classification": "local acceptance release-candidate evidence",
+  "productionCapacityClaim": false,
+  "scopeNotice": "Measurements are local acceptance evidence. Simulated/static/unverified rows are not upgraded to real or production evidence.",
+  "approvedProductCapacityTarget": {
+    "requirement": "NFR-PERF-001",
+    "singleInstanceActiveTasks": {
+      "minimumApproximate": 1,
+      "maximumApproximate": 10
+    },
+    "sameContextStrictlySerial": true,
+    "source": "docs/01_REQUIREMENTS_BASELINE.md"
+  },
+  "scenarioMatrix": {
+    "baseline": {
+      "activeTasks": 1,
+      "gatewayRequests": 1,
+      "artifactProjectionRows": 1000,
+      "traces": 1000,
+      "replayCases": 1000,
+      "operators": 1,
+      "workers": 1,
+      "tenants": 1
+    },
+    "expected": {
+      "activeTasks": 10,
+      "gatewayRequests": 10,
+      "artifactProjectionRows": 10000,
+      "traces": 10000,
+      "replayCases": 10000,
+      "operators": 10,
+      "workers": 4,
+      "completedWorkerRuns": 12,
+      "tenants": 10
+    },
+    "stress": {
+      "activeTasks": 10,
+      "gatewayRequests": [
+        100,
+        1000
+      ],
+      "artifactProjectionRows": 100000,
+      "traces": 10000,
+      "replayCases": 10000,
+      "operators": 32,
+      "postgresClaimRuns": 100,
+      "tenants": 20
+    },
+    "caveat": "Gateway request stress is not an approved active-task target; 10k is the tested Trace/Replay ceiling, not a production ceiling."
+  },
+  "contractDimensions": {
+    "workloads": [
+      "request_entry_fast_gateway",
+      "exact_semantic_retrieval",
+      "rule",
+      "template",
+      "formal_handoff",
+      "cognitive_fallback",
+      "case",
+      "model_route_cascade",
+      "feedback",
+      "management_api",
+      "console",
+      "sse",
+      "shadow",
+      "replay",
+      "compiler_workers"
+    ],
+    "data": [
+      "active_artifact",
+      "candidate",
+      "experience_trace",
+      "replay_case",
+      "concurrent_request",
+      "concurrent_operator",
+      "sse_client",
+      "queue_lag",
+      "model_invocation",
+      "tenant_count"
+    ],
+    "resources": [
+      "cpu",
+      "memory",
+      "database_connection",
+      "lock",
+      "query",
+      "index",
+      "redis",
+      "queue",
+      "network",
+      "token_cost",
+      "storage_growth"
+    ],
+    "backpressure": [
+      "gateway_load_shedding",
+      "shadow_pause",
+      "replay_compiler_low_priority",
+      "model_rate_limit",
+      "sse_slow_consumer",
+      "feedback_queue",
+      "management_rate_limit"
+    ],
+    "slo": [
+      "availability",
+      "error_rate",
+      "latency_percentiles",
+      "deadline_miss",
+      "fast_path_added_latency",
+      "formal_handoff",
+      "fallback",
+      "feedback_lag",
+      "revalidation_lag",
+      "console_load",
+      "management_query",
+      "sse_delivery",
+      "queue_recovery"
+    ]
+  },
+  "workloadCoverage": [
+    {
+      "id": "request_entry_fast_gateway",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json",
+        "packages/application/test/fast-gateway-p10.unit.test.ts"
+      ],
+      "observations": {
+        "measurements": [
+          {
+            "requests": 1,
+            "p50Ms": 0.721,
+            "p95Ms": 0.721,
+            "p99Ms": 0.721,
+            "elapsedMs": 1.091,
+            "errorRate": 0
+          },
+          {
+            "requests": 10,
+            "p50Ms": 4.291,
+            "p95Ms": 4.929,
+            "p99Ms": 4.929,
+            "elapsedMs": 5.075,
+            "errorRate": 0
+          },
+          {
+            "requests": 100,
+            "p50Ms": 51.055,
+            "p95Ms": 57.191,
+            "p99Ms": 57.648,
+            "elapsedMs": 57.798,
+            "errorRate": 0
+          },
+          {
+            "requests": 1000,
+            "p50Ms": 459.634,
+            "p95Ms": 518.873,
+            "p99Ms": 522.928,
+            "elapsedMs": 525.395,
+            "errorRate": 0
+          }
+        ],
+        "limitation": "In-process Gateway harness with bounded adapters; request concurrency is not Formal active-task concurrency."
+      }
+    },
+    {
+      "id": "exact_semantic_retrieval",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p07-performance-report.json",
+        "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+      ],
+      "observations": {
+        "measurements": {
+          "environment": "local isolated PostgreSQL, 2026-07-29",
+          "samples": 25,
+          "p50Ms": 9.048499999999876,
+          "p95Ms": 10.600000000000364,
+          "authority": "postgresql_active_pointer_and_artifact_match_log"
+        },
+        "limitation": "The PostgreSQL sample exercises active-index retrieval and durable audit; semantic-provider capacity is not isolated."
+      }
+    },
+    {
+      "id": "rule",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p09-performance-report.json",
+        "packages/domain/test/decision-rule-runtime-p09.unit.test.ts"
+      ],
+      "observations": {
+        "measurements": [
+          {
+            "ruleCount": 1,
+            "p50Ms": 0.118,
+            "p95Ms": 0.2631,
+            "maxMs": 11.4185
+          },
+          {
+            "ruleCount": 10,
+            "p50Ms": 0.1862,
+            "p95Ms": 0.4305,
+            "maxMs": 0.9449
+          },
+          {
+            "ruleCount": 100,
+            "p50Ms": 0.1989,
+            "p95Ms": 0.893,
+            "maxMs": 0.9219
+          },
+          {
+            "ruleCount": 1000,
+            "p50Ms": 1.2358,
+            "p95Ms": 1.3456,
+            "maxMs": 1.846
+          }
+        ],
+        "limitation": "Deterministic in-process Rule resolution; no network or Provider work."
+      }
+    },
+    {
+      "id": "template",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p08-performance-report.json",
+        "packages/application/test/template-runtime-p08.unit.test.ts"
+      ],
+      "observations": {
+        "measurement": "10 tests passed in 3.99 s including TypeScript transform/import overhead",
+        "limitation": "Includes transform/import overhead and is not a per-template latency sample."
+      }
+    },
+    {
+      "id": "formal_handoff",
+      "classification": "static",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p08-handoff-transaction-report.json",
+        "packages/application/test/template-runtime-p08.unit.test.ts"
+      ],
+      "observations": {
+        "verified": "atomic existing planning authority handoff and stale rejection",
+        "limitation": "No standalone Formal Handoff latency distribution was measured."
+      }
+    },
+    {
+      "id": "cognitive_fallback",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-fallback-report.json",
+        "packages/application/test/fast-gateway-p10.unit.test.ts"
+      ],
+      "observations": {
+        "verified": "independent bounded fallback bulkhead and no-match fallback",
+        "limitation": "No production model/network fallback latency."
+      }
+    },
+    {
+      "id": "case",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p11-performance-report.json",
+        "packages/application/test/case-model-runtime-p11.unit.test.ts"
+      ],
+      "observations": {
+        "boundedWork": [
+          "finite active Case set and deterministic ordering",
+          "finite selected Profile list",
+          "serial cascade",
+          "bounded JSON size/depth and single-pass privacy scan"
+        ],
+        "limitation": "Case matching is covered by deterministic local tests, not a production load run."
+      }
+    },
+    {
+      "id": "model_route_cascade",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p11-performance-report.json",
+        "reports/goal/v1.3-p11-budget-cost-report.json"
+      ],
+      "observations": {
+        "boundedWork": [
+          "finite active Case set and deterministic ordering",
+          "finite selected Profile list",
+          "serial cascade",
+          "bounded JSON size/depth and single-pass privacy scan"
+        ],
+        "limitation": "Mock model/provider paths; no production model service rate or latency claim."
+      }
+    },
+    {
+      "id": "feedback",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-attribution-report.json",
+        "packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts"
+      ],
+      "observations": {
+        "verified": "idempotent PostgreSQL feedback and outcome-safe Outbox attribution",
+        "limitation": "Feedback persistence lag is not separately sampled."
+      }
+    },
+    {
+      "id": "management_api",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "artifactListMs": {
+          "1000": 2.81,
+          "10000": 1.176,
+          "100000": 1.081
+        },
+        "concurrentOperators": 32,
+        "concurrentOperatorsMs": 46.191,
+        "limitation": "Local Docker PostgreSQL and loopback process only."
+      }
+    },
+    {
+      "id": "console",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-console-e2e-report.json",
+        "apps/server/test/artifact-management-p12.e2e.test.ts"
+      ],
+      "observations": {
+        "verified": "real API bindings and server vertical state",
+        "limitation": "No browser-pixel or production browser load measurement."
+      }
+    },
+    {
+      "id": "sse",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-sse-report.json",
+        "reports/goal/v1.3-p12-console-e2e-report.json"
+      ],
+      "observations": {
+        "verified": "bounded resumable Outbox replay in the server vertical",
+        "limitation": "No concurrent-client delivery-latency distribution."
+      }
+    },
+    {
+      "id": "shadow",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p06-shadow-capacity-report.json",
+        "packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"
+      ],
+      "observations": {
+        "verified": "PostgreSQL-authoritative bounded queue, lease fencing and Redis wake-only",
+        "limitation": "No Shadow throughput percentile was recorded."
+      }
+    },
+    {
+      "id": "replay",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "datasetBuild": {
+          "cases1k": {
+            "iterations": 5,
+            "p50Ms": 42.359,
+            "p95Ms": 71.759,
+            "casesPerSecondAtP50": 23607.734
+          },
+          "cases10k": {
+            "iterations": 3,
+            "p50Ms": 390.805,
+            "p95Ms": 434.458,
+            "casesPerSecondAtP50": 25588.209
+          }
+        },
+        "postgresClaim": {
+          "runs": 100,
+          "parallelWorkers": 4,
+          "maximumClaimPerWorker": 25,
+          "elapsedMs": 43.385,
+          "runsPerSecond": 2304.923,
+          "backpressureExtraClaims": 0,
+          "canceledAfterMeasurement": 100
+        },
+        "workers": {
+          "workers": 4,
+          "completedPostgreSQLRuns": 12,
+          "perWorkerConcurrency": 1,
+          "redisAuthority": false
+        },
+        "redisWake": {
+          "queueLagMs": 18.272,
+          "payloadFields": [
+            "validationRunId"
+          ],
+          "redisAuthority": false
+        }
+      }
+    },
+    {
+      "id": "compiler_workers",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json"
+      ],
+      "observations": {
+        "mining": [
+          {
+            "traceCount": 1000,
+            "elapsedMs": 66.115,
+            "tracesPerSecond": 15125.26,
+            "heapDeltaBytes": 5707976,
+            "variantCount": 6,
+            "orderingConstraintCount": 50,
+            "parallelCandidateCount": 1,
+            "recoveryPatternCount": 1,
+            "failureVariantCount": 2,
+            "definitionBytes": 889715,
+            "gzipBytes": 48953,
+            "base64GzipBytes": 65272,
+            "brotliBytes": 5186,
+            "base64BrotliBytes": 6916
+          },
+          {
+            "traceCount": 10000,
+            "elapsedMs": 581.242,
+            "tracesPerSecond": 17204.528,
+            "heapDeltaBytes": 30961912,
+            "variantCount": 6,
+            "orderingConstraintCount": 50,
+            "parallelCandidateCount": 1,
+            "recoveryPatternCount": 1,
+            "failureVariantCount": 2,
+            "definitionBytes": 9107632,
+            "gzipBytes": 1023823,
+            "base64GzipBytes": 1365100,
+            "brotliBytes": 52999,
+            "base64BrotliBytes": 70668
+          }
+        ],
+        "databaseQuery": {
+          "classification": "10,000-row PostgreSQL cohort query measured inside the clean full gate",
+          "traceCount": 10000,
+          "queryElapsedMs": 416.045,
+          "patternPersistenceElapsedMs": 528.616,
+          "evidence": "10 integration files and 100 tests passed against operator-managed PostgreSQL/Redis"
+        },
+        "workerThroughput": {
+          "classification": "bounded local BullMQ worker measurement; not a production capacity claim",
+          "processedRuns": 100,
+          "claimBatches": 10,
+          "elapsedMs": 5.358,
+          "runsPerSecond": 18664.325
+        },
+        "queueLag": {
+          "classification": "single local BullMQ wake measurement; not a production latency claim",
+          "processedRuns": 1,
+          "queueLagMs": 17.084,
+          "runsPerSecond": 58.533,
+          "recoveryEvidence": "real Redis job obliteration followed by PostgreSQL-authoritative reconciler rebuild and duplicate-wake deduplication"
+        }
+      }
+    }
+  ],
+  "dataScaleCoverage": [
+    {
+      "id": "active_artifact",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "baseline": 1000,
+        "expected": 10000,
+        "stress": 100000,
+        "limitation": "Generic indexed Artifact projection rows in a temporary table; not 100k authoritative Active versions."
+      }
+    },
+    {
+      "id": "candidate",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "baseline": 1000,
+        "expected": 10000,
+        "stress": 100000,
+        "limitation": "Generic indexed Artifact projection rows do not distinguish Candidate lifecycle status."
+      }
+    },
+    {
+      "id": "experience_trace",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json"
+      ],
+      "observations": {
+        "baseline": 1000,
+        "expected": 10000,
+        "stress": 10000,
+        "stressMeaning": "tested local ceiling; no higher approved target"
+      }
+    },
+    {
+      "id": "replay_case",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "baseline": 1000,
+        "expected": 10000,
+        "stress": 10000,
+        "stressMeaning": "tested local dataset ceiling; no higher approved target"
+      }
+    },
+    {
+      "id": "concurrent_request",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json"
+      ],
+      "observations": {
+        "baseline": [
+          1
+        ],
+        "expected": [
+          10
+        ],
+        "stress": [
+          100,
+          1000
+        ],
+        "limitation": "Gateway harness requests, not concurrent Formal active Tasks."
+      }
+    },
+    {
+      "id": "concurrent_operator",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "baseline": 1,
+        "expected": 10,
+        "stress": 32,
+        "measuredStressMs": 46.191,
+        "inference": "Baseline/expected are strict subsets of the measured 32-operator Promise.all run; only 32 has a recorded duration."
+      }
+    },
+    {
+      "id": "sse_client",
+      "classification": "unverified",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-sse-report.json"
+      ],
+      "observations": {
+        "baseline": 1,
+        "expected": null,
+        "stress": null,
+        "verifiedBound": "replay page limit max 500 with resumable overflow",
+        "limitation": "The 500 bound is events per replay response, not concurrent SSE clients."
+      }
+    },
+    {
+      "id": "queue_lag",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "baseline": {
+          "runs": 1,
+          "measuredMs": 17.084
+        },
+        "expected": {
+          "workers": 4,
+          "runs": 12,
+          "measuredWakeMs": 18.272
+        },
+        "stress": {
+          "runs": 100,
+          "workers": 4,
+          "claimElapsedMs": 43.385
+        }
+      }
+    },
+    {
+      "id": "model_invocation",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p11-budget-cost-report.json"
+      ],
+      "observations": {
+        "baseline": 1,
+        "expected": "bounded by per-request maxInvocations",
+        "stress": "budget-exhausted fallback path",
+        "limitation": "No physical production Model endpoint was used for capacity measurement."
+      }
+    },
+    {
+      "id": "tenant_count",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "baseline": 1,
+        "expected": 10,
+        "stress": 20,
+        "evidence": "The 100k-row local PostgreSQL benchmark partitions rows across 20 tenant identifiers."
+      }
+    }
+  ],
+  "resourceCoverage": [
+    {
+      "id": "cpu",
+      "classification": "unverified",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p10-performance-report.json"
+      ],
+      "observations": {
+        "proxy": "elapsed throughput under local Node.js execution",
+        "limitation": "CPU utilization and saturation were not sampled."
+      }
+    },
+    {
+      "id": "memory",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "miningHeapDeltaBytes": [
+          {
+            "traceCount": 1000,
+            "heapDeltaBytes": 5707976
+          },
+          {
+            "traceCount": 10000,
+            "heapDeltaBytes": 30961912
+          }
+        ],
+        "replayHeapDeltaBytesFor10k": 122005352
+      }
+    },
+    {
+      "id": "database_connection",
+      "classification": "static",
+      "applicability": "required",
+      "evidenceRefs": [
+        "apps/server/src/runtime.ts",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "productionPoolBound": 10,
+        "benchmarkPoolBound": 40,
+        "limitation": "Pool bounds are code configuration, not a saturation curve."
+      }
+    },
+    {
+      "id": "lock",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "mechanism": "PostgreSQL SKIP LOCKED with lease fencing",
+        "backpressureExtraClaims": 0
+      }
+    },
+    {
+      "id": "query",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p07-performance-report.json",
+        "reports/goal/v1.3-p12-performance-report.json"
+      ],
+      "observations": {
+        "cohort10kMs": 416.045,
+        "retrievalP95Ms": 10.600000000000364,
+        "artifactProjectionMs": {
+          "1000": 2.81,
+          "10000": 1.176,
+          "100000": 1.081
+        }
+      }
+    },
+    {
+      "id": "index",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p07-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "verified": "active-pointer lookup and 1k/10k/100k indexed projection query"
+      }
+    },
+    {
+      "id": "redis",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json",
+        "reports/goal/v1.3-p06-shadow-capacity-report.json"
+      ],
+      "observations": {
+        "authority": false,
+        "compilerWakeMs": 17.084,
+        "replayWakeMs": 18.272
+      }
+    },
+    {
+      "id": "queue",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json",
+        "reports/goal/v1.3-p06-shadow-capacity-report.json"
+      ],
+      "observations": {
+        "bounded": true,
+        "durableAuthority": "PostgreSQL",
+        "workers": 4,
+        "measuredRuns": 12
+      }
+    },
+    {
+      "id": "network",
+      "classification": "unverified",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-console-e2e-report.json",
+        "reports/goal/v1.3-p12-sse-report.json"
+      ],
+      "observations": {
+        "proxy": "local loopback HTTP/SSE vertical",
+        "limitation": "No production RTT, packet loss or bandwidth profile."
+      }
+    },
+    {
+      "id": "token_cost",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p11-budget-cost-report.json"
+      ],
+      "observations": {
+        "verified": [
+          "max invocations",
+          "max input/output tokens",
+          "max total tokens",
+          "max cost units",
+          "absolute deadline",
+          "per-step latency"
+        ],
+        "limitation": "Persisted/model-stub usage only; no production price or quota claim."
+      }
+    },
+    {
+      "id": "storage_growth",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "patternDefinitionBytes": [
+          {
+            "traceCount": 1000,
+            "definitionBytes": 889715,
+            "brotliBytes": 5186
+          },
+          {
+            "traceCount": 10000,
+            "definitionBytes": 9107632,
+            "brotliBytes": 52999
+          }
+        ],
+        "artifactProjectionRows": 100000,
+        "limitation": "No long-duration production retention growth forecast."
+      }
+    }
+  ],
+  "backpressureCoverage": [
+    {
+      "id": "gateway_load_shedding",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-resilience-report.json",
+        "packages/application/test/fast-gateway-p10.unit.test.ts"
+      ],
+      "observations": {
+        "verified": "bulkheads, circuit opening and formal-runtime priority"
+      }
+    },
+    {
+      "id": "shadow_pause",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p06-shadow-capacity-report.json",
+        "packages/application/test/artifact-shadow-runtime.unit.test.ts"
+      ],
+      "observations": {
+        "verified": "feature-off/degraded pause and bounded PostgreSQL queue depth"
+      }
+    },
+    {
+      "id": "replay_compiler_low_priority",
+      "classification": "real-local",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "observations": {
+        "verified": "bounded claims, per-worker concurrency 1, durable available_at and low-priority sidecar workers"
+      }
+    },
+    {
+      "id": "model_rate_limit",
+      "classification": "simulated",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p11-budget-cost-report.json"
+      ],
+      "observations": {
+        "verified": "serial cascade, max-invocation/token/cost/deadline exhaustion fallback",
+        "limitation": "No production Provider quota endpoint."
+      }
+    },
+    {
+      "id": "sse_slow_consumer",
+      "classification": "static",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-sse-report.json"
+      ],
+      "observations": {
+        "verified": "max-500 bounded replay page and explicit resumable overflow",
+        "limitation": "No socket-level slow-reader timing sample."
+      }
+    },
+    {
+      "id": "feedback_queue",
+      "classification": "static",
+      "applicability": "not_applicable",
+      "evidenceRefs": [
+        "packages/application/src/compiler/fast-gateway.ts",
+        "packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts"
+      ],
+      "observations": {
+        "verified": "synchronous idempotent PostgreSQL feedback plus durable Outbox"
+      },
+      "reason": "There is no independent feedback queue in V1.3; inventing one would create an unsupported authority path."
+    },
+    {
+      "id": "management_rate_limit",
+      "classification": "unverified",
+      "applicability": "required",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "observations": {
+        "verified": "bounded page size and 32 concurrent local operators",
+        "limitation": "No global Management API rate limiter or production saturation threshold."
+      }
+    }
+  ],
+  "commands": [
+    "pnpm exec tsx scripts/benchmark-p03-experience.mts",
+    ".\\node_modules\\.bin\\tsx.CMD packages/application/test/p05-performance.benchmark.ts",
+    "pnpm exec vitest run packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts --project integration",
+    "pnpm exec vitest run packages/application/test/template-runtime-p08.unit.test.ts --project unit",
+    "pnpm exec vitest run packages/domain/test/decision-rule-runtime-p09.unit.test.ts --project unit",
+    "pnpm exec vitest run packages/application/test/fast-gateway-p10.unit.test.ts --project unit",
+    "pnpm exec vitest run packages/application/test/case-model-runtime-p11.unit.test.ts --project unit",
+    "pnpm exec vitest run packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts --project integration"
+  ],
+  "sources": [
+    {
+      "path": "docs/01_REQUIREMENTS_BASELINE.md",
+      "sha256": "86042a5dfe276089c088c5d952bde8628141185facdd0bdc60c038e0bdbb7919"
+    },
+    {
+      "path": "docs/16_DEFINITION_OF_DONE.md",
+      "sha256": "a758b96983f7b0f16c9f5dab3e410c02002a2ef7af978c5eea999ed0201473fd"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "sha256": "641c8d542f0e629df198cdd7f0a947a6c8ef64af1bb8d1d8836a86ab6f677fda"
+    },
+    {
+      "path": "docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P13_Codex_Goal_Package_V1.1/CAPACITY-SLO-CONTRACT.md",
+      "sha256": "6893e1a1e590f3000fe2b5aa8a0a4ed79778f9a47daa9fef367178a9e15f8c4d"
+    },
+    {
+      "path": "packages/application/test/fast-gateway-p10.unit.test.ts",
+      "sha256": "14e89267a335f9ce3bc4edaabe56b25c25803299890465a36a94fe13e3a91695"
+    },
+    {
+      "path": "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+      "sha256": "b66e94644ddf3b5185c331f3a88dbe565ca15a3d7236f2c4d7157728cc6e1394"
+    },
+    {
+      "path": "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts",
+      "sha256": "714169064bc3c150a1624119224683d325c7ad87ec332b31b53ac50f56d5cb0a"
+    },
+    {
+      "path": "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts",
+      "sha256": "3655708cc129ca9c531f6b27a086a80b89af92d8e85fad2a888dfb400c846a29"
+    },
+    {
+      "path": "reports/EP-07-hardening-acceptance/NFR-PERF-001-context-concurrency.json",
+      "sha256": "66b97be33d9ed439bedf2bcb5298f7c0128cc222050032337503adda341dcba6"
+    },
+    {
+      "path": "reports/goal/v1.3-p03-mining-report.json",
+      "sha256": "ec79aa6f96ac218a1056706548994affa8cbb92f0bf6d842e667d85ee25f2eb0"
+    },
+    {
+      "path": "reports/goal/v1.3-p05-performance-report.json",
+      "sha256": "e37f068737c2f8d689fa14bb13c16f2615e0e1884dc309ed977e9bd1a6a27dd6"
+    },
+    {
+      "path": "reports/goal/v1.3-p06-shadow-capacity-report.json",
+      "sha256": "a59ece7c23ed0b59abba4724f3db1fd76112f038115af1c69865a0e73a5437d7"
+    },
+    {
+      "path": "reports/goal/v1.3-p07-performance-report.json",
+      "sha256": "d4abad01f349cf3c688adf343a167ba5d0fee19edb7db245cef6aaaa46d9818f"
+    },
+    {
+      "path": "reports/goal/v1.3-p08-handoff-transaction-report.json",
+      "sha256": "80255a65e53d7ba7a0c9686f07674a399458cfab87fa11363c0a6b780979485d"
+    },
+    {
+      "path": "reports/goal/v1.3-p08-performance-report.json",
+      "sha256": "f626903ef850cc556623e106b3cae6b3ba76b8d2d64ae156d58448dba2595005"
+    },
+    {
+      "path": "reports/goal/v1.3-p09-performance-report.json",
+      "sha256": "8acdf3a7e75d9fdb6c3449ae53562b843019065144aa5b8dfb32c4293ba686e6"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-attribution-report.json",
+      "sha256": "ebfd2d1b5c72f7dc4080b8149c02c6be05e2260147f1dd5e3b3df0c5e5fcf036"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-deadline-report.json",
+      "sha256": "bfa32340ca7c51cbf1b28d5b3215d7ffa8c8b93d623c56fbca89816ce17a3a24"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-fallback-report.json",
+      "sha256": "6b443060e18fcb70868b7c6afcf001c6915baf961aa379bbf1b2b750a487944d"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-performance-report.json",
+      "sha256": "7007615c149575447147992ea53e775b3cc8ceec189e5f724f66b11f9ea41713"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-resilience-report.json",
+      "sha256": "0cfbcbd1ba03a48661ec229fec7ff7c0107d971f6160e6e6d816c897aeb1b3e7"
+    },
+    {
+      "path": "reports/goal/v1.3-p11-budget-cost-report.json",
+      "sha256": "ddae150572a4ae4972da71b692b26c3714e43c27ca869112c090a2d386c563ea"
+    },
+    {
+      "path": "reports/goal/v1.3-p11-performance-report.json",
+      "sha256": "0f206dfd0abc07711e73026486dd33db57d8a04020db36418a051c6ecff2f4b7"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-console-e2e-report.json",
+      "sha256": "4fa88a19ba481832c0fa15838df1a571eb59b132ee7d7d616baba9392b2b0d88"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-performance-report.json",
+      "sha256": "da12a5a46d8412f0553e55720d8f28a880c3a47b72037cc9e085f60e92bbbd13"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-sse-report.json",
+      "sha256": "2e9a066dbece81ad87f11f29629bd6779c7b4cfaa2354813ef99ad4a340c6f21"
+    }
+  ],
+  "validation": {
+    "requiredPerformancePackages": [
+      "P03",
+      "P05",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "contractCoverageComplete": true,
+    "classifications": [
+      "real-local",
+      "simulated",
+      "static",
+      "unverified"
+    ],
+    "noProductionSloClaim": true
+  }
+}

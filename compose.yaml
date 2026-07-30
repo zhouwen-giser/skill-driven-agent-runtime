@@ -2,7 +2,15 @@ name: sdar
 
 services:
   postgres:
-    image: pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: '0'
+      provenance: false
+      sbom: false
+    image: sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+    pull_policy: never
     platform: linux/amd64
     environment:
       POSTGRES_DB: ${SDAR_POSTGRES_DB:-sdar}
@@ -24,7 +32,7 @@ services:
     networks: [sdar-local]
 
   redis:
-    image: redis@sha256:0b13f549ab871acafaa84b673c4e29bd7dce8d12526aaafe3b4ea3366c322daf
+    image: redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
     platform: linux/amd64
     command:
       - redis-server

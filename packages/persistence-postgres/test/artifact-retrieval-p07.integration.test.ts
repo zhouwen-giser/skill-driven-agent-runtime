@@ -441,11 +441,20 @@ function request(
 function activeFeatureFlags() {
   return {
     artifactMode: 'active' as const,
+    compilerEnabled: true,
+    registryEnabled: true,
+    shadowEnabled: true,
+    promotionEnabled: true,
+    retrievalEnabled: true,
+    modelRouteEnabled: true,
     templateEnabled: true,
     ruleEnabled: true,
     fastGatewayEnabled: true,
     caseEnabled: true,
     modelCascadeEnabled: true,
     tenantAllowlist: new Set<string>(),
+    artifactAllowlist: new Set(
+      fixture.artifacts.map((artifact) => `${artifact.artifactId}:${String(artifact.version)}`),
+    ),
   };
 }

@@ -279,6 +279,10 @@ export interface ArtifactManagementCommandInput {
   readonly promotionPackage?: Omit<PromotionPackageInput, 'createdAt'>;
 }
 
+export interface ArtifactManagementOperationPolicy {
+  isEnabled(operation: ArtifactManagementCommandOperation): boolean;
+}
+
 export class ArtifactManagementCommandService {
   readonly #governance: ArtifactGovernancePort;
   readonly #promotionPackages:
@@ -287,6 +291,7 @@ export class ArtifactManagementCommandService {
     Pick<ArtifactManagementQueryRepository, 'getArtifact'> | undefined;
   readonly #audit: CognitiveManagementActionGate | undefined;
   readonly #clock: Readonly<{ now(): string }>;
+  readonly #operationPolicy: ArtifactManagementOperationPolicy;
 
   constructor(
     dependencies: Readonly<{
@@ -295,6 +300,7 @@ export class ArtifactManagementCommandService {
       authorizationQueries?: Pick<ArtifactManagementQueryRepository, 'getArtifact'>;
       audit?: CognitiveManagementActionGate;
       clock: Readonly<{ now(): string }>;
+      operationPolicy?: ArtifactManagementOperationPolicy;
     }>,
   ) {
     this.#governance = dependencies.governance;
@@ -302,6 +308,9 @@ export class ArtifactManagementCommandService {
     this.#authorizationQueries = dependencies.authorizationQueries;
     this.#audit = dependencies.audit;
     this.#clock = dependencies.clock;
+    this.#operationPolicy = dependencies.operationPolicy ?? {
+      isEnabled: () => true,
+    };
   }
 
   async execute(
@@ -310,6 +319,9 @@ export class ArtifactManagementCommandService {
     input: ArtifactManagementCommandInput,
   ): Promise<Readonly<{ status: 'accepted'; operation: ArtifactManagementCommandOperation }>> {
     requireCommandRole(principal, operation);
+    if (!this.#operationPolicy.isEnabled(policyOperationFor(operation, input.validationType))) {
+      throw new ArtifactManagementError('ARTIFACT_OPERATION_DISABLED', 503);
+    }
     if (
       principal.kind === 'service' &&
       ['approve', 'reject', 'activate', 'kill-switch-disable'].includes(operation)
@@ -525,6 +537,16 @@ function permissionFor(operation: ArtifactManagementCommandOperation): ArtifactP
   if (operation === 'rollback' || operation === 'kill-switch-disable') return 'artifact.rollback';
   if (operation.startsWith('kill-switch')) return 'artifact.kill_switch';
   return 'artifact.validate';
+}
+
+function policyOperationFor(
+  operation: ArtifactManagementCommandOperation,
+  validationType: ArtifactManagementCommandInput['validationType'],
+): ArtifactManagementCommandOperation {
+  if (operation !== 'validate') return operation;
+  if (validationType === 'shadow') return 'shadow';
+  if (validationType === 'revalidation') return 'revalidate';
+  return operation;
 }
 
 function requiredPromotionPackage(

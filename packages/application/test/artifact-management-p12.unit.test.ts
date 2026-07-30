@@ -98,6 +98,62 @@ describe('P12 Artifact management policy', () => {
     ).rejects.toMatchObject({ code: 'MANAGEMENT_SERVICE_PRINCIPAL_DENIED' });
   });
 
+  it('applies a release operation policy before governance writes while preserving safety commands', async () => {
+    const recordApproval = vi.fn(() => Promise.resolve());
+    const rollback = vi.fn(() => Promise.resolve());
+    const service = new ArtifactManagementCommandService({
+      governance: governanceStub({ recordApproval, rollback }),
+      operationPolicy: {
+        isEnabled: (operation) =>
+          !['build-promotion-package', 'approve', 'reject', 'activate'].includes(operation),
+      },
+      clock: { now: () => NOW },
+    });
+
+    await expect(
+      service.execute(principal(['approver']), 'approve', commandInput()),
+    ).rejects.toMatchObject({
+      code: 'ARTIFACT_OPERATION_DISABLED',
+      status: 503,
+    });
+    expect(recordApproval).not.toHaveBeenCalled();
+
+    await service.execute(principal(['security_operator']), 'kill-switch-disable', {
+      ...commandInput(),
+      artifactKey: 'artifact-key-a',
+      expectedLockVersion: 4,
+      targetArtifactId: 'artifact-safe',
+      targetVersion: 2,
+    });
+    expect(rollback).toHaveBeenCalledOnce();
+  });
+
+  it('applies the shadow policy to validation-type aliases before governance writes', async () => {
+    const requestValidation = vi.fn(() => Promise.resolve());
+    const service = new ArtifactManagementCommandService({
+      governance: governanceStub({ requestValidation }),
+      operationPolicy: {
+        isEnabled: (operation) => !['shadow', 'revalidate'].includes(operation),
+      },
+      clock: { now: () => NOW },
+    });
+
+    for (const validationType of ['shadow', 'revalidation'] as const) {
+      await expect(
+        service.execute(principal(['operator']), 'validate', {
+          ...commandInput(),
+          validationRunId: `validation-${validationType}`,
+          validationType,
+          datasetRef: `dataset-${validationType}`,
+        }),
+      ).rejects.toMatchObject({
+        code: 'ARTIFACT_OPERATION_DISABLED',
+        status: 503,
+      });
+    }
+    expect(requestValidation).not.toHaveBeenCalled();
+  });
+
   it('closes a kill switch only through an evidence-bound rollback', async () => {
     const rollback = vi.fn(() => Promise.resolve());
     const service = new ArtifactManagementCommandService({

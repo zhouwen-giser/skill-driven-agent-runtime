@@ -4,7 +4,7 @@
   "serialNumber": "urn:uuid:019f5072-d2fb-7c01-b6bd-2779678541e1",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-07-11T09:42:00.000Z",
+    "timestamp": "2026-07-30T13:16:20.000Z",
     "component": {
       "type": "application",
       "name": "skill-driven-agent-runtime",
@@ -2575,9 +2575,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:npm/fast-uri@3.1.3",
+      "bom-ref": "pkg:npm/fast-uri@3.1.4",
       "name": "fast-uri",
-      "version": "3.1.3",
+      "version": "3.1.4",
       "licenses": [
         {
           "license": {
@@ -2591,7 +2591,7 @@
           "url": "git+https://github.com/fastify/fast-uri.git"
         }
       ],
-      "purl": "pkg:npm/fast-uri@3.1.3"
+      "purl": "pkg:npm/fast-uri@3.1.4"
     },
     {
       "type": "library",
@@ -5787,13 +5787,13 @@
     },
     {
       "type": "container",
-      "bom-ref": "pkg:docker/pgvector/pgvector@0.8.4-pg17-bookworm",
-      "name": "pgvector/pgvector",
-      "version": "0.8.4-pg17-bookworm",
+      "bom-ref": "pkg:docker/sdar/postgres-pgvector@17.10-0.8.5-alpine3.23",
+      "name": "sdar/postgres-pgvector",
+      "version": "17.10-0.8.5-alpine3.23",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "da864cc9983d6a346c39c55c8c5250d752a9b573bbac06b1c3ad5d72f20f5be6"
+          "content": "856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
         }
       ],
       "licenses": [
@@ -5801,27 +5801,188 @@
           "license": {
             "name": "PostgreSQL License"
           }
+        },
+        {
+          "license": {
+            "id": "MIT"
+          }
         }
-      ]
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "modified_local_standalone_container"
+        },
+        {
+          "name": "sdar:dockerfile",
+          "value": "infra/postgres/Dockerfile.pgvector-hardened"
+        },
+        {
+          "name": "sdar:base",
+          "value": "postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4"
+        },
+        {
+          "name": "sdar:dockerfileFrontend",
+          "value": "docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89"
+        },
+        {
+          "name": "sdar:buildBase",
+          "value": "pkg:apk/alpine/build-base@0.5-r3"
+        },
+        {
+          "name": "sdar:pgvector",
+          "value": "v0.8.5@159b79aaad5983fb7459c1e3df2897fbb2d11788#sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44"
+        },
+        {
+          "name": "sdar:privilegeHelper",
+          "value": "pkg:apk/alpine/su-exec@0.3-r0#89c016e6e08749d583efdeda04b9f73e1218e253"
+        },
+        {
+          "name": "sdar:distribution",
+          "value": "local-build-only"
+        }
+      ],
+      "purl": "pkg:docker/sdar/postgres-pgvector@17.10-0.8.5-alpine3.23"
     },
     {
       "type": "container",
-      "bom-ref": "pkg:docker/redis@8.2.7-alpine3.22",
+      "bom-ref": "pkg:docker/redis@8.8.1-alpine3.23",
       "name": "redis",
-      "version": "8.2.7-alpine3.22",
+      "version": "8.8.1-alpine3.23",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "e762b8716f68d0de494b9fecc5a598db03e24206d3266725dd5521ca2c8b18a3"
+          "content": "8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb"
         }
       ],
       "licenses": [
         {
           "license": {
-            "id": "AGPL-3.0-only"
+            "id": "AGPL-3.0-or-later"
           }
         }
-      ]
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "unmodified_external_standalone_container"
+        },
+        {
+          "name": "sdar:redisSourceCommit",
+          "value": "77b6c308396c9700672390a210143a8496fb4b10"
+        }
+      ],
+      "purl": "pkg:docker/redis@8.8.1-alpine3.23"
+    },
+    {
+      "type": "application",
+      "bom-ref": "pkg:docker/docker/dockerfile@1.24.0",
+      "name": "docker/dockerfile frontend",
+      "version": "1.24.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/moby/buildkit"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "container_build_tool"
+        },
+        {
+          "name": "sdar:runtimeDependency",
+          "value": "false"
+        },
+        {
+          "name": "sdar:bundled",
+          "value": "false"
+        },
+        {
+          "name": "sdar:linuxAmd64Manifest",
+          "value": "sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd"
+        },
+        {
+          "name": "sdar:sourceRevision",
+          "value": "dd2170e156c9633da1b2d1a58a6188e3f7d36fa4"
+        },
+        {
+          "name": "sdar:licenseBlob",
+          "value": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+        },
+        {
+          "name": "sdar:rootNotice",
+          "value": "absent"
+        }
+      ],
+      "purl": "pkg:docker/docker/dockerfile@1.24.0"
+    },
+    {
+      "type": "application",
+      "bom-ref": "pkg:github/aquasecurity/trivy@8a3177aedf7ee0864920eb1852eef031cd3742b8",
+      "name": "aquasecurity/trivy",
+      "version": "0.70.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/aquasecurity/trivy"
+        },
+        {
+          "type": "distribution",
+          "url": "https://github.com/aquasecurity/trivy/releases/tag/v0.70.0"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sdar:use",
+          "value": "temporary_release_evidence_tool"
+        },
+        {
+          "name": "sdar:runtimeDependency",
+          "value": "false"
+        },
+        {
+          "name": "sdar:committedBinary",
+          "value": "false"
+        },
+        {
+          "name": "sdar:officialChecksumsSha256",
+          "value": "c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9"
+        },
+        {
+          "name": "sdar:supplyChainReview",
+          "value": "GHSA-69fq-xp46-6x23"
+        }
+      ],
+      "purl": "pkg:github/aquasecurity/trivy@8a3177aedf7ee0864920eb1852eef031cd3742b8"
     },
     {
       "type": "library",

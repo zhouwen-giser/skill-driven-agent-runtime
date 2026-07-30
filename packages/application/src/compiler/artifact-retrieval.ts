@@ -350,6 +350,7 @@ export class ArtifactRetrievalService {
       version: entry.artifactVersion,
     });
     if (artifact?.status !== 'active') return undefined;
+    if (!isArtifactAllowlisted(artifact, flags)) return undefined;
     if (artifact.scope.tenantId !== undefined && artifact.scope.tenantId !== input.tenantId) {
       return undefined;
     }
@@ -541,7 +542,7 @@ function isRequestFeatureEnabled(
   flags: ArtifactFeatureFlags,
   input: Pick<ArtifactRetrievalRequest, 'tenantId'>,
 ): boolean {
-  if (flags.artifactMode === 'off') return false;
+  if (!flags.retrievalEnabled || flags.artifactMode === 'off') return false;
   return (
     flags.tenantAllowlist.size === 0 ||
     (input.tenantId !== undefined && flags.tenantAllowlist.has(input.tenantId))
@@ -560,10 +561,17 @@ function isArtifactFeatureEnabled(
     case 'case_template':
       return flags.caseEnabled;
     case 'model_route':
-      return flags.modelCascadeEnabled;
+      return flags.modelCascadeEnabled && flags.modelRouteEnabled;
     case 'intent_route':
       return true;
   }
+}
+
+function isArtifactAllowlisted(
+  artifact: Pick<CompiledArtifact, 'artifactId' | 'version'>,
+  flags: ArtifactFeatureFlags,
+): boolean {
+  return flags.artifactAllowlist.has(`${artifact.artifactId}:${String(artifact.version)}`);
 }
 
 function matchesLevelZero(
@@ -571,13 +579,14 @@ function matchesLevelZero(
   input: ArtifactRetrievalRequest,
   flags: ArtifactFeatureFlags,
 ): boolean {
+  const ref = `${entry.artifactId}:${String(entry.artifactVersion)}`;
+  if (!flags.artifactAllowlist.has(ref)) return false;
   if (entry.tenantId !== undefined && entry.tenantId !== input.tenantId) return false;
   if (!isArtifactFeatureEnabled(entry, flags)) return false;
   if (input.domain !== undefined && entry.domain !== input.domain) return false;
   if (input.artifactTypes !== undefined && !input.artifactTypes.includes(entry.artifactType)) {
     return false;
   }
-  const ref = `${entry.artifactId}:${String(entry.artifactVersion)}`;
   if (input.explicitArtifactRef === ref) return true;
   if ((entry.taskTypeIds ?? []).some((taskTypeId) => input.taskTypeIds.includes(taskTypeId))) {
     return true;

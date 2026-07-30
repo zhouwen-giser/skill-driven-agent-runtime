@@ -1,5 +1,19 @@
 # Project Status
 
+SDAR v1.3 P13/G22 Hardening, Release and Final Consistency Audit is
+`IN_PROGRESS` (2026-07-30) on `feature/v1.3-sequential-implementation`.
+The exact v1.2.3 logical migration, real PostgreSQL/Redis recovery drills,
+stable hardened PostgreSQL image, final container scans, dependency override,
+default-off operational controls and deployment-owned Bearer identity are
+implemented. Independent Architecture/Authority review is closed at
+0 Blocking / 0 Major / 0 Minor after promotion and validation-type alias
+repairs. Current focused/full evidence includes 905 Unit, 214 Contract,
+129 Integration and 72 E2E tests, with typecheck, lint, architecture, build,
+OpenAPI and secret scan passing. Exact-candidate reproducibility,
+Security/Privacy and Operations/Release re-review, 75-item acceptance,
+completion and Handoff remain pending. Per user instruction, no push occurs
+until the optional P14 extension is closed.
+
 SDAR v1.3 P11/G19-G20 Case Template and Model Route Runtime is `COMPLETED`
 (2026-07-30) on `feature/v1.3-sequential-implementation`. Commits `b116a6c`,
 `c62334a` and `dc636e6` add the ten frozen V1.1 contracts, type-keyed Gateway

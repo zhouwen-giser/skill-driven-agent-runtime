@@ -23,8 +23,10 @@ beforeAll(async () => {
   await createIsolatedRuntimeDatabase(postgresAdminUrl, databaseName);
   const previousMode = process.env['SDAR_V13_ARTIFACT_MODE'];
   const previousGateway = process.env['SDAR_V13_FAST_GATEWAY_ENABLED'];
+  const previousRetrieval = process.env['SDAR_V13_RETRIEVAL_ENABLED'];
   process.env['SDAR_V13_ARTIFACT_MODE'] = 'active';
   process.env['SDAR_V13_FAST_GATEWAY_ENABLED'] = 'true';
+  process.env['SDAR_V13_RETRIEVAL_ENABLED'] = 'true';
   try {
     runtime = await startServerRuntime({
       postgresUrl,
@@ -90,6 +92,7 @@ beforeAll(async () => {
   } finally {
     restoreEnvironment('SDAR_V13_ARTIFACT_MODE', previousMode);
     restoreEnvironment('SDAR_V13_FAST_GATEWAY_ENABLED', previousGateway);
+    restoreEnvironment('SDAR_V13_RETRIEVAL_ENABLED', previousRetrieval);
   }
 });
 

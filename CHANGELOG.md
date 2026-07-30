@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P13 Hardening, Release and Final Consistency Audit
+
+- Added deployment-owned Bearer identity, exact-version Artifact canary
+  allowlisting and independently default-off compiler, registry, shadow,
+  promotion, retrieval and Model Route controls.
+- Closed management-route promotion and validation-type alias bypasses before
+  governance writes while preserving rollback and kill-switch safety controls.
+- Added an exact frozen-v1.2.3 logical PostgreSQL upgrade verifier, real
+  recovery drills, stable hardened PostgreSQL/pgvector image construction and
+  final pinned PostgreSQL/Redis vulnerability evidence.
+- Hardened Docker Desktop test readiness with final PostgreSQL initialization,
+  host PostgreSQL/Redis probes and disposable-container recreation without
+  deleting named volumes.
+- Added dependency, secret, capacity/SLO, reproducibility, rollout/rollback,
+  release evidence and 75-item acceptance tooling for the final P13 decision.
+
 ## SDAR v1.3 P12 Management API, Console and A2A Integration
 
 - Added optional authenticated RBAC/tenant Artifact registry, evidence, runtime and governance APIs

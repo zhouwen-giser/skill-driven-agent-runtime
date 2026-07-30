@@ -4167,16 +4167,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
     if (episodeJob === undefined) throw new Error('P03_SERVER_EPISODE_JOB_MISSING');
     await episodeService.process(episodeJob, 'episode-worker.p03-server');
 
-    const runtime = await startServerRuntime({
-      postgresUrl: connectionString,
-      redis: { host: '127.0.0.1', port: 56379 },
-      masterKeyBase64: randomBytes(32).toString('base64'),
-      queueName: `p03-server-composition-${randomUUID()}`,
-      applyMigrations: false,
-      a2aPort: 0,
-      managementPort: 0,
-    });
+    const previousCompilerFlag = process.env['SDAR_V13_COMPILER_ENABLED'];
+    process.env['SDAR_V13_COMPILER_ENABLED'] = 'true';
+    let runtime: Awaited<ReturnType<typeof startServerRuntime>> | undefined;
     try {
+      runtime = await startServerRuntime({
+        postgresUrl: connectionString,
+        redis: { host: '127.0.0.1', port: 56379 },
+        masterKeyBase64: randomBytes(32).toString('base64'),
+        queueName: `p03-server-composition-${randomUUID()}`,
+        applyMigrations: false,
+        a2aPort: 0,
+        managementPort: 0,
+      });
       let evidence:
         | Readonly<{
             traces: number;
@@ -4237,7 +4240,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskTypeId: expect.stringMatching(/^request-fingerprint-/u),
       });
     } finally {
-      await runtime.close();
+      await runtime?.close();
+      if (previousCompilerFlag === undefined) {
+        Reflect.deleteProperty(process.env, 'SDAR_V13_COMPILER_ENABLED');
+      } else {
+        process.env['SDAR_V13_COMPILER_ENABLED'] = previousCompilerFlag;
+      }
     }
   }, 30_000);
 
