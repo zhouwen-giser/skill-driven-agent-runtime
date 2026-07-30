@@ -481,6 +481,18 @@ export class ProviderAuthorityModelCascadeInvocationAdapter implements ModelCasc
     }
     const request = await this.#requests.read(input.requestRef, input.outputSchemaRef);
     const started = Date.now();
+    const invocationController = new AbortController();
+    const forwardAbort = (): void => {
+      invocationController.abort(input.signal.reason);
+    };
+    if (input.signal.aborted) forwardAbort();
+    else input.signal.addEventListener('abort', forwardAbort, { once: true });
+    const timeout = setTimeout(
+      () => {
+        invocationController.abort('MODEL_CASCADE_STEP_TIMEOUT');
+      },
+      Math.max(1, input.timeoutMs),
+    );
     try {
       const response = await this.#transport.generateStructured({
         configuration: provider.configuration,
@@ -488,7 +500,7 @@ export class ProviderAuthorityModelCascadeInvocationAdapter implements ModelCasc
         instruction: request.instruction,
         responseSchema: request.responseSchema,
         correctionErrors: request.correctionErrors,
-        signal: input.signal,
+        signal: invocationController.signal,
       });
       const output = requireJson(response.structuredResult);
       const invocationId = this.#ids.nextInvocationId();
@@ -547,6 +559,9 @@ export class ProviderAuthorityModelCascadeInvocationAdapter implements ModelCasc
         createdAt: this.#clock.now(),
       });
       throw error;
+    } finally {
+      clearTimeout(timeout);
+      input.signal.removeEventListener('abort', forwardAbort);
     }
   }
 }
@@ -1035,7 +1050,35 @@ function assertSafeAdaptation(name: string, value: JsonValue): void {
   ) {
     throw new CaseRuntimeApplicationError('CASE_CREDENTIAL_OR_HISTORICAL_ID_REJECTED');
   }
+  if (isPiiField(normalized)) {
+    throw new CaseRuntimeApplicationError('CASE_PII_REJECTED');
+  }
   scanValue(value, 0);
+}
+
+function isPiiField(normalized: string): boolean {
+  const tokens = normalized.split(/[^a-z0-9]+/u).filter((token) => token.length > 0);
+  if (
+    tokens.some((token) =>
+      [
+        'pii',
+        'email',
+        'phone',
+        'mobile',
+        'contact',
+        'address',
+        'passport',
+        'ssn',
+        'biometric',
+      ].includes(token),
+    )
+  )
+    return true;
+  return (
+    /(^|_)(first|last|full|legal)_?name($|_)/u.test(normalized) ||
+    /(^|_)(user|person|customer|account|subject|national)_?id($|_)/u.test(normalized) ||
+    /(^|_)(birth_?date|date_?of_?birth|dob|ip_?address)($|_)/u.test(normalized)
+  );
 }
 
 function scanValue(value: JsonValue, depth: number): void {

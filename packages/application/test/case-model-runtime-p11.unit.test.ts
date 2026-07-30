@@ -87,6 +87,26 @@ describe('P11 Case Runtime', () => {
       CaseRuntimeApplicationError,
     );
   });
+
+  it('rejects PII fields, including nested trusted bindings', async () => {
+    const service = new CaseRuntimeService({
+      artifacts: artifactReader(),
+      bindings: {
+        read: () =>
+          Promise.resolve({
+            room: {
+              value: { occupant: { personal_email: 'person@example.test' } },
+              trust: 'authoritative',
+            },
+          }),
+      },
+      evidence: caseEvidence(),
+      clock: clock(),
+    });
+    await expect(service.adapt(adaptationRequest())).rejects.toMatchObject({
+      code: 'CASE_PII_REJECTED',
+    });
+  });
 });
 
 describe('P11 Model Route and Cascade', () => {
@@ -344,6 +364,71 @@ describe('P11 Model Route and Cascade', () => {
     });
     expect(invocations).toHaveLength(1);
     expect(invocations[0]).not.toHaveProperty('credential');
+  });
+
+  it('actively aborts a provider invocation when its bounded step timeout expires', async () => {
+    let observedSignal: AbortSignal | undefined;
+    const adapter = new ProviderAuthorityModelCascadeInvocationAdapter({
+      repository: {
+        findProvider: () =>
+          Promise.resolve({
+            configuration: {
+              providerId: 'provider-small',
+              name: 'Provider',
+              kind: 'local',
+              apiStyle: 'openai_chat_completions',
+              baseUrl: 'http://127.0.0.1:11434',
+              model: 'model-small',
+              enabled: true,
+              timeoutMs: 1_000,
+              createdAt: NOW,
+              updatedAt: NOW,
+            },
+            encryptedCredential: 'encrypted',
+          }),
+        saveInvocation: () => Promise.resolve(),
+      },
+      transport: {
+        generateStructured: ({ signal }) => {
+          observedSignal = signal;
+          return new Promise((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                reject(new Error(String(signal.reason)));
+              },
+              { once: true },
+            );
+          });
+        },
+        embed: () => Promise.resolve({ rawResponse: {}, vector: [0.1] }),
+      },
+      cipher: {
+        encrypt: () => 'encrypted',
+        decrypt: () => ({ Authorization: 'Bearer secret' }),
+      },
+      requests: {
+        read: () =>
+          Promise.resolve({
+            instruction: 'Return a structured answer.',
+            responseSchema: { type: 'object' },
+            correctionErrors: [],
+          }),
+      },
+      clock: { now: () => NOW },
+      ids: { nextInvocationId: () => 'invocation-timeout' },
+    });
+
+    await expect(
+      adapter.invoke({
+        profile: profile('small', 'ready', 1, 2),
+        requestRef: 'request-timeout',
+        outputSchemaRef: 'schema:answer:v1',
+        signal: new AbortController().signal,
+        timeoutMs: 5,
+      }),
+    ).rejects.toThrow('MODEL_CASCADE_STEP_TIMEOUT');
+    expect(observedSignal?.aborted).toBe(true);
   });
 });
 
