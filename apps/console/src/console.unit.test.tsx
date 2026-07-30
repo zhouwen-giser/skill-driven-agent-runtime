@@ -17,6 +17,7 @@ import {
   TaskEvidenceNavigation,
   TaskPanel,
   TaskRelatedNavigation,
+  taskEvidenceLinks,
   UserGoalPlanPanel,
 } from './TaskPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
@@ -295,6 +296,21 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Goal ID');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('links the Task explorer to the read-only P10 Gateway evidence projection', () => {
+    expect(
+      taskEvidenceLinks({
+        taskId: 'task.test',
+        contextId: 'context.test',
+        phase: 'completed',
+        phaseMessage: 'done',
+      }),
+    ).toContainEqual({
+      key: 'gateway-evidence',
+      label: 'Fast Gateway Decision Evidence',
+      endpoint: '/api/v1/tasks/task.test/gateway-evidence',
+    });
   });
 
   it('renders Provider-authoritative remote lifecycle evidence and constrained operations', () => {

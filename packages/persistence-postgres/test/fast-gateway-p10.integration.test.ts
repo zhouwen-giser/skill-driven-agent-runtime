@@ -209,6 +209,26 @@ describe('P10 PostgreSQL Gateway evidence authority', () => {
     };
     const second = persistenceInputFor(secondContext, 'gateway-decision-2', 'runtime-decision-2');
     await repository.save(second);
+    await repository.appendFeedback({
+      feedbackId: 'delete-feedback-1',
+      requestId: first.context.requestId,
+      gatewayDecisionRef: first.record.gatewayDecisionId,
+      selectedArtifactRefs: [],
+      feedbackType: 'performance',
+      payload: { latencyMs: 1 },
+      sourceRefs: ['gateway-decision:1'],
+      createdAt: '2026-07-30T00:00:01.000Z',
+    });
+    await repository.appendFeedback({
+      feedbackId: 'delete-feedback-2',
+      requestId: second.context.requestId,
+      gatewayDecisionRef: second.record.gatewayDecisionId,
+      selectedArtifactRefs: [],
+      feedbackType: 'performance',
+      payload: { latencyMs: 2 },
+      sourceRefs: ['gateway-decision:2'],
+      createdAt: '2026-07-30T00:00:02.000Z',
+    });
     await expect(repository.deleteActorScope('actor-1')).resolves.toBe(1);
     await expect(
       pool.query(
@@ -219,6 +239,20 @@ describe('P10 PostgreSQL Gateway evidence authority', () => {
     await expect(
       pool.query(`SELECT count(*)::integer AS count FROM fast_gateway_decision`),
     ).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    await expect(
+      pool.query(
+        `SELECT aggregate_id FROM cognitive_runtime_outbox
+         WHERE aggregate_type='fast_gateway_decision'
+         ORDER BY aggregate_id`,
+      ),
+    ).resolves.toMatchObject({ rows: [{ aggregate_id: 'gateway-decision-2' }] });
+    await expect(
+      pool.query(
+        `SELECT aggregate_id FROM cognitive_runtime_outbox
+         WHERE aggregate_type='fast_gateway_feedback'
+         ORDER BY aggregate_id`,
+      ),
+    ).resolves.toMatchObject({ rows: [{ aggregate_id: 'delete-feedback-2' }] });
   });
 });
 

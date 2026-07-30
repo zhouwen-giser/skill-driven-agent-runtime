@@ -151,6 +151,34 @@ describe('P10 FastGatewayService', () => {
     expect(harness.calls.retrieval).toBe(0);
   });
 
+  it('bounds Cognitive Fallback by the absolute deadline and discards its late start', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        retrieval: noMatch(),
+        fallbackOperation: () =>
+          new Promise<Readonly<{ fallbackRef: string }>>(() => {
+            // Deliberately never settles; the Gateway deadline must win.
+          }),
+      });
+      const pending = harness.service.evaluateDetailed({
+        ...context(),
+        deadlineAt: '2026-07-30T00:00:00.020Z',
+      });
+      await vi.advanceTimersByTimeAsync(21);
+      const result = await pending;
+      expect(result.decision.path).toBe('cognitive_runtime');
+      expect(result.record.reasonCodes).toContain('GATEWAY_DEADLINE_EXHAUSTED');
+      expect(result.record.stageResults.at(-1)).toMatchObject({
+        stage: 'fallback',
+        status: 'timed_out',
+      });
+      expect(result.record.fallbackRef).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns the exact durable decision for an idempotent retry', async () => {
     const harness = createHarness({ retrieval: noMatch() });
     const first = await harness.service.evaluateDetailed(context());
@@ -204,6 +232,61 @@ describe('P10 FastGatewayService', () => {
     });
     expect(third.record.reasonCodes).toContain('GATEWAY_CIRCUIT_OPEN');
     expect(harness.calls.retrieval).toBe(2);
+  });
+
+  it('runs authority prechecks before global load shedding and never falls back after deny', async () => {
+    let release: ((value: ArtifactRetrievalResult) => void) | undefined;
+    const harness = createHarness({
+      precheckFor: (request) =>
+        request.requestId === 'denied-request' ? { authorized: false } : {},
+      retrievalOperation: () =>
+        new Promise<ArtifactRetrievalResult>((resolve) => {
+          release = resolve;
+        }),
+      options: { maxInFlight: 1 },
+    });
+    const occupied = harness.service.evaluateDetailed(context());
+    await vi.waitFor(() => {
+      expect(harness.calls.retrieval).toBe(1);
+    });
+    const denied = await harness.service.evaluateDetailed({
+      ...context(),
+      requestId: 'denied-request',
+      taskId: 'denied-task',
+      idempotencyKey: 'denied-idempotency',
+    });
+    expect(denied.decision.path).toBe('denied');
+    expect(denied.record.reasonCodes).toContain('GATEWAY_TENANT_DENIED');
+    expect(harness.calls.fallback).toBe(0);
+    release?.(noMatch());
+    await occupied;
+  });
+
+  it('isolates an overloaded retrieval adapter and preserves cognitive fallback capacity', async () => {
+    let release: ((value: ArtifactRetrievalResult) => void) | undefined;
+    const harness = createHarness({
+      retrievalOperation: () =>
+        new Promise<ArtifactRetrievalResult>((resolve) => {
+          release ??= resolve;
+        }),
+      options: { maxInFlight: 2, adapterConcurrency: 1, fallbackConcurrency: 1 },
+    });
+    const occupied = harness.service.evaluateDetailed(context());
+    await vi.waitFor(() => {
+      expect(harness.calls.retrieval).toBe(1);
+    });
+    const shed = await harness.service.evaluateDetailed({
+      ...context(),
+      requestId: 'shed-request',
+      taskId: 'shed-task',
+      idempotencyKey: 'shed-idempotency',
+    });
+    expect(shed.decision.path).toBe('cognitive_runtime');
+    expect(shed.record.reasonCodes).toContain('GATEWAY_LOAD_SHED');
+    expect(harness.calls.retrieval).toBe(1);
+    expect(harness.calls.fallback).toBe(1);
+    release?.(noMatch());
+    await occupied;
   });
 
   it('rejects reuse of an idempotency key with different request facts', async () => {
@@ -281,6 +364,67 @@ describe('P10 FastGatewayService', () => {
       })}\n`,
     );
     expect(p95).toBeLessThan(25);
+  });
+
+  it('reports bounded Gateway latency at 1, 10, 100 and 1000 concurrent requests', async () => {
+    const results: Array<{
+      concurrency: number;
+      p50Ms: number;
+      p95Ms: number;
+      p99Ms: number;
+      elapsedMs: number;
+      errorRate: number;
+    }> = [];
+    for (const concurrency of [1, 10, 100, 1000]) {
+      const harness = createHarness({
+        retrieval: noMatch(),
+        options: {
+          maxInFlight: 2048,
+          adapterConcurrency: 2048,
+          fallbackConcurrency: 2048,
+        },
+      });
+      const batchStartedAt = performance.now();
+      const settled = await Promise.all(
+        Array.from({ length: concurrency }, async (_, index) => {
+          const startedAt = performance.now();
+          const result = await harness.service.evaluateDetailed({
+            ...context(),
+            requestId: `concurrency-${String(concurrency)}-request-${String(index)}`,
+            taskId: `concurrency-${String(concurrency)}-task-${String(index)}`,
+            idempotencyKey: `concurrency-${String(concurrency)}-idempotency-${String(index)}`,
+          });
+          return {
+            latencyMs: performance.now() - startedAt,
+            succeeded: result.decision.path === 'cognitive_runtime',
+          };
+        }),
+      );
+      const latencies = settled.map((item) => item.latencyMs).sort((left, right) => left - right);
+      const percentile = (value: number) =>
+        latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * value))] ??
+        Number.POSITIVE_INFINITY;
+      results.push({
+        concurrency,
+        p50Ms: Number(percentile(0.5).toFixed(3)),
+        p95Ms: Number(percentile(0.95).toFixed(3)),
+        p99Ms: Number(percentile(0.99).toFixed(3)),
+        elapsedMs: Number((performance.now() - batchStartedAt).toFixed(3)),
+        errorRate: settled.filter((item) => !item.succeeded).length / Math.max(1, settled.length),
+      });
+    }
+    process.stdout.write(
+      `${JSON.stringify({ event: 'p10.fast_gateway.concurrency_performance', results })}\n`,
+    );
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ concurrency: 1, errorRate: 0 }),
+        expect.objectContaining({ concurrency: 10, errorRate: 0 }),
+        expect.objectContaining({ concurrency: 100, errorRate: 0 }),
+        expect.objectContaining({ concurrency: 1000, errorRate: 0 }),
+      ]),
+    );
+    expect(results.at(-1)?.p99Ms).toBeLessThan(750);
   });
 });
 
@@ -365,6 +509,7 @@ function decision(
 function createHarness(
   input: Readonly<{
     precheck?: Partial<GatewayPrecheckResult>;
+    precheckFor?: (context: RuntimeRequestContext) => Partial<GatewayPrecheckResult>;
     retrieval?: ArtifactRetrievalResult;
     retrievalOperation?: Parameters<
       ConstructorParameters<typeof FastGatewayService>[0]['retrieval']['retrieve']
@@ -377,6 +522,11 @@ function createHarness(
         ) => Promise<ArtifactRetrievalResult>;
     rule?: GatewayRuleOutcome;
     template?: GatewayTemplateOutcome;
+    fallbackOperation?: (
+      execution: Parameters<
+        ConstructorParameters<typeof FastGatewayService>[0]['fallback']['start']
+      >[3],
+    ) => Promise<Readonly<{ fallbackRef: string }>>;
     cancelled?: boolean;
     options?: ConstructorParameters<typeof FastGatewayService>[0]['options'];
   }> = {},
@@ -389,6 +539,7 @@ function createHarness(
     precheck: [] as string[],
   };
   const persistence = new MemoryGatewayPersistence();
+  let decisionCounter = 0;
   const drift: Parameters<GatewayDriftSignalPort['signal']>[0][] = [];
   const defaults: GatewayPrecheckResult = {
     authenticated: true,
@@ -401,21 +552,24 @@ function createHarness(
   };
   const service = new FastGatewayService({
     precheck: {
-      authenticate: () => {
+      authenticate: (context) => {
         calls.precheck.push('authentication');
-        return Promise.resolve((input.precheck ?? defaults).authenticated ?? true);
+        const configured = { ...defaults, ...input.precheck, ...input.precheckFor?.(context) };
+        return Promise.resolve(configured.authenticated);
       },
-      authorizeTenant: () => {
+      authorizeTenant: (context) => {
         calls.precheck.push('tenant');
-        return Promise.resolve((input.precheck ?? defaults).tenantAuthorized ?? true);
+        const configured = { ...defaults, ...input.precheck, ...input.precheckFor?.(context) };
+        return Promise.resolve(configured.tenantAuthorized);
       },
-      authorizeRequest: () => {
+      authorizeRequest: (context) => {
         calls.precheck.push('authorization');
-        return Promise.resolve((input.precheck ?? defaults).authorized ?? true);
+        const configured = { ...defaults, ...input.precheck, ...input.precheckFor?.(context) };
+        return Promise.resolve(configured.authorized);
       },
-      readRuntimeState: () => {
+      readRuntimeState: (context) => {
         calls.precheck.push('runtime_state');
-        const configured = { ...defaults, ...input.precheck };
+        const configured = { ...defaults, ...input.precheck, ...input.precheckFor?.(context) };
         return Promise.resolve({
           featureEnabled: configured.featureEnabled,
           killSwitchActive: configured.killSwitchActive,
@@ -445,9 +599,12 @@ function createHarness(
       },
     },
     fallback: {
-      start(request) {
+      start(request, _reasonCodes, _remainingMs, execution) {
         calls.fallback += 1;
-        return Promise.resolve({ fallbackRef: `fallback:${request.requestId}` });
+        return (
+          input.fallbackOperation?.(execution) ??
+          Promise.resolve({ fallbackRef: `fallback:${request.requestId}` })
+        );
       },
     },
     cancellation: {
@@ -468,7 +625,7 @@ function createHarness(
       nowMs: () => Date.parse('2026-07-30T00:00:00.000Z'),
     },
     ids: {
-      nextGatewayDecisionId: () => `gateway-decision-${String(persistence.entries.size + 1)}`,
+      nextGatewayDecisionId: () => `gateway-decision-${String(++decisionCounter)}`,
     },
     ...(input.options === undefined ? {} : { options: input.options }),
   });

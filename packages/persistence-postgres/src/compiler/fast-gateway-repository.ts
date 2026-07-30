@@ -238,13 +238,41 @@ export class PostgresFastGatewayRepository implements GatewayDecisionPersistence
         'Actor identity is required for Gateway deletion propagation.',
       );
     }
-    const result = await this.#pool.query(
-      `DELETE FROM fast_gateway_request
-       WHERE request_context#>>'{actor,actorId}'=$1
-       RETURNING request_id`,
-      [actorId],
-    );
-    return result.rowCount ?? 0;
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `DELETE FROM cognitive_runtime_outbox outbox
+         USING fast_gateway_feedback feedback,fast_gateway_request request
+         WHERE outbox.aggregate_type='fast_gateway_feedback'
+           AND outbox.aggregate_id=feedback.feedback_id
+           AND feedback.request_id=request.request_id
+           AND request.request_context#>>'{actor,actorId}'=$1`,
+        [actorId],
+      );
+      await client.query(
+        `DELETE FROM cognitive_runtime_outbox outbox
+         USING fast_gateway_decision decision,fast_gateway_request request
+         WHERE outbox.aggregate_type='fast_gateway_decision'
+           AND outbox.aggregate_id=decision.gateway_decision_id
+           AND decision.request_id=request.request_id
+           AND request.request_context#>>'{actor,actorId}'=$1`,
+        [actorId],
+      );
+      const result = await client.query(
+        `DELETE FROM fast_gateway_request
+         WHERE request_context#>>'{actor,actorId}'=$1
+         RETURNING request_id`,
+        [actorId],
+      );
+      await client.query('COMMIT');
+      return result.rowCount ?? 0;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async #assertExisting(

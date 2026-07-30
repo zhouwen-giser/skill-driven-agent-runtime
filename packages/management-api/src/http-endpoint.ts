@@ -736,6 +736,10 @@ export interface ManagementOperations {
   >;
   readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
   readonly taskAvailability?: Pick<TaskAvailabilityEvidenceRepository, 'listByPlan'>;
+  /** Optional P10 read-only projection. PostgreSQL remains the evidence authority. */
+  readonly gatewayEvidence?: Readonly<{
+    findByTaskId(taskId: string): Promise<unknown>;
+  }>;
   readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
   readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
   readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
@@ -1298,6 +1302,23 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.runtimeEvents.listByTask(pathValue(request, 'taskId')),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/gateway-evidence',
+    asyncRoute(async (request, response) => {
+      if (options.operations.gatewayEvidence === undefined) {
+        response.status(503).json({ code: 'GATEWAY_EVIDENCE_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const evidence = await options.operations.gatewayEvidence.findByTaskId(
+        pathValue(request, 'taskId'),
+      );
+      if (evidence === undefined) {
+        response.status(404).json({ code: 'GATEWAY_EVIDENCE_NOT_FOUND' });
+        return;
+      }
+      response.json(evidence);
     }),
   );
   app.get(

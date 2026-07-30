@@ -1070,7 +1070,7 @@ function firstEvidenceIdentity(
   return values.length === 0 ? undefined : (values as [string, ...string[]]);
 }
 
-function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value'>[] {
+export function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value'>[] {
   const id = encodeURIComponent(task.taskId);
   const links: Omit<EvidenceItem, 'value'>[] = [
     {
@@ -1099,6 +1099,11 @@ function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem, 'value
       endpoint: `/api/v1/tasks/${id}/planning-interactions`,
     },
     { key: 'events', label: 'Task Events', endpoint: `/api/v1/tasks/${id}/events` },
+    {
+      key: 'gateway-evidence',
+      label: 'Fast Gateway Decision Evidence',
+      endpoint: `/api/v1/tasks/${id}/gateway-evidence`,
+    },
     {
       key: 'remote-task-lifecycle',
       label: 'MCP Task Lifecycle',

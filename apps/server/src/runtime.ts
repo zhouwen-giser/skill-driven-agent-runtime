@@ -4156,6 +4156,7 @@ export async function startServerRuntime(
         evaluationInfluences,
         evaluationAnalytics,
         runtimeEvents: events,
+        gatewayEvidence: fastGatewayRepository,
         skillExecutions: skillExecutionRepository,
         runtimeTerminalOutcomes,
         memories,

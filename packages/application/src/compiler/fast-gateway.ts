@@ -100,6 +100,7 @@ export interface GatewayFallbackPort {
     input: RuntimeRequestContext,
     reasonCodes: readonly GatewayReasonCode[],
     remainingMs: number,
+    execution: GatewayStageExecution,
   ): Promise<Readonly<{ fallbackRef: string }>>;
 }
 
@@ -164,6 +165,8 @@ export interface FastGatewayOptions {
   readonly fallbackReserveMs: number;
   readonly maxInFlight: number;
   readonly adapterConcurrency: number;
+  readonly fallbackConcurrency: number;
+  readonly fallbackStartTimeoutMs: number;
   readonly circuitFailureThreshold: number;
   readonly circuitWindowMs: number;
   readonly circuitOpenMs: number;
@@ -174,6 +177,8 @@ const DEFAULT_OPTIONS: FastGatewayOptions = Object.freeze({
   fallbackReserveMs: 250,
   maxInFlight: 64,
   adapterConcurrency: 16,
+  fallbackConcurrency: 64,
+  fallbackStartTimeoutMs: 1_000,
   circuitFailureThreshold: 5,
   circuitWindowMs: 30_000,
   circuitOpenMs: 10_000,
@@ -201,6 +206,7 @@ export class FastGatewayService implements FastGateway {
   }>;
   readonly #options: FastGatewayOptions;
   readonly #bulkheads: Readonly<Record<'retrieval' | 'rule' | 'template', AdapterBulkhead>>;
+  readonly #fallbackBulkhead: AdapterBulkhead;
   readonly #circuits: GatewayCircuitBreaker;
   readonly #pending = new Map<
     string,
@@ -243,6 +249,7 @@ export class FastGatewayService implements FastGateway {
       rule: new AdapterBulkhead(this.#options.adapterConcurrency),
       template: new AdapterBulkhead(this.#options.adapterConcurrency),
     });
+    this.#fallbackBulkhead = new AdapterBulkhead(this.#options.fallbackConcurrency);
     this.#circuits = new GatewayCircuitBreaker(this.#options);
   }
 
@@ -287,21 +294,7 @@ export class FastGatewayService implements FastGateway {
       return Object.freeze({ decision: existing.decision, record: existing.record });
     }
 
-    if (this.#inFlight >= this.#options.maxInFlight) {
-      return this.#completeFallback(
-        context,
-        requestHash,
-        syntheticPrecheck(context),
-        [],
-        ['GATEWAY_LOAD_SHED'],
-      );
-    }
-    this.#inFlight += 1;
-    try {
-      return await this.#evaluateNew(context, requestHash);
-    } finally {
-      this.#inFlight -= 1;
-    }
+    return this.#evaluateNew(context, requestHash);
   }
 
   async recordFeedback(
@@ -383,71 +376,85 @@ export class FastGatewayService implements FastGateway {
       );
     }
 
-    const retrievalRun = await this.#runAdapterStage(context, 'retrieval', (execution) =>
-      this.#retrieval.retrieve(context, execution),
-    );
-    const stages: GatewayStageResult[] = [precheckStage, retrievalRun.stage];
-    if (retrievalRun.status !== 'succeeded') {
+    if (this.#inFlight >= this.#options.maxInFlight) {
       return this.#completeFallback(
         context,
         requestHash,
         precheck,
-        stages,
-        retrievalRun.reasonCodes,
+        [precheckStage],
+        ['GATEWAY_LOAD_SHED'],
       );
     }
-    const retrieval = retrievalRun.value;
-    if (retrieval.decision.path === 'denied') {
-      return this.#completeDenied(
-        context,
-        requestHash,
-        precheck,
-        stages,
-        ['GATEWAY_DENIED'],
-        retrieval.decision,
+    this.#inFlight += 1;
+    try {
+      const retrievalRun = await this.#runAdapterStage(context, 'retrieval', (execution) =>
+        this.#retrieval.retrieve(context, execution),
       );
-    }
-    if (retrieval.decision.path === 'human_input') {
-      return this.#completeInteraction(
-        context,
-        requestHash,
-        precheck,
-        stages,
-        ['GATEWAY_ARTIFACT_AMBIGUOUS', 'GATEWAY_INTERACTION_REQUIRED'],
-        retrieval.decision,
-      );
-    }
-    if (
-      retrieval.decision.path === 'cognitive_runtime' ||
-      retrieval.decision.selectedArtifactRef === undefined
-    ) {
-      return this.#completeFallback(
-        context,
-        requestHash,
-        precheck,
-        stages,
-        ['GATEWAY_ARTIFACT_NO_MATCH'],
-        retrieval.decision,
-      );
-    }
+      const stages: GatewayStageResult[] = [precheckStage, retrievalRun.stage];
+      if (retrievalRun.status !== 'succeeded') {
+        return await this.#completeFallback(
+          context,
+          requestHash,
+          precheck,
+          stages,
+          retrievalRun.reasonCodes,
+        );
+      }
+      const retrieval = retrievalRun.value;
+      if (retrieval.decision.path === 'denied') {
+        return await this.#completeDenied(
+          context,
+          requestHash,
+          precheck,
+          stages,
+          ['GATEWAY_DENIED'],
+          retrieval.decision,
+        );
+      }
+      if (retrieval.decision.path === 'human_input') {
+        return await this.#completeInteraction(
+          context,
+          requestHash,
+          precheck,
+          stages,
+          ['GATEWAY_ARTIFACT_AMBIGUOUS', 'GATEWAY_INTERACTION_REQUIRED'],
+          retrieval.decision,
+        );
+      }
+      if (
+        retrieval.decision.path === 'cognitive_runtime' ||
+        retrieval.decision.selectedArtifactRef === undefined
+      ) {
+        return await this.#completeFallback(
+          context,
+          requestHash,
+          precheck,
+          stages,
+          ['GATEWAY_ARTIFACT_NO_MATCH'],
+          retrieval.decision,
+        );
+      }
 
-    const selected = retrieval.index.find(
-      (candidate) => candidate.artifactRef === retrieval.decision.selectedArtifactRef,
-    );
-    if (selected?.artifactType === 'decision_rule') {
-      return this.#runRule(context, requestHash, precheck, stages, retrieval);
+      const selected = retrieval.index.find(
+        (candidate) => candidate.artifactRef === retrieval.decision.selectedArtifactRef,
+      );
+      if (selected?.artifactType === 'decision_rule') {
+        return await this.#runRule(context, requestHash, precheck, stages, retrieval);
+      }
+      if (selected?.artifactType === 'plan_template') {
+        return await this.#runTemplate(context, requestHash, precheck, stages, retrieval);
+      }
+      return await this.#completeFallback(
+        context,
+        requestHash,
+        precheck,
+        stages,
+        ['GATEWAY_ADAPTER_UNAVAILABLE'],
+        retrieval.decision,
+      );
+    } finally {
+      this.#inFlight -= 1;
     }
-    if (selected?.artifactType === 'plan_template') {
-      return this.#runTemplate(context, requestHash, precheck, stages, retrieval);
-    }
-    return this.#completeFallback(
-      context,
-      requestHash,
-      precheck,
-      stages,
-      ['GATEWAY_ADAPTER_UNAVAILABLE'],
-      retrieval.decision,
-    );
   }
 
   async #runRule(
@@ -673,11 +680,11 @@ export class FastGatewayService implements FastGateway {
         stage: stageResult(stage, 'succeeded', [], startedAt, this.#clock.now()),
       });
     } catch (error) {
-      this.#circuits.failure(circuitKey, this.#clock.nowMs());
       const reasonCode: GatewayReasonCode =
         error instanceof FastGatewayApplicationError && error.code === 'GATEWAY_STAGE_TIMEOUT'
           ? 'GATEWAY_STAGE_TIMEOUT'
           : 'GATEWAY_ADAPTER_UNAVAILABLE';
+      this.#circuits.failure(circuitKey, reasonCode, this.#clock.nowMs());
       return failedStage(
         stage,
         reasonCode === 'GATEWAY_STAGE_TIMEOUT' ? 'timed_out' : 'failed',
@@ -814,26 +821,97 @@ export class FastGatewayService implements FastGateway {
   ): Promise<FastGatewayEvaluation> {
     const reasonCodes = uniqueReasons([...inputReasons, 'GATEWAY_COGNITIVE_FALLBACK']);
     const remainingMs = Math.max(0, Date.parse(context.deadlineAt) - this.#clock.nowMs());
-    const fallback = await this.#fallback.start(context, reasonCodes, remainingMs);
-    const now = this.#clock.now();
-    const fallbackStage = stageResult(
-      'fallback',
-      'succeeded',
-      reasonCodes,
-      now,
-      now,
-      fallback.fallbackRef,
-    );
-    return this.#persist(
-      context,
-      requestHash,
-      precheck,
-      [...stages, fallbackStage],
-      decisionFrom(context, base, 'cognitive_runtime', reasonCodes, this.#clock.now()),
-      reasonCodes,
-      undefined,
-      fallback.fallbackRef,
-    );
+    const release = this.#fallbackBulkhead.tryAcquire();
+    const startedAt = this.#clock.now();
+    if (release === undefined || remainingMs <= 0) {
+      const overloadedReasons = uniqueReasons([
+        ...reasonCodes,
+        release === undefined ? 'GATEWAY_LOAD_SHED' : 'GATEWAY_DEADLINE_EXHAUSTED',
+      ]);
+      const completedAt = this.#clock.now();
+      release?.();
+      return this.#persist(
+        context,
+        requestHash,
+        precheck,
+        [...stages, stageResult('fallback', 'failed', overloadedReasons, startedAt, completedAt)],
+        decisionFrom(context, base, 'cognitive_runtime', overloadedReasons, this.#clock.now()),
+        overloadedReasons,
+      );
+    }
+    const fallbackBudgetMs = Math.min(remainingMs, this.#options.fallbackStartTimeoutMs);
+    const controller = new AbortController();
+    const execution: GatewayStageExecution = Object.freeze({
+      signal: controller.signal,
+      deadlineAt: context.deadlineAt,
+      budgetMs: fallbackBudgetMs,
+      mayCommitFormalAuthority: () =>
+        !controller.signal.aborted && this.#clock.nowMs() < Date.parse(context.deadlineAt),
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort('GATEWAY_DEADLINE_EXHAUSTED');
+          reject(
+            new FastGatewayApplicationError(
+              'GATEWAY_DEADLINE_EXHAUSTED',
+              'Cognitive fallback did not start before the absolute deadline.',
+            ),
+          );
+        }, fallbackBudgetMs);
+      });
+      const fallback = await Promise.race([
+        this.#fallback.start(context, reasonCodes, fallbackBudgetMs, execution),
+        timeout,
+      ]);
+      const completedAt = this.#clock.now();
+      const fallbackStage = stageResult(
+        'fallback',
+        'succeeded',
+        reasonCodes,
+        startedAt,
+        completedAt,
+        fallback.fallbackRef,
+      );
+      return await this.#persist(
+        context,
+        requestHash,
+        precheck,
+        [...stages, fallbackStage],
+        decisionFrom(context, base, 'cognitive_runtime', reasonCodes, this.#clock.now()),
+        reasonCodes,
+        undefined,
+        fallback.fallbackRef,
+      );
+    } catch (error) {
+      const failureReason: GatewayReasonCode =
+        error instanceof FastGatewayApplicationError && error.code === 'GATEWAY_DEADLINE_EXHAUSTED'
+          ? 'GATEWAY_DEADLINE_EXHAUSTED'
+          : 'GATEWAY_ADAPTER_UNAVAILABLE';
+      const failedReasons = uniqueReasons([...reasonCodes, failureReason]);
+      const completedAt = this.#clock.now();
+      return await this.#persist(
+        context,
+        requestHash,
+        precheck,
+        [
+          ...stages,
+          stageResult(
+            'fallback',
+            failureReason === 'GATEWAY_DEADLINE_EXHAUSTED' ? 'timed_out' : 'failed',
+            failedReasons,
+            startedAt,
+            completedAt,
+          ),
+        ],
+        decisionFrom(context, base, 'cognitive_runtime', failedReasons, this.#clock.now()),
+        failedReasons,
+      );
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+      release();
+    }
   }
 
   async #completeSuccess(
@@ -1039,18 +1117,6 @@ function decisionFrom(
   });
 }
 
-function syntheticPrecheck(context: RuntimeRequestContext): GatewayPrecheckResult {
-  return Object.freeze({
-    authenticated: true,
-    tenantAuthorized: true,
-    authorized: true,
-    featureEnabled: true,
-    killSwitchActive: false,
-    policyDecision: 'allow' as const,
-    runtimeSnapshotHash: hashRuntimeRequestContext(context),
-  });
-}
-
 function uniqueReasons(values: readonly GatewayReasonCode[]): readonly GatewayReasonCode[] {
   return Object.freeze([...new Set(values)].sort());
 }
@@ -1077,6 +1143,8 @@ function validateOptions(input: Partial<FastGatewayOptions> | undefined): FastGa
     options.fallbackReserveMs,
     options.maxInFlight,
     options.adapterConcurrency,
+    options.fallbackConcurrency,
+    options.fallbackStartTimeoutMs,
     options.circuitFailureThreshold,
     options.circuitWindowMs,
     options.circuitOpenMs,
@@ -1135,23 +1203,27 @@ class GatewayCircuitBreaker {
   }
 
   allow(key: string, now: number): boolean {
-    const state = this.#states.get(key);
-    if (state?.openedUntil === undefined) return true;
-    if (state.openedUntil > now) return false;
-    this.#states.delete(key);
+    for (const [failureKey, state] of this.#states) {
+      if (!failureKey.startsWith(`${key}:`)) continue;
+      if (state.openedUntil !== undefined && state.openedUntil > now) return false;
+      if (state.openedUntil !== undefined) this.#states.delete(failureKey);
+    }
     return true;
   }
 
   success(key: string): void {
-    this.#states.delete(key);
+    for (const failureKey of this.#states.keys()) {
+      if (failureKey.startsWith(`${key}:`)) this.#states.delete(failureKey);
+    }
   }
 
-  failure(key: string, now: number): void {
-    const current = this.#states.get(key);
+  failure(key: string, failureType: GatewayReasonCode, now: number): void {
+    const failureKey = `${key}:${failureType}`;
+    const current = this.#states.get(failureKey);
     const failures = [...(current?.failures ?? []), now].filter(
       (timestamp) => timestamp >= now - this.#options.circuitWindowMs,
     );
-    this.#states.set(key, {
+    this.#states.set(failureKey, {
       failures,
       ...(failures.length >= this.#options.circuitFailureThreshold
         ? { openedUntil: now + this.#options.circuitOpenMs }

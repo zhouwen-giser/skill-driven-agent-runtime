@@ -58,6 +58,43 @@ describe('management HTTP API contract', () => {
     await expect(uses.json()).resolves.toEqual({ items: [] });
   });
 
+  it('projects bounded P10 Gateway evidence without changing Task protocol semantics', async () => {
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        gatewayEvidence: {
+          findByTaskId: (taskId) =>
+            Promise.resolve({
+              decision: {
+                decisionId: 'runtime-decision-1',
+                requestId: 'request-1',
+                path: 'denied',
+                reasonCodes: ['GATEWAY_POLICY_DENY', 'GATEWAY_DENIED'],
+              },
+              record: {
+                gatewayDecisionId: 'gateway-decision-1',
+                requestId: 'request-1',
+                reasonCodes: ['GATEWAY_POLICY_DENY', 'GATEWAY_DENIED'],
+                stageResults: [{ stage: 'precheck', status: 'succeeded' }],
+              },
+              outboxRecorded: true,
+              taskId,
+            }),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-1/gateway-evidence`);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      decision: { path: 'denied' },
+      record: {
+        reasonCodes: ['GATEWAY_POLICY_DENY', 'GATEWAY_DENIED'],
+        stageResults: [{ stage: 'precheck', status: 'succeeded' }],
+      },
+      outboxRecorded: true,
+    });
+  });
+
   it('projects Business Event health, cursors, Inbox, impact and incidents without credentials', async () => {
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
