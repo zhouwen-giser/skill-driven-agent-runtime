@@ -702,6 +702,23 @@ passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3244647` completed in
 272,326 ms with 1014 Unit/Contract, 114 Integration and 62 E2E tests. Local
 conflict-resolution performance is acceptance-only and not a production SLO.
 
+## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback Addendum
+
+| P10 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P10-001-006 baseline/authority order | verified | frozen P00-P09 Handoffs; Auth -> Tenant -> Authorization -> Policy/Kill Switch before any Artifact or load-shed path | P10 ExecPlan; ordered-precheck and overload-deny Unit regressions |
+| AC-P10-007-012 immutable context/deadline | verified | canonical immutable request facts, absolute stage/fallback budgets, cancellation, late discard and commit guards | Domain/Application tests; `v1.3-p10-deadline-report.json` |
+| AC-P10-013-023 thin orchestration | verified | P07/P09/P08 adapters delegate without recomputation; no second Planner/Policy/Goal/Workflow/Skill/MCP authority | adapter/contract tests; architecture gate; orchestration report |
+| AC-P10-024-034 idempotency/resilience/audit | verified | exact durable retry, concurrent coalescing, independent bulkheads, tenant/adapter/failure circuits, authority-preserving load shedding and immutable stage evidence | Unit concurrency/chaos tests; PostgreSQL integration; resilience report |
+| AC-P10-035-041 feedback/drift/deletion | verified | selected/committed/fallback/formal Outcome separation; P02 feedback authority; P06 signal only; transactional Outbox and actor deletion propagation | feedback analyzer tests; real PostgreSQL feedback/deletion integration |
+| AC-P10-042-046 protocol/scope | verified | unchanged A2A/SSE Task semantics; bounded Management API/OpenAPI/Console evidence; no Case/Model Runtime or Artifact mutation | 63 E2E; 156-route OpenAPI gate; protocol/security reports |
+| AC-P10-047-052 closure | verified | clean seven-stage full verify, G17/G18 evidence, 52/52 acceptance, final review 0 Blocking/0 Major, Draft PR open and standard P11 Handoff | `v1.3-p10-{full-verify-report,acceptance,review,handoff}.json/.md` |
+
+The authoritative P10 result is `reports/goal/v1.3-p10-acceptance.json`: 52
+passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3361ff8` completed in
+263,433 ms with 1,069 Unit/Contract, 119 Integration, 63 E2E and 25 migrations.
+Local latency/concurrency evidence is explicitly not a production capacity SLO.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |

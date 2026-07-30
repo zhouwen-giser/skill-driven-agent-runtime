@@ -49,14 +49,14 @@ a Goal, Plan, Outcome, Artifact, policy, authorization or execution authority.
 - [x] 2026-07-30 Bootstrap root/branch/clean tree, locate P10 by manifest
       packageId, read all package contracts and Handoffs, run only P10
       self-check, and map P07/P08/P09/current request entry.
-- [ ] Implement frozen Domain values and deterministic state/hash validation.
-- [ ] Implement Gateway orchestration, budgets, cancellation and resilience.
-- [ ] Add PostgreSQL evidence/Outbox and P02 usage-feedback correlation.
-- [ ] Connect the feature-gated Task/A2A/Server path with compatibility tests.
-- [ ] Add Unit, Contract, real PostgreSQL/Redis Integration and E2E tests.
-- [ ] Run an independent code-freeze read-only review and close all
+- [x] Implement frozen Domain values and deterministic state/hash validation.
+- [x] Implement Gateway orchestration, budgets, cancellation and resilience.
+- [x] Add PostgreSQL evidence/Outbox and P02 usage-feedback correlation.
+- [x] Connect the feature-gated Task/A2A/Server path with compatibility tests.
+- [x] Add Unit, Contract, real PostgreSQL/Redis Integration and E2E tests.
+- [x] Run an independent code-freeze read-only review and close all
       Blocking/Major findings.
-- [ ] Run clean exact-commit `pnpm verify`, generate P10 evidence,
+- [x] Run clean exact-commit `pnpm verify`, generate P10 evidence,
       Completion/Handoff, commit and push before reading P11.
 
 ## Implementation Steps
@@ -93,6 +93,13 @@ a Goal, Plan, Outcome, Artifact, policy, authorization or execution authority.
   response envelope.
 - Frozen external field names remain authoritative even where package prose
   uses internal `GatewayRequestContext` aliases.
+- The initial global load-shed location could bypass authority prechecks.
+  It now runs only after Auth, Tenant, Authorization, Policy and Kill Switch.
+- Caller-generated feedback IDs are required for durable exact retry.
+- Gateway evidence is a bounded read-only Management API/Console projection;
+  it excludes request text, credentials and private reasoning.
+- The repository OpenAPI drift gate correctly caught the new projection before
+  release evidence was accepted.
 
 ## Idempotence and Recovery
 
@@ -104,7 +111,9 @@ restart; Redis loss can only delay a wake.
 
 ## Evidence and Outcomes
 
-Required reports will live under `reports/goal/v1.3-p10-*`. Completion requires
-all 52 acceptance items, 0 Blocking/Major read-only review findings, clean
-exact-commit full verification, a 28-field `COMPLETED` P11 Handoff and a pushed
-closure commit. P11 remains unread until then.
+All required reports live under `reports/goal/v1.3-p10-*`. All 52 acceptance
+items pass; final read-only review is 0 Blocking / 0 Major / 1 Minor / 4
+Accepted. Clean `pnpm verify` passed on
+`3361ff84de6310a48543a0b72475e64fc547f668` in 263,433 ms with 1,069
+Unit/Contract, 119 Integration, 63 E2E and 25 migrations. The 28-field P11
+Handoff is `COMPLETED`. P11 remained unread through P10 evidence generation.

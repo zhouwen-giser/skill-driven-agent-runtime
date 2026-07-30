@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback
+
+- Added frozen V1.1 request, Gateway, decision-record and feedback contracts
+  with canonical hashes, bounded immutable data and stable reason codes.
+- Added a feature-gated Task preparation orchestrator with strict Auth, Tenant,
+  Authorization, Policy and Kill Switch ordering before P07 retrieval, P09
+  Rule evaluation, P08 Template/formal handoff or existing Cognitive Fallback.
+- Added absolute deadline/cancellation propagation, fallback reserve, late
+  discard, formal commit guards, independent adapter/fallback bulkheads,
+  tenant/adapter/failure circuits and authority-preserving load shedding.
+- Added migration 0132, PostgreSQL idempotency/decision/feedback/Outbox
+  authority, P02 Artifact feedback correlation, P06-only drift signals and
+  actor deletion propagation through Gateway-owned Outbox evidence.
+- Added bounded Management API/OpenAPI/Console Gateway evidence without request
+  text, credentials or private reasoning; A2A and SSE Task semantics remain
+  unchanged.
+- Added Unit/Contract, real PostgreSQL/Redis Integration, A2A E2E, concurrency,
+  resilience, security and local performance evidence. Final verification
+  passes 1,069 Unit/Contract, 119 Integration, 63 E2E and 25 migrations.
+
 ## SDAR v1.3 P09 Decision Rule and Policy Runtime
 
 - Added frozen V1.1 P09 decision context, condition result, decision result,
