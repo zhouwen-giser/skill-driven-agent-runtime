@@ -1,0 +1,22 @@
+{
+  "packageId":"SDAR-V1.3-P12","status":"passed",
+  "verifiedCommit":"5cef3a04b7237ac126f7e9d0548347b0d5c25baa","dirtyAtStart":false,
+  "command":"pnpm verify","durationMs":293718,
+  "results":{
+    "unitAndContract":{"files":162,"tests":1108,"failed":0},
+    "integration":{"files":20,"tests":129,"failed":0},
+    "e2e":{"files":5,"tests":67,"failed":0},
+    "migrations":{"count":27,"head":"0134_v13_artifact_management_projection","rollbackReapply":"passed"},
+    "a2aMust":{"passed":74,"failed":0,"skipped":161},
+    "openapiOperations":164,
+    "architecture":"passed","build":"passed","infraSmoke":"passed","serverConsoleSmoke":"passed"
+  },
+  "firstFailure":{
+    "stage":"integration",
+    "test":"artifact-shadow-p06.integration.test.ts",
+    "cause":"0134 sequence function omitted existing artifact.shadow_started",
+    "fix":"preserved full P06 event set in 0134 up/backfill/down",
+    "rerun":"all seven full-verify stages passed"
+  },
+  "source":"reports/verification/summary.json"
+}

@@ -2,6 +2,7 @@
   "schemaVersion":"1.1","packageId":"SDAR-V1.3-P12","packageVersion":"1.1","sequence":12,
   "status":"COMPLETED","repository":"zhouwen-giser/skill-driven-agent-runtime",
   "baselineSha":"0db8796","branch":"feature/v1.3-sequential-implementation",
+  "commits":{"implementation":"9a10b31","outboxRegressionFix":"c434e4b","exactVerificationBaseline":"5cef3a0"},
   "contractRegistryVersion":"1.1",
   "contractRegistrySha256":"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
   "consumedContracts":[
@@ -25,6 +26,7 @@
     "artifact.correction_observed","artifact.drift_detected","artifact.revalidation_signalled"],
   "featureFlags":["P12 composition via artifactManagementPrincipalResolver"],
   "acceptanceSummary":{"passed":54,"failed":0,"blocked":0},
+  "fullVerify":{"status":"passed","commit":"5cef3a04b7237ac126f7e9d0548347b0d5c25baa","dirty":false,"unitContract":1108,"integration":129,"e2e":67},
   "openBlockers":[],"nextPackage":"P13",
   "knownLimitations":[
     "SSE is bounded replay with explicit resume/overflow, not a perpetual connection.",

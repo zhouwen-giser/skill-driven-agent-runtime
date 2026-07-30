@@ -54,8 +54,8 @@ Artifact, Goal, Plan, Task, Outcome or policy authority.
 - [x] Add safe A2A capability evidence and resumable SSE.
 - [x] Run focused Unit/Contract/Integration/E2E/A2A/accessibility/security tests.
 - [x] Freeze code, perform independent read-only review and close findings.
-- [ ] Run clean exact-commit `pnpm verify`.
-- [ ] Generate 54/54 Acceptance, evidence, Completion/Handoff, commit and push.
+- [x] Run clean exact-commit `pnpm verify`.
+- [x] Generate 54/54 Acceptance, evidence and Completion/Handoff.
 
 ## Validation
 
@@ -91,4 +91,7 @@ Focused evidence passes: 98 Unit/Contract/Console/A2A tests, 6 PostgreSQL
 management tests, 3 real Server E2E tests and a local 1k/10k/100k benchmark.
 First failures and fixes are retained: inactive Docker; legacy database ledger;
 multi-statement prepared fixture; missing P12-wide Outbox sequence allocation.
-Exact-commit full verification and publication remain.
+Final `pnpm verify` passed all seven stages from clean commit
+`5cef3a04b7237ac126f7e9d0548347b0d5c25baa`: 1,108 Unit/Contract,
+129 Integration, 67 E2E, 27 migrations, build and both smoke checks.
+Publication is the remaining step.
