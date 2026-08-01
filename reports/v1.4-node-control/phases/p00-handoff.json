@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P00",
+  "status": "EVIDENCE_PREPARED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+  "evidenceSha": null,
+  "remoteSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": null,
+  "nextPhase": "P01",
+  "prerequisites": [
+    "commit and push P00 evidence",
+    "verify remote branch SHA",
+    "mark P00 completed in goal-state.json"
+  ],
+  "authorityBoundary": "P01 may add only the independent Node Control foundation; P02 configuration semantics remain pending."
+}

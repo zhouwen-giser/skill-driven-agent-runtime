@@ -1,0 +1,34 @@
+{
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "status": "ACTIVE",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "branch": "feature/v1.4-node-control-backend",
+  "lastCompletedPhase": null,
+  "remoteHeadSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "pullRequest": null,
+  "phases": {
+    "P00": {
+      "status": "active",
+      "implementationSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+      "evidenceSha": null,
+      "remoteSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+      "completedAt": null
+    },
+    "P01": { "status": "pending" },
+    "P02": { "status": "pending" },
+    "P03": { "status": "pending" },
+    "P04": { "status": "pending" },
+    "P05": { "status": "pending" },
+    "P06": { "status": "pending" },
+    "P07": { "status": "pending" },
+    "P08": { "status": "pending" },
+    "P09": { "status": "pending" },
+    "P10": { "status": "pending" },
+    "P11": { "status": "pending" },
+    "P12": { "status": "pending" },
+    "P13": { "status": "pending" },
+    "P14": { "status": "pending" }
+  }
+}
