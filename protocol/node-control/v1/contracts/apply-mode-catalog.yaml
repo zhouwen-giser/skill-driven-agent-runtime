@@ -1,0 +1,18 @@
+version: 1.0.0
+modes:
+  hot_reload:
+    existingTasks: unchanged unless explicitly documented
+    restart: false
+  new_task_only:
+    existingTasks: pinned to previous snapshot
+    restart: false
+  reconnect_required:
+    existingTasks: continue; client/exporter reconnects
+    restart: false
+  restart_required:
+    existingTasks: operator-controlled drain/restart required
+    restart: true
+  immutable:
+    existingTasks: not applicable
+    restart: false
+    update: rejected

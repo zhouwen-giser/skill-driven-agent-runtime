@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/TaskSummary.schema.json",
+  "title": "TaskSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taskId",
+    "phase",
+    "updatedAt"
+  ],
+  "properties": {
+    "taskId": {
+      "type": "string"
+    },
+    "goalId": {
+      "type": "string"
+    },
+    "planId": {
+      "type": "string"
+    },
+    "contextId": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "selectedSkillId": {
+      "type": "string"
+    },
+    "capabilityBindingId": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "controlledActions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    }
+  }
+}

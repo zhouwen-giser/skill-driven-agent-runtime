@@ -1,0 +1,17 @@
+{
+  "eventId": "evt-01",
+  "eventType": "node.capability.readiness_changed",
+  "occurredAt": "2026-07-31T06:00:00Z",
+  "recordedAt": "2026-07-31T06:00:00Z",
+  "nodeId": "sdar-ugv-01",
+  "aggregateType": "node_capability",
+  "aggregateId": "area-inspection",
+  "aggregateRevision": 8,
+  "correlationId": "corr-01",
+  "dataClassification": "internal",
+  "payload": {
+    "capabilityVersion": 1,
+    "previousStatus": "available",
+    "status": "degraded"
+  }
+}

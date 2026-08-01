@@ -41,14 +41,19 @@ const forbiddenApplicationImports = [
 
 await assertImports('packages/domain', forbiddenDomainImports);
 await assertImports('packages/application', forbiddenApplicationImports);
+await assertImports('packages/node-control-domain', forbiddenDomainImports);
+await assertImports('packages/node-control-application', forbiddenApplicationImports);
 await assertSingleWorkflowRuntime();
 await assertRemovedCompatibilitySymbols();
+await assertNodeControlSeparation();
 await import('./check-cognitive-architecture.mjs');
 await import('./check-artifact-architecture.mjs');
 
 const sourceFiles = [
   ...(await collectSourceFiles('packages')),
   ...(await collectSourceFiles('apps/server')),
+  ...(await collectSourceFiles('apps/node-control-api')),
+  ...(await collectSourceFiles('apps/node-control-worker')),
 ];
 for (const file of sourceFiles) {
   const source = await readFile(file, 'utf8');
@@ -74,7 +79,10 @@ for (const file of sourceFiles) {
   if (
     (source.includes("from 'pg'") || source.includes('from "pg"')) &&
     !normalize(file).startsWith('packages/persistence-postgres/') &&
-    !normalize(file).startsWith('apps/server/')
+    !normalize(file).startsWith('packages/node-control-persistence-postgres/') &&
+    !normalize(file).startsWith('apps/server/') &&
+    !normalize(file).startsWith('apps/node-control-api/') &&
+    !normalize(file).startsWith('apps/node-control-worker/')
   ) {
     throw new Error(`ARCH_POSTGRES_BOUNDARY_VIOLATION: ${file}`);
   }
@@ -89,6 +97,34 @@ for (const file of sourceFiles) {
     !normalize(file).startsWith('packages/json-schema-adapter/')
   ) {
     throw new Error(`ARCH_AJV_BOUNDARY_VIOLATION: ${file}`);
+  }
+}
+
+async function assertNodeControlSeparation() {
+  const nodeControlFiles = [
+    ...(await collectSourceFiles('packages/node-control-domain')),
+    ...(await collectSourceFiles('packages/node-control-application')),
+    ...(await collectSourceFiles('packages/node-control-persistence-postgres')),
+    ...(await collectSourceFiles('apps/node-control-api')),
+    ...(await collectSourceFiles('apps/node-control-worker')),
+  ];
+  for (const file of nodeControlFiles) {
+    const source = await readFile(file, 'utf8');
+    if (source.includes('packages/persistence-postgres') || source.includes('../persistence-postgres'))
+      throw new Error(`ARCH_CONTROL_WRITES_RUNTIME_DATABASE: ${normalize(file)}`);
+    if (source.includes('@langchain/langgraph'))
+      throw new Error(`ARCH_CONTROL_SECOND_WORKFLOW_RUNTIME: ${normalize(file)}`);
+  }
+
+  for (const file of [
+    ...(await collectSourceFiles('packages/domain')),
+    ...(await collectSourceFiles('packages/application')),
+    ...(await collectSourceFiles('packages/persistence-postgres')),
+    ...(await collectSourceFiles('apps/server')),
+  ]) {
+    const source = await readFile(file, 'utf8');
+    if (source.includes('node-control-persistence-postgres'))
+      throw new Error(`ARCH_RUNTIME_WRITES_CONTROL_DATABASE: ${normalize(file)}`);
   }
 }
 

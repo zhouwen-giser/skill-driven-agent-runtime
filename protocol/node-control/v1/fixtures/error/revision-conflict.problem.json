@@ -1,0 +1,11 @@
+{
+  "type": "https://errors.sdar.io/control/revision-conflict",
+  "title": "Revision conflict",
+  "status": 412,
+  "code": "REVISION_CONFLICT",
+  "detail": "The resource was changed by another actor.",
+  "instance": "/api/v1/node-capabilities/area-inspection/versions/1/publish",
+  "correlationId": "corr-01",
+  "retryable": true,
+  "violations": []
+}

@@ -71,6 +71,37 @@ The standalone example client can target a configured running Server:
 pnpm demo:client -- "Complete the local example task."
 ```
 
+### Run the v1.4 Node Control foundation
+
+The Node Control Backend is a separate process and PostgreSQL authority from the Runtime. Start its
+database without changing the Runtime Compose project:
+
+```powershell
+docker compose -f compose.node-control.yaml up -d --wait control-postgres
+$env:SDAR_CONTROL_API_TOKEN='replace-with-at-least-32-non-whitespace-characters'
+pnpm start:node-control-api
+```
+
+Run the worker in another shell with the same `SDAR_CONTROL_DATABASE_URL`:
+
+```powershell
+pnpm start:node-control-worker
+```
+
+Public discovery and health are available at `/.well-known/sdar-node`, `/health/live`, and
+`/health/ready`. Node, health, Management Operation, and Audit projections under `/api/v1/*`
+require `Authorization: Bearer <SDAR_CONTROL_API_TOKEN>`. For example:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:10080/api/v1/node `
+  -Headers @{ Authorization = "Bearer $env:SDAR_CONTROL_API_TOKEN" }
+```
+
+P01 deliberately exposes read-only foundation projections. Configuration apply/acknowledgement and
+last-known-good behavior begin in P02. Control never writes Runtime business tables, and stopping
+Control does not stop or recover Runtime work. See `.env.example` for the complete local settings
+and run `pnpm smoke:node-control` for the real isolated-process acceptance path.
+
 The packaged `start:server` command uses the ordinary V1 runtime profile. The additive MCP Tasks runtime is an explicit composition opt-in (`startServerRuntime({ v11McpTasks: { isolationAcknowledged: true } })`) and is exercised by the V1.1 acceptance harness against an isolated `sdar_v11_*` database. This opt-in is also what enables the narrowly scoped restart reconstruction for valid `waiting_external` continuations; it does not recover ordinary running work.
 
 ### Supplying formal Skill input

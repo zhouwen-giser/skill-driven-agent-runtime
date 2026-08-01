@@ -1,0 +1,18 @@
+{
+  "nodeId": "sdar-ugv-01",
+  "nodeType": "vehicle_commander",
+  "displayName": "UGV 01",
+  "description": "Autonomous vehicle node",
+  "environment": "production",
+  "labels": {
+    "region": "east"
+  },
+  "authorityScopes": [
+    "local_execution"
+  ],
+  "runtimeEndpointRef": "runtime://local",
+  "telemetrySourceId": "sdar-ugv-01",
+  "status": "active",
+  "revision": 4,
+  "updatedAt": "2026-07-31T06:00:00Z"
+}

@@ -1,0 +1,11 @@
+﻿requirement,contract,operation_or_event,schema,validation
+Node identity,Node Control API,getNodeProfile,node-profile,fixture + openapi
+Desired/Observed,Node Control API,configuration resources,desired-observed-state,schema
+Runtime LKG,Runtime Control,getRuntimeBootstrap/getLatestRuntimeRevision,runtime-bootstrap/runtime-ack,contract
+Capability definition,Node Control API,node capability operations,node-capability-version,fixture
+Capability readiness,Runtime Control,runtimeEvaluateCapabilityReadiness,capability-readiness,degraded fixture
+A2A exposure,Node Control API,A2A exposure operations,a2a-exposure-version,fixture
+Task binding,Node Control/Runtime,getTaskCapabilityBinding,task-capability-binding,fixture
+Telemetry export only,Node Control/Runtime,telemetry export operations,telemetry-export-config/status,forbidden route scan
+Organization profile,Profile YAML,allowed operation list,n/a,operation existence
+Node events,AsyncAPI,node.*,event-envelope,asyncapi parse

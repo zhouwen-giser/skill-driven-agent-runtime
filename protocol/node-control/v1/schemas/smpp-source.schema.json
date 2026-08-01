@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/SmppSource.schema.json",
+  "title": "SmppSource",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "smppSourceId",
+    "registryEndpoint",
+    "credentialRef",
+    "syncMode",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "smppSourceId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "registryEndpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "credentialRef": {
+      "type": "string"
+    },
+    "tenantId": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "syncMode": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "poll",
+        "watch"
+      ]
+    },
+    "snapshotTtlSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lkgPolicy": {
+      "type": "string",
+      "enum": [
+        "allow_unexpired",
+        "deny_when_unavailable"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "suspended",
+        "retired"
+      ]
+    },
+    "activeSnapshotRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activeSnapshotChecksum": {
+      "type": "string"
+    },
+    "lastSyncAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastErrorCode": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

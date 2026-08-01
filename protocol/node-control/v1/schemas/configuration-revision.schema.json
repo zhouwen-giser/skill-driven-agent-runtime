@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/ConfigurationRevision.schema.json",
+  "title": "ConfigurationRevision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "configurationId",
+    "targetType",
+    "targetId",
+    "revision",
+    "status",
+    "applyMode",
+    "checksum",
+    "createdAt"
+  ],
+  "properties": {
+    "configurationId": {
+      "type": "string"
+    },
+    "targetType": {
+      "type": "string"
+    },
+    "targetId": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "validated",
+        "published",
+        "applying",
+        "applied",
+        "partially_applied",
+        "rejected",
+        "rolled_back"
+      ]
+    },
+    "applyMode": {
+      "type": "string",
+      "enum": [
+        "hot_reload",
+        "new_task_only",
+        "reconnect_required",
+        "restart_required",
+        "immutable"
+      ]
+    },
+    "content": {},
+    "checksum": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "createdBy": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "$ref": "desired-observed-state.schema.json"
+    }
+  }
+}

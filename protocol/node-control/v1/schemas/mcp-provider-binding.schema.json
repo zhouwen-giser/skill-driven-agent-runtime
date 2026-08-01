@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/McpProviderBinding.schema.json",
+  "title": "McpProviderBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bindingId",
+    "localServerId",
+    "originType",
+    "catalogRevision",
+    "catalogChecksum",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "bindingId": {
+      "type": "string"
+    },
+    "localServerId": {
+      "type": "string"
+    },
+    "originType": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "smpp_registry"
+      ]
+    },
+    "smppSourceId": {
+      "type": "string"
+    },
+    "externalProviderId": {
+      "type": "string"
+    },
+    "externalServerId": {
+      "type": "string"
+    },
+    "registryRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "registryChecksum": {
+      "type": "string"
+    },
+    "catalogRevision": {
+      "type": "string"
+    },
+    "catalogChecksum": {
+      "type": "string"
+    },
+    "endpointRef": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "imported",
+        "active",
+        "degraded",
+        "suspended",
+        "removed"
+      ]
+    },
+    "availabilityStatus": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "available",
+        "degraded",
+        "unavailable"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/Page.schema.json",
+  "title": "Page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {}
+    },
+    "nextPageToken": {
+      "type": "string"
+    },
+    "totalEstimate": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

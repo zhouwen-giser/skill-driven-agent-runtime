@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/RuntimeRevisionAck.schema.json",
+  "title": "RuntimeRevisionAck",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runtimeInstanceId",
+    "targetType",
+    "targetId",
+    "revision",
+    "status",
+    "observedRuntimeVersion",
+    "acknowledgedAt"
+  ],
+  "properties": {
+    "runtimeInstanceId": {
+      "type": "string"
+    },
+    "targetType": {
+      "type": "string"
+    },
+    "targetId": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "partially_applied",
+        "rejected",
+        "restart_required",
+        "stale",
+        "unavailable"
+      ]
+    },
+    "observedRuntimeVersion": {
+      "type": "string"
+    },
+    "activeChecksum": {
+      "type": "string"
+    },
+    "reasonCode": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "object"
+    },
+    "acknowledgedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

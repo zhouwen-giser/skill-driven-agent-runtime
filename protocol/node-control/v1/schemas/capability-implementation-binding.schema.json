@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/CapabilityImplementationBinding.schema.json",
+  "title": "CapabilityImplementationBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bindingId",
+    "capabilityId",
+    "capabilityVersion",
+    "implementationType",
+    "implementationId",
+    "implementationVersion",
+    "role",
+    "priority",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "bindingId": {
+      "type": "string"
+    },
+    "capabilityId": {
+      "type": "string"
+    },
+    "capabilityVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "implementationType": {
+      "type": "string",
+      "enum": [
+        "skill",
+        "plan_template"
+      ]
+    },
+    "implementationId": {
+      "type": "string"
+    },
+    "implementationVersion": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "primary",
+        "alternative",
+        "supporting",
+        "validation",
+        "recovery"
+      ]
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activationCondition": {},
+    "providerPolicyOverride": {},
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "suspended",
+        "retired"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/NodeProfile.schema.json",
+  "title": "NodeProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodeId",
+    "nodeType",
+    "displayName",
+    "environment",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "nodeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "nodeType": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "authorityScopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "runtimeEndpointRef": {
+      "type": "string"
+    },
+    "telemetrySourceId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "maintenance",
+        "retired"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

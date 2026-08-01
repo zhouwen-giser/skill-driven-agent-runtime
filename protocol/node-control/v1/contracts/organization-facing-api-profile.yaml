@@ -1,0 +1,43 @@
+version: 1.0.0
+profileId: sdar-node-organization-facing-v1
+defaultScopes:
+- node.read
+- capability.read
+- a2a.read
+- task.read
+- operation.read
+- events.read
+allowedOperations:
+- getSdarNodeDeclaration
+- getNodeProfile
+- getNodeHealth
+- listNodeCapabilities
+- getNodeCapabilityVersion
+- listCapabilityReadiness
+- getCapabilityReadiness
+- listA2aExposures
+- getA2aExposureVersion
+- getAgentCardRevision
+- listOperationalTasks
+- getOperationalTask
+- getTaskCapabilityBinding
+- getManagementOperation
+- subscribeNodeEvents
+conditionalOperations:
+- pauseTask
+- resumeTask
+- cancelTask
+- submitTaskGoalPatch
+forbiddenTags:
+- Configuration
+- LLM
+- SMPP
+- MCP
+- Skills
+- PlanTemplates
+- TelemetryExport
+- Audit
+notes:
+- No telemetry query proxy
+- No internal runtime endpoints
+- No secret values

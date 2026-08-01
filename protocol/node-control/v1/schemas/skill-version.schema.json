@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/SkillVersionView.schema.json",
+  "title": "SkillVersionView",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skillId",
+    "version",
+    "status",
+    "inputSchema",
+    "outputSchema"
+  ],
+  "properties": {
+    "skillId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "validated",
+        "published",
+        "suspended",
+        "deprecated",
+        "retired"
+      ]
+    },
+    "inputSchema": {
+      "type": "object"
+    },
+    "outputSchema": {
+      "type": "object"
+    },
+    "usageSpecification": {
+      "type": "object"
+    },
+    "outcomeSpecification": {
+      "type": "object"
+    },
+    "evidencePolicy": {
+      "type": "object"
+    },
+    "providerPolicy": {
+      "type": "object"
+    },
+    "checksum": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

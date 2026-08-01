@@ -45,7 +45,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 01:03 +08:00 validated the task package and both extracted frozen packages.
 - [x] 2026-08-02 01:13 +08:00 P00: published baseline, source maps, Goal State, completion evidence,
   and handoff at remote evidence commit `c5ffbda`.
-- [ ] P01: independent Node Control backend foundation.
+- [ ] 2026-08-02 02:06 +08:00 P01: implementation, focused tests, real integration and independent
+  process smoke pass; full verification, implementation/evidence commits and remote proof pending.
 - [ ] P02: configuration revision, apply/ack, and LKG.
 - [ ] P03: LLM provider and model-route governance.
 - [ ] P04: SMPP Registry federation.
@@ -68,6 +69,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   P00 therefore uses a unique `COMPOSE_PROJECT_NAME` and preserves the existing volume.
 - The full verifier writes its reports before calculating `dirty`; its isolated checkout summary
   reports `dirty=true` only because those gate-owned reports were created during the run.
+- P01's first production smoke reached the Runtime build and exposed an Express declaration type
+  portability error not detected by no-emit typecheck; an explicit public return type closed it.
+- The second P01 smoke reused the default Runtime Compose name and encountered the preserved
+  incompatible volume from P00. The P01 smoke now reserves ports and uses disposable, exact Control
+  and Runtime Compose project names, cleaning only those projects.
 - GitHub reports `main` as unprotected (REST 404). P14 still follows the task package's no-bypass,
   checks, review, and Merge Commit policy.
 
@@ -81,6 +87,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   an unknown existing PostgreSQL data volume.
 - 2026-08-02: Keep Control Plane and Runtime databases, migrations, APIs, and authority ledgers
   separate. Any proposed change to a frozen authority requires an ADR before implementation.
+- 2026-08-02: P01 copies the already validated frozen API bundle byte-for-byte into
+  `protocol/node-control/v1`; implementations consume it but do not modify frozen contract content.
+- 2026-08-02: P01 implements only read projections and foundation bootstrap. Runtime configuration
+  apply/ack/LKG semantics remain explicitly deferred to P02.
 
 ## Implementation Steps
 
@@ -121,6 +131,7 @@ active/LKG snapshots.
 
 ## Outcomes and Retrospective
 
-P00 has proven the latest-main baseline but is not complete until its two commits are pushed and the
-remote SHA is captured. Product outcomes and remaining limitations will be updated after each phase;
-no later phase is claimed here.
+P00 is complete and remotely evidenced. P01 now implements the bounded independent foundation and
+passes its focused real-database and process-isolation gates. It remains in progress until the full
+phase verifier, implementation/evidence publication and remote SHA reconciliation complete. P02 and
+later behavior are not claimed.

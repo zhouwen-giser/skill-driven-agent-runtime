@@ -1,0 +1,15 @@
+{
+  "operationId": "op-01",
+  "operationType": "capability.publish",
+  "target": {
+    "type": "node_capability",
+    "id": "area-inspection",
+    "version": "1"
+  },
+  "status": "accepted",
+  "actorId": "operator-1",
+  "reason": "Publish approved capability",
+  "idempotencyKeyHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "inputHash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "createdAt": "2026-07-31T06:00:00Z"
+}

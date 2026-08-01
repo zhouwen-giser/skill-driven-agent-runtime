@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P01 Node Control Foundation
+
+- Added independent Node Control Domain, Application, PostgreSQL persistence, HTTP API and Worker
+  composition packages without introducing a second workflow runtime.
+- Added a dedicated `sdar_control` schema, migration ledger, single Node Profile, durable Management
+  Operation projection and append-only Audit authority with reversible migration evidence.
+- Added authenticated Node/Audit read projections plus public liveness, readiness and discovery
+  routes from the validated frozen Node Control API package.
+- Added a separate Compose stack and environment surface, architecture cross-write gates, frozen
+  contract verification, focused tests and a real smoke proving Runtime survives Control shutdown.
+
 ## SDAR v1.4 P00 Latest-main Baseline
 
 - Locked the implementation baseline to latest `origin/main` commit `a7a7c62`

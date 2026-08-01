@@ -1,0 +1,409 @@
+{
+  "package": "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线",
+  "version": "1.0.0",
+  "status": "PROTOCOL_DESIGN_FROZEN_IMPLEMENTATION_PENDING",
+  "generatedAt": "2026-07-31T06:27:20.117075+00:00",
+  "contracts": {
+    "nodeControlApi": "1.0.0",
+    "runtimeControl": "1.0.0",
+    "nodeEvents": "1.0.0",
+    "telemetryExport": "1.0.0"
+  },
+  "sourceAlignment": {
+    "repository": "zhouwen-giser/skill-driven-agent-runtime",
+    "inspectedRef": "feature/v1.3-sequential-implementation",
+    "inspectedSha": "27fddc25c24919c4d64d1a63b34dd7c0593854de",
+    "finalSha": "lock_at_implementation_p00"
+  },
+  "scope": {
+    "frontend": false,
+    "telemetryQuery": false,
+    "telemetryExport": true,
+    "organizationPlatform": false
+  },
+  "validation": "PASS\njson_schemas=28\noperation_ids=111\nevent_messages=20\nfixtures=7",
+  "counts": {
+    "files": 76,
+    "schemas": 28,
+    "publicOperations": 85,
+    "internalOperations": 26,
+    "events": 20
+  },
+  "files": [
+    {
+      "path": "00-freeze-declaration.md",
+      "size": 1338,
+      "sha256": "fc8da9df6e18246daa53985c5438acd3e5358a6dbd512044e7c86d2593ef7f5e"
+    },
+    {
+      "path": "01-scope-and-non-goals.md",
+      "size": 994,
+      "sha256": "f13e5558f69a4d6f598aad2b3bddc4a349f10526c6284097853021238e4ba367"
+    },
+    {
+      "path": "02-authority-and-api-boundaries.md",
+      "size": 1270,
+      "sha256": "d0761c554805ec0df68d33a3d3d73a703aae0697cd045b1a7cd47d55a8234885"
+    },
+    {
+      "path": "03-node-control-api-profile.md",
+      "size": 691,
+      "sha256": "1e7e77cff33cfedac345f223b31fc8085fe9e88eaca5070e8e9c3aac58ef04fb"
+    },
+    {
+      "path": "04-runtime-control-contract.md",
+      "size": 790,
+      "sha256": "602d34085c8b4fd72f2c18dcb68ca7517e933c898da5ba748b98262cf1a4df7c"
+    },
+    {
+      "path": "05-node-events-contract.md",
+      "size": 911,
+      "sha256": "d142c62e9c4f2e1442c0799cb97932174a7fc44155192f6c79c82873fec0a5b1"
+    },
+    {
+      "path": "06-telemetry-export-contract.md",
+      "size": 832,
+      "sha256": "9b2c1c2378a9c75f7aac04c6d515412af0aa58858a3e8082e4a86848ae023667"
+    },
+    {
+      "path": "07-versioning-concurrency-idempotency.md",
+      "size": 837,
+      "sha256": "c8d8d5584a8e2fa1fb540379447659a6dbf2da27236c83e108504663e3edda59"
+    },
+    {
+      "path": "08-security-rbac-and-secrets.md",
+      "size": 725,
+      "sha256": "ef34369f84dd4a499b78b6e2b60ea84158967c1491db34497d676b51cad72fef"
+    },
+    {
+      "path": "09-error-and-operation-semantics.md",
+      "size": 529,
+      "sha256": "0e3f1098b05172be83c5f7bc283f270e0eab3968d519dcda2580a5913518a201"
+    },
+    {
+      "path": "10-organization-facing-node-profile.md",
+      "size": 713,
+      "sha256": "509637a1dd5c502fe1bfe4d52d92acea6eea8e1e2f14353fda69ffcffb5f95b9"
+    },
+    {
+      "path": "11-v13-adaptation-boundary.md",
+      "size": 809,
+      "sha256": "bd328a16f054dabef16b614b0f6eeb7d57ae755427f593a2b0a939ae857403f5"
+    },
+    {
+      "path": "12-validation-and-release-gates.md",
+      "size": 898,
+      "sha256": "b3dd6371f0d9e523bff478d0c0c88e4a3bd617937c66ce91dae1efb473ecab71"
+    },
+    {
+      "path": "13-compatibility-policy.md",
+      "size": 493,
+      "sha256": "b82906dc3cc1018543aaf15e938086b6fac359912309e879f830d23667682975"
+    },
+    {
+      "path": "README.md",
+      "size": 1611,
+      "sha256": "874a0fed01815e16eb1770cb9f79bd3f8dae88477ffbf130d6b6aa84e06557b1"
+    },
+    {
+      "path": "VALIDATION.txt",
+      "size": 68,
+      "sha256": "ad4a7abf4e5bc8335766d48ce6d52cf77ee3613fbc1295b4fe199a0a1abee2f8"
+    },
+    {
+      "path": "adr/ADR-NCB-001-headless-backend.md",
+      "size": 264,
+      "sha256": "944be30a57db8676aef466354b5de80f52d5116d865239bc80078472d1046be6"
+    },
+    {
+      "path": "adr/ADR-NCB-002-no-telemetry-query.md",
+      "size": 236,
+      "sha256": "330662b478912c0158351ebb9602b5e7eb2bcd793c1e9cf1ca4a83d7fde1a36c"
+    },
+    {
+      "path": "adr/ADR-NCB-003-separate-public-internal-api.md",
+      "size": 234,
+      "sha256": "7e0768df6d16ef27f56991402fbcf306f7ddd9998d74f9216935ba51948adac9"
+    },
+    {
+      "path": "adr/ADR-NCB-004-desired-observed.md",
+      "size": 231,
+      "sha256": "873669a19f6f1165bed8ec0d021eab484b0d80b81d655a2f583de606f6e30f1c"
+    },
+    {
+      "path": "adr/ADR-NCB-005-events-are-hints.md",
+      "size": 228,
+      "sha256": "b7a902c731a18f45df4ff2f7bc5432693d40fee1cb3b967be71d7f04e85719a1"
+    },
+    {
+      "path": "adr/ADR-NCB-006-capability-authority.md",
+      "size": 244,
+      "sha256": "8d7daeb5b26370767818e71da4fcbfad7f56bc9138b02244e255e6a703c91a8a"
+    },
+    {
+      "path": "adr/ADR-NCB-007-task-binding-immutable.md",
+      "size": 240,
+      "sha256": "02c0e5b24b9fb8926019ff37532acb6955a491f1125544be788ea0d23693b02b"
+    },
+    {
+      "path": "adr/ADR-NCB-008-runtime-lkg.md",
+      "size": 219,
+      "sha256": "4fc4f665e9762a8222518c6c240d3a13a39d83f6a90fa54455bce5f26b0b02fa"
+    },
+    {
+      "path": "adr/ADR-NCB-009-secret-reference-only.md",
+      "size": 210,
+      "sha256": "d68303ae6869db75e4f84ec36056eb2cb2cb3698b84300414915f3a54b482d55"
+    },
+    {
+      "path": "adr/ADR-NCB-010-organization-profile.md",
+      "size": 249,
+      "sha256": "5f92affb16f0b2fa29e6bc7d814fe3e58e98bc737f9669e6383991c36aaca35b"
+    },
+    {
+      "path": "asyncapi/node-events.asyncapi.yaml",
+      "size": 6589,
+      "sha256": "d117282d3fe65c20a7af5444b5c14edd78d77a04f3ec5cb3916dc5d676098f59"
+    },
+    {
+      "path": "contracts/apply-mode-catalog.yaml",
+      "size": 480,
+      "sha256": "a59815cc9484d01a24b9de200dc8436638c9659f6d6b249769fcddb8092aa986"
+    },
+    {
+      "path": "contracts/error-code-catalog.yaml",
+      "size": 1761,
+      "sha256": "94aab8edbba81b8a43e6ac7c413740ec1a405465f4a456be6710d33fd3491c76"
+    },
+    {
+      "path": "contracts/node-event-catalog.yaml",
+      "size": 2087,
+      "sha256": "6fd2caf6b10c03f06ca113ff79999a8c21ec9cc4822bc4c712fa9d2912157ae0"
+    },
+    {
+      "path": "contracts/organization-facing-api-profile.yaml",
+      "size": 789,
+      "sha256": "51e7c2f0485c326d21ec7bce2d656c24314691fa03f8a506cb415c68f1b6519d"
+    },
+    {
+      "path": "contracts/telemetry-export-contract.yaml",
+      "size": 508,
+      "sha256": "46824f8472395342f3e4bffd05116a0f9db23f5bba103c083c2de3a8ba5ee279"
+    },
+    {
+      "path": "fixtures/degraded/capability-readiness.json",
+      "size": 629,
+      "sha256": "6f967efae77b93d51ca5fbe461df0a0530facdb94988d939b1ce2f11d86de018"
+    },
+    {
+      "path": "fixtures/degraded/telemetry-export-status.json",
+      "size": 368,
+      "sha256": "5834b714cd175c997f6c1230d7413fc2b2c65569835e48c946431ba79b7e375d"
+    },
+    {
+      "path": "fixtures/error/revision-conflict.problem.json",
+      "size": 352,
+      "sha256": "85887edad633c1b70c1fc0f3ca7ea88bc7be9ce87a1b593b6e726bbf7bd9ab0a"
+    },
+    {
+      "path": "fixtures/success/management-operation-accepted.json",
+      "size": 476,
+      "sha256": "89f06b638c95feca07bf75efb6c5205ce0dbd481329299e5fc076c70898a8915"
+    },
+    {
+      "path": "fixtures/success/node-event-readiness.json",
+      "size": 459,
+      "sha256": "330aaa68acaa70a95435913a7e1de05bc824c66cd76962142bcbf599d390863d"
+    },
+    {
+      "path": "fixtures/success/node-profile.json",
+      "size": 416,
+      "sha256": "8f81bf7b2b2390c2da460bcc29fae7691ab53b37a88ae5de4ebbec99bafe5793"
+    },
+    {
+      "path": "fixtures/success/task-capability-binding.json",
+      "size": 671,
+      "sha256": "6c99fe32d5b49656f6c2fc95ae2604466643cb4e7c1068c63a4b3fcf048ac5f0"
+    },
+    {
+      "path": "matrices/authority-matrix.csv",
+      "size": 872,
+      "sha256": "fbc391b61928df765fba125a931395d4c61464843713b3439932109a50bd5b1d"
+    },
+    {
+      "path": "matrices/operation-inventory.csv",
+      "size": 7223,
+      "sha256": "507b2fdd913696fbb946a1f06b57325b315a59bbe11f2a99ca0ebe4889555c57"
+    },
+    {
+      "path": "matrices/rbac-matrix.csv",
+      "size": 777,
+      "sha256": "1413346674bd9f7a10092bf7fbc2c5313e9f4fc0bbaecfa26fde9a586aab3793"
+    },
+    {
+      "path": "matrices/traceability.csv",
+      "size": 993,
+      "sha256": "8959e2874f6d6591976aa45be5dbb7f9821880d8995d5eea52bd2cf218bd0701"
+    },
+    {
+      "path": "openapi/node-control.openapi.yaml",
+      "size": 201910,
+      "sha256": "d4693a3c38ac0449e63804804fcdcea93c8fbf154fa1e7959806afc1c7652394"
+    },
+    {
+      "path": "openapi/runtime-control.openapi.yaml",
+      "size": 55822,
+      "sha256": "09796b7cdc9e05c0ec990485d23e1045c679e7d87c662db6bf7618ca32a91177"
+    },
+    {
+      "path": "schemas/a2a-exposure-version.schema.json",
+      "size": 2067,
+      "sha256": "174005abd7f94072b043e15b8efed9c38b1965ec65da02e90c219ddd4b20e173"
+    },
+    {
+      "path": "schemas/agent-card-revision.schema.json",
+      "size": 1165,
+      "sha256": "eccd572ef156d08d94a9891d86ed27deefaf563556bb6a79ad3b5c282ad797be"
+    },
+    {
+      "path": "schemas/capability-implementation-binding.schema.json",
+      "size": 1442,
+      "sha256": "727be6ae638a235e751dacb73276a8fb3c3bfbbe6a318710b384053864e170ae"
+    },
+    {
+      "path": "schemas/capability-readiness.schema.json",
+      "size": 1815,
+      "sha256": "8a782439830fd30eb34313f833a903e454aa39f9faf78ac600073b1e3bd35983"
+    },
+    {
+      "path": "schemas/command-request.schema.json",
+      "size": 470,
+      "sha256": "4559b8609ff20205dcfcac1b192c1137fb21cb899a0b1f52acdc5ed253baef77"
+    },
+    {
+      "path": "schemas/configuration-revision.schema.json",
+      "size": 1461,
+      "sha256": "8fc28acc1583a4f23677003eacf9cfa3592c13cf0a086ca4f4d0cfff82525d01"
+    },
+    {
+      "path": "schemas/desired-observed-state.schema.json",
+      "size": 1635,
+      "sha256": "3328e64b6c0004f5460c726c1247f00fdbda200584122a1e1af90fa08f4c6083"
+    },
+    {
+      "path": "schemas/event-envelope.schema.json",
+      "size": 1260,
+      "sha256": "ffc94d700f409c5d7083af393540fe167b7f0b724cf7bf08554f819ae0d6f625"
+    },
+    {
+      "path": "schemas/llm-provider.schema.json",
+      "size": 1756,
+      "sha256": "c634e4bd7dafef86ed2754e10af907c46f08dcd7e1802d093d936818466bd6f9"
+    },
+    {
+      "path": "schemas/management-operation.schema.json",
+      "size": 1230,
+      "sha256": "ddeeaf71bdc648eb1a2bba0837d79f5d1ec663d4bd57afa1d60393faa9d41aa4"
+    },
+    {
+      "path": "schemas/mcp-provider-binding.schema.json",
+      "size": 1509,
+      "sha256": "91dbf2f318b61db5cd74997b3a66d33395243a4b3c53323ed9de8af0128d8311"
+    },
+    {
+      "path": "schemas/model-route.schema.json",
+      "size": 1469,
+      "sha256": "e1218b5f1b34a9eff50e826546f7c537b62d05056df574949f170471ecef9059"
+    },
+    {
+      "path": "schemas/node-capability-version.schema.json",
+      "size": 2204,
+      "sha256": "18aaf97178b1e438b65e6541e0215b9a52fb905d02b9c994a3d25e8369e6982e"
+    },
+    {
+      "path": "schemas/node-health.schema.json",
+      "size": 1328,
+      "sha256": "72aa6e66369451681c17c6a377adee9d74508a615f98a6d1c778fa6dd7ca08cc"
+    },
+    {
+      "path": "schemas/node-profile.schema.json",
+      "size": 1305,
+      "sha256": "fcc4329e2ed39e2edeec1e9a40a2601d79ede3243ddeafd37acb1204f88dbd56"
+    },
+    {
+      "path": "schemas/page.schema.json",
+      "size": 523,
+      "sha256": "af5b0961493ee8d1df50a19105c3585d63aa06831f5882987efe7e52290ebe8b"
+    },
+    {
+      "path": "schemas/plan-template-version.schema.json",
+      "size": 938,
+      "sha256": "d1fff6faf4c1605301cb9236fcb3b6f0c7b126b15754dc2538417ce9f41a825e"
+    },
+    {
+      "path": "schemas/problem-details.schema.json",
+      "size": 1388,
+      "sha256": "7ae66b18e2df9b99c9db3e116da4206cbfa9761a2bc76e65b7cfacadf4ed1e9d"
+    },
+    {
+      "path": "schemas/resource-ref.schema.json",
+      "size": 485,
+      "sha256": "39374f8ec2992622eeefc179b85ae51ee4bced9979db6c87fe7dc591d29d3bc0"
+    },
+    {
+      "path": "schemas/runtime-ack.schema.json",
+      "size": 1141,
+      "sha256": "19b51da833003a4ca07bfb1b128e306ab6003226f4f2ec30c1e3e1c780073ba4"
+    },
+    {
+      "path": "schemas/runtime-bootstrap.schema.json",
+      "size": 984,
+      "sha256": "1404576cfb905a8866b38d4c9f6c3ab2e0fddf84432c2eb387fc3bf4d3a8d614"
+    },
+    {
+      "path": "schemas/skill-version.schema.json",
+      "size": 1189,
+      "sha256": "7098ea7ec545f856f576116968ac2e825ba5c5972e017849879ce7014d566163"
+    },
+    {
+      "path": "schemas/smpp-source.schema.json",
+      "size": 1572,
+      "sha256": "676d7b13473bc8436d061878388852af9226b3a98b943c245d3df3501dca6d60"
+    },
+    {
+      "path": "schemas/task-capability-binding.schema.json",
+      "size": 1622,
+      "sha256": "a5ac323466ee06b4a12b6c0a307196637f7532e07bfd07a301492c5659ef43b3"
+    },
+    {
+      "path": "schemas/task-summary.schema.json",
+      "size": 931,
+      "sha256": "18064fc9a10ca3ccb408ef620ede1595ed148834de4bffaf4164a68def38f7f3"
+    },
+    {
+      "path": "schemas/telemetry-export-config.schema.json",
+      "size": 1369,
+      "sha256": "580bc695d9ac755522d42196084608b64c46072cee2f9c5784667da702f40920"
+    },
+    {
+      "path": "schemas/telemetry-export-status.schema.json",
+      "size": 1188,
+      "sha256": "586d70ee7d9da6cc40ad2827421b23c2f005b052f5dc5326a7cafd0ce081a169"
+    },
+    {
+      "path": "schemas/well-known-node.schema.json",
+      "size": 1432,
+      "sha256": "92caa2436731c04fc3499039274de4e8c07e5caf3c14b894b1c204191b0a6e09"
+    },
+    {
+      "path": "scripts/validate_freeze.py",
+      "size": 3360,
+      "sha256": "641e0cb357ea1941902aa104a4906d13d825f65b85b731111e34bd3a2fb392aa"
+    },
+    {
+      "path": "source-alignment/SDAR_v1.3_alignment.md",
+      "size": 790,
+      "sha256": "8ac5b40bea96ed43a59fc21a3d5a95729686b7bc1bb16e3a0c294e9bd87be2a3"
+    }
+  ]
+}

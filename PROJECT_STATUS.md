@@ -1,17 +1,20 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P00 is `COMPLETED` (2026-08-02) on
+SDAR v1.4 Node Control Backend P01 is `IN_PROGRESS` (2026-08-02) on
 `feature/v1.4-node-control-backend`, based exactly on latest `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`. The authorized task package and
-both frozen inputs validate successfully. An isolated exact-main
-`pnpm install --frozen-lockfile` and full `pnpm verify` pass with 1122
-Unit/Contract, 130 real PostgreSQL/Redis Integration and 72 E2E tests after
-preserving two environment failures: Docker sandbox denial and an incompatible
-pre-existing PostgreSQL volume. The successful gate used a new isolated
-Compose project and did not delete or overwrite existing data. P00 source,
-authority, object, symbol, migration and API maps are published. Implementation
-commit `c8ec915` and evidence commit `c5ffbda` are present on the remote branch;
-P01 is the next permitted phase.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`. P00 is `COMPLETED`. P01 now has
+separate Domain/Application/PostgreSQL/API/Worker packages, an independent
+Control migration ledger and Compose stack, authenticated frozen-contract read
+projections, immutable Audit storage and architecture gates that prohibit
+Control/Runtime persistence cross-writes and any Control-side LangGraph use.
+Focused validation passes 7 Unit/Contract tests, 133 real isolated PostgreSQL/
+Redis Integration tests, the 76-file frozen Node Control contract gate,
+production build and the real API/Worker/process-isolation smoke. The first
+strict-lint failure, declaration-build failure and accidental default Compose
+volume collision are retained; the final smoke uses exact disposable Control
+and Runtime projects and confirms Runtime remains available after Control is
+stopped. Full phase verification and evidence publication are pending before
+P01 can become `COMPLETED`; P02 has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

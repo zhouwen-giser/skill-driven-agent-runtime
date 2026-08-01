@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/RuntimeBootstrap.schema.json",
+  "title": "RuntimeBootstrap",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodeProfile",
+    "runtimeContractVersion",
+    "activeConfigurationRefs",
+    "activeCapabilityCatalogRef",
+    "activeExposureCatalogRef"
+  ],
+  "properties": {
+    "nodeProfile": {
+      "$ref": "node-profile.schema.json"
+    },
+    "runtimeContractVersion": {
+      "type": "string"
+    },
+    "activeConfigurationRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "resource-ref.schema.json"
+      }
+    },
+    "activeCapabilityCatalogRef": {
+      "$ref": "resource-ref.schema.json"
+    },
+    "activeExposureCatalogRef": {
+      "$ref": "resource-ref.schema.json"
+    },
+    "telemetryExportRef": {
+      "$ref": "resource-ref.schema.json"
+    },
+    "serviceCredentialPolicy": {
+      "type": "object"
+    }
+  }
+}

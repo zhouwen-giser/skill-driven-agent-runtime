@@ -1,0 +1,10 @@
+﻿resource,definition_authority,runtime_authority,external_api,internal_api
+NodeProfile,Node Control PostgreSQL,Runtime observes,read/write draft/publish,bootstrap/apply ack
+SkillVersion,SDAR Runtime PostgreSQL,SDAR Runtime,governance proxy,skill operations
+PlanTemplate,Artifact PostgreSQL,Planner materialization,governance proxy,artifact operations
+NodeCapability,Node Control PostgreSQL,Runtime applied catalog,definition API,catalog stage/activate
+CapabilityReadiness,none,SDAR Runtime PostgreSQL,read/request evaluate,evaluate
+A2AExposure,Node Control PostgreSQL,Runtime applied card,definition API,card stage/activate
+TaskCapabilityBinding,none,SDAR Runtime PostgreSQL,read only,read only
+TelemetryExportConfig,Node Control PostgreSQL,Runtime LKG,definition/status,apply/status
+TelemetryData,Telemetry Platform,Telemetry Platform,not exposed,not exposed

@@ -804,3 +804,13 @@ release verification run.
 | v1.3 P00-P13 prerequisites | verified | existing Runtime, Skill, Artifact, A2A, MCP, Outbox and management authorities present on main | v1.3 final integrity, consistency, authority and migration reports |
 | Clean baseline verification | verified | detached exact-main install and full gate with isolated Compose project; existing data preserved | 1122 Unit/Contract, 130 Integration, 72 E2E; migration/build/smoke gates |
 | P00 implementation boundary | active | ExecPlan plus object/symbol/authority/migration/API maps; no production feature change | package validation and architecture read-only review |
+
+## SDAR v1.4 P01 Node Control Foundation Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Independent Control authority | implemented | `packages/node-control-{domain,application,persistence-postgres}` and `infra/postgres-control/migrations/0001_*`; separate `sdar_control.control_schema_migration` | Domain/Application Unit; real PostgreSQL Integration including ledger isolation and reversible migration |
+| API and Worker processes | implemented | `apps/node-control-api`, `apps/node-control-worker`, `compose.node-control.yaml`, `.env.example` | HTTP Contract, production build, `pnpm smoke:node-control` |
+| Frozen P01 HTTP slice | implemented | public discovery/liveness/readiness and bearer-protected Node/health/Management Operation/Audit projections; exact frozen bundle under `protocol/node-control/v1` | 76-file validator: 28 schemas, 111 operations, 20 events and 7 fixtures; HTTP schema validation |
+| Runtime/Control isolation | implemented | separate database URLs, migration roots and processes; architecture gate rejects cross-persistence writes and Control-side LangGraph | architecture gate over 567 TypeScript sources; smoke stops Control then starts and probes Runtime |
+| P02 exclusion | verified | health truthfully reports Runtime Control disabled; no configuration apply/ack/LKG command path exists | focused Unit/Contract review and source-boundary inspection |

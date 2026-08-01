@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/LlmProvider.schema.json",
+  "title": "LlmProvider",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "providerId",
+    "providerType",
+    "baseUrl",
+    "credentialRef",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "providerId": {
+      "type": "string"
+    },
+    "providerType": {
+      "type": "string"
+    },
+    "baseUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "credentialRef": {
+      "type": "string"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "modelId"
+        ],
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "contextWindow": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "healthPolicy": {
+      "type": "object"
+    },
+    "rateLimitPolicy": {
+      "type": "object"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "degraded",
+        "suspended",
+        "retired"
+      ]
+    },
+    "secretStatus": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "available",
+        "unavailable",
+        "invalid"
+      ]
+    },
+    "lastValidatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

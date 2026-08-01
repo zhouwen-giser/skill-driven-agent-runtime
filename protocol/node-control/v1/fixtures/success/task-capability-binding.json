@@ -1,0 +1,29 @@
+{
+  "bindingId": "binding-01",
+  "taskId": "task-01",
+  "requestedCapabilityId": "area-inspection",
+  "capabilityVersion": 1,
+  "exposureId": "area-inspection-org",
+  "exposureVersion": 1,
+  "inputSnapshot": {
+    "areaId": "east"
+  },
+  "successCriteriaSnapshot": [
+    {
+      "type": "coverage",
+      "minimum": 0.95
+    }
+  ],
+  "evidenceRequirementSnapshot": [
+    {
+      "type": "route_trace"
+    }
+  ],
+  "constraintSnapshot": [],
+  "initialImplementationRefs": [
+    "plan_template:area-inspection:1"
+  ],
+  "providerPolicySnapshot": {},
+  "bindingHash": "2222222222222222222222222222222222222222222222222222222222222222",
+  "boundAt": "2026-07-31T06:00:00Z"
+}

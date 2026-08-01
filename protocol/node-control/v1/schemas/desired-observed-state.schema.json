@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/DesiredObservedState.schema.json",
+  "title": "DesiredObservedState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "desired",
+    "observed",
+    "convergence"
+  ],
+  "properties": {
+    "desired": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "runtimeVersion": {
+          "type": "string"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "convergence": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "pending",
+            "degraded",
+            "rejected",
+            "restart_required",
+            "unavailable"
+          ]
+        },
+        "reasonCode": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

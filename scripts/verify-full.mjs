@@ -24,6 +24,7 @@ const steps = [
   ['postgres-redis-model-mcp-e2e', 'test:e2e', 300_000],
   ['infrastructure-smoke', 'smoke:infra', 240_000],
   ['server-console-smoke', 'smoke:server', 300_000],
+  ['node-control-api-worker-smoke', 'smoke:node-control', 300_000],
 ];
 const results = [];
 let failed = false;

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/TelemetryExportConfiguration.schema.json",
+  "title": "TelemetryExportConfiguration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exportId",
+    "endpointRef",
+    "sourceId",
+    "credentialRef",
+    "recordFamilies",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "exportId": {
+      "type": "string"
+    },
+    "endpointRef": {
+      "type": "string"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "nodeId": {
+      "type": "string"
+    },
+    "credentialRef": {
+      "type": "string"
+    },
+    "recordFamilies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "batchPolicy": {
+      "type": "object"
+    },
+    "retryPolicy": {
+      "type": "object"
+    },
+    "outboxPolicy": {
+      "type": "object"
+    },
+    "tlsPolicyRef": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "suspended",
+        "retired"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "applyMode": {
+      "type": "string",
+      "enum": [
+        "hot_reload",
+        "reconnect_required",
+        "restart_required"
+      ]
+    }
+  }
+}
