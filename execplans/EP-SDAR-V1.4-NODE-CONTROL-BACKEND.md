@@ -1,0 +1,125 @@
+# EP-SDAR-V1.4-NODE-CONTROL-BACKEND
+
+## Purpose / Outcome
+
+Implement the frozen SDAR v1.4 single-node control backend from the exact latest-main baseline. The
+result is an independently deployable Node Control API and worker with its own PostgreSQL authority,
+an internal desired/observed runtime-control boundary, durable configuration and capability
+governance, and no second workflow runtime or telemetry-query authority.
+
+## Requirements Covered
+
+This plan covers the task package requirements assigned to P00 through P14 and the frozen acceptance
+scenarios AC-V14-001 through AC-V14-010. The phase-to-requirement mapping is maintained in
+`reports/v1.4-node-control/traceability.csv` and the task package matrix.
+
+## Context and Orientation
+
+- Baseline: `origin/main` at `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`.
+- Product authority: the two v1.4 frozen ZIP inputs recorded in
+  `reports/v1.4-node-control/baseline/source-lock.json`.
+- Existing runtime authority remains in `packages/domain`, `packages/application`,
+  `packages/persistence-postgres`, `packages/a2a-adapter`, and `apps/server`.
+- The v1.4 control authority will be isolated in new Node Control packages and processes. It may
+  request runtime application through a port but may not write runtime business tables.
+- `apps/console` is outside this backend-only Goal.
+
+## Architecture and Interfaces
+
+Dependency direction is API/Worker -> Application -> Domain/Ports -> adapters. Domain packages do
+not depend on Express, PostgreSQL clients, wire SDKs, or other adapters. PostgreSQL remains the sole
+durable authority in each database; Redis/BullMQ is rebuildable wake/scheduling state. LangGraph.js
+remains the only workflow execution runtime.
+
+The planned packages and processes are calibrated in
+`reports/v1.4-node-control/baseline/object-map.md` and
+`reports/v1.4-node-control/baseline/symbol-map.md`. Public Node Control API 1.0.0, internal Runtime
+Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate frozen contracts.
+
+## Progress
+
+- [x] 2026-08-02 00:13 +08:00 fetched and resolved latest `origin/main` to `a7a7c62`.
+- [x] 2026-08-02 00:56 +08:00 preserved the first permission failure and the stale-volume collation
+  failure, then started an isolated Compose project without deleting existing data.
+- [x] 2026-08-02 01:01 +08:00 completed the exact-main `pnpm verify` baseline.
+- [x] 2026-08-02 01:03 +08:00 validated the task package and both extracted frozen packages.
+- [ ] P00: publish baseline, source maps, Goal State, completion evidence, and handoff.
+- [ ] P01: independent Node Control backend foundation.
+- [ ] P02: configuration revision, apply/ack, and LKG.
+- [ ] P03: LLM provider and model-route governance.
+- [ ] P04: SMPP Registry federation.
+- [ ] P05: MCP provider-binding governance.
+- [ ] P06: capability definition and implementation-binding authority.
+- [ ] P07: runtime capability readiness.
+- [ ] P08: A2A exposure and Agent Card revision.
+- [ ] P09: immutable Task capability binding and attempts.
+- [ ] P10: Skill, Plan Template, and Artifact management adapters.
+- [ ] P11: telemetry export only.
+- [ ] P12: organization-facing node profile and events.
+- [ ] P13: security, recovery, operations, and upgrade.
+- [ ] P14: final integration, qualification, PR, checks, and protected merge.
+
+## Discoveries and Surprises
+
+- The latest main advanced to `a7a7c62` through externally merged PR #14 before P00 began.
+- The repository Compose file has top-level name `sdar`; reusing its existing Debian-initialized data
+  volume with the hardened Alpine PostgreSQL image causes PostgreSQL `XX000` on `template1` collation.
+  P00 therefore uses a unique `COMPOSE_PROJECT_NAME` and preserves the existing volume.
+- The full verifier writes its reports before calculating `dirty`; its isolated checkout summary
+  reports `dirty=true` only because those gate-owned reports were created during the run.
+- GitHub reports `main` as unprotected (REST 404). P14 still follows the task package's no-bypass,
+  checks, review, and Merge Commit policy.
+
+## Decision Log
+
+- 2026-08-02: Treat the user-authorized untracked v1.4 task package under `docs/` as immutable scoped
+  input and commit it on the v1.4 branch.
+- 2026-08-02: Use a detached isolated worktree for the pristine latest-main baseline so the authorized
+  task package is not stashed, deleted, or moved.
+- 2026-08-02: Use an isolated Compose project for real database verification; never destroy or reuse
+  an unknown existing PostgreSQL data volume.
+- 2026-08-02: Keep Control Plane and Runtime databases, migrations, APIs, and authority ledgers
+  separate. Any proposed change to a frozen authority requires an ADR before implementation.
+
+## Implementation Steps
+
+Execute P00 through P14 strictly in order. At every phase: fetch `origin/main`; merge it with
+`--no-ff` if it advanced; update this plan; implement the bounded phase; run focused and mandated
+gates; create an implementation commit; generate truthful evidence; create an evidence commit; push;
+verify the remote SHA; and only then mark the phase complete in Goal State.
+
+P14 re-fetches main, merges rather than rebases, runs the full release matrix from a clean exact
+candidate checkout, opens the prescribed PR, waits for GitHub checks and review state, and uses an
+explicit Merge Commit only when no protection or review blocker remains.
+
+## Validation
+
+P00 baseline command: `COMPOSE_PROJECT_NAME=sdar-v14-baseline-019fa7dc pnpm verify`.
+
+Each phase runs the smallest affected unit/contract/integration/E2E tests plus architecture and
+contract gates. Each milestone runs the repository implementation gate. P14 runs the full frozen
+matrix including format, lint, typecheck, unit, contract, real PostgreSQL/Redis integration, E2E,
+migrations, architecture, management OpenAPI, A2A baseline/TCK, build, smoke, and `pnpm verify`.
+
+## Idempotence and Recovery
+
+Goal recovery starts from `reports/v1.4-node-control/goal-state.json`, verifies the remote branch by
+fast-forward only, reruns the last completed phase's key gate, and resumes from the first pending
+phase. Published branch history is never rebased. Configuration and definition revisions are
+immutable; idempotency keys and expected revisions protect commands; failed revisions never replace
+active/LKG snapshots.
+
+## Artifacts and Evidence
+
+- Baseline and source maps: `reports/v1.4-node-control/baseline/`.
+- Per-phase completion/handoff: `reports/v1.4-node-control/phases/`.
+- Retained failed attempts: `reports/v1.4-node-control/failed-attempts/`.
+- Machine-resumable state: `reports/v1.4-node-control/goal-state.json`.
+- Repository-wide requirements: `docs/17_TRACEABILITY_MATRIX.md`.
+- Status and release narrative: `PROJECT_STATUS.md` and `CHANGELOG.md`.
+
+## Outcomes and Retrospective
+
+P00 has proven the latest-main baseline but is not complete until its two commits are pushed and the
+remote SHA is captured. Product outcomes and remaining limitations will be updated after each phase;
+no later phase is claimed here.

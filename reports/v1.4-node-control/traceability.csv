@@ -1,0 +1,16 @@
+requirement,phase,status,implementation,test,evidence
+latest main baseline,P00,active,execplans/EP-SDAR-V1.4-NODE-CONTROL-BACKEND.md,pnpm verify,reports/v1.4-node-control/baseline/main-baseline.json
+independent node control backend,P01,pending,,,
+revision apply ack lkg,P02,pending,,,
+llm provider model route,P03,pending,,,
+smpp federation,P04,pending,,,
+mcp binding,P05,pending,,,
+capability authority,P06,pending,,,
+readiness runtime authority,P07,pending,,,
+a2a capability exposure,P08,pending,,,
+immutable task binding,P09,pending,,,
+skill artifact adaptation,P10,pending,,,
+telemetry export only,P11,pending,,,
+organization-facing profile,P12,pending,,,
+security recovery,P13,pending,,,
+PR merge main,P14,pending,,,

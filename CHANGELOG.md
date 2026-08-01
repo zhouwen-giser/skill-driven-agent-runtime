@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P00 Latest-main Baseline
+
+- Locked the implementation baseline to latest `origin/main` commit `a7a7c62`
+  and recorded its tree, toolchain, migration ledger, API, A2A, registry,
+  lockfile and repository-setting hashes.
+- Added the validated v1.4 task package and immutable source-lock record for
+  the complete design and Node Control Backend API freeze archives.
+- Added the living P00-P14 ExecPlan and initial object, symbol, authority,
+  migration, API and requirement maps without changing production behavior.
+- Preserved Docker permission and stale-volume collation failures, then passed
+  the complete exact-main gate with isolated PostgreSQL/Redis volumes.
+
 ## PR #13 Merge Review Remediation
 
 - Made durable Model Route decision evidence references include tenant and

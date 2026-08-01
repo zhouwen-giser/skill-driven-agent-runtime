@@ -794,3 +794,13 @@ changed.
 This addendum closes only PR #13's six actionable review findings. It does
 not change the P13 or P14 terminal evidence, authorize merge, or claim a full
 release verification run.
+
+## SDAR v1.4 P00 Latest-main Baseline Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Exact latest-main source | verified | branch and ExecPlan resolve `origin/main` `a7a7c62`; no old feature content copied | `reports/v1.4-node-control/baseline/main-baseline.{md,json}` |
+| Frozen task/design/API inputs | verified | authorized task package committed under `docs/`; immutable archive hashes and contract versions recorded | task/design/API validators; `baseline/source-lock.json` |
+| v1.3 P00-P13 prerequisites | verified | existing Runtime, Skill, Artifact, A2A, MCP, Outbox and management authorities present on main | v1.3 final integrity, consistency, authority and migration reports |
+| Clean baseline verification | verified | detached exact-main install and full gate with isolated Compose project; existing data preserved | 1122 Unit/Contract, 130 Integration, 72 E2E; migration/build/smoke gates |
+| P00 implementation boundary | active | ExecPlan plus object/symbol/authority/migration/API maps; no production feature change | package validation and architecture read-only review |
