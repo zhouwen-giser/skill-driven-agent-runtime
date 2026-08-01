@@ -12,8 +12,10 @@ Cascade-aware Model Usage cursor. Regression evidence passes 27 focused Unit,
 7 focused real PostgreSQL Integration, 908 full Unit, 130 full Integration,
 214 full Contract and 72 E2E tests, plus format, lint, typecheck, architecture,
 production build and isolated Server smoke gates. The second repair commit,
-push, thread resolution and live merge-state recheck remain; no automatic
-merge, tag, release or deployment is authorized.
+push, all six thread resolutions and the live merge-state recheck are complete.
+GitHub reports PR #13 Ready, OPEN, `MERGEABLE/CLEAN`, with no status checks and
+no unresolved review threads. The PR remains unmerged; no automatic merge,
+tag, release or deployment was performed.
 
 SDAR v1.3 P14/X01 Optional Post-release Operations is terminal
 `POST_RELEASE_OPERATIONS_BLOCKED` (2026-08-01) on
