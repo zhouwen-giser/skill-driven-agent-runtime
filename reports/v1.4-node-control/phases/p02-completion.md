@@ -11,8 +11,8 @@ the required concurrency and outage semantics. Do not start P03 provider governa
 - baselineMainSha: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 - phaseBaseSha: `574e8e1f56afd021fbf5be52c7bd7913289f52cb`
 - implementationSha: `deaa555f865861886a480d8ca1c744a4b6becfd4`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
-- remoteSha: `PENDING_PUSH`
+- evidenceSha: `9a283eb82a8499045a493618295dc2872fcf8d0e`
+- remoteSha: `9a283eb82a8499045a493618295dc2872fcf8d0e`, verified after the evidence push
 - latestObservedMainSha: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 
 ## Implementation
@@ -70,5 +70,5 @@ The independent read-only review in `p02-review.md` closed at 0 Blocking, 0 Majo
 
 ## Handoff
 
-P02 is implementation- and verification-complete. After evidence publication and remote SHA
-reconciliation it may hand off to P03, which alone may add LLM Provider and Model Route governance.
+P02 is `COMPLETED`; implementation and evidence are present on the verified remote branch. P03 may
+start after a fresh main comparison and alone may add LLM Provider and Model Route governance.

@@ -47,8 +47,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   and handoff at remote evidence commit `c5ffbda`.
 - [x] 2026-08-02 02:25 +08:00 P01: implementation `bf56489`, Evidence `ef93c26`, full verification,
   read-only review and remote reconciliation complete; P02 remains pending.
-- [x] 2026-08-02 03:59 +08:00 P02: implementation `deaa555`, focused and full verification, real
-  two-database integration and independent read-only review complete; evidence publication active.
+- [x] 2026-08-02 03:59 +08:00 P02: implementation `deaa555`, Evidence `9a283eb`, focused and full
+  verification, real two-database integration, read-only review and remote reconciliation complete.
 - [ ] P03: LLM provider and model-route governance.
 - [ ] P04: SMPP Registry federation.
 - [ ] P05: MCP provider-binding governance.

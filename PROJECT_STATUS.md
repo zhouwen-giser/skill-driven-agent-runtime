@@ -9,8 +9,8 @@ Bootstrap/Latest/Watch/Ack path is real HTTP, Watch is hint-only, publish is not
 publish has one winner, failed revisions preserve LKG and Control outage recovers from it. Full
 `pnpm verify` passed in 373,986 ms with 1135 Unit/Contract, 134 real isolated PostgreSQL/Redis
 Integration and 72 E2E tests, 28 Runtime migrations, production build and all process smokes.
-Implementation is `deaa555`; evidence publication and remote reconciliation are in progress. P03
-has not started.
+Implementation `deaa555` and Evidence `9a283eb` are verified on the remote branch. P03 is the next
+permitted phase and has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
