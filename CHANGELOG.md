@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.3 P14 Optional Post-release Operations
+
+- Added a non-formal X01 plan-only operations evidence set covering baseline,
+  monitoring, SLO/error budget, alerts, incidents, rollback, recovery, drift,
+  feedback, cost/capacity, governance cadence and next-version routing.
+- Added a deterministic static validator that preserves the fourteen formal
+  packages, rejects READY/production-action overclaims and requires all seven
+  missing production prerequisites to remain explicit blockers.
+- Closed the independent Operations Review at 0 Blocking / 0 Major / 0 Minor
+  and emitted a machine-readable `POST_RELEASE_OPERATIONS_BLOCKED` Handoff.
+- Performed no production mutation, automatic rollback, tag, release, deploy
+  or P00-P13 status write-back.
+
 ## SDAR v1.3 P13 Hardening, Release and Final Consistency Audit
 
 - Added deployment-owned Bearer identity, exact-version Artifact canary

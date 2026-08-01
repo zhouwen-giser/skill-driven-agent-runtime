@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "formalPackage": false,
+  "formalPackageCount": 14,
+  "extensionGoal": "X01",
+  "candidateSha": "27fddc25c24919c4d64d1a63b34dd7c0593854de",
+  "releaseSha": "",
+  "deploymentRef": "",
+  "decision": "POST_RELEASE_OPERATIONS_BLOCKED",
+  "baselineRef": "reports/operations/v1.3-post-release-baseline.md",
+  "sloRef": "reports/operations/v1.3-slo-error-budget.md",
+  "alertMatrixRef": "reports/operations/v1.3-alert-matrix.json",
+  "incidentRunbookRef": "reports/operations/v1.3-incident-runbook.md",
+  "rollbackRunbookRef": "reports/operations/v1.3-rollback-runbook.md",
+  "recoveryDrillRef": "reports/operations/v1.3-recovery-drill-report.md",
+  "driftReviewRef": "reports/operations/v1.3-drift-review.md",
+  "feedbackQualityRef": "reports/operations/v1.3-feedback-quality-report.json",
+  "costCapacityRef": "reports/operations/v1.3-cost-capacity-report.md",
+  "improvementBacklogRef": "reports/operations/v1.3-improvement-backlog.json",
+  "nextVersionRecommendationRef": "reports/operations/v1.3-next-version-recommendation.md",
+  "completionRef": "reports/operations/v1.3-p14-completion.md",
+  "reviewRef": "reports/operations/v1.3-p14-review.md",
+  "reviewOutcome": {
+    "decision": "ACCEPTED_PLAN_ONLY",
+    "blocking": 0,
+    "major": 0,
+    "minor": 0
+  },
+  "acceptanceSummary": {
+    "passed": 18,
+    "blocked": 16,
+    "pending": 0
+  },
+  "remoteDraftPullRequest": {
+    "number": 13,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/13",
+    "state": "OPEN",
+    "draft": true,
+    "merged": false,
+    "base": "main",
+    "head": "feature/v1.3-sequential-implementation",
+    "observedHeadSha": "27fddc25c24919c4d64d1a63b34dd7c0593854de"
+  },
+  "productionActionsAuthorized": false,
+  "productionActionsPerformed": [],
+  "p13StatusObserved": "HANDOFF_ABSENT",
+  "openBlockers": [
+    {
+      "id": "P14-BLK-001",
+      "affectedContract": "P14 Dependency Contract: P13 RELEASE_CANDIDATE_READY",
+      "evidence": "reports/goal/v1.3-p13-handoff.json and release-candidate report are absent",
+      "safeResumeAction": "Complete P13 exact-candidate verification, reviews, acceptance, completion and Handoff."
+    },
+    {
+      "id": "P14-BLK-002",
+      "affectedContract": "P14 Dependency Contract: Approved Release Authorization",
+      "evidence": "No explicit release authorization or exact release tag exists.",
+      "safeResumeAction": "Obtain release-owner authorization and freeze the immutable release identity."
+    },
+    {
+      "id": "P14-BLK-003",
+      "affectedContract": "P14 Dependency Contract: Actual Deployment Manifest",
+      "evidence": "No target environment or deployment manifest exists.",
+      "safeResumeAction": "Perform a separately authorized controlled deployment and record its manifest."
+    },
+    {
+      "id": "P14-BLK-004",
+      "affectedContract": "P14 Dependency Contract: Production Monitoring Access",
+      "evidence": "No production metrics, logs, traces or query access was provided.",
+      "safeResumeAction": "Connect the monitoring inventory with authorized, redacted and tenant-safe queries."
+    },
+    {
+      "id": "P14-BLK-005",
+      "affectedContract": "P14 Dependency Contract: Named Operations and Rollback Owners",
+      "evidence": "Operations, rollback, security, on-call and cost owners are unassigned.",
+      "safeResumeAction": "Assign named owners and record their accepted escalation duties."
+    },
+    {
+      "id": "P14-BLK-006",
+      "affectedContract": "P14 SLO/Error Budget and Alert Contracts",
+      "evidence": "Production SLO, error budget, alert thresholds and action policy are unapproved.",
+      "safeResumeAction": "Approve versioned targets, windows, burn rates and manual action conditions."
+    },
+    {
+      "id": "P14-BLK-007",
+      "affectedContract": "P14 Drift, Feedback, Cost and Recovery Contracts",
+      "evidence": "No released production outcomes, incidents, cost, drift or drill data exists.",
+      "safeResumeAction": "Collect an authorized bounded production-like or post-release observation/drill window."
+    }
+  ]
+}

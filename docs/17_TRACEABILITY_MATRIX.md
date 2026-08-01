@@ -759,3 +759,23 @@ Local performance evidence is acceptance-only and not a production SLO.
 | AC-P12-046-054 closure | verified | no predecessor reimplementation or auto-promotion; full verify, review, 54/54 and P13 handoff | completion/review/acceptance/handoff |
 
 The authoritative P12 result is `reports/goal/v1.3-p12-acceptance.json`: 54 passed, 0 failed and 0 blocked.
+
+## SDAR v1.3 P14 Optional Post-release Operations Addendum
+
+| P14 acceptance | Status | Implementation / boundary | Tests / evidence |
+|---|---|---|---|
+| AC-P14-001-003 package boundary | verified | non-formal X01; `formalPackageCount=14`; no G23 | package manifest/self-check; P14 Completion and Handoff |
+| AC-P14-004-013 release/production observability | blocked | P13 Handoff, release/deployment authority, frozen production baseline, connected monitoring, approved SLO/error budget and named alert owners are absent | `P14-BLK-001` through `P14-BLK-006`; baseline, monitoring, SLO and alert reports |
+| AC-P14-014-015 incident/rollback plans | verified plan-only | human-authorized incident, rollback and Kill Switch procedures are complete; none was executed | incident and rollback runbooks; independent Operations Review |
+| AC-P14-016-020 drill/outcome/cost evidence | blocked | no authorized environment or production RTO/RPO, drift, feedback, cost or capacity dataset exists | `P14-BLK-007`; recovery, drift, feedback and cost reports |
+| AC-P14-021-022 review cadence | verified plan-only | weekly operations and monthly governance templates cover authority, reliability, security, cost and evidence-linked decisions | weekly/monthly templates |
+| AC-P14-023 named backlog owners | blocked | backlog items remain `PENDING_*`; placeholders are not named accountable owners | improvement backlog; `P14-BLK-005` |
+| AC-P14-024-031 safety/review | verified | no silent v1.3 mutation or automatic production action; projection-only dashboards; independent review 0 Blocking / 0 Major / 0 Minor; blockers remain explicit | static validator; Operations Review; Completion |
+| AC-P14-032-034 publication/terminal state | verified | PR #13 observed OPEN, Draft, unmerged and targeting `main`; no auto tag/deploy; allowed terminal state is BLOCKED | connected GitHub observation; Handoff |
+
+The authoritative P14 result is
+`reports/operations/v1.3-p14-completion.md`: 18 passed, 16 blocked, 0 pending.
+Its Handoff is `POST_RELEASE_OPERATIONS_BLOCKED`, not production READY. The
+seven safe-resume inputs are enumerated in
+`reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
+changed.

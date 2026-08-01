@@ -1,5 +1,18 @@
 # Project Status
 
+SDAR v1.3 P14/X01 Optional Post-release Operations is terminal
+`POST_RELEASE_OPERATIONS_BLOCKED` (2026-08-01) on
+`feature/v1.3-sequential-implementation`. The non-formal extension preserves
+`formalPackageCount=14`, creates no G23 and performs no production action. Its
+sixteen required operations reports, machine-readable Handoff and independent
+read-only review are complete; the review verdict is 0 Blocking / 0 Major /
+0 Minor for the truthful plan-only delivery. Eighteen acceptance items pass and
+sixteen remain blocked by seven external prerequisites: P13 terminal release
+evidence, release authorization/tag, deployment manifest, monitoring access,
+named owners, approved SLO/alerts and post-release observation/drill data.
+Existing Draft PR #13 remains the only main-targeted publication path; no
+merge, tag, release or deployment is authorized by P14.
+
 SDAR v1.3 P13/G22 Hardening, Release and Final Consistency Audit is
 `IN_PROGRESS` (2026-07-30) on `feature/v1.3-sequential-implementation`.
 The exact v1.2.3 logical migration, real PostgreSQL/Redis recovery drills,
@@ -12,7 +25,8 @@ repairs. Current focused/full evidence includes 905 Unit, 214 Contract,
 OpenAPI and secret scan passing. Exact-candidate reproducibility,
 Security/Privacy and Operations/Release re-review, 75-item acceptance,
 completion and Handoff remain pending. Per user instruction, no push occurs
-until the optional P14 extension is closed.
+until the optional P14 extension is closed. P14 is now terminal BLOCKED and
+does not promote or otherwise change this P13 status.
 
 SDAR v1.3 P11/G19-G20 Case Template and Model Route Runtime is `COMPLETED`
 (2026-07-30) on `feature/v1.3-sequential-implementation`. Commits `b116a6c`,

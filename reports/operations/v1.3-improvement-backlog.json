@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "status": "blocked_inputs_backlog",
+  "items": [
+    {
+      "itemId": "P14-OPS-001",
+      "sourceEvidence": ["P14-BLK-001", "reports/goal/v1.3-final-baseline.md"],
+      "problem": "P13 exact-candidate release verification and terminal Handoff are absent.",
+      "impact": "No authoritative released v1.3 input exists for post-release operations.",
+      "risk": "formal correctness",
+      "affectedPackage": "P13",
+      "affectedAuthority": "ReleaseCandidateDecision",
+      "proposedNextVersion": "P13 closure only; no product semantic change",
+      "acceptance": "P13 full gate, independent reviews, 75 acceptance items and Handoff all pass on the recorded candidate.",
+      "owner": "PENDING_RELEASE_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    },
+    {
+      "itemId": "P14-OPS-002",
+      "sourceEvidence": ["P14-BLK-002", "P14-BLK-003"],
+      "problem": "Release authorization, immutable tag and deployment manifest are absent.",
+      "impact": "Production baseline and change scope cannot be frozen.",
+      "risk": "release governance",
+      "affectedPackage": "P14-X01",
+      "affectedAuthority": "release and deployment owner",
+      "proposedNextVersion": "authorized release operations intake",
+      "acceptance": "Signed authorization and deployment manifest identify SHA, tag, environment, images, migrations, flags and rollback target.",
+      "owner": "PENDING_RELEASE_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    },
+    {
+      "itemId": "P14-OPS-003",
+      "sourceEvidence": ["P14-BLK-004", "v1.3-monitoring-inventory.json"],
+      "problem": "Production metrics/log/trace/query access is not connected.",
+      "impact": "SLO, alerts, drift, feedback and incident decisions cannot use authoritative observations.",
+      "risk": "reliability",
+      "affectedPackage": "P14-X01",
+      "affectedAuthority": "operations monitoring projection",
+      "proposedNextVersion": "operations onboarding",
+      "acceptance": "Every required monitor has a tested query, retention/freshness, redaction and authorized tenant scope.",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    },
+    {
+      "itemId": "P14-OPS-004",
+      "sourceEvidence": ["P14-BLK-005", "v1.3-alert-matrix.json"],
+      "problem": "Operations, rollback, security, cost and on-call owners are unassigned.",
+      "impact": "Alerts and high-risk responses have no accountable human authority.",
+      "risk": "safety and recovery",
+      "affectedPackage": "P14-X01",
+      "affectedAuthority": "human operations authorization",
+      "proposedNextVersion": "operations onboarding",
+      "acceptance": "Named owners accept alert, escalation, rollback and communication duties for the deployed environment.",
+      "owner": "PENDING_RELEASE_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    },
+    {
+      "itemId": "P14-OPS-005",
+      "sourceEvidence": ["P14-BLK-006", "v1.3-slo-error-budget.md"],
+      "problem": "Production SLO, error budget and alert thresholds are unapproved.",
+      "impact": "Burn, freeze and recovery decisions cannot be measured consistently.",
+      "risk": "reliability",
+      "affectedPackage": "P14-X01",
+      "affectedAuthority": "business and operations SLO owners",
+      "proposedNextVersion": "operations policy approval",
+      "acceptance": "Approved targets, windows, exclusions, burn rates and manual action conditions are versioned.",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    },
+    {
+      "itemId": "P14-OPS-006",
+      "sourceEvidence": ["P14-BLK-007", "v1.3-recovery-drill-report.md"],
+      "problem": "No authorized post-release outcome, incident, cost, drift or recovery-drill dataset exists.",
+      "impact": "Continuous-improvement recommendations cannot be production-evidence based.",
+      "risk": "evidence quality",
+      "affectedPackage": "P14-X01",
+      "affectedAuthority": "formal outcomes and operations evidence",
+      "proposedNextVersion": "post-release observation window",
+      "acceptance": "Approved observation/drill window yields redacted, exact-release evidence with integrity checks.",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "priority": "blocking",
+      "status": "open"
+    }
+  ],
+  "silentV13MutationAllowed": false,
+  "productionActionsPerformed": []
+}

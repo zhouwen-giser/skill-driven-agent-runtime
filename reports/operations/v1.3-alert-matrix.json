@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "status": "planned_unassigned",
+  "automaticProductionActions": false,
+  "thresholdAuthority": "TBD_BY_NAMED_OWNER",
+  "alerts": [
+    {
+      "id": "runtime-unavailable",
+      "signal": "request availability or formal runtime readiness",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-1-proposed",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "dedupKey": "environment+runtime",
+      "runbook": "v1.3-incident-runbook.md#runtime-unavailable",
+      "recoveryCondition": "approved readiness and request-success window restored",
+      "automaticAction": false
+    },
+    {
+      "id": "cross-tenant-or-credential-exposure",
+      "signal": "confirmed cross-tenant access, actor spoofing or credential exposure",
+      "threshold": "one confirmed event",
+      "window": "immediate",
+      "severity": "SEV-0-or-SEV-1-per-organization-policy",
+      "owner": "PENDING_NAMED_SECURITY_OWNER",
+      "dedupKey": "environment+incident_fingerprint",
+      "runbook": "v1.3-incident-runbook.md#security-or-tenant-boundary",
+      "recoveryCondition": "containment, evidence preservation and security approval",
+      "automaticAction": false
+    },
+    {
+      "id": "active-pointer-corruption",
+      "signal": "active pointer, artifact status or lock-version disagreement",
+      "threshold": "one authoritative mismatch",
+      "window": "immediate",
+      "severity": "SEV-1-proposed",
+      "owner": "PENDING_NAMED_ROLLBACK_OWNER",
+      "dedupKey": "environment+artifactKey",
+      "runbook": "v1.3-rollback-runbook.md#artifact-active-pointer",
+      "recoveryCondition": "single approved pointer and audit/outbox agreement",
+      "automaticAction": false
+    },
+    {
+      "id": "duplicate-formal-or-physical-effect",
+      "signal": "duplicate Goal, Plan, Attempt, terminal Outcome or provider operation",
+      "threshold": "one confirmed duplicate",
+      "window": "immediate",
+      "severity": "SEV-0-proposed",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "dedupKey": "formal_or_provider_idempotency_key",
+      "runbook": "v1.3-incident-runbook.md#duplicate-side-effect",
+      "recoveryCondition": "effects contained and formal fact range reconciled",
+      "automaticAction": false
+    },
+    {
+      "id": "queue-or-outbox-lag",
+      "signal": "oldest durable run or unpublished Outbox age",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-2-or-SEV-3-proposed",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "dedupKey": "environment+queue_or_consumer",
+      "runbook": "v1.3-incident-runbook.md#queue-or-outbox-lag",
+      "recoveryCondition": "lag returns below approved threshold without fact loss",
+      "automaticAction": false
+    },
+    {
+      "id": "database-or-redis-degradation",
+      "signal": "database unavailable, pool saturation, Redis unavailable or eviction anomaly",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-1-or-SEV-2-proposed",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "dedupKey": "environment+datastore",
+      "runbook": "v1.3-incident-runbook.md#datastore-degradation",
+      "recoveryCondition": "health and integrity checks pass; Redis projections rebuild",
+      "automaticAction": false
+    },
+    {
+      "id": "fallback-or-kill-switch-failure",
+      "signal": "fast path cannot stop, Cognitive Fallback unavailable or rollback drill fails",
+      "threshold": "one confirmed failure",
+      "window": "immediate",
+      "severity": "SEV-1-proposed",
+      "owner": "PENDING_NAMED_ROLLBACK_OWNER",
+      "dedupKey": "environment+control",
+      "runbook": "v1.3-rollback-runbook.md#global-fast-path-stop",
+      "recoveryCondition": "independent review verifies control effectiveness",
+      "automaticAction": false
+    },
+    {
+      "id": "provider-model-degradation",
+      "signal": "provider error, timeout, circuit open, cascade or budget regression",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-2-or-SEV-3-proposed",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "dedupKey": "environment+providerId+modelProfileId",
+      "runbook": "v1.3-incident-runbook.md#provider-or-model-route",
+      "recoveryCondition": "approved readiness and budget window restored",
+      "automaticAction": false
+    },
+    {
+      "id": "artifact-outcome-drift",
+      "signal": "correction, fallback or outcome regression by exact artifact version",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-2-or-SEV-3-proposed",
+      "owner": "PENDING_NAMED_ARTIFACT_REVIEW_OWNER",
+      "dedupKey": "environment+artifactId+version",
+      "runbook": "v1.3-incident-runbook.md#artifact-quality-regression",
+      "recoveryCondition": "revalidation decision and approved outcome window",
+      "automaticAction": false
+    },
+    {
+      "id": "cost-or-capacity-anomaly",
+      "signal": "token, provider cost, queue, storage or resource forecast exceeds approved bound",
+      "threshold": "TBD_BY_OWNER",
+      "window": "TBD_BY_OWNER",
+      "severity": "SEV-3-proposed",
+      "owner": "PENDING_NAMED_COST_OWNER",
+      "dedupKey": "environment+cost_or_resource_dimension",
+      "runbook": "v1.3-incident-runbook.md#cost-or-capacity-anomaly",
+      "recoveryCondition": "approved forecast and budget window restored",
+      "automaticAction": false
+    }
+  ],
+  "blockers": ["P14-BLK-004", "P14-BLK-005", "P14-BLK-006"]
+}

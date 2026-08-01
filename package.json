@@ -27,6 +27,7 @@
     "verify:v13-recovery": "tsx scripts/run-v13-recovery-drills.mts",
     "verify:v13-reproducibility": "node scripts/verify-v13-reproducible-build.mjs",
     "verify:v13-release": "node scripts/validate-v13-p13-release.mjs",
+    "verify:v13-p14": "node scripts/operations/validate-v13-p14.mjs",
     "verify:v13-secrets": "node scripts/verify-v13-secrets.mjs",
     "complete:v13-p13": "node scripts/complete-v13-p13.mjs",
     "evidence:v13-capacity": "node scripts/generate-v13-capacity-evidence.mjs",
