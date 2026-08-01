@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P01",
+  "status": "COMPLETED_PENDING_EVIDENCE_PUBLICATION",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "bf564896fe373cb0d608a592eb02652a696b97b6",
+  "evidenceSha": null,
+  "remoteSha": null,
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T02:22:45.6809474+08:00",
+  "nextPhase": "P02",
+  "prerequisites": [
+    "commit and push the P01 evidence",
+    "verify the remote evidence SHA before changing P01 to COMPLETED",
+    "fetch and compare origin/main before P02",
+    "preserve P01 Control/Runtime authority and migration separation",
+    "implement only P02 configuration revision, apply/ack and LKG semantics next"
+  ],
+  "authorityBoundary": "P01 owns only the independent foundation. Runtime configuration apply/ack/LKG, provider governance and later capabilities remain pending."
+}

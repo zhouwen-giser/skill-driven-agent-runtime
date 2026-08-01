@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P01",
+  "status": "COMPLETED_PENDING_EVIDENCE_PUBLICATION",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "f272285eae50ef46d841a2b1267c4f7764883306",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "bf564896fe373cb0d608a592eb02652a696b97b6",
+  "implementationRemoteSha": "bf564896fe373cb0d608a592eb02652a696b97b6",
+  "evidenceSha": null,
+  "remoteSha": null,
+  "completedAt": "2026-08-02T02:22:45.6809474+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 368180,
+      "unitContract": 1129,
+      "integration": 133,
+      "e2e": 72,
+      "runtimeMigrations": 27,
+      "a2aMustPassed": 74,
+      "a2aNonMustSkipped": 161,
+      "classification": "real isolated local Docker PostgreSQL/pgvector, Redis, HTTP and process smoke; deterministic Model/MCP fixtures"
+    },
+    "focused": {
+      "nodeControlTests": 7,
+      "architectureSources": 567,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7,
+      "format": "passed",
+      "lint": "passed",
+      "typecheck": "passed",
+      "build": "passed",
+      "smoke": "passed"
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "verdict": "accepted"
+  },
+  "failedAttempts": [
+    "initial strict lint findings",
+    "declaration build TS2883",
+    "default Compose volume collation collision",
+    "sandbox Git index denial repaired with authorized exact-path commit"
+  ],
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p01-foundation.md",
+    "reports/v1.4-node-control/phases/p01-review.md"
+  ],
+  "nextPhase": "P02"
+}
