@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P02",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "deaa555f865861886a480d8ca1c744a4b6becfd4",
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": "PENDING_PUSH",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T03:59:54.4241787+08:00",
+  "nextPhase": "P03",
+  "prerequisites": [
+    "fetch and compare origin/main before P03",
+    "preserve separate Control Desired/Observed and Runtime Active/LKG authorities",
+    "implement only P03 LLM Provider and Model Route governance next"
+  ],
+  "authorityBoundary": "P02 owns the generic revision apply/ack/LKG protocol and persistence. Target-specific provider and routing semantics remain P03 scope."
+}

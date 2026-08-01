@@ -47,8 +47,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   and handoff at remote evidence commit `c5ffbda`.
 - [x] 2026-08-02 02:25 +08:00 P01: implementation `bf56489`, Evidence `ef93c26`, full verification,
   read-only review and remote reconciliation complete; P02 remains pending.
-- [ ] 2026-08-02 02:28 +08:00 P02 active: latest main unchanged; implementing Control-owned
-  immutable Configuration Revisions/Application observations and Runtime-owned Active/LKG snapshots.
+- [x] 2026-08-02 03:59 +08:00 P02: implementation `deaa555`, focused and full verification, real
+  two-database integration and independent read-only review complete; evidence publication active.
 - [ ] P03: LLM provider and model-route governance.
 - [ ] P04: SMPP Registry federation.
 - [ ] P05: MCP provider-binding governance.
@@ -95,6 +95,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-02: P02 keeps Desired/Observed and application acknowledgements in Control PostgreSQL,
   while Active/LKG and immutable task pins live in Runtime PostgreSQL. The bridge is the frozen
   internal HTTP contract; neither side writes the other database.
+- 2026-08-02: Runtime Watch carries hints only and Latest remains authoritative after disconnect or
+  reordering. Target-specific appliers are deferred to their owning phases instead of representing a
+  placeholder as production configuration application.
 
 ## Implementation Steps
 
@@ -135,6 +138,7 @@ active/LKG snapshots.
 
 ## Outcomes and Retrospective
 
-P00 and P01 are complete and remotely evidenced. P01 implements the bounded independent foundation,
-passes the full and focused real-database/process-isolation gates, and closes read-only review at 0
-Blocking / 0 Major / 0 Minor. P02 and later behavior are not claimed.
+P00 and P01 are complete and remotely evidenced. P02 implements the bounded Configuration
+Revision/Application, Desired/Observed, Runtime Apply/Ack and LKG foundation, passes the full and
+focused real-database/process gates, and closes read-only review at 0 Blocking / 0 Major / 0 Minor.
+P03 and later behavior are not claimed.

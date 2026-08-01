@@ -1,22 +1,16 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P01 is `COMPLETED` (2026-08-02) on
-`feature/v1.4-node-control-backend`, based exactly on latest `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`. P00 is `COMPLETED`. P01 now has
-separate Domain/Application/PostgreSQL/API/Worker packages, an independent
-Control migration ledger and Compose stack, authenticated frozen-contract read
-projections, immutable Audit storage and architecture gates that prohibit
-Control/Runtime persistence cross-writes and any Control-side LangGraph use.
-Focused validation passes 7 Unit/Contract tests, 133 real isolated PostgreSQL/
-Redis Integration tests, the 76-file frozen Node Control contract gate,
-production build and the real API/Worker/process-isolation smoke. The first
-strict-lint failure, declaration-build failure and accidental default Compose
-volume collision are retained; the final smoke uses exact disposable Control
-and Runtime projects and confirms Runtime remains available after Control is
-stopped. Full `pnpm verify` passed in 368,180 ms with 1129 Unit/Contract, 133
-Integration and 72 E2E tests. Implementation `bf56489` and Evidence `ef93c26`
-are verified on the remote branch; P02 is the next permitted phase and has not
-started.
+SDAR v1.4 Node Control Backend P02 is `COMPLETED` locally (2026-08-02) on
+`feature/v1.4-node-control-backend`, based on latest observed `origin/main`
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 and P01 remain completed. P02 adds immutable
+Configuration Revision/Application and Desired/Observed authority in Control PostgreSQL plus
+Runtime-owned Active/LKG, durable Ack and immutable Task pins in Runtime PostgreSQL. The frozen
+Bootstrap/Latest/Watch/Ack path is real HTTP, Watch is hint-only, publish is not applied, concurrent
+publish has one winner, failed revisions preserve LKG and Control outage recovers from it. Full
+`pnpm verify` passed in 373,986 ms with 1135 Unit/Contract, 134 real isolated PostgreSQL/Redis
+Integration and 72 E2E tests, 28 Runtime migrations, production build and all process smokes.
+Implementation is `deaa555`; evidence publication and remote reconciliation are in progress. P03
+has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

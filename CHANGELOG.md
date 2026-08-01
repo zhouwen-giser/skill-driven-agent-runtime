@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG
+
+- Added immutable, checksummed Configuration Revisions with Desired/Observed state, ETag/If-Match,
+  idempotency receipts, target-scoped CAS and rollback-as-new-revision semantics.
+- Added frozen internal Runtime Bootstrap/Latest/Watch/Ack endpoints, hint-only SSE and authenticated
+  HTTP client without moving authority across the Control/Runtime boundary.
+- Added Runtime-owned durable Active/LKG snapshots, acknowledgement outbox and immutable running-Task
+  configuration pins, including outage startup recovery and failed-revision preservation.
+- Added separate Control and Runtime migrations plus a real two-database vertical integration proving
+  publish-not-applied, one-winner concurrent publish, LKG fallback, partial/bad revision rejection and
+  stable Task bindings.
+
 ## SDAR v1.4 P01 Node Control Foundation
 
 - Added independent Node Control Domain, Application, PostgreSQL persistence, HTTP API and Worker

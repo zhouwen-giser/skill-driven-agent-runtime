@@ -780,6 +780,18 @@ seven safe-resume inputs are enumerated in
 `reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
 changed.
 
+## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Immutable Configuration Revision | verified | canonical checksum, secret-shaped plaintext rejection, published-content database trigger, rollback creates a new revision | Domain Unit; Control PostgreSQL integration; migration 0002 |
+| Desired/Observed authority | verified | Control PostgreSQL owns Desired/Application/Observed; publish remains pending until Runtime Ack | API Contract and real two-database integration |
+| Runtime Active/LKG and outage | verified | Runtime PostgreSQL owns Active/LKG and durable Ack delivery; startup uses LKG when Control is unavailable | Runtime agent Unit; migration 0135; real outage integration |
+| Apply modes and failed revision safety | verified | hot/new-task/reconnect apply port; immutable/restart/partial/bad/stale paths preserve LKG | focused Unit and real Integration regressions |
+| Concurrency and stable running Tasks | verified | ETag/If-Match, idempotency receipt, target advisory lock/CAS; immutable Task revision binding | concurrent publish and revision-switch real Integration cases |
+| Frozen Runtime Control boundary | verified | authenticated Bootstrap/Latest/Watch/Ack; SSE is hint-only and Latest is authoritative | HTTP Contract, SSE integration, 76-file frozen-contract gate |
+| P02 closure | verified | full verify passed; independent read-only review 0 Blocking/0 Major/0 Minor; P03 not started | `p02-completion.*`, `p02-review.md`, `p02-handoff.json`, verification summary |
+
 ## PR #13 Merge Review Remediation Addendum
 
 | Review requirement | Status | Implementation | Tests / evidence |
