@@ -1,6 +1,6 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P00 is `IN_PROGRESS` (2026-08-02) on
+SDAR v1.4 Node Control Backend P00 is `COMPLETED` (2026-08-02) on
 `feature/v1.4-node-control-backend`, based exactly on latest `origin/main`
 `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`. The authorized task package and
 both frozen inputs validate successfully. An isolated exact-main
@@ -9,8 +9,9 @@ Unit/Contract, 130 real PostgreSQL/Redis Integration and 72 E2E tests after
 preserving two environment failures: Docker sandbox denial and an incompatible
 pre-existing PostgreSQL volume. The successful gate used a new isolated
 Compose project and did not delete or overwrite existing data. P00 source,
-authority, object, symbol, migration and API maps are prepared; the two P00
-commits and remote branch proof remain before P01 may start.
+authority, object, symbol, migration and API maps are published. Implementation
+commit `c8ec915` and evidence commit `c5ffbda` are present on the remote branch;
+P01 is the next permitted phase.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

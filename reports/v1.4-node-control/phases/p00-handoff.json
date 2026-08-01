@@ -2,18 +2,18 @@
   "schemaVersion": "1.0",
   "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
   "phase": "P00",
-  "status": "EVIDENCE_PREPARED",
+  "status": "COMPLETED",
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "implementationSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
-  "evidenceSha": null,
-  "remoteSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+  "evidenceSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
+  "remoteSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
   "branch": "feature/v1.4-node-control-backend",
-  "completedAt": null,
+  "completedAt": "2026-08-02T01:13:45.1147266+08:00",
   "nextPhase": "P01",
   "prerequisites": [
-    "commit and push P00 evidence",
-    "verify remote branch SHA",
-    "mark P00 completed in goal-state.json"
+    "fetch and compare origin/main before P01",
+    "keep P02 configuration behavior out of the P01 foundation",
+    "run P01 focused and implementation gates before its implementation commit"
   ],
   "authorityBoundary": "P01 may add only the independent Node Control foundation; P02 configuration semantics remain pending."
 }

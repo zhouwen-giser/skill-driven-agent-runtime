@@ -43,7 +43,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   failure, then started an isolated Compose project without deleting existing data.
 - [x] 2026-08-02 01:01 +08:00 completed the exact-main `pnpm verify` baseline.
 - [x] 2026-08-02 01:03 +08:00 validated the task package and both extracted frozen packages.
-- [ ] P00: publish baseline, source maps, Goal State, completion evidence, and handoff.
+- [x] 2026-08-02 01:13 +08:00 P00: published baseline, source maps, Goal State, completion evidence,
+  and handoff at remote evidence commit `c5ffbda`.
 - [ ] P01: independent Node Control backend foundation.
 - [ ] P02: configuration revision, apply/ack, and LKG.
 - [ ] P03: LLM provider and model-route governance.

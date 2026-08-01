@@ -16,8 +16,8 @@ feature changes.
 ## Implementation
 
 - implementationSha: `c8ec91505ea600fe5c5cebb07394d2366628ada9`
-- evidenceSha: pending creation of this evidence commit
-- remoteSha: `c8ec91505ea600fe5c5cebb07394d2366628ada9` verified after first push
+- evidenceSha: `c5ffbda99f58f8b907727eb6287ba8a4efd86e5e`
+- remoteSha: `c5ffbda99f58f8b907727eb6287ba8a4efd86e5e` verified after evidence push
 - changedFiles: authorized task package, ExecPlan, baseline/source/maps, project status, changelog and
   traceability only; no product source, migration or runtime configuration changed
 
@@ -73,6 +73,7 @@ contain only test data.
 
 ## Handoff
 
-- status: `EVIDENCE_PREPARED`
-- nextPhase: P01 after evidence commit, second push and remote-SHA confirmation
-- prerequisites: update the machine handoff with the evidence SHA and mark P00 completed
+- status: `COMPLETED`
+- nextPhase: P01
+- prerequisites: fetch `origin/main`; if unchanged, implement only the independent foundation bounded
+  by P01
